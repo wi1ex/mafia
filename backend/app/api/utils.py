@@ -60,6 +60,7 @@ __all__ = [
     "get_room_game_runtime",
     "build_room_members_for_info",
     "get_room_params_or_404",
+    "close_room_as_staff",
     "touch_user_last_login",
     "active_alive_game_room_key",
     "active_game_rooms_key",
@@ -4820,6 +4821,131 @@ async def get_room_params_or_404(r, room_id: int) -> Dict[str, Any]:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="room_not_found")
 
     return params
+
+
+async def close_room_as_staff(*, room_id: int, ident: Identity, session: AsyncSession, log_action_name: str, details_suffix: str = "") -> Ok:
+    from ..realtime.utils import emit_rooms_occupancy_safe, leave_room_atomic, record_spectator_leave, stop_screen_for_user
+    from ..services.livekit import remove_livekit_participant
+
+    r = get_redis()
+    await get_room_params_or_404(r, room_id)
+
+    phase = str(await r.hget(f"room:{room_id}:game_state", "phase") or "idle")
+    if phase != "idle":
+        raise HTTPException(status_code=409, detail="room_in_game")
+
+    await r.hset(f"room:{room_id}:params", mapping={"entry_closed": "1"})
+    await emit_rooms_upsert(room_id)
+
+    try:
+        members_raw = await r.smembers(f"room:{room_id}:members")
+    except Exception:
+        members_raw = set()
+    try:
+        spectators_raw = await r.smembers(f"room:{room_id}:spectators")
+    except Exception:
+        spectators_raw = set()
+
+    member_ids: set[int] = set()
+    for value in members_raw or []:
+        try:
+            member_ids.add(int(value))
+        except Exception:
+            continue
+
+    spectator_ids: set[int] = set()
+    for value in spectators_raw or []:
+        try:
+            spectator_ids.add(int(value))
+        except Exception:
+            continue
+
+    gc_seq_on_empty: int | None = None
+    for uid in member_ids:
+        await sio.emit(
+            "force_leave",
+            {"room_id": room_id, "reason": "room_deleted"},
+            room=f"user:{uid}",
+            namespace="/room",
+        )
+        try:
+            await stop_screen_for_user(r, room_id, uid)
+            occ, gc_seq, pos_updates = await leave_room_atomic(r, room_id, uid)
+            if occ == 0:
+                gc_seq_on_empty = gc_seq
+        except Exception:
+            continue
+
+        try:
+            await r.srem(f"room:{room_id}:ready", str(uid))
+        except Exception:
+            pass
+        try:
+            await r.delete(
+                f"room:{room_id}:user:{uid}:epoch",
+                f"room:{room_id}:user:{uid}:bg_state",
+                f"room:{room_id}:user:{uid}:sid",
+            )
+        except Exception:
+            pass
+
+        await sio.emit(
+            "member_left",
+            {"user_id": uid},
+            room=f"room:{room_id}",
+            namespace="/room",
+        )
+        if pos_updates:
+            await sio.emit(
+                "positions",
+                {"updates": [{"user_id": u, "position": p} for u, p in pos_updates]},
+                room=f"room:{room_id}",
+                namespace="/room",
+            )
+        await emit_rooms_occupancy_safe(r, room_id, occ)
+        with suppress(Exception):
+            await remove_livekit_participant(rid=room_id, uid=uid)
+
+    for uid in spectator_ids - member_ids:
+        await sio.emit(
+            "force_leave",
+            {"room_id": room_id, "reason": "room_deleted"},
+            room=f"user:{uid}",
+            namespace="/room",
+        )
+        with suppress(Exception):
+            await remove_livekit_participant(rid=room_id, uid=uid)
+        try:
+            await record_spectator_leave(r, room_id, uid, int(time()))
+        except Exception:
+            pass
+
+    should_gc = gc_seq_on_empty is not None
+    if not should_gc:
+        try:
+            occ = int(await r.scard(f"room:{room_id}:members") or 0)
+        except Exception:
+            occ = -1
+        should_gc = occ == 0
+    if should_gc:
+        asyncio.create_task(gc_empty_room_and_emit(room_id, expected_seq=gc_seq_on_empty))
+
+    spectator_only_count = len(spectator_ids - member_ids)
+    details = (
+        f"Закрытие комнаты room_id={room_id} phase={phase} "
+        f"members={len(member_ids)} spectators={spectator_only_count}"
+    )
+    if details_suffix:
+        details = f"{details} {details_suffix}"
+    await log_action(
+        session,
+        user_id=int(ident["id"]),
+        username=ident["username"],
+        action=log_action_name,
+        details=details,
+    )
+
+    return Ok()
 
 
 async def get_room_game_runtime(r, room_id: int) -> Dict[str, Any]:

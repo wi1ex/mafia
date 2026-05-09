@@ -52,7 +52,7 @@
           <header>
             <span>{{ selectedRoom?.title }}</span>
             <div class="room-actions">
-              <button v-if="isAdmin" :disabled="adminKickBusy || selectedRoom?.in_game || selectedRoom?.entry_closed || selectedRoom?.occupancy === 0" @click="onAdminKickRoom" aria-label="Удалить комнату">
+              <button v-if="canCloseRooms" :disabled="adminKickBusy || selectedRoom?.in_game || selectedRoom?.entry_closed || selectedRoom?.occupancy === 0" @click="onAdminKickRoom" aria-label="Удалить комнату">
                 <img :src="iconDelete" alt="delete" />
               </button>
               <button @click="clearSelection" aria-label="Закрыть">
@@ -250,6 +250,8 @@ const auth = useAuthStore()
 const userStore = useUserStore()
 const settings = useSettingsStore()
 const isAdmin = computed(() => userStore.user?.role === 'admin')
+const isModer = computed(() => userStore.user?.role === 'moder')
+const canCloseRooms = computed(() => isAdmin.value || isModer.value)
 
 const roomsMap = reactive(new Map<number, Room>())
 const sio = ref<Socket | null>(null)
@@ -543,7 +545,7 @@ async function onApply() {
 
 async function onAdminKickRoom() {
   const room = selectedRoom.value
-  if (!room || adminKickBusy.value) return
+  if (!room || adminKickBusy.value || !canCloseRooms.value) return
   if (room.in_game) {
     void alertDialog('Нельзя удалить комнату во время игры')
     return
@@ -557,7 +559,8 @@ async function onAdminKickRoom() {
   if (!ok) return
   adminKickBusy.value = true
   try {
-    await api.post(`/admin/rooms/${room.id}/close`)
+    const closeUrl = isModer.value ? `/moderation/rooms/${room.id}/close` : `/admin/rooms/${room.id}/close`
+    await api.post(closeUrl)
     const cur = roomsMap.get(room.id)
     if (cur) roomsMap.set(room.id, { ...cur, entry_closed: true })
     void alertDialog('Комната закрыта, она будет удалена после освобождения.')

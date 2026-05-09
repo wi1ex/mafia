@@ -11,7 +11,7 @@ from ...core.logging import log_action
 from ...models.notif import Notif
 from ...models.sanction import UserSanction
 from ...models.user import User
-from ...schemas.admin import AdminSanctionDurationAdjustIn, AdminSanctionListItemOut, AdminSanctionsOut, AdminSanctionTimedIn
+from ...schemas.admin import AdminSanctionDurationAdjustIn, AdminSanctionListItemOut, AdminSanctionsOut, AdminSanctionTimedIn, AdminUserNameOut
 from ...schemas.common import Identity, Ok
 from ...schemas.moderation import ModerationUserOut, ModerationUsersOut
 from ...schemas.user import UserStatsOut
@@ -19,14 +19,19 @@ from ...realtime.sio import sio
 from ...security.auth_tokens import get_identity
 from ...security.decorators import log_route, require_roles_dep
 from ...services.global_chat import emit_global_chat_sanction_issued_notice, emit_global_chat_sanction_removed_notice
+from ...services.nickname_history import prepend_nickname_history
+from ...services.user_cache import refresh_user_profile_cache
 from ..utils import (
     SANCTION_BAN,
     SANCTION_TIMEOUT,
     SANCTION_SUSPEND,
     admin_username_sort_key,
     adjust_active_sanction_duration,
+    broadcast_creator_rooms,
     build_user_stats_out,
+    close_room_as_staff,
     compute_duration_seconds,
+    delete_user_avatar,
     emit_notify,
     emit_sanctions_update,
     fetch_active_sanction,
@@ -172,6 +177,74 @@ async def moderation_user_stats(user_id: int, season: int | None = None, session
         raise HTTPException(status_code=404, detail="user_not_found")
 
     return await build_user_stats_out(session, uid, season)
+
+
+@router.post("/rooms/{room_id}/close", response_model=Ok)
+@log_route("moderation.rooms.close")
+async def moderation_room_close(room_id: int, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
+    return await close_room_as_staff(
+        room_id=room_id,
+        ident=ident,
+        session=session,
+        log_action_name="moderation_room_close",
+        details_suffix=f"panel=moderation actor_role={ident['role']}",
+    )
+
+
+@router.post("/users/{user_id}/nickname_reset", response_model=AdminUserNameOut)
+@log_route("moderation.users.nickname_reset")
+async def moderation_reset_user_nickname(user_id: int, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> AdminUserNameOut:
+    user = await get_moderation_target_user(session, user_id)
+    uid = int(user.id)
+    next_username = f"user_{uid}"
+    if str(user.username) == next_username:
+        return AdminUserNameOut(id=uid, username=next_username)
+
+    conflict = await session.scalar(select(User.id).where(func.lower(User.username) == next_username.lower(), User.id != uid).limit(1))
+    if conflict:
+        raise HTTPException(status_code=409, detail="username_taken")
+
+    prev_username = str(user.username)
+    user.nickname_history = prepend_nickname_history(user.nickname_history, prev_username, current_username=next_username)
+    user.username = next_username
+    await session.commit()
+    await session.refresh(user)
+    await refresh_user_profile_cache(session, uid)
+    with suppress(Exception):
+        await broadcast_creator_rooms(uid, update_name=str(user.username))
+
+    await log_action(
+        session,
+        user_id=int(ident["id"]),
+        username=ident["username"],
+        action="moderation_nickname_reset",
+        details=f"Nickname reset user_id={uid} from={prev_username} to={next_username} panel=moderation actor_role={ident['role']}",
+    )
+
+    return AdminUserNameOut(id=uid, username=next_username)
+
+
+@router.post("/users/{user_id}/avatar_delete", response_model=Ok)
+@log_route("moderation.users.avatar_delete")
+async def moderation_delete_user_avatar(user_id: int, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
+    user = await get_moderation_target_user(session, user_id)
+    uid = int(user.id)
+    target_username = str(user.username or f"user{uid}")
+    old_avatar_name = await delete_user_avatar(session, uid)
+
+    await log_action(
+        session,
+        user_id=int(ident["id"]),
+        username=ident["username"],
+        action="moderation_avatar_delete",
+        details=(
+            f"Avatar deleted user_id={uid} username={target_username} "
+            f"had_avatar={int(bool(old_avatar_name))} panel=moderation actor_role={ident['role']}"
+        ),
+    )
+
+    return Ok()
+
 
 @router.get("/sanctions", response_model=AdminSanctionsOut)
 @log_route("moderation.sanctions.list")

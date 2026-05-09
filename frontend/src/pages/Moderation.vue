@@ -80,6 +80,8 @@
                     <span class="th-sort-mark" aria-hidden="true">▼</span>
                   </button>
                 </th>
+                <th>Аватар</th>
+                <th>Никнейм</th>
                 <th>Отстранить</th>
                 <th>Таймаут</th>
               </tr>
@@ -102,6 +104,16 @@
                 <td>{{ row.timeouts_count }}</td>
                 <td>{{ row.bans_count }}</td>
                 <td>
+                  <button class="btn" :class="row.avatar_name ? 'danger' : 'dark'" :disabled="!canModerateUser(row) || !row.avatar_name || usersAvatarBusy[row.id]" @click="deleteUserAvatar(row)">
+                    <img class="btn-img" :src="iconClose" alt="" />
+                  </button>
+                </td>
+                <td>
+                  <button class="btn" :class="isNicknameDefault(row) ? 'dark' : 'danger'" :disabled="!canModerateUser(row) || isNicknameDefault(row) || usersNicknameBusy[row.id]" @click="resetUserNickname(row)">
+                    <img class="btn-img" :src="iconClose" alt="" />
+                  </button>
+                </td>
+                <td>
                   <button class="btn" :class="row.suspend_active ? 'dark' : 'danger'" :disabled="!canModerateUser(row) || isSanctionBusy(row.id, 'suspend')" @click="toggleSuspend(row)">
                     <img class="btn-img" :src="row.suspend_active ? iconClose : iconJudge" alt="" />
                   </button>
@@ -113,7 +125,7 @@
                 </td>
               </tr>
               <tr v-if="users.length === 0">
-                <td colspan="10" class="muted">Нет данных</td>
+                <td colspan="12" class="muted">Нет данных</td>
               </tr>
             </tbody>
           </table>
@@ -335,6 +347,8 @@ const usersLimit = ref(20)
 const usersUser = ref('')
 const usersSortBy = ref<UsersSortBy>('registered_at')
 const usersSanctionBusy = reactive<Record<string, boolean>>({})
+const usersAvatarBusy = reactive<Record<number, boolean>>({})
+const usersNicknameBusy = reactive<Record<number, boolean>>({})
 const sanctions = ref<SanctionsRow[]>([])
 const sanctionsLoading = ref(false)
 const sanctionsTotal = ref(0)
@@ -515,6 +529,11 @@ function canOpenModerationUserMiniProfile(row: UserRow): boolean {
 
 function canModerateUser(row: UserRow): boolean {
   return String(row.role || '') === 'user'
+}
+
+function isNicknameDefault(row: UserRow | null | undefined): boolean {
+  if (!row) return false
+  return String(row.username || '') === `user_${row.id}`
 }
 
 function canOpenSanctionUserMiniProfile(row: SanctionsRow): boolean {
@@ -722,6 +741,59 @@ async function saveSanctionAdjust(): Promise<void> {
   } finally {
     sanctionsAdjusting[busyKey] = false
     sanctionAdjustSaving.value = false
+  }
+}
+
+async function deleteUserAvatar(row: UserRow): Promise<void> {
+  if (!canModerateUser(row) || !row.avatar_name || usersAvatarBusy[row.id]) return
+  const userLabel = row.username ? `${row.username}` : `#${row.id}`
+  const ok = await confirmDialog({
+    title: 'Удалить аватар',
+    text: `Удалить аватар у ${userLabel}?`,
+    confirmText: 'Удалить',
+    cancelText: 'Отмена',
+  })
+  if (!ok) return
+  usersAvatarBusy[row.id] = true
+  try {
+    await api.post(`/moderation/users/${row.id}/avatar_delete`)
+    row.avatar_name = null
+    void alertDialog('Аватар удален')
+  } catch (e: any) {
+    const st = e?.response?.status
+    const d = e?.response?.data?.detail
+    if (st === 403 && d === 'forbidden') void alertDialog('Нельзя удалить аватар этого пользователя')
+    else void alertDialog('Не удалось удалить аватар')
+  } finally {
+    usersAvatarBusy[row.id] = false
+  }
+}
+
+async function resetUserNickname(row: UserRow): Promise<void> {
+  if (!canModerateUser(row) || isNicknameDefault(row) || usersNicknameBusy[row.id]) return
+  const userLabel = row.username ? `${row.username}` : `#${row.id}`
+  const ok = await confirmDialog({
+    title: 'Сбросить никнейм',
+    text: `Сбросить никнейм ${userLabel} на user_${row.id}?`,
+    confirmText: 'Сбросить',
+    cancelText: 'Отмена',
+  })
+  if (!ok) return
+  usersNicknameBusy[row.id] = true
+  try {
+    const { data } = await api.post(`/moderation/users/${row.id}/nickname_reset`)
+    row.username = data?.username || `user_${row.id}`
+    void alertDialog('Никнейм сброшен')
+  } catch (e: any) {
+    if (e?.response?.status === 409 && e?.response?.data?.detail === 'username_taken') {
+      void alertDialog('Не удалось сбросить никнейм: имя уже занято')
+    } else if (e?.response?.status === 403 && e?.response?.data?.detail === 'forbidden') {
+      void alertDialog('Нельзя сбросить никнейм этого пользователя')
+    } else {
+      void alertDialog('Не удалось сбросить никнейм')
+    }
+  } finally {
+    usersNicknameBusy[row.id] = false
   }
 }
 

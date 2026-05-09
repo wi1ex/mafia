@@ -64,6 +64,9 @@ PRIVILEGED_SENSITIVE_MUTATION_LIMITS: dict[str, int] = {
     "/api/admin/users/{user_id}/timeout": 5,
     "/api/admin/users/{user_id}/ban": 5,
     "/api/admin/users/{user_id}/suspend": 5,
+    "/api/moderation/rooms/{room_id}/close": 6,
+    "/api/moderation/users/{user_id}/avatar_delete": 4,
+    "/api/moderation/users/{user_id}/nickname_reset": 4,
     "/api/moderation/users/{user_id}/timeout": 5,
     "/api/moderation/users/{user_id}/suspend": 5,
 }

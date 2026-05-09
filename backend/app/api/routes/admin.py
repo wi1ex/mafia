@@ -117,6 +117,7 @@ from ..utils import (
     collect_room_user_ids,
     parse_room_game_params,
     build_room_user_stats,
+    close_room_as_staff,
     sum_room_stream_seconds,
     fetch_live_room_stats,
     aggregate_user_room_stats,
@@ -172,7 +173,6 @@ from ..utils import (
     emit_room_role_sync,
     notify_subscription_upsert,
     delete_gif_avatar_for_inactive_subscription,
-    get_room_params_or_404,
 )
 
 public_router = APIRouter()
@@ -822,116 +822,12 @@ async def update_game_ppk(game_id: int, payload: AdminGamePpkUpdateIn, ident: Id
 @router.post("/rooms/{room_id}/close", response_model=Ok)
 @log_route("admin.rooms.close")
 async def room_close(room_id: int, ident: Identity = Depends(require_protected_admin_dep), session: AsyncSession = Depends(get_session)) -> Ok:
-    r = get_redis()
-    await get_room_params_or_404(r, room_id)
-
-    phase = str(await r.hget(f"room:{room_id}:game_state", "phase") or "idle")
-    if phase != "idle":
-        raise HTTPException(status_code=409, detail="room_in_game")
-
-    await r.hset(f"room:{room_id}:params", mapping={"entry_closed": "1"})
-    await emit_rooms_upsert(room_id)
-
-    try:
-        members_raw = await r.smembers(f"room:{room_id}:members")
-    except Exception:
-        members_raw = set()
-    try:
-        spectators_raw = await r.smembers(f"room:{room_id}:spectators")
-    except Exception:
-        spectators_raw = set()
-
-    member_ids: set[int] = set()
-    for v in members_raw or []:
-        try:
-            member_ids.add(int(v))
-        except Exception:
-            continue
-
-    spectator_ids: set[int] = set()
-    for v in spectators_raw or []:
-        try:
-            spectator_ids.add(int(v))
-        except Exception:
-            continue
-
-    gc_seq_on_empty: int | None = None
-    for uid in member_ids:
-        await sio.emit("force_leave",
-                       {"room_id": room_id, "reason": "room_deleted"},
-                       room=f"user:{uid}",
-                       namespace="/room")
-        try:
-            await stop_screen_for_user(r, room_id, uid)
-            occ, gc_seq, pos_updates = await leave_room_atomic(r, room_id, uid)
-            if occ == 0:
-                gc_seq_on_empty = gc_seq
-        except Exception:
-            continue
-
-        try:
-            await r.srem(f"room:{room_id}:ready", str(uid))
-        except Exception:
-            pass
-        try:
-            await r.delete(
-                f"room:{room_id}:user:{uid}:epoch",
-                f"room:{room_id}:user:{uid}:bg_state",
-                f"room:{room_id}:user:{uid}:sid",
-            )
-        except Exception:
-            pass
-
-        await sio.emit("member_left",
-                       {"user_id": uid},
-                       room=f"room:{room_id}",
-                       namespace="/room")
-        if pos_updates:
-            await sio.emit("positions",
-                           {"updates": [{"user_id": u, "position": p} for u, p in pos_updates]},
-                           room=f"room:{room_id}",
-                           namespace="/room")
-        await emit_rooms_occupancy_safe(r, room_id, occ)
-        with suppress(Exception):
-            await remove_livekit_participant(rid=room_id, uid=uid)
-
-    for uid in spectator_ids - member_ids:
-        await sio.emit("force_leave",
-                       {"room_id": room_id, "reason": "room_deleted"},
-                       room=f"user:{uid}",
-                       namespace="/room")
-        with suppress(Exception):
-            await remove_livekit_participant(rid=room_id, uid=uid)
-        try:
-            await record_spectator_leave(r, room_id, uid, int(time()))
-        except Exception:
-            pass
-
-    should_gc = gc_seq_on_empty is not None
-    if not should_gc:
-        try:
-            occ = int(await r.scard(f"room:{room_id}:members") or 0)
-        except Exception:
-            occ = -1
-        should_gc = occ == 0
-    if should_gc:
-        rid_snapshot = room_id
-        gc_seq_snapshot = gc_seq_on_empty
-        asyncio.create_task(gc_empty_room_and_emit(rid_snapshot, expected_seq=gc_seq_snapshot))
-
-    spectator_only_count = len(spectator_ids - member_ids)
-    await log_action(
-        session,
-        user_id=int(ident["id"]),
-        username=ident["username"],
-        action="admin_room_close",
-        details=(
-            f"Закрытие комнаты room_id={room_id} phase={phase} "
-            f"members={len(member_ids)} spectators={spectator_only_count}"
-        ),
+    return await close_room_as_staff(
+        room_id=room_id,
+        ident=ident,
+        session=session,
+        log_action_name="admin_room_close",
     )
-
-    return Ok()
 
 
 @router.post("/rooms/kick", response_model=Ok)
