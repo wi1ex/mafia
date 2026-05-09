@@ -154,6 +154,9 @@ from ..utils import (
     format_duration_parts,
     format_duration_seconds_compact,
     find_user_ids_by_username_search,
+    build_avatar_reset_notice,
+    build_nickname_reset_notice,
+    emit_nickname_reset_notice,
     emit_notify,
     emit_sanctions_update,
     maybe_send_sanction_telegram_if_offline,
@@ -1674,13 +1677,21 @@ async def reset_user_nickname(user_id: int, ident: Identity = Depends(get_identi
         raise HTTPException(status_code=409, detail="username_taken")
 
     prev_username = str(user.username)
+    telegram_id = int(user.telegram_id or 0)
     user.nickname_history = prepend_nickname_history(user.nickname_history, prev_username, current_username=next_username)
     user.username = next_username
+    note = build_nickname_reset_notice(uid, next_username)
+    session.add(note)
     await session.commit()
     await session.refresh(user)
+    await session.refresh(note)
     await refresh_user_profile_cache(session, uid)
     with suppress(Exception):
         await broadcast_creator_rooms(uid, update_name=str(user.username))
+    with suppress(Exception):
+        await emit_auth_profile_sync(uid, role=str(user.role))
+    with suppress(Exception):
+        await emit_nickname_reset_notice(uid, note, telegram_id=telegram_id)
 
     await log_action(
         session,
@@ -1705,6 +1716,13 @@ async def delete_user_avatar_as_admin(user_id: int, ident: Identity = Depends(ge
     uid = int(user.id)
     target_username = str(user.username or f"user{uid}")
     old_avatar_name = await delete_user_avatar(session, uid)
+    if old_avatar_name:
+        note = build_avatar_reset_notice(uid)
+        session.add(note)
+        await session.commit()
+        await session.refresh(note)
+        with suppress(Exception):
+            await emit_notify(uid, note, kind="avatar_reset")
 
     await log_action(
         session,

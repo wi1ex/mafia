@@ -28,10 +28,14 @@ from ..utils import (
     admin_username_sort_key,
     adjust_active_sanction_duration,
     broadcast_creator_rooms,
+    build_avatar_reset_notice,
     build_user_stats_out,
+    build_nickname_reset_notice,
     close_room_as_staff,
     compute_duration_seconds,
     delete_user_avatar,
+    emit_auth_profile_sync,
+    emit_nickname_reset_notice,
     emit_notify,
     emit_sanctions_update,
     fetch_active_sanction,
@@ -205,13 +209,21 @@ async def moderation_reset_user_nickname(user_id: int, ident: Identity = Depends
         raise HTTPException(status_code=409, detail="username_taken")
 
     prev_username = str(user.username)
+    telegram_id = int(user.telegram_id or 0)
     user.nickname_history = prepend_nickname_history(user.nickname_history, prev_username, current_username=next_username)
     user.username = next_username
+    note = build_nickname_reset_notice(uid, next_username)
+    session.add(note)
     await session.commit()
     await session.refresh(user)
+    await session.refresh(note)
     await refresh_user_profile_cache(session, uid)
     with suppress(Exception):
         await broadcast_creator_rooms(uid, update_name=str(user.username))
+    with suppress(Exception):
+        await emit_auth_profile_sync(uid, role=str(user.role))
+    with suppress(Exception):
+        await emit_nickname_reset_notice(uid, note, telegram_id=telegram_id)
 
     await log_action(
         session,
@@ -231,6 +243,13 @@ async def moderation_delete_user_avatar(user_id: int, ident: Identity = Depends(
     uid = int(user.id)
     target_username = str(user.username or f"user{uid}")
     old_avatar_name = await delete_user_avatar(session, uid)
+    if old_avatar_name:
+        note = build_avatar_reset_notice(uid)
+        session.add(note)
+        await session.commit()
+        await session.refresh(note)
+        with suppress(Exception):
+            await emit_notify(uid, note, kind="avatar_reset")
 
     await log_action(
         session,

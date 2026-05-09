@@ -176,6 +176,9 @@ __all__ = [
     "friend_status_for",
     "raise_missing_incoming_request_error",
     "raise_missing_outgoing_request_error",
+    "build_avatar_reset_notice",
+    "build_nickname_reset_notice",
+    "emit_nickname_reset_notice",
     "emit_notify",
     "emit_friends_update",
     "emit_friends_profile_sync",
@@ -3901,6 +3904,55 @@ async def raise_missing_outgoing_request_error(db: AsyncSession, uid: int, targe
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="incoming_request")
 
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="request_not_found")
+
+
+def build_avatar_reset_notice(user_id: int) -> Notif:
+    return Notif(
+        user_id=int(user_id),
+        title="Аватар сброшен",
+        text=(
+            "Ваш аватар был сброшен администрацией платформы."
+        ),
+    )
+
+
+def build_nickname_reset_notice(user_id: int, new_username: str) -> Notif:
+    username = str(new_username or "").strip() or f"user_{int(user_id)}"
+    return Notif(
+        user_id=int(user_id),
+        title="Никнейм сброшен",
+        text=(
+            "Ваш никнейм был сброшен администрацией платформы. "
+            f"Новый никнейм: {username}. "
+            "Последующая авторизация будет доступна только с текущим никнеймом."
+        ),
+    )
+
+
+async def emit_nickname_reset_notice(user_id: int, note: Notif, *, telegram_id: int | None = None) -> None:
+    uid = int(user_id)
+    await emit_notify(uid, note, kind="nickname_reset")
+
+    tg_id = int(telegram_id or 0)
+    if tg_id <= 0:
+        return
+
+    try:
+        send_result = await send_text_message(
+            chat_id=tg_id,
+            text=f"{note.title}\n\n{note.text}",
+        )
+    except Exception:
+        log.warning(
+            "nickname_reset.telegram_notify_failed",
+            uid=uid,
+            reason="unexpected_error",
+            exc_info=True,
+        )
+        return
+
+    if not send_result.ok:
+        log.warning("nickname_reset.telegram_notify_failed", uid=uid, reason=send_result.reason)
 
 
 async def emit_notify(user_id: int, note: Notif, *, kind: str, no_toast: bool = False, extra: dict | None = None) -> None:
