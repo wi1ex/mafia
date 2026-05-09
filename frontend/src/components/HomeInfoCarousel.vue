@@ -104,7 +104,7 @@
 
               <div class="slide-actions">
                 <a class="primary-btn" :href="contactsLink" target="_blank" rel="noopener noreferrer">
-                  Связаться с командой
+                  Написать в Telegram
                 </a>
               </div>
             </div>

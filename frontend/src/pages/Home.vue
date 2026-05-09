@@ -969,7 +969,8 @@ onBeforeUnmount(() => {
               object-fit: cover;
             }
             .user-name {
-              height: 18px;
+              font-size: 16px;
+              line-height: 1.2;
             }
           }
         }
@@ -1273,26 +1274,39 @@ onBeforeUnmount(() => {
         font-size: 12px;
       }
       .list {
+        gap: 8px;
+        padding: 8px;
         .text-center {
-          font-size: 14px;
+          font-size: 12px;
         }
         .list-header {
           grid-template-columns: 15% 45% 25% 15%;
+          padding: 5px 10px;
           span {
             font-size: 14px;
             letter-spacing: 1px;
           }
         }
         .list-body {
+          gap: 8px;
           .item {
             grid-template-columns: 15% 45% 25% 15%;
+            padding: 5px;
+            img {
+              width: 16px;
+              height: 16px;
+            }
             .cell {
+              gap: 3px;
+              .status-room {
+                min-width: 40px;
+                font-size: 10px;
+              }
               .user-avatar {
                 width: 16px;
                 height: 16px;
               }
               .user-name {
-                height: 14px;
                 font-size: 12px;
               }
             }

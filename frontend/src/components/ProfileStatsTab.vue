@@ -357,12 +357,12 @@ function setSeason(season: number | null): void {
 }
 
 const nonGameItems = computed(() => [
-  { key: 'room-minutes', label: 'Время в комнатах', value: formatDurationDhm(stats.room_minutes) },
+  { key: 'room-minutes', label: 'В комнатах', value: formatDurationDhm(stats.room_minutes) },
   { key: 'rooms-created', label: 'Мои комнаты', value: formatInt(stats.rooms_created) },
   { key: 'games-in-my-rooms', label: 'Игры в моих комнатах', value: formatInt(stats.games_in_my_rooms) },
-  { key: 'stream-minutes', label: 'Время моих трансляций', value: formatDurationDhm(stats.stream_minutes) },
-  { key: 'spectator-minutes', label: 'Время как зритель', value: formatDurationDhm(stats.spectator_minutes) },
-  { key: 'games-hosted', label: 'Игр проведено', value: formatInt(game.value.games_hosted) },
+  { key: 'stream-minutes', label: 'Трансляции', value: formatDurationDhm(stats.stream_minutes) },
+  { key: 'spectator-minutes', label: 'Зритель', value: formatDurationDhm(stats.spectator_minutes) },
+  { key: 'games-hosted', label: 'Ведущий', value: formatInt(game.value.games_hosted) },
 ])
 
 const lossesCount = computed(() => Math.max(0, safeInt(game.value.games_played) - safeInt(game.value.games_won)))
@@ -653,7 +653,7 @@ onMounted(() => {
         text-align: end;
         color: $fg;
         font-family: Manrope-SemiBold;
-        font-size: 24px;
+        font-size: 20px;
         line-height: 1.1;
       }
     }
@@ -958,7 +958,7 @@ onMounted(() => {
           line-height: 1.2;
         }
         strong {
-          font-size: 18px;
+          font-size: 16px;
         }
       }
       .non-game-grid {

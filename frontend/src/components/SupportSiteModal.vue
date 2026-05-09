@@ -117,7 +117,7 @@ onBeforeUnmount(() => {
     padding: 20px;
     gap: 15px;
     width: 500px;
-    border-radius: 5px;
+    border-radius: 20px;
     background-color: $graphite;
     box-shadow: 0 15px 30px rgba($black, 0.25);
     header {
