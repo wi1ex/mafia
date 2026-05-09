@@ -37,6 +37,13 @@ class UserMiniProfileSanctionOut(BaseModel):
     expires_at: Optional[datetime] = None
 
 
+class UserMiniProfileFriendOut(BaseModel):
+    id: int
+    username: Optional[str] = None
+    avatar_name: Optional[str] = None
+    friendship_started_at: Optional[datetime] = None
+
+
 class UserMiniProfileOut(BaseModel):
     id: int
     username: Optional[str] = None
@@ -53,6 +60,7 @@ class UserMiniProfileOut(BaseModel):
     profile_theme_icon: Optional[str] = None
     friend_status: Literal["self", "friends", "outgoing", "incoming", "none"] = "none"
     friends_count: int = 0
+    admin_friends: Optional[List[UserMiniProfileFriendOut]] = None
     active_sanction: Optional[UserMiniProfileSanctionOut] = None
 
 

@@ -28,6 +28,7 @@ from ..utils import (
     fetch_effective_online_user_ids,
     fetch_online_user_ids,
     fetch_friends_count_for_users,
+    build_admin_mini_profile_friends,
     friend_status_for,
 )
 from ...models.game import Game
@@ -197,6 +198,11 @@ async def mini_profile(user_id: int, allow_deleted: bool = False, ident: Identit
         last_game_at = last_game_rec[1]
 
     friends_count = (await fetch_friends_count_for_users(db, [uid])).get(uid, 0)
+    admin_friends = (
+        await build_admin_mini_profile_friends(db, uid)
+        if viewer_role == "admin"
+        else None
+    )
     active_sanctions = await fetch_active_sanctions(db, uid)
     active_sanction_kind = pick_active_sanction_kind(active_sanctions)
     active_sanction = None
@@ -247,6 +253,7 @@ async def mini_profile(user_id: int, allow_deleted: bool = False, ident: Identit
         profile_theme_icon=theme_state.icon,
         friend_status=friend_status,
         friends_count=int(friends_count or 0),
+        admin_friends=admin_friends,
         active_sanction=active_sanction,
     )
 

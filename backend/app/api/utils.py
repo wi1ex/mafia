@@ -108,6 +108,7 @@ __all__ = [
     "normalize_users_sort",
     "normalize_moderation_users_sort",
     "fetch_friends_count_for_users",
+    "build_admin_mini_profile_friends",
     "fetch_sanction_counts_for_users",
     "admin_role_sort_key",
     "admin_username_sort_key",
@@ -667,6 +668,50 @@ async def fetch_friends_count_for_users(session: AsyncSession, ids: list[int]) -
             friends_count[addressee_uid] += 1
 
     return friends_count
+
+
+async def build_admin_mini_profile_friends(session: AsyncSession, user_id: int) -> list[dict[str, Any]]:
+    uid = int(user_id)
+    rows = await session.execute(
+        select(FriendLink)
+        .where(
+            FriendLink.status == "accepted",
+            or_(FriendLink.requester_id == uid, FriendLink.addressee_id == uid),
+        )
+    )
+    links = rows.scalars().all()
+    if not links:
+        return []
+
+    friend_rows: list[tuple[int, datetime | None]] = []
+    for link in links:
+        friend_id = int(link.addressee_id if link.requester_id == uid else link.requester_id)
+        started_at = link.responded_at or link.created_at
+        friend_rows.append((friend_id, started_at if isinstance(started_at, datetime) else None))
+
+    profiles = await get_user_profiles_cached(session, [friend_id for friend_id, _ in friend_rows])
+
+    def started_sort_value(item: tuple[int, datetime | None]) -> float:
+        started_at = item[1]
+        if started_at is None:
+            return 0.0
+
+        return started_at.timestamp()
+
+    friend_rows.sort(key=started_sort_value, reverse=True)
+    out: list[dict[str, Any]] = []
+    for friend_id, started_at in friend_rows:
+        profile = profiles.get(friend_id) or {}
+        username = profile.get("username")
+        avatar_name = profile.get("avatar_name")
+        out.append({
+            "id": friend_id,
+            "username": str(username) if isinstance(username, str) else None,
+            "avatar_name": str(avatar_name) if isinstance(avatar_name, str) else None,
+            "friendship_started_at": started_at,
+        })
+
+    return out
 
 
 async def fetch_sanction_counts_for_users(session: AsyncSession, ids: list[int]) -> dict[int, dict[str, int]]:
