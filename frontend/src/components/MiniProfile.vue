@@ -17,8 +17,24 @@
                   <span class="profile-name">{{ displayName }}</span>
                 </div>
                 <div v-if="showProfileMeta" class="profile-meta">
-                  <span v-if="friendsCount !== null" class="profile-friends-count" aria-label="Количество друзей">
-                    Друзья: {{ friendsCount }}
+                  <span v-if="friendsCount !== null" class="profile-friends-tooltip-wrap" :class="{ enabled: showAdminFriendsTooltip }" :tabindex="showAdminFriendsTooltip ? 0 : undefined">
+                    <span class="profile-friends-count" aria-label="Количество друзей">
+                      Друзья: {{ friendsCount }}
+                    </span>
+                    <span v-if="showAdminFriendsTooltip" class="profile-tooltip profile-friends-tooltip" role="tooltip">
+                      <span v-if="adminFriends.length === 0" class="profile-friends-empty">Нет друзей</span>
+                      <span v-else class="profile-friends-list">
+                        <span v-for="friend in adminFriends" :key="friend.id" class="profile-friend-row">
+                          <img class="profile-friend-avatar" v-minio-img="{key: friendAvatarKey(friend), placeholder: defaultAvatar, lazy: false, animated: true}" alt="avatar" />
+                          <span class="profile-friend-main">
+                            <span class="profile-friend-name">{{ friend.username || `user${friend.id}` }}</span>
+                            <span class="profile-friend-date">
+                              {{ formatFriendshipStartedAt(friend.friendship_started_at) }}
+                            </span>
+                          </span>
+                        </span>
+                      </span>
+                    </span>
                   </span>
 
                   <span v-if="activeSanction" class="profile-meta-tooltip-wrap">
@@ -134,6 +150,13 @@ type MiniProfileSanction = {
   expires_at?: string | null
 }
 
+type MiniProfileAdminFriend = {
+  id: number
+  username?: string | null
+  avatar_name?: string | null
+  friendship_started_at?: string | null
+}
+
 type MiniProfileInitial = {
   id?: number | null
   username?: string | null
@@ -165,6 +188,7 @@ type MiniProfileResponse = {
   profile_theme_icon?: string | null
   friend_status?: FriendStatus | null
   friends_count?: number | null
+  admin_friends?: MiniProfileAdminFriend[] | null
   active_sanction?: MiniProfileSanction | null
 }
 
@@ -271,6 +295,16 @@ const friendsCount = computed(() => {
   const value = Number(profile.value?.friends_count ?? 0)
   return Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0
 })
+const adminFriends = computed(() => (
+  profileLoadedForTarget.value && Array.isArray(profile.value?.admin_friends)
+    ? profile.value.admin_friends
+    : []
+))
+const showAdminFriendsTooltip = computed(() => (
+  viewerRole.value === 'admin'
+  && profileLoadedForTarget.value
+  && Array.isArray(profile.value?.admin_friends)
+))
 const showProfileMeta = computed(() => Boolean(activeSanction.value || targetUserId.value > 0 || friendsCount.value !== null))
 const activeSanctionKindLabel = computed(() => sanctionKindLabel(activeSanction.value?.kind))
 const activeSanctionExpiryLabel = computed(() => {
@@ -419,6 +453,32 @@ function normalizeFriendStatus(value: unknown): FriendStatus {
   return 'none'
 }
 
+function normalizeAdminFriends(value: unknown): MiniProfileAdminFriend[] {
+  if (!Array.isArray(value)) return []
+  return value.map((item) => {
+    const raw = item && typeof item === 'object' ? (item as Record<string, unknown>) : {}
+    const id = Number(raw.id || 0)
+    return {
+      id: Number.isFinite(id) && id > 0 ? Math.trunc(id) : 0,
+      username: typeof raw.username === 'string' ? raw.username : null,
+      avatar_name: typeof raw.avatar_name === 'string' ? raw.avatar_name : null,
+      friendship_started_at: (
+        typeof raw.friendship_started_at === 'string' ? raw.friendship_started_at : null
+      ),
+    }
+  }).filter((item) => item.id > 0)
+}
+
+function friendAvatarKey(friend: MiniProfileAdminFriend): string {
+  const name = String(friend.avatar_name || '').trim()
+  if (!name) return ''
+  return name.startsWith('avatars/') ? name : `avatars/${name}`
+}
+
+function formatFriendshipStartedAt(value?: string | number | Date | null): string {
+  return formatDateOnly(value)
+}
+
 function inferInitialFriendStatus(): FriendStatus {
   if (isSelfProfile.value) return 'self'
   const direct = normalizeFriendStatus(props.initialProfile?.friend_status)
@@ -504,6 +564,9 @@ async function loadProfile() {
       profile_theme_icon: data?.profile_theme_icon ?? null,
       friend_status: normalizeFriendStatus(data?.friend_status),
       friends_count: Number.isFinite(Number(data?.friends_count)) ? Math.max(0, Math.trunc(Number(data?.friends_count))) : 0,
+      admin_friends: (
+        Array.isArray(data?.admin_friends) ? normalizeAdminFriends(data.admin_friends) : null
+      ),
       active_sanction: data?.active_sanction ?? null,
     }
     applyFriendStatus(normalizeFriendStatus(data?.friend_status))
@@ -753,17 +816,106 @@ onBeforeUnmount(() => {
             display: flex;
             align-items: center;
             gap: 10px;
-            .profile-friends-count {
+            .profile-friends-tooltip-wrap {
               display: inline-flex;
+              position: relative;
+              flex: 0 0 auto;
               align-items: center;
               justify-content: center;
-              padding: 5px 10px;
-              background-color: rgba($graphite, 0.5);
-              border-radius: 5px;
-              color: $fg;
-              font-size: 14px;
-              line-height: 1;
-              font-family: Manrope-SemiBold;
+              outline: none;
+              &.enabled {
+                cursor: default;
+              }
+              &:hover,
+              &:focus-within {
+                &::after {
+                  display: block;
+                }
+                .profile-tooltip {
+                  display: flex;
+                }
+              }
+              &::after {
+                content: '';
+                display: none;
+                position: absolute;
+                top: 100%;
+                left: 0;
+                width: max(100%, 320px);
+                height: 10px;
+                z-index: 2;
+              }
+              .profile-friends-count {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                padding: 5px 10px;
+                background-color: rgba($graphite, 0.5);
+                border-radius: 5px;
+                color: $fg;
+                font-size: 14px;
+                line-height: 1;
+                font-family: Manrope-SemiBold;
+              }
+              .profile-tooltip {
+                display: none;
+                position: absolute;
+                padding: 10px;
+                border-radius: 5px;
+                background-color: $graphite;
+                box-shadow: 3px 3px 5px rgba($black, 0.25);
+                color: $fg;
+                font-size: 13px;
+                line-height: 1.2;
+                z-index: 3;
+                &.profile-friends-tooltip {
+                  left: 0;
+                  top: calc(100% + 10px);
+                  flex-direction: column;
+                  width: min(320px, calc(100vw - 40px));
+                  max-height: 260px;
+                  overflow-y: auto;
+                  scrollbar-width: thin;
+                  .profile-friends-empty {
+                    color: $ashy;
+                  }
+                  .profile-friends-list {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 8px;
+                    .profile-friend-row {
+                      display: flex;
+                      align-items: center;
+                      gap: 8px;
+                      min-width: 0;
+                      .profile-friend-avatar {
+                        flex: 0 0 auto;
+                        width: 30px;
+                        height: 30px;
+                        border-radius: 50%;
+                        object-fit: cover;
+                      }
+                      .profile-friend-main {
+                        display: flex;
+                        flex-direction: column;
+                        min-width: 0;
+                        gap: 2px;
+                        .profile-friend-name {
+                          color: $fg;
+                          font-family: Manrope-SemiBold;
+                          overflow: hidden;
+                          text-overflow: ellipsis;
+                          white-space: nowrap;
+                        }
+                        .profile-friend-date {
+                          color: $ashy;
+                          font-size: 12px;
+                        }
+                      }
+                    }
+                  }
+                }
+              }
             }
             .profile-meta-tooltip-wrap {
               display: inline-flex;
@@ -1104,9 +1256,38 @@ onBeforeUnmount(() => {
             }
             .profile-meta {
               gap: 5px;
-              .profile-friends-count {
-                padding: 3px 8px;
-                font-size: 10px;
+              .profile-friends-tooltip-wrap {
+                &::after {
+                  height: 5px;
+                }
+                .profile-friends-count {
+                  padding: 3px 8px;
+                  font-size: 10px;
+                }
+                .profile-tooltip {
+                  padding: 5px;
+                  font-size: 10px;
+                  &.profile-friends-tooltip {
+                    top: calc(100% + 5px);
+                    width: min(260px, calc(100vw - 40px));
+                    max-height: 180px;
+                    .profile-friends-list {
+                      gap: 5px;
+                      .profile-friend-row {
+                        gap: 5px;
+                        .profile-friend-avatar {
+                          width: 24px;
+                          height: 24px;
+                        }
+                        .profile-friend-main {
+                          .profile-friend-date {
+                            font-size: 9px;
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
               }
               .profile-meta-tooltip-wrap {
                 .profile-meta-icon {
