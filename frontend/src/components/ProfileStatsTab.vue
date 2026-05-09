@@ -93,7 +93,7 @@
         <h4>Дополнительные показатели</h4>
         <div class="extra-grid">
           <article class="metric-card">
-            <span>Достоверность завещаний</span>
+            <span>Завещания</span>
             <strong>{{ formatFarewellSuccess(game.farewell_success_percent, game.farewell_correct_count, game.farewell_total_count) }}</strong>
           </article>
           <article class="metric-card">
@@ -101,11 +101,11 @@
             <strong>{{ formatPct(game.vote_leave_day12_percent) }}</strong>
           </article>
           <article class="metric-card">
-            <span>Заголосовал Дона/Шерифа в 1-2 день (черный)</span>
+            <span>Снял Дона/Шерифа в 1-2 день (черный)</span>
             <strong>{{ formatDonSheriffSplit(game.vote_out_don_day12_black_count, game.vote_out_sheriff_day12_black_count) }}</strong>
           </article>
           <article class="metric-card">
-            <span>Заголосовал Дона/Шерифа в 1-2 день (мирный)</span>
+            <span>Снял Дона/Шерифа в 1-2 день (мирный)</span>
             <strong>{{ formatDonSheriffSplit(game.vote_out_don_day12_citizen_count, game.vote_out_sheriff_day12_citizen_count) }}</strong>
           </article>
           <article class="metric-card">

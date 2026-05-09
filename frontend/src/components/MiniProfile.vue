@@ -804,7 +804,7 @@ onBeforeUnmount(() => {
             }
             .profile-name {
               max-width: 280px;
-              font-size: 24px;
+              font-size: 22px;
               line-height: 1.2;
               font-family: Manrope-SemiBold;
               white-space: nowrap;
@@ -1251,7 +1251,7 @@ onBeforeUnmount(() => {
               }
               .profile-name {
                 max-width: 200px;
-                font-size: 16px;
+                font-size: 14px;
               }
             }
             .profile-meta {
