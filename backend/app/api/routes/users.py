@@ -99,7 +99,11 @@ from ...services.profile_theme import (
     upsert_profile_theme_icon_preference,
     upsert_profile_theme_preference,
 )
-from ...services.nickname_history import build_nickname_history_out, prepend_nickname_history
+from ...services.nickname_history import (
+    build_nickname_history_out,
+    prepend_nickname_history,
+    serialize_nickname_history,
+)
 from ...services.user_cache import (
     refresh_user_profile_cache,
     write_user_profile_cache,
@@ -278,6 +282,40 @@ async def nickname_history(user_id: int, allow_deleted: bool = False, ident: Ide
 
     if user.deleted_at and not (allow_deleted and is_staff_viewer):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user_not_found")
+
+    return UserNicknameHistoryOut(items=build_nickname_history_out(user.username, user.nickname_history))
+
+
+@router.delete("/nickname_history", response_model=UserNicknameHistoryOut)
+@log_route("users.clear_nickname_history")
+@rate_limited(lambda ident, **_: f"rl:clear_nickname_history:{ident['id']}", limit=2, window_s=1)
+async def clear_nickname_history(ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserNicknameHistoryOut:
+    uid = int(ident["id"])
+    user = await db.get(User, uid)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+
+    if user.deleted_at is not None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="user_deleted")
+
+    await ensure_profile_changes_allowed(db, uid)
+    theme_state = await resolve_profile_theme_state(db, uid)
+    if not theme_state.subscription_active:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="subscription_required")
+
+    nickname_history_before = build_nickname_history_out(user.username, user.nickname_history)
+    user.nickname_history = serialize_nickname_history([])
+    await db.commit()
+    await log_action(
+        db,
+        user_id=uid,
+        username=ident["username"],
+        action="nickname_history_cleared",
+        details=(
+            f"Очистка истории никнеймов: user_id={uid} "
+            f"history={' -> '.join(nickname_history_before) or '-'}"
+        ),
+    )
 
     return UserNicknameHistoryOut(items=build_nickname_history_out(user.username, user.nickname_history))
 

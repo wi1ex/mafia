@@ -43,12 +43,32 @@
           <div class="block nick-block">
             <h3>Никнейм</h3>
             <div class="nick-row">
-              <UiInput class="profile-input" id="profile-nick" v-model.trim="nick" :maxlength="NICK_MAX" :disabled="busyNick || isBanned || isProtectedAdminSelf" autocomplete="off" inputmode="text" label="Никнейм"
-                :invalid="!!nick && !validNick" :underline-style="nickUnderlineStyle" :aria-invalid="!!nick && !validNick" aria-describedby="profile-nick-hint" >
-                <template #meta>
-                  <span id="profile-nick-hint">{{ nick.length }}/{{ NICK_MAX }}</span>
-                </template>
-              </UiInput>
+              <div class="nick-input-line">
+                <UiInput class="profile-input" id="profile-nick" v-model.trim="nick" :maxlength="NICK_MAX" :disabled="busyNick || isBanned || isProtectedAdminSelf" autocomplete="off" inputmode="text" label="Никнейм"
+                  :invalid="!!nick && !validNick" :underline-style="nickUnderlineStyle" :aria-invalid="!!nick && !validNick" aria-describedby="profile-nick-hint" >
+                  <template #meta>
+                    <span id="profile-nick-hint">{{ nick.length }}/{{ NICK_MAX }}</span>
+                  </template>
+                </UiInput>
+                <div v-if="me.id > 0" class="nickname-history-tooltip-wrap" tabindex="0" aria-label="История никнеймов" @mouseenter="loadNicknameHistory()" @focusin="loadNicknameHistory()">
+                  <img class="nickname-history-icon" :src="iconTimeHistory" alt="" />
+                  <div class="nickname-history-tooltip" role="tooltip" @click.stop>
+                    <button class="btn danger nickname-history-clear" type="button" :disabled="nicknameHistoryClearDisabled" @click="clearNicknameHistory">
+                      {{ nicknameHistoryClearBusy ? '...' : 'Очистить историю' }}
+                    </button>
+                    <span class="nickname-history-access-text" :class="{ disabled: !canEditProfileTheme }">{{ nicknameHistoryAccessText }}</span>
+                    <span class="nickname-history-divider" aria-hidden="true"></span>
+                    <span v-if="nicknameHistoryLoading" class="nickname-history-state">Загрузка...</span>
+                    <span v-else-if="nicknameHistoryError" class="nickname-history-state danger">{{ nicknameHistoryError }}</span>
+                    <span v-else class="nickname-history-list">
+                      <span v-for="(nicknameItem, index) in nicknameHistoryItems" :key="`${nicknameItem}-${index}`" :class="{ current: index === 0 }">
+                        {{ nicknameItem }}
+                      </span>
+                      <span v-if="!nicknameHistoryItems.length" class="nickname-history-state">-</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
               <span class="hint"><code>латиница, кириллица, цифры, символы ()._-</code></span>
               <button class="btn confirm" @click="saveNick" :disabled="busyNick || isBanned || isProtectedAdminSelf || nick === me.username || !validNick">
                 <img class="btn-img" :src="iconSave" alt="save" />
@@ -300,6 +320,7 @@ import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 import iconSave from '@/assets/svg/save.svg'
 import iconEdit from '@/assets/svg/edit.svg'
 import iconDelete from '@/assets/svg/delete.svg'
+import iconTimeHistory from '@/assets/svg/timeHistory.svg'
 import {
   buildProfileThemeBgStyle,
   getProfileThemeOptions,
@@ -338,6 +359,11 @@ const me = reactive({
   profile_theme_color: null as ProfileThemeColor | null,
   profile_theme_icon: null as ProfileThemeIcon | null,
 })
+
+type NicknameHistoryResponse = {
+  items?: string[] | null
+}
+
 const isProtectedAdminSelf = computed(() => Boolean(me.protected_user))
 const isDeleteAccountForbiddenSelf = computed(() => {
   const role = String(me.role || '').trim().toLowerCase()
@@ -348,6 +374,12 @@ const modalEl = ref<HTMLDivElement | null>(null)
 
 const nick = ref('')
 const busyNick = ref(false)
+const nicknameHistoryLoading = ref(false)
+const nicknameHistoryError = ref('')
+const nicknameHistoryItems = ref<string[]>([])
+const nicknameHistoryLoaded = ref(false)
+const nicknameHistoryClearBusy = ref(false)
+let nicknameHistorySeq = 0
 const validNick = computed(() => {
   const value = nick.value
   const ok = new RegExp(`^[a-zA-Zа-яА-ЯёЁ0-9._\\-()]{2,${NICK_MAX}}$`).test(value)
@@ -500,6 +532,19 @@ const profileThemeAvailabilityText = computed(() => {
   return `Доступно для Вас до ${dt.toLocaleDateString('ru-RU')}`
 })
 const profileThemeMessageText = computed(() => canEditProfileTheme.value ? profileThemeAvailabilityText.value : profileThemeSaveDisabledText.value)
+const nicknameHistoryAccessText = computed(() => (
+  canEditProfileTheme.value
+    ? profileThemeAvailabilityText.value
+    : 'Очистка истории никнеймов доступна пользователям, поддержавшим платформу'
+))
+const nicknameHistoryHasDeletableItems = computed(() => nicknameHistoryItems.value.length > 1)
+const nicknameHistoryClearDisabled = computed(() => (
+  nicknameHistoryClearBusy.value
+  || nicknameHistoryLoading.value
+  || !nicknameHistoryLoaded.value
+  || isBanned.value
+  || !canEditProfileTheme.value
+))
 const registrationDateLabel = computed(() => {
   const raw = me.registered_at
   if (!raw) return '-'
@@ -552,6 +597,7 @@ function applyProfileThemePayload(data: any, options: { keepDraft?: boolean } = 
 }
 
 function applyMePayload(data: any, options: { keepNickDraft?: boolean; keepThemeDraft?: boolean } = {}) {
+  const prevUserId = me.id
   const prevUsername = me.username
   me.id = Number(data?.id || 0)
   me.username = data?.username || ''
@@ -566,6 +612,7 @@ function applyMePayload(data: any, options: { keepNickDraft?: boolean; keepTheme
   applyProfileThemePayload(data, { keepDraft: options.keepThemeDraft })
   const hasNickDraft = Boolean(options.keepNickDraft) && nick.value !== prevUsername
   if (!hasNickDraft) nick.value = me.username
+  if (me.id !== prevUserId || me.username !== prevUsername) resetNicknameHistory()
 }
 
 function themeOptionStyle(color: ProfileThemeColor): Record<string, string> {
@@ -608,6 +655,78 @@ async function loadSanctions(force = false) {
   }
 }
 
+function normalizeNicknameHistoryItems(items: string[] | null | undefined): string[] {
+  return Array.isArray(items)
+    ? items.map((item) => String(item || '').trim()).filter(Boolean)
+    : []
+}
+
+function resetNicknameHistory() {
+  nicknameHistorySeq += 1
+  nicknameHistoryLoading.value = false
+  nicknameHistoryError.value = ''
+  nicknameHistoryItems.value = []
+  nicknameHistoryLoaded.value = false
+}
+
+async function loadNicknameHistory(force = false) {
+  if (me.id <= 0 || nicknameHistoryLoading.value) return
+  if (nicknameHistoryLoaded.value && !force) return
+
+  const seq = ++nicknameHistorySeq
+  nicknameHistoryLoading.value = true
+  nicknameHistoryError.value = ''
+  try {
+    const { data } = await api.get<NicknameHistoryResponse>(`/users/${me.id}/nickname_history`)
+    if (seq !== nicknameHistorySeq) return
+    nicknameHistoryItems.value = normalizeNicknameHistoryItems(data?.items)
+    nicknameHistoryLoaded.value = true
+  } catch {
+    if (seq !== nicknameHistorySeq) return
+    nicknameHistoryError.value = 'Не удалось загрузить историю'
+  } finally {
+    if (seq === nicknameHistorySeq) nicknameHistoryLoading.value = false
+  }
+}
+
+async function clearNicknameHistory() {
+  if (nicknameHistoryClearDisabled.value) return
+  if (!nicknameHistoryHasDeletableItems.value) {
+    void alertDialog('История никнеймов уже пуста')
+    return
+  }
+
+  const ok = await confirmDialog({
+    title: 'Очистить историю никнеймов',
+    text: 'Очистить историю никнеймов, оставив только текущий никнейм?',
+    confirmText: 'Очистить',
+  })
+  if (!ok) return
+
+  nicknameHistoryClearBusy.value = true
+  try {
+    const { data } = await api.delete<NicknameHistoryResponse>('/users/nickname_history')
+    nicknameHistoryItems.value = normalizeNicknameHistoryItems(data?.items)
+    nicknameHistoryLoaded.value = true
+    void alertDialog('История никнеймов успешно очищена')
+  } catch (e: any) {
+    const st = e?.response?.status
+    const d = e?.response?.data?.detail
+    if (st === 403 && d === 'subscription_required') {
+      void loadMe({ keepNickDraft: true }).catch(() => {})
+      void alertDialog('Очистка истории никнеймов доступна только при активной подписке')
+    } else if (st === 403 && d === 'user_banned') {
+      void alertDialog('Аккаунт забанен. Очистка истории никнеймов недоступна')
+    } else if (st === 403 && d === 'user_deleted') {
+      void alertDialog('Аккаунт удален. Очистка истории никнеймов недоступна')
+    } else {
+      void alertDialog('Не удалось очистить историю никнеймов')
+    }
+  } finally {
+    nicknameHistoryClearBusy.value = false
+  }
+}
+
 async function saveNick() {
   if (!validNick.value || busyNick.value || nick.value === me.username || isProtectedAdminSelf.value) return
   busyNick.value = true
@@ -615,6 +734,7 @@ async function saveNick() {
     const { data } = await api.patch('/users/username', { username: nick.value })
     me.username = data.username
     userStore.setUsername(data.username)
+    resetNicknameHistory()
     try { await refreshAccessTokenFull(false) } catch {}
   } catch (e: any) {
     const st = e?.response?.status
@@ -1461,10 +1581,109 @@ onBeforeUnmount(() => {
             align-items: flex-start;
             margin-bottom: 5px;
             gap: 10px;
-            :deep(.profile-input) {
-              flex: 1 1 auto;
-              max-width: 320px;
+            .nick-input-line {
+              display: flex;
+              align-items: flex-end;
+              gap: 10px;
               width: 100%;
+              max-width: 370px;
+              :deep(.profile-input) {
+                flex: 1 1 auto;
+                max-width: 320px;
+                width: 100%;
+              }
+              .nickname-history-tooltip-wrap {
+                display: inline-flex;
+                position: relative;
+                flex: 0 0 auto;
+                align-items: center;
+                justify-content: center;
+                width: 40px;
+                height: 40px;
+                outline: none;
+                &:hover,
+                &:focus-within {
+                  &::after {
+                    display: block;
+                  }
+                  .nickname-history-tooltip {
+                    display: flex;
+                  }
+                }
+                &::after {
+                  content: '';
+                  display: none;
+                  position: absolute;
+                  top: 100%;
+                  right: 0;
+                  width: 260px;
+                  height: 10px;
+                  z-index: 4;
+                }
+                .nickname-history-icon {
+                  width: 24px;
+                  height: 24px;
+                  object-fit: contain;
+                }
+                .nickname-history-tooltip {
+                  display: none;
+                  position: absolute;
+                  top: calc(100% + 10px);
+                  right: 0;
+                  flex-direction: column;
+                  gap: 10px;
+                  width: 260px;
+                  max-height: 330px;
+                  padding: 10px;
+                  border-radius: 5px;
+                  background-color: $graphite;
+                  box-shadow: 3px 3px 5px rgba($black, 0.25);
+                  color: $fg;
+                  font-size: 12px;
+                  line-height: 1.2;
+                  z-index: 5;
+                  .nickname-history-clear {
+                    width: 100%;
+                    max-width: none;
+                    height: 30px;
+                    font-size: 12px;
+                  }
+                  .nickname-history-access-text {
+                    color: $fg;
+                    overflow-wrap: anywhere;
+                    &.disabled {
+                      color: $grey;
+                    }
+                  }
+                  .nickname-history-divider {
+                    width: 100%;
+                    height: 1px;
+                    background-color: rgba($white, 0.1);
+                  }
+                  .nickname-history-list {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 5px;
+                    max-height: 150px;
+                    overflow-y: auto;
+                    scrollbar-width: thin;
+                    span {
+                      color: $ashy;
+                      overflow-wrap: anywhere;
+                      &.current {
+                        color: $fg;
+                        font-family: Manrope-SemiBold;
+                      }
+                    }
+                  }
+                  .nickname-history-state {
+                    color: $ashy;
+                    &.danger {
+                      color: $red;
+                    }
+                  }
+                }
+              }
             }
           }
         }
