@@ -94,23 +94,23 @@
         <div class="extra-grid">
           <article class="metric-card">
             <span>Достоверность завещаний</span>
-            <strong>{{ formatPct(game.farewell_success_percent) }}</strong>
+            <strong>{{ formatFarewellSuccess(game.farewell_success_percent, game.farewell_correct_count, game.farewell_total_count) }}</strong>
           </article>
           <article class="metric-card">
             <span>Заголосован в 1-2 день</span>
             <strong>{{ formatPct(game.vote_leave_day12_percent) }}</strong>
           </article>
           <article class="metric-card">
-            <span>Заголосовал Дона/Шерифа в 1-2 день</span>
-            <strong>{{ formatDonSheriffSplit(game.vote_out_don_day12_count, game.vote_out_sheriff_day12_count) }}</strong>
+            <span>Заголосовал Дона/Шерифа в 1-2 день (черный)</span>
+            <strong>{{ formatDonSheriffSplit(game.vote_out_don_day12_black_count, game.vote_out_sheriff_day12_black_count) }}</strong>
+          </article>
+          <article class="metric-card">
+            <span>Заголосовал Дона/Шерифа в 1-2 день (мирный)</span>
+            <strong>{{ formatDonSheriffSplit(game.vote_out_don_day12_citizen_count, game.vote_out_sheriff_day12_citizen_count) }}</strong>
           </article>
           <article class="metric-card">
             <span>Удалён по фолам (с ППК)</span>
             <strong>{{ formatFoulRemovedWithPpk(game.foul_removed_count, game.ppk_removed_count) }}</strong>
-          </article>
-          <article class="metric-card">
-            <span>Нашел шерифа в 1 ночь</span>
-            <strong>{{ formatPct(game.don_first_night_find_percent) }}</strong>
           </article>
           <article class="metric-card">
             <span>Проголосовал на поражение</span>
@@ -162,14 +162,17 @@ type UserGameStats = {
   games_played: number
   games_won: number
   games_hosted: number
-  don_first_night_find_percent: number
   vote_leave_day12_percent: number
-  vote_out_don_day12_count: number
-  vote_out_sheriff_day12_count: number
+  vote_out_don_day12_black_count: number
+  vote_out_sheriff_day12_black_count: number
+  vote_out_don_day12_citizen_count: number
+  vote_out_sheriff_day12_citizen_count: number
   foul_removed_count: number
   ppk_removed_count: number
   vote_for_red_on_black_win_count: number
   farewell_success_percent: number
+  farewell_correct_count: number
+  farewell_total_count: number
   best_win_streak: number
   best_loss_streak: number
   role_citizen: UserRoleStats
@@ -220,14 +223,17 @@ const stats = reactive<UserStats>({
     games_played: 0,
     games_won: 0,
     games_hosted: 0,
-    don_first_night_find_percent: 0,
     vote_leave_day12_percent: 0,
-    vote_out_don_day12_count: 0,
-    vote_out_sheriff_day12_count: 0,
+    vote_out_don_day12_black_count: 0,
+    vote_out_sheriff_day12_black_count: 0,
+    vote_out_don_day12_citizen_count: 0,
+    vote_out_sheriff_day12_citizen_count: 0,
     foul_removed_count: 0,
     ppk_removed_count: 0,
     vote_for_red_on_black_win_count: 0,
     farewell_success_percent: 0,
+    farewell_correct_count: 0,
+    farewell_total_count: 0,
     best_win_streak: 0,
     best_loss_streak: 0,
     role_citizen: { games: 0, wins: 0 },
@@ -262,6 +268,10 @@ function formatInt(raw: unknown): string {
 
 function formatPct(raw: unknown): string {
   return `${clampPct(raw).toFixed(2)}%`
+}
+
+function formatFarewellSuccess(percentRaw: unknown, correctRaw: unknown, totalRaw: unknown): string {
+  return `${formatPct(percentRaw)} (${formatInt(correctRaw)}/${formatInt(totalRaw)})`
 }
 
 function timesWord(raw: unknown): string {
@@ -470,14 +480,17 @@ function normalizeGame(raw: any): UserGameStats {
     games_played: safeInt(raw?.games_played),
     games_won: safeInt(raw?.games_won),
     games_hosted: safeInt(raw?.games_hosted),
-    don_first_night_find_percent: clampPct(raw?.don_first_night_find_percent),
     vote_leave_day12_percent: clampPct(raw?.vote_leave_day12_percent),
-    vote_out_don_day12_count: safeInt(raw?.vote_out_don_day12_count),
-    vote_out_sheriff_day12_count: safeInt(raw?.vote_out_sheriff_day12_count),
+    vote_out_don_day12_black_count: safeInt(raw?.vote_out_don_day12_black_count),
+    vote_out_sheriff_day12_black_count: safeInt(raw?.vote_out_sheriff_day12_black_count),
+    vote_out_don_day12_citizen_count: safeInt(raw?.vote_out_don_day12_citizen_count),
+    vote_out_sheriff_day12_citizen_count: safeInt(raw?.vote_out_sheriff_day12_citizen_count),
     foul_removed_count: safeInt(raw?.foul_removed_count),
     ppk_removed_count: safeInt(raw?.ppk_removed_count),
     vote_for_red_on_black_win_count: safeInt(raw?.vote_for_red_on_black_win_count),
     farewell_success_percent: clampPct(raw?.farewell_success_percent),
+    farewell_correct_count: safeInt(raw?.farewell_correct_count),
+    farewell_total_count: safeInt(raw?.farewell_total_count),
     best_win_streak: safeInt(raw?.best_win_streak),
     best_loss_streak: safeInt(raw?.best_loss_streak),
     role_citizen: normalizeRoleStats(raw?.role_citizen),
