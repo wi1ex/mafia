@@ -745,18 +745,18 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
         cursor: default;
       }
       .user-slot {
-        width: 28px;
-        height: 28px;
-      }
-      .user-avatar {
         width: 24px;
         height: 24px;
+      }
+      .user-avatar {
+        width: 20px;
+        height: 20px;
         border-radius: 50%;
         object-fit: cover;
       }
       .profile-theme-icon {
-        width: 24px;
-        height: 24px;
+        width: 20px;
+        height: 20px;
         object-fit: contain;
       }
       .profile-theme-icons {
@@ -769,7 +769,7 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
         flex: 1 1 auto;
         min-width: 0;
         color: $fg;
-        font-size: 16px;
+        font-size: 14px;
         font-family: Manrope-Medium;
         line-height: 1.2;
         white-space: nowrap;
@@ -782,8 +782,8 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
         align-items: center;
         gap: 5px;
         img {
-          width: 20px;
-          height: 20px;
+          width: 16px;
+          height: 16px;
         }
       }
     }
@@ -1050,29 +1050,28 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
         gap: 3px;
         height: 16px;
         .user-slot {
-          width: 16px;
-          height: 16px;
+          width: 14px;
+          height: 14px;
         }
         .user-avatar {
-          width: 14px;
-          height: 14px;
+          width: 12px;
+          height: 12px;
         }
         .profile-theme-icon {
-          width: 14px;
-          height: 14px;
+          width: 12px;
+          height: 12px;
         }
         .profile-theme-icons {
           gap: 3px;
         }
         span {
-          height: 12px;
-          font-size: 10px;
+          font-size: 9px;
         }
         .status {
           gap: 3px;
           img {
-            width: 14px;
-            height: 14px;
+            width: 10px;
+            height: 10px;
           }
         }
       }

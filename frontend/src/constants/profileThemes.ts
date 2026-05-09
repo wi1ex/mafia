@@ -13,10 +13,10 @@ const PROFILE_THEME_GRADIENT = {
 
 const PROFILE_THEME_PRESETS = [
   { key: 'mulberry', title: 'Тутовый', accent: '#c82888' },
-  { key: 'rose', title: 'Розовый', accent: '#be2b41' },
-  { key: 'garnet', title: 'Гранатовый', accent: '#bb3017' },
-  { key: 'ruby', title: 'Рубиновый', accent: '#c9542a' },
-  { key: 'terracotta', title: 'Терракотовый', accent: '#dc7328' },
+  { key: 'rose', title: 'Розовый', accent: '#be2b4d' },
+  { key: 'garnet', title: 'Гранатовый', accent: '#bb1717' },
+  { key: 'ruby', title: 'Рубиновый', accent: '#c9472a' },
+  { key: 'terracotta', title: 'Терракотовый', accent: '#dc6728' },
   { key: 'copper', title: 'Медный', accent: '#d68a27' },
   { key: 'gold', title: 'Золотой', accent: '#ceaa25' },
   { key: 'amber', title: 'Янтарный', accent: '#b4c422' },
