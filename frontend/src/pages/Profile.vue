@@ -1308,6 +1308,7 @@ onBeforeUnmount(() => {
     border: none;
     border-radius: 5px;
     background-color: $fg;
+    box-shadow: 3px 3px 5px rgba($black, 0.25);
     font-size: 16px;
     color: $bg;
     font-family: Manrope-Medium;
