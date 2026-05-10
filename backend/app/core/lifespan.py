@@ -16,9 +16,6 @@ from ..api.utils import (
 from ..security.admin_guard import assert_protected_admin_invariants
 from ..security.parameters import ensure_app_settings, refresh_app_settings
 from ..services.minio import ensure_bucket
-# AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-from ..services.nickname_history import ensure_nickname_history_storage, backfill_nickname_history_from_logs
-# AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 from .clients import close_clients, get_redis, init_clients
 from .logging import configure_logging
 
@@ -43,15 +40,9 @@ async def lifespan(app) -> AsyncIterator[None]:
         async with engine.begin() as conn:
             await conn.execute(text("SELECT 1"))
             await conn.run_sync(Base.metadata.create_all)
-            # AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-            await ensure_nickname_history_storage(conn)
-            # AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 
         async with SessionLocal() as session:
             await ensure_app_settings(session)
-            # AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-            await backfill_nickname_history_from_logs(session)
-            # AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
             await assert_protected_admin_invariants(session)
     except Exception:
         log.exception("app.startup.db_failed")

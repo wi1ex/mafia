@@ -11,12 +11,6 @@ USERNAME_UPDATED_RE = re.compile(r":\s*(?P<old>.+?)\s*->\s*(?P<new>.+?)\s*$")
 ADMIN_RESET_RE = re.compile(r"user_id=(?P<user_id>\d+)\s+from=(?P<old>\S+)\s+to=(?P<new>\S+)")
 
 
-# AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-async def ensure_nickname_history_storage(conn: AsyncConnection) -> None:
-    await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS nickname_history TEXT"))
-# AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-
-
 def normalize_nickname_history(raw: Any) -> list[str]:
     if raw is None:
         return []
