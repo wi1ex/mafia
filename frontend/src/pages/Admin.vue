@@ -1835,6 +1835,7 @@ function canOpenMiniProfileOnAdminPage(value: {
   return canOpenMiniProfileTarget({
     targetId: value.id,
     viewerId: viewerUserId.value,
+    viewerRole: userStore.user?.role,
     targetRole: value.role,
     targetDeletedAt: value.deleted_at,
     allowDeleted: Boolean(opts?.allowDeleted),

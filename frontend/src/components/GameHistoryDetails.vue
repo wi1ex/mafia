@@ -226,6 +226,7 @@ function canOpenSlotMiniProfile(slot: GameHistorySlotView): boolean {
   return canOpenMiniProfileTarget({
     targetId: slot.user_id,
     viewerId: viewerUserId.value,
+    viewerRole: viewerRole.value,
     targetRole: slot.profile_role,
     targetDeletedAt: slot.deleted,
     allowDeleted: miniProfileAllowDeleted.value,

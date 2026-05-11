@@ -462,6 +462,7 @@ async def join(sid, data) -> JoinAck:
                            {"user_id": uid,
                             "state": user_state,
                             "role": eff_role,
+                            "profile_role": base_role,
                             "moderation_role": moderation_roles.get(str(uid), eff_role),
                             "blocks": blocked.get(str(uid)) or {},
                             "username": ev_username,

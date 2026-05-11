@@ -459,6 +459,7 @@ function canOpenAuthorMiniProfile(message: GlobalChatMessage): boolean {
   return canOpenMiniProfileTarget({
     targetId: message.author?.id,
     viewerId: normalizeMiniProfileUserId(user.user?.id),
+    viewerRole: user.user?.role,
     targetRole: message.author?.role,
     targetDeletedAt: message.author?.deleted,
     allowDeleted: miniProfileAllowDeleted.value,
@@ -488,6 +489,7 @@ function canOpenMentionMiniProfile(mention: GlobalChatMention): boolean {
   return canOpenMiniProfileTarget({
     targetId: mention?.id,
     viewerId: normalizeMiniProfileUserId(user.user?.id),
+    viewerRole: user.user?.role,
     targetRole: mention?.role,
     targetDeletedAt: mention?.deleted,
     allowDeleted: miniProfileAllowDeleted.value,

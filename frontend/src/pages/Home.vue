@@ -428,6 +428,7 @@ function canOpenRoomInfoMiniProfileForUser(user: { id?: number | null; profile_r
   return canOpenMiniProfileTarget({
     targetId: user.id,
     viewerId: currentUserId.value,
+    viewerRole: userStore.user?.role,
     targetRole: user.profile_role,
   })
 }

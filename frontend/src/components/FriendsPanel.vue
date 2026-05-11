@@ -196,6 +196,7 @@ function canOpenMiniProfile(friend: FriendListItem): boolean {
   return canOpenMiniProfileTarget({
     targetId: friend.id,
     viewerId: viewerUserId.value,
+    viewerRole: userStore.user?.role,
     targetRole: friend.role,
   })
 }

@@ -178,7 +178,7 @@ async def mini_profile(user_id: int, allow_deleted: bool = False, ident: Identit
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user_not_found")
 
     target_role = str(user.role or "user").strip().lower()
-    if target_role == "admin":
+    if target_role == "admin" and viewer_role != "admin":
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user_not_found")
 
     if user.deleted_at and not (allow_deleted and is_staff_viewer):
@@ -277,7 +277,7 @@ async def nickname_history(user_id: int, allow_deleted: bool = False, ident: Ide
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user_not_found")
 
     target_role = str(user.role or "user").strip().lower()
-    if target_role == "admin":
+    if target_role == "admin" and viewer_role != "admin":
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user_not_found")
 
     if user.deleted_at and not (allow_deleted and is_staff_viewer):

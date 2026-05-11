@@ -684,6 +684,7 @@ const positionByUser = reactive(new Map<string, number>())
 const blockByUser  = reactive(new Map<string, BlockState>())
 const rolesByUser = reactive(new Map<string, string>())
 const moderationRolesByUser = reactive(new Map<string, string>())
+const profileRolesByUser = reactive(new Map<string, string>())
 const nameByUser = reactive(new Map<string, string>())
 const avatarByUser = reactive(new Map<string, string | null>())
 const themeColorByUser = reactive(new Map<string, string | null>())
@@ -1031,15 +1032,25 @@ function applyProfileTheme(id: string, source: any): void {
   else themeIconByUser.delete(id)
 }
 
+function applyProfileRole(id: string, source: any): void {
+  const role = typeof source?.role === 'string' && source.role.trim() !== '' ? source.role.trim() : ''
+  if (role) profileRolesByUser.set(id, role)
+  else profileRolesByUser.delete(id)
+}
+
 function applyRoomRoleSync(id: string, source: any): void {
   const role = typeof source?.role === 'string' && source.role.trim() !== '' ? source.role.trim() : ''
   const moderationRole = typeof source?.moderation_role === 'string' && source.moderation_role.trim() !== ''
     ? source.moderation_role.trim()
     : ''
+  const baseRole = typeof source?.base_role === 'string' && source.base_role.trim() !== ''
+    ? source.base_role.trim()
+    : ''
 
   if (role) rolesByUser.set(id, role)
   if (moderationRole) moderationRolesByUser.set(id, moderationRole)
   else if (role) moderationRolesByUser.set(id, role)
+  if (baseRole) profileRolesByUser.set(id, baseRole)
 }
 
 function memoRef<K, V>(cache: Map<K, V>, factory: (k: K) => V): (k: K) => V {
@@ -1084,7 +1095,8 @@ function canOpenMiniProfileFromTile(id: string): boolean {
   return canOpenMiniProfileTarget({
     targetId: uid,
     viewerId: localId.value,
-    targetRole: moderationRol(id),
+    viewerRole: userStore.user?.role,
+    targetRole: profileRol(id),
   })
 }
 
@@ -1096,7 +1108,7 @@ function openMiniProfileFromTile(id: string): void {
     id: uid,
     username: nameByUser.get(id) || null,
     avatar_name: avatarByUser.get(id) || null,
-    role: moderationRol(id),
+    role: profileRol(id),
     theme_color: themeColorFor(id),
     theme_icon: themeIconFor(id),
   }
@@ -1761,6 +1773,7 @@ function enforceMinGameVolumes(): void {
 
 function rol(id: string): string { return rolesByUser.get(id) || 'user' }
 function moderationRol(id: string): string { return moderationRolesByUser.get(id) || rol(id) }
+function profileRol(id: string): string { return profileRolesByUser.get(id) || rol(id) }
 const myRole = computed(() => rol(localId.value))
 const myModerationRole = computed(() => moderationRol(localId.value))
 
@@ -1936,6 +1949,7 @@ function purgePeerUI(id: string) {
   blockByUser.delete(id)
   rolesByUser.delete(id)
   moderationRolesByUser.delete(id)
+  profileRolesByUser.delete(id)
   nameByUser.delete(id)
   avatarByUser.delete(id)
   themeColorByUser.delete(id)
@@ -2045,6 +2059,8 @@ socket.value?.on('connect', async () => {
     if (p?.role) rolesByUser.set(id, String(p.role))
     if (p?.moderation_role) moderationRolesByUser.set(id, String(p.moderation_role))
     else if (p?.role) moderationRolesByUser.set(id, String(p.role))
+    const profileRole = typeof p?.profile_role === 'string' ? p.profile_role : p?.base_role
+    applyProfileRole(id, { role: profileRole })
     if (p?.blocks) applyBlocks(id, p.blocks)
     const av = p?.avatar_name
     if (typeof av === 'string' && av.trim() !== '') avatarByUser.set(id, av)
@@ -2560,6 +2576,7 @@ function applyJoinAck(j: any) {
     moderationRolesByUser.set(String(uid), String(r || 'user'))
   }
 
+  profileRolesByUser.clear()
   const prof = j.profiles || {}
   for (const [uid, m] of Object.entries(prof)) {
     const id = String(uid)
@@ -2569,6 +2586,7 @@ function applyJoinAck(j: any) {
     if (typeof mm?.username === 'string' && mm.username.trim() !== '') nameByUser.set(id, String(mm.username))
     else nameByUser.delete(id)
     applyProfileTheme(id, mm)
+    applyProfileRole(id, mm)
   }
 
   if (j.self_pref) applySelfPref(j.self_pref)
