@@ -54,7 +54,7 @@
         />
       </div>
 
-      <div class="bell" ref="friendsEl">
+      <div v-if="showFriendsButton" class="bell" ref="friendsEl">
         <button @click.stop="onToggleFriends" :aria-expanded="friends_open" aria-label="Друзья">
           <img :src="iconFriends" alt="friends" />
           <span v-if="friends.incomingCount > 0">{{ friends.incomingCount < 100 ? friends.incomingCount : '∞' }}</span>
@@ -212,6 +212,12 @@ const showHistoryButton = computed(() => {
   return Boolean(user.user) && user.telegramVerified
 })
 
+const showFriendsButton = computed(() => {
+  if (!auth.ready || !settings.ready || !auth.isAuthed) return false
+  if (!user.user) return false
+  return !(settings.verificationRestrictions && !user.telegramVerified)
+})
+
 const showGlobalChatButton = computed(() => {
   if (!auth.ready || !settings.ready || !auth.isAuthed) return false
   if (!settings.chatOpenEnabled) return false
@@ -245,6 +251,10 @@ function onToggleUpdates() {
   updates_open.value = next
 }
 function onToggleFriends() {
+  if (!showFriendsButton.value) {
+    friends_open.value = false
+    return
+  }
   const next = !friends_open.value
   closeHeaderPanels({ keepFriends: true })
   friends_open.value = next
@@ -299,15 +309,31 @@ async function logout() {
   finally {}
 }
 
+async function syncFriendsAccess() {
+  if (!showFriendsButton.value) {
+    friends_open.value = false
+    return
+  }
+  friends.ensureWS()
+  await friends.fetchIncomingCount()
+}
+
 watch(() => auth.isAuthed, async ok => {
   if (ok) {
     notif.ensureWS()
     await notif.fetchAll()
     updates.ensureWS()
     await updates.fetchAll()
-    friends.ensureWS()
-    await friends.fetchIncomingCount()
+    await syncFriendsAccess()
   }
+})
+
+watch(showFriendsButton, ok => {
+  if (!ok) {
+    friends_open.value = false
+    return
+  }
+  void syncFriendsAccess()
 })
 
 onMounted(async () => {
@@ -316,8 +342,7 @@ onMounted(async () => {
     await notif.fetchAll()
     updates.ensureWS()
     await updates.fetchAll()
-    friends.ensureWS()
-    await friends.fetchIncomingCount()
+    await syncFriendsAccess()
   }
   document.addEventListener('pointerdown', onGlobalPointerDown)
 })
