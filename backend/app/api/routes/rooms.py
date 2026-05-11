@@ -38,6 +38,7 @@ from ..utils import (
     build_room_members_for_info,
     get_room_params_or_404,
     ensure_room_access_allowed,
+    ensure_verification_allowed,
     schedule_room_gc,
 )
 from ...realtime.utils import get_rooms_brief, filter_rooms_for_viewer, get_public_spectators_count
@@ -207,6 +208,8 @@ async def room_info(room_id: int) -> RoomInfoOut:
 @log_route("rooms.spectators")
 @rate_limited(lambda ident, room_id, **_: f"rl:rooms:spectators:{ident['id']}:{room_id}", limit=10, window_s=1)
 async def room_spectators(room_id: int, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> RoomSpectatorsOut:
+    await ensure_verification_allowed(session, int(ident["id"]))
+
     r = get_redis()
     await get_room_params_or_404(r, room_id)
 

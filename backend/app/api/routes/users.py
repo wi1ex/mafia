@@ -25,6 +25,7 @@ from ..utils import (
     build_user_out_payload,
     emit_auth_profile_sync,
     emit_room_profile_theme_sync,
+    ensure_verification_allowed,
     fetch_effective_online_user_ids,
     fetch_online_user_ids,
     fetch_friends_count_for_users,
@@ -167,6 +168,7 @@ async def public_user_stats(user_id: int, season: int | None = None, ident: Iden
 @rate_limited(lambda ident, user_id, **_: f"rl:user_mini_profile:{ident['id']}:{user_id}", limit=10, window_s=1)
 async def mini_profile(user_id: int, allow_deleted: bool = False, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserMiniProfileOut:
     viewer_id = int(ident["id"])
+    await ensure_verification_allowed(db, viewer_id)
     viewer_role = str(ident["role"] or "").strip().lower()
     is_staff_viewer = viewer_role in {"admin", "moder"}
     uid = int(user_id)
@@ -341,6 +343,7 @@ async def support_link_click(payload: SupportLinkClickIn | None = None, ident: I
 @log_route("users.games_history")
 @rate_limited(lambda ident, **_: f"rl:games_history:{ident['id']}", limit=10, window_s=1)
 async def games_history(page: int = 1, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserGamesHistoryOut:
+    await ensure_verification_allowed(db, int(ident["id"]))
     return await fetch_games_history_page(db, page=page, per_page=GAME_HISTORY_PER_PAGE)
 
 

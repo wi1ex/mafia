@@ -9,7 +9,7 @@
         <img :src="iconInfo" alt="" aria-hidden="true" />
         <span data-nosnippet>Правила</span>
       </router-link>
-      <router-link v-if="auth.isAuthed" class="btn" :to="{ name: 'history' }" aria-label="История игр">
+      <router-link v-if="showHistoryButton" class="btn" :to="{ name: 'history' }" aria-label="История игр">
         <img :src="iconGamesHistory" alt="" aria-hidden="true" />
         <span data-nosnippet>История игр</span>
       </router-link>
@@ -203,6 +203,13 @@ const verificationBanner = computed(() => {
     && auth.isAuthed
     && Boolean(user.user)
     && !user.telegramVerified
+})
+
+const showHistoryButton = computed(() => {
+  if (!auth.isAuthed) return false
+  if (!settings.ready) return false
+  if (!settings.verificationRestrictions) return true
+  return Boolean(user.user) && user.telegramVerified
 })
 
 const showGlobalChatButton = computed(() => {

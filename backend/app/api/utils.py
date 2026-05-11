@@ -143,6 +143,7 @@ __all__ = [
     "build_user_out_payload",
     "emit_auth_profile_sync",
     "refresh_rooms_after",
+    "ensure_verification_allowed",
     "ensure_room_access_allowed",
     "ensure_profile_changes_allowed",
     "is_protected_admin",
@@ -2154,6 +2155,20 @@ async def ensure_room_access_allowed(db: AsyncSession, user_id: int) -> None:
 
     if get_cached_settings().verification_restrictions and not user.telegram_id:
         raise HTTPException(status_code=403, detail="not_verified")
+
+
+async def ensure_verification_allowed(db: AsyncSession, user_id: int) -> None:
+    from ..security.parameters import get_cached_settings
+
+    if not get_cached_settings().verification_restrictions:
+        return
+
+    user = await db.get(User, int(user_id))
+    if not user or user.deleted_at:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+
+    if not user.telegram_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="not_verified")
 
 
 

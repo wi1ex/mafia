@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory, type RouteLocationNormalized, type RouteRecordRaw } from 'vue-router'
-import { useAuthStore, useUserStore } from '@/store'
+import { useAuthStore, useSettingsStore, useUserStore } from '@/store'
 import { BASE_TITLE, ROOM_FALLBACK_TITLE, setPageTitle } from '@/services/pwa'
 
 const BASE_DESCRIPTION = 'Играйте в мафию онлайн бесплатно, общайтесь в комнатах с трансляциями'
@@ -20,7 +20,7 @@ const routes: RouteRecordRaw[] = [
     path: '/history',
     name: 'history',
     component: () => import('@/pages/History.vue'),
-    meta: { requiresAuth: true, title: 'История игр', robots: 'noindex, nofollow' },
+    meta: { requiresAuth: true, requiresVerification: true, title: 'История игр', robots: 'noindex, nofollow' },
   },
   {
     path: '/profile',
@@ -98,6 +98,23 @@ router.beforeEach(async (to, from) => {
   if (!auth.isAuthed) return { name: 'home' }
 
   const user = useUserStore()
+  if (to.meta?.requiresVerification) {
+    const settings = useSettingsStore()
+    if (!settings.ready) {
+      try { await settings.fetchPublic() } catch {}
+    }
+    if (settings.verificationRestrictions) {
+      if (!user.user) {
+        try {
+          await user.fetchMe()
+        } catch {
+          return { name: 'home' }
+        }
+      }
+      if (!user.telegramVerified) return { name: 'home' }
+    }
+  }
+
   if (to.meta?.requiresAdmin || to.meta?.requiresModeration) {
     const enteringPrivilegedRoute = to.path !== from.path || !user.user
     if (enteringPrivilegedRoute) {

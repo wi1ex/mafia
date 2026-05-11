@@ -393,6 +393,7 @@ const spectatorsLabel = computed(() => {
 })
 const spectatorsTooltipEnabled = computed(() => {
   const limit = game.value?.spectators_limit ?? 0
+  if (settings.verificationRestrictions && !userStore.telegramVerified) return false
   return auth.isAuthed && !!selectedRoom.value?.in_game && limit > 0
 })
 const spectatorsTooltipVisible = computed(() => spectatorsOpen.value && spectatorsTooltipEnabled.value)

@@ -46,6 +46,16 @@ watchEffect(() => {
   if (route.meta?.requiresAuth && !auth.isAuthed) {
     router.replace({ name: 'home' }).catch(() => {})
   }
+  if (
+    route.meta?.requiresVerification
+    && auth.isAuthed
+    && settings.ready
+    && settings.verificationRestrictions
+    && Boolean(user.user)
+    && !user.telegramVerified
+  ) {
+    router.replace({ name: 'home' }).catch(() => {})
+  }
 })
 watchEffect(() => {
   if (auth.isAuthed) user.ensureClock()

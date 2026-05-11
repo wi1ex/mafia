@@ -1,7 +1,7 @@
 <template>
   <Teleport to="body">
     <Transition name="user-mini-profile-fade">
-      <div v-if="open" class="user-mini-profile-overlay" role="presentation" @pointerdown.stop.self @click.stop.self="close">
+      <div v-if="canRenderOpen" class="user-mini-profile-overlay" role="presentation" @pointerdown.stop.self @click.stop.self="close">
         <section class="user-mini-profile-panel" :class="{ 'stats-mode': view === 'stats' }" :style="profilePanelStyle"
                  role="dialog" aria-modal="true" :aria-label="`Мини-профиль ${displayName}`" @pointerdown.stop @click.stop>
           <header class="profile-top">
@@ -125,6 +125,7 @@ import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
 import { getProfileThemeBadgeSources } from '@/constants/profileThemeIcons'
 import {
   useFriendsStore,
+  useSettingsStore,
   useUserStore,
   resolveFriendsApiError,
   shouldRefreshFriendsStateAfterError,
@@ -223,6 +224,7 @@ const emit = defineEmits<{
 }>()
 
 const friends = useFriendsStore()
+const settingsStore = useSettingsStore()
 const userStore = useUserStore()
 const loading = ref(false)
 const loadError = ref('')
@@ -248,6 +250,8 @@ const targetUserId = computed(() => {
 const profileLoadedForTarget = computed(() => Boolean(profile.value && profile.value.id === targetUserId.value))
 const viewerUserId = computed(() => Number(userStore.user?.id || 0))
 const viewerRole = computed(() => normalizeMiniProfileRole(userStore.user?.role))
+const viewerVerificationRestricted = computed(() => Boolean(settingsStore.verificationRestrictions && !userStore.telegramVerified))
+const canRenderOpen = computed(() => props.open && !viewerVerificationRestricted.value)
 const isSelfProfile = computed(() => targetUserId.value > 0 && viewerUserId.value === targetUserId.value)
 const privilegedViewer = computed(() => isMiniProfilePrivilegedViewer(viewerRole.value, props.adminMode))
 const initialTargetDeleted = computed(() => {
@@ -690,7 +694,7 @@ function onFriendsUpdate(e: Event) {
   if (previousStatus === 'friends' && nextStatus !== 'friends') adjustProfileFriendsCount(-1)
 }
 
-watch([() => props.open, targetUserId], ([open, uid]) => {
+watch([() => props.open, targetUserId, viewerVerificationRestricted], ([open, uid, restricted]) => {
   if (!open) {
     requestSeq += 1
     loading.value = false
@@ -698,6 +702,11 @@ watch([() => props.open, targetUserId], ([open, uid]) => {
     view.value = 'profile'
     closeAvatarLightbox()
     resetNicknameHistory()
+    return
+  }
+
+  if (restricted) {
+    emit('update:open', false)
     return
   }
 

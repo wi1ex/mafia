@@ -1,3 +1,6 @@
+import { useSettingsStore } from '@/store/modules/setting'
+import { useUserStore } from '@/store/modules/user'
+
 export type MiniProfileOpenGuardInput = {
   targetId: unknown
   viewerId?: unknown
@@ -5,6 +8,8 @@ export type MiniProfileOpenGuardInput = {
   targetRole?: unknown
   targetDeletedAt?: unknown
   allowDeleted?: boolean
+  verificationRestrictions?: unknown
+  viewerTelegramVerified?: unknown
 }
 
 export function normalizeMiniProfileUserId(value: unknown): number {
@@ -33,9 +38,24 @@ export function isMiniProfilePrivilegedViewer(role: unknown, adminMode = false):
   return adminMode || normalizedRole === 'admin' || normalizedRole === 'moder'
 }
 
+function isViewerBlockedByVerification(input: MiniProfileOpenGuardInput): boolean {
+  if ('verificationRestrictions' in input || 'viewerTelegramVerified' in input) {
+    return Boolean(input.verificationRestrictions) && !Boolean(input.viewerTelegramVerified)
+  }
+
+  try {
+    const settings = useSettingsStore()
+    const user = useUserStore()
+    return Boolean(settings.verificationRestrictions && !user.telegramVerified)
+  } catch {
+    return false
+  }
+}
+
 export function canOpenMiniProfileTarget(input: MiniProfileOpenGuardInput): boolean {
   const targetId = normalizeMiniProfileUserId(input.targetId)
   if (targetId <= 0) return false
+  if (isViewerBlockedByVerification(input)) return false
   if (isMiniProfileAdminTargetRole(input.targetRole) && normalizeMiniProfileRole(input.viewerRole) !== 'admin') return false
   return !(!input.allowDeleted && hasMiniProfileDeletedAt(input.targetDeletedAt))
 }
