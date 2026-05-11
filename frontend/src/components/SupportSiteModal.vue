@@ -68,7 +68,7 @@ const supportSites: readonly SupportSiteOption[] = [
     url: 'https://dalink.to/deceit_games',
     icon: iconDonationAlerts,
     iconAlt: 'donation',
-    note: 'Сторонний сервис поддержки',
+    note: 'Внешний сервис поддержки',
   },
 ] as const
 

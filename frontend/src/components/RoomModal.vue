@@ -1,11 +1,6 @@
 <template>
-  <div
-    class="overlay"
-    @pointerdown.self="armed = true"
-    @pointerup.self="armed && $emit('close')"
-    @pointerleave.self="armed = false"
-    @pointercancel.self="armed = false"
-  >
+  <div class="overlay" @pointerdown.self="armed = true" @pointerup.self="armed && $emit('close')"
+       @pointerleave.self="armed = false" @pointercancel.self="armed = false">
     <div class="modal">
       <header>
         <span>Создать комнату</span>
