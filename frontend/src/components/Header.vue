@@ -205,25 +205,25 @@ const verificationBanner = computed(() => {
     && !user.telegramVerified
 })
 
+const canUseVerifiedFeatures = computed(() => {
+  if (!auth.ready || !settings.ready || !auth.isAuthed) return false
+  if (!user.user) return false
+  return !(settings.verificationRestrictions && !user.telegramVerified)
+})
+
 const showHistoryButton = computed(() => {
-  if (!auth.isAuthed) return false
-  if (!settings.ready) return false
-  if (!settings.verificationRestrictions) return true
-  return Boolean(user.user) && user.telegramVerified
+  return canUseVerifiedFeatures.value
 })
 
 const showFriendsButton = computed(() => {
-  if (!auth.ready || !settings.ready || !auth.isAuthed) return false
-  if (!user.user) return false
-  return !(settings.verificationRestrictions && !user.telegramVerified)
+  return canUseVerifiedFeatures.value
 })
 
 const showGlobalChatButton = computed(() => {
-  if (!auth.ready || !settings.ready || !auth.isAuthed) return false
+  if (!canUseVerifiedFeatures.value) return false
   if (!settings.chatOpenEnabled) return false
-  if (!user.user) return false
   if (user.banActive || user.timeoutActive || user.inActiveGameAsPlayer) return false
-  return !(settings.verificationRestrictions && !user.telegramVerified)
+  return true
 })
 
 const adminBannerText = computed(() => {

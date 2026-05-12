@@ -351,6 +351,7 @@ async def games_history(page: int = 1, ident: Identity = Depends(get_identity), 
 @log_route("users.games_history_personal")
 @rate_limited(lambda ident, **_: f"rl:games_history_personal:{ident['id']}", limit=10, window_s=1)
 async def games_history_personal(page: int = 1, role: Literal["citizen", "mafia", "don", "sheriff"] | None = None, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserGamesHistoryOut:
+    await ensure_verification_allowed(db, int(ident["id"]))
     uid = safe_int((ident or {}).get("id"))
     return await fetch_games_history_page(
         db,
@@ -365,6 +366,7 @@ async def games_history_personal(page: int = 1, role: Literal["citizen", "mafia"
 @log_route("users.game_history_details")
 @rate_limited(lambda ident, game_id=None, **_: f"rl:game_history_details:{ident['id']}:{game_id}", limit=10, window_s=1)
 async def game_history_details(game_id: int, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> GameHistoryItemOut:
+    await ensure_verification_allowed(db, int(ident["id"]))
     GAME_HISTORY_MAX_SLOT = 10
     GAME_HISTORY_ROLES = {"citizen", "mafia", "don", "sheriff"}
     GAME_HISTORY_LEAVE_REASONS = {"vote", "foul", "suicide", "night"}

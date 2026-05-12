@@ -362,7 +362,7 @@
             <img :src="iconRequestsRoom" alt="requests" />
             <span class="count-total" :class="{ unread: appsCounts.unread > 0 }">{{ appsCounts.total < 100 ? appsCounts.total : '∞' }}</span>
           </button>
-          <button v-if="gamePhase === 'idle'" ref="roomFriendsEl" @click.stop="toggleFriendsPanel" :aria-expanded="friendsPanelOpen" aria-label="Друзья">
+          <button v-if="showRoomFriendsButton" ref="roomFriendsEl" @click.stop="toggleFriendsPanel" :aria-expanded="friendsPanelOpen" aria-label="Друзья">
             <img :src="iconFriends" alt="friends" />
             <span v-if="friends.incomingCount > 0" class="count-total unread">{{ friends.incomingCount < 100 ? friends.incomingCount : '∞' }}</span>
           </button>
@@ -389,7 +389,7 @@
         />
 
         <FriendsPanel
-          v-if="gamePhase === 'idle'"
+          v-if="showRoomFriendsButton"
           v-model:open="friendsPanelOpen"
           :anchor="roomFriendsEl"
           mode="room"
@@ -719,17 +719,25 @@ let joinPhaseApplyPending = false
 const lkReconnecting = computed(() => rtc.reconnecting.value)
 const isReconnecting = computed(() => netReconnecting.value || lkReconnecting.value)
 const reconnectBursts = ref<number[]>([])
-const showGlobalChatButton = computed(() => {
+const canUseVerifiedFeatures = computed(() => {
   if (!auth.ready || !settings.ready || !auth.isAuthed) return false
-  if (!settings.chatOpenEnabled) return false
   if (!userStore.user) return false
-  if (userStore.banActive || userStore.timeoutActive || userStore.inActiveGameAsPlayer) return false
   return !(settings.verificationRestrictions && !userStore.telegramVerified)
+})
+const showRoomFriendsButton = computed(() => gamePhase.value === 'idle' && canUseVerifiedFeatures.value)
+const showGlobalChatButton = computed(() => {
+  if (!canUseVerifiedFeatures.value) return false
+  if (!settings.chatOpenEnabled) return false
+  return !(userStore.banActive || userStore.timeoutActive || userStore.inActiveGameAsPlayer)
 })
 function onAppsCounts(p: { total?: number; unread?: number }) {
   appsCounts.total = Number(p?.total || 0)
   appsCounts.unread = Number(p?.unread || 0)
 }
+
+watch(showRoomFriendsButton, ok => {
+  if (!ok) friendsPanelOpen.value = false
+})
 
 watch(isReconnecting, (now, prev) => {
   if (leaving.value) return
@@ -1135,6 +1143,10 @@ function toggleApps() {
   openApps.value = next
 }
 function toggleFriendsPanel() {
+  if (!showRoomFriendsButton.value) {
+    friendsPanelOpen.value = false
+    return
+  }
   const next = !friendsPanelOpen.value
   if (next && chat.open) chat.closePanel()
   closePanels('friends')

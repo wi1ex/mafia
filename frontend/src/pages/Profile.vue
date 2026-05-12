@@ -8,7 +8,7 @@
         <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'stats' }" :aria-selected="activeTab === 'stats'" @click="activeTab = 'stats'">
           Статистика
         </button>
-        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'history' }" :aria-selected="activeTab === 'history'" @click="activeTab = 'history'">
+        <button v-if="showHistoryTab" class="tab" type="button" role="tab" :class="{ active: activeTab === 'history' }" :aria-selected="activeTab === 'history'" @click="activeTab = 'history'">
           История игр
         </button>
         <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'sanctions' }" :aria-selected="activeTab === 'sanctions'" @click="activeTab = 'sanctions'">
@@ -241,7 +241,7 @@
           </div>
         </div>
 
-        <div v-else-if="activeTab === 'history'" class="grid grid-history">
+        <div v-else-if="activeTab === 'history' && showHistoryTab" class="grid grid-history">
           <div class="block history-block">
             <h3>Личная история игр</h3>
             <ProfileHistoryTab />
@@ -305,7 +305,7 @@ import { computed, nextTick, onMounted, onBeforeUnmount, reactive, ref, watch } 
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { api, refreshAccessTokenFull } from '@/services/axios'
-import { useAuthStore, useUserStore } from '@/store'
+import { useAuthStore, useSettingsStore, useUserStore } from '@/store'
 import { confirmDialog, alertDialog } from '@/services/confirm'
 import { formatModerationAlert } from '@/services/moderation'
 import { formatLocalDateTime } from '@/services/datetime'
@@ -338,6 +338,7 @@ import {
 
 const userStore = useUserStore()
 const auth = useAuthStore()
+const settings = useSettingsStore()
 const isBanned = computed(() => userStore.banActive)
 const { hotkeysVisible, tgInvitesEnabled, now: userNow } = storeToRefs(userStore)
 const { setHotkeysVisible, setTgInvitesEnabled, setProfileTheme } = userStore
@@ -454,6 +455,7 @@ const tgInvitesTogglePending = ref(false)
 const themeSaveBusy = ref(false)
 const supportModalOpen = ref(false)
 const telegramVerified = computed(() => userStore.telegramVerified)
+const showHistoryTab = computed(() => !(settings.verificationRestrictions && !telegramVerified.value))
 const passwordTemp = computed(() => userStore.passwordTemp)
 const botName = (import.meta.env.VITE_TG_BOT_NAME as string || '').trim()
 const botLink = botName ? `https://t.me/${botName}` : 'https://t.me'
@@ -1363,8 +1365,13 @@ watch(nick, (v) => {
 })
 
 watch(() => route.query.tab, (tab) => {
-  const next = normalizeTab(tab)
+  const requested = normalizeTab(tab)
+  const next = requested === 'history' && !showHistoryTab.value ? 'profile' : requested
   if (next !== activeTab.value) activeTab.value = next
+})
+
+watch(showHistoryTab, ok => {
+  if (!ok && activeTab.value === 'history') activeTab.value = 'profile'
 })
 
 watch(activeTab, (tab) => {
@@ -1378,9 +1385,10 @@ watch(activeTab, (tab) => {
   if (tab === 'profile') void loadMe({ keepNickDraft: true })
 })
 
-onMounted(() => {
-  loadMe().catch(() => {})
-  const requestedTab = normalizeTab(route.query.tab)
+onMounted(async () => {
+  try { await loadMe() } catch {}
+  const normalizedRequestedTab = normalizeTab(route.query.tab)
+  const requestedTab = normalizedRequestedTab === 'history' && !showHistoryTab.value ? 'profile' : normalizedRequestedTab
   if (typeof route.query.tab === 'string' && requestedTab !== activeTab.value) {
     Promise.resolve().then(() => {
       activeTab.value = requestedTab
