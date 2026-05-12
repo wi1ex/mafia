@@ -41,7 +41,12 @@ WEBHOOK_PORT = int(os.getenv("WEBHOOK_PORT", "8081"))
 
 REQUEST_TIMEOUT = 10
 RETRY_ATTEMPTS = 3
-DONATE_URL = "https://t.me/tribute/app?startapp=dCvc"
+TRIBUTE_DONATE_URL = "https://t.me/tribute/app?startapp=dCvc"
+DONATION_ALERTS_DONATE_URL = "https://dalink.to/deceit_games"
+SUPPORT_DONATE_LINKS = (
+    ("Tribute", TRIBUTE_DONATE_URL),
+    ("DonationAlerts", DONATION_ALERTS_DONATE_URL),
+)
 
 REDIS_URL = os.getenv("REDIS_URL", "").strip()
 if not REDIS_URL:
@@ -125,7 +130,8 @@ async def verify_start(message: types.Message, state: FSMContext, session: aioht
 @router.message(F.text == "Поддержать платформу")
 @guarded_handler
 async def support_project(message: types.Message) -> None:
-    await safe_message_answer(message, f"Поддержать платформу: {DONATE_URL}")
+    for name, url in SUPPORT_DONATE_LINKS:
+        await safe_message_answer(message, f"Поддержать платформу через {name}: {url}")
 
 
 @router.message(VerifyState.username, F.text)
