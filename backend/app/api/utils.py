@@ -9,12 +9,12 @@ import structlog
 from time import time
 from datetime import date, datetime, timezone, timedelta
 from typing import Optional, Dict, Any, Literal, Sequence, Iterable, cast, TYPE_CHECKING
-from fastapi import HTTPException, status, Header
+from fastapi import Depends, HTTPException, status, Header
 from sqlalchemy import update, func, select, or_, and_, delete
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.clients import get_redis
-from ..core.db import SessionLocal
+from ..core.db import SessionLocal, get_session
 from ..core.logging import log_action
 from ..core.roles import ROLE_ADMIN, ROLE_USER, admin_users_role_sort_value, normalize_user_role, room_moderation_role
 from ..core.settings import settings
@@ -28,6 +28,7 @@ from ..models.user import User
 from ..models.update import SiteUpdate, UpdateRead
 from ..realtime.sio import sio
 from ..security.admin_guard import is_protected_admin_uid
+from ..security.auth_tokens import get_identity
 from ..services.minio import delete_avatars_async
 from ..services.user_cache import (
     get_user_profiles_cached,
@@ -144,6 +145,7 @@ __all__ = [
     "emit_auth_profile_sync",
     "refresh_rooms_after",
     "ensure_verification_allowed",
+    "require_friends_verification",
     "ensure_room_access_allowed",
     "ensure_profile_changes_allowed",
     "is_protected_admin",
@@ -2170,6 +2172,9 @@ async def ensure_verification_allowed(db: AsyncSession, user_id: int) -> None:
     if not user.telegram_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="not_verified")
 
+
+async def require_friends_verification(ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> None:
+    await ensure_verification_allowed(db, int(ident["id"]))
 
 
 async def ensure_profile_changes_allowed(db: AsyncSession, user_id: int) -> None:

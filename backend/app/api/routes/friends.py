@@ -40,13 +40,9 @@ from ...api.utils import (
     emit_notify,
     emit_friends_update,
     elapsed_seconds_since,
-    ensure_verification_allowed,
+    require_friends_verification,
     tg_room_invite_cooldown_key,
 )
-
-
-async def require_friends_verification(ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> None:
-    await ensure_verification_allowed(db, int(ident["id"]))
 
 
 router = APIRouter(dependencies=[Depends(require_friends_verification)])
