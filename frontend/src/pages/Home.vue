@@ -694,7 +694,8 @@ function startWS() {
 
   sio.value.on('connect', syncRoomsSnapshot)
 
-  sio.value.on('settings_update', () => {
+  sio.value.on('settings_update', (payload: unknown) => {
+    if (settings.applyPublicPayload(payload)) return
     void settings.fetchPublic()
   })
 

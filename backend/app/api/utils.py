@@ -40,7 +40,7 @@ from ..services.profile_theme import ensure_profile_theme_defaults, resolve_prof
 from ..services.telegram import send_text_message
 from ..schemas.common import Ok, Identity
 if TYPE_CHECKING:
-    from ..schemas.admin import SiteSettingsOut, GameSettingsOut, RegistrationsPoint, AdminRoomUserStat, AdminSanctionOut, AdminSanctionDurationAdjustIn, AdminGameActionFieldOut
+    from ..schemas.admin import SiteSettingsOut, GameSettingsOut, PublicSettingsOut, RegistrationsPoint, AdminRoomUserStat, AdminSanctionOut, AdminSanctionDurationAdjustIn, AdminGameActionFieldOut
     from ..schemas.room import GameParams
     from ..schemas.user import UserGamesHistoryOut, GameHistoryItemOut, GameHistoryHostOut, UserStatsOut
 
@@ -76,6 +76,7 @@ __all__ = [
     "parse_month_range",
     "parse_day_range",
     "site_settings_out",
+    "public_settings_out",
     "game_settings_out",
     "schedule_room_gc",
     "gc_empty_room_and_emit",
@@ -3215,6 +3216,28 @@ def site_settings_out(row) -> SiteSettingsOut:
         season_start_game_number=str(row.season_start_game_number),
         text_moderation_whitelist=normalize_text_moderation_whitelist(getattr(row, "text_moderation_whitelist", "0")),
         text_moderation_blacklist=normalize_text_moderation_blacklist(getattr(row, "text_moderation_blacklist", "0")),
+    )
+
+
+def public_settings_out(settings) -> "PublicSettingsOut":
+    from ..schemas.admin import PublicSettingsOut
+
+    return PublicSettingsOut(
+        registration_enabled=bool(settings.registration_enabled),
+        rooms_can_create=bool(settings.rooms_can_create),
+        rooms_can_enter=bool(settings.rooms_can_enter),
+        games_can_start=bool(settings.games_can_start),
+        streams_can_start=bool(settings.streams_can_start),
+        chat_open_enabled=bool(getattr(settings, "chat_open_enabled", True)),
+        chat_messages_enabled=bool(getattr(settings, "chat_messages_enabled", True)),
+        verification_restrictions=bool(settings.verification_restrictions),
+        admin_banner_text=normalize_admin_banner_text(getattr(settings, "admin_banner_text", "0")),
+        admin_banner_link=normalize_admin_banner_link(getattr(settings, "admin_banner_link", "0")),
+        game_min_ready_players=int(settings.game_min_ready_players),
+        winks_limit=int(settings.winks_limit),
+        knocks_limit=int(settings.knocks_limit),
+        wink_spot_chance_percent=int(settings.wink_spot_chance_percent),
+        season_start_game_number=str(settings.season_start_game_number),
     )
 
 

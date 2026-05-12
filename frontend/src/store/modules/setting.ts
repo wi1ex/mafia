@@ -20,6 +20,24 @@ export interface PublicSettings {
   season_start_game_number: string
 }
 
+const PUBLIC_SETTINGS_KEYS: readonly (keyof PublicSettings)[] = [
+  'registration_enabled',
+  'rooms_can_create',
+  'rooms_can_enter',
+  'games_can_start',
+  'streams_can_start',
+  'chat_open_enabled',
+  'chat_messages_enabled',
+  'verification_restrictions',
+  'admin_banner_text',
+  'admin_banner_link',
+  'game_min_ready_players',
+  'winks_limit',
+  'knocks_limit',
+  'wink_spot_chance_percent',
+  'season_start_game_number',
+]
+
 export const useSettingsStore = defineStore('settings', () => {
   const registrationEnabled = ref(true)
   const roomsCanCreate = ref(true)
@@ -83,6 +101,21 @@ export const useSettingsStore = defineStore('settings', () => {
     const winkSpotChance = Number(data.wink_spot_chance_percent)
     if (Number.isFinite(winkSpotChance)) winkSpotChancePercent.value = Math.max(0, Math.min(100, Math.round(winkSpotChance)))
     seasonStartGameNumber.value = normalizeSeasonStart(data.season_start_game_number)
+    ready.value = true
+  }
+
+  function isPublicSettingsPayload(payload: unknown): payload is PublicSettings {
+    return Boolean(
+      payload
+      && typeof payload === 'object'
+      && PUBLIC_SETTINGS_KEYS.every((key) => key in payload)
+    )
+  }
+
+  function applyPublicPayload(payload: unknown): boolean {
+    if (!isPublicSettingsPayload(payload)) return false
+    applyPublic(payload)
+    return true
   }
 
   async function fetchPublic(): Promise<void> {
@@ -97,7 +130,10 @@ export const useSettingsStore = defineStore('settings', () => {
   function ensureWS() {
     if (inited) return
     if (onSettingsEv) window.removeEventListener('auth-settings_update', onSettingsEv)
-    onSettingsEv = () => { void fetchPublic() }
+    onSettingsEv = (event: CustomEvent<unknown>) => {
+      if (applyPublicPayload(event?.detail)) return
+      void fetchPublic()
+    }
     window.addEventListener('auth-settings_update', onSettingsEv)
     inited = true
   }
@@ -123,6 +159,7 @@ export const useSettingsStore = defineStore('settings', () => {
 
     fetchPublic,
     applyPublic,
+    applyPublicPayload,
     ensureWS,
   }
 })

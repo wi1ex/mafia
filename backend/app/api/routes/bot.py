@@ -1,4 +1,5 @@
 from __future__ import annotations
+from contextlib import suppress
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select, exists, and_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +16,7 @@ from ..utils import (
     fetch_active_sanctions,
     fetch_active_sanctions_by_telegram,
     pick_active_sanction_kind,
+    emit_auth_profile_sync,
 )
 from ...realtime.sio import sio
 from ...services.global_chat import emit_global_chat_permissions_updated
@@ -67,14 +69,17 @@ async def verify(payload: BotVerifyIn, db: AsyncSession = Depends(get_session), 
         details=f"Привязка Telegram: user_id={int(user.id)} username={user.username} tg_id={int(payload.telegram_id)}",
     )
 
-    try:
-        await sio.emit("telegram_verified", {"user_id": int(user.id)}, room=f"user:{int(user.id)}", namespace="/auth")
-    except Exception:
-        pass
-    try:
+    with suppress(Exception):
+        await sio.emit(
+            "telegram_verified",
+            {"user_id": int(user.id), "telegram_verified": True},
+            room=f"user:{int(user.id)}",
+            namespace="/auth",
+        )
+    with suppress(Exception):
+        await emit_auth_profile_sync(int(user.id), role=str(user.role or "user"))
+    with suppress(Exception):
         await emit_global_chat_permissions_updated(int(user.id))
-    except Exception:
-        pass
 
     return Ok()
 

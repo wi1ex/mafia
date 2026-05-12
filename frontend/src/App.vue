@@ -92,9 +92,12 @@ onMounted(async () => {
     chat.syncUnreadFromProfile()
   }
   window.addEventListener('auth-profile_sync', onProfileSync)
-  onTelegramVerified = () => {
+  onTelegramVerified = (e: any) => {
     if (!auth.isAuthed) return
+    const payloadUserId = Number(e?.detail?.user_id || 0)
+    if (payloadUserId > 0 && user.user?.id && payloadUserId !== user.user.id) return
     const wasVerified = user.telegramVerified
+    user.setTelegramVerified(true)
     user.fetchMe().catch(() => {})
     if (!wasVerified) void alertDialog('Аккаунт успешно верифицирован.')
     const onProfile = route.name === 'profile'

@@ -978,6 +978,8 @@ async def unverify_telegram(ident: Identity = Depends(get_identity), db: AsyncSe
         details=f"Пользователь отвязал Telegram: user_id={uid} username={ident['username']} tg_id={prev_tg}",
     )
     with suppress(Exception):
+        await emit_auth_profile_sync(uid, role=str(user.role or ident.get("role") or "user"))
+    with suppress(Exception):
         await emit_global_chat_permissions_updated(uid)
 
     return Ok()

@@ -170,6 +170,10 @@ export const useUserStore = defineStore('user', () => {
     if (!user.value) return
     user.value.in_active_game_as_player = next
   }
+  function setTelegramVerified(next: boolean): void {
+    if (!user.value) return
+    user.value.telegram_verified = next
+  }
 
   return {
     user,
@@ -198,6 +202,7 @@ export const useUserStore = defineStore('user', () => {
     setSanctions,
     setInActiveGameAsAlivePlayer,
     setInActiveGameAsPlayer,
+    setTelegramVerified,
     setHotkeysVisible,
     setTgInvitesEnabled,
     ensureClock,

@@ -99,6 +99,7 @@ from ..utils import (
     parse_cached_deleted_at,
     normalize_game_result,
     site_settings_out,
+    public_settings_out,
     game_settings_out,
     schedule_user_game_stats_cache_invalidation,
     normalize_pagination,
@@ -187,23 +188,7 @@ log = structlog.get_logger()
 @log_route("admin.settings_public")
 async def public_settings(session: AsyncSession = Depends(get_session)) -> PublicSettingsOut:
     settings = await refresh_app_settings(session)
-    return PublicSettingsOut(
-        registration_enabled=settings.registration_enabled,
-        rooms_can_create=settings.rooms_can_create,
-        rooms_can_enter=settings.rooms_can_enter,
-        games_can_start=settings.games_can_start,
-        streams_can_start=settings.streams_can_start,
-        chat_open_enabled=settings.chat_open_enabled,
-        chat_messages_enabled=settings.chat_messages_enabled,
-        verification_restrictions=settings.verification_restrictions,
-        admin_banner_text=settings.admin_banner_text,
-        admin_banner_link=settings.admin_banner_link,
-        game_min_ready_players=settings.game_min_ready_players,
-        winks_limit=settings.winks_limit,
-        knocks_limit=settings.knocks_limit,
-        wink_spot_chance_percent=settings.wink_spot_chance_percent,
-        season_start_game_number=settings.season_start_game_number,
-    )
+    return public_settings_out(settings)
 
 
 @router.get("/settings", response_model=AdminSettingsOut)
@@ -243,13 +228,13 @@ async def update_settings(payload: AdminSettingsUpdateIn, session: AsyncSession 
 
     sync_cache_from_row(row)
     if changed:
+        public_payload = public_settings_out(row).model_dump(mode="json")
         with suppress(Exception):
             await get_redis().publish("settings:update", "1")
-        try:
-            await sio.emit("settings_update", {"ok": True}, namespace="/auth")  
-            await sio.emit("settings_update", {"ok": True}, namespace="/rooms")
-        except Exception:
-            pass
+        with suppress(Exception):
+            await sio.emit("settings_update", public_payload, namespace="/auth")
+        with suppress(Exception):
+            await sio.emit("settings_update", public_payload, namespace="/rooms")
         with suppress(Exception):
             await emit_global_chat_permissions_refresh()
         if season_changed:
@@ -1824,6 +1809,8 @@ async def unverify_user(user_id: int, ident: Identity = Depends(get_identity), s
             room=f"user:{uid}",
             namespace="/auth",
         )
+    with suppress(Exception):
+        await emit_auth_profile_sync(uid, role=str(user.role or "user"))
     with suppress(Exception):
         await emit_global_chat_permissions_updated(uid)
     return Ok()

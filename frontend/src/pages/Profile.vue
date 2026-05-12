@@ -820,6 +820,7 @@ async function unlinkTelegram() {
   unlinkTgBusy.value = true
   try {
     await api.post('/users/unverify')
+    userStore.setTelegramVerified(false)
     await loadMe({ keepNickDraft: true })
     void alertDialog('TG-аккаунт отвязан. Верификация снята.')
   } catch (e: any) {
