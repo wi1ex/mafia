@@ -1618,6 +1618,20 @@ onBeforeUnmount(() => {
   right: 10px;
   pointer-events: none;
   z-index: 70;
+  .message-mention {
+    color: $orange;
+    font-family: Manrope-SemiBold;
+  }
+  .message-mention-trigger {
+    display: inline;
+    padding: 0;
+    border: none;
+    background: none;
+    font: inherit;
+    line-height: inherit;
+    text-align: inherit;
+    cursor: pointer;
+  }
   &.room-mode {
     bottom: 60px;
     z-index: 25;
@@ -1637,20 +1651,6 @@ onBeforeUnmount(() => {
   background-color: $dark;
   box-shadow: 0 15px 30px rgba($black, 0.25);
   overflow: hidden;
-  .message-mention {
-    color: $orange;
-    font-family: Manrope-SemiBold;
-  }
-  .message-mention-trigger {
-    display: inline;
-    padding: 0;
-    border: none;
-    background: none;
-    font: inherit;
-    line-height: inherit;
-    text-align: inherit;
-    cursor: pointer;
-  }
   .panel-header {
     display: flex;
     align-items: center;
