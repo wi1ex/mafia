@@ -15,7 +15,7 @@ from typing import Any, Tuple, Dict, Mapping, cast, Optional, List, Iterable
 from dataclasses import dataclass
 from .sio import sio
 from ..core.db import SessionLocal
-from ..core.roles import can_room_moderate, room_moderation_role
+from ..core.roles import ROLE_ADMIN, ROLE_MODER, can_room_moderate, normalize_user_role, room_moderation_role
 from ..core.settings import settings
 from ..security.parameters import get_cached_settings
 from ..models.room import Room
@@ -2335,8 +2335,8 @@ def _normalize_user_ids(values: Iterable[Any] | None) -> set[int]:
 
 async def filter_rooms_for_viewer(r, items: Iterable[Mapping[str, Any]], role: str | None, uid: int | None) -> List[dict]:
     prepared = [dict(item) for item in items]
-    viewer_role = str(role or "user")
-    if viewer_role == "admin":
+    viewer_role = normalize_user_role(role)
+    if viewer_role in {ROLE_ADMIN, ROLE_MODER}:
         return prepared
 
     viewer_uid = _as_int(uid)
@@ -2440,6 +2440,7 @@ async def _hidden_room_viewers(r, rid: int, *, payload: Mapping[str, Any] | None
 async def _emit_hidden_rooms_event(event: str, payload: Mapping[str, Any], viewer_ids: Iterable[int]) -> None:
     data = dict(payload)
     await sio.emit(event, data, room="role:admin", namespace="/rooms")
+    await sio.emit(event, data, room="role:moder", namespace="/rooms")
     for uid in sorted(_normalize_user_ids(viewer_ids)):
         await sio.emit(event, data, room=f"user:{uid}", namespace="/rooms")
 

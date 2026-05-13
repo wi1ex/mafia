@@ -3,6 +3,7 @@ import structlog
 from ..sio import sio
 from ..utils import get_rooms_brief, validate_auth, filter_rooms_for_viewer
 from ...core.clients import get_redis
+from ...core.roles import ROLE_ADMIN, ROLE_MODER, normalize_user_role
 from ...security.decorators import rate_limited_sio
 from ...schemas.realtime import RoomsListAck
 
@@ -22,8 +23,11 @@ async def connect(sid, environ, auth):
     await sio.save_session(sid, {"uid": uid, "role": role}, namespace="/rooms")
     if uid:
         await sio.enter_room(sid, f"user:{uid}", namespace="/rooms")
-    if role == "admin":
+    role = normalize_user_role(role)
+    if role == ROLE_ADMIN:
         await sio.enter_room(sid, "role:admin", namespace="/rooms")
+    elif role == ROLE_MODER:
+        await sio.enter_room(sid, "role:moder", namespace="/rooms")
 
 
 @rate_limited_sio(lambda sid, **__: f"rl:sio:rooms_list:{sid}", limit=10, window_s=1)
