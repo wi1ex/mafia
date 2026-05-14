@@ -546,7 +546,7 @@ def build_global_chat_sanction_removed_text(*, target_username: str, kind: str, 
     return f"У пользователя {target_mention} снята {_sanction_kind_label(kind)}"
 
 
-def build_global_chat_sanction_adjusted_text(*, target_username: str, kind: str, action: str, duration_label: str) -> str:
+def build_global_chat_sanction_adjusted_text(*, target_username: str, kind: str, action: str, duration_label: str, remaining_duration_label: str | None = None) -> str:
     kind_value = str(kind or "").strip().lower()
     action_value = str(action or "").strip().lower()
     target_mention = _format_chat_notice_target_mention(target_username)
@@ -562,6 +562,10 @@ def build_global_chat_sanction_adjusted_text(*, target_username: str, kind: str,
 
     if duration:
         base += f" на {duration}"
+
+    remaining = str(remaining_duration_label or "").strip()
+    if remaining:
+        base += f". До окончания осталось {remaining}"
 
     return base
 
@@ -1681,7 +1685,7 @@ async def emit_global_chat_sanction_removed_notice(session: AsyncSession, *, act
     return await publish_global_chat_notice(session, author_user_id=author_user_id, text=text)
 
 
-async def emit_global_chat_sanction_adjusted_notice(session: AsyncSession, *, actor_user_id: int | None, target_user_id: int, target_username: str | None, kind: str, action: str, duration_label: str) -> dict[str, Any] | None:
+async def emit_global_chat_sanction_adjusted_notice(session: AsyncSession, *, actor_user_id: int | None, target_user_id: int, target_username: str | None, kind: str, action: str, duration_label: str, remaining_duration_label: str | None = None) -> dict[str, Any] | None:
     author_user_id = await _resolve_global_chat_notice_author_user_id(session, preferred_user_id=actor_user_id)
     if author_user_id is None:
         return None
@@ -1696,6 +1700,7 @@ async def emit_global_chat_sanction_adjusted_notice(session: AsyncSession, *, ac
         kind=kind,
         action=action,
         duration_label=duration_label,
+        remaining_duration_label=remaining_duration_label,
     )
     return await publish_global_chat_notice(session, author_user_id=author_user_id, text=text)
 

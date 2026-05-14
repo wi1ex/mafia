@@ -1083,6 +1083,7 @@ async def adjust_active_sanction_duration(sanction_id: int, payload: AdminSancti
             kind=kind,
             action=action_value,
             duration_label=duration_label,
+            remaining_duration_label=remaining_label,
         )
 
     details = (
