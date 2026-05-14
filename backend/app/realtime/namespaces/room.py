@@ -113,6 +113,8 @@ from ..utils import (
     block_vote_and_clear,
     decide_vote_blocks_on_death,
     clear_game_dynamic_keys,
+    room_request_cleanup_for_game_start,
+    emit_room_requests_pruned_for_game_start,
     get_positive_setting_int,
     wink_spot_chance,
     randomize_limit,
@@ -1464,6 +1466,18 @@ async def game_start(sid, data) -> GameStartAck:
         now_ts = int(time())
         bgm_seed = random.randint(1, 2**31 - 1) if music_enabled else 0
 
+        room_request_remove_allow: set[int] = set()
+        room_request_remove_pending: set[int] = set()
+        room_request_remove_requests: set[int] = set()
+        room_request_removed_ids: set[int] = set()
+        if str(params.get("privacy") or "open") == "private":
+            (
+                room_request_remove_allow,
+                room_request_remove_pending,
+                room_request_remove_requests,
+                room_request_removed_ids,
+            ) = await room_request_cleanup_for_game_start(r, rid, participant_ids)
+
         await clear_game_dynamic_keys(r, rid)
         async with r.pipeline() as p:
             await p.delete(
@@ -1523,7 +1537,23 @@ async def game_start(sid, data) -> GameStartAck:
                 await p.hset(f"room:{rid}:game_winks_left", mapping=winks_left_map)
                 await p.hset(f"room:{rid}:game_knocks_left", mapping=knocks_left_map)
             await p.delete(f"room:{rid}:ready")
+            if room_request_remove_allow:
+                await p.srem(f"room:{rid}:allow", *[str(uid) for uid in room_request_remove_allow])
+            if room_request_remove_pending:
+                await p.srem(f"room:{rid}:pending", *[str(uid) for uid in room_request_remove_pending])
+            if room_request_remove_requests:
+                await p.zrem(f"room:{rid}:requests", *[str(uid) for uid in room_request_remove_requests])
             await p.execute()
+
+        if room_request_removed_ids:
+            try:
+                owner_uid = int(params.get("creator") or 0)
+            except Exception:
+                owner_uid = 0
+            try:
+                await emit_room_requests_pruned_for_game_start(rid, room_request_removed_ids, owner_uid)
+            except Exception:
+                log.exception("sio.game_start.room_requests_pruned_emit_failed", rid=rid)
 
         await init_roles_deck(r, rid)
 

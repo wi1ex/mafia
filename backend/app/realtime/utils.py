@@ -157,6 +157,9 @@ __all__ = [
     "decide_vote_blocks_on_death",
     "clear_foul_runtime_keys",
     "clear_game_dynamic_keys",
+    "normalize_uid_set",
+    "room_request_cleanup_for_game_start",
+    "emit_room_requests_pruned_for_game_start",
     "get_positive_setting_int",
     "wink_spot_chance",
     "randomize_limit",
@@ -187,6 +190,80 @@ HOST_BLUR_AUTO_OFF_SECONDS = 120
 _host_blur_auto_tasks: dict[int, asyncio.Task[None]] = {}
 SCREEN_QUALITY_LOW = "low"
 SCREEN_QUALITY_HIGH = "high"
+
+
+def normalize_uid_set(values: object) -> set[int]:
+    out: set[int] = set()
+    if not values:
+        return out
+
+    if not isinstance(values, (list, set, tuple)):
+        return out
+
+    for raw in values:
+        try:
+            uid = int(raw)
+        except Exception:
+            continue
+        if uid > 0:
+            out.add(uid)
+
+    return out
+
+
+async def room_request_cleanup_for_game_start(r, rid: int, keep_user_ids: set[int]) -> tuple[set[int], set[int], set[int], set[int]]:
+    try:
+        async with r.pipeline() as p:
+            await p.smembers(f"room:{rid}:allow")
+            await p.smembers(f"room:{rid}:pending")
+            await p.zrange(f"room:{rid}:requests", 0, -1)
+            raw_allow, raw_pending, raw_requests = await p.execute()
+    except Exception:
+        log.exception("sio.game_start.room_requests_cleanup_scan_failed", rid=rid)
+        return set(), set(), set(), set()
+
+    allow_ids = normalize_uid_set(raw_allow)
+    pending_ids = normalize_uid_set(raw_pending)
+    request_ids = normalize_uid_set(raw_requests)
+    keep_ids = {uid for uid in keep_user_ids if uid > 0}
+
+    remove_allow = allow_ids - keep_ids
+    remove_pending = pending_ids - keep_ids
+    remove_requests = request_ids - keep_ids
+    removed_ids = remove_allow | remove_pending | remove_requests
+
+    return remove_allow, remove_pending, remove_requests, removed_ids
+
+
+async def emit_room_requests_pruned_for_game_start(rid: int, removed_user_ids: set[int], owner_uid: int) -> None:
+    if not removed_user_ids:
+        return
+
+    for removed_uid in sorted(removed_user_ids):
+        payload = {
+            "room_id": rid,
+            "user_id": removed_uid,
+            "silent": True,
+            "source": "game_start_cleanup",
+        }
+        if owner_uid > 0:
+            try:
+                await sio.emit("room_app_revoked", payload, room=f"user:{owner_uid}", namespace="/auth")
+            except Exception:
+                log.warning(
+                    "sio.game_start.room_request_owner_sync_failed",
+                    rid=rid,
+                    owner_uid=owner_uid,
+                    user_id=removed_uid,
+                )
+        try:
+            await sio.emit("room_app_revoked", payload, room=f"user:{removed_uid}", namespace="/auth")
+        except Exception:
+            log.warning(
+                "sio.game_start.room_request_user_sync_failed",
+                rid=rid,
+                user_id=removed_uid,
+            )
 
 
 def cancel_disconnect_cleanup_task(rid: int, uid: int) -> None:

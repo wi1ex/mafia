@@ -782,6 +782,8 @@ watch(() => selectedRoom.value?.in_game, (inGame) => {
     spectators.value = []
     spectatorsLoading.value = false
     spectatorsError.value = ''
+    const rid = selectedId.value
+    if (auth.isAuthed && rid) void fetchAccess(rid)
   }
 })
 
