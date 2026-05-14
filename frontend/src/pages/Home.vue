@@ -252,6 +252,7 @@ const settings = useSettingsStore()
 const isAdmin = computed(() => userStore.user?.role === 'admin')
 const isModer = computed(() => userStore.user?.role === 'moder')
 const canCloseRooms = computed(() => isAdmin.value || isModer.value)
+const canBypassSpectatorsLimit = computed(() => isAdmin.value || isModer.value)
 
 const roomsMap = reactive(new Map<number, Room>())
 const sio = ref<Socket | null>(null)
@@ -360,7 +361,7 @@ const ctaState = computed<Cta>(() => {
   if (!auth.isAuthed || !room) return 'login'
   if (room.in_game) {
     if (isGameParticipant.value) return 'enter'
-    if (isAdmin.value) return 'watch'
+    if (canBypassSpectatorsLimit.value) return 'watch'
     const limit = info.value?.game?.spectators_limit ?? 0
     const count = info.value?.spectators_count ?? 0
     if (limit <= 0) return 'in_game'

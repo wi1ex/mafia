@@ -7,6 +7,7 @@ import structlog
 from sqlalchemy import select
 from ..sio import sio
 from ...core.clients import get_redis
+from ...core.roles import ROLE_ADMIN, ROLE_MODER, normalize_user_role
 from ...core.settings import settings
 from ...models.user import User
 from ...security.decorators import rate_limited_sio
@@ -236,8 +237,8 @@ async def join(sid, data) -> JoinAck:
                 except Exception:
                     raw_game = {}
                 spectators_limit = normalize_spectators_limit(raw_game.get("spectators_limit"))
-                is_admin_user = base_role == "admin"
-                if spectators_limit <= 0 and not is_admin_user:
+                can_bypass_spectators_limit = normalize_user_role(base_role) in {ROLE_ADMIN, ROLE_MODER}
+                if spectators_limit <= 0 and not can_bypass_spectators_limit:
                     return {"ok": False, "error": "game_in_progress", "status": 409}
 
                 try:
@@ -245,7 +246,7 @@ async def join(sid, data) -> JoinAck:
                 except Exception:
                     already_spectator = False
                 if not already_spectator:
-                    if not is_admin_user:
+                    if not can_bypass_spectators_limit:
                         spectators_count = await get_public_spectators_count(r, rid)
                         if spectators_count >= spectators_limit:
                             return {"ok": False, "error": "spectators_full", "status": 409}
