@@ -181,7 +181,8 @@ from ..utils import (
 )
 
 public_router = APIRouter()
-router = APIRouter(dependencies=[Depends(require_protected_admin_dep)])
+ADMIN_GUARD = (Depends(require_protected_admin_dep),)
+router = APIRouter(dependencies=ADMIN_GUARD)
 log = structlog.get_logger()
 
 
@@ -192,7 +193,7 @@ async def public_settings(session: AsyncSession = Depends(get_session)) -> Publi
     return public_settings_out(settings)
 
 
-@router.get("/settings", response_model=AdminSettingsOut)
+@router.get("/settings", response_model=AdminSettingsOut, dependencies=ADMIN_GUARD)
 @log_route("admin.settings_get")
 async def get_settings(session: AsyncSession = Depends(get_session)) -> AdminSettingsOut:
     row = await ensure_app_settings(session)
@@ -200,7 +201,7 @@ async def get_settings(session: AsyncSession = Depends(get_session)) -> AdminSet
     return AdminSettingsOut(site=site_settings_out(row), game=game_settings_out(row))
 
 
-@router.patch("/settings", response_model=AdminSettingsOut)
+@router.patch("/settings", response_model=AdminSettingsOut, dependencies=ADMIN_GUARD)
 @log_route("admin.settings_update")
 async def update_settings(payload: AdminSettingsUpdateIn, session: AsyncSession = Depends(get_session), ident: Identity = Depends(require_protected_admin_dep)) -> AdminSettingsOut:
     row = await ensure_app_settings(session)
@@ -257,7 +258,7 @@ async def update_settings(payload: AdminSettingsUpdateIn, session: AsyncSession 
     return AdminSettingsOut(site=site_settings_out(row), game=game_settings_out(row))
 
 
-@router.get("/stats", response_model=SiteStatsOut)
+@router.get("/stats", response_model=SiteStatsOut, dependencies=ADMIN_GUARD)
 @log_route("admin.stats")
 async def site_stats(month: str | None = None, session: AsyncSession = Depends(get_session)) -> SiteStatsOut:
     start_dt, end_dt = parse_month_range(month)
@@ -353,7 +354,7 @@ async def site_stats(month: str | None = None, session: AsyncSession = Depends(g
     )
 
 
-@router.get("/logs/actions", response_model=AdminLogActionsOut)
+@router.get("/logs/actions", response_model=AdminLogActionsOut, dependencies=ADMIN_GUARD)
 @log_route("admin.logs.actions")
 async def log_actions(session: AsyncSession = Depends(get_session)) -> AdminLogActionsOut:
     rows = await session.execute(select(AppLog.action).distinct().order_by(AppLog.action))
@@ -361,7 +362,7 @@ async def log_actions(session: AsyncSession = Depends(get_session)) -> AdminLogA
     return AdminLogActionsOut(actions=sorted(actions))
 
 
-@router.get("/logs", response_model=AdminLogsOut)
+@router.get("/logs", response_model=AdminLogsOut, dependencies=ADMIN_GUARD)
 @log_route("admin.logs.list")
 async def logs_list(page: int = 1, limit: int = 20, action: str | None = None, username: str | None = None, day: date | None = None, session: AsyncSession = Depends(get_session)) -> AdminLogsOut:
     limit, page, offset = normalize_pagination(page, limit)
@@ -409,7 +410,7 @@ async def logs_list(page: int = 1, limit: int = 20, action: str | None = None, u
     return AdminLogsOut(total=total, items=items)
 
 
-@router.get("/rooms", response_model=AdminRoomsOut)
+@router.get("/rooms", response_model=AdminRoomsOut, dependencies=ADMIN_GUARD)
 @log_route("admin.rooms.list")
 async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None, room_filter: str | None = None, stream_only: bool | None = None, hidden_only: bool | None = None, has_games: bool | None = None, duo_only: bool | None = None, session: AsyncSession = Depends(get_session)) -> AdminRoomsOut:
     limit, page, offset = normalize_pagination(page, limit)
@@ -636,7 +637,7 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
     return AdminRoomsOut(total=total, items=items)
 
 
-@router.get("/games/{game_id}/actions", response_model=AdminGameActionsOut)
+@router.get("/games/{game_id}/actions", response_model=AdminGameActionsOut, dependencies=ADMIN_GUARD)
 @log_route("admin.games.actions")
 async def game_actions(game_id: int, session: AsyncSession = Depends(get_session)) -> AdminGameActionsOut:
     gid = safe_int(game_id)
@@ -698,7 +699,7 @@ async def game_actions(game_id: int, session: AsyncSession = Depends(get_session
     )
 
 
-@router.patch("/games/{game_id}/result", response_model=AdminGameResultOut)
+@router.patch("/games/{game_id}/result", response_model=AdminGameResultOut, dependencies=ADMIN_GUARD)
 @log_route("admin.games.result_update")
 async def update_game_result(game_id: int, payload: AdminGameResultUpdateIn, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> AdminGameResultOut:
     gid = safe_int(game_id)
@@ -737,7 +738,7 @@ async def update_game_result(game_id: int, payload: AdminGameResultUpdateIn, ide
     )
 
 
-@router.patch("/games/{game_id}/ppk", response_model=AdminGamePpkOut)
+@router.patch("/games/{game_id}/ppk", response_model=AdminGamePpkOut, dependencies=ADMIN_GUARD)
 @log_route("admin.games.ppk_update")
 async def update_game_ppk(game_id: int, payload: AdminGamePpkUpdateIn, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> AdminGamePpkOut:
     gid = safe_int(game_id)
@@ -817,7 +818,7 @@ async def update_game_ppk(game_id: int, payload: AdminGamePpkUpdateIn, ident: Id
     )
 
 
-@router.post("/rooms/{room_id}/close", response_model=Ok)
+@router.post("/rooms/{room_id}/close", response_model=Ok, dependencies=ADMIN_GUARD)
 @log_route("admin.rooms.close")
 async def room_close(room_id: int, ident: Identity = Depends(require_protected_admin_dep), session: AsyncSession = Depends(get_session)) -> Ok:
     return await close_room_as_staff(
@@ -828,7 +829,7 @@ async def room_close(room_id: int, ident: Identity = Depends(require_protected_a
     )
 
 
-@router.post("/rooms/kick", response_model=Ok)
+@router.post("/rooms/kick", response_model=Ok, dependencies=ADMIN_GUARD)
 @log_route("admin.rooms.kick_all")
 async def rooms_kick_all(ident: Identity = Depends(require_protected_admin_dep), session: AsyncSession = Depends(get_session)) -> Ok:
     r = get_redis()
@@ -961,7 +962,7 @@ async def rooms_kick_all(ident: Identity = Depends(require_protected_admin_dep),
     return Ok()
 
 
-@router.post("/chat/clear", response_model=Ok)
+@router.post("/chat/clear", response_model=Ok, dependencies=ADMIN_GUARD)
 @log_route("admin.global_chat.clear")
 async def clear_global_chat(ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
     messages_count = int(await session.scalar(select(func.count(GlobalChatMessage.id))) or 0)
@@ -991,7 +992,7 @@ async def clear_global_chat(ident: Identity = Depends(get_identity), session: As
     return Ok()
 
 
-@router.get("/users", response_model=AdminUsersOut)
+@router.get("/users", response_model=AdminUsersOut, dependencies=ADMIN_GUARD)
 @log_route("admin.users.list")
 async def users_list(page: int = 1, limit: int = 20, username: str | None = None, sort_by: str | None = None, session: AsyncSession = Depends(get_session)) -> AdminUsersOut:
     limit, page, offset = normalize_pagination(page, limit)
@@ -1167,7 +1168,7 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
     return AdminUsersOut(total=total, items=items)
 
 
-@router.get("/sanctions", response_model=AdminSanctionsOut)
+@router.get("/sanctions", response_model=AdminSanctionsOut, dependencies=ADMIN_GUARD)
 @log_route("admin.sanctions.list")
 async def sanctions_list(page: int = 1, limit: int = 20, username: str | None = None, session: AsyncSession = Depends(get_session)) -> AdminSanctionsOut:
     limit, page, offset = normalize_pagination(page, limit)
@@ -1253,19 +1254,19 @@ async def sanctions_list(page: int = 1, limit: int = 20, username: str | None = 
     return AdminSanctionsOut(total=total, items=items)
 
 
-@router.patch("/sanctions/{sanction_id}/increase", response_model=Ok)
+@router.patch("/sanctions/{sanction_id}/increase", response_model=Ok, dependencies=ADMIN_GUARD)
 @log_route("admin.sanctions.increase")
 async def increase_active_sanction_duration(sanction_id: int, payload: AdminSanctionDurationAdjustIn, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
     return await adjust_active_sanction_duration(sanction_id, payload, action="increase", ident=ident, session=session)
 
 
-@router.patch("/sanctions/{sanction_id}/decrease", response_model=Ok)
+@router.patch("/sanctions/{sanction_id}/decrease", response_model=Ok, dependencies=ADMIN_GUARD)
 @log_route("admin.sanctions.decrease")
 async def decrease_active_sanction_duration(sanction_id: int, payload: AdminSanctionDurationAdjustIn, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
     return await adjust_active_sanction_duration(sanction_id, payload, action="decrease", ident=ident, session=session)
 
 
-@router.delete("/sanctions/{sanction_id}", response_model=Ok)
+@router.delete("/sanctions/{sanction_id}", response_model=Ok, dependencies=ADMIN_GUARD)
 @log_route("admin.sanctions.delete")
 async def delete_inactive_sanction(sanction_id: int, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
     sanction = await session.get(UserSanction, int(sanction_id))
@@ -1304,7 +1305,7 @@ async def delete_inactive_sanction(sanction_id: int, ident: Identity = Depends(g
     return Ok()
 
 
-@router.get("/subscriptions", response_model=AdminSubscriptionsOut)
+@router.get("/subscriptions", response_model=AdminSubscriptionsOut, dependencies=ADMIN_GUARD)
 @log_route("admin.subscriptions.list")
 async def subscriptions_list(session: AsyncSession = Depends(get_session)) -> AdminSubscriptionsOut:
     now = datetime.now(timezone.utc)
@@ -1350,7 +1351,7 @@ async def subscriptions_list(session: AsyncSession = Depends(get_session)) -> Ad
     return AdminSubscriptionsOut(items=items)
 
 
-@router.post("/subscriptions", response_model=AdminSubscriptionOut)
+@router.post("/subscriptions", response_model=AdminSubscriptionOut, dependencies=ADMIN_GUARD)
 @log_route("admin.subscriptions.upsert")
 async def subscriptions_upsert(payload: AdminSubscriptionCreateIn, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> AdminSubscriptionOut:
     months = int(payload.months or 0)
@@ -1434,7 +1435,7 @@ async def subscriptions_upsert(payload: AdminSubscriptionCreateIn, ident: Identi
     )
 
 
-@router.patch("/subscriptions/{user_id}/reduce", response_model=AdminSubscriptionOut)
+@router.patch("/subscriptions/{user_id}/reduce", response_model=AdminSubscriptionOut, dependencies=ADMIN_GUARD)
 @log_route("admin.subscriptions.reduce")
 async def subscriptions_reduce(user_id: int, payload: AdminSubscriptionDurationIn, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> AdminSubscriptionOut:
     months = int(payload.months or 0)
@@ -1511,7 +1512,7 @@ async def subscriptions_reduce(user_id: int, payload: AdminSubscriptionDurationI
     )
 
 
-@router.delete("/subscriptions/{user_id}", response_model=Ok)
+@router.delete("/subscriptions/{user_id}", response_model=Ok, dependencies=ADMIN_GUARD)
 @log_route("admin.subscriptions.delete")
 async def subscriptions_delete(user_id: int, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
     uid = int(user_id)
@@ -1550,7 +1551,7 @@ async def subscriptions_delete(user_id: int, ident: Identity = Depends(get_ident
     return Ok()
 
 
-@router.get("/users/{user_id}/stats", response_model=UserStatsOut)
+@router.get("/users/{user_id}/stats", response_model=UserStatsOut, dependencies=ADMIN_GUARD)
 @log_route("admin.users.stats")
 async def user_stats(user_id: int, season: int | None = None, session: AsyncSession = Depends(get_session)) -> UserStatsOut:
     uid = int(user_id)
@@ -1561,7 +1562,7 @@ async def user_stats(user_id: int, season: int | None = None, session: AsyncSess
     return await build_user_stats_out(session, uid, season)
 
 
-@router.patch("/users/{user_id}/role", response_model=AdminUserRoleOut)
+@router.patch("/users/{user_id}/role", response_model=AdminUserRoleOut, dependencies=ADMIN_GUARD)
 @log_route("admin.users.role")
 async def update_user_role(user_id: int, payload: AdminUserRoleIn, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> AdminUserRoleOut:
     user = await session.get(User, int(user_id))
@@ -1653,7 +1654,7 @@ async def update_user_role(user_id: int, payload: AdminUserRoleIn, ident: Identi
     return AdminUserRoleOut(id=uid, role=user.role)
 
 
-@router.post("/users/{user_id}/nickname_reset", response_model=AdminUserNameOut)
+@router.post("/users/{user_id}/nickname_reset", response_model=AdminUserNameOut, dependencies=ADMIN_GUARD)
 @log_route("admin.users.nickname_reset")
 async def reset_user_nickname(user_id: int, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> AdminUserNameOut:
     user = await session.get(User, int(user_id))
@@ -1699,7 +1700,7 @@ async def reset_user_nickname(user_id: int, ident: Identity = Depends(get_identi
     return AdminUserNameOut(id=uid, username=next_username)
 
 
-@router.post("/users/{user_id}/avatar_delete", response_model=Ok)
+@router.post("/users/{user_id}/avatar_delete", response_model=Ok, dependencies=ADMIN_GUARD)
 @log_route("admin.users.avatar_delete")
 async def delete_user_avatar_as_admin(user_id: int, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
     user = await session.get(User, int(user_id))
@@ -1733,7 +1734,7 @@ async def delete_user_avatar_as_admin(user_id: int, ident: Identity = Depends(ge
     return Ok()
 
 
-@router.post("/users/{user_id}/delete", response_model=Ok)
+@router.post("/users/{user_id}/delete", response_model=Ok, dependencies=ADMIN_GUARD)
 @log_route("admin.users.account_delete")
 async def delete_user_account(user_id: int, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
     await delete_user_account_as_admin_action(
@@ -1745,7 +1746,7 @@ async def delete_user_account(user_id: int, ident: Identity = Depends(get_identi
     return Ok()
 
 
-@router.post("/users/{user_id}/restore", response_model=Ok)
+@router.post("/users/{user_id}/restore", response_model=Ok, dependencies=ADMIN_GUARD)
 @log_route("admin.users.account_restore")
 async def restore_user_account(user_id: int, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
     target = await session.get(User, int(user_id))
@@ -1767,7 +1768,7 @@ async def restore_user_account(user_id: int, ident: Identity = Depends(get_ident
     return Ok()
 
 
-@router.post("/users/{user_id}/unverify", response_model=Ok)
+@router.post("/users/{user_id}/unverify", response_model=Ok, dependencies=ADMIN_GUARD)
 @log_route("admin.users.unverify")
 async def unverify_user(user_id: int, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
     user = await session.get(User, int(user_id))
@@ -1826,7 +1827,7 @@ async def unverify_user(user_id: int, ident: Identity = Depends(get_identity), s
     return Ok()
 
 
-@router.post("/users/{user_id}/password_clear", response_model=Ok)
+@router.post("/users/{user_id}/password_clear", response_model=Ok, dependencies=ADMIN_GUARD)
 @log_route("admin.users.password_clear")
 async def clear_user_password(user_id: int, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
     user = await session.get(User, int(user_id))
@@ -1880,7 +1881,7 @@ async def clear_user_password(user_id: int, ident: Identity = Depends(get_identi
     return Ok()
 
 
-@router.post("/users/{user_id}/timeout", response_model=Ok)
+@router.post("/users/{user_id}/timeout", response_model=Ok, dependencies=ADMIN_GUARD)
 @log_route("admin.users.timeout_add")
 async def apply_user_timeout(user_id: int, payload: AdminSanctionTimedIn, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
     user = await session.get(User, int(user_id))
@@ -1975,7 +1976,7 @@ async def apply_user_timeout(user_id: int, payload: AdminSanctionTimedIn, ident:
     return Ok()
 
 
-@router.delete("/users/{user_id}/timeout", response_model=Ok)
+@router.delete("/users/{user_id}/timeout", response_model=Ok, dependencies=ADMIN_GUARD)
 @log_route("admin.users.timeout_remove")
 async def revoke_user_timeout(user_id: int, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
     user = await session.get(User, int(user_id))
@@ -2052,7 +2053,7 @@ async def revoke_user_timeout(user_id: int, ident: Identity = Depends(get_identi
     return Ok()
 
 
-@router.post("/users/{user_id}/ban", response_model=Ok)
+@router.post("/users/{user_id}/ban", response_model=Ok, dependencies=ADMIN_GUARD)
 @log_route("admin.users.ban_add")
 async def apply_user_ban(user_id: int, payload: AdminSanctionBanIn, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
     user = await session.get(User, int(user_id))
@@ -2136,7 +2137,7 @@ async def apply_user_ban(user_id: int, payload: AdminSanctionBanIn, ident: Ident
     return Ok()
 
 
-@router.delete("/users/{user_id}/ban", response_model=Ok)
+@router.delete("/users/{user_id}/ban", response_model=Ok, dependencies=ADMIN_GUARD)
 @log_route("admin.users.ban_remove")
 async def revoke_user_ban(user_id: int, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
     user = await session.get(User, int(user_id))
@@ -2207,7 +2208,7 @@ async def revoke_user_ban(user_id: int, ident: Identity = Depends(get_identity),
     return Ok()
 
 
-@router.post("/users/{user_id}/suspend", response_model=Ok)
+@router.post("/users/{user_id}/suspend", response_model=Ok, dependencies=ADMIN_GUARD)
 @log_route("admin.users.suspend_add")
 async def apply_user_suspend(user_id: int, payload: AdminSanctionTimedIn, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
     user = await session.get(User, int(user_id))
@@ -2315,7 +2316,7 @@ async def apply_user_suspend(user_id: int, payload: AdminSanctionTimedIn, ident:
     return Ok()
 
 
-@router.delete("/users/{user_id}/suspend", response_model=Ok)
+@router.delete("/users/{user_id}/suspend", response_model=Ok, dependencies=ADMIN_GUARD)
 @log_route("admin.users.suspend_remove")
 async def revoke_user_suspend(user_id: int, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
     user = await session.get(User, int(user_id))
@@ -2351,7 +2352,7 @@ async def revoke_user_suspend(user_id: int, ident: Identity = Depends(get_identi
     return Ok()
 
 
-@router.get("/updates", response_model=AdminUpdatesOut)
+@router.get("/updates", response_model=AdminUpdatesOut, dependencies=ADMIN_GUARD)
 @log_route("admin.updates.list")
 async def updates_list(session: AsyncSession = Depends(get_session)) -> AdminUpdatesOut:
     rows = await session.execute(select(SiteUpdate).order_by(SiteUpdate.update_date.desc(), SiteUpdate.id.desc()))
@@ -2368,7 +2369,7 @@ async def updates_list(session: AsyncSession = Depends(get_session)) -> AdminUpd
     return AdminUpdatesOut(items=items)
 
 
-@router.post("/updates", response_model=AdminUpdateOut)
+@router.post("/updates", response_model=AdminUpdateOut, dependencies=ADMIN_GUARD)
 @log_route("admin.updates.create")
 async def updates_create(payload: AdminUpdateIn, session: AsyncSession = Depends(get_session)) -> AdminUpdateOut:
     row = SiteUpdate(
@@ -2387,7 +2388,7 @@ async def updates_create(payload: AdminUpdateIn, session: AsyncSession = Depends
     return AdminUpdateOut(id=row.id, version=row.version, date=row.update_date, description=row.description)
 
 
-@router.patch("/updates/{update_id}", response_model=AdminUpdateOut)
+@router.patch("/updates/{update_id}", response_model=AdminUpdateOut, dependencies=ADMIN_GUARD)
 @log_route("admin.updates.update")
 async def updates_update(update_id: int, payload: AdminUpdateIn, session: AsyncSession = Depends(get_session)) -> AdminUpdateOut:
     row = await session.get(SiteUpdate, int(update_id))
@@ -2403,7 +2404,7 @@ async def updates_update(update_id: int, payload: AdminUpdateIn, session: AsyncS
     return AdminUpdateOut(id=row.id, version=row.version, date=row.update_date, description=row.description)
 
 
-@router.delete("/updates/{update_id}", response_model=Ok)
+@router.delete("/updates/{update_id}", response_model=Ok, dependencies=ADMIN_GUARD)
 @log_route("admin.updates.delete")
 async def updates_delete(update_id: int, session: AsyncSession = Depends(get_session)) -> Ok:
     row = await session.get(SiteUpdate, int(update_id))

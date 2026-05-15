@@ -59,10 +59,11 @@ from ..utils import (
     find_user_ids_by_username_search,
 )
 
-router = APIRouter(dependencies=[Depends(require_roles_dep("moder"))])
+MODERATION_GUARD = (Depends(require_roles_dep("moder")),)
+router = APIRouter(dependencies=MODERATION_GUARD)
 
 
-@router.get("/users", response_model=ModerationUsersOut)
+@router.get("/users", response_model=ModerationUsersOut, dependencies=MODERATION_GUARD)
 @log_route("moderation.users.list")
 async def moderation_users_list(page: int = 1, limit: int = 20, username: str | None = None, sort_by: str | None = None, session: AsyncSession = Depends(get_session)) -> ModerationUsersOut:
     limit, page, offset = normalize_pagination(page, limit)
@@ -172,7 +173,7 @@ async def moderation_users_list(page: int = 1, limit: int = 20, username: str | 
     return ModerationUsersOut(total=total, items=items)
 
 
-@router.get("/users/{user_id}/stats", response_model=UserStatsOut)
+@router.get("/users/{user_id}/stats", response_model=UserStatsOut, dependencies=MODERATION_GUARD)
 @log_route("moderation.users.stats")
 async def moderation_user_stats(user_id: int, season: int | None = None, session: AsyncSession = Depends(get_session)) -> UserStatsOut:
     uid = int(user_id)
@@ -183,7 +184,7 @@ async def moderation_user_stats(user_id: int, season: int | None = None, session
     return await build_user_stats_out(session, uid, season)
 
 
-@router.post("/rooms/{room_id}/close", response_model=Ok)
+@router.post("/rooms/{room_id}/close", response_model=Ok, dependencies=MODERATION_GUARD)
 @log_route("moderation.rooms.close")
 async def moderation_room_close(room_id: int, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
     return await close_room_as_staff(
@@ -195,7 +196,7 @@ async def moderation_room_close(room_id: int, ident: Identity = Depends(get_iden
     )
 
 
-@router.post("/users/{user_id}/nickname_reset", response_model=AdminUserNameOut)
+@router.post("/users/{user_id}/nickname_reset", response_model=AdminUserNameOut, dependencies=MODERATION_GUARD)
 @log_route("moderation.users.nickname_reset")
 async def moderation_reset_user_nickname(user_id: int, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> AdminUserNameOut:
     user = await get_moderation_target_user(session, user_id)
@@ -236,7 +237,7 @@ async def moderation_reset_user_nickname(user_id: int, ident: Identity = Depends
     return AdminUserNameOut(id=uid, username=next_username)
 
 
-@router.post("/users/{user_id}/avatar_delete", response_model=Ok)
+@router.post("/users/{user_id}/avatar_delete", response_model=Ok, dependencies=MODERATION_GUARD)
 @log_route("moderation.users.avatar_delete")
 async def moderation_delete_user_avatar(user_id: int, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
     user = await get_moderation_target_user(session, user_id)
@@ -265,7 +266,7 @@ async def moderation_delete_user_avatar(user_id: int, ident: Identity = Depends(
     return Ok()
 
 
-@router.get("/sanctions", response_model=AdminSanctionsOut)
+@router.get("/sanctions", response_model=AdminSanctionsOut, dependencies=MODERATION_GUARD)
 @log_route("moderation.sanctions.list")
 async def moderation_sanctions_list(page: int = 1, limit: int = 20, username: str | None = None, session: AsyncSession = Depends(get_session)) -> AdminSanctionsOut:
     limit, page, offset = normalize_pagination(page, limit)
@@ -351,19 +352,19 @@ async def moderation_sanctions_list(page: int = 1, limit: int = 20, username: st
     return AdminSanctionsOut(total=total, items=items)
 
 
-@router.patch("/sanctions/{sanction_id}/increase", response_model=Ok)
+@router.patch("/sanctions/{sanction_id}/increase", response_model=Ok, dependencies=MODERATION_GUARD)
 @log_route("moderation.sanctions.increase")
 async def moderation_increase_active_sanction_duration(sanction_id: int, payload: AdminSanctionDurationAdjustIn, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
     return await adjust_active_sanction_duration(sanction_id, payload, action="increase", ident=ident, session=session, target_scope="moderation")
 
 
-@router.patch("/sanctions/{sanction_id}/decrease", response_model=Ok)
+@router.patch("/sanctions/{sanction_id}/decrease", response_model=Ok, dependencies=MODERATION_GUARD)
 @log_route("moderation.sanctions.decrease")
 async def moderation_decrease_active_sanction_duration(sanction_id: int, payload: AdminSanctionDurationAdjustIn, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
     return await adjust_active_sanction_duration(sanction_id, payload, action="decrease", ident=ident, session=session, target_scope="moderation")
 
 
-@router.post("/users/{user_id}/timeout", response_model=Ok)
+@router.post("/users/{user_id}/timeout", response_model=Ok, dependencies=MODERATION_GUARD)
 @log_route("moderation.users.timeout_add")
 async def moderation_apply_user_timeout(user_id: int, payload: AdminSanctionTimedIn, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
     user = await get_moderation_target_user(session, user_id)
@@ -443,7 +444,7 @@ async def moderation_apply_user_timeout(user_id: int, payload: AdminSanctionTime
     return Ok()
 
 
-@router.post("/users/{user_id}/suspend", response_model=Ok)
+@router.post("/users/{user_id}/suspend", response_model=Ok, dependencies=MODERATION_GUARD)
 @log_route("moderation.users.suspend_add")
 async def moderation_apply_user_suspend(user_id: int, payload: AdminSanctionTimedIn, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
     user = await get_moderation_target_user(session, user_id)
@@ -536,7 +537,7 @@ async def moderation_apply_user_suspend(user_id: int, payload: AdminSanctionTime
     return Ok()
 
 
-@router.delete("/users/{user_id}/timeout", response_model=Ok)
+@router.delete("/users/{user_id}/timeout", response_model=Ok, dependencies=MODERATION_GUARD)
 @log_route("moderation.users.timeout_remove")
 async def moderation_revoke_user_timeout(user_id: int, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
     user = await get_moderation_target_user(session, user_id)
@@ -596,7 +597,7 @@ async def moderation_revoke_user_timeout(user_id: int, ident: Identity = Depends
     return Ok()
 
 
-@router.delete("/users/{user_id}/suspend", response_model=Ok)
+@router.delete("/users/{user_id}/suspend", response_model=Ok, dependencies=MODERATION_GUARD)
 @log_route("moderation.users.suspend_remove")
 async def moderation_revoke_user_suspend(user_id: int, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
     user = await get_moderation_target_user(session, user_id)
