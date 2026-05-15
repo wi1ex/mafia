@@ -4383,7 +4383,9 @@ def active_room_game_number(raw_state: object, raw_cards: object, raw_taken: obj
         return None
 
     base_number = int_or_zero(encoded)
-    return base_number + now.year + now.month + now.day
+    final_number = base_number + now.year + now.month + now.day
+    random_prefix = "".join(str(secrets.randbelow(9) + 1) for _ in range(3))
+    return int(f"{random_prefix}00{final_number}")
 
 
 async def fetch_active_room_game_numbers(room_ids: list[int]) -> dict[int, int]:
