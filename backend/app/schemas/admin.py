@@ -219,7 +219,7 @@ class AdminRoomUserStat(BaseModel):
 
 class AdminRoomGameOut(BaseModel):
     number: int
-    result: Literal["red", "black", "draw"]
+    result: Literal["red", "black", "draw", "active"]
     minutes: int
 
 

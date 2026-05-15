@@ -121,6 +121,7 @@ from ..utils import (
     close_room_as_staff,
     sum_room_stream_seconds,
     fetch_live_room_stats,
+    fetch_active_room_game_numbers,
     aggregate_user_room_stats,
     build_user_stats_out,
     fetch_users_last_game_at,
@@ -464,6 +465,12 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
             live_stats = await fetch_live_room_stats(get_redis(), active_ids)
         except Exception:
             live_stats = {}
+    active_game_numbers: dict[int, int] = {}
+    if active_ids:
+        try:
+            active_game_numbers = await fetch_active_room_game_numbers(active_ids)
+        except Exception:
+            log.warning("admin.rooms.active_games_fetch_failed", rooms=len(active_ids))
 
     def has_live_snapshot(stats) -> bool:
         if not isinstance(stats, dict):
@@ -587,6 +594,9 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
                 duration_sec = 0
             duration_min = max(0, duration_sec // 60)
             game_items.append(AdminRoomGameOut(number=index + 1, result=result, minutes=duration_min))
+        active_game_number = active_game_numbers.get(int(room.id))
+        if active_game_number is not None:
+            game_items.append(AdminRoomGameOut(number=active_game_number, result="active", minutes=0))
 
         items.append(
             AdminRoomOut(

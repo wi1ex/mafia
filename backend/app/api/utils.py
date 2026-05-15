@@ -100,6 +100,11 @@ __all__ = [
     "build_room_user_stats",
     "sum_room_stream_seconds",
     "fetch_live_room_stats",
+    "redis_hash",
+    "int_or_zero",
+    "game_slot_digit",
+    "active_room_game_number",
+    "fetch_active_room_game_numbers",
     "aggregate_user_room_time_stats",
     "aggregate_user_room_stats",
     "aggregate_user_games_in_owned_rooms_stats",
@@ -271,6 +276,7 @@ SANCTION_SUSPEND = "suspend"
 HOSTED_GAME_SUSPEND_REDUCTION_SECONDS = 4 * 60 * 60
 HOSTED_GAME_SUSPEND_LEGACY_REDUCTION_SECONDS = 6 * 60 * 60
 HOSTED_GAME_SUSPEND_REDUCTION_CHANGED_AT = datetime(2026, 5, 1, tzinfo=timezone.utc)
+MSK_TZ = timezone(timedelta(hours=3))
 SUSPEND_HOSTED_WORKOFF_LOOKAHEAD = timedelta(minutes=5)
 EXPIRED_SANCTION_CHAT_NOTICE_TTL_S = 60 * 60 * 24 * 365
 EXPIRED_SUBSCRIPTION_SYNC_TTL_S = 14 * 24 * 60 * 60
@@ -4290,6 +4296,124 @@ def _map_seconds(raw: Any) -> dict[str, int]:
             out[str(k)] = int(v)
         except Exception:
             continue
+    return out
+
+
+def redis_hash(raw: object) -> dict[str, str]:
+    if not isinstance(raw, dict):
+        return {}
+
+    out: dict[str, str] = {}
+    for key, value in raw.items():
+        key_text = redis_text(key)
+        if key_text:
+            out[key_text] = redis_text(value)
+    return out
+
+
+def int_or_zero(raw: object) -> int:
+    try:
+        return int(raw)
+
+    except Exception:
+        return 0
+
+
+def game_slot_digit(seat: int) -> str | None:
+    if seat == 10:
+        return "0"
+
+    if 1 <= seat <= 9:
+        return str(seat)
+
+    return None
+
+
+def active_room_game_number(raw_state: object, raw_cards: object, raw_taken: object, raw_seats: object, *, now: datetime) -> int | None:
+    state = redis_hash(raw_state)
+    if str(state.get("phase") or "idle") == "idle":
+        return None
+
+    if str(state.get("game_finished") or "0") == "1":
+        return None
+
+    seats: dict[int, int] = {}
+    for uid_raw, seat_raw in redis_hash(raw_seats).items():
+        uid = int_or_zero(uid_raw)
+        seat = int_or_zero(seat_raw)
+        if uid > 0 and 1 <= seat <= 10:
+            seats[uid] = seat
+
+    cards = redis_hash(raw_cards)
+    taken = redis_hash(raw_taken)
+    if not seats or not cards or not taken:
+        return None
+
+    role_slots: dict[str, list[tuple[int, int]]] = {"sheriff": [], "don": [], "mafia": []}
+    card_indexes = sorted(int_or_zero(card_idx) for card_idx in cards.keys())
+    for card_idx in card_indexes:
+        if card_idx <= 0:
+            continue
+        role = str(cards.get(str(card_idx)) or "")
+        if role not in role_slots:
+            continue
+        uid = int_or_zero(taken.get(str(card_idx)))
+        seat = seats.get(uid)
+        if seat is None:
+            continue
+        role_slots[role].append((card_idx, seat))
+
+    if (
+        not role_slots["sheriff"]
+        or not role_slots["don"]
+        or len(role_slots["mafia"]) < 2
+    ):
+        return None
+
+    ordered_slots = [
+        role_slots["sheriff"][0][1],
+        role_slots["don"][0][1],
+        role_slots["mafia"][0][1],
+        role_slots["mafia"][1][1],
+    ]
+    encoded = "".join(
+        digit for slot in ordered_slots if (digit := game_slot_digit(slot)) is not None
+    )
+    if len(encoded) != 4:
+        return None
+
+    base_number = int_or_zero(encoded)
+    return base_number + now.year + now.month + now.day
+
+
+async def fetch_active_room_game_numbers(room_ids: list[int]) -> dict[int, int]:
+    if not room_ids:
+        return {}
+
+    r = get_redis()
+    async with r.pipeline() as p:
+        for rid in room_ids:
+            await p.hgetall(f"room:{rid}:game_state")
+            await p.hgetall(f"room:{rid}:roles_cards")
+            await p.hgetall(f"room:{rid}:roles_taken")
+            await p.hgetall(f"room:{rid}:game_seats")
+        raw = await p.execute()
+
+    now = datetime.now(MSK_TZ)
+    out: dict[int, int] = {}
+    step = 4
+    for idx, rid in enumerate(room_ids):
+        base = idx * step
+        number = active_room_game_number(
+            raw[base],
+            raw[base + 1],
+            raw[base + 2],
+            raw[base + 3],
+            now=now,
+        )
+        if number is not None:
+            out[int(rid)] = number
+
     return out
 
 

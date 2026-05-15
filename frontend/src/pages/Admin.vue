@@ -498,9 +498,11 @@
                       <div class="tooltip-body">
                         <div v-if="row.games.length === 0" class="tooltip-empty">Нет данных</div>
                         <div v-else class="tooltip-list">
-                          <div v-for="item in row.games" :key="`game-${row.id}-${item.number}`" class="tooltip-row">
+                          <div v-for="item in row.games" :key="`game-${row.id}-${item.result}-${item.number}`" class="tooltip-row">
                             <span class="tooltip-id">Игра {{ item.number }} - </span>
-                            <span class="tooltip-minutes">{{ formatRoomGameResult(item.result) }} ({{ formatMinutes(item.minutes) }})</span>
+                            <span class="tooltip-minutes">
+                              {{ formatRoomGameResult(item.result) }}<template v-if="item.result !== 'active'"> ({{ formatMinutes(item.minutes) }})</template>
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -1587,12 +1589,15 @@ function normalizeRoomUsers(value: unknown): RoomUserStat[] {
 function normalizeRoomGames(value: unknown): RoomGameStat[] {
   if (!Array.isArray(value)) return []
   return value
-    .map((item: any) => ({
-      number: Number(item?.number) || 0,
-      result: String(item?.result || ''),
-      minutes: Number(item?.minutes) || 0,
-    }))
-    .filter(item => item.number > 0 && item.result)
+    .map((item: any) => {
+      const number = Number(item?.number)
+      return {
+        number,
+        result: String(item?.result || ''),
+        minutes: Number(item?.minutes) || 0,
+      }
+    })
+    .filter(item => Number.isFinite(item.number) && item.result)
 }
 
 function snapshotSite(): string {
@@ -1995,6 +2000,7 @@ function formatRoomPrivacy(value: string | null | undefined): string {
 }
 
 function formatRoomGameResult(result: string): string {
+  if (result === 'active') return 'активна'
   if (result === 'red') return 'Победа мирных'
   if (result === 'black') return 'Победа мафии'
   if (result === 'draw') return 'Ничья'
