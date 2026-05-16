@@ -341,7 +341,8 @@ const showSpeakersStatus = computed(() => speakersBlocked.value || !speakersEnab
 const showVisibilityStatus = computed(() => visibilityBlocked.value || !visibilityEnabled.value)
 const showScreenStatus = computed(() => screenBlocked.value || screenEnabled.value)
 
-const showHeaderStatus = computed(() => !props.inGame || props.isGameHead)
+const isAdminUser = computed(() => String(props.moderationRole || '').trim().toLowerCase() === 'admin')
+const showHeaderStatus = computed(() => !isAdminUser.value && (!props.inGame || props.isGameHead))
 const volumeDisabled = computed(() => !props.speakersOn || speakersBlocked.value)
 const isDeadTile = computed(() => props.isDead(props.id))
 const showVideo = computed(() =>
