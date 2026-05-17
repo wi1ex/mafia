@@ -36,6 +36,26 @@
                       </span>
                     </span>
                   </span>
+                  <span v-for="nomination in profileNominations" :key="nomination.key" class="profile-nomination-tooltip-wrap" :class="`level-${nomination.level}`"
+                        tabindex="0" :aria-label="`${nomination.label}: ${nomination.valueLabel}, ${nomination.levelLabel}`">
+                    <span class="profile-nomination-icon-shell">
+                      <img class="profile-nomination-icon" :src="nomination.icon" alt="" />
+                    </span>
+                    <span class="profile-tooltip profile-nomination-tooltip" role="tooltip">
+                      <span class="nomination-tooltip-head">
+                        <strong>{{ nomination.label }}</strong>
+                        <span>{{ nomination.levelLabel }}</span>
+                      </span>
+                      <span class="nomination-progress-caption">
+                        <span>{{ nomination.progressStartLabel }}</span>
+                        <span>{{ nomination.progressNextLabel }}</span>
+                      </span>
+                      <span class="nomination-progress-track">
+                        <span class="nomination-progress-fill" :style="{ width: `${nomination.progressPct}%` }"></span>
+                        <span class="nomination-progress-value">{{ nomination.valueLabel }}</span>
+                      </span>
+                    </span>
+                  </span>
 
                   <span v-if="activeSanction" class="profile-meta-tooltip-wrap">
                     <img class="profile-meta-icon sanction-icon" :src="iconJudge" alt="" />
@@ -142,9 +162,16 @@ import iconRecieveFriends from '@/assets/svg/recieveFriends.svg'
 import iconSendFriends from '@/assets/svg/sendFriends.svg'
 import iconJudge from '@/assets/svg/judge.svg'
 import iconTimeHistory from '@/assets/svg/timeHistory.svg'
+import nominationGames from '@/assets/svg/nominationGames.svg'
+import nominationHead from '@/assets/svg/nominationHead.svg'
+import nominationRoom from '@/assets/svg/nominationRoom.svg'
+import nominationStream from '@/assets/svg/nominationStream.svg'
+import nominationSpectator from '@/assets/svg/nominationSpectator.svg'
 
 type FriendActionKind = 'add' | 'remove' | 'incoming' | 'outgoing'
 type MiniProfileSanctionKind = 'timeout' | 'ban' | 'suspend'
+type NominationLevel = 1 | 2 | 3 | 4 | 5
+type NominationStatKey = 'games_played' | 'games_hosted' | 'room_minutes' | 'stream_minutes' | 'spectator_minutes'
 
 type MiniProfileSanction = {
   kind?: MiniProfileSanctionKind | string | null
@@ -156,6 +183,37 @@ type MiniProfileAdminFriend = {
   username?: string | null
   avatar_name?: string | null
   friendship_started_at?: string | null
+}
+
+type MiniProfileNominationStats = {
+  games_played?: number | null
+  games_hosted?: number | null
+  room_minutes?: number | null
+  stream_minutes?: number | null
+  spectator_minutes?: number | null
+}
+
+type ProfileNominationDefinition = {
+  key: string
+  label: string
+  icon: string
+  statKey: NominationStatKey
+  unit: 'count' | 'minutes'
+  levelStarts: readonly [number, number, number, number, number]
+  startLabels: readonly [string, string, string, string, string]
+  nextLabels: readonly [string, string, string, string]
+}
+
+type ProfileNomination = {
+  key: string
+  label: string
+  level: NominationLevel
+  levelLabel: string
+  icon: string
+  valueLabel: string
+  progressPct: number
+  progressStartLabel: string
+  progressNextLabel: string
 }
 
 type MiniProfileInitial = {
@@ -191,6 +249,7 @@ type MiniProfileResponse = {
   friends_count?: number | null
   admin_friends?: MiniProfileAdminFriend[] | null
   active_sanction?: MiniProfileSanction | null
+  nomination_stats?: MiniProfileNominationStats | null
 }
 
 type NicknameHistoryResponse = {
@@ -241,6 +300,61 @@ const nicknameHistoryItems = ref<string[]>([])
 const nicknameHistoryLoadedForTarget = ref(0)
 let requestSeq = 0
 let nicknameHistorySeq = 0
+
+const MINUTES_IN_DAY = 24 * 60
+const nominationIntFmt = new Intl.NumberFormat('ru-RU')
+const PROFILE_NOMINATION_DEFINITIONS: readonly ProfileNominationDefinition[] = [
+  {
+    key: 'games-played',
+    label: 'Сыграл игр',
+    icon: nominationGames,
+    statKey: 'games_played',
+    unit: 'count',
+    levelStarts: [0, 50, 200, 500, 1001],
+    startLabels: ['0', '50', '200', '500', '1000+'],
+    nextLabels: ['50', '200', '500', '1000+'],
+  },
+  {
+    key: 'games-hosted',
+    label: 'Провел игр как ведущий',
+    icon: nominationHead,
+    statKey: 'games_hosted',
+    unit: 'count',
+    levelStarts: [0, 20, 50, 100, 301],
+    startLabels: ['0', '20', '50', '100', '300+'],
+    nextLabels: ['20', '50', '100', '300+'],
+  },
+  {
+    key: 'room-time',
+    label: 'В комнатах',
+    icon: nominationRoom,
+    statKey: 'room_minutes',
+    unit: 'minutes',
+    levelStarts: [0, 7 * MINUTES_IN_DAY, 14 * MINUTES_IN_DAY, 30 * MINUTES_IN_DAY, 60 * MINUTES_IN_DAY + 1],
+    startLabels: ['0', '7д', '14д', '30д', '60д+'],
+    nextLabels: ['7д', '14д', '30д', '60д+'],
+  },
+  {
+    key: 'stream-time',
+    label: 'Стримы',
+    icon: nominationStream,
+    statKey: 'stream_minutes',
+    unit: 'minutes',
+    levelStarts: [0, Math.round(0.25 * MINUTES_IN_DAY), MINUTES_IN_DAY, 2 * MINUTES_IN_DAY, 5 * MINUTES_IN_DAY + 1],
+    startLabels: ['0', '6ч', '1д', '2д', '5д+'],
+    nextLabels: ['6ч', '1д', '2д', '5д+'],
+  },
+  {
+    key: 'spectator-time',
+    label: 'Зритель',
+    icon: nominationSpectator,
+    statKey: 'spectator_minutes',
+    unit: 'minutes',
+    levelStarts: [0, MINUTES_IN_DAY, 7 * MINUTES_IN_DAY, 14 * MINUTES_IN_DAY, 30 * MINUTES_IN_DAY + 1],
+    startLabels: ['0', '1д', '7д', '14д', '30д+'],
+    nextLabels: ['1д', '7д', '14д', '30д+'],
+  },
+]
 
 const targetUserId = computed(() => {
   const raw = props.userId ?? props.initialProfile?.id ?? 0
@@ -304,12 +418,23 @@ const adminFriends = computed(() => (
     ? profile.value.admin_friends
     : []
 ))
+const nominationStats = computed(() => (
+  profileLoadedForTarget.value
+    ? profile.value?.nomination_stats || null
+    : null
+))
+const profileNominations = computed<ProfileNomination[]>(() => {
+  const stats = nominationStats.value
+  if (!stats) return []
+
+  return PROFILE_NOMINATION_DEFINITIONS.map((definition) => buildProfileNomination(definition, stats))
+})
 const showAdminFriendsTooltip = computed(() => (
   viewerRole.value === 'admin'
   && profileLoadedForTarget.value
   && Array.isArray(profile.value?.admin_friends)
 ))
-const showProfileMeta = computed(() => Boolean(activeSanction.value || targetUserId.value > 0 || friendsCount.value !== null))
+const showProfileMeta = computed(() => Boolean(activeSanction.value || targetUserId.value > 0 || friendsCount.value !== null || profileNominations.value.length))
 const activeSanctionKindLabel = computed(() => sanctionKindLabel(activeSanction.value?.kind))
 const activeSanctionExpiryLabel = computed(() => {
   const expiresAt = activeSanction.value?.expires_at
@@ -368,6 +493,66 @@ const showStatsButton = computed(() => Boolean(
   && (isSelfProfile.value || privilegedViewer.value || friendStatus.value === 'friends')
 ))
 const showActionBlock = computed(() => showStatsButton.value || showFriendAction.value)
+
+function safeNonNegativeInt(raw: unknown): number {
+  const value = Number(raw)
+  if (!Number.isFinite(value)) return 0
+  return Math.max(0, Math.trunc(value))
+}
+
+function resolveNominationLevel(value: number, levelStarts: readonly [number, number, number, number, number]): NominationLevel {
+  if (value >= levelStarts[4]) return 5
+  if (value >= levelStarts[3]) return 4
+  if (value >= levelStarts[2]) return 3
+  if (value >= levelStarts[1]) return 2
+  return 1
+}
+
+function nominationProgressPct(value: number, level: NominationLevel, levelStarts: readonly [number, number, number, number, number]): number {
+  if (level >= 5) return 100
+  const start = levelStarts[level - 1]
+  const next = levelStarts[level]
+  if (next <= start) return 100
+  return Math.max(0, Math.min(100, ((value - start) / (next - start)) * 100))
+}
+
+function formatNominationCount(raw: unknown): string {
+  return nominationIntFmt.format(safeNonNegativeInt(raw))
+}
+
+function formatNominationMinutes(raw: unknown): string {
+  const totalMinutes = safeNonNegativeInt(raw)
+  const days = Math.floor(totalMinutes / MINUTES_IN_DAY)
+  const hours = Math.floor((totalMinutes % MINUTES_IN_DAY) / 60)
+  const minutes = totalMinutes % 60
+  const parts: string[] = []
+  if (days > 0) parts.push(`${days}д`)
+  if (hours > 0) parts.push(`${hours}ч`)
+  if (minutes > 0 || parts.length === 0) parts.push(`${minutes}м`)
+  return parts.join(' ')
+}
+
+function formatNominationValue(value: number, unit: ProfileNominationDefinition['unit']): string {
+  return unit === 'minutes' ? formatNominationMinutes(value) : formatNominationCount(value)
+}
+
+function buildProfileNomination(definition: ProfileNominationDefinition, stats: MiniProfileNominationStats): ProfileNomination {
+  const value = safeNonNegativeInt(stats[definition.statKey])
+  const level = resolveNominationLevel(value, definition.levelStarts)
+  const levelIndex = level - 1
+
+  return {
+    key: definition.key,
+    label: definition.label,
+    level,
+    levelLabel: `${level} уровень`,
+    icon: definition.icon,
+    valueLabel: formatNominationValue(value, definition.unit),
+    progressPct: nominationProgressPct(value, level, definition.levelStarts),
+    progressStartLabel: definition.startLabels[levelIndex],
+    progressNextLabel: level >= 5 ? 'макс.' : definition.nextLabels[levelIndex],
+  }
+}
 
 function parseDate(value?: string | number | Date | null): Date | null {
   if (!value) return null
@@ -473,6 +658,18 @@ function normalizeAdminFriends(value: unknown): MiniProfileAdminFriend[] {
   }).filter((item) => item.id > 0)
 }
 
+function normalizeMiniProfileNominationStats(value: unknown): MiniProfileNominationStats | null {
+  if (!value || typeof value !== 'object') return null
+  const raw = value as Record<string, unknown>
+  return {
+    games_played: safeNonNegativeInt(raw.games_played),
+    games_hosted: safeNonNegativeInt(raw.games_hosted),
+    room_minutes: safeNonNegativeInt(raw.room_minutes),
+    stream_minutes: safeNonNegativeInt(raw.stream_minutes),
+    spectator_minutes: safeNonNegativeInt(raw.spectator_minutes),
+  }
+}
+
 function friendAvatarKey(friend: MiniProfileAdminFriend): string {
   const name = String(friend.avatar_name || '').trim()
   if (!name) return ''
@@ -572,6 +769,7 @@ async function loadProfile() {
         Array.isArray(data?.admin_friends) ? normalizeAdminFriends(data.admin_friends) : null
       ),
       active_sanction: data?.active_sanction ?? null,
+      nomination_stats: normalizeMiniProfileNominationStats(data?.nomination_stats),
     }
     applyFriendStatus(normalizeFriendStatus(data?.friend_status))
   } catch {
@@ -796,7 +994,6 @@ onBeforeUnmount(() => {
           gap: 5px;
           .profile-title {
             display: flex;
-            align-items: center;
             min-width: 0;
             height: 30px;
             gap: 5px;
@@ -814,7 +1011,7 @@ onBeforeUnmount(() => {
             .profile-name {
               max-width: 280px;
               font-size: 22px;
-              line-height: 1.2;
+              line-height: 1.3;
               font-family: Manrope-SemiBold;
               white-space: nowrap;
               overflow: hidden;
@@ -926,6 +1123,147 @@ onBeforeUnmount(() => {
                 }
               }
             }
+                                                      .profile-nomination-tooltip-wrap {
+                                                        display: inline-flex;
+                                                        position: relative;
+                                                        flex: 0 0 auto;
+                                                        align-items: center;
+                                                        justify-content: center;
+                                                        outline: none;
+                                                        &:hover,
+                                                        &:focus-within {
+                                                          &::after {
+                                                            display: block;
+                                                          }
+                                                          .profile-tooltip {
+                                                            display: flex;
+                                                          }
+                                                        }
+                                                        &::after {
+                                                          content: '';
+                                                          display: none;
+                                                          position: absolute;
+                                                          top: 100%;
+                                                          left: 50%;
+                                                          width: max(100%, 260px);
+                                                          height: 10px;
+                                                          transform: translateX(-50%);
+                                                          z-index: 2;
+                                                        }
+                                                        &.level-1 {
+                                                          .profile-nomination-icon-shell {
+                                                            background: linear-gradient(135deg, $graphite 0%, $lead 100%);
+                                                          }
+                                                        }
+                                                        &.level-2 {
+                                                          .profile-nomination-icon-shell {
+                                                            background: linear-gradient(135deg, #7a4a24 0%, #b87942 100%);
+                                                          }
+                                                        }
+                                                        &.level-3 {
+                                                          .profile-nomination-icon-shell {
+                                                            background: linear-gradient(135deg, #8f969f 0%, #d8dde4 100%);
+                                                          }
+                                                        }
+                                                        &.level-4 {
+                                                          .profile-nomination-icon-shell {
+                                                            background: linear-gradient(135deg, #b37a13 0%, #f3d05b 100%);
+                                                          }
+                                                        }
+                                                        &.level-5 {
+                                                          .profile-nomination-icon-shell {
+                                                            background: linear-gradient(135deg, #e5f7f4 0%, #49c7c0 52%, #d9d4bd 100%);
+                                                          }
+                                                        }
+                                                        .profile-nomination-icon-shell {
+                                                          display: inline-flex;
+                                                          align-items: center;
+                                                          justify-content: center;
+                                                          width: 30px;
+                                                          height: 30px;
+                                                          border: 1px solid rgba($white, 0.18);
+                                                          border-radius: 5px;
+                                                          box-shadow: 3px 3px 5px rgba($black, 0.25);
+                                                        }
+                                                        .profile-nomination-icon {
+                                                          width: 20px;
+                                                          height: 20px;
+                                                          object-fit: contain;
+                                                          filter: drop-shadow(0 1px 1px rgba($black, 0.35));
+                                                        }
+                                                        .profile-tooltip {
+                                                          display: none;
+                                                          position: absolute;
+                                                          padding: 10px;
+                                                          border-radius: 5px;
+                                                          background-color: $graphite;
+                                                          box-shadow: 3px 3px 5px rgba($black, 0.25);
+                                                          color: $fg;
+                                                          font-size: 12px;
+                                                          line-height: 1.2;
+                                                          z-index: 3;
+                                                          &.profile-nomination-tooltip {
+                                                            top: calc(100% + 10px);
+                                                            left: 50%;
+                                                            flex-direction: column;
+                                                            gap: 8px;
+                                                            width: 260px;
+                                                            transform: translateX(-50%);
+                                                            .nomination-tooltip-head,
+                                                            .nomination-progress-caption {
+                                                              display: flex;
+                                                              align-items: center;
+                                                              justify-content: space-between;
+                                                              gap: 10px;
+                                                              min-width: 0;
+                                                              span,
+                                                              strong {
+                                                                overflow: hidden;
+                                                                text-overflow: ellipsis;
+                                                                white-space: nowrap;
+                                                              }
+                                                              strong {
+                                                                font-family: Manrope-SemiBold;
+                                                                font-weight: normal;
+                                                              }
+                                                            }
+                                                            .nomination-progress-caption {
+                                                              color: $ashy;
+                                                              font-size: 11px;
+                                                            }
+                                                            .nomination-progress-track {
+                                                              display: block;
+                                                              position: relative;
+                                                              width: 100%;
+                                                              height: 18px;
+                                                              overflow: hidden;
+                                                              border-radius: 999px;
+                                                              background-color: rgba($white, 0.12);
+                                                            }
+                                                            .nomination-progress-fill {
+                                                              position: absolute;
+                                                              top: 0;
+                                                              left: 0;
+                                                              height: 100%;
+                                                              border-radius: inherit;
+                                                              background: linear-gradient(90deg, rgba($green, 0.45) 0%, rgba($yellow, 0.75) 100%);
+                                                            }
+                                                            .nomination-progress-value {
+                                                              display: flex;
+                                                              position: absolute;
+                                                              align-items: center;
+                                                              justify-content: center;
+                                                              inset: 0;
+                                                              padding: 0 8px;
+                                                              color: $fg;
+                                                              font-size: 11px;
+                                                              font-family: Manrope-SemiBold;
+                                                              text-shadow: 0 1px 2px rgba($black, 0.65);
+                                                              white-space: nowrap;
+                                                            }
+                                                          }
+                                                        }
+                                                      }
             .profile-meta-tooltip-wrap {
               display: inline-flex;
               position: relative;
@@ -1300,6 +1638,44 @@ onBeforeUnmount(() => {
                   }
                 }
               }
+                                                        .profile-nomination-tooltip-wrap {
+                                                          &::after {
+                                                            width: max(100%, 210px);
+                                                            height: 5px;
+                                                          }
+                                                          .profile-nomination-icon-shell {
+                                                            width: 18px;
+                                                            height: 18px;
+                                                            border-radius: 4px;
+                                                          }
+                                                          .profile-nomination-icon {
+                                                            width: 12px;
+                                                            height: 12px;
+                                                          }
+                                                          .profile-tooltip {
+                                                            padding: 6px;
+                                                            font-size: 10px;
+                                                            &.profile-nomination-tooltip {
+                                                              top: calc(100% + 5px);
+                                                              gap: 5px;
+                                                              width: 210px;
+                                                              .nomination-tooltip-head,
+                                                              .nomination-progress-caption {
+                                                                gap: 6px;
+                                                              }
+                                                              .nomination-progress-caption {
+                                                                font-size: 9px;
+                                                              }
+                                                              .nomination-progress-track {
+                                                                height: 14px;
+                                                              }
+                                                              .nomination-progress-value {
+                                                                padding: 0 5px;
+                                                                font-size: 9px;
+                                                              }
+                                                            }
+                                                          }
+                                                        }
               .profile-meta-tooltip-wrap {
                 .profile-meta-icon {
                   width: 14px;

@@ -42,7 +42,7 @@ from ..schemas.common import Ok, Identity
 if TYPE_CHECKING:
     from ..schemas.admin import SiteSettingsOut, GameSettingsOut, PublicSettingsOut, RegistrationsPoint, AdminRoomUserStat, AdminSanctionOut, AdminSanctionDurationAdjustIn, AdminGameActionFieldOut
     from ..schemas.room import GameParams
-    from ..schemas.user import UserGamesHistoryOut, GameHistoryItemOut, GameHistoryHostOut, UserStatsOut
+    from ..schemas.user import UserGamesHistoryOut, GameHistoryItemOut, GameHistoryHostOut, UserMiniProfileNominationStatsOut, UserStatsOut
 
 __all__ = [
     "SANCTION_TIMEOUT",
@@ -108,6 +108,7 @@ __all__ = [
     "aggregate_user_room_time_stats",
     "aggregate_user_room_stats",
     "aggregate_user_games_in_owned_rooms_stats",
+    "build_user_mini_profile_nomination_stats_out",
     "build_user_stats_out",
     "fetch_users_last_game_at",
     "fetch_users_last_room_id",
@@ -4918,6 +4919,24 @@ async def aggregate_user_room_time_stats(session: AsyncSession, ids: list[int], 
                         continue
 
     return rooms_created, room_seconds, stream_seconds, spectator_seconds
+
+
+async def build_user_mini_profile_nomination_stats_out(db: AsyncSession, uid: int) -> UserMiniProfileNominationStatsOut:
+    from ..schemas.user import UserMiniProfileNominationStatsOut
+    from ..services.user_stats import get_user_game_stats_cached
+
+    _rooms_created, room_seconds, stream_seconds, spectator_seconds = (
+        await aggregate_user_room_time_stats(db, [uid], season=None)
+    )
+    game_stats = await get_user_game_stats_cached(db, uid, None)
+
+    return UserMiniProfileNominationStatsOut(
+        games_played=max(0, safe_int(game_stats.games_played)),
+        games_hosted=max(0, safe_int(game_stats.games_hosted)),
+        room_minutes=max(0, safe_int(room_seconds.get(uid, 0)) // 60),
+        stream_minutes=max(0, safe_int(stream_seconds.get(uid, 0)) // 60),
+        spectator_minutes=max(0, safe_int(spectator_seconds.get(uid, 0)) // 60),
+    )
 
 
 async def build_user_stats_out(db: AsyncSession, uid: int, season: int | None = None) -> UserStatsOut:

@@ -30,6 +30,7 @@ from ..utils import (
     fetch_online_user_ids,
     fetch_friends_count_for_users,
     build_admin_mini_profile_friends,
+    build_user_mini_profile_nomination_stats_out,
     friend_status_for,
 )
 from ...models.game import Game
@@ -70,6 +71,7 @@ from ...schemas.user import (
     UserStatsOut,
     UserMiniProfileOut,
     UserMiniProfileSanctionOut,
+    UserMiniProfileNominationStatsOut,
     UserNicknameHistoryOut,
 )
 from ...security.passwords import hash_password, verify_password
@@ -220,6 +222,10 @@ async def mini_profile(user_id: int, allow_deleted: bool = False, ident: Identit
                 expires_at=active_sanction_row.expires_at,
             )
 
+    nomination_stats: UserMiniProfileNominationStatsOut | None = None
+    with suppress(Exception):
+        nomination_stats = await build_user_mini_profile_nomination_stats_out(db, uid)
+
     friend_status = await friend_status_for(db, viewer_id, uid)
     viewer_username = str(ident.get("username") or f"user{viewer_id}")
     target_username = user.username or f"user{uid}"
@@ -261,6 +267,7 @@ async def mini_profile(user_id: int, allow_deleted: bool = False, ident: Identit
         friends_count=int(friends_count or 0),
         admin_friends=admin_friends,
         active_sanction=active_sanction,
+        nomination_stats=nomination_stats,
     )
 
 

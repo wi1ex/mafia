@@ -44,6 +44,14 @@ class UserMiniProfileFriendOut(BaseModel):
     friendship_started_at: Optional[datetime] = None
 
 
+class UserMiniProfileNominationStatsOut(BaseModel):
+    games_played: int = 0
+    games_hosted: int = 0
+    room_minutes: int = 0
+    stream_minutes: int = 0
+    spectator_minutes: int = 0
+
+
 class UserMiniProfileOut(BaseModel):
     id: int
     username: Optional[str] = None
@@ -62,6 +70,7 @@ class UserMiniProfileOut(BaseModel):
     friends_count: int = 0
     admin_friends: Optional[List[UserMiniProfileFriendOut]] = None
     active_sanction: Optional[UserMiniProfileSanctionOut] = None
+    nomination_stats: Optional[UserMiniProfileNominationStatsOut] = None
 
 
 class UserNicknameHistoryOut(BaseModel):
