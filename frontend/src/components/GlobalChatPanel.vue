@@ -1355,7 +1355,7 @@ async function onJumpToUnreadTarget(): Promise<void> {
   const messageId = nextUnreadTargetMessageId.value
   if (!messageId) return
   suppressVisibleUnreadTargetAutoRead()
-  const ok = await jumpToMessage(messageId, 'Не удалось найти сообщение с ответом или упоминанием.')
+  const ok = await jumpToMessage(messageId, 'Не удалось найти сообщение с ответом, упоминанием или реакцией.')
   if (!ok) return
   await chat.markAlertRead(messageId)
 }

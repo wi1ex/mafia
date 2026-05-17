@@ -6,10 +6,15 @@ from datetime import datetime, timezone
 from typing import Any, Sequence
 from uuid import UUID, uuid4
 import structlog
-from sqlalchemy import func, or_, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
-from ..models.global_chat import GlobalChatMessage, GlobalChatMessageReaction, GlobalChatReadState
+from ..models.global_chat import (
+    GlobalChatMessage,
+    GlobalChatMessageReaction,
+    GlobalChatReactionAlert,
+    GlobalChatReadState,
+)
 from ..models.sanction import UserSanction
 from ..models.user import User
 from ..core.db import SessionLocal
@@ -745,6 +750,16 @@ async def _get_latest_global_chat_message_id(session: AsyncSession) -> int:
     return _positive_int(latest_message_id)
 
 
+def _alert_sort_value(raw: object) -> float:
+    if not isinstance(raw, datetime):
+        return 0.0
+
+    value = raw
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.timestamp()
+
+
 async def get_global_chat_last_seen_message_id(session: AsyncSession, *, user_id: int) -> int:
     uid = _positive_int(user_id)
     if uid <= 0:
@@ -949,13 +964,9 @@ async def _compact_global_chat_read_alert_state(session: AsyncSession, *, user_i
     )
 
 
-async def fetch_global_chat_unread_target_message_ids(session: AsyncSession, *, user_id: int) -> list[int]:
+async def _fetch_global_chat_unread_message_alert_targets(session: AsyncSession, *, user_id: int, read_state: GlobalChatReadState) -> list[tuple[float, int]]:
     uid = _positive_int(user_id)
     if uid <= 0:
-        return []
-
-    read_state = await _ensure_global_chat_read_state(session, user_id=uid)
-    if read_state is None:
         return []
 
     last_read_alert_message_id = _positive_int(read_state.last_read_alert_message_id)
@@ -978,15 +989,78 @@ async def fetch_global_chat_unread_target_message_ids(session: AsyncSession, *, 
         return []
 
     alert_map = await _build_global_chat_alert_user_ids_map(session, messages)
-    pending_message_ids = [
-        int(message.id)
+    return [
+        (_alert_sort_value(message.created_at), int(message.id))
         for message in messages
-        if uid in (alert_map.get(int(message.id)) or set()) and int(message.id) not in read_alert_message_ids
+        if (
+            uid in (alert_map.get(int(message.id)) or set())
+            and int(message.id) not in read_alert_message_ids
+        )
     ]
-    if not pending_message_ids:
+
+
+async def _fetch_global_chat_unread_reaction_alert_targets(session: AsyncSession, *, user_id: int) -> list[tuple[float, int]]:
+    uid = _positive_int(user_id)
+    if uid <= 0:
         return []
 
-    return pending_message_ids
+    rows = await session.execute(
+        select(
+            GlobalChatReactionAlert.message_id,
+            GlobalChatReactionAlert.updated_at,
+            GlobalChatReactionAlert.created_at,
+        )
+        .join(GlobalChatMessage, GlobalChatMessage.id == GlobalChatReactionAlert.message_id)
+        .where(
+            GlobalChatReactionAlert.user_id == uid,
+            GlobalChatMessage.user_id == uid,
+            GlobalChatMessage.deleted_at.is_(None),
+        )
+        .order_by(
+            GlobalChatReactionAlert.updated_at.asc(),
+            GlobalChatReactionAlert.message_id.asc(),
+        )
+    )
+
+    targets: list[tuple[float, int]] = []
+    for message_id_raw, updated_at_raw, created_at_raw in rows.all():
+        message_id = _positive_int(message_id_raw)
+        if message_id <= 0:
+            continue
+        sort_value = _alert_sort_value(updated_at_raw) or _alert_sort_value(created_at_raw)
+        targets.append((sort_value, message_id))
+    return targets
+
+
+async def fetch_global_chat_unread_target_message_ids(session: AsyncSession, *, user_id: int) -> list[int]:
+    uid = _positive_int(user_id)
+    if uid <= 0:
+        return []
+
+    read_state = await _ensure_global_chat_read_state(session, user_id=uid)
+    if read_state is None:
+        return []
+
+    targets_by_message_id: dict[int, float] = {}
+    targets = await _fetch_global_chat_unread_message_alert_targets(
+        session,
+        user_id=uid,
+        read_state=read_state,
+    )
+    targets.extend(await _fetch_global_chat_unread_reaction_alert_targets(session, user_id=uid))
+
+    for sort_value, message_id in targets:
+        current_sort_value = targets_by_message_id.get(message_id)
+        if current_sort_value is None or sort_value > current_sort_value:
+            targets_by_message_id[message_id] = sort_value
+
+    return [
+        message_id
+        for message_id, _ in sorted(
+            targets_by_message_id.items(),
+            key=lambda item: (item[1], item[0]),
+        )
+    ]
 
 
 async def count_global_chat_unread(session: AsyncSession, *, user_id: int) -> int:
@@ -1007,6 +1081,17 @@ async def mark_global_chat_alert_read(session: AsyncSession, *, user_id: int, me
     if message is None or message.deleted_at is not None:
         return False
 
+    reaction_alert = await session.get(
+        GlobalChatReactionAlert,
+        {
+            "user_id": uid,
+            "message_id": target_message_id,
+        },
+    )
+    reaction_alert_marked = reaction_alert is not None
+    if reaction_alert is not None:
+        await session.delete(reaction_alert)
+
     current_alert_read_message_id = _positive_int(read_state.last_read_alert_message_id)
     if target_message_id <= current_alert_read_message_id:
         read_state.updated_at = datetime.now(timezone.utc)
@@ -1014,15 +1099,16 @@ async def mark_global_chat_alert_read(session: AsyncSession, *, user_id: int, me
         return True
 
     alert_user_ids = await get_global_chat_alert_user_ids(session, message_id=target_message_id)
-    if uid not in alert_user_ids:
+    if uid not in alert_user_ids and not reaction_alert_marked:
         return False
 
-    await _compact_global_chat_read_alert_state(
-        session,
-        user_id=uid,
-        read_state=read_state,
-        additional_read_message_ids=[target_message_id],
-    )
+    if uid in alert_user_ids:
+        await _compact_global_chat_read_alert_state(
+            session,
+            user_id=uid,
+            read_state=read_state,
+            additional_read_message_ids=[target_message_id],
+        )
     read_state.updated_at = datetime.now(timezone.utc)
     await session.commit()
     return True
@@ -1733,7 +1819,106 @@ async def emit_global_chat_role_notice(session: AsyncSession, *, actor_user_id: 
     )
 
 
-async def toggle_global_chat_reaction(session: AsyncSession, *, message_id: int, user_id: int, emoji: str) -> bool:
+async def get_global_chat_reaction_alert_user_ids(session: AsyncSession, *, message_id: int) -> set[int]:
+    message_id_int = _positive_int(message_id)
+    if message_id_int <= 0:
+        return set()
+
+    rows = await session.execute(
+        select(GlobalChatReactionAlert.user_id)
+        .where(GlobalChatReactionAlert.message_id == message_id_int)
+    )
+    return {
+        uid
+        for uid in (_positive_int(row[0]) for row in rows.all())
+        if uid > 0
+    }
+
+
+async def _upsert_global_chat_reaction_alert(session: AsyncSession, *, message: GlobalChatMessage, actor_user_id: int, now: datetime) -> tuple[int, ...]:
+    owner_user_id = _positive_int(message.user_id)
+    actor_id = _positive_int(actor_user_id)
+    message_id = _positive_int(message.id)
+    if owner_user_id <= 0 or actor_id <= 0 or message_id <= 0:
+        return ()
+
+    if owner_user_id == actor_id or message.deleted_at is not None:
+        return ()
+
+    alert = await session.get(
+        GlobalChatReactionAlert,
+        {
+            "user_id": owner_user_id,
+            "message_id": message_id,
+        },
+    )
+    if alert is None:
+        session.add(
+            GlobalChatReactionAlert(
+                user_id=owner_user_id,
+                message_id=message_id,
+                created_at=now,
+                updated_at=now,
+            )
+        )
+    else:
+        alert.updated_at = now
+
+    return (owner_user_id,)
+
+
+async def _clear_global_chat_reaction_alert_if_no_pending_reactions(session: AsyncSession, *, message: GlobalChatMessage) -> tuple[int, ...]:
+    owner_user_id = _positive_int(message.user_id)
+    message_id = _positive_int(message.id)
+    if owner_user_id <= 0 or message_id <= 0:
+        return ()
+
+    alert = await session.get(
+        GlobalChatReactionAlert,
+        {
+            "user_id": owner_user_id,
+            "message_id": message_id,
+        },
+    )
+    if alert is None:
+        return ()
+
+    threshold = alert.created_at or alert.updated_at
+    stmt = (
+        select(func.count())
+        .select_from(GlobalChatMessageReaction)
+        .where(
+            GlobalChatMessageReaction.message_id == message_id,
+            GlobalChatMessageReaction.user_id != owner_user_id,
+        )
+    )
+    if isinstance(threshold, datetime):
+        stmt = stmt.where(GlobalChatMessageReaction.created_at >= threshold)
+
+    remaining_reactions = int(await session.scalar(stmt) or 0)
+    if remaining_reactions > 0:
+        return ()
+
+    await session.delete(alert)
+    return (owner_user_id,)
+
+
+async def clear_global_chat_reaction_alerts(session: AsyncSession, *, message_id: int) -> set[int]:
+    message_id_int = _positive_int(message_id)
+    if message_id_int <= 0:
+        return set()
+
+    user_ids = await get_global_chat_reaction_alert_user_ids(session, message_id=message_id_int)
+    if user_ids:
+        await session.execute(
+            delete(GlobalChatReactionAlert)
+            .where(GlobalChatReactionAlert.message_id == message_id_int)
+        )
+
+    return user_ids
+
+
+async def toggle_global_chat_reaction(session: AsyncSession, *, message_id: int, user_id: int, emoji: str) -> tuple[bool, tuple[int, ...]]:
     message_id_int = _positive_int(message_id)
     user_id_int = _positive_int(user_id)
     if message_id_int <= 0 or user_id_int <= 0:
@@ -1743,11 +1928,13 @@ async def toggle_global_chat_reaction(session: AsyncSession, *, message_id: int,
     if emoji_value not in GLOBAL_CHAT_REACTIONS_ALLOWLIST:
         raise ValueError("emoji_not_allowed")
 
-    await session.execute(
-        select(GlobalChatMessage.id)
+    message = await session.scalar(
+        select(GlobalChatMessage)
         .where(GlobalChatMessage.id == message_id_int)
         .with_for_update()
     )
+    if message is None:
+        raise ValueError("message_not_found")
 
     existing = await session.get(
         GlobalChatMessageReaction,
@@ -1759,18 +1946,31 @@ async def toggle_global_chat_reaction(session: AsyncSession, *, message_id: int,
     )
     if existing is not None:
         await session.delete(existing)
+        await session.flush()
+        alert_user_ids = await _clear_global_chat_reaction_alert_if_no_pending_reactions(
+            session,
+            message=message,
+        )
         await session.commit()
-        return False
+        return False, alert_user_ids
 
+    now = datetime.now(timezone.utc)
     session.add(
         GlobalChatMessageReaction(
             message_id=message_id_int,
             user_id=user_id_int,
             emoji=emoji_value,
+            created_at=now,
         )
     )
+    alert_user_ids = await _upsert_global_chat_reaction_alert(
+        session,
+        message=message,
+        actor_user_id=user_id_int,
+        now=now,
+    )
     await session.commit()
-    return True
+    return True, alert_user_ids
 
 
 async def delete_global_chat_message(session: AsyncSession, *, message: GlobalChatMessage, actor_user_id: int) -> GlobalChatMessage:

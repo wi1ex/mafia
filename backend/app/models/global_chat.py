@@ -37,6 +37,19 @@ class GlobalChatMessageReaction(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
 
+class GlobalChatReactionAlert(Base):
+    __tablename__ = "global_chat_reaction_alerts"
+    __table_args__ = (
+        Index("ix_global_chat_reaction_alerts_message_id", "message_id"),
+        Index("ix_global_chat_reaction_alerts_updated_at", "updated_at"),
+    )
+
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    message_id: Mapped[int] = mapped_column(ForeignKey("global_chat_messages.id", ondelete="CASCADE"), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
 class GlobalChatReadState(Base):
     __tablename__ = "global_chat_read_states"
     __table_args__ = (

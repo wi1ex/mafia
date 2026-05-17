@@ -18,6 +18,7 @@ from ...services.global_chat import (
     GLOBAL_CHAT_ROOM,
     build_deleted_global_chat_message_preview,
     build_global_chat_message_payload,
+    clear_global_chat_reaction_alerts,
     create_global_chat_message,
     delete_global_chat_message,
     emit_global_chat_unread_state,
@@ -351,7 +352,12 @@ async def chat_react_toggle(sid, data):
                 return {"ok": False, "status": 409, "error": "message_deleted"}
 
             try:
-                added = await toggle_global_chat_reaction(db, message_id=message_id, user_id=uid, emoji=emoji)
+                added, reaction_alert_user_ids = await toggle_global_chat_reaction(
+                    db,
+                    message_id=message_id,
+                    user_id=uid,
+                    emoji=emoji,
+                )
             except ValueError as exc:
                 return {"ok": False, "status": 422, "error": str(exc) or "bad_request"}
 
@@ -383,6 +389,9 @@ async def chat_react_toggle(sid, data):
                 room=f"user:{uid}",
                 namespace="/chat",
             )
+        if reaction_alert_user_ids:
+            with suppress(Exception):
+                await emit_global_chat_unread_states(reaction_alert_user_ids)
 
         return {
             "ok": True,
@@ -493,6 +502,7 @@ async def chat_delete(sid, data):
             has_image = int(bool(message.image_object_key))
             reply_to_message_id = positive_int(message.reply_to_message_id)
             alert_user_ids = await get_global_chat_alert_user_ids(db, message_id=message_id)
+            alert_user_ids.update(await clear_global_chat_reaction_alerts(db, message_id=message_id))
 
             await delete_global_chat_message(db, message=message, actor_user_id=uid)
 
