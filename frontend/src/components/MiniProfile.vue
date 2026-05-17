@@ -1046,9 +1046,10 @@ onBeforeUnmount(() => {
                 display: none;
                 position: absolute;
                 top: 100%;
-                left: 0;
-                width: max(100%, 320px);
+                left: 50%;
+                width: max(100%, 200px);
                 height: 10px;
+                transform: translateX(-50%);
                 z-index: 2;
               }
               .profile-friends-count {
@@ -1320,9 +1321,10 @@ onBeforeUnmount(() => {
                 display: none;
                 position: absolute;
                 top: 100%;
-                left: 0;
+                left: 50%;
                 width: max(100%, 200px);
                 height: 10px;
+                transform: translateX(-50%);
                 z-index: 1;
               }
               .profile-tooltip {
@@ -1632,7 +1634,6 @@ onBeforeUnmount(() => {
               }
                                                         .profile-nomination-tooltip-wrap {
                                                           &::after {
-                                                            width: max(100%, 210px);
                                                             height: 5px;
                                                           }
                                                           .profile-nomination-icon-shell {
