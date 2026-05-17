@@ -58,14 +58,14 @@
                   </span>
 
                   <span v-if="activeSanction" class="profile-meta-tooltip-wrap">
-                    <img class="profile-meta-icon sanction-icon" :src="iconJudge" alt="" />
+                    <img class="profile-meta-icon" :src="iconJudge" alt="" />
                     <span class="profile-tooltip sanction-tooltip" role="tooltip">
                       <strong>{{ activeSanctionKindLabel }}</strong>
                       <span>{{ activeSanctionExpiryLabel }}</span>
                     </span>
                   </span>
                   <span v-if="targetUserId > 0" class="profile-history-tooltip-wrap" @mouseenter="loadNicknameHistory" @focusin="loadNicknameHistory">
-                    <img class="profile-meta-icon history-icon" :src="iconTimeHistory" alt="" />
+                    <img class="profile-meta-icon" :src="iconTimeHistory" alt="" />
                     <span class="profile-tooltip nickname-history-tooltip" role="tooltip">
                       <span v-if="nicknameHistoryLoading" class="nickname-history-state">Загрузка...</span>
                       <span v-else-if="nicknameHistoryError" class="nickname-history-state danger">{{ nicknameHistoryError }}</span>
@@ -306,7 +306,7 @@ const nominationIntFmt = new Intl.NumberFormat('ru-RU')
 const PROFILE_NOMINATION_DEFINITIONS: readonly ProfileNominationDefinition[] = [
   {
     key: 'games-played',
-    label: 'Сыграл игр',
+    label: 'Игры',
     icon: nominationGames,
     statKey: 'games_played',
     unit: 'count',
@@ -316,7 +316,7 @@ const PROFILE_NOMINATION_DEFINITIONS: readonly ProfileNominationDefinition[] = [
   },
   {
     key: 'games-hosted',
-    label: 'Провел игр как ведущий',
+    label: 'Ведущий',
     icon: nominationHead,
     statKey: 'games_hosted',
     unit: 'count',
@@ -336,7 +336,7 @@ const PROFILE_NOMINATION_DEFINITIONS: readonly ProfileNominationDefinition[] = [
   },
   {
     key: 'stream-time',
-    label: 'Стримы',
+    label: 'Трансляции',
     icon: nominationStream,
     statKey: 'stream_minutes',
     unit: 'minutes',
@@ -1021,7 +1021,7 @@ onBeforeUnmount(() => {
           .profile-meta {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 5px;
             .profile-friends-tooltip-wrap {
               display: inline-flex;
               position: relative;
@@ -1145,49 +1145,47 @@ onBeforeUnmount(() => {
                                                           position: absolute;
                                                           top: 100%;
                                                           left: 50%;
-                                                          width: max(100%, 260px);
+                                                          width: max(100%, 200px);
                                                           height: 10px;
                                                           transform: translateX(-50%);
                                                           z-index: 2;
                                                         }
                                                         &.level-1 {
                                                           .profile-nomination-icon-shell {
-                                                            background: linear-gradient(135deg, $graphite 0%, $lead 100%);
+                                                            background: linear-gradient(135deg, rgba($graphite, 0.5) 0%, rgba($lead, 0.5) 100%);
                                                           }
                                                         }
                                                         &.level-2 {
                                                           .profile-nomination-icon-shell {
-                                                            background: linear-gradient(135deg, #7a4a24 0%, #b87942 100%);
+                                                            background: linear-gradient(135deg, rgba(122, 74, 36, 0.5) 0%, rgba(184, 121, 66, 0.5) 100%);
                                                           }
                                                         }
                                                         &.level-3 {
                                                           .profile-nomination-icon-shell {
-                                                            background: linear-gradient(135deg, #8f969f 0%, #d8dde4 100%);
+                                                            background: linear-gradient(135deg, rgba(143, 150, 159, 0.5) 0%, rgba(216, 221, 228, 0.5) 100%);
                                                           }
                                                         }
                                                         &.level-4 {
                                                           .profile-nomination-icon-shell {
-                                                            background: linear-gradient(135deg, #b37a13 0%, #f3d05b 100%);
+                                                            background: linear-gradient(135deg, rgba(179, 122, 19, 0.5) 0%, rgba(243, 208, 91, 0.5) 100%);
                                                           }
                                                         }
                                                         &.level-5 {
                                                           .profile-nomination-icon-shell {
-                                                            background: linear-gradient(135deg, #e5f7f4 0%, #49c7c0 52%, #d9d4bd 100%);
+                                                            background: linear-gradient(135deg, rgba(229, 247, 244, 0.5) 0%, rgba(73, 199, 192, 0.5) 52%, #d9d4bd 100%);
                                                           }
                                                         }
                                                         .profile-nomination-icon-shell {
                                                           display: inline-flex;
                                                           align-items: center;
                                                           justify-content: center;
-                                                          width: 30px;
-                                                          height: 30px;
-                                                          border: 1px solid rgba($white, 0.18);
+                                                          width: 24px;
+                                                          height: 24px;
                                                           border-radius: 5px;
-                                                          box-shadow: 3px 3px 5px rgba($black, 0.25);
                                                         }
                                                         .profile-nomination-icon {
-                                                          width: 20px;
-                                                          height: 20px;
+                                                          width: 16px;
+                                                          height: 16px;
                                                           object-fit: contain;
                                                           filter: drop-shadow(0 1px 1px rgba($black, 0.35));
                                                         }
@@ -1207,7 +1205,7 @@ onBeforeUnmount(() => {
                                                             left: 50%;
                                                             flex-direction: column;
                                                             gap: 8px;
-                                                            width: 260px;
+                                                            width: 200px;
                                                             transform: translateX(-50%);
                                                             .nomination-tooltip-head,
                                                             .nomination-progress-caption {
@@ -1323,14 +1321,9 @@ onBeforeUnmount(() => {
                 position: absolute;
                 top: 100%;
                 left: 0;
-                width: max(100%, 260px);
+                width: max(100%, 200px);
                 height: 10px;
                 z-index: 1;
-              }
-              .history-icon {
-                width: 24px;
-                height: 24px;
-                object-fit: contain;
               }
               .profile-tooltip {
                 display: none;
@@ -1602,7 +1595,6 @@ onBeforeUnmount(() => {
               }
             }
             .profile-meta {
-              gap: 5px;
               .profile-friends-tooltip-wrap {
                 &::after {
                   height: 5px;
@@ -1694,10 +1686,6 @@ onBeforeUnmount(() => {
               .profile-history-tooltip-wrap {
                 &::after {
                   height: 5px;
-                }
-                .history-icon {
-                  width: 14px;
-                  height: 14px;
                 }
                 .profile-tooltip {
                   padding: 3px 5px;
