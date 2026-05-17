@@ -1706,23 +1706,22 @@ onBeforeUnmount(() => {
             .theme-preview-card {
               display: flex;
               align-items: center;
-              padding: 0 10px;
+              padding: 10px 15px;
               gap: 5px;
               width: fit-content;
-              height: 45px;
-              border-radius: 10px;
+              border-radius: 15px;
               background-color: var(--user-theme-bg, rgba($dark, 0.75));
               box-shadow: 3px 3px 5px rgba($black, 0.25);
               transition: background-color 0.25s ease-in-out;
               .theme-preview-avatar {
-                width: 30px;
-                height: 30px;
+                width: 40px;
+                height: 40px;
                 border-radius: 50%;
                 object-fit: cover;
               }
               .theme-preview-icon {
-                width: 30px;
-                height: 30px;
+                width: 40px;
+                height: 40px;
                 object-fit: contain;
               }
               .theme-preview-icons {
@@ -1733,11 +1732,10 @@ onBeforeUnmount(() => {
               }
               span {
                 min-width: 0;
-                height: 20px;
                 color: $fg;
-                font-size: 18px;
+                font-size: 20px;
                 font-family: Manrope-Medium;
-                line-height: 1;
+                line-height: 1.2;
                 white-space: nowrap;
                 overflow: hidden;
                 text-overflow: ellipsis;
@@ -2168,22 +2166,23 @@ onBeforeUnmount(() => {
           &.theme-block {
             .theme-row {
               .theme-preview-card {
+                padding: 8px 10px;
                 gap: 3px;
-                height: 35px;
+                border-radius: 10px;
                 .theme-preview-avatar {
-                  width: 20px;
-                  height: 20px;
+                  width: 30px;
+                  height: 30px;
                 }
                 .theme-preview-icon {
-                  width: 20px;
-                  height: 20px;
+                  width: 30px;
+                  height: 30px;
                 }
                 .theme-preview-icons {
                   gap: 3px;
                 }
                 span {
-                  height: 16px;
-                  font-size: 14px;
+                  font-size: 16px;
+                  line-height: 1;
                 }
               }
               .theme-palette {
