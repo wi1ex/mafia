@@ -1047,7 +1047,7 @@ onBeforeUnmount(() => {
                 position: absolute;
                 top: 100%;
                 left: 50%;
-                width: max(100%, 200px);
+                width: max(100%, 100px);
                 height: 10px;
                 transform: translateX(-50%);
                 opacity: 0;
@@ -1221,7 +1221,7 @@ onBeforeUnmount(() => {
                   height: 18px;
                   overflow: hidden;
                   border-radius: 999px;
-                  background-color: rgba($white, 0.12);
+                  background-color: $dark;
                 }
                 .nomination-progress-fill {
                   position: absolute;
@@ -1229,7 +1229,7 @@ onBeforeUnmount(() => {
                   left: 0;
                   height: 100%;
                   border-radius: inherit;
-                  background: linear-gradient(90deg, rgba($green, 0.45) 0%, rgba($yellow, 0.75) 100%);
+                  background: linear-gradient(90deg, $lead 0%, $grey 100%);
                 }
                 .nomination-progress-value {
                   display: flex;
@@ -1237,11 +1237,10 @@ onBeforeUnmount(() => {
                   align-items: center;
                   justify-content: center;
                   inset: 0;
-                  padding: 0 8px;
+                  padding: 0 5px;
                   color: $fg;
                   font-size: 11px;
                   font-family: Manrope-SemiBold;
-                  text-shadow: 0 1px 2px rgba($black, 0.65);
                   white-space: nowrap;
                 }
               }
