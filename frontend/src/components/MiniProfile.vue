@@ -1182,7 +1182,7 @@ onBeforeUnmount(() => {
               &.level-5 {
                 .profile-nomination-icon-shell,
                 .nomination-level-badge {
-                  background: linear-gradient(135deg, rgba(75, 200, 175, 0.5) 0%, rgba(150, 100, 250, 0.5) 100%);
+                  background: linear-gradient(135deg, rgba(0, 255, 200, 0.5) 0%, rgba(150, 100, 255, 0.5) 100%);
                 }
               }
               .profile-nomination-icon-shell {
