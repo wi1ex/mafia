@@ -1183,8 +1183,8 @@ onBeforeUnmount(() => {
                 border-radius: 5px;
               }
               .profile-nomination-icon {
-                width: 20px;
-                height: 20px;
+                width: 18px;
+                height: 18px;
                 object-fit: contain;
               }
               .profile-nomination-tooltip {
@@ -1219,7 +1219,7 @@ onBeforeUnmount(() => {
                   display: block;
                   position: relative;
                   width: 100%;
-                  height: 20px;
+                  height: 24px;
                   overflow: hidden;
                   border-radius: 999px;
                   background-color: $dark;
@@ -1242,14 +1242,15 @@ onBeforeUnmount(() => {
                   color: $fg;
                   font-size: 12px;
                   font-family: Manrope-SemiBold;
+                  line-height: 1;
                   white-space: nowrap;
                 }
               }
             }
             .sanction-tooltip-wrap {
               .profile-meta-icon {
-                width: 24px;
-                height: 24px;
+                width: 22px;
+                height: 22px;
                 object-fit: contain;
               }
               .sanction-tooltip {
@@ -1264,8 +1265,8 @@ onBeforeUnmount(() => {
             }
             .profile-history-tooltip-wrap {
               .profile-meta-icon {
-                width: 24px;
-                height: 24px;
+                width: 22px;
+                height: 22px;
                 object-fit: contain;
               }
               .nickname-history-tooltip {
@@ -1525,6 +1526,7 @@ onBeforeUnmount(() => {
               }
             }
             .profile-meta {
+              gap: 3px;
               .profile-tooltip-wrap {
                 &::after {
                   height: 5px;
@@ -1536,8 +1538,8 @@ onBeforeUnmount(() => {
               }
               .profile-friends-tooltip-wrap {
                 .profile-friends-count {
-                  padding: 3px 8px;
-                  font-size: 9px;
+                  padding: 5px 8px;
+                  font-size: 10px;
                 }
                 .profile-friends-tooltip {
                   max-height: 125px;
@@ -1573,13 +1575,14 @@ onBeforeUnmount(() => {
                   height: 14px;
                 }
                 .profile-nomination-tooltip {
-                  gap: 5px;
-                  width: 150px;
+                  gap: 3px;
+                  width: 125px;
                   padding: 5px 8px;
                   font-size: 10px;
                   .nomination-tooltip-head,
                   .nomination-progress-caption {
                     gap: 5px;
+                    font-size: 10px;
                   }
                   .nomination-progress-caption {
                     font-size: 8px;
