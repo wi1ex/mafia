@@ -547,7 +547,7 @@ function buildProfileNomination(definition: ProfileNominationDefinition, stats: 
     key: definition.key,
     label: definition.label,
     level,
-    levelLabel: `${level} уровень`,
+    levelLabel: `${level} ур.`,
     icon: definition.icon,
     valueLabel: formatNominationValue(value, definition.unit),
     progressPct: nominationProgressPct(value, level, definition.levelStarts),
@@ -993,7 +993,11 @@ onBeforeUnmount(() => {
           display: flex;
           flex-direction: column;
           min-width: 0;
+          padding: 5px 10px 10px;
           gap: 5px;
+          border-radius: 10px;
+          background-color: rgba($graphite, 0.5);
+          box-shadow: 3px 3px 5px rgba($black, 0.25);
           .profile-title {
             display: flex;
             min-width: 0;
@@ -1529,7 +1533,9 @@ onBeforeUnmount(() => {
             }
           }
           .profile-icon-name {
+            padding: 3px 5px 5px;
             gap: 3px;
+            border-radius: 5px;
             .profile-title {
               gap: 3px;
               height: 20px;
