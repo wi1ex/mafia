@@ -1196,7 +1196,7 @@ onBeforeUnmount(() => {
               }
               .profile-nomination-tooltip {
                 top: calc(100% + 10px);
-                gap: 5px;
+                gap: 10px;
                 width: 200px;
                 font-size: 12px;
                 .nomination-tooltip-head,
@@ -1225,11 +1225,13 @@ onBeforeUnmount(() => {
                   padding: 3px 8px;
                   border-radius: 999px;
                   color: $fg;
+                  font-size: 12px;
                   line-height: 1;
                   font-family: Manrope-SemiBold;
                   white-space: nowrap;
                 }
                 .nomination-progress-caption {
+                  margin-bottom: -5px;
                   color: $ashy;
                   font-size: 12px;
                 }
@@ -1593,7 +1595,7 @@ onBeforeUnmount(() => {
                   height: 14px;
                 }
                 .profile-nomination-tooltip {
-                  gap: 3px;
+                  gap: 5px;
                   width: 125px;
                   padding: 5px 8px;
                   font-size: 10px;
@@ -1603,10 +1605,12 @@ onBeforeUnmount(() => {
                     font-size: 10px;
                   }
                   .nomination-progress-caption {
+                    margin-bottom: -3px;
                     font-size: 8px;
                   }
                   .nomination-level-badge {
-                    padding: 1px 8px;
+                    padding: 1px 5px;
+                    font-size: 9px;
                   }
                   .nomination-progress-track {
                     height: 16px;
