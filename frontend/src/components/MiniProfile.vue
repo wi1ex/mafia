@@ -1033,6 +1033,7 @@ onBeforeUnmount(() => {
               &:focus-within {
                 &::after {
                   opacity: 1;
+                  pointer-events: auto;
                 }
                 .profile-tooltip {
                   opacity: 1;
@@ -1050,6 +1051,7 @@ onBeforeUnmount(() => {
                 height: 10px;
                 transform: translateX(-50%);
                 opacity: 0;
+                pointer-events: none;
                 z-index: 2;
               }
               .profile-tooltip {
