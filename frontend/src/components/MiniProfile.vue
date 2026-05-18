@@ -44,7 +44,9 @@
                     <span class="profile-tooltip profile-nomination-tooltip" role="tooltip">
                       <span class="nomination-tooltip-head">
                         <strong>{{ nomination.label }}</strong>
-                        <span>{{ nomination.levelLabel }}</span>
+                        <span class="nomination-level-badge">
+                          {{ nomination.levelLabel }}
+                        </span>
                       </span>
                       <span class="nomination-progress-caption">
                         <span>{{ nomination.progressStartLabel }}</span>
@@ -1150,27 +1152,32 @@ onBeforeUnmount(() => {
             }
             .profile-nomination-tooltip-wrap {
               &.level-1 {
-                .profile-nomination-icon-shell {
+                .profile-nomination-icon-shell,
+                .nomination-level-badge {
                   background: linear-gradient(135deg, rgba($graphite, 0.5) 0%, rgba($lead, 0.5) 100%);
                 }
               }
               &.level-2 {
-                .profile-nomination-icon-shell {
+                .profile-nomination-icon-shell,
+                .nomination-level-badge {
                   background: linear-gradient(135deg, rgba(200, 75, 0, 0.5) 0%, rgba(225, 150, 75, 0.5) 100%);
                 }
               }
               &.level-3 {
-                .profile-nomination-icon-shell {
+                .profile-nomination-icon-shell,
+                .nomination-level-badge {
                   background: linear-gradient(135deg, rgba(125, 125, 125, 0.5) 0%, rgba(200, 200, 200, 0.5) 100%);
                 }
               }
               &.level-4 {
-                .profile-nomination-icon-shell {
+                .profile-nomination-icon-shell,
+                .nomination-level-badge {
                   background: linear-gradient(135deg, rgba(200, 150, 25, 0.5) 0%, rgba(255, 255, 50, 0.5) 100%);
                 }
               }
               &.level-5 {
-                .profile-nomination-icon-shell {
+                .profile-nomination-icon-shell,
+                .nomination-level-badge {
                   background: linear-gradient(135deg, rgba(75, 200, 175, 0.5) 0%, rgba(150, 100, 250, 0.5) 100%);
                 }
               }
@@ -1210,6 +1217,18 @@ onBeforeUnmount(() => {
                     font-family: Manrope-SemiBold;
                     font-weight: normal;
                   }
+                }
+                .nomination-level-badge {
+                  display: inline-flex;
+                  align-items: center;
+                  justify-content: center;
+                  padding: 3px 8px;
+                  border-radius: 999px;
+                  color: $fg;
+                  font-size: 12px;
+                  line-height: 1;
+                  font-family: Manrope-SemiBold;
+                  white-space: nowrap;
                 }
                 .nomination-progress-caption {
                   color: $ashy;
