@@ -1573,11 +1573,11 @@ onBeforeUnmount(() => {
                 .profile-nomination-tooltip {
                   gap: 5px;
                   width: 210px;
-                  padding: 6px;
+                  padding: 5px;
                   font-size: 10px;
                   .nomination-tooltip-head,
                   .nomination-progress-caption {
-                    gap: 6px;
+                    gap: 5px;
                   }
                   .nomination-progress-caption {
                     font-size: 9px;
