@@ -1733,8 +1733,8 @@ onBeforeUnmount(() => {
               span {
                 min-width: 0;
                 color: $fg;
-                font-size: 20px;
-                font-family: Manrope-Medium;
+                font-size: 22px;
+                font-family: Manrope-SemiBold;
                 line-height: 1.2;
                 white-space: nowrap;
                 overflow: hidden;
