@@ -1154,7 +1154,7 @@ onBeforeUnmount(() => {
               &.level-1 {
                 .profile-nomination-icon-shell,
                 .nomination-level-badge {
-                  background: linear-gradient(135deg, rgba($graphite, 0.5) 0%, rgba($lead, 0.5) 100%);
+                  background: linear-gradient(135deg, rgba($bg, 0.5) 0%, rgba($graphite, 0.5) 100%);
                 }
               }
               &.level-2 {
@@ -1225,7 +1225,6 @@ onBeforeUnmount(() => {
                   padding: 3px 8px;
                   border-radius: 999px;
                   color: $fg;
-                  font-size: 12px;
                   line-height: 1;
                   font-family: Manrope-SemiBold;
                   white-space: nowrap;
@@ -1605,6 +1604,9 @@ onBeforeUnmount(() => {
                   }
                   .nomination-progress-caption {
                     font-size: 8px;
+                  }
+                  .nomination-level-badge {
+                    padding: 1px 8px;
                   }
                   .nomination-progress-track {
                     height: 16px;
