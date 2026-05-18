@@ -330,12 +330,9 @@ const PROFILE_NOMINATION_DEFINITIONS: readonly ProfileNominationDefinition[] = [
     icon: nominationRoom,
     statKey: 'room_minutes',
     unit: 'minutes',
-    levelStarts: [0, 3 * MINUTES_IN_DAY, 6 * MINUTES_IN_DAY, 9 * MINUTES_IN_DAY, 12 * MINUTES_IN_DAY + 1],
-    startLabels: ['0', '3д', '6д', '9д', '12д+'],
-    nextLabels: ['3д', '6д', '9д', '12д+'],
-    // levelStarts: [0, 7 * MINUTES_IN_DAY, 14 * MINUTES_IN_DAY, 30 * MINUTES_IN_DAY, 60 * MINUTES_IN_DAY + 1],
-    // startLabels: ['0', '7д', '14д', '30д', '60д+'],
-    // nextLabels: ['7д', '14д', '30д', '60д+'],
+    levelStarts: [0, 7 * MINUTES_IN_DAY, 14 * MINUTES_IN_DAY, 30 * MINUTES_IN_DAY, 60 * MINUTES_IN_DAY + 1],
+    startLabels: ['0', '7д', '14д', '30д', '60д+'],
+    nextLabels: ['7д', '14д', '30д', '60д+'],
   },
   {
     key: 'stream-time',
@@ -353,12 +350,9 @@ const PROFILE_NOMINATION_DEFINITIONS: readonly ProfileNominationDefinition[] = [
     icon: nominationSpectator,
     statKey: 'spectator_minutes',
     unit: 'minutes',
-    levelStarts: [0, Math.round(0.05 * MINUTES_IN_DAY), Math.round(0.15 * MINUTES_IN_DAY), Math.round(0.25 * MINUTES_IN_DAY), Math.round(0.33 * MINUTES_IN_DAY) + 1],
-    startLabels: ['0', '2ч', '4ч', '6ч', '8ч+'],
-    nextLabels: ['2ч', '4ч', '6ч', '8ч+'],
-    // levelStarts: [0, MINUTES_IN_DAY, 7 * MINUTES_IN_DAY, 14 * MINUTES_IN_DAY, 30 * MINUTES_IN_DAY + 1],
-    // startLabels: ['0', '1д', '7д', '14д', '30д+'],
-    // nextLabels: ['1д', '7д', '14д', '30д+'],
+    levelStarts: [0, MINUTES_IN_DAY, 7 * MINUTES_IN_DAY, 14 * MINUTES_IN_DAY, 30 * MINUTES_IN_DAY + 1],
+    startLabels: ['0', '1д', '7д', '14д', '30д+'],
+    nextLabels: ['1д', '7д', '14д', '30д+'],
   },
 ]
 
@@ -1162,22 +1156,22 @@ onBeforeUnmount(() => {
               }
               &.level-2 {
                 .profile-nomination-icon-shell {
-                  background: linear-gradient(135deg, rgba(122, 74, 36, 0.5) 0%, rgba(184, 121, 66, 0.5) 100%);
+                  background: linear-gradient(135deg, rgba(200, 75, 0, 0.5) 0%, rgba(225, 150, 75, 0.5) 100%);
                 }
               }
               &.level-3 {
                 .profile-nomination-icon-shell {
-                  background: linear-gradient(135deg, rgba(143, 150, 159, 0.5) 0%, rgba(216, 221, 228, 0.5) 100%);
+                  background: linear-gradient(135deg, rgba(125, 125, 125, 0.5) 0%, rgba(200, 200, 200, 0.5) 100%);
                 }
               }
               &.level-4 {
                 .profile-nomination-icon-shell {
-                  background: linear-gradient(135deg, rgba(179, 122, 19, 0.5) 0%, rgba(243, 208, 91, 0.5) 100%);
+                  background: linear-gradient(135deg, rgba(200, 150, 25, 0.5) 0%, rgba(255, 255, 50, 0.5) 100%);
                 }
               }
               &.level-5 {
                 .profile-nomination-icon-shell {
-                  background: linear-gradient(135deg, rgba(229, 247, 244, 0.5) 0%, rgba(73, 199, 192, 0.5) 52%, rgba(217, 212, 189, 1) 100%);
+                  background: linear-gradient(135deg, rgba(75, 200, 175, 0.5) 0%, rgba(150, 100, 250, 0.5) 100%);
                 }
               }
               .profile-nomination-icon-shell {
@@ -1189,8 +1183,8 @@ onBeforeUnmount(() => {
                 border-radius: 5px;
               }
               .profile-nomination-icon {
-                width: 16px;
-                height: 16px;
+                width: 20px;
+                height: 20px;
                 object-fit: contain;
               }
               .profile-nomination-tooltip {
@@ -1204,6 +1198,7 @@ onBeforeUnmount(() => {
                   align-items: center;
                   justify-content: space-between;
                   gap: 10px;
+                  font-size: 14px;
                   min-width: 0;
                   span,
                   strong {
@@ -1218,13 +1213,13 @@ onBeforeUnmount(() => {
                 }
                 .nomination-progress-caption {
                   color: $ashy;
-                  font-size: 11px;
+                  font-size: 12px;
                 }
                 .nomination-progress-track {
                   display: block;
                   position: relative;
                   width: 100%;
-                  height: 18px;
+                  height: 20px;
                   overflow: hidden;
                   border-radius: 999px;
                   background-color: $dark;
@@ -1245,7 +1240,7 @@ onBeforeUnmount(() => {
                   inset: 0;
                   padding: 0 5px;
                   color: $fg;
-                  font-size: 11px;
+                  font-size: 12px;
                   font-family: Manrope-SemiBold;
                   white-space: nowrap;
                 }
@@ -1542,7 +1537,7 @@ onBeforeUnmount(() => {
               .profile-friends-tooltip-wrap {
                 .profile-friends-count {
                   padding: 3px 8px;
-                  font-size: 10px;
+                  font-size: 9px;
                 }
                 .profile-friends-tooltip {
                   max-height: 125px;
@@ -1569,39 +1564,39 @@ onBeforeUnmount(() => {
               }
               .profile-nomination-tooltip-wrap {
                 .profile-nomination-icon-shell {
-                  width: 18px;
-                  height: 18px;
-                  border-radius: 4px;
+                  width: 20px;
+                  height: 20px;
+                  border-radius: 5px;
                 }
                 .profile-nomination-icon {
-                  width: 12px;
-                  height: 12px;
+                  width: 14px;
+                  height: 14px;
                 }
                 .profile-nomination-tooltip {
                   gap: 5px;
-                  width: 210px;
-                  padding: 5px;
+                  width: 150px;
+                  padding: 5px 8px;
                   font-size: 10px;
                   .nomination-tooltip-head,
                   .nomination-progress-caption {
                     gap: 5px;
                   }
                   .nomination-progress-caption {
-                    font-size: 9px;
+                    font-size: 8px;
                   }
                   .nomination-progress-track {
-                    height: 14px;
+                    height: 16px;
                   }
                   .nomination-progress-value {
                     padding: 0 5px;
-                    font-size: 9px;
+                    font-size: 8px;
                   }
                 }
               }
               .sanction-tooltip-wrap {
                 .profile-meta-icon {
-                  width: 14px;
-                  height: 14px;
+                  width: 16px;
+                  height: 16px;
                 }
                 .sanction-tooltip {
                   padding: 3px 5px;
@@ -1610,8 +1605,8 @@ onBeforeUnmount(() => {
               }
               .profile-history-tooltip-wrap {
                 .profile-meta-icon {
-                  width: 14px;
-                  height: 14px;
+                  width: 16px;
+                  height: 16px;
                 }
                 .nickname-history-tooltip {
                   max-height: 150px;
