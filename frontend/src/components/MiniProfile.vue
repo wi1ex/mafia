@@ -17,7 +17,7 @@
                   <span class="profile-name">{{ displayName }}</span>
                 </div>
                 <div v-if="showProfileMeta" class="profile-meta">
-                  <span v-if="friendsCount !== null" class="profile-friends-tooltip-wrap" :class="{ enabled: showAdminFriendsTooltip }" :tabindex="showAdminFriendsTooltip ? 0 : undefined">
+                  <span v-if="friendsCount !== null" class="profile-tooltip-wrap profile-friends-tooltip-wrap" :class="{ enabled: showAdminFriendsTooltip }" :tabindex="showAdminFriendsTooltip ? 0 : undefined">
                     <span class="profile-friends-count" aria-label="Количество друзей">
                       Друзья: {{ friendsCount }}
                     </span>
@@ -36,7 +36,7 @@
                       </span>
                     </span>
                   </span>
-                  <span v-for="nomination in profileNominations" :key="nomination.key" class="profile-nomination-tooltip-wrap" :class="`level-${nomination.level}`"
+                  <span v-for="nomination in profileNominations" :key="nomination.key" class="profile-tooltip-wrap profile-nomination-tooltip-wrap" :class="`level-${nomination.level}`"
                         tabindex="0" :aria-label="`${nomination.label}: ${nomination.valueLabel}, ${nomination.levelLabel}`">
                     <span class="profile-nomination-icon-shell">
                       <img class="profile-nomination-icon" :src="nomination.icon" alt="" />
@@ -57,14 +57,14 @@
                     </span>
                   </span>
 
-                  <span v-if="activeSanction" class="profile-meta-tooltip-wrap">
+                  <span v-if="activeSanction" class="profile-tooltip-wrap sanction-tooltip-wrap" tabindex="0">
                     <img class="profile-meta-icon" :src="iconJudge" alt="" />
                     <span class="profile-tooltip sanction-tooltip" role="tooltip">
                       <strong>{{ activeSanctionKindLabel }}</strong>
                       <span>{{ activeSanctionExpiryLabel }}</span>
                     </span>
                   </span>
-                  <span v-if="targetUserId > 0" class="profile-history-tooltip-wrap" @mouseenter="loadNicknameHistory" @focusin="loadNicknameHistory">
+                  <span v-if="targetUserId > 0" class="profile-tooltip-wrap profile-history-tooltip-wrap" tabindex="0" @mouseenter="loadNicknameHistory" @focusin="loadNicknameHistory">
                     <img class="profile-meta-icon" :src="iconTimeHistory" alt="" />
                     <span class="profile-tooltip nickname-history-tooltip" role="tooltip">
                       <span v-if="nicknameHistoryLoading" class="nickname-history-state">Загрузка...</span>
@@ -1022,348 +1022,274 @@ onBeforeUnmount(() => {
             display: flex;
             align-items: center;
             gap: 5px;
-            .profile-friends-tooltip-wrap {
+            .profile-tooltip-wrap {
               display: inline-flex;
               position: relative;
               flex: 0 0 auto;
               align-items: center;
               justify-content: center;
               outline: none;
-              &.enabled {
-                cursor: default;
-              }
               &:hover,
               &:focus-within {
                 &::after {
-                  display: block;
+                  opacity: 1;
                 }
                 .profile-tooltip {
-                  display: flex;
+                  opacity: 1;
+                  visibility: visible;
+                  pointer-events: auto;
+                  transform: translateX(-50%) translateY(0);
                 }
               }
               &::after {
                 content: '';
-                display: none;
                 position: absolute;
                 top: 100%;
                 left: 50%;
                 width: max(100%, 200px);
                 height: 10px;
                 transform: translateX(-50%);
+                opacity: 0;
                 z-index: 2;
+              }
+              .profile-tooltip {
+                display: flex;
+                position: absolute;
+                top: calc(100% + 10px);
+                left: 50%;
+                flex-direction: column;
+                padding: 10px;
+                border-radius: 5px;
+                background-color: $graphite;
+                box-shadow: 3px 3px 5px rgba($black, 0.25);
+                color: $fg;
+                line-height: 1.2;
+                opacity: 0;
+                visibility: hidden;
+                pointer-events: none;
+                transform: translateX(-50%) translateY(5px);
+                transition:
+                  opacity 0.25s ease-in-out,
+                  visibility 0.25s ease-in-out,
+                  transform 0.25s ease-in-out;
+                z-index: 3;
+              }
+            }
+            .profile-friends-tooltip-wrap {
+              &.enabled {
+                cursor: default;
+              }
+              &:hover,
+              &:focus-within {
+                .profile-friends-tooltip {
+                  transform: translateX(0) translateY(0);
+                }
               }
               .profile-friends-count {
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
                 padding: 5px 10px;
-                background-color: rgba($graphite, 0.5);
                 border-radius: 5px;
+                background-color: rgba($graphite, 0.5);
                 color: $fg;
                 font-size: 14px;
                 line-height: 1;
                 font-family: Manrope-SemiBold;
               }
-              .profile-tooltip {
-                display: none;
-                position: absolute;
-                padding: 10px;
-                border-radius: 5px;
-                background-color: $graphite;
-                box-shadow: 3px 3px 5px rgba($black, 0.25);
-                color: $fg;
+              .profile-friends-tooltip {
+                left: 0;
+                top: calc(100% + 10px);
+                width: max-content;
+                max-height: 200px;
+                overflow-y: auto;
+                scrollbar-width: thin;
                 font-size: 13px;
-                line-height: 1.2;
-                z-index: 3;
-                &.profile-friends-tooltip {
-                  left: 0;
-                  top: calc(100% + 10px);
+                transform: translateX(0) translateY(5px);
+                .profile-friends-empty {
+                  color: $ashy;
+                }
+                .profile-friends-list {
+                  display: flex;
                   flex-direction: column;
-                  width: max-content;
-                  max-height: 200px;
-                  overflow-y: auto;
-                  scrollbar-width: thin;
-                  .profile-friends-empty {
-                    color: $ashy;
-                  }
-                  .profile-friends-list {
+                  gap: 5px;
+                  .profile-friend-row {
                     display: flex;
-                    flex-direction: column;
+                    align-items: center;
                     gap: 5px;
-                    .profile-friend-row {
+                    min-width: 0;
+                    .profile-friend-avatar {
+                      flex: 0 0 auto;
+                      width: 30px;
+                      height: 30px;
+                      border-radius: 50%;
+                      object-fit: cover;
+                    }
+                    .profile-friend-main {
                       display: flex;
-                      align-items: center;
-                      gap: 5px;
+                      flex-direction: column;
                       min-width: 0;
-                      .profile-friend-avatar {
-                        flex: 0 0 auto;
-                        width: 30px;
-                        height: 30px;
-                        border-radius: 50%;
-                        object-fit: cover;
+                      gap: 1px;
+                      .profile-friend-name {
+                        color: $fg;
+                        font-family: Manrope-SemiBold;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                        white-space: nowrap;
                       }
-                      .profile-friend-main {
-                        display: flex;
-                        flex-direction: column;
-                        min-width: 0;
-                        gap: 1px;
-                        .profile-friend-name {
-                          color: $fg;
-                          font-family: Manrope-SemiBold;
-                          overflow: hidden;
-                          text-overflow: ellipsis;
-                          white-space: nowrap;
-                        }
-                        .profile-friend-date {
-                          color: $ashy;
-                          font-size: 12px;
-                        }
+                      .profile-friend-date {
+                        color: $ashy;
+                        font-size: 12px;
                       }
                     }
                   }
                 }
               }
             }
-                                                      .profile-nomination-tooltip-wrap {
-                                                        display: inline-flex;
-                                                        position: relative;
-                                                        flex: 0 0 auto;
-                                                        align-items: center;
-                                                        justify-content: center;
-                                                        outline: none;
-                                                        &:hover,
-                                                        &:focus-within {
-                                                          &::after {
-                                                            display: block;
-                                                          }
-                                                          .profile-tooltip {
-                                                            display: flex;
-                                                          }
-                                                        }
-                                                        &::after {
-                                                          content: '';
-                                                          display: none;
-                                                          position: absolute;
-                                                          top: 100%;
-                                                          left: 50%;
-                                                          width: max(100%, 200px);
-                                                          height: 10px;
-                                                          transform: translateX(-50%);
-                                                          z-index: 2;
-                                                        }
-                                                        &.level-1 {
-                                                          .profile-nomination-icon-shell {
-                                                            background: linear-gradient(135deg, rgba($graphite, 0.5) 0%, rgba($lead, 0.5) 100%);
-                                                          }
-                                                        }
-                                                        &.level-2 {
-                                                          .profile-nomination-icon-shell {
-                                                            background: linear-gradient(135deg, rgba(122, 74, 36, 0.5) 0%, rgba(184, 121, 66, 0.5) 100%);
-                                                          }
-                                                        }
-                                                        &.level-3 {
-                                                          .profile-nomination-icon-shell {
-                                                            background: linear-gradient(135deg, rgba(143, 150, 159, 0.5) 0%, rgba(216, 221, 228, 0.5) 100%);
-                                                          }
-                                                        }
-                                                        &.level-4 {
-                                                          .profile-nomination-icon-shell {
-                                                            background: linear-gradient(135deg, rgba(179, 122, 19, 0.5) 0%, rgba(243, 208, 91, 0.5) 100%);
-                                                          }
-                                                        }
-                                                        &.level-5 {
-                                                          .profile-nomination-icon-shell {
-                                                            background: linear-gradient(135deg, rgba(229, 247, 244, 0.5) 0%, rgba(73, 199, 192, 0.5) 52%, #d9d4bd 100%);
-                                                          }
-                                                        }
-                                                        .profile-nomination-icon-shell {
-                                                          display: inline-flex;
-                                                          align-items: center;
-                                                          justify-content: center;
-                                                          width: 24px;
-                                                          height: 24px;
-                                                          border-radius: 5px;
-                                                        }
-                                                        .profile-nomination-icon {
-                                                          width: 16px;
-                                                          height: 16px;
-                                                          object-fit: contain;
-                                                          filter: drop-shadow(0 1px 1px rgba($black, 0.35));
-                                                        }
-                                                        .profile-tooltip {
-                                                          display: none;
-                                                          position: absolute;
-                                                          padding: 10px;
-                                                          border-radius: 5px;
-                                                          background-color: $graphite;
-                                                          box-shadow: 3px 3px 5px rgba($black, 0.25);
-                                                          color: $fg;
-                                                          font-size: 12px;
-                                                          line-height: 1.2;
-                                                          z-index: 3;
-                                                          &.profile-nomination-tooltip {
-                                                            top: calc(100% + 10px);
-                                                            left: 50%;
-                                                            flex-direction: column;
-                                                            gap: 8px;
-                                                            width: 200px;
-                                                            transform: translateX(-50%);
-                                                            .nomination-tooltip-head,
-                                                            .nomination-progress-caption {
-                                                              display: flex;
-                                                              align-items: center;
-                                                              justify-content: space-between;
-                                                              gap: 10px;
-                                                              min-width: 0;
-                                                              span,
-                                                              strong {
-                                                                overflow: hidden;
-                                                                text-overflow: ellipsis;
-                                                                white-space: nowrap;
-                                                              }
-                                                              strong {
-                                                                font-family: Manrope-SemiBold;
-                                                                font-weight: normal;
-                                                              }
-                                                            }
-                                                            .nomination-progress-caption {
-                                                              color: $ashy;
-                                                              font-size: 11px;
-                                                            }
-                                                            .nomination-progress-track {
-                                                              display: block;
-                                                              position: relative;
-                                                              width: 100%;
-                                                              height: 18px;
-                                                              overflow: hidden;
-                                                              border-radius: 999px;
-                                                              background-color: rgba($white, 0.12);
-                                                            }
-                                                            .nomination-progress-fill {
-                                                              position: absolute;
-                                                              top: 0;
-                                                              left: 0;
-                                                              height: 100%;
-                                                              border-radius: inherit;
-                                                              background: linear-gradient(90deg, rgba($green, 0.45) 0%, rgba($yellow, 0.75) 100%);
-                                                            }
-                                                            .nomination-progress-value {
-                                                              display: flex;
-                                                              position: absolute;
-                                                              align-items: center;
-                                                              justify-content: center;
-                                                              inset: 0;
-                                                              padding: 0 8px;
-                                                              color: $fg;
-                                                              font-size: 11px;
-                                                              font-family: Manrope-SemiBold;
-                                                              text-shadow: 0 1px 2px rgba($black, 0.65);
-                                                              white-space: nowrap;
-                                                            }
-                                                          }
-                                                        }
-                                                      }
-            .profile-meta-tooltip-wrap {
-              display: inline-flex;
-              position: relative;
-              flex: 0 0 auto;
-              align-items: center;
-              justify-content: center;
-              &:hover {
-                .profile-tooltip {
-                  display: flex;
+            .profile-nomination-tooltip-wrap {
+              &.level-1 {
+                .profile-nomination-icon-shell {
+                  background: linear-gradient(135deg, rgba($graphite, 0.5) 0%, rgba($lead, 0.5) 100%);
                 }
               }
+              &.level-2 {
+                .profile-nomination-icon-shell {
+                  background: linear-gradient(135deg, rgba(122, 74, 36, 0.5) 0%, rgba(184, 121, 66, 0.5) 100%);
+                }
+              }
+              &.level-3 {
+                .profile-nomination-icon-shell {
+                  background: linear-gradient(135deg, rgba(143, 150, 159, 0.5) 0%, rgba(216, 221, 228, 0.5) 100%);
+                }
+              }
+              &.level-4 {
+                .profile-nomination-icon-shell {
+                  background: linear-gradient(135deg, rgba(179, 122, 19, 0.5) 0%, rgba(243, 208, 91, 0.5) 100%);
+                }
+              }
+              &.level-5 {
+                .profile-nomination-icon-shell {
+                  background: linear-gradient(135deg, rgba(229, 247, 244, 0.5) 0%, rgba(73, 199, 192, 0.5) 52%, rgba(217, 212, 189, 1) 100%);
+                }
+              }
+              .profile-nomination-icon-shell {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 24px;
+                height: 24px;
+                border-radius: 5px;
+              }
+              .profile-nomination-icon {
+                width: 16px;
+                height: 16px;
+                object-fit: contain;
+              }
+              .profile-nomination-tooltip {
+                top: calc(100% + 10px);
+                gap: 5px;
+                width: 200px;
+                font-size: 12px;
+                .nomination-tooltip-head,
+                .nomination-progress-caption {
+                  display: flex;
+                  align-items: center;
+                  justify-content: space-between;
+                  gap: 10px;
+                  min-width: 0;
+                  span,
+                  strong {
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                  }
+                  strong {
+                    font-family: Manrope-SemiBold;
+                    font-weight: normal;
+                  }
+                }
+                .nomination-progress-caption {
+                  color: $ashy;
+                  font-size: 11px;
+                }
+                .nomination-progress-track {
+                  display: block;
+                  position: relative;
+                  width: 100%;
+                  height: 18px;
+                  overflow: hidden;
+                  border-radius: 999px;
+                  background-color: rgba($white, 0.12);
+                }
+                .nomination-progress-fill {
+                  position: absolute;
+                  top: 0;
+                  left: 0;
+                  height: 100%;
+                  border-radius: inherit;
+                  background: linear-gradient(90deg, rgba($green, 0.45) 0%, rgba($yellow, 0.75) 100%);
+                }
+                .nomination-progress-value {
+                  display: flex;
+                  position: absolute;
+                  align-items: center;
+                  justify-content: center;
+                  inset: 0;
+                  padding: 0 8px;
+                  color: $fg;
+                  font-size: 11px;
+                  font-family: Manrope-SemiBold;
+                  text-shadow: 0 1px 2px rgba($black, 0.65);
+                  white-space: nowrap;
+                }
+              }
+            }
+            .sanction-tooltip-wrap {
               .profile-meta-icon {
                 width: 24px;
                 height: 24px;
                 object-fit: contain;
               }
-              .profile-tooltip {
-                display: none;
-                position: absolute;
-                padding: 8px 10px;
-                border-radius: 5px;
-                background-color: $graphite;
-                box-shadow: 3px 3px 5px rgba($black, 0.25);
-                color: $fg;
+              .sanction-tooltip {
+                top: calc(100% + 10px);
+                width: max-content;
                 font-size: 12px;
-                line-height: 1.2;
-                z-index: 2;
-                &.sanction-tooltip {
-                  left: 0;
-                  top: calc(100% + 10px);
-                  flex-direction: column;
-                  width: max-content;
-                  strong {
-                    font-family: Manrope-SemiBold;
-                  }
+                strong {
+                  font-family: Manrope-SemiBold;
+                  font-weight: normal;
                 }
               }
             }
             .profile-history-tooltip-wrap {
-              display: inline-flex;
-              position: relative;
-              flex: 0 0 auto;
-              align-items: center;
-              justify-content: center;
-              &:hover,
-              &:focus-within {
-                &::after {
-                  display: block;
-                }
-                .profile-tooltip {
-                  display: flex;
-                }
+              .profile-meta-icon {
+                width: 24px;
+                height: 24px;
+                object-fit: contain;
               }
-              &::after {
-                content: '';
-                display: none;
-                position: absolute;
-                top: 100%;
-                left: 50%;
-                width: max(100%, 200px);
-                height: 10px;
-                transform: translateX(-50%);
-                z-index: 1;
-              }
-              .profile-tooltip {
-                display: none;
-                position: absolute;
-                padding: 8px 10px;
-                border-radius: 5px;
-                background-color: $graphite;
-                box-shadow: 3px 3px 5px rgba($black, 0.25);
-                color: $fg;
+              .nickname-history-tooltip {
+                top: calc(100% + 10px);
+                width: max-content;
+                max-height: 200px;
+                overflow-y: auto;
+                scrollbar-width: thin;
                 font-size: 14px;
-                line-height: 1.2;
-                z-index: 2;
-                &.nickname-history-tooltip {
-                  left: 0;
-                  top: calc(100% + 10px);
+                .nickname-history-list {
+                  display: flex;
                   flex-direction: column;
-                  width: max-content;
-                  max-height: 200px;
-                  overflow-y: auto;
-                  scrollbar-width: thin;
-                  .nickname-history-list {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 5px;
-                    span {
-                      color: $ashy;
-                      overflow-wrap: anywhere;
-                      &.current {
-                        color: $fg;
-                        font-family: Manrope-SemiBold;
-                      }
+                  gap: 5px;
+                  span {
+                    color: $ashy;
+                    overflow-wrap: anywhere;
+                    &.current {
+                      color: $fg;
+                      font-family: Manrope-SemiBold;
                     }
                   }
-                  .nickname-history-state {
-                    color: $ashy;
-                    &.danger {
-                      color: $red;
-                    }
+                }
+                .nickname-history-state {
+                  color: $ashy;
+                  &.danger {
+                    color: $red;
                   }
                 }
               }
@@ -1597,106 +1523,95 @@ onBeforeUnmount(() => {
               }
             }
             .profile-meta {
-              .profile-friends-tooltip-wrap {
+              .profile-tooltip-wrap {
                 &::after {
                   height: 5px;
                 }
+                .profile-tooltip {
+                  top: calc(100% + 5px);
+                  padding: 5px;
+                }
+              }
+              .profile-friends-tooltip-wrap {
                 .profile-friends-count {
                   padding: 3px 8px;
                   font-size: 10px;
                 }
-                .profile-tooltip {
-                  padding: 5px;
+                .profile-friends-tooltip {
+                  max-height: 125px;
                   font-size: 10px;
-                  &.profile-friends-tooltip {
-                    top: calc(100% + 5px);
-                    max-height: 125px;
-                    .profile-friends-list {
+                  .profile-friends-list {
+                    gap: 3px;
+                    .profile-friend-row {
                       gap: 3px;
-                      .profile-friend-row {
-                        gap: 3px;
-                        .profile-friend-avatar {
-                          width: 20px;
-                          height: 20px;
+                      .profile-friend-avatar {
+                        width: 20px;
+                        height: 20px;
+                      }
+                      .profile-friend-main {
+                        .profile-friend-name {
+                          font-size: 9px;
                         }
-                        .profile-friend-main {
-                          .profile-friend-name {
-                            font-size: 9px;
-                          }
-                          .profile-friend-date {
-                            font-size: 7px;
-                          }
+                        .profile-friend-date {
+                          font-size: 7px;
                         }
                       }
                     }
                   }
                 }
               }
-                                                        .profile-nomination-tooltip-wrap {
-                                                          &::after {
-                                                            height: 5px;
-                                                          }
-                                                          .profile-nomination-icon-shell {
-                                                            width: 18px;
-                                                            height: 18px;
-                                                            border-radius: 4px;
-                                                          }
-                                                          .profile-nomination-icon {
-                                                            width: 12px;
-                                                            height: 12px;
-                                                          }
-                                                          .profile-tooltip {
-                                                            padding: 6px;
-                                                            font-size: 10px;
-                                                            &.profile-nomination-tooltip {
-                                                              top: calc(100% + 5px);
-                                                              gap: 5px;
-                                                              width: 210px;
-                                                              .nomination-tooltip-head,
-                                                              .nomination-progress-caption {
-                                                                gap: 6px;
-                                                              }
-                                                              .nomination-progress-caption {
-                                                                font-size: 9px;
-                                                              }
-                                                              .nomination-progress-track {
-                                                                height: 14px;
-                                                              }
-                                                              .nomination-progress-value {
-                                                                padding: 0 5px;
-                                                                font-size: 9px;
-                                                              }
-                                                            }
-                                                          }
-                                                        }
-              .profile-meta-tooltip-wrap {
+              .profile-nomination-tooltip-wrap {
+                .profile-nomination-icon-shell {
+                  width: 18px;
+                  height: 18px;
+                  border-radius: 4px;
+                }
+                .profile-nomination-icon {
+                  width: 12px;
+                  height: 12px;
+                }
+                .profile-nomination-tooltip {
+                  gap: 5px;
+                  width: 210px;
+                  padding: 6px;
+                  font-size: 10px;
+                  .nomination-tooltip-head,
+                  .nomination-progress-caption {
+                    gap: 6px;
+                  }
+                  .nomination-progress-caption {
+                    font-size: 9px;
+                  }
+                  .nomination-progress-track {
+                    height: 14px;
+                  }
+                  .nomination-progress-value {
+                    padding: 0 5px;
+                    font-size: 9px;
+                  }
+                }
+              }
+              .sanction-tooltip-wrap {
                 .profile-meta-icon {
                   width: 14px;
                   height: 14px;
                 }
-                .profile-tooltip {
+                .sanction-tooltip {
                   padding: 3px 5px;
                   font-size: 10px;
-                  &.sanction-tooltip {
-                    top: calc(100% + 5px);
-                    strong {
-                    }
-                  }
                 }
               }
               .profile-history-tooltip-wrap {
-                &::after {
-                  height: 5px;
+                .profile-meta-icon {
+                  width: 14px;
+                  height: 14px;
                 }
-                .profile-tooltip {
+                .nickname-history-tooltip {
+                  max-height: 150px;
                   padding: 3px 5px;
                   font-size: 10px;
-                  &.nickname-history-tooltip {
-                    top: calc(100% + 5px);
-                    max-height: 150px;
-                    .nickname-history-list {
-                      gap: 3px;
-                    }
+                  .nickname-history-list {
+                    gap: 3px;
                   }
                 }
               }
