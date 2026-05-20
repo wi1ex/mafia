@@ -134,7 +134,7 @@ import iconLogo from '@/assets/svg/iconLogo.svg'
 import iconNotifBell from "@/assets/svg/notifBell.svg"
 import iconTelegram from "@/assets/svg/telegram.svg"
 import iconInfo from "@/assets/svg/iconInfo.svg"
-import iconGamesHistory from "@/assets/svg/history.svg"
+import iconGamesHistory from "@/assets/svg/iconHistory.svg"
 import iconUpdates from "@/assets/svg/updates.svg"
 import iconFriends from "@/assets/svg/friends.svg"
 import iconChat from "@/assets/svg/chat.svg"
@@ -365,19 +365,22 @@ function openAuth(mode: 'login' | 'register') {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 10px;
-  width: calc(100% - 20px);
-  min-height: 60px;
-  height: 60px;
-  max-height: 60px;
+  margin: 10px 0;
+  padding: 0 40px;
+  height: 64px;
+  min-height: 64px;
+  max-height: 64px;
   .links {
     display: flex;
     align-items: center;
     gap: 24px;
     .home {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: center;
+      padding: 16px;
+      border-radius: 16px;
+      background-color: $soft-purple-900;
       img {
         width: 115px;
         height: 32px;
@@ -389,16 +392,26 @@ function openAuth(mode: 'login' | 'register') {
       gap: 12px;
       .page {
         display: flex;
+        align-items: center;
+        padding: 0 16px;
+        gap: 8px;
+        height: 64px;
+        border-radius: 16px;
+        transition: background-color 0.25s ease-in-out;
         .page-icon {
           --ui-icon-size: 24px;
           --ui-icon-color: #{$neutral-300};
           --ui-icon-state-color: #{$neutral-white};
         }
         span {
-          color: $fg;
-          font-size: 16px;
-          font-family: Manrope-Medium;
-          line-height: 1;
+          color: $neutral-300;
+          font-family: Hauora-Regular;
+          font-size: 18px;
+          line-height: 20px;
+          letter-spacing: -0.36px;
+        }
+        &:hover {
+          background-color: $soft-purple-900;
         }
       }
     }
