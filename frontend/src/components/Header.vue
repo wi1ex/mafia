@@ -404,6 +404,8 @@ function openAuth(mode: 'login' | 'register') {
   align-items: center;
   gap: 8px;
   height: 40px;
+  min-height: 40px;
+  max-height: 40px;
   border-radius: 0 0 16px 16px;
   .banner-icon {
     --ui-icon-width: 24px;
@@ -544,7 +546,6 @@ function openAuth(mode: 'login' | 'register') {
           --ui-icon-color: #{$neutral-300};
         }
         &:hover .page-icon,
-        &:focus .page-icon,
         &:focus-visible .page-icon,
         &:active .page-icon {
           --ui-icon-color: #{$neutral-white};
@@ -588,7 +589,6 @@ function openAuth(mode: 'login' | 'register') {
       z-index: 0;
     }
     &:hover,
-    &:focus,
     &:focus-visible,
     &:active,
     &.profile-dropdown-trigger[aria-expanded='true'] {
@@ -639,7 +639,7 @@ function openAuth(mode: 'login' | 'register') {
   .user {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 8px;
     .bell {
       position: relative;
       border-radius: 16px;
@@ -682,18 +682,16 @@ function openAuth(mode: 'login' | 'register') {
           align-items: center;
           justify-content: center;
           top: 16px;
-          right: 16px;
+          left: 32px;
           width: 12px;
           height: 12px;
           border-radius: 50%;
           background-color: $red-500;
         }
         &:hover .bell-icon,
-        &:focus .bell-icon,
         &:focus-visible .bell-icon,
         &:active .bell-icon,
         &:hover .bell-arrow,
-        &:focus .bell-arrow,
         &:focus-visible .bell-arrow,
         &:active .bell-arrow {
           --ui-icon-color: #{$green-500};
@@ -702,7 +700,10 @@ function openAuth(mode: 'login' | 'register') {
         &.bell-dropdown-trigger[aria-expanded='true'] .bell-arrow {
           --ui-icon-color: #{$green-500};
         }
-        &:hover {
+        &:hover,
+        &:focus-visible,
+        &:active,
+        &.bell-dropdown-trigger[aria-expanded='true'] {
           background-color: $soft-purple-800;
         }
       }
@@ -727,7 +728,6 @@ function openAuth(mode: 'login' | 'register') {
           z-index: 1;
         }
         &:hover::before,
-        &:focus::before,
         &:focus-visible::before {
           opacity: 1;
         }
