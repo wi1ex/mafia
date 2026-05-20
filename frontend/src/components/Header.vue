@@ -3,7 +3,10 @@
     <span>{{ sanctionBanner.text }}</span>
   </div>
   <div v-if="verificationBanner" class="sanction-banner sanction-banner--verif">
-    <span>Без верификации аккаунт будет удален через <span class="verification-hour-badge">1</span> час. Пройдите верификацию через</span>
+    <UiIcon class="banner-icon" :icon="iconWarning" />
+    <span>Без верификации аккаунт будет удален через <span class="verification-hour-badge">1</span> час.</span>
+    <span class="verification-divider" aria-hidden="true"></span>
+    <span>Пройдите верификацию через</span>
     <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">
       <img :src="iconTelegram" alt="" />
       TG-бота
@@ -133,6 +136,7 @@ import defaultAvatar from "@/assets/svg/defaultAvatar.svg"
 import iconLogo from '@/assets/svg/iconLogo.svg'
 import iconNotifBell from "@/assets/svg/notifBell.svg"
 import iconTelegram from "@/assets/svg/iconTelegram.svg"
+import iconWarning from "@/assets/svg/iconWarning.svg"
 import iconInfo from "@/assets/svg/iconInfo.svg"
 import iconGamesHistory from "@/assets/svg/iconHistory.svg"
 import iconUpdates from "@/assets/svg/updates.svg"
@@ -368,6 +372,11 @@ function openAuth(mode: 'login' | 'register') {
   gap: 8px;
   height: 40px;
   border-radius: 0 0 16px 16px;
+  .page-icon {
+    --ui-icon-width: 24px;
+    --ui-icon-height: 24px;
+    --ui-icon-color: #{$neutral-white};
+  }
   span {
     color: $neutral-white;
     font-family: Hauora-Medium;
@@ -400,12 +409,18 @@ function openAuth(mode: 'login' | 'register') {
   }
   &.sanction-banner--timeout {
     background-color: $orange-500;
+    .page-icon {
+      --ui-icon-color: #{$neutral-900};
+    }
     span {
       color: $neutral-900;
     }
   }
   &.sanction-banner--suspend {
     background-color: $yellow-500;
+    .page-icon {
+      --ui-icon-color: #{$neutral-900};
+    }
     span {
       color: $neutral-900;
     }
@@ -422,6 +437,12 @@ function openAuth(mode: 'login' | 'register') {
       border-radius: 6px;
       background-color: rgba($neutral-black, 0.4);
       font-family: Hauora-Bold;
+    }
+    .verification-divider {
+      display: block;
+      width: 1px;
+      height: 28px;
+      background-color: rgba($neutral-white, 0.4);
     }
   }
   &.sanction-banner--admin {
