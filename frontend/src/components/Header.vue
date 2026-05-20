@@ -81,7 +81,7 @@
       </div>
 
       <div class="bell" ref="bellEl">
-        <button @click.stop="onToggleNotifs" :aria-expanded="nb_open" aria-label="Уведомления">
+        <button class="bell-dropdown-trigger" @click.stop="onToggleNotifs" :aria-expanded="nb_open" aria-label="Уведомления">
           <UiIcon class="bell-icon" :icon="iconNotifBell" />
           <span class="bell-text">Уведомления</span>
           <UiIcon class="bell-arrow" :icon="iconArrow" :style="{ transform: nb_open ? 'rotate(180deg)' : 'none' }" />
@@ -95,7 +95,7 @@
       </div>
 
       <div v-if="showFriendsButton" class="bell" ref="friendsEl">
-        <button @click.stop="onToggleFriends" :aria-expanded="friends_open" aria-label="Друзья">
+        <button class="bell-dropdown-trigger" @click.stop="onToggleFriends" :aria-expanded="friends_open" aria-label="Друзья">
           <UiIcon class="bell-icon" :icon="iconFriends" />
           <span class="bell-text">Друзья</span>
           <UiIcon class="bell-arrow" :icon="iconArrow" :style="{ transform: friends_open ? 'rotate(180deg)' : 'none' }" />
@@ -110,7 +110,7 @@
       </div>
 
       <div v-if="showGlobalChatButton" class="bell">
-        <button @click.stop="toggleGlobalChat" :aria-expanded="chat.open" aria-label="Общий чат">
+        <button class="bell-dropdown-trigger" @click.stop="toggleGlobalChat" :aria-expanded="chat.open" aria-label="Общий чат">
           <UiIcon class="bell-icon" :icon="iconChat" />
           <span class="bell-text">Чат</span>
           <UiIcon class="bell-arrow" :icon="iconArrow" :style="{ transform: chat.open ? 'rotate(180deg)' : 'none' }" />
@@ -120,7 +120,7 @@
       </div>
 
       <div class="user-menu" ref="userMenuEl">
-        <button class="profile-btn" :class="{ 'has-profile-theme': hasUserMenuProfileTheme }" type="button" :style="userMenuButtonStyle" @click.stop="onToggleUserMenu" :aria-expanded="um_open" aria-haspopup="true">
+        <button class="profile-btn profile-dropdown-trigger" :class="{ 'has-profile-theme': hasUserMenuProfileTheme }" type="button" :style="userMenuButtonStyle" @click.stop="onToggleUserMenu" :aria-expanded="um_open" aria-haspopup="true">
           <img v-minio-img="{ key: user.user?.avatar_name ? `avatars/${user.user.avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false }" alt="Аватар" class="avatar" />
           <div v-if="userMenuProfileIconSrcs.length" class="profile-theme-icons" aria-hidden="true">
             <img v-for="badgeSrc in userMenuProfileIconSrcs" :key="badgeSrc" class="profile-theme-icon" :src="badgeSrc" alt="" />
@@ -544,6 +544,7 @@ function openAuth(mode: 'login' | 'register') {
           --ui-icon-color: #{$neutral-300};
         }
         &:hover .page-icon,
+        &:focus .page-icon,
         &:focus-visible .page-icon,
         &:active .page-icon {
           --ui-icon-color: #{$neutral-white};
@@ -573,7 +574,11 @@ function openAuth(mode: 'login' | 'register') {
     text-decoration: none;
     cursor: pointer;
     transition: background 0.25s ease-in-out;
-    &:hover {
+    &:hover,
+    &:focus,
+    &:focus-visible,
+    &:active,
+    &.profile-dropdown-trigger[aria-expanded='true'] {
       background: var(--user-theme-bg-hover, linear-gradient(261deg, $green-700 0%, $soft-purple-800 100%));
     }
     span {
@@ -650,7 +655,7 @@ function openAuth(mode: 'login' | 'register') {
           margin-left: -8px;
           --ui-icon-width: 20px;
           --ui-icon-height: 20px;
-          transition: transform 0.25s ease-in-out;
+          transition: transform 0.25s ease-in-out, background-color 0.25s ease-in-out;
         }
         .unread-text {
           display: flex;
@@ -665,11 +670,17 @@ function openAuth(mode: 'login' | 'register') {
           background-color: $red-500;
         }
         &:hover .bell-icon,
+        &:focus .bell-icon,
         &:focus-visible .bell-icon,
         &:active .bell-icon,
         &:hover .bell-arrow,
+        &:focus .bell-arrow,
         &:focus-visible .bell-arrow,
         &:active .bell-arrow {
+          --ui-icon-color: #{$green-500};
+        }
+        &.bell-dropdown-trigger[aria-expanded='true'] .bell-icon,
+        &.bell-dropdown-trigger[aria-expanded='true'] .bell-arrow {
           --ui-icon-color: #{$green-500};
         }
         &:hover {
