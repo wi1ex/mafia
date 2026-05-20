@@ -84,6 +84,7 @@
         <button @click.stop="onToggleNotifs" :aria-expanded="nb_open" aria-label="Уведомления">
           <UiIcon class="bell-icon" :icon="iconNotifBell" />
           <span class="bell-text">Уведомления</span>
+          <img class="bell-arrow" :src="iconArrow" alt="" aria-hidden="true" :style="{ transform: nb_open ? 'rotate(180deg)' : 'none' }" />
 <!--          <span v-if="notif.unread > 0" class="unread-text">{{ notif.unread < 100 ? notif.unread : '∞' }}</span>-->
           <span v-if="notif.unread > 0" class="unread-text"></span>
         </button>
@@ -97,6 +98,7 @@
         <button @click.stop="onToggleFriends" :aria-expanded="friends_open" aria-label="Друзья">
           <UiIcon class="bell-icon" :icon="iconFriends" />
           <span class="bell-text">Друзья</span>
+          <img class="bell-arrow" :src="iconArrow" alt="" aria-hidden="true" :style="{ transform: friends_open ? 'rotate(180deg)' : 'none' }" />
 <!--          <span v-if="friends.incomingCount > 0" class="unread-text">{{ friends.incomingCount < 100 ? friends.incomingCount : '∞' }}</span>-->
           <span v-if="friends.incomingCount > 0" class="unread-text"></span>
         </button>
@@ -111,6 +113,7 @@
         <button @click.stop="toggleGlobalChat" :aria-expanded="chat.open" aria-label="Общий чат">
           <UiIcon class="bell-icon" :icon="iconChat" />
           <span class="bell-text">Чат</span>
+          <img class="bell-arrow" :src="iconArrow" alt="" aria-hidden="true" :style="{ transform: chat.open ? 'rotate(180deg)' : 'none' }" />
 <!--          <span v-if="chat.unread > 0" class="unread-text">{{ chat.unread < 100 ? chat.unread : '∞' }}</span>-->
           <span v-if="chat.unread > 0" class="unread-text"></span>
         </button>
@@ -621,6 +624,7 @@ function openAuth(mode: 'login' | 'register') {
         position: relative;
         align-items: center;
         justify-content: center;
+        gap: 8px;
         padding: 0 16px;
         min-width: 64px;
         height: 64px;
@@ -645,6 +649,12 @@ function openAuth(mode: 'login' | 'register') {
           font-size: 18px;
           line-height: 20px;
           letter-spacing: -0.36px;
+        }
+        .bell-arrow {
+          margin-left: -8px;
+          width: 20px;
+          height: 20px;
+          transition: transform 0.25s ease-in-out;
         }
         .unread-text {
           display: flex;
@@ -788,11 +798,16 @@ function openAuth(mode: 'login' | 'register') {
       gap: 5px;
       .bell {
         button {
+          gap: 3px;
           padding: 0 8px;
           height: 30px;
           img {
             width: 16px;
             height: 16px;
+          }
+          .bell-arrow {
+            width: 10px;
+            height: 10px;
           }
           span {
             width: 11px;
