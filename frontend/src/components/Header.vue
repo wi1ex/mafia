@@ -71,7 +71,7 @@
       <div class="bell" ref="updatesEl">
         <button @click.stop="onToggleUpdates" :aria-expanded="updates_open" aria-label="Обновления">
           <UiIcon class="bell-icon" :icon="iconUpdates" />
-          <span v-if="updates.unread > 0">{{ updates.unread < 100 ? updates.unread : '∞' }}</span>
+          <span v-if="updates.unread > 0" class="unread-text">{{ updates.unread < 100 ? updates.unread : '∞' }}</span>
         </button>
         <Updates
           v-model:open="updates_open"
@@ -82,7 +82,7 @@
       <div class="bell" ref="bellEl">
         <button @click.stop="onToggleNotifs" :aria-expanded="nb_open" aria-label="Уведомления">
           <UiIcon class="bell-icon" :icon="iconNotifBell" />
-          <span v-if="notif.unread > 0">{{ notif.unread < 100 ? notif.unread : '∞' }}</span>
+          <span v-if="notif.unread > 0" class="unread-text">{{ notif.unread < 100 ? notif.unread : '∞' }}</span>
         </button>
         <Notifs
           v-model:open="nb_open"
@@ -93,7 +93,7 @@
       <div v-if="showFriendsButton" class="bell" ref="friendsEl">
         <button @click.stop="onToggleFriends" :aria-expanded="friends_open" aria-label="Друзья">
           <UiIcon class="bell-icon" :icon="iconFriends" />
-          <span v-if="friends.incomingCount > 0">{{ friends.incomingCount < 100 ? friends.incomingCount : '∞' }}</span>
+          <span v-if="friends.incomingCount > 0" class="unread-text">{{ friends.incomingCount < 100 ? friends.incomingCount : '∞' }}</span>
         </button>
         <FriendsPanel
           v-model:open="friends_open"
@@ -105,7 +105,7 @@
       <div v-if="showGlobalChatButton" class="bell">
         <button @click.stop="toggleGlobalChat" :aria-expanded="chat.open" aria-label="Общий чат">
           <UiIcon class="bell-icon" :icon="iconChat" />
-          <span v-if="chat.unread > 0">{{ chat.unread < 100 ? chat.unread : '∞' }}</span>
+          <span v-if="chat.unread > 0" class="unread-text">{{ chat.unread < 100 ? chat.unread : '∞' }}</span>
         </button>
       </div>
 
@@ -632,7 +632,7 @@ function openAuth(mode: 'login' | 'register') {
         &:active .page-icon {
           --ui-icon-color: #{$green-500};
         }
-        span {
+        .unread-text {
           display: flex;
           align-items: center;
           justify-content: center;
