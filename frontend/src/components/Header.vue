@@ -573,13 +573,32 @@ function openAuth(mode: 'login' | 'register') {
     background: var(--user-theme-bg, linear-gradient(261deg, $soft-purple-800 0%, $green-700 100%));
     text-decoration: none;
     cursor: pointer;
-    transition: background 0.25s ease-in-out;
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: var(--user-theme-bg-hover, linear-gradient(261deg, $green-700 0%, $soft-purple-800 100%));
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease-in-out;
+      z-index: 0;
+    }
     &:hover,
     &:focus,
     &:focus-visible,
     &:active,
     &.profile-dropdown-trigger[aria-expanded='true'] {
-      background: var(--user-theme-bg-hover, linear-gradient(261deg, $green-700 0%, $soft-purple-800 100%));
+      &::after {
+        opacity: 1;
+      }
+    }
+    > * {
+      position: relative;
+      z-index: 2;
     }
     span {
       color: $neutral-white;
@@ -705,15 +724,15 @@ function openAuth(mode: 'login' | 'register') {
           opacity: 0;
           pointer-events: none;
           transition: opacity 0.25s ease-in-out;
-          z-index: 0;
+          z-index: 1;
         }
         &:hover::before,
+        &:focus::before,
         &:focus-visible::before {
           opacity: 1;
         }
-        > * {
-          position: relative;
-          z-index: 1;
+        &.profile-dropdown-trigger[aria-expanded='true']::before {
+          opacity: 1;
         }
       }
       .user-menu-dropdown {
