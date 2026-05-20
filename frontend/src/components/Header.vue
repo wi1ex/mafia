@@ -1,4 +1,20 @@
 ﻿<template>
+  <div v-if="sanctionBanner" class="sanction-banner" :class="`sanction-banner--${sanctionBanner.kind}`">
+    <span>{{ sanctionBanner.text }}</span>
+  </div>
+  <div v-if="verificationBanner" class="sanction-banner sanction-banner--verif">
+    <span>Без верификации аккаунт будет удален через 1 час. Пройдите верификацию через</span>
+    <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">
+      <img :src="iconTelegram" alt="" />
+      TG-бота
+    </a>
+  </div>
+  <div v-if="adminBannerText" class="sanction-banner sanction-banner--admin">
+    <span>{{ adminBannerText }}</span>
+    <a v-if="adminBannerLink" :href="adminBannerLink" target="_blank" rel="noopener noreferrer">
+      {{ adminBannerLink }}
+    </a>
+  </div>
   <header class="bar">
     <div class="links">
       <router-link class="home" :to="{ name: 'home' }" aria-label="DECEIT.games">
@@ -101,22 +117,6 @@
       </div>
     </div>
   </header>
-  <div v-if="sanctionBanner" class="sanction-banner" :class="`sanction-banner--${sanctionBanner.kind}`">
-    <span>{{ sanctionBanner.text }}</span>
-  </div>
-  <div v-if="verificationBanner" class="sanction-banner sanction-banner--verif">
-    <span>Без верификации аккаунт будет удален через 1 час. Пройти верификацию можно в</span>
-    <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">
-      <img :src="iconTelegram" alt="" />
-      TG-боте
-    </a>
-  </div>
-  <div v-if="adminBannerText" class="sanction-banner sanction-banner--admin">
-    <span>{{ adminBannerText }}</span>
-    <a v-if="adminBannerLink" :href="adminBannerLink" target="_blank" rel="noopener noreferrer">
-      {{ adminBannerLink }}
-    </a>
-  </div>
   <AuthModal v-model:open="authOpen" :mode="authMode" />
 </template>
 
@@ -141,7 +141,7 @@ import iconChat from "@/assets/svg/chat.svg"
 import iconLogout from '@/assets/svg/leave.svg'
 import iconProfile from "@/assets/svg/profile.svg"
 import iconArrowDown from '@/assets/svg/arrowDown.svg'
-import iconJudge from '@/assets/svg/judge.svg'
+import iconJudge from '@/assets/svg/iconJudge.svg'
 import { buildProfileThemeStyle } from '@/constants/profileThemes'
 import { getProfileThemeBadgeSources } from '@/constants/profileThemeIcons'
 
@@ -361,6 +361,57 @@ function openAuth(mode: 'login' | 'register') {
 </script>
 
 <style scoped lang="scss">
+.sanction-banner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  height: 40px;
+  border-radius: 0 0 16px 16px;
+
+  color: $bg;
+  font-weight: bold;
+  letter-spacing: 1px;
+  span {
+    text-align: center;
+    overflow-wrap: anywhere;
+  }
+  a {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    color: $fg;
+    font-weight: lighter;
+    text-decoration: underline;
+    overflow-wrap: anywhere;
+    img {
+      width: 16px;
+      height: 16px;
+      filter: brightness(0);
+    }
+  }
+  &.sanction-banner--ban {
+    background-color: $red;
+  }
+  &.sanction-banner--timeout {
+    background-color: $orange;
+  }
+  &.sanction-banner--suspend {
+    background-color: $yellow;
+  }
+  &.sanction-banner--verif {
+    background-color: $yellow;
+    a {
+      color: $bg;
+    }
+  }
+  &.sanction-banner--admin {
+    background-color: $lead;
+    color: $fg;
+    letter-spacing: 0.25px;
+    text-align: center;
+  }
+}
 .bar {
   display: flex;
   align-items: center;
@@ -399,9 +450,14 @@ function openAuth(mode: 'login' | 'register') {
         border-radius: 16px;
         transition: background-color 0.25s ease-in-out;
         .page-icon {
-          --ui-icon-size: 24px;
+          --ui-icon-width: 24px;
+          --ui-icon-height: 24px;
           --ui-icon-color: #{$neutral-300};
-          --ui-icon-state-color: #{$neutral-white};
+        }
+        &:hover .page-icon,
+        &:focus-visible .page-icon,
+        &:active .page-icon {
+          --ui-icon-color: #{$neutral-white};
         }
         span {
           color: $neutral-300;
@@ -590,58 +646,6 @@ function openAuth(mode: 'login' | 'register') {
     }
   }
 }
-.sanction-banner {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 10px 10px;
-  padding: 10px 20px;
-  height: 10px;
-  border-radius: 5px;
-  color: $bg;
-  font-weight: bold;
-  letter-spacing: 1px;
-  gap: 5px;
-  span {
-    text-align: center;
-    overflow-wrap: anywhere;
-  }
-  a {
-    display: flex;
-    align-items: center;
-    gap: 3px;
-    color: $fg;
-    font-weight: lighter;
-    text-decoration: underline;
-    overflow-wrap: anywhere;
-    img {
-      width: 16px;
-      height: 16px;
-      filter: brightness(0);
-    }
-  }
-  &.sanction-banner--ban {
-    background-color: $red;
-  }
-  &.sanction-banner--timeout {
-    background-color: $orange;
-  }
-  &.sanction-banner--suspend {
-    background-color: $yellow;
-  }
-  &.sanction-banner--verif {
-    background-color: $yellow;
-    a {
-      color: $bg;
-    }
-  }
-  &.sanction-banner--admin {
-    background-color: $lead;
-    color: $fg;
-    letter-spacing: 0.25px;
-    text-align: center;
-  }
-}
 
 .user-menu-enter-active,
 .user-menu-leave-active {
@@ -654,6 +658,11 @@ function openAuth(mode: 'login' | 'register') {
 }
 
 @media (max-width: 1280px) {
+  .sanction-banner {
+    font-size: 12px;
+    font-weight: normal;
+    letter-spacing: 0.25px;
+  }
   .bar {
     min-height: 50px;
     height: 50px;
@@ -670,9 +679,6 @@ function openAuth(mode: 'login' | 'register') {
       }
       img {
         height: 16px;
-      }
-      .rules-icon {
-        --ui-icon-size: 16px;
       }
       .profile-theme-icon {
         width: 16px;
@@ -725,11 +731,6 @@ function openAuth(mode: 'login' | 'register') {
         }
       }
     }
-  }
-  .sanction-banner {
-    font-size: 12px;
-    font-weight: normal;
-    letter-spacing: 0.25px;
   }
 }
 </style>
