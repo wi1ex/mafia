@@ -84,7 +84,7 @@
         <button @click.stop="onToggleNotifs" :aria-expanded="nb_open" aria-label="Уведомления">
           <UiIcon class="bell-icon" :icon="iconNotifBell" />
           <span class="bell-text">Уведомления</span>
-          <img class="bell-arrow" :src="iconArrow" alt="" aria-hidden="true" :style="{ transform: nb_open ? 'rotate(180deg)' : 'none' }" />
+          <UiIcon class="bell-arrow" :icon="iconArrow" :style="{ transform: nb_open ? 'rotate(180deg)' : 'none' }" />
 <!--          <span v-if="notif.unread > 0" class="unread-text">{{ notif.unread < 100 ? notif.unread : '∞' }}</span>-->
           <span v-if="notif.unread > 0" class="unread-text"></span>
         </button>
@@ -98,7 +98,7 @@
         <button @click.stop="onToggleFriends" :aria-expanded="friends_open" aria-label="Друзья">
           <UiIcon class="bell-icon" :icon="iconFriends" />
           <span class="bell-text">Друзья</span>
-          <img class="bell-arrow" :src="iconArrow" alt="" aria-hidden="true" :style="{ transform: friends_open ? 'rotate(180deg)' : 'none' }" />
+          <UiIcon class="bell-arrow" :icon="iconArrow" :style="{ transform: friends_open ? 'rotate(180deg)' : 'none' }" />
 <!--          <span v-if="friends.incomingCount > 0" class="unread-text">{{ friends.incomingCount < 100 ? friends.incomingCount : '∞' }}</span>-->
           <span v-if="friends.incomingCount > 0" class="unread-text"></span>
         </button>
@@ -113,7 +113,7 @@
         <button @click.stop="toggleGlobalChat" :aria-expanded="chat.open" aria-label="Общий чат">
           <UiIcon class="bell-icon" :icon="iconChat" />
           <span class="bell-text">Чат</span>
-          <img class="bell-arrow" :src="iconArrow" alt="" aria-hidden="true" :style="{ transform: chat.open ? 'rotate(180deg)' : 'none' }" />
+          <UiIcon class="bell-arrow" :icon="iconArrow" :style="{ transform: chat.open ? 'rotate(180deg)' : 'none' }" />
 <!--          <span v-if="chat.unread > 0" class="unread-text">{{ chat.unread < 100 ? chat.unread : '∞' }}</span>-->
           <span v-if="chat.unread > 0" class="unread-text"></span>
         </button>
@@ -633,15 +633,11 @@ function openAuth(mode: 'login' | 'register') {
         background-color: $soft-purple-900;
         cursor: pointer;
         transition: background-color 0.25s ease-in-out;
-        .bell-icon {
+        .bell-icon,
+        .bell-arrow {
           --ui-icon-width: 24px;
           --ui-icon-height: 24px;
           --ui-icon-color: #{$neutral-white};
-        }
-        &:hover .bell-icon,
-        &:focus-visible .bell-icon,
-        &:active .bell-icon {
-          --ui-icon-color: #{$green-500};
         }
         .bell-text {
           color: $neutral-100;
@@ -652,8 +648,8 @@ function openAuth(mode: 'login' | 'register') {
         }
         .bell-arrow {
           margin-left: -8px;
-          width: 20px;
-          height: 20px;
+          --ui-icon-width: 20px;
+          --ui-icon-height: 20px;
           transition: transform 0.25s ease-in-out;
         }
         .unread-text {
@@ -667,6 +663,14 @@ function openAuth(mode: 'login' | 'register') {
           height: 12px;
           border-radius: 50%;
           background-color: $red-500;
+        }
+        &:hover .bell-icon,
+        &:focus-visible .bell-icon,
+        &:active .bell-icon,
+        &:hover .bell-arrow,
+        &:focus-visible .bell-arrow,
+        &:active .bell-arrow {
+          --ui-icon-color: #{$green-500};
         }
         &:hover {
           background-color: $soft-purple-800;
@@ -806,8 +810,8 @@ function openAuth(mode: 'login' | 'register') {
             height: 16px;
           }
           .bell-arrow {
-            width: 10px;
-            height: 10px;
+            --ui-icon-width: 10px;
+            --ui-icon-height: 10px;
           }
           span {
             width: 11px;
