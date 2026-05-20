@@ -1,10 +1,11 @@
 ﻿<template>
   <div v-if="sanctionBanner" class="sanction-banner" :class="`sanction-banner--${sanctionBanner.kind}`">
+    <UiIcon class="banner-icon" :icon="iconWarning" />
     <span>{{ sanctionBanner.text }}</span>
   </div>
   <div v-if="verificationBanner" class="sanction-banner sanction-banner--verif">
     <UiIcon class="banner-icon" :icon="iconWarning" />
-    <span>Без верификации аккаунт будет удален через <span class="verification-hour-badge">1</span> час.</span>
+    <span>Без верификации аккаунт будет удален через <span class="verification-hour-badge">1</span> час</span>
     <span class="verification-divider" aria-hidden="true"></span>
     <span>Пройдите верификацию через</span>
     <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">
@@ -13,6 +14,7 @@
     </a>
   </div>
   <div v-if="adminBannerText" class="sanction-banner sanction-banner--admin">
+    <UiIcon class="banner-icon" :icon="iconWarning" />
     <span>{{ adminBannerText }}</span>
     <a v-if="adminBannerLink" :href="adminBannerLink" target="_blank" rel="noopener noreferrer">
       {{ adminBannerLink }}
@@ -195,10 +197,10 @@ const sanctionBanner = computed<SanctionBanner | null>(() => {
     return { kind: 'ban', text: 'Аккаунт забанен' }
   }
   if (user.timeoutRemainingMs > 0) {
-    return { kind: 'timeout', text: `Таймаут: ${formatRemaining(user.timeoutRemainingMs)}` }
+    return { kind: 'timeout', text: `Таймаут ${formatRemaining(user.timeoutRemainingMs)}` }
   }
   if (user.suspendRemainingMs > 0) {
-    return { kind: 'suspend', text: `Отстранение от игр: ${formatRemaining(user.suspendRemainingMs)}` }
+    return { kind: 'suspend', text: `Отстранение от игр ${formatRemaining(user.suspendRemainingMs)}` }
   }
   return null
 })
@@ -409,7 +411,7 @@ function openAuth(mode: 'login' | 'register') {
   }
   &.sanction-banner--timeout {
     background-color: $orange-500;
-    .page-icon {
+    .banner-icon {
       --ui-icon-color: #{$neutral-900};
     }
     span {
@@ -418,7 +420,7 @@ function openAuth(mode: 'login' | 'register') {
   }
   &.sanction-banner--suspend {
     background-color: $yellow-500;
-    .page-icon {
+    .banner-icon {
       --ui-icon-color: #{$neutral-900};
     }
     span {
@@ -431,7 +433,7 @@ function openAuth(mode: 'login' | 'register') {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      padding: 8px 4px;
+      margin: 0 6px;
       width: 28px;
       height: 28px;
       border-radius: 6px;
@@ -440,6 +442,7 @@ function openAuth(mode: 'login' | 'register') {
     }
     .verification-divider {
       display: block;
+      margin: 0 8px;
       width: 1px;
       height: 28px;
       background-color: rgba($neutral-white, 0.4);

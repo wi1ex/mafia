@@ -313,8 +313,8 @@ const PROFILE_NOMINATION_DEFINITIONS: readonly ProfileNominationDefinition[] = [
     statKey: 'games_played',
     unit: 'count',
     levelStarts: [0, 50, 200, 500, 1001],
-    startLabels: ['0', '50', '200', '500', '1000+'],
-    nextLabels: ['50', '200', '500', '1000+'],
+    startLabels: ['0', '50', '200', '500', '1000'],
+    nextLabels: ['50', '200', '500', '1000'],
   },
   {
     key: 'games-hosted',
@@ -323,8 +323,8 @@ const PROFILE_NOMINATION_DEFINITIONS: readonly ProfileNominationDefinition[] = [
     statKey: 'games_hosted',
     unit: 'count',
     levelStarts: [0, 20, 50, 100, 301],
-    startLabels: ['0', '20', '50', '100', '300+'],
-    nextLabels: ['20', '50', '100', '300+'],
+    startLabels: ['0', '20', '50', '100', '300'],
+    nextLabels: ['20', '50', '100', '300'],
   },
   {
     key: 'room-time',
@@ -333,8 +333,8 @@ const PROFILE_NOMINATION_DEFINITIONS: readonly ProfileNominationDefinition[] = [
     statKey: 'room_minutes',
     unit: 'minutes',
     levelStarts: [0, 7 * MINUTES_IN_DAY, 14 * MINUTES_IN_DAY, 30 * MINUTES_IN_DAY, 60 * MINUTES_IN_DAY + 1],
-    startLabels: ['0', '7д', '14д', '30д', '60д+'],
-    nextLabels: ['7д', '14д', '30д', '60д+'],
+    startLabels: ['0', '7д', '14д', '30д', '60д'],
+    nextLabels: ['7д', '14д', '30д', '60д'],
   },
   {
     key: 'stream-time',
@@ -343,8 +343,8 @@ const PROFILE_NOMINATION_DEFINITIONS: readonly ProfileNominationDefinition[] = [
     statKey: 'stream_minutes',
     unit: 'minutes',
     levelStarts: [0, Math.round(0.25 * MINUTES_IN_DAY), MINUTES_IN_DAY, 2 * MINUTES_IN_DAY, 5 * MINUTES_IN_DAY + 1],
-    startLabels: ['0', '6ч', '1д', '2д', '5д+'],
-    nextLabels: ['6ч', '1д', '2д', '5д+'],
+    startLabels: ['0', '6ч', '1д', '2д', '5д'],
+    nextLabels: ['6ч', '1д', '2д', '5д'],
   },
   {
     key: 'spectator-time',
@@ -353,8 +353,8 @@ const PROFILE_NOMINATION_DEFINITIONS: readonly ProfileNominationDefinition[] = [
     statKey: 'spectator_minutes',
     unit: 'minutes',
     levelStarts: [0, MINUTES_IN_DAY, 7 * MINUTES_IN_DAY, 14 * MINUTES_IN_DAY, 30 * MINUTES_IN_DAY + 1],
-    startLabels: ['0', '1д', '7д', '14д', '30д+'],
-    nextLabels: ['1д', '7д', '14д', '30д+'],
+    startLabels: ['0', '1д', '7д', '14д', '30д'],
+    nextLabels: ['1д', '7д', '14д', '30д'],
   },
 ]
 
