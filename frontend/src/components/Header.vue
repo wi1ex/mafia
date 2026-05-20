@@ -365,51 +365,56 @@ function openAuth(mode: 'login' | 'register') {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 16px;
+  gap: 8px;
   height: 40px;
   border-radius: 0 0 16px 16px;
-
-  color: $bg;
-  font-weight: bold;
-  letter-spacing: 1px;
   span {
-    text-align: center;
-    overflow-wrap: anywhere;
+    color: $neutral-white;
+    font-family: Hauora-Medium;
+    font-size: 16px;
+    line-height: 16px;
+    letter-spacing: -0.32px;
   }
   a {
     display: flex;
     align-items: center;
-    gap: 3px;
-    color: $fg;
-    font-weight: lighter;
-    text-decoration: underline;
-    overflow-wrap: anywhere;
+    gap: 8px;
+    color: $neutral-white;
+    font-size: 16px;
+    line-height: 16px;
+    letter-spacing: -0.32px;
+    font-family: Hauora-Bold;
+    text-decoration-line: underline;
+    text-decoration-style: solid;
+    text-decoration-skip-ink: auto;
+    text-decoration-thickness: 1.28px;
+    text-underline-offset: 2.56px;
+    text-underline-position: from-font;
     img {
       width: 16px;
       height: 16px;
-      filter: brightness(0);
     }
   }
   &.sanction-banner--ban {
-    background-color: $red;
+    background-color: $red-500;
   }
   &.sanction-banner--timeout {
-    background-color: $orange;
+    background-color: $orange-500;
+    span {
+      color: $neutral-900;
+    }
   }
   &.sanction-banner--suspend {
-    background-color: $yellow;
+    background-color: $yellow-500;
+    span {
+      color: $neutral-900;
+    }
   }
   &.sanction-banner--verif {
-    background-color: $yellow;
-    a {
-      color: $bg;
-    }
+    background-color: $red-500;
   }
   &.sanction-banner--admin {
     background-color: $lead;
-    color: $fg;
-    letter-spacing: 0.25px;
-    text-align: center;
   }
 }
 .bar {
@@ -448,6 +453,7 @@ function openAuth(mode: 'login' | 'register') {
         gap: 8px;
         height: 64px;
         border-radius: 16px;
+        text-decoration: none;
         transition: background-color 0.25s ease-in-out;
         .page-icon {
           --ui-icon-width: 24px;
