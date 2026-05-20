@@ -437,14 +437,13 @@ function openAuth(mode: 'login' | 'register') {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      min-width: 28px;
+      min-width: 22px;
       height: 28px;
       padding: 0 6px;
       border-radius: 6px;
       background-color: rgba($neutral-black, 0.4);
       color: $neutral-white;
       font-family: Hauora-Bold;
-      line-height: 16px;
     }
   }
   &.sanction-banner--ban {
