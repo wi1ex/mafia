@@ -499,7 +499,7 @@ function openAuth(mode: 'login' | 'register') {
     }
   }
   &.sanction-banner--admin {
-    background-color: $neutral-700;
+    background-color: $neutral-500;
   }
 }
 .bar {
@@ -545,20 +545,24 @@ function openAuth(mode: 'login' | 'register') {
           --ui-icon-height: 24px;
           --ui-icon-color: #{$neutral-300};
         }
-        &:hover .page-icon,
-        &:focus-visible .page-icon,
-        &:active .page-icon {
-          --ui-icon-color: #{$neutral-white};
-        }
         span {
           color: $neutral-300;
           font-family: Hauora-Regular;
           font-size: 18px;
           line-height: 20px;
           letter-spacing: -0.36px;
+          transition: color 0.25s ease-in-out;
         }
-        &:hover {
+        &:hover,
+        &:focus-visible,
+        &:active {
           background-color: $soft-purple-900;
+          .page-icon {
+            --ui-icon-color: #{$neutral-white};
+          }
+          span {
+            color: $neutral-white;
+          }
         }
       }
     }
@@ -669,6 +673,7 @@ function openAuth(mode: 'login' | 'register') {
           font-size: 18px;
           line-height: 20px;
           letter-spacing: -0.36px;
+          transition: color 0.25s ease-in-out;
         }
         .bell-arrow {
           margin-left: -8px;
@@ -688,23 +693,18 @@ function openAuth(mode: 'login' | 'register') {
           border-radius: 50%;
           background-color: $red-500;
         }
-        &:hover .bell-icon,
-        &:focus-visible .bell-icon,
-        &:active .bell-icon,
-        &:hover .bell-arrow,
-        &:focus-visible .bell-arrow,
-        &:active .bell-arrow {
-          --ui-icon-color: #{$green-500};
-        }
-        &.bell-dropdown-trigger[aria-expanded='true'] .bell-icon,
-        &.bell-dropdown-trigger[aria-expanded='true'] .bell-arrow {
-          --ui-icon-color: #{$green-500};
-        }
         &:hover,
         &:focus-visible,
         &:active,
         &.bell-dropdown-trigger[aria-expanded='true'] {
           background-color: $soft-purple-800;
+          .bell-icon,
+          .bell-arrow {
+            --ui-icon-color: #{$green-500};
+          }
+          .bell-text {
+            color: $neutral-white;
+          }
         }
       }
     }
