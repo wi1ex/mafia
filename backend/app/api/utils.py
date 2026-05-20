@@ -2375,7 +2375,24 @@ async def _user_has_recorded_games(session: AsyncSession, user_id: int) -> bool:
     return bool(row)
 
 
-async def _can_auto_delete_unverified_user(session: AsyncSession, user: User, *, cutoff_dt: datetime) -> bool:
+async def _user_has_active_subscription(session: AsyncSession, user_id: int, *, now_dt: datetime) -> bool:
+    uid = int(user_id or 0)
+    if uid <= 0:
+        return False
+
+    row = await session.scalar(
+        select(UserSubscription.id)
+        .where(
+            UserSubscription.user_id == uid,
+            UserSubscription.starts_at <= now_dt,
+            UserSubscription.ends_at > now_dt,
+        )
+        .limit(1)
+    )
+    return bool(row)
+
+
+async def _can_auto_delete_unverified_user(session: AsyncSession, user: User, *, cutoff_dt: datetime, now_dt: datetime) -> bool:
     uid = int(getattr(user, "id", 0) or 0)
     if uid <= 0:
         return False
@@ -2392,6 +2409,9 @@ async def _can_auto_delete_unverified_user(session: AsyncSession, user: User, *,
     if user.registered_at > cutoff_dt:
         return False
 
+    if await _user_has_active_subscription(session, uid, now_dt=now_dt):
+        return False
+
     if await _user_has_recorded_games(session, uid):
         return False
 
@@ -2406,17 +2426,27 @@ async def delete_stale_unverified_accounts(*, batch_limit: int = 100, min_age_mi
 
     limit = max(1, min(int(batch_limit), 1000))
     min_age = max(1, int(min_age_minutes))
-    cutoff_dt = datetime.now(timezone.utc) - timedelta(minutes=min_age)
+    now_dt = datetime.now(timezone.utc)
+    cutoff_dt = now_dt - timedelta(minutes=min_age)
     deleted = 0
 
     async with SessionLocal() as session:
         stmt = (
             select(User)
+            .outerjoin(
+                UserSubscription,
+                and_(
+                    UserSubscription.user_id == User.id,
+                    UserSubscription.starts_at <= now_dt,
+                    UserSubscription.ends_at > now_dt,
+                ),
+            )
             .where(
                 User.deleted_at.is_(None),
                 User.telegram_id.is_(None),
                 User.role == "user",
                 User.registered_at <= cutoff_dt,
+                UserSubscription.id.is_(None),
             )
             .order_by(User.registered_at.asc(), User.id.asc())
             .limit(limit)
@@ -2450,7 +2480,7 @@ async def delete_stale_unverified_accounts(*, batch_limit: int = 100, min_age_mi
 
             try:
                 fresh_user = await session.get(User, uid, populate_existing=True)
-                if not fresh_user or not await _can_auto_delete_unverified_user(session, fresh_user, cutoff_dt=cutoff_dt):
+                if not fresh_user or not await _can_auto_delete_unverified_user(session, fresh_user, cutoff_dt=cutoff_dt, now_dt=now_dt):
                     if use_redis_lock:
                         with suppress(Exception):
                             await get_redis().delete(redis_key)

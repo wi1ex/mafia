@@ -132,7 +132,7 @@ import UiIcon from '@/components/UiIcon.vue'
 import defaultAvatar from "@/assets/svg/defaultAvatar.svg"
 import iconLogo from '@/assets/svg/iconLogo.svg'
 import iconNotifBell from "@/assets/svg/notifBell.svg"
-import iconTelegram from "@/assets/svg/telegram.svg"
+import iconTelegram from "@/assets/svg/iconTelegram.svg"
 import iconInfo from "@/assets/svg/iconInfo.svg"
 import iconGamesHistory from "@/assets/svg/iconHistory.svg"
 import iconUpdates from "@/assets/svg/updates.svg"
@@ -391,8 +391,8 @@ function openAuth(mode: 'login' | 'register') {
     text-underline-offset: 2.56px;
     text-underline-position: from-font;
     img {
-      width: 16px;
-      height: 16px;
+      width: 24px;
+      height: 24px;
     }
   }
   &.sanction-banner--ban {
