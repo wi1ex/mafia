@@ -44,19 +44,19 @@
       <div class="pages">
         <router-link class="page" :to="{ name: 'rules' }" aria-label="Правила">
           <UiIcon class="page-icon" :icon="iconInfo" />
-          <span data-nosnippet>Правила</span>
+          <span class="page-text" data-nosnippet>Правила</span>
         </router-link>
         <router-link v-if="showHistoryButton" class="page" :to="{ name: 'history' }" aria-label="История игр">
           <UiIcon class="page-icon" :icon="iconGamesHistory" />
-          <span data-nosnippet>История игр</span>
+          <span class="page-text" data-nosnippet>История игр</span>
         </router-link>
         <router-link v-if="user.user?.role === 'admin'" class="page" :to="{ name: 'admin' }" aria-label="Админ-панель">
           <UiIcon class="page-icon" :icon="iconJudge" />
-          <span data-nosnippet>Админ-панель</span>
+          <span class="page-text" data-nosnippet>Админ-панель</span>
         </router-link>
         <router-link v-if="user.user?.role === 'moder'" class="page" :to="{ name: 'moderation' }" aria-label="Модерация">
           <UiIcon class="page-icon" :icon="iconJudge" />
-          <span data-nosnippet>Модерация</span>
+          <span class="page-text" data-nosnippet>Модерация</span>
         </router-link>
       </div>
     </div>
@@ -545,7 +545,7 @@ function openAuth(mode: 'login' | 'register') {
           --ui-icon-height: 24px;
           --ui-icon-color: #{$neutral-300};
         }
-        span {
+        .page-text {
           color: $neutral-300;
           font-family: Hauora-Regular;
           font-size: 18px;
@@ -560,7 +560,7 @@ function openAuth(mode: 'login' | 'register') {
           .page-icon {
             --ui-icon-color: #{$neutral-white};
           }
-          span {
+          .page-text {
             color: $neutral-white;
           }
         }

@@ -1,5 +1,5 @@
 <template>
-  <span
+  <i
     class="ui-icon"
     :style="iconStyle"
     :role="label ? 'img' : undefined"
@@ -30,6 +30,7 @@ const iconStyle = computed<Record<string, string>>(() => ({
 .ui-icon {
   display: inline-block;
   flex: 0 0 auto;
+  font-style: normal;
   width: var(--ui-icon-width, 24px);
   height: var(--ui-icon-height, 24px);
   background-color: var(--ui-icon-color, currentColor);
