@@ -83,6 +83,7 @@
       <div class="bell" ref="bellEl">
         <button @click.stop="onToggleNotifs" :aria-expanded="nb_open" aria-label="Уведомления">
           <UiIcon class="bell-icon" :icon="iconNotifBell" />
+          <span class="bell-text">Уведомления</span>
 <!--          <span v-if="notif.unread > 0" class="unread-text">{{ notif.unread < 100 ? notif.unread : '∞' }}</span>-->
           <span v-if="notif.unread > 0" class="unread-text"></span>
         </button>
@@ -95,6 +96,7 @@
       <div v-if="showFriendsButton" class="bell" ref="friendsEl">
         <button @click.stop="onToggleFriends" :aria-expanded="friends_open" aria-label="Друзья">
           <UiIcon class="bell-icon" :icon="iconFriends" />
+          <span class="bell-text">Друзья</span>
 <!--          <span v-if="friends.incomingCount > 0" class="unread-text">{{ friends.incomingCount < 100 ? friends.incomingCount : '∞' }}</span>-->
           <span v-if="friends.incomingCount > 0" class="unread-text"></span>
         </button>
@@ -108,6 +110,7 @@
       <div v-if="showGlobalChatButton" class="bell">
         <button @click.stop="toggleGlobalChat" :aria-expanded="chat.open" aria-label="Общий чат">
           <UiIcon class="bell-icon" :icon="iconChat" />
+          <span class="bell-text">Чат</span>
 <!--          <span v-if="chat.unread > 0" class="unread-text">{{ chat.unread < 100 ? chat.unread : '∞' }}</span>-->
           <span v-if="chat.unread > 0" class="unread-text"></span>
         </button>
@@ -119,7 +122,7 @@
           <div v-if="userMenuProfileIconSrcs.length" class="profile-theme-icons" aria-hidden="true">
             <img v-for="badgeSrc in userMenuProfileIconSrcs" :key="badgeSrc" class="profile-theme-icon" :src="badgeSrc" alt="" />
           </div>
-          <span aria-live="polite">{{ user.user?.username || 'Error' }}</span>
+          <span aria-live="polite">{{ user.user?.username || '...' }}</span>
           <img class="arrow" :src="iconArrow" alt="arrow" :style="{ transform: um_open ? 'rotate(180deg)' : 'none'}" />
         </button>
 
@@ -561,7 +564,6 @@ function openAuth(mode: 'login' | 'register') {
     justify-content: center;
     padding: 20px 16px;
     gap: 8px;
-    height: 40px;
     border: none;
     border-radius: 16px;
     background: var(--user-theme-bg, linear-gradient(261deg, $soft-purple-800 0%, $green-700 100%));
@@ -632,10 +634,17 @@ function openAuth(mode: 'login' | 'register') {
           --ui-icon-height: 24px;
           --ui-icon-color: #{$neutral-white};
         }
-        &:hover .page-icon,
-        &:focus-visible .page-icon,
-        &:active .page-icon {
+        &:hover .bell-icon,
+        &:focus-visible .bell-icon,
+        &:active .bell-icon {
           --ui-icon-color: #{$green-500};
+        }
+        .bell-text {
+          color: $neutral-100;
+          font-family: Hauora-Regular;
+          font-size: 18px;
+          line-height: 20px;
+          letter-spacing: -0.36px;
         }
         .unread-text {
           display: flex;
