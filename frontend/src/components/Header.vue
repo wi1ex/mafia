@@ -61,17 +61,18 @@
       </div>
     </div>
 
-    <button v-if="!auth.isAuthed && !auth.foreignActive" class="btn" type="button" @click="openAuth('login')">
+    <button v-if="!auth.isAuthed && !auth.foreignActive" class="profile-btn" type="button" @click="openAuth('login')">
       <span>Вход/Регистрация</span>
     </button>
-    <div v-else-if="!auth.isAuthed && auth.foreignActive" class="btn">
+    <div v-else-if="!auth.isAuthed && auth.foreignActive" class="profile-btn">
       <span>Вы авторизованы в другой вкладке</span>
     </div>
     <div v-else class="user">
       <div class="bell" ref="updatesEl">
         <button @click.stop="onToggleUpdates" :aria-expanded="updates_open" aria-label="Обновления">
           <UiIcon class="bell-icon" :icon="iconUpdates" />
-          <span v-if="updates.unread > 0" class="unread-text">{{ updates.unread < 100 ? updates.unread : '∞' }}</span>
+<!--          <span v-if="updates.unread > 0" class="unread-text">{{ updates.unread < 100 ? updates.unread : '∞' }}</span>-->
+          <span v-if="updates.unread > 0" class="unread-text"></span>
         </button>
         <Updates
           v-model:open="updates_open"
@@ -82,7 +83,8 @@
       <div class="bell" ref="bellEl">
         <button @click.stop="onToggleNotifs" :aria-expanded="nb_open" aria-label="Уведомления">
           <UiIcon class="bell-icon" :icon="iconNotifBell" />
-          <span v-if="notif.unread > 0" class="unread-text">{{ notif.unread < 100 ? notif.unread : '∞' }}</span>
+<!--          <span v-if="notif.unread > 0" class="unread-text">{{ notif.unread < 100 ? notif.unread : '∞' }}</span>-->
+          <span v-if="notif.unread > 0" class="unread-text"></span>
         </button>
         <Notifs
           v-model:open="nb_open"
@@ -93,7 +95,8 @@
       <div v-if="showFriendsButton" class="bell" ref="friendsEl">
         <button @click.stop="onToggleFriends" :aria-expanded="friends_open" aria-label="Друзья">
           <UiIcon class="bell-icon" :icon="iconFriends" />
-          <span v-if="friends.incomingCount > 0" class="unread-text">{{ friends.incomingCount < 100 ? friends.incomingCount : '∞' }}</span>
+<!--          <span v-if="friends.incomingCount > 0" class="unread-text">{{ friends.incomingCount < 100 ? friends.incomingCount : '∞' }}</span>-->
+          <span v-if="friends.incomingCount > 0" class="unread-text"></span>
         </button>
         <FriendsPanel
           v-model:open="friends_open"
@@ -105,18 +108,19 @@
       <div v-if="showGlobalChatButton" class="bell">
         <button @click.stop="toggleGlobalChat" :aria-expanded="chat.open" aria-label="Общий чат">
           <UiIcon class="bell-icon" :icon="iconChat" />
-          <span v-if="chat.unread > 0" class="unread-text">{{ chat.unread < 100 ? chat.unread : '∞' }}</span>
+<!--          <span v-if="chat.unread > 0" class="unread-text">{{ chat.unread < 100 ? chat.unread : '∞' }}</span>-->
+          <span v-if="chat.unread > 0" class="unread-text"></span>
         </button>
       </div>
 
       <div class="user-menu" ref="userMenuEl">
-        <button class="btn" :class="{ 'has-profile-theme': hasUserMenuProfileTheme }" type="button" :style="userMenuButtonStyle" @click.stop="onToggleUserMenu" :aria-expanded="um_open" aria-haspopup="true">
-          <img v-minio-img="{ key: user.user?.avatar_name ? `avatars/${user.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="Аватар" class="avatar" />
+        <button class="profile-btn" :class="{ 'has-profile-theme': hasUserMenuProfileTheme }" type="button" :style="userMenuButtonStyle" @click.stop="onToggleUserMenu" :aria-expanded="um_open" aria-haspopup="true">
+          <img v-minio-img="{ key: user.user?.avatar_name ? `avatars/${user.user.avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false }" alt="Аватар" class="avatar" />
           <div v-if="userMenuProfileIconSrcs.length" class="profile-theme-icons" aria-hidden="true">
             <img v-for="badgeSrc in userMenuProfileIconSrcs" :key="badgeSrc" class="profile-theme-icon" :src="badgeSrc" alt="" />
           </div>
           <span aria-live="polite">{{ user.user?.username || 'Error' }}</span>
-          <img class="arrow" :src="iconArrowDown" alt="arrow" :style="{ transform: um_open ? 'rotate(180deg)' : 'none'}" />
+          <img class="arrow" :src="iconArrow" alt="arrow" :style="{ transform: um_open ? 'rotate(180deg)' : 'none'}" />
         </button>
 
         <Transition name="user-menu">
@@ -157,10 +161,10 @@ import iconUpdates from "@/assets/svg/iconUpdates.svg"
 import iconNotifBell from "@/assets/svg/iconNotifBell.svg"
 import iconFriends from "@/assets/svg/iconFriends.svg"
 import iconChat from "@/assets/svg/iconChat.svg"
-import defaultAvatar from "@/assets/svg/defaultAvatar.svg"
-import iconLogout from '@/assets/svg/leave.svg'
+import iconDefaultAvatar from "@/assets/svg/iconDefaultAvatar.svg"
+import iconArrow from '@/assets/svg/iconArrow.svg'
 import iconProfile from "@/assets/svg/profile.svg"
-import iconArrowDown from '@/assets/svg/arrowDown.svg'
+import iconLogout from '@/assets/svg/leave.svg'
 import { buildProfileThemeStyle } from '@/constants/profileThemes'
 import { getProfileThemeBadgeSources } from '@/constants/profileThemeIcons'
 
@@ -487,7 +491,7 @@ function openAuth(mode: 'login' | 'register') {
     }
   }
   &.sanction-banner--admin {
-    background-color: $lead;
+    background-color: $neutral-700;
   }
 }
 .bar {
@@ -551,27 +555,28 @@ function openAuth(mode: 'login' | 'register') {
       }
     }
   }
-  .btn {
+  .profile-btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 0 10px;
-    gap: 5px;
+    padding: 20px 16px;
+    gap: 8px;
     height: 40px;
     border: none;
-    border-radius: 5px;
-    background-color: var(--user-theme-bg, $graphite);
+    border-radius: 16px;
+    background: var(--user-theme-bg, linear-gradient(261deg, $soft-purple-800 0%, $green-700 100%));
     text-decoration: none;
     cursor: pointer;
-    transition: background-color 0.25s ease-in-out;
+    transition: background 0.25s ease-in-out;
     &:hover {
-      background-color: var(--user-theme-bg-hover, $lead);
+      background: var(--user-theme-bg-hover, linear-gradient(261deg, $green-700 0%, $soft-purple-800 100%));
     }
     span {
-      color: $fg;
-      font-size: 16px;
-      font-family: Manrope-Medium;
-      line-height: 1;
+      color: $neutral-white;
+      font-family: Hauora-Regular;
+      font-size: 18px;
+      line-height: 20px;
+      letter-spacing: -0.36px;
     }
     img {
       height: 24px;
@@ -584,7 +589,7 @@ function openAuth(mode: 'login' | 'register') {
     .profile-theme-icons {
       display: inline-flex;
       align-items: center;
-      gap: 5px;
+      gap: 8px;
       flex: 0 0 auto;
       .profile-theme-icon {
         width: 24px;
@@ -594,9 +599,9 @@ function openAuth(mode: 'login' | 'register') {
       }
     }
     .arrow {
-      margin-left: 5px;
-      width: 16px;
-      height: 16px;
+      margin-left: -8px;
+      width: 20px;
+      height: 20px;
       border-radius: 0;
       object-fit: none;
       transition: transform 0.25s ease-in-out;
@@ -622,7 +627,7 @@ function openAuth(mode: 'login' | 'register') {
         background-color: $soft-purple-900;
         cursor: pointer;
         transition: background-color 0.25s ease-in-out;
-        .page-icon {
+        .bell-icon {
           --ui-icon-width: 24px;
           --ui-icon-height: 24px;
           --ui-icon-color: #{$neutral-white};
@@ -634,19 +639,15 @@ function openAuth(mode: 'login' | 'register') {
         }
         .unread-text {
           display: flex;
+          position: absolute;
           align-items: center;
           justify-content: center;
-          position: absolute;
-          top: 5px;
-          right: 5px;
-          width: 17px;
-          height: 17px;
+          top: 16px;
+          right: 16px;
+          width: 12px;
+          height: 12px;
           border-radius: 50%;
-          background-color: $red;
-          color: $fg;
-          font-size: 12px;
-          font-family: Manrope-Medium;
-          line-height: 1;
+          background-color: $red-500;
         }
         &:hover {
           background-color: $soft-purple-800;
@@ -655,7 +656,7 @@ function openAuth(mode: 'login' | 'register') {
     }
     .user-menu {
       position: relative;
-      > .btn.has-profile-theme {
+      > .profile-btn.has-profile-theme {
         position: relative;
         overflow: hidden;
         isolation: isolate;
@@ -751,7 +752,7 @@ function openAuth(mode: 'login' | 'register') {
     .links {
       gap: 5px;
     }
-    .btn {
+    .profile-btn {
       padding: 0 8px;
       gap: 3px;
       height: 30px;
