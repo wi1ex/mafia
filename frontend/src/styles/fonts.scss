@@ -1,14 +1,6 @@
 /* --------------------- MANROPE --------------------- */
 
 @font-face {
-  font-family: 'Manrope-Regular';
-  src: url('@/assets/fonts/Manrope-Regular.ttf') format('truetype');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
   font-family: 'Manrope-Medium';
   src: url('@/assets/fonts/Manrope-Medium.ttf') format('truetype');
   font-weight: 500;
@@ -20,6 +12,78 @@
   font-family: 'Manrope-SemiBold';
   src: url('@/assets/fonts/Manrope-SemiBold.ttf') format('truetype');
   font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+
+
+/* --------------------- HAUORA --------------------- */
+
+@font-face {
+  font-family: 'Hauora-Regular';
+  src: url('@/assets/fonts/Hauora-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Hauora-Medium';
+  src: url('@/assets/fonts/Hauora-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Hauora-SemiBold';
+  src: url('@/assets/fonts/Hauora-SemiBold.ttf') format('truetype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Hauora-Bold';
+  src: url('@/assets/fonts/Hauora-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+
+
+/* --------------------- INVOLVE --------------------- */
+
+@font-face {
+  font-family: 'Involve-Regular';
+  src: url('@/assets/fonts/Involve-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Involve-Medium';
+  src: url('@/assets/fonts/Involve-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Involve-SemiBold';
+  src: url('@/assets/fonts/Involve-SemiBold.ttf') format('truetype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Involve-Bold';
+  src: url('@/assets/fonts/Involve-Bold.ttf') format('truetype');
+  font-weight: 700;
   font-style: normal;
   font-display: swap;
 }

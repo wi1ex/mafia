@@ -1,17 +1,98 @@
-/* -------------- ЦВЕТА -------------- */
+/* --------------- ЦВЕТА --------------- */
 
-$black:        rgba(   0,   0,   0,  1);
-$bg:           rgba(  10,  10,  10,  1);
-$dark:         rgba(  30,  30,  30,  1);
-$graphite:     rgba(  45,  45,  45,  1);
-$lead:         rgba(  60,  60,  60,  1);
-$grey:         rgba( 120, 120, 120,  1);
-$ashy:         rgba( 180, 180, 180,  1);
-$fg:           rgba( 220, 220, 220,  1);
-$white:        rgba( 255, 255, 255,  1);
-$red:          rgba( 255,  50,  50,  1);
-$orange:       rgba( 255, 150,  50,  1);
-$yellow:       rgba( 255, 255,  50,  1);
-$green:        rgba(  50, 255, 100,  1);
+$black:           rgba(   0,   0,   0,  1);
+$bg:              rgba(  10,  10,  10,  1);
+$dark:            rgba(  30,  30,  30,  1);
+$graphite:        rgba(  45,  45,  45,  1);
+$lead:            rgba(  60,  60,  60,  1);
+$grey:            rgba( 120, 120, 120,  1);
+$ashy:            rgba( 180, 180, 180,  1);
+$fg:              rgba( 220, 220, 220,  1);
+$white:           rgba( 255, 255, 255,  1);
+$red:             rgba( 255,  50,  50,  1);
+$orange:          rgba( 255, 150,  50,  1);
+$yellow:          rgba( 255, 255,  50,  1);
+$green:           rgba(  50, 255, 100,  1);
 
-/* ------------- РАЗМЕРЫ ------------- */
+$green-100:       rgba( 204, 245, 235,  1);
+$green-200:       rgba( 153, 235, 215,  1);
+$green-300:       rgba( 102, 225, 195,  1);
+$green-400:       rgba(  51, 215, 175,  1);
+$green-500:       rgba(   0, 205, 155,  1);
+$green-600:       rgba(   0, 164, 124,  1);
+$green-700:       rgba(   0, 123,  93,  1);
+$green-800:       rgba(   0,  82,  62,  1);
+$green-900:       rgba(   0,  41,  31,  1);
+
+$red-100:         rgba( 255, 217, 215,  1);
+$red-200:         rgba( 254, 179, 176,  1);
+$red-300:         rgba( 254, 141, 136,  1);
+$red-400:         rgba( 253, 103,  97,  1);
+$red-500:         rgba( 253,  65,  57,  1);
+$red-600:         rgba( 202,  52,  46,  1);
+$red-700:         rgba( 152,  39,  34,  1);
+$red-800:         rgba( 101,  26,  23,  1);
+$red-900:         rgba(  51,  13,  11,  1);
+
+$orange-100:      rgba( 255, 233, 210,  1);
+$orange-200:      rgba( 255, 212, 165,  1);
+$orange-300:      rgba( 255, 190, 120,  1);
+$orange-400:      rgba( 255, 168,  75,  1);
+$orange-500:      rgba( 255, 147,  31,  1);
+$orange-600:      rgba( 204, 117,  24,  1);
+$orange-700:      rgba( 153,  88,  18,  1);
+$orange-800:      rgba( 102,  59,  12,  1);
+$orange-900:      rgba(  51,  29,   6,  1);
+
+$yellow-100:      rgba( 255, 243, 218,  1);
+$yellow-200:      rgba( 255, 230, 182,  1);
+$yellow-300:      rgba( 255, 218, 145,  1);
+$yellow-400:      rgba( 255, 205, 109,  1);
+$yellow-500:      rgba( 255, 193,  72,  1);
+$yellow-600:      rgba( 204, 154,  58,  1);
+$yellow-700:      rgba( 153, 116,  43,  1);
+$yellow-800:      rgba( 102,  77,  29,  1);
+$yellow-900:      rgba(  51,  39,  14,  1);
+
+$blue-100:        rgba( 214, 230, 245,  1);
+$blue-200:        rgba( 173, 205, 234,  1);
+$blue-300:        rgba( 132, 180, 224,  1);
+$blue-400:        rgba(  91, 155, 213,  1);
+$blue-500:        rgba(  50, 130, 203,  1);
+$blue-600:        rgba(  40, 104, 162,  1);
+$blue-700:        rgba(  30,  78, 122,  1);
+$blue-800:        rgba(  20,  52,  81,  1);
+$blue-900:        rgba(  10,  26,  41,  1);
+
+$purple-100:      rgba( 225, 204, 255,  1);
+$purple-200:      rgba( 196, 153, 255,  1);
+$purple-300:      rgba( 166, 103, 255,  1);
+$purple-400:      rgba( 137,  52, 255,  1);
+$purple-500:      rgba( 107,   1, 255,  1);
+$purple-600:      rgba(  86,   1, 204,  1);
+$purple-700:      rgba(  64,   1, 153,  1);
+$purple-800:      rgba(  43,   0, 102,  1);
+$purple-900:      rgba(  21,   0,  51,  1);
+
+$soft-purple-100: rgba( 227, 227, 239,  1);
+$soft-purple-200: rgba( 198, 198, 223,  1);
+$soft-purple-300: rgba( 170, 170, 208,  1);
+$soft-purple-400: rgba( 141, 141, 192,  1);
+$soft-purple-500: rgba( 113, 113, 176,  1);
+$soft-purple-600: rgba(  90,  90, 141,  1);
+$soft-purple-700: rgba(  68,  68, 106,  1);
+$soft-purple-800: rgba(  45,  45,  70,  1);
+$soft-purple-900: rgba(  23,  23,  35,  1);
+
+$neutral-white:   rgba( 255, 255, 255,  1);
+$neutral-50:      rgba( 241, 241, 241,  1);
+$neutral-100:     rgba( 227, 227, 227,  1);
+$neutral-200:     rgba( 198, 198, 198,  1);
+$neutral-300:     rgba( 170, 170, 170,  1);
+$neutral-400:     rgba( 141, 141, 141,  1);
+$neutral-500:     rgba( 113, 113, 113,  1);
+$neutral-600:     rgba(  90,  90,  90,  1);
+$neutral-700:     rgba(  68,  68,  68,  1);
+$neutral-800:     rgba(  45,  45,  45,  1);
+$neutral-900:     rgba(  23,  23,  23,  1);
+$neutral-black:   rgba(   7,   7,   7,  1);

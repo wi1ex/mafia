@@ -127,10 +127,10 @@ import FriendsPanel from '@/components/FriendsPanel.vue'
 import AuthModal from '@/components/AuthModal.vue'
 
 import defaultAvatar from "@/assets/svg/defaultAvatar.svg"
-import iconLogo from '@/assets/svg/logo.svg'
+import iconLogo from '@/assets/svg/iconLogo.svg'
 import iconNotifBell from "@/assets/svg/notifBell.svg"
 import iconTelegram from "@/assets/svg/telegram.svg"
-import iconInfo from "@/assets/svg/info.svg"
+import iconInfo from "@/assets/svg/iconInfo.svg"
 import iconGamesHistory from "@/assets/svg/history.svg"
 import iconUpdates from "@/assets/svg/updates.svg"
 import iconFriends from "@/assets/svg/friends.svg"
