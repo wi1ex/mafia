@@ -1,26 +1,28 @@
 ﻿<template>
   <header class="bar">
     <div class="links">
-      <router-link class="btn" :to="{ name: 'home' }" aria-label="DECEIT.games">
+      <router-link class="home" :to="{ name: 'home' }" aria-label="DECEIT.games">
         <img :src="iconLogo" alt="" aria-hidden="true" />
-        <span data-nosnippet>{{ BUILD }}</span>
+<!--        <span data-nosnippet>{{ BUILD }}</span>-->
       </router-link>
-      <router-link class="btn" :to="{ name: 'rules' }" aria-label="Правила">
-        <img :src="iconInfo" alt="" aria-hidden="true" />
-        <span data-nosnippet>Правила</span>
-      </router-link>
-      <router-link v-if="showHistoryButton" class="btn" :to="{ name: 'history' }" aria-label="История игр">
-        <img :src="iconGamesHistory" alt="" aria-hidden="true" />
-        <span data-nosnippet>История игр</span>
-      </router-link>
-      <router-link v-if="user.user?.role === 'admin'" class="btn" :to="{ name: 'admin' }" aria-label="Админ-панель">
-        <img :src="iconJudge" alt="" aria-hidden="true" />
-        <span data-nosnippet>Админ-панель</span>
-      </router-link>
-      <router-link v-if="user.user?.role === 'moder'" class="btn" :to="{ name: 'moderation' }" aria-label="Модерация">
-        <img :src="iconJudge" alt="" aria-hidden="true" />
-        <span data-nosnippet>Модерация</span>
-      </router-link>
+      <div class="pages">
+        <router-link class="page" :to="{ name: 'rules' }" aria-label="Правила">
+          <UiIcon class="page-icon" :icon="iconInfo" />
+          <span data-nosnippet>Правила</span>
+        </router-link>
+        <router-link v-if="showHistoryButton" class="page" :to="{ name: 'history' }" aria-label="История игр">
+          <UiIcon class="page-icon" :icon="iconGamesHistory" />
+          <span data-nosnippet>История игр</span>
+        </router-link>
+        <router-link v-if="user.user?.role === 'admin'" class="page" :to="{ name: 'admin' }" aria-label="Админ-панель">
+          <UiIcon class="page-icon" :icon="iconJudge" />
+          <span data-nosnippet>Админ-панель</span>
+        </router-link>
+        <router-link v-if="user.user?.role === 'moder'" class="page" :to="{ name: 'moderation' }" aria-label="Модерация">
+          <UiIcon class="page-icon" :icon="iconJudge" />
+          <span data-nosnippet>Модерация</span>
+        </router-link>
+      </div>
     </div>
 
     <div v-if="!auth.isAuthed && !auth.foreignActive" class="auth-actions">
@@ -125,6 +127,7 @@ import Notifs from '@/components/Notifs.vue'
 import Updates from '@/components/Updates.vue'
 import FriendsPanel from '@/components/FriendsPanel.vue'
 import AuthModal from '@/components/AuthModal.vue'
+import UiIcon from '@/components/UiIcon.vue'
 
 import defaultAvatar from "@/assets/svg/defaultAvatar.svg"
 import iconLogo from '@/assets/svg/iconLogo.svg'
@@ -222,8 +225,7 @@ const showFriendsButton = computed(() => {
 const showGlobalChatButton = computed(() => {
   if (!canUseVerifiedFeatures.value) return false
   if (!settings.chatOpenEnabled) return false
-  if (user.banActive || user.timeoutActive || user.inActiveGameAsPlayer) return false
-  return true
+  return !(user.banActive || user.timeoutActive || user.inActiveGameAsPlayer)
 })
 
 const adminBannerText = computed(() => {
@@ -371,7 +373,35 @@ function openAuth(mode: 'login' | 'register') {
   .links {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 24px;
+    .home {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      img {
+        width: 115px;
+        height: 32px;
+      }
+    }
+    .pages {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      .page {
+        display: flex;
+        .page-icon {
+          --ui-icon-size: 24px;
+          --ui-icon-color: #{$neutral-300};
+          --ui-icon-state-color: #{$neutral-white};
+        }
+        span {
+          color: $fg;
+          font-size: 16px;
+          font-family: Manrope-Medium;
+          line-height: 1;
+        }
+      }
+    }
   }
   .btn {
     display: flex;
@@ -627,6 +657,9 @@ function openAuth(mode: 'login' | 'register') {
       }
       img {
         height: 16px;
+      }
+      .rules-icon {
+        --ui-icon-size: 16px;
       }
       .profile-theme-icon {
         width: 16px;
