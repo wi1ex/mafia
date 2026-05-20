@@ -1,7 +1,22 @@
 ﻿<template>
   <div v-if="sanctionBanner" class="sanction-banner" :class="`sanction-banner--${sanctionBanner.kind}`">
     <UiIcon class="banner-icon" :icon="iconWarning" />
-    <span>{{ sanctionBanner.text }}</span>
+    <span v-if="sanctionBanner.text">{{ sanctionBanner.text }}</span>
+    <template v-else>
+      <span>{{ sanctionBanner.label }}</span>
+      <span v-if="sanctionBanner.days > 0" class="sanction-duration-unit">
+        <span class="sanction-timer-badge">{{ sanctionBanner.days }}</span> д
+      </span>
+      <span class="sanction-duration-unit">
+        <span class="sanction-timer-badge">{{ sanctionBanner.hours }}</span> ч
+      </span>
+      <span class="sanction-duration-unit">
+        <span class="sanction-timer-badge">{{ sanctionBanner.minutes }}</span> м
+      </span>
+      <span class="sanction-duration-unit">
+        <span class="sanction-timer-badge">{{ sanctionBanner.seconds }}</span> с
+      </span>
+    </template>
   </div>
   <div v-if="verificationBanner" class="sanction-banner sanction-banner--verif">
     <UiIcon class="banner-icon" :icon="iconWarning" />
@@ -176,9 +191,18 @@ const userMenuButtonStyle = computed(() => buildProfileThemeStyle(user.activePro
 const hasUserMenuProfileTheme = computed(() => Boolean(user.activeProfileThemeColor))
 const userMenuProfileIconSrcs = computed(() => getProfileThemeBadgeSources(user.activeProfileThemeIcon, user.user?.role))
 
-type SanctionBanner = { kind: 'ban' | 'timeout' | 'suspend'; text: string }
+type SanctionDuration = {
+  days: number
+  hours: string
+  minutes: string
+  seconds: string
+}
 
-function formatRemaining(ms: number): string {
+type SanctionBanner =
+  | { kind: 'ban'; text: string }
+  | { kind: 'timeout' | 'suspend'; label: string; days: number; hours: string; minutes: string; seconds: string }
+
+function formatRemaining(ms: number): SanctionDuration {
   const total = Math.max(0, Math.floor(ms / 1000))
   const days = Math.floor(total / 86400)
   const hours = Math.floor((total % 86400) / 3600)
@@ -187,8 +211,7 @@ function formatRemaining(ms: number): string {
   const hh = String(hours).padStart(2, '0')
   const mm = String(minutes).padStart(2, '0')
   const ss = String(seconds).padStart(2, '0')
-  const base = `${hh}:${mm}:${ss}`
-  return days > 0 ? `${days}д ${base}` : base
+  return { days, hours: hh, minutes: mm, seconds: ss }
 }
 
 const sanctionBanner = computed<SanctionBanner | null>(() => {
@@ -197,10 +220,10 @@ const sanctionBanner = computed<SanctionBanner | null>(() => {
     return { kind: 'ban', text: 'Аккаунт забанен' }
   }
   if (user.timeoutRemainingMs > 0) {
-    return { kind: 'timeout', text: `Таймаут ${formatRemaining(user.timeoutRemainingMs)}` }
+    return { kind: 'timeout', label: 'Таймаут', ...formatRemaining(user.timeoutRemainingMs) }
   }
   if (user.suspendRemainingMs > 0) {
-    return { kind: 'suspend', text: `Отстранение от игр ${formatRemaining(user.suspendRemainingMs)}` }
+    return { kind: 'suspend', label: 'Отстранение от игр', ...formatRemaining(user.suspendRemainingMs) }
   }
   return null
 })
@@ -404,6 +427,24 @@ function openAuth(mode: 'login' | 'register') {
     img {
       width: 24px;
       height: 24px;
+    }
+  }
+  .sanction-duration-unit {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    .sanction-timer-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 28px;
+      height: 28px;
+      padding: 0 6px;
+      border-radius: 6px;
+      background-color: rgba($neutral-black, 0.4);
+      color: $neutral-white;
+      font-family: Hauora-Bold;
+      line-height: 16px;
     }
   }
   &.sanction-banner--ban {
