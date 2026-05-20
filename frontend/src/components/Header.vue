@@ -3,7 +3,7 @@
     <span>{{ sanctionBanner.text }}</span>
   </div>
   <div v-if="verificationBanner" class="sanction-banner sanction-banner--verif">
-    <span>Без верификации аккаунт будет удален через 1 час. Пройдите верификацию через</span>
+    <span>Без верификации аккаунт будет удален через <span class="verification-hour-badge">1</span> час. Пройдите верификацию через</span>
     <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">
       <img :src="iconTelegram" alt="" />
       TG-бота
@@ -412,6 +412,17 @@ function openAuth(mode: 'login' | 'register') {
   }
   &.sanction-banner--verif {
     background-color: $red-500;
+    .verification-hour-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px 4px;
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      background-color: rgba($neutral-black, 0.4);
+      font-family: Hauora-Bold;
+    }
   }
   &.sanction-banner--admin {
     background-color: $lead;
