@@ -372,7 +372,7 @@ function openAuth(mode: 'login' | 'register') {
   gap: 8px;
   height: 40px;
   border-radius: 0 0 16px 16px;
-  .page-icon {
+  .banner-icon {
     --ui-icon-width: 24px;
     --ui-icon-height: 24px;
     --ui-icon-color: #{$neutral-white};
