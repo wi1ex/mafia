@@ -1,5 +1,22 @@
 ﻿<template>
-  <div v-if="sanctionBanner" class="sanction-banner" :class="`sanction-banner--${sanctionBanner.kind}`">
+  <div v-if="verificationBanner" class="sanction-banner sanction-banner--verif">
+    <UiIcon class="banner-icon" :icon="iconWarning" />
+    <span>Без верификации аккаунт будет удален через <span class="verification-hour-badge">1</span> час</span>
+    <span class="verification-divider" aria-hidden="true"></span>
+    <span>Пройдите верификацию через</span>
+    <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">
+      <img :src="iconTelegram" alt="" />
+      TG-бота
+    </a>
+  </div>
+  <div v-else-if="adminBannerText" class="sanction-banner sanction-banner--admin">
+    <UiIcon class="banner-icon" :icon="iconWarning" />
+    <span>{{ adminBannerText }}</span>
+    <a v-if="adminBannerLink" :href="adminBannerLink" target="_blank" rel="noopener noreferrer">
+      {{ adminBannerLink }}
+    </a>
+  </div>
+  <div v-else-if="sanctionBanner" class="sanction-banner" :class="`sanction-banner--${sanctionBanner.kind}`">
     <UiIcon class="banner-icon" :icon="iconWarning" />
     <span v-if="sanctionBanner.text">{{ sanctionBanner.text }}</span>
     <template v-else>
@@ -17,23 +34,6 @@
         <span class="sanction-timer-badge">{{ sanctionBanner.seconds }}</span> с
       </span>
     </template>
-  </div>
-  <div v-if="verificationBanner" class="sanction-banner sanction-banner--verif">
-    <UiIcon class="banner-icon" :icon="iconWarning" />
-    <span>Без верификации аккаунт будет удален через <span class="verification-hour-badge">1</span> час</span>
-    <span class="verification-divider" aria-hidden="true"></span>
-    <span>Пройдите верификацию через</span>
-    <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">
-      <img :src="iconTelegram" alt="" />
-      TG-бота
-    </a>
-  </div>
-  <div v-if="adminBannerText" class="sanction-banner sanction-banner--admin">
-    <UiIcon class="banner-icon" :icon="iconWarning" />
-    <span>{{ adminBannerText }}</span>
-    <a v-if="adminBannerLink" :href="adminBannerLink" target="_blank" rel="noopener noreferrer">
-      {{ adminBannerLink }}
-    </a>
   </div>
   <header class="bar">
     <div class="links">
