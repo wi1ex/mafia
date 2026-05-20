@@ -61,18 +61,16 @@
       </div>
     </div>
 
-    <div v-if="!auth.isAuthed && !auth.foreignActive" class="auth-actions">
-      <button class="btn" type="button" @click="openAuth('login')">
-        <span>Войти в аккаунт</span>
-      </button>
-    </div>
+    <button v-if="!auth.isAuthed && !auth.foreignActive" class="btn" type="button" @click="openAuth('login')">
+      <span>Вход/Регистрация</span>
+    </button>
     <div v-else-if="!auth.isAuthed && auth.foreignActive" class="btn">
-      <span>Вы уже авторизованы в соседней вкладке</span>
+      <span>Вы авторизованы в другой вкладке</span>
     </div>
     <div v-else class="user">
       <div class="bell" ref="updatesEl">
         <button @click.stop="onToggleUpdates" :aria-expanded="updates_open" aria-label="Обновления">
-          <img :src="iconUpdates" alt="updates" />
+          <UiIcon class="bell-icon" :icon="iconUpdates" />
           <span v-if="updates.unread > 0">{{ updates.unread < 100 ? updates.unread : '∞' }}</span>
         </button>
         <Updates
@@ -83,7 +81,7 @@
 
       <div class="bell" ref="bellEl">
         <button @click.stop="onToggleNotifs" :aria-expanded="nb_open" aria-label="Уведомления">
-          <img :src="iconNotifBell" alt="bells" />
+          <UiIcon class="bell-icon" :icon="iconNotifBell" />
           <span v-if="notif.unread > 0">{{ notif.unread < 100 ? notif.unread : '∞' }}</span>
         </button>
         <Notifs
@@ -94,7 +92,7 @@
 
       <div v-if="showFriendsButton" class="bell" ref="friendsEl">
         <button @click.stop="onToggleFriends" :aria-expanded="friends_open" aria-label="Друзья">
-          <img :src="iconFriends" alt="friends" />
+          <UiIcon class="bell-icon" :icon="iconFriends" />
           <span v-if="friends.incomingCount > 0">{{ friends.incomingCount < 100 ? friends.incomingCount : '∞' }}</span>
         </button>
         <FriendsPanel
@@ -106,7 +104,7 @@
 
       <div v-if="showGlobalChatButton" class="bell">
         <button @click.stop="toggleGlobalChat" :aria-expanded="chat.open" aria-label="Общий чат">
-          <img :src="iconChat" alt="chat" />
+          <UiIcon class="bell-icon" :icon="iconChat" />
           <span v-if="chat.unread > 0">{{ chat.unread < 100 ? chat.unread : '∞' }}</span>
         </button>
       </div>
@@ -117,7 +115,7 @@
           <div v-if="userMenuProfileIconSrcs.length" class="profile-theme-icons" aria-hidden="true">
             <img v-for="badgeSrc in userMenuProfileIconSrcs" :key="badgeSrc" class="profile-theme-icon" :src="badgeSrc" alt="" />
           </div>
-          <span aria-live="polite">{{ user.user?.username || 'User' }}</span>
+          <span aria-live="polite">{{ user.user?.username || 'Error' }}</span>
           <img class="arrow" :src="iconArrowDown" alt="arrow" :style="{ transform: um_open ? 'rotate(180deg)' : 'none'}" />
         </button>
 
@@ -149,20 +147,20 @@ import FriendsPanel from '@/components/FriendsPanel.vue'
 import AuthModal from '@/components/AuthModal.vue'
 import UiIcon from '@/components/UiIcon.vue'
 
-import defaultAvatar from "@/assets/svg/defaultAvatar.svg"
-import iconLogo from '@/assets/svg/iconLogo.svg'
-import iconNotifBell from "@/assets/svg/notifBell.svg"
 import iconTelegram from "@/assets/svg/iconTelegram.svg"
 import iconWarning from "@/assets/svg/iconWarning.svg"
+import iconLogo from '@/assets/svg/iconLogo.svg'
 import iconInfo from "@/assets/svg/iconInfo.svg"
 import iconGamesHistory from "@/assets/svg/iconHistory.svg"
-import iconUpdates from "@/assets/svg/updates.svg"
-import iconFriends from "@/assets/svg/friends.svg"
-import iconChat from "@/assets/svg/chat.svg"
+import iconJudge from '@/assets/svg/iconJudge.svg'
+import iconUpdates from "@/assets/svg/iconUpdates.svg"
+import iconNotifBell from "@/assets/svg/iconNotifBell.svg"
+import iconFriends from "@/assets/svg/iconFriends.svg"
+import iconChat from "@/assets/svg/iconChat.svg"
+import defaultAvatar from "@/assets/svg/defaultAvatar.svg"
 import iconLogout from '@/assets/svg/leave.svg'
 import iconProfile from "@/assets/svg/profile.svg"
 import iconArrowDown from '@/assets/svg/arrowDown.svg'
-import iconJudge from '@/assets/svg/iconJudge.svg'
 import { buildProfileThemeStyle } from '@/constants/profileThemes'
 import { getProfileThemeBadgeSources } from '@/constants/profileThemeIcons'
 
@@ -583,17 +581,17 @@ function openAuth(mode: 'login' | 'register') {
       border-radius: 50%;
       aspect-ratio: 1;
     }
-    .profile-theme-icon {
-      width: 24px;
-      height: 24px;
-      border-radius: 0;
-      object-fit: contain;
-    }
     .profile-theme-icons {
       display: inline-flex;
       align-items: center;
       gap: 5px;
       flex: 0 0 auto;
+      .profile-theme-icon {
+        width: 24px;
+        height: 24px;
+        border-radius: 0;
+        object-fit: contain;
+      }
     }
     .arrow {
       margin-left: 5px;
@@ -604,36 +602,35 @@ function openAuth(mode: 'login' | 'register') {
       transition: transform 0.25s ease-in-out;
     }
   }
-  .auth-actions {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
   .user {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 4px;
     .bell {
       position: relative;
-      border-radius: 5px;
+      border-radius: 16px;
       button {
         display: flex;
         position: relative;
         align-items: center;
         justify-content: center;
-        padding: 0 10px;
-        height: 40px;
+        padding: 0 16px;
+        min-width: 64px;
+        height: 64px;
         border: none;
-        border-radius: 5px;
-        background-color: $graphite;
+        border-radius: 16px;
+        background-color: $soft-purple-900;
         cursor: pointer;
         transition: background-color 0.25s ease-in-out;
-        &:hover {
-          background-color: $lead;
+        .page-icon {
+          --ui-icon-width: 24px;
+          --ui-icon-height: 24px;
+          --ui-icon-color: #{$neutral-white};
         }
-        img {
-          width: 24px;
-          height: 24px;
+        &:hover .page-icon,
+        &:focus-visible .page-icon,
+        &:active .page-icon {
+          --ui-icon-color: #{$green-500};
         }
         span {
           display: flex;
@@ -650,6 +647,9 @@ function openAuth(mode: 'login' | 'register') {
           font-size: 12px;
           font-family: Manrope-Medium;
           line-height: 1;
+        }
+        &:hover {
+          background-color: $soft-purple-800;
         }
       }
     }
