@@ -979,8 +979,8 @@ onBeforeUnmount(() => {
       .list-body {
         display: flex;
         flex-direction: column;
-        margin: 0 -20px 0 0;
-        padding: 0 20px 0 0;
+        margin: 0 -18px 10px 0;
+        padding: 0 9px 0 0;
         gap: 10px;
         list-style: none;
         overflow-y: auto;
@@ -990,6 +990,11 @@ onBeforeUnmount(() => {
         scrollbar-color: $neutral-100 transparent;
         &::-webkit-scrollbar {
           width: 6px;
+        }
+        &::-webkit-scrollbar-button {
+          display: none;
+          width: 0;
+          height: 0;
         }
         &::-webkit-scrollbar-track {
           border-radius: 999px;
@@ -1002,7 +1007,7 @@ onBeforeUnmount(() => {
           background-clip: content-box;
         }
         &::-webkit-scrollbar-thumb:hover {
-          background-color: $green-700;
+          background-color: $neutral-100;
         }
         .item {
           display: grid;
