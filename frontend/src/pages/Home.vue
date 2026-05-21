@@ -1,6 +1,6 @@
 <template>
   <section class="card">
-    <div class="left">
+    <div class="left" :class="{ 'left--top-banner': topBannerActive }">
       <header>
         <span class="left-title">Список комнат</span>
         <button @click="onOpenCreate" :disabled="!settings.roomsCanCreate || !auth.isAuthed || userStore.roomRestricted || verificationRestricted">
@@ -868,10 +868,13 @@ onBeforeUnmount(() => {
   .left {
     display: flex;
     flex-direction: column;
-    height: 100%;
+    height: calc(100dvh - 94px);
     border-radius: 24px;
     background-color: $soft-purple-900;
     box-shadow: 0 -24px 16px 0 rgba($soft-purple-900, 0.32) inset;
+    &.left--top-banner {
+      height: calc(100dvh - 134px);
+    }
     header {
       display: flex;
       align-items: center;
@@ -957,6 +960,7 @@ onBeforeUnmount(() => {
       flex-direction: column;
       padding: 16px 24px 0;
       gap: 16px;
+      height: calc(100% - 120px);
       .text-center {
         text-align: center;
       }
@@ -979,12 +983,15 @@ onBeforeUnmount(() => {
         padding: 0;
         gap: 10px;
         list-style: none;
+        overflow-y: auto;
+        scrollbar-width: thin;
         .item {
           display: grid;
           position: relative;
           grid-template-columns: 10% 45% 30% 15%;
           align-items: center;
           padding: 16px;
+          min-height: 32px;
           border-radius: 20px;
           background-color: $soft-purple-800;
           overflow: hidden;
