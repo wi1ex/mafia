@@ -34,6 +34,7 @@
           <li class="item" v-for="r in sortedRooms" :key="r.id" :class="{ active: r.id === selectedId || r.id === pendingRoomId }" tabindex="0" @click="selectRoom(r.id)" >
             <div class="cell">
               <div class="status-room" :class="roomStatusClass(r)">
+                <img :src="iconDot" alt="dot" />
                 <span class="item-text">{{ roomStatusLabel(r)}}</span>
               </div>
             </div>
@@ -207,6 +208,7 @@ import iconDelete from '@/assets/svg/delete.svg'
 import iconVisSpect from '@/assets/svg/visOn.svg'
 import iconAddPlus from '@/assets/svg/iconAddPlus.svg'
 import iconNoRooms from '@/assets/svg/iconNoRooms.svg'
+import iconDot from '@/assets/svg/iconDot.svg'
 
 type Room = {
   id: number
@@ -960,7 +962,7 @@ onBeforeUnmount(() => {
       }
       .list-header {
         display: grid;
-        grid-template-columns: 15% 40% 25% 20%;
+        grid-template-columns: 12% 43% 28% 17%;
         padding: 0 16px;
         span {
           color: $neutral-300;
@@ -979,7 +981,7 @@ onBeforeUnmount(() => {
         list-style: none;
         .item {
           display: grid;
-          grid-template-columns: 15% 40% 25% 20%;
+          grid-template-columns: 12% 43% 28% 17%;
           align-items: center;
           padding: 16px;
           border-radius: 20px;
@@ -995,7 +997,7 @@ onBeforeUnmount(() => {
           .cell {
             display: flex;
             align-items: center;
-            gap: 5px;
+            gap: 8px;
             .item-text {
               color: $neutral-white;
               font-family: Hauora-Regular;
@@ -1004,7 +1006,9 @@ onBeforeUnmount(() => {
               letter-spacing: -0.32px;
             }
             .status-room {
+              display: flex;
               padding: 8px;
+              gap: 8px;
               width: 75px;
               border-radius: 12px;
               background-color: $neutral-500;
