@@ -1272,11 +1272,19 @@ onBeforeUnmount(() => {
       }
     }
     .right-extra {
-      flex: 1 1 0;
+      flex: 0 0 auto;
       min-height: 0;
       border-radius: 5px;
       background-color: $dark;
       overflow: hidden;
+      &--primary {
+        height: 160px;
+        background-color: $green;
+      }
+      &--secondary {
+        height: 100px;
+        background-color: $red;
+      }
     }
   }
 }
