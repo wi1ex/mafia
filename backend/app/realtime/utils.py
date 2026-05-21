@@ -176,6 +176,7 @@ __all__ = [
     "cancel_host_blur_auto_task",
     "schedule_host_blur_auto_off",
     "apply_host_blur_state",
+    "recalculate_all_friend_closeness",
 ]
 
 log = structlog.get_logger()
@@ -4722,7 +4723,6 @@ async def finish_game(r, rid: int, *, result: str, head_uid: int | None = None, 
                 )
                 s.add(game_row)
                 await s.flush()
-                await bump_friend_closeness(s, player_ids)
                 await s.commit()
                 cache_user_ids: set[int] = {int(uid) for uid in player_ids if int(uid) > 0}
                 if head_uid and head_uid > 0:
@@ -5677,24 +5677,224 @@ async def record_spectator_leave(r, rid: int, uid: int, now_ts: int) -> None:
     await emit_rooms_spectators_safe(r, rid)
 
 
-async def bump_friend_closeness(session: AsyncSession, user_ids: Iterable[int]) -> None:
-    ids = sorted({int(x) for x in user_ids if int(x) > 0})
-    if len(ids) < 2:
-        return
+def _activity_seconds_by_user(*maps: Any) -> dict[int, int]:
+    out: dict[int, int] = {}
+    for raw_map in maps:
+        if not isinstance(raw_map, dict):
+            continue
+        for raw_uid, raw_seconds in raw_map.items():
+            try:
+                uid = int(raw_uid)
+                seconds = int(raw_seconds or 0)
+            except Exception:
+                continue
+            if uid <= 0 or seconds <= 0:
+                continue
+            out[uid] = out.get(uid, 0) + seconds
 
-    values: list[dict[str, int]] = []
-    for i in range(0, len(ids)):
-        for j in range(i + 1, len(ids)):
-            values.append({"user_low": ids[i], "user_high": ids[j], "games_together": 1})
+    return out
+
+
+def _room_lifetime_seconds(created_at: datetime | None, deleted_at: datetime | None) -> int:
+    if created_at is None or deleted_at is None:
+        return 0
+
+    start = created_at
+    end = deleted_at
+    if start.tzinfo is None and end.tzinfo is not None:
+        start = start.replace(tzinfo=end.tzinfo)
+    elif start.tzinfo is not None and end.tzinfo is None:
+        end = end.replace(tzinfo=start.tzinfo)
+    try:
+        return max(0, int((end - start).total_seconds()))
+
+    except Exception:
+        return 0
+
+
+def _guaranteed_room_overlap_seconds(first_seconds: int, second_seconds: int, lifetime_seconds: int) -> int:
+    if lifetime_seconds <= 0:
+        return 0
+
+    first = min(max(0, int(first_seconds or 0)), lifetime_seconds)
+    second = min(max(0, int(second_seconds or 0)), lifetime_seconds)
+    return max(0, first + second - lifetime_seconds)
+
+
+def _players_from_game_roles(roles_raw: Any) -> list[int]:
+    if not isinstance(roles_raw, dict):
+        return []
+
+    players: set[int] = set()
+    for raw_uid in roles_raw.keys():
+        try:
+            uid = int(raw_uid)
+        except Exception:
+            continue
+
+        if uid > 0:
+            players.add(uid)
+
+    return sorted(players)
+
+
+async def increment_friend_closeness_from_deleted_room(session: AsyncSession, *, room_id: int, created_at: datetime | None, deleted_at: datetime | None, visitors: Any) -> set[int]:
+    rid = int(room_id or 0)
+    if rid <= 0:
+        return set()
+
+    game_counts: dict[tuple[int, int], int] = {}
+    room_seconds: dict[tuple[int, int], int] = {}
+
+    rows = await session.execute(
+        select(Game.roles).where(Game.room_id == rid)
+    )
+    for roles_raw in rows.scalars().all():
+        players = _players_from_game_roles(roles_raw)
+        if len(players) < 2:
+            continue
+
+        for i in range(0, len(players)):
+            for j in range(i + 1, len(players)):
+                key = (players[i], players[j])
+                game_counts[key] = game_counts.get(key, 0) + 1
+
+    lifetime_seconds = _room_lifetime_seconds(created_at, deleted_at)
+    if lifetime_seconds > 0:
+        activity = _activity_seconds_by_user(visitors)
+        users = sorted(activity.keys())
+
+        for i in range(0, len(users)):
+            for j in range(i + 1, len(users)):
+                lo, hi = users[i], users[j]
+                overlap = _guaranteed_room_overlap_seconds(
+                    activity[lo],
+                    activity[hi],
+                    lifetime_seconds,
+                )
+                if overlap <= 0:
+                    continue
+
+                key = (lo, hi)
+                room_seconds[key] = room_seconds.get(key, 0) + overlap
+
+    keys = sorted(set(game_counts.keys()) | set(room_seconds.keys()))
+    values = [
+        {
+            "user_low": lo,
+            "user_high": hi,
+            "games_together": max(0, int(game_counts.get((lo, hi), 0))),
+            "room_seconds_together": max(0, int(room_seconds.get((lo, hi), 0))),
+        }
+        for lo, hi in keys
+        if game_counts.get((lo, hi), 0) > 0 or room_seconds.get((lo, hi), 0) > 0
+    ]
+
+    if not values:
+        return set()
+
+    stmt = insert(FriendCloseness).values(values)
+    stmt = stmt.on_conflict_do_update(
+        index_elements=["user_low", "user_high"],
+        set_={
+            "games_together": FriendCloseness.games_together + stmt.excluded.games_together,
+            "room_seconds_together": FriendCloseness.room_seconds_together + stmt.excluded.room_seconds_together,
+            "updated_at": func.now(),
+        },
+    )
+    await session.execute(stmt)
+
+    changed_user_ids: set[int] = set()
+    for lo, hi in keys:
+        changed_user_ids.add(lo)
+        changed_user_ids.add(hi)
+
+    return changed_user_ids
+
+
+async def recalculate_all_friend_closeness(session: AsyncSession) -> None:
+    game_counts: dict[tuple[int, int], int] = {}
+    room_seconds: dict[tuple[int, int], int] = {}
+
+    game_rows = await session.execute(
+        select(Game.roles)
+        .join(Room, Room.id == Game.room_id)
+        .where(Room.deleted_at.is_not(None))
+    )
+    for roles_raw in game_rows.scalars().all():
+        players = _players_from_game_roles(roles_raw)
+        if len(players) < 2:
+            continue
+
+        for i in range(0, len(players)):
+            for j in range(i + 1, len(players)):
+                key = (players[i], players[j])
+                game_counts[key] = game_counts.get(key, 0) + 1
+
+    room_rows = await session.execute(
+        select(
+            Room.created_at,
+            Room.deleted_at,
+            Room.visitors,
+        ).where(Room.deleted_at.is_not(None))
+    )
+    for created_at, deleted_at, visitors_raw in room_rows.all():
+        lifetime_seconds = _room_lifetime_seconds(created_at, deleted_at)
+        if lifetime_seconds <= 0:
+            continue
+
+        activity = _activity_seconds_by_user(visitors_raw)
+        users = sorted(activity.keys())
+        if len(users) < 2:
+            continue
+
+        for i in range(0, len(users)):
+            for j in range(i + 1, len(users)):
+                lo, hi = users[i], users[j]
+                overlap = _guaranteed_room_overlap_seconds(
+                    activity[lo],
+                    activity[hi],
+                    lifetime_seconds,
+                )
+                if overlap <= 0:
+                    continue
+
+                key = (lo, hi)
+                room_seconds[key] = room_seconds.get(key, 0) + overlap
+
+    await session.execute(delete(FriendCloseness))
+
+    keys = sorted(set(game_counts.keys()) | set(room_seconds.keys()))
+    values = [
+        {
+            "user_low": lo,
+            "user_high": hi,
+            "games_together": max(0, int(game_counts.get((lo, hi), 0))),
+            "room_seconds_together": max(0, int(room_seconds.get((lo, hi), 0))),
+        }
+        for lo, hi in keys
+        if game_counts.get((lo, hi), 0) > 0 or room_seconds.get((lo, hi), 0) > 0
+    ]
 
     if not values:
         return
 
     stmt = insert(FriendCloseness).values(values)
-    stmt = stmt.on_conflict_do_update(index_elements=["user_low", "user_high"],
-                                      set_={"games_together": FriendCloseness.games_together + stmt.excluded.games_together,
-                                            "updated_at": func.now()})
+    stmt = stmt.on_conflict_do_update(
+        index_elements=["user_low", "user_high"],
+        set_={
+            "games_together": stmt.excluded.games_together,
+            "room_seconds_together": stmt.excluded.room_seconds_together,
+            "updated_at": func.now(),
+        },
+    )
     await session.execute(stmt)
+
+
+async def emit_friends_closeness_update(user_ids: Iterable[int]) -> None:
+    for uid in sorted({int(x) for x in user_ids if int(x) > 0}):
+        with suppress(Exception):
+            await sio.emit("friends_closeness_update", {"user_id": uid}, room=f"user:{uid}", namespace="/auth")
 
 
 async def perform_game_end(ctx, sess: Optional[dict[str, Any]], *, confirm: bool, allow_non_head: bool = False, reason: str = "manual") -> dict[str, Any]:
@@ -6308,11 +6508,27 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
                             games_count = int(res.scalar() or 0)
                         except Exception:
                             log.exception("gc.room_games_count_failed", rid=rid)
-                        
-                        rm.visitors = {**(rm.visitors or {}), **{str(k): v for k, v in visitors_map.items()}}
+
+                        was_already_deleted = rm.deleted_at is not None
+                        merged_visitors = {
+                            **(rm.visitors or {}),
+                            **{str(k): max(0, v) for k, v in visitors_map.items()},
+                        }
+
+                        rm.visitors = merged_visitors
                         rm.screen_time = merged_screen_time
                         rm.spectators_time = merged_spectators_time
                         rm.deleted_at = now_dt
+
+                        closeness_changed_user_ids: set[int] = set()
+                        if not was_already_deleted:
+                            closeness_changed_user_ids = await increment_friend_closeness_from_deleted_room(
+                                s,
+                                room_id=rid,
+                                created_at=rm.created_at,
+                                deleted_at=now_dt,
+                                visitors=merged_visitors,
+                            )
                         
                         await r.srem(f"user:{rm_creator}:rooms", str(rid))
                         details = f"Удаление комнаты room_id={rid} title={rm_title} count_users={unique_visitors}"
@@ -6321,6 +6537,10 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
                         details += f" total_stream_sec={total_stream_sec}"
                         if games_count > 0:
                             details += f" games_count={games_count}"
+
+                        if closeness_changed_user_ids:
+                            await emit_friends_closeness_update(closeness_changed_user_ids)
+
                         await log_action(
                             s,
                             user_id=rm_creator,
@@ -6328,6 +6548,7 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
                             action="room_deleted",
                             details=details,
                         )
+
         except Exception:
             log.exception("gc.db.persist_failed", rid=rid)
             raise

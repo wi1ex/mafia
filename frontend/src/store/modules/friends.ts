@@ -123,11 +123,14 @@ export const useFriendsStore = defineStore('friends', () => {
   const incomingCount = ref(0)
   let inited = false
   let onFriendsUpdate: ((e: any) => void) | null = null
+  let onFriendsClosenessUpdate: ((e: any) => void) | null = null
   let onFriendsProfileSync: ((e: any) => void) | null = null
   let refreshTimer: number | undefined
+  let listRefreshTimer: number | undefined
   let listLoading = false
   let listQueued = false
   let listQueuedRoomId: number | null = null
+  let lastListRoomId: number | null = null
   let countLoading = false
   let countQueued = false
 
@@ -139,6 +142,7 @@ export const useFriendsStore = defineStore('friends', () => {
 
   async function fetchList(roomId?: number | null): Promise<void> {
     const normalizedRoomId = normalizeRoomId(roomId)
+    lastListRoomId = normalizedRoomId
     if (listLoading) {
       listQueued = true
       listQueuedRoomId = normalizedRoomId
@@ -215,6 +219,14 @@ export const useFriendsStore = defineStore('friends', () => {
     }, 200)
   }
 
+  function scheduleListRefresh() {
+    if (listRefreshTimer) return
+    listRefreshTimer = window.setTimeout(() => {
+      listRefreshTimer = undefined
+      void fetchList(lastListRoomId)
+    }, 200)
+  }
+
   function applyProfileRoleSync(payload: unknown): void {
     const raw = payload as { user_id?: unknown; role?: unknown } | null | undefined
     const userId = Number(raw?.user_id || 0)
@@ -230,11 +242,17 @@ export const useFriendsStore = defineStore('friends', () => {
   function ensureWS(): void {
     if (inited) return
     if (onFriendsUpdate) window.removeEventListener('auth-friends_update', onFriendsUpdate)
+    if (onFriendsClosenessUpdate) window.removeEventListener('auth-friends_closeness_update', onFriendsClosenessUpdate)
     if (onFriendsProfileSync) window.removeEventListener('auth-friends_profile_sync', onFriendsProfileSync)
     onFriendsUpdate = (e: any) => {
       const p = e?.detail
       if (!p) return
       scheduleRefresh()
+    }
+    onFriendsClosenessUpdate = (e: any) => {
+      const p = e?.detail
+      if (!p) return
+      scheduleListRefresh()
     }
     onFriendsProfileSync = (e: any) => {
       const p = e?.detail
@@ -242,6 +260,7 @@ export const useFriendsStore = defineStore('friends', () => {
       applyProfileRoleSync(p)
     }
     window.addEventListener('auth-friends_update', onFriendsUpdate)
+    window.addEventListener('auth-friends_closeness_update', onFriendsClosenessUpdate)
     window.addEventListener('auth-friends_profile_sync', onFriendsProfileSync)
     inited = true
   }

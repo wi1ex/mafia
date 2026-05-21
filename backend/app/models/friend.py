@@ -31,4 +31,5 @@ class FriendCloseness(Base):
     user_low: Mapped[int] = mapped_column(BigInteger, index=True, nullable=False)
     user_high: Mapped[int] = mapped_column(BigInteger, index=True, nullable=False)
     games_together: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    room_seconds_together: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

@@ -48,6 +48,7 @@ from ...api.utils import (
 router = APIRouter(dependencies=[Depends(require_friends_verification)])
 FRIEND_REMOVE_MIN_SECONDS = 10 * 60
 TG_ROOM_INVITE_COOLDOWN_S = 30 * 60
+FRIEND_CLOSENESS_GAME_WEIGHT_SECONDS = 30 * 60
 
 
 @router.get("/status/{user_id}", response_model=FriendStatusOut)
@@ -139,11 +140,19 @@ async def friends_list(room_id: int | None = None, ident: Identity = Depends(get
         pairs = [pair(uid, fid) for fid in friend_ids]
         if pairs:
             rows = await db.execute(
-                select(FriendCloseness.user_low, FriendCloseness.user_high, FriendCloseness.games_together)
+                select(
+                    FriendCloseness.user_low,
+                    FriendCloseness.user_high,
+                    FriendCloseness.games_together,
+                    FriendCloseness.room_seconds_together,
+                )
                 .where(tuple_(FriendCloseness.user_low, FriendCloseness.user_high).in_(pairs))
             )
-            for lo, hi, games in rows.all():
-                closeness_map[(int(lo), int(hi))] = int(games or 0)
+            for lo, hi, games, room_seconds in rows.all():
+                closeness_map[(int(lo), int(hi))] = (
+                    max(0, int(games or 0)) * FRIEND_CLOSENESS_GAME_WEIGHT_SECONDS
+                    + max(0, int(room_seconds or 0))
+                )
 
     room_by_uid: dict[int, int] = {}
     room_candidates_by_uid: dict[int, int] = {}

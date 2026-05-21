@@ -16,6 +16,7 @@ from ..api.utils import (
 from ..security.admin_guard import assert_protected_admin_invariants
 from ..security.parameters import ensure_app_settings, refresh_app_settings
 from ..services.minio import ensure_bucket
+from ..realtime.utils import recalculate_all_friend_closeness
 from .clients import close_clients, get_redis, init_clients
 from .logging import configure_logging
 
@@ -41,6 +42,10 @@ async def lifespan(app) -> AsyncIterator[None]:
             await conn.execute(text("SELECT 1"))
             await conn.run_sync(Base.metadata.create_all)
             # AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+            await conn.execute(text(
+                "ALTER TABLE friend_closeness "
+                "ADD COLUMN IF NOT EXISTS room_seconds_together INTEGER NOT NULL DEFAULT 0"
+            ))
             await conn.execute(text("DROP TABLE IF EXISTS update_reads"))
             await conn.execute(text("DROP TABLE IF EXISTS updates"))
             # AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -48,6 +53,14 @@ async def lifespan(app) -> AsyncIterator[None]:
         async with SessionLocal() as session:
             await ensure_app_settings(session)
             await assert_protected_admin_invariants(session)
+
+        # AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        async with SessionLocal() as session:
+            await recalculate_all_friend_closeness(session)
+            await session.commit()
+            log.info("app.friends.closeness_rebuild.done")
+        # AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+
     except Exception:
         log.exception("app.startup.db_failed")
         raise
