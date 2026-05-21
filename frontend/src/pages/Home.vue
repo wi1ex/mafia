@@ -53,7 +53,7 @@
     </div>
 
     <div class="right-column" ref="rightEl">
-      <aside class="right" :class="{ 'right--top-banner': topBannerActive }" :aria-live="selectedId ? 'polite' : 'off'" @pointerdown.self="selArmed = true"
+      <aside class="right" :aria-live="selectedId ? 'polite' : 'off'" @pointerdown.self="selArmed = true"
              @pointerup.self="selArmed && clearSelection()" @pointerleave.self="selArmed = false" @pointercancel.self="selArmed = false">
         <Transition name="room-panel" mode="out-in">
           <div v-if="selectedId" key="info" class="room-info">
@@ -168,7 +168,7 @@
         </Transition>
       </aside>
 
-      <div class="right-extra right-extra--primary">
+      <div class="right-extra right-extra--primary" :class="{ 'right--top-banner': topBannerActive }">
 
       </div>
 
@@ -1112,9 +1112,6 @@ onBeforeUnmount(() => {
       border-radius: 5px;
       background-color: $dark;
       overflow: hidden;
-      &.right--top-banner {
-        //height: min(calc(100dvh - 100px), 480px);
-      }
       .loading-overlay {
         margin: auto;
         text-align: center;
@@ -1376,6 +1373,9 @@ onBeforeUnmount(() => {
       &--primary {
         height: 178px;
         background-color: $green;
+        &.right--top-banner {
+          height: 138px;
+        }
       }
       &--secondary {
         height: 122px;
