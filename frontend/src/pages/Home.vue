@@ -2,10 +2,11 @@
   <section class="card">
     <div class="left">
       <header>
-        <div class="rooms-text">
-          <span>Список комнат</span>
-        </div>
-        <button @click="onOpenCreate" :disabled="!settings.roomsCanCreate || !auth.isAuthed || userStore.roomRestricted || verificationRestricted">Создать комнату</button>
+        <span class="left-title">Список комнат</span>
+        <button @click="onOpenCreate" :disabled="!settings.roomsCanCreate || !auth.isAuthed || userStore.roomRestricted || verificationRestricted">
+          <span>Создать комнату</span>
+
+        </button>
       </header>
 
       <Transition name="overlay">
@@ -46,7 +47,7 @@
     </div>
 
     <div class="right-column" ref="rightEl">
-      <aside class="right" :class="{ 'right--admin-banner': adminBannerActive }" :aria-live="selectedId ? 'polite' : 'off'" @pointerdown.self="selArmed = true"
+      <aside class="right" :class="{ 'right--top-banner': topBannerActive }" :aria-live="selectedId ? 'polite' : 'off'" @pointerdown.self="selArmed = true"
              @pointerup.self="selArmed && clearSelection()" @pointerleave.self="selArmed = false" @pointercancel.self="selArmed = false">
         <Transition name="room-panel" mode="out-in">
           <div v-if="selectedId" key="info" class="room-info">
@@ -342,9 +343,17 @@ const canOpenRoomInfoMiniProfile = computed(() => {
   if (userStore.banActive || userStore.timeoutActive) return false
   return !(settings.verificationRestrictions && !userStore.telegramVerified)
 })
-const adminBannerActive = computed(() => {
+const topBannerActive = computed(() => {
+  const verificationBanner = auth.ready
+    && settings.ready
+    && settings.verificationRestrictions
+    && auth.isAuthed
+    && Boolean(userStore.user)
+    && !userStore.telegramVerified
   const text = String(settings.adminBannerText || '').trim()
-  return Boolean(text && text !== '0')
+  const adminBanner = settings.ready && Boolean(text && text !== '0')
+  const sanctionBanner = auth.isAuthed && (userStore.banActive || userStore.timeoutActive || userStore.suspendActive)
+  return verificationBanner || adminBanner || sanctionBanner
 })
 const blockedLabel = computed(() => {
   if (selectedRoom.value?.entry_closed) return 'Вход закрыт'
@@ -840,9 +849,9 @@ onBeforeUnmount(() => {
 <style scoped lang="scss">
 .card {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 600px;
+  grid-template-columns: minmax(0, 1fr) 607px;
   align-items: flex-start;
-  padding: 0 40px 10px;
+  margin: 0 40px 10px;
   gap: 10px;
   height: 100%;
   overflow: hidden;
@@ -850,50 +859,66 @@ onBeforeUnmount(() => {
     display: flex;
     flex-direction: column;
     height: 100%;
-    border-radius: 5px;
-    background-color: $dark;
+    border-radius: 24px;
+    background-color: $purple-900;
+    box-shadow: 0 -24px 16px 0 rgba($purple-900, 0.32) inset;
     header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      height: 40px;
-      border-radius: 5px;
-      background-color: $graphite;
-      box-shadow: 0 3px 5px rgba($black, 0.25);
-      .rooms-text {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 0 10px;
-        height: 40px;
-        border-radius: 5px;
-        span {
-          height: 22px;
-          font-size: 20px;
-          font-weight: bold;
-        }
+      padding: 24px 24px 16px;
+      .left-title {
+        color: $neutral-white;
+        font-family: Involve-Medium;
+        font-size: 24px;
+        line-height: 26px;
+        letter-spacing: -0.48px;
       }
       button {
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 0 20px;
-        height: 40px;
+        padding: 0 16px;
+        gap: 8px;
+        height: 64px;
         border: none;
-        border-radius: 5px;
-        background-color: $fg;
-        color: $bg;
-        font-size: 16px;
-        font-family: Manrope-Medium;
-        line-height: 1;
+        border-radius: 999px;
+        background-color: $green-500;
         cursor: pointer;
-        transition: opacity 0.25s ease-in-out, background-color 0.25s ease-in-out;
-        &:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
+        transition: background-color 0.25s ease-in-out;
+        span {
+          color: $neutral-900;
+          font-family: Hauora-Regular;
+          font-size: 18px;
+          line-height: 20px;
+          letter-spacing: -0.36px;
+          transition: color 0.25s ease-in-out;
         }
-        &:hover {
-          background-color: $white;
+        .create-icon {
+          --ui-icon-width: 24px;
+          --ui-icon-height: 24px;
+          --ui-icon-color: #{$neutral-900};
+        }
+        &:disabled {
+          cursor: not-allowed;
+          background-color: $neutral-800;
+          span {
+            color: $neutral-500;
+          }
+          .create-icon {
+            --ui-icon-color: #{$neutral-500};
+          }
+        }
+        &:hover,
+        &:focus-visible,
+        &:active {
+          background-color: $green-300;
+          span {
+            color: $neutral-black;
+          }
+          .create-icon {
+            --ui-icon-color: #{$neutral-black};
+          }
         }
       }
     }
@@ -998,9 +1023,9 @@ onBeforeUnmount(() => {
     display: flex;
     position: sticky;
     top: 0;
-    width: 600px;
-    min-width: 600px;
-    max-width: 600px;
+    width: 607px;
+    min-width: 607px;
+    max-width: 607px;
     height: 100%;
     min-height: 0;
     flex-direction: column;
@@ -1012,12 +1037,12 @@ onBeforeUnmount(() => {
       width: 100%;
       min-width: 0;
       max-width: none;
-      height: min(calc(100dvh - 60px), 480px);
+      height: 536px;
       border-radius: 5px;
       background-color: $dark;
       overflow: hidden;
-      &.right--admin-banner {
-        height: min(calc(100dvh - 100px), 480px);
+      &.right--top-banner {
+        //height: min(calc(100dvh - 100px), 480px);
       }
       .loading-overlay {
         margin: auto;
@@ -1278,11 +1303,11 @@ onBeforeUnmount(() => {
       background-color: $dark;
       overflow: hidden;
       &--primary {
-        height: 160px;
+        height: 138px;
         background-color: $green;
       }
       &--secondary {
-        height: 100px;
+        height: 122px;
         background-color: $red;
       }
     }
