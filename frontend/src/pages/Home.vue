@@ -45,120 +45,130 @@
       </div>
     </div>
 
-    <aside class="right" :class="{ 'right--admin-banner': adminBannerActive }" :aria-live="selectedId ? 'polite' : 'off'" ref="rightEl" @pointerdown.self="selArmed = true"
-           @pointerup.self="selArmed && clearSelection()" @pointerleave.self="selArmed = false" @pointercancel.self="selArmed = false">
-      <Transition name="room-panel" mode="out-in">
-        <div v-if="selectedId" key="info" class="room-info">
-          <header>
-            <span>{{ selectedRoom?.title }}</span>
-            <div class="room-actions">
-              <button v-if="canCloseRooms" :disabled="adminKickBusy || selectedRoom?.in_game || selectedRoom?.entry_closed || selectedRoom?.occupancy === 0" @click="onAdminKickRoom" aria-label="Удалить комнату">
-                <img :src="iconDelete" alt="delete" />
-              </button>
-              <button @click="clearSelection" aria-label="Закрыть">
-                <img :src="iconClose" alt="close" />
-              </button>
-            </div>
-          </header>
+    <div class="right-column" ref="rightEl">
+      <aside class="right" :class="{ 'right--admin-banner': adminBannerActive }" :aria-live="selectedId ? 'polite' : 'off'" @pointerdown.self="selArmed = true"
+             @pointerup.self="selArmed && clearSelection()" @pointerleave.self="selArmed = false" @pointercancel.self="selArmed = false">
+        <Transition name="room-panel" mode="out-in">
+          <div v-if="selectedId" key="info" class="room-info">
+            <header>
+              <span>{{ selectedRoom?.title }}</span>
+              <div class="room-actions">
+                <button v-if="canCloseRooms" :disabled="adminKickBusy || selectedRoom?.in_game || selectedRoom?.entry_closed || selectedRoom?.occupancy === 0" @click="onAdminKickRoom" aria-label="Удалить комнату">
+                  <img :src="iconDelete" alt="delete" />
+                </button>
+                <button @click="clearSelection" aria-label="Закрыть">
+                  <img :src="iconClose" alt="close" />
+                </button>
+              </div>
+            </header>
 
-          <div class="ri-info">
-            <div class="ri-members">
-              <span class="header-text">Участники ({{ selectedRoom?.occupancy ?? 0 }}/{{ selectedRoom?.user_limit ?? 0 }}):</span>
-              <div v-if="(info?.members?.length ?? 0) === 0" class="muted">Пока никого</div>
-              <ul v-else class="ri-users">
-                <li class="ri-user" v-for="m in sortedMembers" :key="m.id" :class="{ dead: m.role === 'player' && m.alive === false }">
-                  <span v-if="m.role === 'head'" class="user-numb">Вед. </span>
-                  <span v-else-if="m.role === 'player' && m.slot != null" class="user-numb">{{ formatSeatNumber(m.slot) }}. </span>
-                  <button class="mini-profile-user-trigger" type="button" :disabled="!canOpenRoomInfoMiniProfileForUser(m)" @click="openMiniProfileFromRoomInfo(m)">
-                    <img v-minio-img="{ key: m.avatar_name ? `avatars/${m.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
-                    <span class="mini-profile-name">{{ m.username || ('user' + m.id) }}</span>
-                  </button>
-                  <img v-if="m.screen" :src="iconScreenOn" alt="streaming" />
-                </li>
-              </ul>
-            </div>
-
-            <div class="ri-meta-game" v-if="canShowGameMeta">
-              <div class="ri-game" v-if="game">
-                <span class="header-text">Параметры игры:</span>
-                <div class="ri-game-div">
-                  <span>Зрители</span>
-                  <span ref="spectatorsWrapEl" class="spectators-wrap">
-                    <button v-if="spectatorsTooltipEnabled" class="spectators-btn" type="button" @click.stop="onSpectatorsToggle" aria-label="Показать зрителей">
-                      <img :src="iconVisSpect" alt="" aria-hidden="true" />
+            <div class="ri-info">
+              <div class="ri-members">
+                <span class="header-text">Участники ({{ selectedRoom?.occupancy ?? 0 }}/{{ selectedRoom?.user_limit ?? 0 }}):</span>
+                <div v-if="(info?.members?.length ?? 0) === 0" class="muted">Пока никого</div>
+                <ul v-else class="ri-users">
+                  <li class="ri-user" v-for="m in sortedMembers" :key="m.id" :class="{ dead: m.role === 'player' && m.alive === false }">
+                    <span v-if="m.role === 'head'" class="user-numb">Вед. </span>
+                    <span v-else-if="m.role === 'player' && m.slot != null" class="user-numb">{{ formatSeatNumber(m.slot) }}. </span>
+                    <button class="mini-profile-user-trigger" type="button" :disabled="!canOpenRoomInfoMiniProfileForUser(m)" @click="openMiniProfileFromRoomInfo(m)">
+                      <img v-minio-img="{ key: m.avatar_name ? `avatars/${m.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                      <span class="mini-profile-name">{{ m.username || ('user' + m.id) }}</span>
                     </button>
-                    <span>{{ spectatorsLabel }}</span>
-                    <div v-if="spectatorsTooltipVisible" class="spectators-tooltip">
-                      <div v-if="spectatorsError">{{ spectatorsError }}</div>
-                      <div v-else-if="spectators.length === 0">Нет зрителей</div>
-                      <div v-else class="spectators-list">
-                        <div v-for="s in spectators" :key="`spectator-${s.id}`" class="spectators-row">
-                          <button class="mini-profile-user-trigger" type="button" :disabled="!canOpenRoomInfoMiniProfileForUser(s)" @click="openMiniProfileFromRoomInfo(s)">
-                            <img v-minio-img="{ key: s.avatar_name ? `avatars/${s.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
-                            <span class="mini-profile-name">{{ s.username || ('user' + s.id) }}</span>
-                          </button>
+                    <img v-if="m.screen" :src="iconScreenOn" alt="streaming" />
+                  </li>
+                </ul>
+              </div>
+
+              <div class="ri-meta-game" v-if="canShowGameMeta">
+                <div class="ri-game" v-if="game">
+                  <span class="header-text">Параметры игры:</span>
+                  <div class="ri-game-div">
+                    <span>Зрители</span>
+                    <span ref="spectatorsWrapEl" class="spectators-wrap">
+                      <button v-if="spectatorsTooltipEnabled" class="spectators-btn" type="button" @click.stop="onSpectatorsToggle" aria-label="Показать зрителей">
+                        <img :src="iconVisSpect" alt="" aria-hidden="true" />
+                      </button>
+                      <span>{{ spectatorsLabel }}</span>
+                      <div v-if="spectatorsTooltipVisible" class="spectators-tooltip">
+                        <div v-if="spectatorsError">{{ spectatorsError }}</div>
+                        <div v-else-if="spectators.length === 0">Нет зрителей</div>
+                        <div v-else class="spectators-list">
+                          <div v-for="s in spectators" :key="`spectator-${s.id}`" class="spectators-row">
+                            <button class="mini-profile-user-trigger" type="button" :disabled="!canOpenRoomInfoMiniProfileForUser(s)" @click="openMiniProfileFromRoomInfo(s)">
+                              <img v-minio-img="{ key: s.avatar_name ? `avatars/${s.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                              <span class="mini-profile-name">{{ s.username || ('user' + s.id) }}</span>
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </span>
-                </div>
-                <div class="ri-game-div">
-                  <span>Режим</span>
-                  <span>{{ game.mode === 'normal' ? 'Обычный' : 'Рейтинг' }}</span>
-                </div>
-                <div class="ri-game-div">
-                  <span>Судья</span>
-                  <span>{{ game.format === 'hosted' ? 'Ведущий' : 'Без ведущего' }}</span>
-                </div>
-                <div class="ri-game-div">
-                  <span>Выставления</span>
-                  <span>{{ game.nominate_mode === 'head' ? 'От ведущего' : 'От игроков' }}</span>
-                </div>
-                <div class="ri-game-div">
-                  <span>Завещания</span>
-                  <span>{{ game.farewell_wills ? 'Вкл' : 'Откл' }}</span>
-                </div>
-                <div class="ri-game-div">
-                  <span>Подмигивать/Стучать</span>
-                  <span>{{ game.wink_knock ? 'Вкл' : 'Откл' }}</span>
-                </div>
-                <div class="ri-game-div">
-                  <span>Слом в нуле</span>
-                  <span>{{ game.break_at_zero ? 'Вкл' : 'Откл' }}</span>
-                </div>
-                <div class="ri-game-div">
-                  <span>Подъем в нуле</span>
-                  <span>{{ game.lift_at_zero ? 'Вкл' : 'Откл' }}</span>
-                </div>
-                <div class="ri-game-div">
-                  <span>Подъем 3х при 9х</span>
-                  <span>{{ game.lift_3x ? 'Вкл' : 'Откл' }}</span>
-                </div>
-                <div class="ri-game-div">
-                  <span>Музыка</span>
-                  <span>{{ game.music ? 'Вкл' : 'Откл' }}</span>
+                    </span>
+                  </div>
+                  <div class="ri-game-div">
+                    <span>Режим</span>
+                    <span>{{ game.mode === 'normal' ? 'Обычный' : 'Рейтинг' }}</span>
+                  </div>
+                  <div class="ri-game-div">
+                    <span>Судья</span>
+                    <span>{{ game.format === 'hosted' ? 'Ведущий' : 'Без ведущего' }}</span>
+                  </div>
+                  <div class="ri-game-div">
+                    <span>Выставления</span>
+                    <span>{{ game.nominate_mode === 'head' ? 'От ведущего' : 'От игроков' }}</span>
+                  </div>
+                  <div class="ri-game-div">
+                    <span>Завещания</span>
+                    <span>{{ game.farewell_wills ? 'Вкл' : 'Откл' }}</span>
+                  </div>
+                  <div class="ri-game-div">
+                    <span>Подмигивать/Стучать</span>
+                    <span>{{ game.wink_knock ? 'Вкл' : 'Откл' }}</span>
+                  </div>
+                  <div class="ri-game-div">
+                    <span>Слом в нуле</span>
+                    <span>{{ game.break_at_zero ? 'Вкл' : 'Откл' }}</span>
+                  </div>
+                  <div class="ri-game-div">
+                    <span>Подъем в нуле</span>
+                    <span>{{ game.lift_at_zero ? 'Вкл' : 'Откл' }}</span>
+                  </div>
+                  <div class="ri-game-div">
+                    <span>Подъем 3х при 9х</span>
+                    <span>{{ game.lift_3x ? 'Вкл' : 'Откл' }}</span>
+                  </div>
+                  <div class="ri-game-div">
+                    <span>Музыка</span>
+                    <span>{{ game.music ? 'Вкл' : 'Откл' }}</span>
+                  </div>
                 </div>
               </div>
             </div>
+
+            <div class="ri-actions">
+              <button v-if="ctaState==='enter'" :disabled="entering" @click="onEnter">Войти в комнату</button>
+              <button v-else-if="ctaState==='full'" disabled>Комната заполнена</button>
+              <button v-else-if="ctaState==='apply'" :disabled="applying" @click="onApply">Подать заявку</button>
+              <button v-else-if="ctaState==='pending'" disabled>Заявка отправлена</button>
+              <button v-else-if="ctaState==='watch'" :disabled="entering" @click="onEnter">Смотреть</button>
+              <button v-else-if="ctaState==='spectators_full'" disabled>Лимит зрителей</button>
+              <button v-else-if="ctaState==='in_game'" disabled>Идёт игра</button>
+              <button v-else-if="ctaState==='blocked'" disabled>{{ blockedLabel }}</button>
+              <button v-else disabled>Авторизуйтесь, чтобы войти</button>
+            </div>
           </div>
 
-          <div class="ri-actions">
-            <button v-if="ctaState==='enter'" :disabled="entering" @click="onEnter">Войти в комнату</button>
-            <button v-else-if="ctaState==='full'" disabled>Комната заполнена</button>
-            <button v-else-if="ctaState==='apply'" :disabled="applying" @click="onApply">Подать заявку</button>
-            <button v-else-if="ctaState==='pending'" disabled>Заявка отправлена</button>
-            <button v-else-if="ctaState==='watch'" :disabled="entering" @click="onEnter">Смотреть</button>
-            <button v-else-if="ctaState==='spectators_full'" disabled>Лимит зрителей</button>
-            <button v-else-if="ctaState==='in_game'" disabled>Идёт игра</button>
-            <button v-else-if="ctaState==='blocked'" disabled>{{ blockedLabel }}</button>
-            <button v-else disabled>Авторизуйтесь, чтобы войти</button>
-          </div>
-        </div>
+          <div v-else-if="pendingRoomId" key="pending" class="loading-overlay">Загрузка информации о комнате…</div>
+          <HomeInfoCarousel v-else key="placeholder" />
+        </Transition>
+      </aside>
 
-        <div v-else-if="pendingRoomId" key="pending" class="loading-overlay">Загрузка информации о комнате…</div>
-        <HomeInfoCarousel v-else key="placeholder" />
-      </Transition>
-    </aside>
+      <div class="right-extra right-extra--primary">
+
+      </div>
+
+      <div class="right-extra right-extra--secondary">
+
+      </div>
+    </div>
   </section>
   <MiniProfile
     v-model:open="miniProfileOpen"
@@ -832,7 +842,7 @@ onBeforeUnmount(() => {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 600px;
   align-items: flex-start;
-  padding: 0 10px 10px;
+  padding: 0 40px 10px;
   gap: 10px;
   height: 100%;
   overflow: hidden;
@@ -984,177 +994,188 @@ onBeforeUnmount(() => {
       }
     }
   }
-  .right {
+  .right-column {
     display: flex;
     position: sticky;
     top: 0;
     width: 600px;
     min-width: 600px;
     max-width: 600px;
-    height: min(calc(100dvh - 60px), 480px);
+    height: 100%;
+    min-height: 0;
     flex-direction: column;
-    border-radius: 5px;
-    background-color: $dark;
-    overflow: hidden;
-    &.right--admin-banner {
-      height: min(calc(100dvh - 100px), 480px);
-    }
-    .loading-overlay {
-      margin: auto;
-      text-align: center;
-      color: $ashy;
-    }
-    .room-info {
+    gap: 10px;
+    .right {
+      flex: 0 0 auto;
       display: flex;
-      position: relative;
       flex-direction: column;
       width: 100%;
-      height: 100%;
-      header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 5px 10px;
-        border-radius: 5px;
-        background-color: $graphite;
-        box-shadow: 0 3px 5px rgba($black, 0.25);
-        span {
-          max-width: 550px;
-          height: 20px;
-          font-size: 18px;
-          font-weight: bold;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-        .room-actions {
-          display: inline-flex;
-          align-items: center;
-          gap: 5px;
-        }
-        button {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 0;
-          width: 25px;
-          height: 30px;
-          border: none;
-          background: none;
-          cursor: pointer;
-          img {
-            width: 25px;
-            height: 25px;
-          }
-        }
-        button:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
+      min-width: 0;
+      max-width: none;
+      height: min(calc(100dvh - 60px), 480px);
+      border-radius: 5px;
+      background-color: $dark;
+      overflow: hidden;
+      &.right--admin-banner {
+        height: min(calc(100dvh - 100px), 480px);
       }
-      .ri-info {
+      .loading-overlay {
+        margin: auto;
+        text-align: center;
+        color: $ashy;
+      }
+      .room-info {
         display: flex;
-        padding: 10px;
-        gap: 10px;
-        .mini-profile-user-trigger {
-          display: inline-flex;
+        position: relative;
+        flex-direction: column;
+        width: 100%;
+        height: 100%;
+        header {
+          display: flex;
+          justify-content: space-between;
           align-items: center;
-          flex: 0 1 auto;
-          min-width: 0;
-          gap: inherit;
-          padding: 0;
-          border: none;
-          background: none;
-          color: inherit;
-          font: inherit;
-          text-align: left;
-          cursor: pointer;
-          &:disabled {
-            cursor: default;
+          padding: 5px 10px;
+          border-radius: 5px;
+          background-color: $graphite;
+          box-shadow: 0 3px 5px rgba($black, 0.25);
+          span {
+            max-width: 550px;
+            height: 20px;
+            font-size: 18px;
+            font-weight: bold;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+          .room-actions {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+          }
+          button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            width: 25px;
+            height: 30px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            img {
+              width: 25px;
+              height: 25px;
+            }
+          }
+          button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
           }
         }
-        .ri-meta-game {
+        .ri-info {
           display: flex;
-          flex-direction: column;
+          padding: 10px;
           gap: 10px;
-          width: calc(60% - 15px);
-          .ri-game {
+          .mini-profile-user-trigger {
+            display: inline-flex;
+            align-items: center;
+            flex: 0 1 auto;
+            min-width: 0;
+            gap: inherit;
+            padding: 0;
+            border: none;
+            background: none;
+            color: inherit;
+            font: inherit;
+            text-align: left;
+            cursor: pointer;
+            &:disabled {
+              cursor: default;
+            }
+          }
+          .ri-meta-game {
             display: flex;
             flex-direction: column;
-            padding: 10px;
-            gap: 5px;
-            border-radius: 5px;
-            background-color: $graphite;
-            box-shadow: 3px 3px 5px rgba($black, 0.25);
-            .ri-game-div {
+            gap: 10px;
+            width: calc(60% - 15px);
+            .ri-game {
               display: flex;
-              align-items: center;
-              justify-content: space-between;
-              span {
-                height: 16px;
-                font-size: 14px;
-                color: $ashy;
-              }
-              .spectators-wrap {
+              flex-direction: column;
+              padding: 10px;
+              gap: 5px;
+              border-radius: 5px;
+              background-color: $graphite;
+              box-shadow: 3px 3px 5px rgba($black, 0.25);
+              .ri-game-div {
                 display: flex;
-                position: relative;
                 align-items: center;
-                gap: 5px;
-                cursor: default;
-                .spectators-btn {
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                  width: 16px;
+                justify-content: space-between;
+                span {
                   height: 16px;
-                  padding: 0;
-                  border: none;
-                  background: none;
-                  cursor: pointer;
-                  img {
+                  font-size: 14px;
+                  color: $ashy;
+                }
+                .spectators-wrap {
+                  display: flex;
+                  position: relative;
+                  align-items: center;
+                  gap: 5px;
+                  cursor: default;
+                  .spectators-btn {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
                     width: 16px;
                     height: 16px;
+                    padding: 0;
+                    border: none;
+                    background: none;
+                    cursor: pointer;
+                    img {
+                      width: 16px;
+                      height: 16px;
+                    }
                   }
-                }
-                .spectators-tooltip {
-                  display: flex;
-                  position: absolute;
-                  flex-direction: column;
-                  top: calc(100% + 3px);
-                  right: -1px;
-                  padding: 10px;
-                  gap: 5px;
-                  min-width: 100px;
-                  max-width: 200px;
-                  border-radius: 5px;
-                  background-color: $dark;
-                  box-shadow: 0 5px 15px rgba($black, 0.25);
-                  border: 3px solid $lead;
-                  z-index: 5;
-                  pointer-events: auto;
-                  .spectators-list {
+                  .spectators-tooltip {
                     display: flex;
+                    position: absolute;
                     flex-direction: column;
+                    top: calc(100% + 3px);
+                    right: -1px;
+                    padding: 10px;
                     gap: 5px;
-                    .spectators-row {
+                    min-width: 100px;
+                    max-width: 200px;
+                    border-radius: 5px;
+                    background-color: $dark;
+                    box-shadow: 0 5px 15px rgba($black, 0.25);
+                    border: 3px solid $lead;
+                    z-index: 5;
+                    pointer-events: auto;
+                    .spectators-list {
                       display: flex;
-                      align-items: center;
+                      flex-direction: column;
                       gap: 5px;
-                      .mini-profile-name {
-                        min-width: 0;
-                        max-width: 175px;
-                        overflow: hidden;
-                        color: $fg;
-                        font-size: 14px;
-                        line-height: 1.2;
-                        text-overflow: ellipsis;
-                        white-space: nowrap;
-                      }
-                      img {
-                        width: 20px;
-                        height: 20px;
-                        border-radius: 50%;
-                        object-fit: cover;
+                      .spectators-row {
+                        display: flex;
+                        align-items: center;
+                        gap: 5px;
+                        .mini-profile-name {
+                          min-width: 0;
+                          max-width: 175px;
+                          overflow: hidden;
+                          color: $fg;
+                          font-size: 14px;
+                          line-height: 1.2;
+                          text-overflow: ellipsis;
+                          white-space: nowrap;
+                        }
+                        img {
+                          width: 20px;
+                          height: 20px;
+                          border-radius: 50%;
+                          object-fit: cover;
+                        }
                       }
                     }
                   }
@@ -1162,93 +1183,100 @@ onBeforeUnmount(() => {
               }
             }
           }
-        }
-        .ri-members {
-          display: flex;
-          flex-direction: column;
-          padding: 10px;
-          gap: 5px;
-          width: calc(40% - 15px);
-          border-radius: 5px;
-          background-color: $graphite;
-          box-shadow: 3px 3px 5px rgba($black, 0.25);
-          .muted {
-            height: 16px;
-            font-size: 14px;
-            color: $ashy;
-          }
-          .ri-users {
+          .ri-members {
             display: flex;
             flex-direction: column;
-            margin: 0;
-            padding: 0;
+            padding: 10px;
             gap: 5px;
-            list-style: none;
-            .ri-user {
+            width: calc(40% - 15px);
+            border-radius: 5px;
+            background-color: $graphite;
+            box-shadow: 3px 3px 5px rgba($black, 0.25);
+            .muted {
+              height: 16px;
+              font-size: 14px;
+              color: $ashy;
+            }
+            .ri-users {
               display: flex;
-              align-items: center;
-              gap: 3px;
-              width: 100%;
-              height: 20px;
-              .mini-profile-name {
-                min-width: 0;
-                max-width: 150px;
-                height: 16px;
-                overflow: hidden;
-                color: $ashy;
-                font-size: 14px;
-                line-height: 1.2;
-                text-overflow: ellipsis;
-                white-space: nowrap;
-              }
-              img {
-                width: 20px;
+              flex-direction: column;
+              margin: 0;
+              padding: 0;
+              gap: 5px;
+              list-style: none;
+              .ri-user {
+                display: flex;
+                align-items: center;
+                gap: 3px;
+                width: 100%;
                 height: 20px;
-                border-radius: 50%;
-                object-fit: cover;
-              }
-              .user-numb {
-                font-size: 14px;
-                font-variant-numeric: tabular-nums;
-              }
-              &.dead {
-                opacity: 0.5;
+                .mini-profile-name {
+                  min-width: 0;
+                  max-width: 150px;
+                  height: 16px;
+                  overflow: hidden;
+                  color: $ashy;
+                  font-size: 14px;
+                  line-height: 1.2;
+                  text-overflow: ellipsis;
+                  white-space: nowrap;
+                }
+                img {
+                  width: 20px;
+                  height: 20px;
+                  border-radius: 50%;
+                  object-fit: cover;
+                }
+                .user-numb {
+                  font-size: 14px;
+                  font-variant-numeric: tabular-nums;
+                }
+                &.dead {
+                  opacity: 0.5;
+                }
               }
             }
           }
+          .header-text {
+            margin-bottom: 10px;
+          }
         }
-        .header-text {
-          margin-bottom: 10px;
-        }
-      }
-      .ri-actions {
-        display: flex;
-        position: absolute;
-        align-items: center;
-        justify-content: center;
-        bottom: 20px;
-        width: 100%;
-        button {
+        .ri-actions {
           display: flex;
+          position: absolute;
           align-items: center;
           justify-content: center;
-          padding: 0 20px;
-          height: 40px;
-          border: none;
-          border-radius: 5px;
-          background-color: $fg;
-          color: $bg;
-          font-size: 16px;
-          font-family: Manrope-Medium;
-          line-height: 1;
-          cursor: pointer;
-          transition: opacity 0.25s ease-in-out;
-          &:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
+          bottom: 20px;
+          width: 100%;
+          button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 20px;
+            height: 40px;
+            border: none;
+            border-radius: 5px;
+            background-color: $fg;
+            color: $bg;
+            font-size: 16px;
+            font-family: Manrope-Medium;
+            line-height: 1;
+            cursor: pointer;
+            transition: opacity 0.25s ease-in-out;
+            &:disabled {
+              opacity: 0.5;
+              cursor: not-allowed;
+            }
           }
         }
       }
+    }
+    .right-extra {
+      flex: 1 1 0;
+      min-height: 0;
+      border-radius: 5px;
+      background-color: $dark;
+      overflow: hidden;
     }
   }
 }
