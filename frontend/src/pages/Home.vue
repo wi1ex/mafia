@@ -34,7 +34,7 @@
           <li class="item" v-for="r in sortedRooms" :key="r.id" :class="{ active: r.id === selectedId || r.id === pendingRoomId }" tabindex="0" @click="selectRoom(r.id)" >
             <div class="cell">
               <div class="status-room" :class="roomStatusClass(r)">
-                <img :src="iconDot" alt="dot" />
+                <img :src="iconDot" alt="dot" class="dot-img" />
                 <span class="item-text">{{ roomStatusLabel(r)}}</span>
               </div>
             </div>
@@ -992,7 +992,7 @@ onBeforeUnmount(() => {
           &:focus-visible,
           &:active,
           &.active {
-            background-color: $green-700;
+            background: linear-gradient(261deg, $green-700 0%, $soft-purple-800 100%);
           }
           .cell {
             display: flex;
@@ -1007,13 +1007,12 @@ onBeforeUnmount(() => {
             }
             .status-room {
               display: flex;
+              align-items: center;
               padding: 8px;
               gap: 8px;
-              width: 75px;
+              min-width: 59px;
               border-radius: 12px;
               background-color: $neutral-500;
-              color: $neutral-white;
-              font-size: 12px;
               &.duo {
                 background-color: $red-600;
               }
@@ -1022,6 +1021,10 @@ onBeforeUnmount(() => {
               }
               &.hide {
                 background-color: $neutral-black;
+              }
+              .dot-img {
+                width: 4px;
+                height: 4px;
               }
             }
             img {
