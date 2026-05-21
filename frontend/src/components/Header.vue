@@ -113,21 +113,27 @@
           <div v-if="userMenuProfileIconSrcs.length" class="profile-theme-icons" aria-hidden="true">
             <img v-for="badgeSrc in userMenuProfileIconSrcs" :key="badgeSrc" class="profile-theme-icon" :src="badgeSrc" alt="" />
           </div>
-          <span aria-live="polite">{{ user.user?.username || '...' }}</span>
+          <span>{{ user.user?.username || '...' }}</span>
           <img class="arrow" :src="iconArrow" alt="arrow" :style="{ transform: um_open ? 'rotate(180deg)' : 'none'}" />
         </button>
 
         <Transition name="user-menu">
           <div v-if="um_open" class="user-menu-dropdown" role="menu">
-            <router-link to="/profile" class="user-menu-item" role="menuitem" @click="closeUserMenu">
-              <img :src="iconProfile" alt="profile" />
-              <span>Личный кабинет</span>
-            </router-link>
+            <div class="user-menu-profile">
+              <img v-minio-img="{ key: user.user?.avatar_name ? `avatars/${user.user.avatar_name}` : '', placeholder: iconBigDefaultAvatar, lazy: false }" alt="Аватар" class="avatar" />
+              <span class="user-menu-nickname">{{ user.user?.username || '...' }}</span>
+            </div>
             <div class="border-line"></div>
-            <button type="button" class="user-menu-item" role="menuitem" @click="onLogoutClick">
-              <img :src="iconLogout" alt="logout" />
-              <span>Выйти</span>
-            </button>
+            <div class="user-menu-items">
+              <router-link to="/profile" class="user-menu-item" role="menuitem" @click="closeUserMenu">
+                <img :src="iconProfile" alt="profile" />
+                <span>Личный кабинет</span>
+              </router-link>
+              <button type="button" class="user-menu-item" role="menuitem" @click="onLogoutClick">
+                <img :src="iconLogout" alt="logout" />
+                <span>Выйти</span>
+              </button>
+            </div>
           </div>
         </Transition>
       </div>
@@ -154,6 +160,7 @@ import iconNotifBell from "@/assets/svg/iconNotifBell.svg"
 import iconFriends from "@/assets/svg/iconFriends.svg"
 import iconChat from "@/assets/svg/iconChat.svg"
 import iconDefaultAvatar from "@/assets/svg/iconDefaultAvatar.svg"
+import iconBigDefaultAvatar from "@/assets/svg/iconBigDefaultAvatar.svg"
 import iconArrow from '@/assets/svg/iconArrow.svg'
 import iconProfile from "@/assets/svg/profile.svg"
 import iconLogout from '@/assets/svg/leave.svg'
@@ -692,8 +699,8 @@ function openAuth(mode: 'login' | 'register') {
           inset: 0;
           border-radius: inherit;
           background:
-            radial-gradient(circle at top, rgba($white, 0.1) 0%, rgba($white, 0) 50%),
-            rgba($white, 0.05);
+            radial-gradient(circle at top, rgba($neutral-white, 0.1) 0%, rgba($neutral-white, 0) 50%),
+            rgba($neutral-white, 0.05);
           opacity: 0;
           pointer-events: none;
           transition: opacity 0.25s ease-in-out;
@@ -708,45 +715,71 @@ function openAuth(mode: 'login' | 'register') {
         }
       }
       .user-menu-dropdown {
+        display: flex;
         position: absolute;
+        flex-direction: column;
+        align-items: center;
         right: 0;
-        top: 50px;
-        min-width: 200px;
-        max-width: 200px;
-        border-radius: 5px;
-        background-color: $graphite;
-        box-shadow: 3px 3px 5px rgba($black, 0.25);
+        top: 72px;
+        padding: 16px 8px;
+        gap: 16px;
+        border-radius: 16px;
+        background-color: $neutral-100;
+        box-shadow: 0 2px 16px 0 rgba($neutral-black, 0.16);
         z-index: 20;
-        .border-line {
-          border-bottom: 1px solid $grey;
-        }
-        .user-menu-item {
+        .user-menu-dropdown {
           display: flex;
-          align-items: center;
-          padding: 0;
-          gap: 5px;
-          width: 200px;
-          height: 50px;
-          border: none;
-          border-radius: 5px;
-          background: none;
-          text-decoration: none;
-          cursor: pointer;
-          transition: background-color 0.25s ease-in-out;
-          &:hover {
-            background-color: $lead;
+          flex-direction: column;
+          gap: 8px;
+          .avatar {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
           }
-          img {
-            margin-left: 15px;
-            width: 24px;
-            height: 24px;
+          .user-menu-nickname {
+            color: $neutral-black;
+            font-family: Hauora-Regular;
+            font-size: 18px;
+            line-height: 0;
+            letter-spacing: -0.36px;
           }
-          span {
-            height: 18px;
-            color: $fg;
-            font-size: 16px;
-            font-family: Manrope-Medium;
-            line-height: 1;
+        }
+        .border-line {
+          width: 100%;
+          border-bottom: 1px solid $neutral-300;
+        }
+        .user-menu-items {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          .user-menu-item {
+            display: flex;
+            align-items: center;
+            padding: 0;
+            gap: 5px;
+            width: 200px;
+            height: 50px;
+            border: none;
+            border-radius: 5px;
+            background: none;
+            text-decoration: none;
+            cursor: pointer;
+            transition: background-color 0.25s ease-in-out;
+            img {
+              margin-left: 15px;
+              width: 24px;
+              height: 24px;
+            }
+            span {
+              height: 18px;
+              color: $fg;
+              font-size: 16px;
+              font-family: Manrope-Medium;
+              line-height: 1;
+            }
+            &:hover {
+              background-color: $lead;
+            }
           }
         }
       }
