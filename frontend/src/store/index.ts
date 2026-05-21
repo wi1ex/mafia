@@ -1,7 +1,6 @@
 export * from './modules/auth'
 export * from './modules/user'
 export * from './modules/notif'
-export * from './modules/update'
 export * from './modules/setting'
 export * from './modules/friends'
 export * from './modules/globalChat'

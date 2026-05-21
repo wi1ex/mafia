@@ -59,8 +59,6 @@ PRIVILEGED_SENSITIVE_MUTATION_LIMITS: dict[str, int] = {
     "/api/admin/users/{user_id}/role": 4,
     "/api/admin/users/{user_id}/delete": 4,
     "/api/admin/users/{user_id}/restore": 4,
-    "/api/admin/users/{user_id}/unverify": 4,
-    "/api/admin/users/{user_id}/password_clear": 4,
     "/api/admin/users/{user_id}/timeout": 5,
     "/api/admin/users/{user_id}/ban": 5,
     "/api/admin/users/{user_id}/suspend": 5,

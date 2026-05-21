@@ -11,7 +11,6 @@ from ...core.logging import log_action
 from ...security.auth_tokens import get_identity
 from ...core.db import get_session
 from ...models.room import Room
-from ...models.notif import Notif
 from ...realtime.sio import sio
 from ...schemas.common import Identity, Ok
 from ...schemas.room import (
@@ -517,20 +516,17 @@ async def approve(room_id: int, user_id: int, ident: Identity = Depends(get_iden
         return Ok()
 
     title_room = (params.get("title") or "").strip()
-    note = Notif(user_id=int(user_id), title="Заявка одобрена", text=f"Вход в «{title_room}» разрешен")
-    db.add(note)
-    await db.commit()
-    await db.refresh(note)
+    toast_title = "Заявка одобрена"
+    toast_text = f"Вход в «{title_room}» разрешен"
 
     with suppress(Exception):
         await emit_rooms_upsert(room_id)
 
     with suppress(Exception):
         await sio.emit("notify",
-                       {"id": note.id,
-                        "title": note.title,
-                        "text": note.text,
-                        "date": note.created_at.isoformat(),
+                       {"title": toast_title,
+                        "text": toast_text,
+                        "date": datetime.now(timezone.utc).isoformat(),
                         "kind": "approve",
                         "room_id": room_id,
                         "action": {"kind": "route", "label": "Перейти", "to": f"/room/{room_id}"},
@@ -593,17 +589,14 @@ async def deny(room_id: int, user_id: int, ident: Identity = Depends(get_identit
 
     title_room = (params.get("title") or "").strip()
     is_hidden_room = str(params.get("anonymity") or "visible") == "hidden"
-    note = Notif(user_id=int(user_id), title="Доступ к комнате отозван", text=f"Вход в «{title_room}» больше недоступен.")
-    db.add(note)
-    await db.commit()
-    await db.refresh(note)
+    toast_title = "Доступ к комнате отозван"
+    toast_text = f"Вход в «{title_room}» больше недоступен."
 
     with suppress(Exception):
         await sio.emit("notify",
-                       {"id": note.id,
-                        "title": note.title,
-                        "text": note.text,
-                        "date": note.created_at.isoformat(),
+                       {"title": toast_title,
+                        "text": toast_text,
+                        "date": datetime.now(timezone.utc).isoformat(),
                         "kind": "info",
                         "room_id": room_id,
                         "ttl_ms": 10000,

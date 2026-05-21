@@ -13,7 +13,7 @@
         <article class="item" v-for="it in notif.items" :key="it.id" :data-id="it.id">
           <div class="item-header">
             <span>{{ it.title }}</span>
-            <time>{{ formatLocalDateTime(it.date) }}</time>
+            <time>{{ formatLocalDateTime(it.date, NOTIF_DATE_OPTIONS) }}</time>
           </div>
           <p v-if="it.text" class="text">{{ it.text }}</p>
         </article>
@@ -32,6 +32,14 @@ import { useNotifStore } from '@/store'
 import { formatLocalDateTime } from '@/services/datetime'
 
 import iconClose from '@/assets/svg/close.svg'
+
+const NOTIF_DATE_OPTIONS: Intl.DateTimeFormatOptions = {
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+}
 
 const props = defineProps<{
   open: boolean

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from .routes import admin, auth, bot, friends, media, moderation, notifs, rooms, updates, users
+from .routes import admin, auth, bot, friends, media, moderation, notifs, rooms, users
 from ..security.decorators import audit_router_guards, minimal_route_rate_limit
 
 api_router = APIRouter(dependencies=[Depends(minimal_route_rate_limit)])
@@ -13,5 +13,4 @@ api_router.include_router(users.router, prefix="/users", tags=["users"])
 api_router.include_router(rooms.router, prefix="/rooms", tags=["rooms"])
 api_router.include_router(friends.router, prefix="/friends", tags=["friends"])
 api_router.include_router(notifs.router, prefix="/notifs", tags=["notifs"])
-api_router.include_router(updates.router, prefix="/updates", tags=["updates"])
 audit_router_guards(api_router)

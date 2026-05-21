@@ -411,25 +411,28 @@ async def send_friend_request(user_id: int, ident: Identity = Depends(get_identi
 
     title = "Заявка в друзья"
     text = f"Пользователь {ident['username']} отправил вам заявку в друзья."
-    note = Notif(user_id=target_id, title=title, text=text)
-    db.add(note)
-    await db.commit()
-    await db.refresh(note)
 
     actions = [
         {"kind": "api", "label": "Принять", "url": f"/friends/requests/{uid}/accept", "method": "post", "style": "primary"},
         {"kind": "api", "label": "Отклонить", "url": f"/friends/requests/{uid}/decline", "method": "post", "style": "danger"},
     ]
-    await emit_notify(
-        target_id,
-        note,
-        kind="friend_request",
-        extra={
-            "user": {"id": uid, "username": ident["username"], "avatar_name": (requester_profile or {}).get("avatar_name")},
-            "actions": actions,
-            "toast_text": "",
-        },
-    )
+    with suppress(Exception):
+        await sio.emit(
+            "notify",
+            {
+                "title": title,
+                "text": text,
+                "date": datetime.now(timezone.utc).isoformat(),
+                "kind": "friend_request",
+                "ttl_ms": 15000,
+                "read": False,
+                "user": {"id": uid, "username": ident["username"], "avatar_name": (requester_profile or {}).get("avatar_name")},
+                "actions": actions,
+                "toast_text": "",
+            },
+            room=f"user:{target_id}",
+            namespace="/auth",
+        )
     await emit_friends_update(target_id, uid, "incoming")
     await emit_friends_update(uid, target_id, "outgoing")
 
@@ -475,32 +478,23 @@ async def accept_friend_request(user_id: int, ident: Identity = Depends(get_iden
 
     title_req = "Заявка в друзья принята"
     text_req = f"Пользователь {ident['username']} принял вашу заявку в друзья."
-    note_req = Notif(user_id=requester_id, title=title_req, text=text_req)
-    db.add(note_req)
-    await db.commit()
-    await db.refresh(note_req)
-    await emit_notify(
-        requester_id,
-        note_req,
-        kind="friend_accept",
-        extra={
-            "user": {"id": uid, "username": ident["username"], "avatar_name": (accepter_profile or {}).get("avatar_name")},
-            "toast_text": "",
-        },
-    )
+    with suppress(Exception):
+        await sio.emit(
+            "notify",
+            {
+                "title": title_req,
+                "text": text_req,
+                "date": datetime.now(timezone.utc).isoformat(),
+                "kind": "friend_accept",
+                "ttl_ms": 15000,
+                "read": False,
+                "user": {"id": uid, "username": ident["username"], "avatar_name": (accepter_profile or {}).get("avatar_name")},
+                "toast_text": "",
+            },
+            room=f"user:{requester_id}",
+            namespace="/auth",
+        )
 
-    title_acc = "Добавлен в друзья"
-    text_acc = f"Вы приняли заявку в друзья от пользователя {requester_name or f'user{requester_id}'}."
-    note_acc = Notif(
-        user_id=uid,
-        title=title_acc,
-        text=text_acc,
-        read_at=datetime.now(timezone.utc),
-    )
-    db.add(note_acc)
-    await db.commit()
-    await db.refresh(note_acc)
-    await emit_notify(uid, note_acc, kind="friend_accept", no_toast=True)
     await emit_friends_update(requester_id, uid, "friends")
     await emit_friends_update(uid, requester_id, "friends")
 

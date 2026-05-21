@@ -512,8 +512,9 @@ function resolveNominationLevel(value: number, levelStarts: readonly [number, nu
 
 function nominationProgressPct(value: number, level: NominationLevel, levelStarts: readonly [number, number, number, number, number]): number {
   if (level >= 5) return 100
-  const start = levelStarts[level - 1]
-  const next = levelStarts[level]
+  const progressLevel = level as 1 | 2 | 3 | 4
+  const start = levelStarts[progressLevel - 1]
+  const next = levelStarts[progressLevel]
   if (next <= start) return 100
   return Math.max(0, Math.min(100, ((value - start) / (next - start)) * 100))
 }

@@ -22,7 +22,6 @@ from ..utils import (
     normalize_password,
     find_user_by_username,
     generate_user_id,
-    init_updates_read,
 )
 
 router = APIRouter()
@@ -65,8 +64,6 @@ async def register(payload: PasswordRegisterIn, resp: Response, request: Request
     except IntegrityError:
         await db.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="username_taken")
-
-    await init_updates_read(db, user_id)
 
     raw_pwa = (request.headers.get("x-pwa") or "").strip().lower()
     is_pwa = raw_pwa in {"1", "true", "yes", "pwa"}

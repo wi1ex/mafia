@@ -17,7 +17,6 @@ from ...models.notif import Notif
 from ...models.subscription import UserSubscription
 from ...models.sanction import UserSanction
 from ...models.user import User
-from ...models.update import SiteUpdate, UpdateRead
 from ...models.global_chat import GlobalChatMessage, GlobalChatMessageReaction
 from ...core.logging import log_action
 from ...realtime.sio import sio
@@ -29,7 +28,6 @@ from ...realtime.utils import (
 )
 from ...security.decorators import log_route, require_protected_admin_dep
 from ...security.auth_tokens import get_identity
-from ...security.passwords import hash_password
 from ...security.parameters import ensure_app_settings, sync_cache_from_row, refresh_app_settings, get_cached_settings
 from ...services.livekit import remove_livekit_participant
 from ...services.user_cache import refresh_user_profile_cache, get_user_profiles_cached
@@ -43,7 +41,6 @@ from ...services.profile_theme import (
 from ...services.global_chat import (
     emit_global_chat_cleared,
     emit_global_chat_permissions_refresh,
-    emit_global_chat_permissions_updated,
     emit_global_chat_role_notice,
     emit_global_chat_role_sync,
     emit_global_chat_sanction_issued_notice,
@@ -53,10 +50,11 @@ from ...services.minio import CHAT_IMAGE_PREFIX, delete_chat_images_async, get_p
 from ...services.nickname_history import prepend_nickname_history
 from ...schemas.common import Ok, Identity
 from ...schemas.user import UserStatsOut
-from ...schemas.updates import AdminUpdateIn, AdminUpdateOut, AdminUpdatesOut
 from ...schemas.admin import (
     AdminSettingsOut,
     AdminSettingsUpdateIn,
+    AdminUpdateNotificationIn,
+    AdminUpdateNotificationOut,
     PublicSettingsOut,
     SiteStatsOut,
     PeriodStatsOut,
@@ -1137,9 +1135,7 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
             username=u.username,
             avatar_name=u.avatar_name,
             role=u.role,
-            telegram_verified=bool(u.telegram_id),
             tg_invites_enabled=(u.tg_invites_enabled is not False),
-            has_password=bool(u.password_hash),
             protected_user=is_protected_admin(uid),
             registered_at=u.registered_at,
             last_login_at=u.last_login_at,
@@ -1768,119 +1764,6 @@ async def restore_user_account(user_id: int, ident: Identity = Depends(get_ident
     return Ok()
 
 
-@router.post("/users/{user_id}/unverify", response_model=Ok, dependencies=ADMIN_GUARD)
-@log_route("admin.users.unverify")
-async def unverify_user(user_id: int, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
-    user = await session.get(User, int(user_id))
-    if not user:
-        raise HTTPException(status_code=404, detail="user_not_found")
-
-    ensure_admin_target_allowed(user)
-    ensure_admin_target_not_deleted(user)
-    uid = cast(int, user.id)
-    prev_tg = user.telegram_id
-    if prev_tg is None:
-        return Ok()
-
-    user.telegram_id = None
-    note = Notif(
-        user_id=uid,
-        title="Верификация снята",
-        text="Администратор снял верификацию с вашего аккаунта.",
-    )
-    session.add(note)
-    await session.commit()
-    await session.refresh(note)
-
-    details = f"Снятие верификации user_id={uid}"
-    if user.username:
-        details += f" username={user.username}"
-    details += f" tg_id={prev_tg}"
-
-    await log_action(
-        session,
-        user_id=int(ident["id"]),
-        username=ident["username"],
-        action="admin_telegram_unverify",
-        details=details,
-    )
-
-    with suppress(Exception):
-        await sio.emit(
-            "notify",
-            {
-                "id": note.id,
-                "title": note.title,
-                "text": note.text,
-                "date": note.created_at.isoformat(),
-                "kind": "admin_action",
-                "ttl_ms": 15000,
-                "read": False,
-            },
-            room=f"user:{uid}",
-            namespace="/auth",
-        )
-    with suppress(Exception):
-        await emit_auth_profile_sync(uid, role=str(user.role or "user"))
-    with suppress(Exception):
-        await emit_global_chat_permissions_updated(uid)
-    return Ok()
-
-
-@router.post("/users/{user_id}/password_clear", response_model=Ok, dependencies=ADMIN_GUARD)
-@log_route("admin.users.password_clear")
-async def clear_user_password(user_id: int, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
-    user = await session.get(User, int(user_id))
-    if not user:
-        raise HTTPException(status_code=404, detail="user_not_found")
-
-    ensure_admin_target_allowed(user)
-    ensure_admin_target_not_deleted(user)
-    uid = cast(int, user.id)
-    had_password = bool(user.password_hash)
-    user.password_hash = hash_password("12345678")
-    user.password_temp = True
-    note = Notif(
-        user_id=uid,
-        title="Пароль сброшен",
-        text="Администратор сбросил пароль Вашего аккаунта.",
-    )
-    session.add(note)
-    await session.commit()
-    await session.refresh(note)
-
-    details = f"Сброс пароля user_id={uid}"
-    if user.username:
-        details += f" username={user.username}"
-    details += f" had_password={int(had_password)}"
-
-    await log_action(
-        session,
-        user_id=int(ident["id"]),
-        username=ident["username"],
-        action="admin_password_clear",
-        details=details,
-    )
-
-    with suppress(Exception):
-        await sio.emit(
-            "notify",
-            {
-                "id": note.id,
-                "title": note.title,
-                "text": note.text,
-                "date": note.created_at.isoformat(),
-                "kind": "admin_action",
-                "ttl_ms": 15000,
-                "read": False,
-                "toast_text": "Ваш пароль сброшен администратором",
-            },
-            room=f"user:{uid}",
-            namespace="/auth",
-        )
-    return Ok()
-
-
 @router.post("/users/{user_id}/timeout", response_model=Ok, dependencies=ADMIN_GUARD)
 @log_route("admin.users.timeout_add")
 async def apply_user_timeout(user_id: int, payload: AdminSanctionTimedIn, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
@@ -2352,66 +2235,33 @@ async def revoke_user_suspend(user_id: int, ident: Identity = Depends(get_identi
     return Ok()
 
 
-@router.get("/updates", response_model=AdminUpdatesOut, dependencies=ADMIN_GUARD)
-@log_route("admin.updates.list")
-async def updates_list(session: AsyncSession = Depends(get_session)) -> AdminUpdatesOut:
-    rows = await session.execute(select(SiteUpdate).order_by(SiteUpdate.update_date.desc(), SiteUpdate.id.desc()))
-    items = [
-        AdminUpdateOut(
-            id=row.id,
-            version=row.version,
-            date=row.update_date,
-            description=row.description,
-        )
-        for row in rows.scalars().all()
-    ]
+@router.post("/update-notification", response_model=AdminUpdateNotificationOut, dependencies=ADMIN_GUARD)
+@log_route("admin.update_notification.create")
+async def create_update_notification(payload: AdminUpdateNotificationIn, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> AdminUpdateNotificationOut:
+    title = payload.title.strip()
+    text = payload.text.strip()
+    if not title or not text:
+        raise HTTPException(status_code=422, detail="empty_update_notification")
 
-    return AdminUpdatesOut(items=items)
+    rows = await session.execute(select(User.id).where(User.deleted_at.is_(None)))
+    user_ids = [int(uid) for uid in rows.scalars().all()]
+    now = datetime.now(timezone.utc)
+    notes = [Notif(user_id=uid, title=title, text=text, created_at=now) for uid in user_ids]
+    if notes:
+        session.add_all(notes)
+        await session.flush()
 
-
-@router.post("/updates", response_model=AdminUpdateOut, dependencies=ADMIN_GUARD)
-@log_route("admin.updates.create")
-async def updates_create(payload: AdminUpdateIn, session: AsyncSession = Depends(get_session)) -> AdminUpdateOut:
-    row = SiteUpdate(
-        version=payload.version,
-        update_date=payload.date,
-        description=payload.description,
+    await log_action(
+        session,
+        user_id=int(ident["id"]),
+        username=ident["username"],
+        action="admin_update_notification",
+        details=f"Обновление отправлено users={len(notes)} title={title}",
+        commit=False,
     )
-    session.add(row)
     await session.commit()
-    await session.refresh(row)
-    try:
-        await sio.emit("site_update", {"id": row.id}, namespace="/auth")
-    except Exception:
-        pass
 
-    return AdminUpdateOut(id=row.id, version=row.version, date=row.update_date, description=row.description)
+    for note in notes:
+        await emit_notify(int(note.user_id), note, kind="info")
 
-
-@router.patch("/updates/{update_id}", response_model=AdminUpdateOut, dependencies=ADMIN_GUARD)
-@log_route("admin.updates.update")
-async def updates_update(update_id: int, payload: AdminUpdateIn, session: AsyncSession = Depends(get_session)) -> AdminUpdateOut:
-    row = await session.get(SiteUpdate, int(update_id))
-    if not row:
-        raise HTTPException(status_code=404, detail="update_not_found")
-
-    row.version = payload.version
-    row.update_date = payload.date
-    row.description = payload.description
-    await session.commit()
-    await session.refresh(row)
-
-    return AdminUpdateOut(id=row.id, version=row.version, date=row.update_date, description=row.description)
-
-
-@router.delete("/updates/{update_id}", response_model=Ok, dependencies=ADMIN_GUARD)
-@log_route("admin.updates.delete")
-async def updates_delete(update_id: int, session: AsyncSession = Depends(get_session)) -> Ok:
-    row = await session.get(SiteUpdate, int(update_id))
-    if not row:
-        raise HTTPException(status_code=404, detail="update_not_found")
-
-    await session.execute(delete(UpdateRead).where(UpdateRead.update_id == int(update_id)))
-    await session.delete(row)
-    await session.commit()
-    return Ok()
+    return AdminUpdateNotificationOut(sent_count=len(notes))

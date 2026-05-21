@@ -18,7 +18,7 @@
   </div>
   <div v-else-if="sanctionBanner" class="sanction-banner" :class="`sanction-banner--${sanctionBanner.kind}`">
     <UiIcon class="banner-icon" :icon="iconWarning" />
-    <span v-if="sanctionBanner.text">{{ sanctionBanner.text }}</span>
+    <span v-if="sanctionBanner.kind === 'ban'">{{ sanctionBanner.text }}</span>
     <template v-else>
       <span>{{ sanctionBanner.label }}</span>
       <span v-if="sanctionBanner.days > 0" class="sanction-duration-unit">
@@ -68,18 +68,6 @@
       <span>Вы авторизованы в другой вкладке</span>
     </div>
     <div v-else class="user">
-      <div class="bell" ref="updatesEl">
-        <button @click.stop="onToggleUpdates" :aria-expanded="updates_open" aria-label="Обновления">
-          <UiIcon class="bell-icon" :icon="iconUpdates" />
-<!--          <span v-if="updates.unread > 0" class="unread-text">{{ updates.unread < 100 ? updates.unread : '∞' }}</span>-->
-          <span v-if="updates.unread > 0" class="unread-text"></span>
-        </button>
-        <Updates
-          v-model:open="updates_open"
-          :anchor="updatesEl"
-        />
-      </div>
-
       <div class="bell" ref="bellEl">
         <button class="bell-dropdown-trigger" @click.stop="onToggleNotifs" :aria-expanded="nb_open" aria-label="Уведомления">
           <UiIcon class="bell-icon" :icon="iconNotifBell" />
@@ -150,9 +138,8 @@
 
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, watch, ref, computed } from 'vue'
-import { useAuthStore, useUserStore, useNotifStore, useUpdatesStore, useFriendsStore, useSettingsStore, useGlobalChatStore } from '@/store'
+import { useAuthStore, useUserStore, useNotifStore, useFriendsStore, useSettingsStore, useGlobalChatStore } from '@/store'
 import Notifs from '@/components/Notifs.vue'
-import Updates from '@/components/Updates.vue'
 import FriendsPanel from '@/components/FriendsPanel.vue'
 import AuthModal from '@/components/AuthModal.vue'
 import UiIcon from '@/components/UiIcon.vue'
@@ -163,7 +150,6 @@ import iconLogo from '@/assets/svg/iconLogo.svg'
 import iconInfo from "@/assets/svg/iconInfo.svg"
 import iconGamesHistory from "@/assets/svg/iconHistory.svg"
 import iconJudge from '@/assets/svg/iconJudge.svg'
-import iconUpdates from "@/assets/svg/iconUpdates.svg"
 import iconNotifBell from "@/assets/svg/iconNotifBell.svg"
 import iconFriends from "@/assets/svg/iconFriends.svg"
 import iconChat from "@/assets/svg/iconChat.svg"
@@ -177,7 +163,6 @@ import { getProfileThemeBadgeSources } from '@/constants/profileThemeIcons'
 const auth = useAuthStore()
 const user = useUserStore()
 const notif = useNotifStore()
-const updates = useUpdatesStore()
 const friends = useFriendsStore()
 const settings = useSettingsStore()
 const chat = useGlobalChatStore()
@@ -186,8 +171,6 @@ const nb_open = ref(false)
 const bellEl = ref<HTMLElement | null>(null)
 const friends_open = ref(false)
 const friendsEl = ref<HTMLElement | null>(null)
-const updates_open = ref(false)
-const updatesEl = ref<HTMLElement | null>(null)
 const um_open = ref(false)
 const userMenuEl = ref<HTMLElement | null>(null)
 const authOpen = ref(false)
@@ -284,11 +267,6 @@ function onToggleNotifs() {
   closeHeaderPanels({ keepNotifs: true })
   nb_open.value = next
 }
-function onToggleUpdates() {
-  const next = !updates_open.value
-  closeHeaderPanels({ keepUpdates: true })
-  updates_open.value = next
-}
 function onToggleFriends() {
   if (!showFriendsButton.value) {
     friends_open.value = false
@@ -317,13 +295,11 @@ function closeUserMenu() {
 function closeHeaderPanels(options: {
   keepChat?: boolean
   keepNotifs?: boolean
-  keepUpdates?: boolean
   keepFriends?: boolean
   keepUserMenu?: boolean
   keepAuth?: boolean
 } = {}) {
   if (!options.keepNotifs) nb_open.value = false
-  if (!options.keepUpdates) updates_open.value = false
   if (!options.keepFriends) friends_open.value = false
   if (!options.keepUserMenu) um_open.value = false
   if (!options.keepAuth) authOpen.value = false
@@ -361,8 +337,6 @@ watch(() => auth.isAuthed, async ok => {
   if (ok) {
     notif.ensureWS()
     await notif.fetchAll()
-    updates.ensureWS()
-    await updates.fetchAll()
     await syncFriendsAccess()
   }
 })
@@ -379,8 +353,6 @@ onMounted(async () => {
   if (auth.isAuthed) {
     notif.ensureWS()
     await notif.fetchAll()
-    updates.ensureWS()
-    await updates.fetchAll()
     await syncFriendsAccess()
   }
   document.addEventListener('pointerdown', onGlobalPointerDown)

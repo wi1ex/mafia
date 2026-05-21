@@ -40,6 +40,10 @@ async def lifespan(app) -> AsyncIterator[None]:
         async with engine.begin() as conn:
             await conn.execute(text("SELECT 1"))
             await conn.run_sync(Base.metadata.create_all)
+            # AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+            await conn.execute(text("DROP TABLE IF EXISTS update_reads"))
+            await conn.execute(text("DROP TABLE IF EXISTS updates"))
+            # AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 
         async with SessionLocal() as session:
             await ensure_app_settings(session)

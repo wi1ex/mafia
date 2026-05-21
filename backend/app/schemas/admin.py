@@ -91,6 +91,15 @@ class AdminSettingsUpdateIn(BaseModel):
     game: Optional[GameSettingsUpdateIn] = None
 
 
+class AdminUpdateNotificationIn(BaseModel):
+    title: str = Field(min_length=1, max_length=64)
+    text: str = Field(min_length=1, max_length=4096)
+
+
+class AdminUpdateNotificationOut(BaseModel):
+    sent_count: int
+
+
 class PublicSettingsOut(BaseModel):
     registration_enabled: bool
     rooms_can_create: bool
@@ -312,9 +321,7 @@ class AdminUserOut(BaseModel):
     username: Optional[str] = None
     avatar_name: Optional[str] = None
     role: str
-    telegram_verified: bool
     tg_invites_enabled: bool
-    has_password: bool
     protected_user: bool = False
     registered_at: datetime
     last_login_at: datetime

@@ -1735,7 +1735,7 @@ onBeforeUnmount(() => {
                 color: $fg;
                 font-size: 22px;
                 font-family: Manrope-SemiBold;
-                line-height: 1.2;
+                line-height: 1.3;
                 white-space: nowrap;
                 overflow: hidden;
                 text-overflow: ellipsis;
@@ -2182,7 +2182,6 @@ onBeforeUnmount(() => {
                 }
                 span {
                   font-size: 16px;
-                  line-height: 1;
                 }
               }
               .theme-palette {

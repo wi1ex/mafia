@@ -11,7 +11,6 @@ from datetime import date, datetime, timezone, timedelta
 from typing import Optional, Dict, Any, Literal, Sequence, Iterable, cast, TYPE_CHECKING
 from fastapi import Depends, HTTPException, status, Header
 from sqlalchemy import update, func, select, or_, and_, delete
-from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.clients import get_redis
 from ..core.db import SessionLocal, get_session
@@ -25,7 +24,6 @@ from ..models.notif import Notif
 from ..models.subscription import UserSubscription
 from ..models.sanction import UserSanction
 from ..models.user import User
-from ..models.update import SiteUpdate, UpdateRead
 from ..realtime.sio import sio
 from ..security.admin_guard import is_protected_admin_uid
 from ..security.auth_tokens import get_identity
@@ -179,7 +177,6 @@ __all__ = [
     "find_user_ids_by_username_search",
     "find_user_by_username",
     "generate_user_id",
-    "init_updates_read",
     "require_bot_token",
     "pair",
     "load_link",
@@ -1495,21 +1492,6 @@ async def generate_user_id(db: AsyncSession) -> int:
             return candidate
 
     raise HTTPException(status_code=500, detail="id_generation_failed")
-
-
-async def init_updates_read(db: AsyncSession, user_id: int) -> None:
-    try:
-        rows = await db.execute(select(SiteUpdate.id))
-        ids = [int(r[0]) for r in rows.all() if r and r[0] is not None]
-        if ids:
-            now = datetime.now(timezone.utc)
-            values = [{"user_id": user_id, "update_id": upd_id, "read_at": now} for upd_id in ids]
-            stmt = insert(UpdateRead).values(values)
-            stmt = stmt.on_conflict_do_nothing(index_elements=["user_id", "update_id"])
-            await db.execute(stmt)
-            await db.commit()
-    except Exception:
-        await db.rollback()
 
 
 def require_bot_token(x_bot_token: str = Header(default="")) -> None:

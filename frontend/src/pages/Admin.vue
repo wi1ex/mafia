@@ -115,42 +115,19 @@
         </div>
 
         <div v-else-if="activeTab === 'updates'">
-          <div class="updates-toolbar">
-            <button class="btn confirm" @click="openCreateUpdate">Добавить</button>
-          </div>
-
-          <div v-if="updatesLoading" class="loading">Загрузка...</div>
-          <div v-else>
-            <table class="table updates-table">
-              <thead>
-                <tr>
-                  <th>Дата</th>
-                  <th>Версия</th>
-                  <th>Описание</th>
-                  <th>Действие</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="row in updates" :key="row.id">
-                  <td>{{ formatLocalDateTime(row.date, DATE_ONLY) }}</td>
-                  <td>{{ row.version }}</td>
-                  <td class="desc">{{ row.description }}</td>
-                  <td>
-                    <button class="btn dark width-min" @click="openEditUpdate(row)">
-                      <img class="btn-img" :src="iconEdit" alt="edit" />
-                      Изменить
-                    </button>
-                    <button class="btn danger width-min" :disabled="updatesDeleting[row.id]" @click="deleteUpdate(row)">
-                      <img class="btn-img" :src="iconDelete" alt="delete" />
-                      Удалить
-                    </button>
-                  </td>
-                </tr>
-                <tr v-if="updates.length === 0">
-                  <td colspan="4" class="muted">Нет обновлений</td>
-                </tr>
-              </tbody>
-            </table>
+          <div class="grid updates-notice-grid">
+            <div class="block updates-notice-block">
+              <div class="field-stack">
+                <UiInput id="update-notice-title" v-model.trim="updateNoticeForm.title" type="text" autocomplete="off" :disabled="updateNoticeSaving" label="Название" />
+                <UiInput id="update-notice-text" v-model.trim="updateNoticeForm.text" as="textarea" rows="7" :disabled="updateNoticeSaving" label="Текст" class="update-notice-textarea" />
+              </div>
+              <div class="form-actions">
+                <button class="btn confirm width-full" :disabled="updateNoticeSaving || !canSendUpdateNotice" @click="sendUpdateNotice">
+                  <img class="btn-img" :src="iconSave" alt="save" />
+                  Отправить всем
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -677,8 +654,6 @@
                   <th>Подписка</th>
                   <th>Модерка</th>
                   <th>Аккаунт</th>
-                  <th>Вериф.</th>
-                  <th>Пароль</th>
                   <th>Аватар</th>
                   <th>Никнейм</th>
                   <th>Отстранить</th>
@@ -730,16 +705,6 @@
                   <td>
                     <button class="btn" :class="row.deleted_at ? 'dark' : 'danger'" :disabled="isUserActionsLocked(row) || usersDeleteBusy[row.id]" @click="toggleDeleteAccount(row)">
                       <img class="btn-img" :src="row.deleted_at ? iconClose : iconJudge" alt="" />
-                    </button>
-                  </td>
-                  <td>
-                    <button class="btn" :class="row.telegram_verified ? 'danger' : 'dark'" :disabled="isDeletedUserActionsLocked(row) || !row.telegram_verified || usersVerifyBusy[row.id]" @click="clearUserVerification(row)">
-                      <img class="btn-img" :src="iconClose" alt="" />
-                    </button>
-                  </td>
-                  <td>
-                    <button class="btn" :class="row.has_password ? 'danger' : 'dark'" :disabled="isDeletedUserActionsLocked(row) || usersPasswordBusy[row.id]" @click="clearUserPassword(row)">
-                      <img class="btn-img" :src="iconClose" alt="" />
                     </button>
                   </td>
                   <td>
@@ -931,15 +896,6 @@
       </div>
     </Transition>
 
-    <UpdateModal
-      v-model:open="updateModalOpen"
-      :title="updateEditing ? 'Редактировать обновление' : 'Новое обновление'"
-      :saving="updateSaving"
-      :can-save="canSaveUpdate"
-      :save-icon="iconSave"
-      :form="updateForm"
-      @save="saveUpdate"
-    />
     <SanctionModal
       v-model:open="sanctionModalOpen"
       :title="sanctionTitle"
@@ -999,7 +955,6 @@ import { DEFAULT_SANCTION_REASON, SANCTION_REASONS } from '@/constants/sanctionR
 import { canOpenMiniProfileTarget, normalizeMiniProfileUserId } from '@/services/miniProfile'
 import { useSettingsStore, useUserStore } from '@/store'
 
-import UpdateModal from '@/components/UpdateModal.vue'
 import SanctionModal from '@/components/SanctionModal.vue'
 import SubscriptionModal from '@/components/SubscriptionModal.vue'
 import MiniProfile from '@/components/MiniProfile.vue'
@@ -1009,7 +964,6 @@ import UiInput from '@/components/UiInput.vue'
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 import iconClose from '@/assets/svg/close.svg'
 import iconJudge from '@/assets/svg/judge.svg'
-import iconEdit from '@/assets/svg/edit.svg'
 import iconDelete from '@/assets/svg/delete.svg'
 import iconSave from '@/assets/svg/save.svg'
 import {
@@ -1020,12 +974,6 @@ import {
   getProfileThemeIconOption,
   getProfileThemeBadgeSources,
 } from '@/constants/profileThemeIcons'
-
-const DATE_ONLY: Intl.DateTimeFormatOptions = {
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-}
 
 type SiteSettings = {
   registration_enabled: boolean
@@ -1163,9 +1111,7 @@ type UserRow = {
   username?: string | null
   avatar_name?: string | null
   role: string
-  telegram_verified: boolean
   tg_invites_enabled: boolean
-  has_password: boolean
   protected_user: boolean
   registered_at: string
   last_login_at: string
@@ -1267,13 +1213,6 @@ type UsersSortBy =
 
 type RoomFilter = 'all' | 'stream_only' | 'hidden_only' | 'has_games' | 'duo_only'
 
-type UpdateRow = {
-  id: number
-  version: string
-  date: string
-  description: string
-}
-
 const route = useRoute()
 const router = useRouter()
 
@@ -1293,7 +1232,6 @@ const logsLoading = ref(false)
 const roomsLoading = ref(false)
 const usersLoading = ref(false)
 const sanctionsLoading = ref(false)
-const updatesLoading = ref(false)
 const subscriptionsLoading = ref(false)
 
 const site = reactive<SiteSettings>({
@@ -1391,8 +1329,6 @@ const sanctionsLimit = ref(20)
 const sanctionsUser = ref('')
 const usersRoleBusy = reactive<Record<number, boolean>>({})
 const usersDeleteBusy = reactive<Record<number, boolean>>({})
-const usersVerifyBusy = reactive<Record<number, boolean>>({})
-const usersPasswordBusy = reactive<Record<number, boolean>>({})
 const usersAvatarBusy = reactive<Record<number, boolean>>({})
 const usersNicknameBusy = reactive<Record<number, boolean>>({})
 const usersSanctionBusy = reactive<Record<string, boolean>>({})
@@ -1416,12 +1352,8 @@ const userMiniProfileStatsUrl = computed(() => {
   const target = userMiniProfileTarget.value
   return target ? `/admin/users/${target.id}/stats` : null
 })
-const updates = ref<UpdateRow[]>([])
-const updateModalOpen = ref(false)
-const updateSaving = ref(false)
-const updateEditing = ref<UpdateRow | null>(null)
-const updateForm = reactive({ version: '', date: '', description: '' })
-const updatesDeleting = reactive<Record<number, boolean>>({})
+const updateNoticeSaving = ref(false)
+const updateNoticeForm = reactive({ title: '', text: '' })
 const sanctionModalOpen = ref(false)
 const sanctionSaving = ref(false)
 const sanctionKind = ref<'timeout' | 'ban' | 'suspend'>('timeout')
@@ -1735,8 +1667,8 @@ const activeUsersByDayTicks = computed(() => buildChartTicks(activeUsersByDayMax
 const registrationMonthlyTicks = computed(() => buildChartTicks(registrationsMonthlyMax.value))
 const gamesMonthlyTicks = computed(() => buildChartTicks(gamesMonthlyMax.value))
 const activeUsersMonthlyTicks = computed(() => buildChartTicks(activeUsersMonthlyMax.value))
-const canSaveUpdate = computed(() => {
-  return Boolean(updateForm.version.trim() && updateForm.date && updateForm.description.trim())
+const canSendUpdateNotice = computed(() => {
+  return Boolean(updateNoticeForm.title.trim() && updateNoticeForm.text.trim())
 })
 
 function formatMinutes(value: number): string {
@@ -2536,81 +2468,22 @@ async function removeSubscription(row: SubscriptionRow): Promise<void> {
   }
 }
 
-async function loadUpdates(): Promise<void> {
-  if (updatesLoading.value) return
-  updatesLoading.value = true
+async function sendUpdateNotice(): Promise<void> {
+  if (updateNoticeSaving.value || !canSendUpdateNotice.value) return
+  updateNoticeSaving.value = true
   try {
-    const { data } = await api.get('/admin/updates')
-    updates.value = Array.isArray(data?.items) ? data.items : []
+    const { data } = await api.post('/admin/update-notification', {
+      title: updateNoticeForm.title.trim(),
+      text: updateNoticeForm.text.trim(),
+    })
+    updateNoticeForm.title = ''
+    updateNoticeForm.text = ''
+    const count = Number.isFinite(data?.sent_count) ? Number(data.sent_count) : 0
+    void alertDialog(`Уведомление отправлено: ${count}`)
   } catch {
-    updates.value = []
-    void alertDialog('Не удалось загрузить обновления')
+    void alertDialog('Не удалось отправить уведомление')
   } finally {
-    updatesLoading.value = false
-  }
-}
-
-function resetUpdateForm(row?: UpdateRow | null) {
-  updateForm.version = row?.version || ''
-  updateForm.date = row?.date ? String(row.date).slice(0, 10) : ''
-  updateForm.description = row?.description || ''
-}
-
-function openCreateUpdate() {
-  updateEditing.value = null
-  resetUpdateForm()
-  updateModalOpen.value = true
-}
-
-function openEditUpdate(row: UpdateRow) {
-  updateEditing.value = row
-  resetUpdateForm(row)
-  updateModalOpen.value = true
-}
-
-async function deleteUpdate(row: UpdateRow): Promise<void> {
-  if (updatesDeleting[row.id]) return
-  const ok = await confirmDialog({
-    title: 'Удалить обновление',
-    text: `Удалить обновление версии ${row.version}?`,
-    confirmText: 'Удалить',
-    cancelText: 'Отмена',
-  })
-  if (!ok) return
-  updatesDeleting[row.id] = true
-  try {
-    await api.delete(`/admin/updates/${row.id}`)
-    updates.value = updates.value.filter(item => item.id !== row.id)
-    void alertDialog('Обновление удалено')
-  } catch {
-    void alertDialog('Не удалось удалить обновление')
-  } finally {
-    updatesDeleting[row.id] = false
-  }
-}
-
-async function saveUpdate(): Promise<void> {
-  if (updateSaving.value || !canSaveUpdate.value) return
-  updateSaving.value = true
-  const payload = {
-    version: updateForm.version.trim(),
-    date: updateForm.date,
-    description: updateForm.description.trim(),
-  }
-  try {
-    if (updateEditing.value) {
-      await api.patch(`/admin/updates/${updateEditing.value.id}`, payload)
-      void alertDialog('Обновление сохранено')
-    } else {
-      await api.post('/admin/updates', payload)
-      void alertDialog('Обновление добавлено')
-    }
-    updateModalOpen.value = false
-    await loadUpdates()
-  } catch {
-    void alertDialog('Не удалось сохранить обновление')
-  } finally {
-    updateSaving.value = false
+    updateNoticeSaving.value = false
   }
 }
 
@@ -2750,50 +2623,6 @@ async function toggleDeleteAccount(row: UserRow): Promise<void> {
     void alertDialog(isDeleted ? 'Не удалось восстановить аккаунт' : 'Не удалось удалить аккаунт')
   } finally {
     usersDeleteBusy[row.id] = false
-  }
-}
-
-async function clearUserVerification(row: UserRow): Promise<void> {
-  if (isDeletedUserActionsLocked(row)) return
-  if (!row.telegram_verified || usersVerifyBusy[row.id]) return
-  const userLabel = row.username ? `${row.username}` : `#${row.id}`
-  const ok = await confirmDialog({
-    title: 'Снять верификацию',
-    text: `Снять верификацию с ${userLabel}?`,
-    confirmText: 'Снять',
-    cancelText: 'Отмена',
-  })
-  if (!ok) return
-  usersVerifyBusy[row.id] = true
-  try {
-    await api.post(`/admin/users/${row.id}/unverify`)
-    row.telegram_verified = false
-  } catch {
-    void alertDialog('Не удалось снять верификацию')
-  } finally {
-    usersVerifyBusy[row.id] = false
-  }
-}
-
-async function clearUserPassword(row: UserRow): Promise<void> {
-  if (isDeletedUserActionsLocked(row)) return
-  if (usersPasswordBusy[row.id]) return
-  const userLabel = row.username ? `${row.username}` : `#${row.id}`
-  const ok = await confirmDialog({
-    title: 'Сбросить пароль',
-    text: `Сбросить пароль для ${userLabel} на 12345678?`,
-    confirmText: 'Сбросить',
-    cancelText: 'Отмена',
-  })
-  if (!ok) return
-  usersPasswordBusy[row.id] = true
-  try {
-    await api.post(`/admin/users/${row.id}/password_clear`)
-    row.has_password = true
-  } catch {
-    void alertDialog('Не удалось сбросить пароль')
-  } finally {
-    usersPasswordBusy[row.id] = false
   }
 }
 
@@ -2968,10 +2797,6 @@ async function toggleBan(row: UserRow): Promise<void> {
 function refreshActiveTab(tab: typeof activeTab.value): void {
   if (tab === 'settings') {
     void loadSettings()
-    return
-  }
-  if (tab === 'updates') {
-    void loadUpdates()
     return
   }
   if (tab === 'stats') {
@@ -3565,14 +3390,14 @@ onMounted(() => {
         object-fit: cover;
       }
     }
-    .updates-toolbar {
-      display: flex;
-      justify-content: flex-end;
-      margin-bottom: 10px;
+    .updates-notice-grid {
+      grid-template-columns: minmax(0, 800px);
     }
-    .updates-table .desc {
-      white-space: pre-wrap;
-      max-width: 520px;
+    .updates-notice-block {
+      max-width: 800px;
+    }
+    :deep(.update-notice-textarea textarea) {
+      min-height: 200px;
     }
     .sanctions-table .rule-cell {
       max-width: 520px;
