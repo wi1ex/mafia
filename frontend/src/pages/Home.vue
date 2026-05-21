@@ -17,7 +17,10 @@
         />
       </Transition>
 
-      <div v-if="sortedRooms.length === 0" class="muted">Пока пусто</div>
+      <div v-if="sortedRooms.length === 0" class="muted-rooms">
+        <img :src="iconNoRooms" alt="norooms" />
+        <span>Пока нет комнат...</span>
+      </div>
 
       <div v-else class="list" ref="listEl">
         <div class="list-header">
@@ -66,7 +69,7 @@
             <div class="ri-info">
               <div class="ri-members">
                 <span class="header-text">Участники ({{ selectedRoom?.occupancy ?? 0 }}/{{ selectedRoom?.user_limit ?? 0 }}):</span>
-                <div v-if="(info?.members?.length ?? 0) === 0" class="muted">Пока никого</div>
+                <div v-if="(info?.members?.length ?? 0) === 0" class="muted-members">Пока никого</div>
                 <ul v-else class="ri-users">
                   <li class="ri-user" v-for="m in sortedMembers" :key="m.id" :class="{ dead: m.role === 'player' && m.alive === false }">
                     <span v-if="m.role === 'head'" class="user-numb">Вед. </span>
@@ -191,6 +194,7 @@ import { useAuthStore, useSettingsStore, useUserStore } from '@/store'
 import HomeInfoCarousel from '@/components/HomeInfoCarousel.vue'
 import RoomModal from '@/components/RoomModal.vue'
 import MiniProfile from '@/components/MiniProfile.vue'
+import UiIcon from '@/components/UiIcon.vue'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 import iconScreenOn from '@/assets/svg/screenOn.svg'
@@ -200,7 +204,7 @@ import iconClose from '@/assets/svg/close.svg'
 import iconDelete from '@/assets/svg/delete.svg'
 import iconVisSpect from '@/assets/svg/visOn.svg'
 import iconAddPlus from '@/assets/svg/iconAddPlus.svg'
-import UiIcon from '@/components/UiIcon.vue'
+import iconNoRooms from '@/assets/svg/iconNoRooms.svg'
 
 type Room = {
   id: number
@@ -862,8 +866,8 @@ onBeforeUnmount(() => {
     flex-direction: column;
     height: 100%;
     border-radius: 24px;
-    background-color: $purple-900;
-    box-shadow: 0 -24px 16px 0 rgba($purple-900, 0.32) inset;
+    background-color: $soft-purple-900;
+    box-shadow: 0 -24px 16px 0 rgba($soft-purple-900, 0.32) inset;
     header {
       display: flex;
       align-items: center;
@@ -902,8 +906,8 @@ onBeforeUnmount(() => {
           --ui-icon-color: #{$neutral-900};
         }
         &:disabled {
-          cursor: not-allowed;
           background-color: $neutral-800;
+          cursor: not-allowed;
           span {
             color: $neutral-500;
           }
@@ -911,9 +915,9 @@ onBeforeUnmount(() => {
             --ui-icon-color: #{$neutral-500};
           }
         }
-        &:hover,
-        &:focus-visible,
-        &:active {
+        &:not(:disabled):hover,
+        &:not(:disabled):focus-visible,
+        &:not(:disabled):active {
           background-color: $green-300;
           span {
             color: $neutral-black;
@@ -924,9 +928,25 @@ onBeforeUnmount(() => {
         }
       }
     }
-    .muted {
-      padding: 20px 10px;
-      color: $ashy;
+    .muted-rooms {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      height: 100%;
+      img {
+        width: 215px;
+        height: 250px;
+      }
+      span {
+        color: $neutral-300;
+        font-family: Hauora-Regular;
+        font-size: 16px;
+        line-height: 22px;
+        letter-spacing: -0.32px;
+      }
     }
     .list {
       display: flex;
@@ -1219,7 +1239,7 @@ onBeforeUnmount(() => {
             border-radius: 5px;
             background-color: $graphite;
             box-shadow: 3px 3px 5px rgba($black, 0.25);
-            .muted {
+            .muted-members {
               height: 16px;
               font-size: 14px;
               color: $ashy;
@@ -1305,7 +1325,7 @@ onBeforeUnmount(() => {
       background-color: $dark;
       overflow: hidden;
       &--primary {
-        height: 138px;
+        height: 178px;
         background-color: $green;
       }
       &--secondary {

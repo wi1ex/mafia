@@ -98,12 +98,12 @@
       </div>
 
       <div v-if="showGlobalChatButton" class="bell">
-        <button class="bell-dropdown-trigger" @click.stop="toggleGlobalChat" :aria-expanded="chat.open" aria-label="Общий чат">
+        <button class="bell-dropdown-trigger" :disabled="globalChatButtonDisabled" @click.stop="toggleGlobalChat" :aria-expanded="!globalChatButtonDisabled && chat.open" aria-label="Общий чат">
           <UiIcon class="bell-icon" :icon="iconChat" />
           <span class="bell-text">Чат</span>
-          <UiIcon class="bell-arrow" :icon="iconArrow" :style="{ transform: chat.open ? 'rotate(180deg)' : 'none' }" />
+          <UiIcon class="bell-arrow" :icon="iconArrow" :style="{ transform: !globalChatButtonDisabled && chat.open ? 'rotate(180deg)' : 'none' }" />
 <!--          <span v-if="chat.unread > 0" class="unread-text">{{ chat.unread < 100 ? chat.unread : '∞' }}</span>-->
-          <span v-if="chat.unread > 0" class="unread-text"></span>
+          <span v-if="!globalChatButtonDisabled && chat.unread > 0" class="unread-text"></span>
         </button>
       </div>
 
@@ -251,9 +251,10 @@ const showFriendsButton = computed(() => {
 
 const showGlobalChatButton = computed(() => {
   if (!canUseVerifiedFeatures.value) return false
-  if (!settings.chatOpenEnabled) return false
   return !(user.banActive || user.timeoutActive || user.inActiveGameAsPlayer)
 })
+
+const globalChatButtonDisabled = computed(() => !settings.chatOpenEnabled)
 
 const adminBannerText = computed(() => {
   if (!settings.ready) return ''
@@ -284,6 +285,10 @@ function onToggleFriends() {
   friends_open.value = next
 }
 function toggleGlobalChat() {
+  if (globalChatButtonDisabled.value) {
+    if (chat.open) chat.closePanel()
+    return
+  }
   if (chat.open) {
     chat.closePanel()
     return
@@ -672,10 +677,21 @@ function openAuth(mode: 'login' | 'register') {
           border-radius: 50%;
           background-color: $red-500;
         }
-        &:hover,
-        &:focus-visible,
-        &:active,
-        &.bell-dropdown-trigger[aria-expanded='true'] {
+        &:disabled {
+          background-color: $neutral-800;
+          cursor: not-allowed;
+          .bell-icon,
+          .bell-arrow {
+            --ui-icon-color: #{$neutral-500};
+          }
+          .bell-text {
+            color: $neutral-500;
+          }
+        }
+        &:not(:disabled):hover,
+        &:not(:disabled):focus-visible,
+        &:not(:disabled):active,
+        &.bell-dropdown-trigger:not(:disabled)[aria-expanded='true'] {
           background-color: $soft-purple-800;
           .bell-icon,
           .bell-arrow {
