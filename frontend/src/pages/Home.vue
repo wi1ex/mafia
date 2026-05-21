@@ -962,7 +962,7 @@ onBeforeUnmount(() => {
       }
       .list-header {
         display: grid;
-        grid-template-columns: 12% 43% 28% 17%;
+        grid-template-columns: 10% 45% 30% 15%;
         padding: 0 16px;
         span {
           color: $neutral-300;
@@ -981,18 +981,36 @@ onBeforeUnmount(() => {
         list-style: none;
         .item {
           display: grid;
-          grid-template-columns: 12% 43% 28% 17%;
+          position: relative;
+          grid-template-columns: 10% 45% 30% 15%;
           align-items: center;
           padding: 16px;
           border-radius: 20px;
           background-color: $soft-purple-800;
+          overflow: hidden;
           cursor: pointer;
-          transition: background-color 0.25s ease-in-out;
+          &::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            background: linear-gradient(261deg, $green-700 0%, $soft-purple-800 100%);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s ease-in-out;
+            z-index: 0;
+          }
+          > * {
+            position: relative;
+            z-index: 1;
+          }
           &:hover,
           &:focus-visible,
           &:active,
           &.active {
-            background: linear-gradient(261deg, $green-700 0%, $soft-purple-800 100%);
+            &::after {
+              opacity: 1;
+            }
           }
           .cell {
             display: flex;
