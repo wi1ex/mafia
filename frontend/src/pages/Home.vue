@@ -427,19 +427,19 @@ const spectatorsTooltipEnabled = computed(() => {
 const spectatorsTooltipVisible = computed(() => spectatorsOpen.value && spectatorsTooltipEnabled.value)
 
 function roomStatusLabel(room: Room): string {
-  if (room.anonymity === 'hidden') return 'hide'
-  if (room.in_game) return 'game'
+  if (room.anonymity === 'hidden') return 'HIDE'
+  if (room.in_game) return 'GAME'
   const limit = Number(room.user_limit)
-  if (limit === 2) return 'duo'
-  return 'lobby'
+  if (limit === 2) return 'DUO'
+  return 'LOBBY'
 }
 
 function roomStatusClass(room: Room): Record<string, boolean> {
   const label = roomStatusLabel(room)
   return {
-    hide: label === 'hide',
-    runned: label === 'game',
-    duo: label === 'duo',
+    hide: label === 'HIDE',
+    runned: label === 'GAME',
+    duo: label === 'DUO',
   }
 }
 
@@ -960,7 +960,7 @@ onBeforeUnmount(() => {
       }
       .list-header {
         display: grid;
-        grid-template-columns: 10% 45% 30% 15%;
+        grid-template-columns: 15% 40% 25% 20%;
         padding: 0 16px;
         span {
           color: $neutral-300;
@@ -979,7 +979,7 @@ onBeforeUnmount(() => {
         list-style: none;
         .item {
           display: grid;
-          grid-template-columns: 10% 45% 30% 15%;
+          grid-template-columns: 15% 40% 25% 20%;
           align-items: center;
           padding: 16px;
           border-radius: 20px;
@@ -1004,13 +1004,12 @@ onBeforeUnmount(() => {
               letter-spacing: -0.32px;
             }
             .status-room {
-              padding: 3px 0;
-              min-width: 45px;
-              border-radius: 5px;
+              padding: 8px;
+              width: 75px;
+              border-radius: 12px;
               background-color: $neutral-500;
               color: $neutral-white;
               font-size: 12px;
-              text-align: center;
               &.duo {
                 background-color: $red-600;
               }
