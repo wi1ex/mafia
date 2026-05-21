@@ -363,6 +363,12 @@ const targetUserId = computed(() => {
   const uid = Number(raw)
   return Number.isFinite(uid) && uid > 0 ? Math.trunc(uid) : 0
 })
+const initialProfileForTarget = computed<MiniProfileInitial | null>(() => {
+  const initial = props.initialProfile
+  const initialId = Number(initial?.id || 0)
+  if (!initial || !Number.isFinite(initialId) || initialId <= 0) return null
+  return Math.trunc(initialId) === targetUserId.value ? initial : null
+})
 const profileLoadedForTarget = computed(() => Boolean(profile.value && profile.value.id === targetUserId.value))
 const viewerUserId = computed(() => Number(userStore.user?.id || 0))
 const viewerRole = computed(() => normalizeMiniProfileRole(userStore.user?.role))
@@ -371,9 +377,8 @@ const canRenderOpen = computed(() => props.open && !viewerVerificationRestricted
 const isSelfProfile = computed(() => targetUserId.value > 0 && viewerUserId.value === targetUserId.value)
 const privilegedViewer = computed(() => isMiniProfilePrivilegedViewer(viewerRole.value, props.adminMode))
 const initialTargetDeleted = computed(() => {
-  const initialId = Number(props.initialProfile?.id || 0)
-  if (!Number.isFinite(initialId) || initialId <= 0 || Math.trunc(initialId) !== targetUserId.value) return false
-  return Boolean(props.initialProfile?.deleted || props.initialProfile?.deleted_at)
+  const initial = initialProfileForTarget.value
+  return Boolean(initial?.deleted || initial?.deleted_at)
 })
 const targetDeleted = computed(() => Boolean(
   (profileLoadedForTarget.value && profile.value?.deleted)
@@ -382,12 +387,12 @@ const targetDeleted = computed(() => Boolean(
 
 const displayName = computed(() => {
   if (profileLoadedForTarget.value && profile.value?.username) return profile.value.username
-  if (props.initialProfile?.username) return props.initialProfile.username
+  if (initialProfileForTarget.value?.username) return initialProfileForTarget.value.username
   return targetUserId.value > 0 ? `user${targetUserId.value}` : 'Пользователь'
 })
 const avatarName = computed(() => {
   if (profileLoadedForTarget.value) return profile.value?.avatar_name || ''
-  return props.initialProfile?.avatar_name || ''
+  return initialProfileForTarget.value?.avatar_name || ''
 })
 const avatarKey = computed(() => {
   const name = String(avatarName.value || '').trim()
@@ -397,15 +402,17 @@ const avatarKey = computed(() => {
 const hasAvatar = computed(() => Boolean(avatarKey.value))
 const profileThemeColor = computed(() => {
   if (profileLoadedForTarget.value) return profile.value?.profile_theme_color || null
-  return props.initialProfile?.profile_theme_color || props.initialProfile?.theme_color || null
+  const initial = initialProfileForTarget.value
+  return initial?.profile_theme_color || initial?.theme_color || null
 })
 const profileThemeIcon = computed(() => {
   if (profileLoadedForTarget.value) return profile.value?.profile_theme_icon || null
-  return props.initialProfile?.profile_theme_icon || props.initialProfile?.theme_icon || null
+  const initial = initialProfileForTarget.value
+  return initial?.profile_theme_icon || initial?.theme_icon || null
 })
 const profileRole = computed(() => {
   if (profileLoadedForTarget.value) return profile.value?.role || null
-  return props.initialProfile?.role || null
+  return initialProfileForTarget.value?.role || null
 })
 const profilePanelStyle = computed(() => buildProfileThemeBgStyle(profileThemeColor.value))
 const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(profileThemeIcon.value, profileRole.value))
@@ -685,9 +692,10 @@ function formatFriendshipStartedAt(value?: string | number | Date | null): strin
 
 function inferInitialFriendStatus(): FriendStatus {
   if (isSelfProfile.value) return 'self'
-  const direct = normalizeFriendStatus(props.initialProfile?.friend_status)
+  const initial = initialProfileForTarget.value
+  const direct = normalizeFriendStatus(initial?.friend_status)
   if (direct !== 'none') return direct
-  const kind = String(props.initialProfile?.kind || '')
+  const kind = String(initial?.kind || '')
   if (kind === 'incoming') return 'incoming'
   if (kind === 'outgoing') return 'outgoing'
   if (kind === 'online' || kind === 'offline') return 'friends'

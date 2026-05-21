@@ -2156,7 +2156,7 @@ socket.value?.on('connect', async () => {
     const reason = String(p?.reason || '')
     try { await onLeave() } catch {}
     if (reason === 'admin_kick_all') {
-      void alertDialog('Упс! Кажется пришло обновление... через 5 минут все заработает!')
+      void alertDialog('Упс, кажется пришло обновление! Перезагрузка серверов займет ~5 минут')
     } else if (reason === 'room_kick') {
       void alertDialog('Вас выгнали из комнаты')
     } else if (reason === 'sanction_timeout') {

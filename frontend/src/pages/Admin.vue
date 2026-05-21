@@ -9,7 +9,7 @@
           Параметры
         </button>
         <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'updates' }" :aria-selected="activeTab === 'updates'" @click="activeTab = 'updates'">
-          Обновления
+          Уведомления
         </button>
         <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'logs' }" :aria-selected="activeTab === 'logs'" @click="activeTab = 'logs'">
           Логи

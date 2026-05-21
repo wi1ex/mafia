@@ -2262,6 +2262,6 @@ async def create_update_notification(payload: AdminUpdateNotificationIn, ident: 
     await session.commit()
 
     for note in notes:
-        await emit_notify(int(note.user_id), note, kind="info")
+        await emit_notify(int(note.user_id), note, kind="info", no_toast=True)
 
     return AdminUpdateNotificationOut(sent_count=len(notes))

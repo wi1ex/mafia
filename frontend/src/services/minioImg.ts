@@ -139,11 +139,13 @@ function setupHover(el: ElEx, avatarKey: string, stillUrl: string, version?: num
 async function loadInto(el: ElEx, val: MinioVal) {
   const { key, version, placeholder, fallback, gifMode } = norm(val)
   const myReq = (el.__m_req = (el.__m_req || 0) + 1)
+  let sourceChanged = false
   if (el.__m_key && el.__m_key !== key) {
     clearHover(el)
     releaseTracked(el)
     el.__m_key = undefined
     el.__m_sig = undefined
+    sourceChanged = true
   }
   if (!key) {
     clearHover(el)
@@ -153,14 +155,15 @@ async function loadInto(el: ElEx, val: MinioVal) {
     if (placeholder) el.src = placeholder
     return
   }
-  if (!el.src && placeholder) el.src = placeholder
   const useStaticGif = isAvatarGifKey(key) && gifMode !== 'animated'
   const sourceKey = useStaticGif ? staticAvatarGifKey(key) : key
   const sig = `${key}|${sourceKey}|${typeof version === 'number' ? version : ''}|${gifMode || ''}`
   if (el.__m_sig && el.__m_sig !== sig) {
     clearHover(el)
     releaseTracked(el)
+    sourceChanged = true
   }
+  if ((sourceChanged || !el.src) && placeholder) el.src = placeholder
   const v = versionFor(sourceKey, version)
   try {
     const url = await getImageURL(sourceKey, v)
@@ -175,7 +178,11 @@ async function loadInto(el: ElEx, val: MinioVal) {
       releaseImageURL(sourceKey)
     }
   } catch {
-    if (fallback && el.__m_req === myReq) el.src = fallback
+    if (el.__m_req === myReq) {
+      const fallbackSrc = fallback || placeholder
+      if (fallbackSrc) el.src = fallbackSrc
+      else if (sourceChanged) el.removeAttribute('src')
+    }
   }
 }
 
