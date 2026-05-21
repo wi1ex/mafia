@@ -832,13 +832,14 @@ onBeforeUnmount(() => {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 600px;
   align-items: flex-start;
-  padding: 0 10px;
+  padding: 0 10px 10px;
   gap: 10px;
-  overflow: auto;
-  scrollbar-width: none;
+  height: 100%;
+  overflow: hidden;
   .left {
     display: flex;
     flex-direction: column;
+    height: 100%;
     border-radius: 5px;
     background-color: $dark;
     header {
@@ -1055,6 +1056,23 @@ onBeforeUnmount(() => {
         display: flex;
         padding: 10px;
         gap: 10px;
+        .mini-profile-user-trigger {
+          display: inline-flex;
+          align-items: center;
+          flex: 0 1 auto;
+          min-width: 0;
+          gap: inherit;
+          padding: 0;
+          border: none;
+          background: none;
+          color: inherit;
+          font: inherit;
+          text-align: left;
+          cursor: pointer;
+          &:disabled {
+            cursor: default;
+          }
+        }
         .ri-meta-game {
           display: flex;
           flex-direction: column;
@@ -1232,24 +1250,6 @@ onBeforeUnmount(() => {
         }
       }
     }
-  }
-}
-
-.mini-profile-user-trigger {
-  display: inline-flex;
-  align-items: center;
-  flex: 0 1 auto;
-  min-width: 0;
-  gap: inherit;
-  padding: 0;
-  border: none;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  &:disabled {
-    cursor: default;
   }
 }
 
