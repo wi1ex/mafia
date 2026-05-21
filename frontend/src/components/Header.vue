@@ -126,11 +126,11 @@
             <div class="border-line"></div>
             <div class="user-menu-items">
               <router-link to="/profile" class="user-menu-item" role="menuitem" @click="closeUserMenu">
-                <img :src="iconProfile" alt="profile" />
+                <UiIcon class="profile-icon" :icon="iconProfile" />
                 <span>Личный кабинет</span>
               </router-link>
               <button type="button" class="user-menu-item" role="menuitem" @click="onLogoutClick">
-                <img :src="iconLogout" alt="logout" />
+                <UiIcon class="profile-icon" :icon="iconLogout" />
                 <span>Выйти</span>
               </button>
             </div>
@@ -162,8 +162,8 @@ import iconChat from "@/assets/svg/iconChat.svg"
 import iconDefaultAvatar from "@/assets/svg/iconDefaultAvatar.svg"
 import iconBigDefaultAvatar from "@/assets/svg/iconBigDefaultAvatar.svg"
 import iconArrow from '@/assets/svg/iconArrow.svg'
-import iconProfile from "@/assets/svg/profile.svg"
-import iconLogout from '@/assets/svg/leave.svg'
+import iconProfile from "@/assets/svg/iconProfile.svg"
+import iconLogout from '@/assets/svg/iconLogout.svg'
 import { buildProfileThemeStyle } from '@/constants/profileThemes'
 import { getProfileThemeBadgeSources } from '@/constants/profileThemeIcons'
 
@@ -727,9 +727,10 @@ function openAuth(mode: 'login' | 'register') {
         background-color: $neutral-100;
         box-shadow: 0 2px 16px 0 rgba($neutral-black, 0.16);
         z-index: 20;
-        .user-menu-dropdown {
+        .user-menu-profile {
           display: flex;
           flex-direction: column;
+          align-items: center;
           gap: 8px;
           .avatar {
             width: 56px;
@@ -737,10 +738,10 @@ function openAuth(mode: 'login' | 'register') {
             border-radius: 50%;
           }
           .user-menu-nickname {
+            height: 20px;
             color: $neutral-black;
             font-family: Hauora-Regular;
             font-size: 18px;
-            line-height: 0;
             letter-spacing: -0.36px;
           }
         }
@@ -755,30 +756,38 @@ function openAuth(mode: 'login' | 'register') {
           .user-menu-item {
             display: flex;
             align-items: center;
-            padding: 0;
-            gap: 5px;
-            width: 200px;
-            height: 50px;
+            padding: 16px;
+            gap: 8px;
+            width: 100%;
+            height: 64px;
             border: none;
-            border-radius: 5px;
+            border-radius: 16px;
             background: none;
             text-decoration: none;
             cursor: pointer;
             transition: background-color 0.25s ease-in-out;
-            img {
-              margin-left: 15px;
-              width: 24px;
-              height: 24px;
+            .profile-icon {
+              --ui-icon-width: 24px;
+              --ui-icon-height: 24px;
+              --ui-icon-color: #{$neutral-600};
             }
             span {
-              height: 18px;
-              color: $fg;
-              font-size: 16px;
-              font-family: Manrope-Medium;
-              line-height: 1;
+              color: $neutral-600;
+              font-family: Hauora-Regular;
+              font-size: 18px;
+              line-height: 20px;
+              letter-spacing: -0.36px;
             }
-            &:hover {
-              background-color: $lead;
+            &:hover,
+            &:focus-visible,
+            &:active {
+              background-color: $neutral-50;
+              .profile-icon {
+                --ui-icon-color: #{$neutral-black};
+              }
+              span {
+                color: $neutral-black;
+              }
             }
           }
         }
