@@ -5,7 +5,7 @@
         <span class="left-title">Список комнат</span>
         <button @click="onOpenCreate" :disabled="!settings.roomsCanCreate || !auth.isAuthed || userStore.roomRestricted || verificationRestricted">
           <span>Создать комнату</span>
-
+          <UiIcon class="create-icon" :icon="iconAddPlus" />
         </button>
       </header>
 
@@ -199,6 +199,8 @@ import iconLockClose from '@/assets/svg/lockClose.svg'
 import iconClose from '@/assets/svg/close.svg'
 import iconDelete from '@/assets/svg/delete.svg'
 import iconVisSpect from '@/assets/svg/visOn.svg'
+import iconAddPlus from '@/assets/svg/iconAddPlus.svg'
+import UiIcon from '@/components/UiIcon.vue'
 
 type Room = {
   id: number
