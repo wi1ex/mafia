@@ -695,7 +695,7 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
       user-select: none;
     }
     .avatar {
-      aspect-ratio: 1 / 1;
+      aspect-ratio: 1;
       height: 50%;
       border-radius: 50%;
     }

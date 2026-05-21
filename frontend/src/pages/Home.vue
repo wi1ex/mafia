@@ -33,15 +33,17 @@
         <ul class="list-body">
           <li class="item" v-for="r in sortedRooms" :key="r.id" :class="{ active: r.id === selectedId || r.id === pendingRoomId }" tabindex="0" @click="selectRoom(r.id)" >
             <div class="cell">
-              <span class="status-room" :class="roomStatusClass(r)">{{ roomStatusLabel(r) }}</span>
+              <div class="status-room" :class="roomStatusClass(r)">
+                <span class="item-text">{{ roomStatusLabel(r)}}</span>
+              </div>
             </div>
             <div class="cell">
               <img :src="r.privacy === 'private' ? iconLockClose : iconLockOpen" alt="lock" />
-              <span class="user-name">{{ r.title }}</span>
+              <span class="item-text">{{ r.title }}</span>
             </div>
             <div class="cell">
-              <img class="user-avatar" v-minio-img="{key: r.creator_avatar_name ? `avatars/${r.creator_avatar_name}` : '', placeholder: defaultAvatar, lazy: false}" alt="avatar" />
-              <span class="user-name">{{ r.creator_name }}</span>
+              <img class="user-avatar" v-minio-img="{key: r.creator_avatar_name ? `avatars/${r.creator_avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false}" alt="avatar" />
+              <span class="item-text">{{ r.creator_name }}</span>
             </div>
             <span class="text-center">{{ r.occupancy }}/{{ r.user_limit }}</span>
           </li>
@@ -75,7 +77,7 @@
                     <span v-if="m.role === 'head'" class="user-numb">Вед. </span>
                     <span v-else-if="m.role === 'player' && m.slot != null" class="user-numb">{{ formatSeatNumber(m.slot) }}. </span>
                     <button class="mini-profile-user-trigger" type="button" :disabled="!canOpenRoomInfoMiniProfileForUser(m)" @click="openMiniProfileFromRoomInfo(m)">
-                      <img v-minio-img="{ key: m.avatar_name ? `avatars/${m.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                      <img v-minio-img="{ key: m.avatar_name ? `avatars/${m.avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false }" alt="avatar" />
                       <span class="mini-profile-name">{{ m.username || ('user' + m.id) }}</span>
                     </button>
                     <img v-if="m.screen" :src="iconScreenOn" alt="streaming" />
@@ -99,7 +101,7 @@
                         <div v-else class="spectators-list">
                           <div v-for="s in spectators" :key="`spectator-${s.id}`" class="spectators-row">
                             <button class="mini-profile-user-trigger" type="button" :disabled="!canOpenRoomInfoMiniProfileForUser(s)" @click="openMiniProfileFromRoomInfo(s)">
-                              <img v-minio-img="{ key: s.avatar_name ? `avatars/${s.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                              <img v-minio-img="{ key: s.avatar_name ? `avatars/${s.avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false }" alt="avatar" />
                               <span class="mini-profile-name">{{ s.username || ('user' + s.id) }}</span>
                             </button>
                           </div>
@@ -196,10 +198,10 @@ import RoomModal from '@/components/RoomModal.vue'
 import MiniProfile from '@/components/MiniProfile.vue'
 import UiIcon from '@/components/UiIcon.vue'
 
-import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
+import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
 import iconScreenOn from '@/assets/svg/screenOn.svg'
-import iconLockOpen from '@/assets/svg/lockOpen.svg'
-import iconLockClose from '@/assets/svg/lockClose.svg'
+import iconLockOpen from '@/assets/svg/iconLockOpen.svg'
+import iconLockClose from '@/assets/svg/iconLockClose.svg'
 import iconClose from '@/assets/svg/close.svg'
 import iconDelete from '@/assets/svg/delete.svg'
 import iconVisSpect from '@/assets/svg/visOn.svg'
@@ -986,51 +988,47 @@ onBeforeUnmount(() => {
           transition: background-color 0.25s ease-in-out;
           &:hover,
           &:focus-visible,
-          &:active {
-            background-color: $green-500;
-          }
-          img {
-            width: 24px;
-            height: 24px;
-          }
-          span {
-            color: $neutral-white;
-            font-family: Hauora-Regular;
-            font-size: 16px;
-            line-height: 16px;
-            letter-spacing: -0.32px;
+          &:active,
+          &.active {
+            background-color: $green-700;
           }
           .cell {
             display: flex;
             align-items: center;
             gap: 5px;
+            .item-text {
+              color: $neutral-white;
+              font-family: Hauora-Regular;
+              font-size: 16px;
+              line-height: 16px;
+              letter-spacing: -0.32px;
+            }
             .status-room {
               padding: 3px 0;
               min-width: 45px;
               border-radius: 5px;
-              background-color: $fg;
-              color: $bg;
+              background-color: $neutral-500;
+              color: $neutral-white;
               font-size: 12px;
               text-align: center;
               &.duo {
-                background-color: $red;
-                color: $fg;
+                background-color: $red-600;
               }
               &.runned {
-                background-color: $green;
+                background-color: $green-700;
               }
               &.hide {
-                background-color: $bg;
-                color: $fg;
+                background-color: $neutral-black;
               }
+            }
+            img {
+              width: 24px;
+              height: 24px;
             }
             .user-avatar {
               border-radius: 50%;
+              aspect-ratio: 1;
               object-fit: cover;
-            }
-            .user-name {
-              font-size: 16px;
-              line-height: 1.2;
             }
           }
         }
