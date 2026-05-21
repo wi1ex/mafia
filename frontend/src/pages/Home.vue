@@ -951,21 +951,21 @@ onBeforeUnmount(() => {
     .list {
       display: flex;
       flex-direction: column;
-      padding: 10px;
-      gap: 10px;
+      padding: 16px 24px 0;
+      gap: 16px;
       .text-center {
         text-align: center;
       }
       .list-header {
         display: grid;
-        grid-template-columns: 10% 50% 30% 10%;
-        padding: 10px;
-        border-radius: 5px;
-        background-color: $lead;
-        box-shadow: 3px 3px 5px rgba($black, 0.25);
+        grid-template-columns: 10% 45% 30% 15%;
+        padding: 0 16px;
         span {
-          color: $fg;
-          letter-spacing: 1.5px;
+          color: $neutral-300;
+          font-family: Hauora-Regular;
+          font-size: 16px;
+          line-height: 100%;
+          letter-spacing: -0.32px;
         }
       }
       .list-body {
@@ -977,32 +977,28 @@ onBeforeUnmount(() => {
         list-style: none;
         .item {
           display: grid;
-          grid-template-columns: 10% 50% 30% 10%;
+          grid-template-columns: 10% 45% 30% 15%;
           align-items: center;
-          padding: 10px;
-          border: 1px solid transparent;
-          border-radius: 5px;
-          background-color: $graphite;
-          box-shadow: 3px 3px 5px rgba($black, 0.25);
+          padding: 16px;
+          border-radius: 20px;
+          background-color: $soft-purple-800;
           cursor: pointer;
-          transition: border-color 0.25s ease-in-out, background-color 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
-          &.active {
-            border-color: $grey;
-            background-color: $lead;
-            box-shadow: none;
-          }
-          &:hover {
-            background-color: $lead;
+          transition: background-color 0.25s ease-in-out;
+          &:hover,
+          &:focus-visible,
+          &:active {
+            background-color: $green-500;
           }
           img {
-            width: 20px;
-            height: 20px;
+            width: 24px;
+            height: 24px;
           }
           span {
-            color: $ashy;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            color: $neutral-white;
+            font-family: Hauora-Regular;
+            font-size: 16px;
+            line-height: 16px;
+            letter-spacing: -0.32px;
           }
           .cell {
             display: flex;
