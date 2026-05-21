@@ -723,6 +723,7 @@ function openAuth(mode: 'login' | 'register') {
         top: 72px;
         padding: 16px 8px;
         gap: 16px;
+        width: 261px;
         border-radius: 16px;
         background-color: $neutral-100;
         box-shadow: 0 2px 16px 0 rgba($neutral-black, 0.16);
@@ -753,12 +754,12 @@ function openAuth(mode: 'login' | 'register') {
           display: flex;
           flex-direction: column;
           gap: 4px;
+          width: 100%;
           .user-menu-item {
             display: flex;
             align-items: center;
-            padding: 16px;
+            padding: 0 16px;
             gap: 8px;
-            width: 100%;
             height: 64px;
             border: none;
             border-radius: 16px;
@@ -777,6 +778,7 @@ function openAuth(mode: 'login' | 'register') {
               font-size: 18px;
               line-height: 20px;
               letter-spacing: -0.36px;
+              transition: color 0.25s ease-in-out;
             }
             &:hover,
             &:focus-visible,
