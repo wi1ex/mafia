@@ -979,12 +979,31 @@ onBeforeUnmount(() => {
       .list-body {
         display: flex;
         flex-direction: column;
-        margin: 0;
-        padding: 0;
+        margin: 0 -20px 0 0;
+        padding: 0 20px 0 0;
         gap: 10px;
         list-style: none;
         overflow-y: auto;
+        overflow-x: hidden;
+        scrollbar-gutter: stable;
         scrollbar-width: thin;
+        scrollbar-color: $neutral-100 transparent;
+        &::-webkit-scrollbar {
+          width: 6px;
+        }
+        &::-webkit-scrollbar-track {
+          border-radius: 999px;
+          background-color: transparent;
+        }
+        &::-webkit-scrollbar-thumb {
+          border: 2px solid transparent;
+          border-radius: 999px;
+          background-color: $neutral-100;
+          background-clip: content-box;
+        }
+        &::-webkit-scrollbar-thumb:hover {
+          background-color: $green-700;
+        }
         .item {
           display: grid;
           position: relative;
