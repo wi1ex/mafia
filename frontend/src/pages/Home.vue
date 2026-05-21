@@ -1235,6 +1235,24 @@ onBeforeUnmount(() => {
   }
 }
 
+.mini-profile-user-trigger {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 1 auto;
+  min-width: 0;
+  gap: inherit;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  &:disabled {
+    cursor: default;
+  }
+}
+
 .room-panel-enter-active,
 .room-panel-leave-active {
   transition: transform 0.15s ease-out, opacity 0.15s ease-out;
@@ -1257,194 +1275,7 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 1280px) {
-  .card {
-    grid-template-columns: minmax(0, 1fr) 300px;
-    .left {
-      header {
-        height: 30px;
-        .rooms-text {
-          height: 30px;
-          span {
-            height: 16px;
-            font-size: 14px;
-          }
-        }
-        button {
-          padding: 0 10px;
-          height: 30px;
-          font-size: 12px;
-        }
-      }
-      .muted {
-        padding: 10px;
-        font-size: 12px;
-      }
-      .list {
-        gap: 8px;
-        padding: 8px;
-        .text-center {
-          font-size: 12px;
-        }
-        .list-header {
-          grid-template-columns: 15% 45% 25% 15%;
-          padding: 5px 10px;
-          span {
-            font-size: 14px;
-            letter-spacing: 1px;
-          }
-        }
-        .list-body {
-          gap: 8px;
-          .item {
-            grid-template-columns: 15% 45% 25% 15%;
-            padding: 5px;
-            img {
-              width: 16px;
-              height: 16px;
-            }
-            .cell {
-              gap: 3px;
-              .status-room {
-                min-width: 40px;
-                font-size: 10px;
-              }
-              .user-avatar {
-                width: 16px;
-                height: 16px;
-              }
-              .user-name {
-                font-size: 12px;
-              }
-            }
-          }
-        }
-      }
-    }
-    .right {
-      width: 300px;
-      min-width: 300px;
-      max-width: 300px;
-      .loading-overlay {
-        font-size: 12px;
-      }
-      .room-info {
-        header {
-          span {
-            max-width: 250px;
-            height: 16px;
-            font-size: 14px;
-          }
-          .room-actions {
-            gap: 3px;
-          }
-          button {
-            width: 16px;
-            height: 20px;
-            img {
-              width: 16px;
-              height: 16px;
-            }
-          }
-        }
-        .ri-info {
-          flex-direction: column;
-          padding: 10px 10px 5px;
-          overflow: auto;
-          .ri-meta-game {
-            width: 100%;
-            .ri-game {
-              padding: 5px;
-              .ri-game-div {
-                span {
-                  height: 14px;
-                  font-size: 12px;
-                }
-                .spectators-wrap {
-                  gap: 3px;
-                  .spectators-btn {
-                    img {
-                      width: 14px;
-                      height: 14px;
-                    }
-                  }
-                  .spectators-tooltip {
-                    padding: 5px;
-                    .spectators-list {
-                      gap: 3px;
-                      .spectators-row {
-                        gap: 3px;
-                        .mini-profile-name {
-                          max-width: 150px;
-                          font-size: 12px;
-                        }
-                        img {
-                          width: 16px;
-                          height: 16px;
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-          .ri-members {
-            padding: 5px;
-            width: calc(100% - 10px);
-            .ri-users {
-              gap: 3px;
-              .ri-user {
-                height: 16px;
-                .mini-profile-name {
-                  max-width: 200px;
-                  height: 14px;
-                  font-size: 12px;
-                }
-                img {
-                  width: 16px;
-                  height: 16px;
-                }
-                .user-numb {
-                  font-size: 12px;
-                }
-              }
-            }
-          }
-          .header-text {
-            margin-bottom: 5px;
-            font-size: 12px;
-          }
-        }
-        .ri-actions {
-          position: static;
-          margin: 5px;
-          button {
-            height: 25px;
-            padding: 0 10px;
-            font-size: 14px;
-          }
-        }
-      }
-    }
-  }
-}
 
-.mini-profile-user-trigger {
-  display: inline-flex;
-  align-items: center;
-  flex: 0 1 auto;
-  min-width: 0;
-  gap: inherit;
-  padding: 0;
-  border: none;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  &:disabled {
-    cursor: default;
-  }
 }
 
 </style>
