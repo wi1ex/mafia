@@ -1184,7 +1184,6 @@ onBeforeUnmount(() => {
         }
         .ri-info {
           display: flex;
-          padding: 10px;
           gap: 10px;
           .mini-profile-user-trigger {
             display: inline-flex;
@@ -1351,50 +1350,49 @@ onBeforeUnmount(() => {
             margin-bottom: 10px;
           }
         }
-        .ri-actions {
+        .ri-action {
           display: flex;
           align-items: center;
           justify-content: center;
           margin-top: 8px;
-          button {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0 20px;
-            height: 40px;
-            border: none;
-            border-radius: 5px;
-            background-color: $fg;
-            color: $bg;
-            font-size: 16px;
-            font-family: Manrope-Medium;
-            line-height: 1;
-            cursor: pointer;
-            transition: opacity 0.25s ease-in-out;
-            &:disabled {
-              opacity: 0.5;
-              cursor: not-allowed;
-            }
+          padding: 0 16px;
+          height: 40px;
+          border: none;
+          border-radius: 12px;
+          background-color: $green-500;
+          color: $neutral-900;
+          font-size: 16px;
+          font-family: Hauora-Regular;
+          line-height: 16px;
+          letter-spacing: -0.32px;
+          cursor: pointer;
+          transition: color 0.25s ease-in-out, background-color 0.25s ease-in-out;
+          &:disabled {
+            background-color: $neutral-800;
+            color: $neutral-500;
+            cursor: not-allowed;
+          }
+          &:not(:disabled):hover,
+          &:not(:disabled):focus-visible,
+          &:not(:disabled):active {
+            background-color: $green-300;
           }
         }
       }
     }
     .right-extra {
-      flex: 0 0 auto;
-      min-height: 0;
-      border-radius: 5px;
-      background-color: $dark;
-      overflow: hidden;
+      display: flex;
+      border-radius: 24px;
       &--primary {
         height: 178px;
-        background-color: $green;
+        background-color: $green-500;
         &.right--top-banner {
           height: 138px;
         }
       }
       &--secondary {
         height: 122px;
-        background-color: $red;
+        background-color: $red-500;
       }
     }
   }
