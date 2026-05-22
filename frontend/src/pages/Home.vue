@@ -209,7 +209,7 @@ import iconScreenOn from '@/assets/svg/iconScreenOn.svg'
 import iconLockOpen from '@/assets/svg/iconLockOpen.svg'
 import iconLockClose from '@/assets/svg/iconLockClose.svg'
 import iconClose from '@/assets/svg/iconClose.svg'
-import iconDelete from '@/assets/svg/delete.svg'
+import iconDelete from '@/assets/svg/iconDelete.svg'
 import iconVisOn from '@/assets/svg/iconVisOn.svg'
 import iconAddPlus from '@/assets/svg/iconAddPlus.svg'
 import iconNoRooms from '@/assets/svg/iconNoRooms.svg'
@@ -1156,7 +1156,7 @@ onBeforeUnmount(() => {
           .room-actions {
             display: inline-flex;
             align-items: center;
-            gap: 8px;
+            gap: 12px;
             button {
               display: flex;
               align-items: center;
