@@ -323,22 +323,11 @@ class AdminUserOut(BaseModel):
     username: Optional[str] = None
     avatar_name: Optional[str] = None
     role: str
-    tg_invites_enabled: bool
     protected_user: bool = False
     registered_at: datetime
-    last_login_at: datetime
-    last_visit_at: datetime
-    last_game_at: Optional[datetime] = None
     last_room_id: Optional[int] = None
     last_spectator_room_id: Optional[int] = None
     deleted_at: Optional[datetime] = None
-    friends_count: int
-    rooms_created: int
-    room_minutes: int
-    stream_minutes: int
-    games_played: int
-    games_hosted: int
-    spectator_minutes: int
     timeout_active: bool
     timeout_until: Optional[datetime] = None
     ban_active: bool

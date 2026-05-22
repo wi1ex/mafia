@@ -299,9 +299,6 @@ type UserRow = {
   avatar_name?: string | null
   role: string
   registered_at: string
-  last_login_at: string
-  last_visit_at: string
-  last_game_at?: string | null
   last_room_id?: number | null
   last_spectator_room_id?: number | null
   timeout_active: boolean
@@ -606,7 +603,6 @@ async function loadUsers(): Promise<void> {
       ...item,
       avatar_name: item?.avatar_name ?? null,
       role: String(item?.role || ''),
-      last_game_at: item?.last_game_at ?? null,
       last_room_id: Number.isFinite(item?.last_room_id) ? item.last_room_id : null,
       last_spectator_room_id: Number.isFinite(item?.last_spectator_room_id) ? item.last_spectator_room_id : null,
       timeout_until: item?.timeout_until ?? null,

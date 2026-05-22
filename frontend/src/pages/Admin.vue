@@ -1037,22 +1037,11 @@ type UserRow = {
   username?: string | null
   avatar_name?: string | null
   role: string
-  tg_invites_enabled: boolean
   protected_user: boolean
   registered_at: string
-  last_login_at: string
-  last_visit_at: string
-  last_game_at?: string | null
   last_room_id?: number | null
   last_spectator_room_id?: number | null
   deleted_at?: string | null
-  friends_count: number
-  rooms_created: number
-  room_minutes: number
-  stream_minutes: number
-  games_played: number
-  games_hosted: number
-  spectator_minutes: number
   timeout_active: boolean
   timeout_until?: string | null
   ban_active: boolean
@@ -1117,22 +1106,10 @@ type SanctionsRow = {
 }
 
 type UsersSortBy =
-  | 'role'
   | 'username'
   | 'registered_at'
-  | 'last_login_at'
-  | 'last_visit_at'
-  | 'last_game_at'
   | 'last_room_id'
   | 'last_spectator_room_id'
-  | 'tg_invites_enabled'
-  | 'friends_count'
-  | 'rooms_created'
-  | 'room_minutes'
-  | 'stream_minutes'
-  | 'games_played'
-  | 'games_hosted'
-  | 'spectator_minutes'
   | 'timeouts_count'
   | 'bans_count'
   | 'suspends_count'
@@ -2184,9 +2161,7 @@ async function loadUsers(): Promise<void> {
     users.value = items.map((item: any) => ({
       ...item,
       tg_id: item?.tg_id ?? null,
-      tg_invites_enabled: item?.tg_invites_enabled !== false,
       protected_user: Boolean(item?.protected_user),
-      last_game_at: item?.last_game_at ?? null,
       last_room_id: Number.isFinite(item?.last_room_id) ? item.last_room_id : null,
       last_spectator_room_id: Number.isFinite(item?.last_spectator_room_id) ? item.last_spectator_room_id : null,
     }))

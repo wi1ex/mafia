@@ -284,21 +284,9 @@ AUTO_DELETE_UNVERIFIED_ACCOUNT_LOCK_TTL_S = 60 * 60
 USERS_SORT_DEFAULT = "registered_at"
 USERS_SORT_ALLOWED = {
     USERS_SORT_DEFAULT,
-    "role",
     "username",
-    "last_login_at",
-    "last_visit_at",
-    "last_game_at",
     "last_room_id",
     "last_spectator_room_id",
-    "tg_invites_enabled",
-    "friends_count",
-    "rooms_created",
-    "room_minutes",
-    "stream_minutes",
-    "games_played",
-    "games_hosted",
-    "spectator_minutes",
     "timeouts_count",
     "bans_count",
     "suspends_count",
@@ -306,9 +294,6 @@ USERS_SORT_ALLOWED = {
 MODERATION_USERS_SORT_ALLOWED = {
     USERS_SORT_DEFAULT,
     "username",
-    "last_login_at",
-    "last_visit_at",
-    "last_game_at",
     "last_room_id",
     "last_spectator_room_id",
     "timeouts_count",
@@ -755,72 +740,7 @@ async def fetch_sanction_counts_for_users(session: AsyncSession, ids: list[int])
     return out
 
 
-def user_sort_metric(
-    *,
-    sort_by: str,
-    uid: int,
-    tg_invites_enabled: dict[int, bool],
-    friends_count: dict[int, int],
-    rooms_created: dict[int, int],
-    room_seconds: dict[int, int],
-    stream_seconds: dict[int, int],
-    games_played: dict[int, int],
-    games_hosted: dict[int, int],
-    spectator_seconds: dict[int, int],
-    sanction_counts: dict[int, dict[str, int]],
-    last_game_at_ts: dict[int, int],
-    last_room_id: dict[int, int | None],
-    last_spectator_room_id: dict[int, int | None],
-) -> int:
-    if sort_by == "last_game_at":
-        return last_game_at_ts.get(uid, 0)
-
-    if sort_by == "last_room_id":
-        return int(last_room_id.get(uid) or 0)
-
-    if sort_by == "last_spectator_room_id":
-        return int(last_spectator_room_id.get(uid) or 0)
-
-    if sort_by == "tg_invites_enabled":
-        return 1 if tg_invites_enabled.get(uid, True) is False else 0
-
-    if sort_by == "friends_count":
-        return friends_count.get(uid, 0)
-
-    if sort_by == "rooms_created":
-        return rooms_created.get(uid, 0)
-
-    if sort_by == "room_minutes":
-        return room_seconds.get(uid, 0) // 60
-
-    if sort_by == "stream_minutes":
-        return stream_seconds.get(uid, 0) // 60
-
-    if sort_by == "games_played":
-        return games_played.get(uid, 0)
-
-    if sort_by == "games_hosted":
-        return games_hosted.get(uid, 0)
-
-    if sort_by == "spectator_minutes":
-        return spectator_seconds.get(uid, 0) // 60
-
-    if sort_by == "timeouts_count":
-        return (sanction_counts.get(uid) or {}).get(SANCTION_TIMEOUT, 0)
-
-    if sort_by == "bans_count":
-        return (sanction_counts.get(uid) or {}).get(SANCTION_BAN, 0)
-
-    if sort_by == "suspends_count":
-        return (sanction_counts.get(uid) or {}).get(SANCTION_SUSPEND, 0)
-
-    return 0
-
-
-def moderation_user_sort_metric(*, sort_by: str, uid: int, sanction_counts: dict[int, dict[str, int]], last_game_at_ts: dict[int, int], last_room_id: dict[int, int | None], last_spectator_room_id: dict[int, int | None]) -> int:
-    if sort_by == "last_game_at":
-        return last_game_at_ts.get(uid, 0)
-
+def user_sort_metric(*, sort_by: str, uid: int, sanction_counts: dict[int, dict[str, int]], last_room_id: dict[int, int | None], last_spectator_room_id: dict[int, int | None]) -> int:
     if sort_by == "last_room_id":
         return int(last_room_id.get(uid) or 0)
 
@@ -837,6 +757,16 @@ def moderation_user_sort_metric(*, sort_by: str, uid: int, sanction_counts: dict
         return (sanction_counts.get(uid) or {}).get(SANCTION_SUSPEND, 0)
 
     return 0
+
+
+def moderation_user_sort_metric(*, sort_by: str, uid: int, sanction_counts: dict[int, dict[str, int]], last_room_id: dict[int, int | None], last_spectator_room_id: dict[int, int | None]) -> int:
+    return user_sort_metric(
+        sort_by=sort_by,
+        uid=uid,
+        sanction_counts=sanction_counts,
+        last_room_id=last_room_id,
+        last_spectator_room_id=last_spectator_room_id,
+    )
 
 
 def compute_duration_seconds(months: int, days: int, hours: int, minutes: int) -> int:

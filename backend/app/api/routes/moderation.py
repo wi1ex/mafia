@@ -41,7 +41,6 @@ from ..utils import (
     fetch_active_sanction,
     fetch_active_sanctions_for_users,
     fetch_sanction_counts_for_users,
-    fetch_users_last_game_at,
     fetch_users_last_room_id,
     fetch_users_last_spectator_room_id,
     force_leave_user_from_rooms,
@@ -81,21 +80,13 @@ async def moderation_users_list(page: int = 1, limit: int = 20, username: str | 
 
     users: list[User]
 
-    if sort_key in {"registered_at", "last_login_at", "last_visit_at"}:
-        if sort_key == "last_login_at":
-            sort_expr = User.last_login_at.desc()
-        elif sort_key == "last_visit_at":
-            sort_expr = User.last_visit_at.desc()
-        else:
-            sort_expr = User.registered_at.desc()
-
+    if sort_key == "registered_at":
         total = int(await session.scalar(select(func.count(User.id)).where(*filters)) or 0)
         rows = await session.execute(
-            select(User).where(*filters).order_by(sort_expr, User.id.desc()).offset(offset).limit(limit)
+            select(User).where(*filters).order_by(User.registered_at.desc(), User.id.desc()).offset(offset).limit(limit)
         )
         users = list(rows.scalars().all())
         ids = [int(u.id) for u in users]
-        last_game_at = await fetch_users_last_game_at(session, ids)
         last_room_id = await fetch_users_last_room_id(session, ids)
         last_spectator_room_id = await fetch_users_last_spectator_room_id(session, ids)
     else:
@@ -103,15 +94,7 @@ async def moderation_users_list(page: int = 1, limit: int = 20, username: str | 
         all_users = list(rows.scalars().all())
         total = len(all_users)
         all_ids = [int(u.id) for u in all_users]
-        sanction_counts = await fetch_sanction_counts_for_users(session, all_ids)
-        if sort_key == "last_game_at":
-            all_last_game_at = await fetch_users_last_game_at(session, all_ids)
-            last_game_at_ts = {
-                uid: int(game_dt.timestamp()) if game_dt else 0 for uid, game_dt in all_last_game_at.items()
-            }
-        else:
-            all_last_game_at = {}
-            last_game_at_ts = {}
+
         if sort_key == "last_room_id":
             all_last_room_id = await fetch_users_last_room_id(session, all_ids)
         else:
@@ -120,6 +103,11 @@ async def moderation_users_list(page: int = 1, limit: int = 20, username: str | 
             all_last_spectator_room_id = await fetch_users_last_spectator_room_id(session, all_ids)
         else:
             all_last_spectator_room_id = {}
+
+        if sort_key in {"timeouts_count", "bans_count", "suspends_count"}:
+            all_sanction_counts = await fetch_sanction_counts_for_users(session, all_ids)
+        else:
+            all_sanction_counts = {}
 
         if sort_key == "username":
             users_sorted = sorted(
@@ -137,8 +125,7 @@ async def moderation_users_list(page: int = 1, limit: int = 20, username: str | 
                     moderation_user_sort_metric(
                         sort_by=sort_key,
                         uid=int(u.id),
-                        sanction_counts=sanction_counts,
-                        last_game_at_ts=last_game_at_ts,
+                        sanction_counts=all_sanction_counts,
                         last_room_id=all_last_room_id,
                         last_spectator_room_id=all_last_spectator_room_id,
                     ),
@@ -149,10 +136,6 @@ async def moderation_users_list(page: int = 1, limit: int = 20, username: str | 
             )
         users = users_sorted[offset:offset + limit]
         ids = [int(u.id) for u in users]
-        if sort_key == "last_game_at":
-            last_game_at = {uid: all_last_game_at.get(uid) for uid in ids}
-        else:
-            last_game_at = await fetch_users_last_game_at(session, ids)
         if sort_key == "last_room_id":
             last_room_id = {uid: all_last_room_id.get(uid) for uid in ids}
         else:
@@ -179,9 +162,6 @@ async def moderation_users_list(page: int = 1, limit: int = 20, username: str | 
                 avatar_name=user.avatar_name,
                 role=str(user.role),
                 registered_at=user.registered_at,
-                last_login_at=user.last_login_at,
-                last_visit_at=user.last_visit_at,
-                last_game_at=last_game_at.get(uid),
                 last_room_id=last_room_id.get(uid),
                 last_spectator_room_id=last_spectator_room_id.get(uid),
                 timeout_active=active_timeout is not None,
