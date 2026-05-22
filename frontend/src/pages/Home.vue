@@ -979,8 +979,8 @@ onBeforeUnmount(() => {
       .list-body {
         display: flex;
         flex-direction: column;
-        margin: 0 -18px 10px 0;
-        padding: 0 9px 0 0;
+        margin: 0 -18px 0 0;
+        padding: 0 9px 10px 0;
         gap: 10px;
         list-style: none;
         overflow-y: auto;
@@ -1015,11 +1015,16 @@ onBeforeUnmount(() => {
           grid-template-columns: 10% 45% 30% 15%;
           align-items: center;
           padding: 16px;
-          min-height: 32px;
+          min-height: 30px;
           border-radius: 20px;
+          border: 1px solid transparent;
           background-color: $soft-purple-800;
           overflow: hidden;
           cursor: pointer;
+          transition: border-color 0.25s ease-in-out;
+          &.active {
+            border-color: $green-700;
+          }
           &::after {
             content: '';
             position: absolute;
@@ -1063,7 +1068,7 @@ onBeforeUnmount(() => {
               border-radius: 12px;
               background-color: $neutral-500;
               &.duo {
-                background-color: $red-600;
+                background-color: $blue-500;
               }
               &.runned {
                 background-color: $green-700;
