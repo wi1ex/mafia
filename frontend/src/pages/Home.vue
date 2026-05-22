@@ -173,7 +173,13 @@
       </aside>
 
       <div class="right-extra right-extra--primary" :class="{ 'right--top-banner': topBannerActive }">
-
+        <div class="support-extra">
+          <div class="support-extra-copy">
+            <span class="support-extra-title">Приятные бонусы</span>
+            <p>Кастомизация профиля (GIF-аватары, выбор цвета и иконки профиля), обнуление истории никнеймов, скрытые комнаты, игры без зрителей и трансляции в качестве 1080p.</p>
+          </div>
+          <button type="button" class="support-extra-btn" @click="openSupportModal">Поддержать платформу</button>
+        </div>
       </div>
 
       <div class="right-extra right-extra--secondary">
@@ -187,6 +193,7 @@
     :initial-profile="miniProfileInitial"
     :show-stats-button="true"
   />
+  <SupportSiteModal v-model:open="supportModalOpen" @select="onSupportSiteSelect" />
 </template>
 
 <script setup lang="ts">
@@ -201,6 +208,7 @@ import { useAuthStore, useSettingsStore, useUserStore } from '@/store'
 import HomeInfoCarousel from '@/components/HomeInfoCarousel.vue'
 import RoomModal from '@/components/RoomModal.vue'
 import MiniProfile from '@/components/MiniProfile.vue'
+import SupportSiteModal from '@/components/SupportSiteModal.vue'
 import UiIcon from '@/components/UiIcon.vue'
 
 import iconDefaultAvatarBlack from '@/assets/svg/iconDefaultAvatarBlack.svg'
@@ -304,6 +312,7 @@ let spectatorsReqSeq = 0
 const miniProfileOpen = ref(false)
 const miniProfileUserId = ref<number | null>(null)
 const miniProfileInitial = ref<HomeMiniProfileInitial | null>(null)
+const supportModalOpen = ref(false)
 
 const selectedId = ref<number | null>(null)
 const pendingRoomId = ref<number | null>(null)
@@ -482,6 +491,20 @@ function openMiniProfileFromRoomInfo(user: { id: number; username?: string | nul
   }
   spectatorsOpen.value = false
   miniProfileOpen.value = true
+}
+
+function openSupportModal() {
+  supportModalOpen.value = true
+}
+
+function onSupportSiteSelect(site: { id: string; name: string; url: string }) {
+  if (!auth.isAuthed) return
+  void api.post('/users/support_link_click', {
+    source: 'home_right_extra_primary',
+    site_id: site.id,
+    site_name: site.name,
+    url: site.url,
+  }).catch(() => {})
 }
 
 function upsert(r: Room) {
@@ -1462,6 +1485,59 @@ onBeforeUnmount(() => {
         background-color: $neutral-500;
         &.right--top-banner {
           height: 390px;
+        }
+        .support-extra {
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          width: 100%;
+          min-height: 0;
+          gap: 24px;
+          .support-extra-copy {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            min-height: 0;
+            .support-extra-title {
+              color: $neutral-white;
+              font-size: 20px;
+              font-family: Hauora-SemiBold;
+              line-height: 24px;
+              letter-spacing: -0.4px;
+            }
+            p {
+              margin: 0;
+              color: $neutral-200;
+              font-size: 16px;
+              font-family: Hauora-Regular;
+              line-height: 20px;
+              letter-spacing: -0.32px;
+            }
+          }
+          .support-extra-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            align-self: flex-start;
+            padding: 0 16px;
+            min-width: 190px;
+            height: 40px;
+            border: none;
+            border-radius: 12px;
+            background-color: $green-500;
+            color: $neutral-900;
+            font-size: 16px;
+            font-family: Hauora-Regular;
+            line-height: 16px;
+            letter-spacing: -0.32px;
+            cursor: pointer;
+            transition: background-color 0.25s ease-in-out;
+            &:hover,
+            &:focus-visible,
+            &:active {
+              background-color: $green-300;
+            }
+          }
         }
       }
       &--secondary {
