@@ -94,7 +94,7 @@
                 <div class="ri-game-div">
                   <span class="ri-meta-text">Зрители</span>
                   <span ref="spectatorsWrapEl" class="spectators-wrap">
-                    <button v-if="spectatorsTooltipEnabled" class="spectators-btn" type="button" @click.stop="onSpectatorsToggle" aria-label="Показать зрителей">
+                    <button v-if="spectatorsTooltipEnabled" class="spectators-btn" :class="{ 'is-open': spectatorsTooltipVisible }" type="button" @click.stop="onSpectatorsToggle" aria-label="Показать зрителей">
                       <UiIcon class="spectators-icon" :icon="iconVisOn" />
                     </button>
                     <span class="ri-meta-value">{{ spectatorsLabel }}</span>
@@ -1278,7 +1278,7 @@ onBeforeUnmount(() => {
                 }
                 .mini-profile-name {
                   min-width: 0;
-                  max-width: 155px;
+                  max-width: 184px;
                   color: $neutral-white;
                   font-family: Hauora-Regular;
                   font-size: 14px;
@@ -1346,7 +1346,8 @@ onBeforeUnmount(() => {
                   }
                   &:not(:disabled):hover,
                   &:not(:disabled):focus-visible,
-                  &:not(:disabled):active {
+                  &:not(:disabled):active,
+                  &.is-open {
                     .spectators-icon {
                       --ui-icon-color: #{$green-500};
                     }
