@@ -77,12 +77,12 @@
                 </div>
                 <div v-if="(info?.members?.length ?? 0) === 0" class="muted-members">Пока никого</div>
                 <ul v-else class="ri-users">
-                  <li class="ri-user" v-for="m in sortedMembers" :key="m.id">
-                    <span v-if="m.role === 'head'" class="user-numb">Вед. </span>
-                    <span v-else-if="m.role === 'player' && m.slot != null" class="user-numb">{{ formatSeatNumber(m.slot) }}. </span>
+                  <li class="ri-user" v-for="m in sortedMembers" :key="m.id" :class="{ dead: m.role === 'player' && m.alive === false }">
+                    <span v-if="m.role === 'head'" class="user-numb">Вед.</span>
+                    <span v-else-if="m.role === 'player' && m.slot != null" class="user-numb">{{ formatSeatNumber(m.slot) }}.</span>
                     <button class="mini-profile-user-trigger" type="button" :disabled="!canOpenRoomInfoMiniProfileForUser(m)" @click="openMiniProfileFromRoomInfo(m)">
-                      <img v-minio-img="{ key: m.avatar_name ? `avatars/${m.avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false }" alt="avatar" />
-                      <span class="mini-profile-name" :class="{ dead: m.role === 'player' && m.alive === false }">{{ m.username || ('user' + m.id) }}</span>
+                      <img v-minio-img="{ key: m.avatar_name ? `avatars/${m.avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false }" alt="avatar" class="user-mini-avatar" />
+                      <span class="mini-profile-name">{{ m.username || ('user' + m.id) }}</span>
                     </button>
                     <img v-if="m.screen" :src="iconScreenOn" alt="streaming" />
                   </li>
@@ -95,7 +95,7 @@
                   <span class="ri-meta-text">Зрители</span>
                   <span ref="spectatorsWrapEl" class="spectators-wrap">
                     <button v-if="spectatorsTooltipEnabled" class="spectators-btn" type="button" @click.stop="onSpectatorsToggle" aria-label="Показать зрителей">
-                      <img :src="iconVisOn" alt="" aria-hidden="true" />
+                      <UiIcon class="spectators-icon" :icon="iconVisOn" />
                     </button>
                     <span class="ri-meta-value">{{ spectatorsLabel }}</span>
                     <div v-if="spectatorsTooltipVisible" class="spectators-tooltip">
@@ -104,7 +104,7 @@
                       <div v-else class="spectators-list">
                         <div v-for="s in spectators" :key="`spectator-${s.id}`" class="spectators-row">
                           <button class="mini-profile-user-trigger" type="button" :disabled="!canOpenRoomInfoMiniProfileForUser(s)" @click="openMiniProfileFromRoomInfo(s)">
-                            <img v-minio-img="{ key: s.avatar_name ? `avatars/${s.avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false }" alt="avatar" />
+                            <img v-minio-img="{ key: s.avatar_name ? `avatars/${s.avatar_name}` : '', placeholder: iconDefaultAvatarBlack, lazy: false }" alt="avatar" />
                             <span class="mini-profile-name">{{ s.username || ('user' + s.id) }}</span>
                           </button>
                         </div>
@@ -200,6 +200,7 @@ import RoomModal from '@/components/RoomModal.vue'
 import MiniProfile from '@/components/MiniProfile.vue'
 import UiIcon from '@/components/UiIcon.vue'
 
+import iconDefaultAvatarBlack from '@/assets/svg/iconDefaultAvatarBlack.svg'
 import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
 import iconScreenOn from '@/assets/svg/iconScreenOn.svg'
 import iconLockOpen from '@/assets/svg/iconLockOpen.svg'
@@ -1255,29 +1256,37 @@ onBeforeUnmount(() => {
                 align-items: center;
                 gap: 8px;
                 width: 100%;
-                .user-numb {
-                  font-size: 14px;
-                  font-variant-numeric: tabular-nums;
+                &.dead {
+                  opacity: 0.5;
                 }
-                .mini-profile-name {
-                  min-width: 0;
-                  max-width: 150px;
-                  height: 16px;
-                  overflow: hidden;
-                  color: $ashy;
+                .user-numb {
+                  min-width: 30px;
+                  color: $neutral-300;
+                  font-family: Hauora-Regular;
                   font-size: 14px;
-                  line-height: 1.2;
-                  text-overflow: ellipsis;
-                  white-space: nowrap;
-                  &.dead {
-                    opacity: 0.5;
-                  }
+                  line-height: 14px;
+                  letter-spacing: -0.28px;
+                  font-variant-numeric: tabular-nums;
                 }
                 img {
                   width: 20px;
                   height: 20px;
+                }
+                .user-mini-avatar {
                   border-radius: 50%;
                   object-fit: cover;
+                }
+                .mini-profile-name {
+                  min-width: 0;
+                  max-width: 155px;
+                  color: $neutral-white;
+                  font-family: Hauora-Regular;
+                  font-size: 14px;
+                  line-height: 14px;
+                  letter-spacing: -0.28px;
+                  text-overflow: ellipsis;
+                  white-space: nowrap;
+                  overflow: hidden;
                 }
               }
             }
@@ -1286,7 +1295,7 @@ onBeforeUnmount(() => {
             display: flex;
             flex-direction: column;
             padding: 12px;
-            gap: 8px;
+            gap: 3px;
             width: calc(50% - 24px);
             border-radius: 20px;
             background-color: $soft-purple-800;
@@ -1305,7 +1314,7 @@ onBeforeUnmount(() => {
               .ri-meta-value {
                 font-family: Hauora-Regular;
                 font-size: 14px;
-                line-height: 14px;
+                line-height: 20px;
                 letter-spacing: -0.28px;
               }
               .ri-meta-text {
@@ -1318,56 +1327,64 @@ onBeforeUnmount(() => {
                 display: flex;
                 position: relative;
                 align-items: center;
-                gap: 5px;
+                gap: 8px;
                 cursor: default;
                 .spectators-btn {
                   display: flex;
                   align-items: center;
                   justify-content: center;
-                  width: 16px;
-                  height: 16px;
+                  width: 20px;
+                  height: 20px;
                   padding: 0;
                   border: none;
                   background: none;
                   cursor: pointer;
-                  img {
-                    width: 16px;
-                    height: 16px;
+                  .spectators-icon {
+                    --ui-icon-width: 24px;
+                    --ui-icon-height: 24px;
+                    --ui-icon-color: #{$neutral-white};
+                  }
+                  &:not(:disabled):hover,
+                  &:not(:disabled):focus-visible,
+                  &:not(:disabled):active {
+                    .spectators-icon {
+                      --ui-icon-color: #{$green-500};
+                    }
                   }
                 }
                 .spectators-tooltip {
                   display: flex;
                   position: absolute;
                   flex-direction: column;
-                  top: calc(100% + 3px);
-                  right: -1px;
-                  padding: 10px;
-                  gap: 5px;
-                  min-width: 100px;
-                  max-width: 200px;
-                  border-radius: 5px;
-                  background-color: $dark;
-                  box-shadow: 0 5px 15px rgba($black, 0.25);
-                  border: 3px solid $lead;
+                  top: calc(100% + 4px);
+                  right: 0;
+                  padding: 16px;
+                  width: 200px;
+                  border: 1px solid $neutral-200;
+                  border-radius: 20px;
+                  background-color: $neutral-100;
+                  box-shadow: 0 2px 16px rgba($neutral-black, 0.20);
                   z-index: 5;
                   pointer-events: auto;
                   .spectators-list {
                     display: flex;
                     flex-direction: column;
-                    gap: 5px;
+                    gap: 4px;
                     .spectators-row {
                       display: flex;
                       align-items: center;
-                      gap: 5px;
+                      gap: 4px;
                       .mini-profile-name {
                         min-width: 0;
-                        max-width: 175px;
-                        overflow: hidden;
-                        color: $fg;
+                        max-width: 176px;
+                        color: $neutral-black;
+                        font-family: Hauora-Regular;
                         font-size: 14px;
-                        line-height: 1.2;
+                        line-height: 14px;
+                        letter-spacing: -0.28px;
                         text-overflow: ellipsis;
                         white-space: nowrap;
+                        overflow: hidden;
                       }
                       img {
                         width: 20px;
