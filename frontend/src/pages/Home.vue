@@ -61,10 +61,10 @@
               <span>{{ selectedRoom?.title }}</span>
               <div class="room-actions">
                 <button v-if="canCloseRooms" :disabled="adminKickBusy || selectedRoom?.in_game || selectedRoom?.entry_closed || selectedRoom?.occupancy === 0" @click="onAdminKickRoom" aria-label="Удалить комнату">
-                  <img :src="iconDelete" alt="delete" />
+                  <UiIcon class="room-icon" :icon="iconDelete" />
                 </button>
                 <button @click="clearSelection" aria-label="Закрыть">
-                  <img :src="iconClose" alt="close" />
+                  <UiIcon class="room-icon" :icon="iconClose" />
                 </button>
               </div>
             </header>
@@ -93,7 +93,7 @@
                     <span>Зрители</span>
                     <span ref="spectatorsWrapEl" class="spectators-wrap">
                       <button v-if="spectatorsTooltipEnabled" class="spectators-btn" type="button" @click.stop="onSpectatorsToggle" aria-label="Показать зрителей">
-                        <img :src="iconVisSpect" alt="" aria-hidden="true" />
+                        <img :src="iconVisOn" alt="" aria-hidden="true" />
                       </button>
                       <span>{{ spectatorsLabel }}</span>
                       <div v-if="spectatorsTooltipVisible" class="spectators-tooltip">
@@ -200,12 +200,12 @@ import MiniProfile from '@/components/MiniProfile.vue'
 import UiIcon from '@/components/UiIcon.vue'
 
 import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
-import iconScreenOn from '@/assets/svg/screenOn.svg'
+import iconScreenOn from '@/assets/svg/iconScreenOn.svg'
 import iconLockOpen from '@/assets/svg/iconLockOpen.svg'
 import iconLockClose from '@/assets/svg/iconLockClose.svg'
-import iconClose from '@/assets/svg/close.svg'
+import iconClose from '@/assets/svg/iconClose.svg'
 import iconDelete from '@/assets/svg/delete.svg'
-import iconVisSpect from '@/assets/svg/visOn.svg'
+import iconVisOn from '@/assets/svg/iconVisOn.svg'
 import iconAddPlus from '@/assets/svg/iconAddPlus.svg'
 import iconNoRooms from '@/assets/svg/iconNoRooms.svg'
 import iconDot from '@/assets/svg/iconDot.svg'
@@ -867,23 +867,10 @@ onBeforeUnmount(() => {
   overflow: hidden;
   .left {
     display: flex;
-    position: relative;
     flex-direction: column;
     height: calc(100dvh - 94px);
     border-radius: 24px;
     background-color: $soft-purple-900;
-    &::after {
-      content: '';
-      position: absolute;
-      right: 0;
-      bottom: 0;
-      left: 0;
-      height: 48px;
-      border-radius: 0 0 24px 24px;
-      box-shadow: 0 -24px 16px 0 rgba($soft-purple-900, 0.32) inset;
-      pointer-events: none;
-      z-index: 10;
-    }
     &.left--top-banner {
       height: calc(100dvh - 134px);
     }
@@ -1126,33 +1113,33 @@ onBeforeUnmount(() => {
       min-width: 0;
       max-width: none;
       height: 536px;
-      border-radius: 5px;
-      background-color: $dark;
+      border-radius: 24px;
       overflow: hidden;
       .loading-overlay {
         margin: auto;
         text-align: center;
-        color: $ashy;
+        color: $neutral-300;
       }
       .room-info {
         display: flex;
         position: relative;
         flex-direction: column;
-        width: 100%;
-        height: 100%;
+        padding: 24px;
+        gap: 16px;
+        width: calc(100% - 48px);
+        height: calc(100% - 48px);
+        background-color: $soft-purple-900;
         header {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding: 5px 10px;
-          border-radius: 5px;
-          background-color: $graphite;
-          box-shadow: 0 3px 5px rgba($black, 0.25);
           span {
-            max-width: 550px;
-            height: 20px;
-            font-size: 18px;
-            font-weight: bold;
+            max-width: 500px;
+            color: $neutral-white;
+            font-family: Involve-Medium;
+            font-size: 24px;
+            line-height: 26px;
+            letter-spacing: -0.48px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -1160,26 +1147,36 @@ onBeforeUnmount(() => {
           .room-actions {
             display: inline-flex;
             align-items: center;
-            gap: 5px;
-          }
-          button {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0;
-            width: 25px;
-            height: 30px;
-            border: none;
-            background: none;
-            cursor: pointer;
-            img {
-              width: 25px;
-              height: 25px;
+            gap: 8px;
+            button {
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              padding: 0;
+              width: 24px;
+              height: 24px;
+              border: none;
+              background: none;
+              cursor: pointer;
+              .room-icon {
+                --ui-icon-width: 24px;
+                --ui-icon-height: 24px;
+                --ui-icon-color: #{$neutral-white};
+              }
+              &:disabled {
+                cursor: not-allowed;
+                .room-icon {
+                  --ui-icon-color: #{$neutral-500};
+                }
+              }
+              &:not(:disabled):hover,
+              &:not(:disabled):focus-visible,
+              &:not(:disabled):active {
+                .room-icon {
+                  --ui-icon-color: #{$green-500};
+                }
+              }
             }
-          }
-          button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
           }
         }
         .ri-info {
@@ -1353,11 +1350,9 @@ onBeforeUnmount(() => {
         }
         .ri-actions {
           display: flex;
-          position: absolute;
           align-items: center;
           justify-content: center;
-          bottom: 20px;
-          width: 100%;
+          margin-top: 8px;
           button {
             display: flex;
             align-items: center;
