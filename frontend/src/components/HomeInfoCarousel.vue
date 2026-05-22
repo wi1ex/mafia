@@ -219,174 +219,175 @@ onBeforeUnmount(() => {
     position: relative;
     flex: 1 1 auto;
     min-height: 0;
-  }
-  .slide {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-    .slide-surface {
-      position: absolute;
-      inset: 0;
-    }
-    .slide-content {
-      display: flex;
+    .slide {
       position: relative;
-      flex-direction: column;
+      width: 100%;
       height: 100%;
-      padding: 15px 15px 82px;
-      gap: 15px;
-      box-sizing: border-box;
-      overflow: auto;
-      scrollbar-width: none;
-      z-index: 1;
-      &::-webkit-scrollbar {
-        display: none;
+      overflow: hidden;
+      .slide-surface {
+        position: absolute;
+        inset: 0;
       }
-      &.slide-content--install {
+      .slide-content {
+        display: flex;
+        position: relative;
+        flex-direction: column;
+        height: 100%;
+        padding: 15px 15px 82px;
+        gap: 15px;
+        box-sizing: border-box;
+        background-color: $neutral-800;
+        overflow: auto;
+        scrollbar-width: none;
+        z-index: 1;
+        &::-webkit-scrollbar {
+          display: none;
+        }
+        &.slide-content--install {
+          align-items: center;
+          justify-content: center;
+        }
+      }
+      .slide-actions {
+        display: flex;
         align-items: center;
         justify-content: center;
       }
+      .primary-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 220px;
+        height: 40px;
+        border: none;
+        border-radius: 10px;
+        background-color: $fg;
+        color: $bg;
+        font-size: 16px;
+        font-family: Manrope-SemiBold;
+        text-decoration: none;
+        outline: none;
+        cursor: pointer;
+        transition: opacity 0.25s ease-in-out, box-shadow 0.25s ease-in-out, background-color 0.25s ease-in-out;
+        &:hover,
+        &:focus-visible {
+          box-shadow: 0 15px 30px rgba($black, 0.25);
+          background-color: $white;
+        }
+        &:disabled {
+          cursor: default;
+          opacity: 0.5;
+          box-shadow: none;
+        }
+      }
     }
-    .slide-actions {
+    .carousel-controls {
       display: flex;
+      position: absolute;
       align-items: center;
       justify-content: center;
-    }
-    .primary-btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 220px;
-      height: 40px;
-      border: none;
-      border-radius: 10px;
-      background-color: $fg;
-      color: $bg;
-      font-size: 16px;
-      font-family: Manrope-SemiBold;
-      text-decoration: none;
-      outline: none;
-      cursor: pointer;
-      transition: opacity 0.25s ease-in-out, box-shadow 0.25s ease-in-out, background-color 0.25s ease-in-out;
-      &:hover,
-      &:focus-visible {
-        box-shadow: 0 15px 30px rgba($black, 0.25);
-        background-color: $white;
-      }
-      &:disabled {
-        cursor: default;
-        opacity: 0.5;
-        box-shadow: none;
-      }
-    }
-  }
-  .carousel-controls {
-    display: flex;
-    position: absolute;
-    align-items: center;
-    justify-content: center;
-    left: 50%;
-    bottom: 15px;
-    padding: 5px 10px;
-    gap: 10px;
-    overflow: hidden;
-    isolation: isolate;
-    border: 1px solid rgba($white, 0.1);
-    border-radius: 999px;
-    background:
-      linear-gradient(180deg, rgba($white, 0.1), rgba($white, 0.05) 50%, rgba($white, 0.01)),
-      radial-gradient(circle at top center, rgba($white, 0.1), transparent 75%),
-      rgba($bg, 0.5);
-    -webkit-backdrop-filter: blur(30px) saturate(180%) brightness(1.25);
-    backdrop-filter: blur(30px) saturate(180%) brightness(1.25);
-    transform: translateX(-50%);
-    box-shadow:
-      inset 0 1px 0 rgba($white, 0.25),
-      inset 0 -1px 0 rgba($white, 0.1),
-      0 15px 30px rgba($black, 0.25);
-    z-index: 5;
-  }
-  .carousel-dot {
-    padding: 0;
-    position: relative;
-    overflow: hidden;
-    width: 20px;
-    height: 10px;
-    border: 1px solid rgba($white, 0.1);
-    border-radius: 999px;
-    background:
-      linear-gradient(180deg, rgba($white, 0.1), rgba($white, 0.05)),
-      rgba($white, 0.1);
-    box-shadow:
-      inset 0 1px 0 rgba($white, 0.25),
-      0 5px 10px rgba($black, 0.1);
-    outline: none;
-    cursor: pointer;
-    transition: width 0.25s ease-in-out, background-color 0.25s ease-in-out, border-color 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
-    &:hover,
-    &:focus-visible {
-      border-color: rgba($white, 0.1);
+      left: 50%;
+      bottom: 15px;
+      padding: 5px 10px;
+      gap: 10px;
+      overflow: hidden;
+      isolation: isolate;
+      border: 1px solid rgba($white, 0.1);
+      border-radius: 999px;
       background:
-        linear-gradient(180deg, rgba($white, 0.25), rgba($white, 0.1)),
-        rgba($white, 0.25);
-      box-shadow:
-        inset 0 1px 0 rgba($white, 0.25),
-        0 5px 15px rgba($black, 0.1);
-    }
-    &.active {
-      width: 50px;
-      border-color: rgba($white, 0.1);
-      background:
-        linear-gradient(180deg, rgba($white, 0.25), rgba($white, 0.1)),
-        rgba($white, 0.25);
-      box-shadow:
-        inset 0 1px 0 rgba($white, 0.25),
-        0 5px 15px rgba($black, 0.1);
-    }
-  }
-  .nav-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    width: 40px;
-    height: 40px;
-    position: relative;
-    overflow: hidden;
-    isolation: isolate;
-    border: 1px solid rgba($white, 0.1);
-    border-radius: 50%;
-    background:
-      linear-gradient(180deg, rgba($white, 0.1), rgba($white, 0.05) 50%, rgba($white, 0.05)),
-      radial-gradient(circle at top left, rgba($white, 0.25), transparent 50%),
-      rgba($bg, 0.35);
-    box-shadow:
-      inset 0 1px 0 rgba($white, 0.25),
-      inset 0 -1px 0 rgba($white, 0.1),
-      0 10px 20px rgba($black, 0.1);
-    -webkit-backdrop-filter: blur(20px) saturate(180%) brightness(1.25);
-    backdrop-filter: blur(20px) saturate(180%) brightness(1.25);
-    outline: none;
-    cursor: pointer;
-    transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
-    &:hover,
-    &:focus-visible {
-      border-color: rgba($white, 0.25);
+        linear-gradient(180deg, rgba($white, 0.1), rgba($white, 0.05) 50%, rgba($white, 0.01)),
+        radial-gradient(circle at top center, rgba($white, 0.1), transparent 75%),
+        rgba($bg, 0.5);
+      -webkit-backdrop-filter: blur(30px) saturate(180%) brightness(1.25);
+      backdrop-filter: blur(30px) saturate(180%) brightness(1.25);
+      transform: translateX(-50%);
       box-shadow:
         inset 0 1px 0 rgba($white, 0.25),
         inset 0 -1px 0 rgba($white, 0.1),
-        0 15px 30px rgba($black, 0.1);
-    }
-  }
-  .nav-icon {
-    width: 20px;
-    height: 20px;
-    &.nav-icon--prev {
-      transform: rotate(90deg);
-    }
-    &.nav-icon--next {
-      transform: rotate(-90deg);
+        0 15px 30px rgba($black, 0.25);
+      z-index: 5;
+      .nav-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        width: 40px;
+        height: 40px;
+        position: relative;
+        overflow: hidden;
+        isolation: isolate;
+        border: 1px solid rgba($white, 0.1);
+        border-radius: 50%;
+        background:
+          linear-gradient(180deg, rgba($white, 0.1), rgba($white, 0.05) 50%, rgba($white, 0.05)),
+          radial-gradient(circle at top left, rgba($white, 0.25), transparent 50%),
+          rgba($bg, 0.35);
+        box-shadow:
+          inset 0 1px 0 rgba($white, 0.25),
+          inset 0 -1px 0 rgba($white, 0.1),
+          0 10px 20px rgba($black, 0.1);
+        -webkit-backdrop-filter: blur(20px) saturate(180%) brightness(1.25);
+        backdrop-filter: blur(20px) saturate(180%) brightness(1.25);
+        outline: none;
+        cursor: pointer;
+        transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
+        &:hover,
+        &:focus-visible {
+          border-color: rgba($white, 0.25);
+          box-shadow:
+            inset 0 1px 0 rgba($white, 0.25),
+            inset 0 -1px 0 rgba($white, 0.1),
+            0 15px 30px rgba($black, 0.1);
+        }
+        .nav-icon {
+          width: 20px;
+          height: 20px;
+          &.nav-icon--prev {
+            transform: rotate(90deg);
+          }
+          &.nav-icon--next {
+            transform: rotate(-90deg);
+          }
+        }
+      }
+      .carousel-dot {
+        padding: 0;
+        position: relative;
+        overflow: hidden;
+        width: 20px;
+        height: 10px;
+        border: 1px solid rgba($white, 0.1);
+        border-radius: 999px;
+        background:
+          linear-gradient(180deg, rgba($white, 0.1), rgba($white, 0.05)),
+          rgba($white, 0.1);
+        box-shadow:
+          inset 0 1px 0 rgba($white, 0.25),
+          0 5px 10px rgba($black, 0.1);
+        outline: none;
+        cursor: pointer;
+        transition: width 0.25s ease-in-out, background-color 0.25s ease-in-out, border-color 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
+        &:hover,
+        &:focus-visible {
+          border-color: rgba($white, 0.1);
+          background:
+            linear-gradient(180deg, rgba($white, 0.25), rgba($white, 0.1)),
+            rgba($white, 0.25);
+          box-shadow:
+            inset 0 1px 0 rgba($white, 0.25),
+            0 5px 15px rgba($black, 0.1);
+        }
+        &.active {
+          width: 50px;
+          border-color: rgba($white, 0.1);
+          background:
+            linear-gradient(180deg, rgba($white, 0.25), rgba($white, 0.1)),
+            rgba($white, 0.25);
+          box-shadow:
+            inset 0 1px 0 rgba($white, 0.25),
+            0 5px 15px rgba($black, 0.1);
+        }
+      }
     }
   }
 }
@@ -419,55 +420,7 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 1280px) {
-  .home-carousel {
-    .slide {
-      .slide-content {
-        padding: 5px 8px 34px;
-        gap: 8px;
-      }
-      .primary-btn {
-        min-width: 135px;
-        height: 24px;
-        border-radius: 5px;
-        font-size: 10px;
-      }
-    }
-    .carousel-controls {
-      bottom: 5px;
-      padding: 3px 5px;
-      gap: 5px;
-      box-shadow:
-        inset 0 1px 0 rgba($white, 0.20),
-        inset 0 -1px 0 rgba($white, 0.05),
-        0 5px 15px rgba($black, 0.15);
-      -webkit-backdrop-filter: blur(15px) saturate(170%) brightness(1.15);
-      backdrop-filter: blur(15px) saturate(170%) brightness(1.15);
-    }
-    .carousel-dot {
-      width: 10px;
-      height: 3px;
-      box-shadow:
-        inset 0 1px 0 rgba($white, 0.2),
-        0 3px 5px rgba($black, 0.1);
-      &.active {
-        width: 24px;
-      }
-    }
-    .nav-btn {
-      width: 16px;
-      height: 16px;
-      box-shadow:
-        inset 0 1px 0 rgba($white, 0.2),
-        inset 0 -1px 0 rgba($white, 0.1),
-        0 5px 10px rgba($black, 0.1);
-      -webkit-backdrop-filter: blur(10px) saturate(170%) brightness(1.15);
-      backdrop-filter: blur(10px) saturate(170%) brightness(1.15);
-    }
-    .nav-icon {
-      width: 8px;
-      height: 8px;
-    }
-  }
+
 }
 
 </style>

@@ -1478,11 +1478,12 @@ onBeforeUnmount(() => {
     }
     .right-extra {
       display: flex;
+      padding: 24px;
       border-radius: 24px;
       &--primary {
         height: 430px;
         min-height: 138px;
-        background-color: $neutral-500;
+        background-color: $neutral-800;
         &.right--top-banner {
           height: 390px;
         }
@@ -1543,7 +1544,7 @@ onBeforeUnmount(() => {
       &--secondary {
         height: 215px;
         min-height: 122px;
-        background-color: $neutral-500;
+        background-color: $neutral-800;
       }
     }
   }
