@@ -683,7 +683,10 @@ function onGlobalPointerDown(e: PointerEvent) {
       return
     }
   }
-  if ( (target && listEl.value && listEl.value.contains(target)) || (target && rightEl.value && rightEl.value.contains(target)) ) return
+  if (target instanceof Element) {
+    if (target.closest('.item.active')) return
+    if (target.closest('.room-info')) return
+  }
   clearSelection()
 }
 
@@ -1134,7 +1137,7 @@ onBeforeUnmount(() => {
           justify-content: space-between;
           align-items: center;
           span {
-            max-width: 500px;
+            max-width: 495px;
             color: $neutral-white;
             font-family: Involve-Medium;
             font-size: 24px;
