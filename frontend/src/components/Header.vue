@@ -627,7 +627,7 @@ function openAuth(mode: 'login' | 'register') {
   .user {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 4px;
     .bell {
       position: relative;
       border-radius: 16px;
@@ -705,6 +705,7 @@ function openAuth(mode: 'login' | 'register') {
     }
     .user-menu {
       position: relative;
+      margin-left: 8px;
       > .profile-btn.has-profile-theme {
         position: relative;
         overflow: hidden;

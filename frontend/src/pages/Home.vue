@@ -867,11 +867,23 @@ onBeforeUnmount(() => {
   overflow: hidden;
   .left {
     display: flex;
+    position: relative;
     flex-direction: column;
     height: calc(100dvh - 94px);
     border-radius: 24px;
     background-color: $soft-purple-900;
-    box-shadow: 0 -24px 16px 0 rgba($soft-purple-900, 0.32) inset;
+    &::after {
+      content: '';
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      height: 48px;
+      border-radius: 0 0 24px 24px;
+      box-shadow: 0 -24px 16px 0 rgba($soft-purple-900, 0.32) inset;
+      pointer-events: none;
+      z-index: 10;
+    }
     &.left--top-banner {
       height: calc(100dvh - 134px);
     }
