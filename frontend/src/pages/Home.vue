@@ -75,7 +75,10 @@
                   <span class="ri-members-title">Участники:</span>
                   <span class="ri-members-count">{{ selectedRoom?.occupancy ?? 0 }}/{{ selectedRoom?.user_limit ?? 0 }}</span>
                 </div>
-                <div v-if="(info?.members?.length ?? 0) === 0" class="muted-members">Пока никого</div>
+                <div v-if="(info?.members?.length ?? 0) === 0" class="muted-members">
+                  <img :src="iconNoMembers" alt="nomembers" />
+                  <span>Пока никого нет...</span>
+                </div>
                 <ul v-else class="ri-users">
                   <li class="ri-user" v-for="m in sortedMembers" :key="m.id" :class="{ dead: m.role === 'player' && m.alive === false }">
                     <span v-if="m.role === 'head'" class="user-numb">Вед.</span>
@@ -210,6 +213,7 @@ import iconDelete from '@/assets/svg/delete.svg'
 import iconVisOn from '@/assets/svg/iconVisOn.svg'
 import iconAddPlus from '@/assets/svg/iconAddPlus.svg'
 import iconNoRooms from '@/assets/svg/iconNoRooms.svg'
+import iconNoMembers from '@/assets/svg/iconNoMembers.svg'
 import iconDot from '@/assets/svg/iconDot.svg'
 
 type Room = {
@@ -312,10 +316,10 @@ const selectedRoom = computed(() => selectedId.value ? (roomsMap.get(selectedId.
 const sortedRooms = computed(() => Array.from(roomsMap.values()).sort((a, b) => {
   const rank = (room: Room): number => {
     switch (roomStatusLabel(room)) {
-      case 'game': return 0
-      case 'duo': return 1
-      case 'hide': return 2
-      case 'lobby': return 3
+      case 'GAME': return 0
+      case 'DUO': return 1
+      case 'HIDE': return 2
+      case 'LOBBY': return 3
       default: return 4
     }
   }
@@ -1143,7 +1147,7 @@ onBeforeUnmount(() => {
             color: $neutral-white;
             font-family: Involve-Medium;
             font-size: 24px;
-            line-height: 26px;
+            line-height: 28px;
             letter-spacing: -0.48px;
             white-space: nowrap;
             overflow: hidden;
@@ -1194,7 +1198,7 @@ onBeforeUnmount(() => {
             align-items: center;
             flex: 0 1 auto;
             min-width: 0;
-            gap: inherit;
+            gap: 4px;
             padding: 0;
             border: none;
             background: none;
@@ -1240,9 +1244,24 @@ onBeforeUnmount(() => {
               }
             }
             .muted-members {
-              height: 16px;
-              font-size: 14px;
-              color: $ashy;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+              gap: 10px;
+              width: 100%;
+              height: 100%;
+              img {
+                width: 108px;
+                height: 100px;
+              }
+              span {
+                color: $neutral-300;
+                font-family: Hauora-Regular;
+                font-size: 14px;
+                line-height: 14px;
+                letter-spacing: -0.28px;
+              }
             }
             .ri-users {
               display: flex;
@@ -1257,10 +1276,10 @@ onBeforeUnmount(() => {
                 gap: 8px;
                 width: 100%;
                 &.dead {
-                  opacity: 0.5;
+                  opacity: 0.4;
                 }
                 .user-numb {
-                  min-width: 30px;
+                  min-width: 27px;
                   color: $neutral-300;
                   font-family: Hauora-Regular;
                   font-size: 14px;
@@ -1278,11 +1297,11 @@ onBeforeUnmount(() => {
                 }
                 .mini-profile-name {
                   min-width: 0;
-                  max-width: 184px;
+                  max-width: 190px;
                   color: $neutral-white;
                   font-family: Hauora-Regular;
                   font-size: 14px;
-                  line-height: 14px;
+                  line-height: 16px;
                   letter-spacing: -0.28px;
                   text-overflow: ellipsis;
                   white-space: nowrap;
@@ -1300,6 +1319,7 @@ onBeforeUnmount(() => {
             border-radius: 20px;
             background-color: $soft-purple-800;
             .ri-meta-title {
+              margin-bottom: 4px;
               color: $neutral-white;
               font-family: Involve-Medium;
               font-size: 16px;
@@ -1340,8 +1360,8 @@ onBeforeUnmount(() => {
                   background: none;
                   cursor: pointer;
                   .spectators-icon {
-                    --ui-icon-width: 24px;
-                    --ui-icon-height: 24px;
+                    --ui-icon-width: 20px;
+                    --ui-icon-height: 20px;
                     --ui-icon-color: #{$neutral-white};
                   }
                   &:not(:disabled):hover,
@@ -1377,11 +1397,11 @@ onBeforeUnmount(() => {
                       gap: 4px;
                       .mini-profile-name {
                         min-width: 0;
-                        max-width: 176px;
+                        max-width: 175px;
                         color: $neutral-black;
                         font-family: Hauora-Regular;
                         font-size: 14px;
-                        line-height: 14px;
+                        line-height: 16px;
                         letter-spacing: -0.28px;
                         text-overflow: ellipsis;
                         white-space: nowrap;
