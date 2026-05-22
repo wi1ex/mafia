@@ -71,7 +71,10 @@
 
             <div class="ri-info">
               <div class="ri-members">
-                <span class="header-text">Участники ({{ selectedRoom?.occupancy ?? 0 }}/{{ selectedRoom?.user_limit ?? 0 }}):</span>
+                <div class="ri-members-div">
+                  <span class="ri-members-title">Участники:</span>
+                  <span class="ri-members-count">{{ selectedRoom?.occupancy ?? 0 }}/{{ selectedRoom?.user_limit ?? 0 }}</span>
+                </div>
                 <div v-if="(info?.members?.length ?? 0) === 0" class="muted-members">Пока никого</div>
                 <ul v-else class="ri-users">
                   <li class="ri-user" v-for="m in sortedMembers" :key="m.id" :class="{ dead: m.role === 'player' && m.alive === false }">
@@ -88,7 +91,7 @@
 
               <div class="ri-meta-game" v-if="canShowGameMeta">
                 <div class="ri-game" v-if="game">
-                  <span class="header-text">Параметры игры:</span>
+                  <span>Параметры игры:</span>
                   <div class="ri-game-div">
                     <span>Зрители</span>
                     <span ref="spectatorsWrapEl" class="spectators-wrap">
@@ -151,15 +154,15 @@
             </div>
 
             <div class="ri-actions">
-              <button v-if="ctaState==='enter'" :disabled="entering" @click="onEnter">Войти в комнату</button>
-              <button v-else-if="ctaState==='full'" disabled>Комната заполнена</button>
-              <button v-else-if="ctaState==='apply'" :disabled="applying" @click="onApply">Подать заявку</button>
-              <button v-else-if="ctaState==='pending'" disabled>Заявка отправлена</button>
-              <button v-else-if="ctaState==='watch'" :disabled="entering" @click="onEnter">Смотреть</button>
-              <button v-else-if="ctaState==='spectators_full'" disabled>Лимит зрителей</button>
-              <button v-else-if="ctaState==='in_game'" disabled>Идёт игра</button>
-              <button v-else-if="ctaState==='blocked'" disabled>{{ blockedLabel }}</button>
-              <button v-else disabled>Авторизуйтесь, чтобы войти</button>
+              <button v-if="ctaState==='enter'" :disabled="entering" @click="onEnter" class="ri-action">Войти в комнату</button>
+              <button v-else-if="ctaState==='full'" disabled class="ri-action">Комната заполнена</button>
+              <button v-else-if="ctaState==='apply'" :disabled="applying" @click="onApply" class="ri-action">Подать заявку</button>
+              <button v-else-if="ctaState==='pending'" disabled class="ri-action">Заявка отправлена</button>
+              <button v-else-if="ctaState==='watch'" :disabled="entering" @click="onEnter" class="ri-action">Смотреть</button>
+              <button v-else-if="ctaState==='spectators_full'" disabled class="ri-action">Лимит зрителей</button>
+              <button v-else-if="ctaState==='in_game'" disabled class="ri-action">Идёт игра</button>
+              <button v-else-if="ctaState==='blocked'" disabled class="ri-action">{{ blockedLabel }}</button>
+              <button v-else disabled class="ri-action">Авторизуйтесь, чтобы войти</button>
             </div>
           </div>
 
@@ -1202,6 +1205,81 @@ onBeforeUnmount(() => {
               cursor: default;
             }
           }
+          .ri-members {
+            display: flex;
+            flex-direction: column;
+            padding: 12px;
+            gap: 8px;
+            width: calc(50% - 24px);
+            border-radius: 20px;
+            background-color: $soft-purple-800;
+            .ri-members-div {
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              .ri-members-title {
+                color: $neutral-white;
+                font-family: Involve-Medium;
+                font-size: 14px;
+                line-height: 16px;
+                letter-spacing: -0.28px;
+              }
+              .ri-members-count {
+                padding: 4px 8px;
+                border-radius: 999px;
+                background-color: $neutral-500;
+                color: $neutral-white;
+                font-family: Hauora-Regular;
+                font-size: 14px;
+                line-height: 14px;
+                letter-spacing: -0.28px;
+              }
+            }
+            .muted-members {
+              height: 16px;
+              font-size: 14px;
+              color: $ashy;
+            }
+            .ri-users {
+              display: flex;
+              flex-direction: column;
+              margin: 0;
+              padding: 0;
+              gap: 5px;
+              list-style: none;
+              .ri-user {
+                display: flex;
+                align-items: center;
+                gap: 3px;
+                width: 100%;
+                height: 20px;
+                .mini-profile-name {
+                  min-width: 0;
+                  max-width: 150px;
+                  height: 16px;
+                  overflow: hidden;
+                  color: $ashy;
+                  font-size: 14px;
+                  line-height: 1.2;
+                  text-overflow: ellipsis;
+                  white-space: nowrap;
+                }
+                img {
+                  width: 20px;
+                  height: 20px;
+                  border-radius: 50%;
+                  object-fit: cover;
+                }
+                .user-numb {
+                  font-size: 14px;
+                  font-variant-numeric: tabular-nums;
+                }
+                &.dead {
+                  opacity: 0.5;
+                }
+              }
+            }
+          }
           .ri-meta-game {
             display: flex;
             flex-direction: column;
@@ -1292,90 +1370,36 @@ onBeforeUnmount(() => {
               }
             }
           }
-          .ri-members {
-            display: flex;
-            flex-direction: column;
-            padding: 10px;
-            gap: 5px;
-            width: calc(40% - 15px);
-            border-radius: 5px;
-            background-color: $graphite;
-            box-shadow: 3px 3px 5px rgba($black, 0.25);
-            .muted-members {
-              height: 16px;
-              font-size: 14px;
-              color: $ashy;
-            }
-            .ri-users {
-              display: flex;
-              flex-direction: column;
-              margin: 0;
-              padding: 0;
-              gap: 5px;
-              list-style: none;
-              .ri-user {
-                display: flex;
-                align-items: center;
-                gap: 3px;
-                width: 100%;
-                height: 20px;
-                .mini-profile-name {
-                  min-width: 0;
-                  max-width: 150px;
-                  height: 16px;
-                  overflow: hidden;
-                  color: $ashy;
-                  font-size: 14px;
-                  line-height: 1.2;
-                  text-overflow: ellipsis;
-                  white-space: nowrap;
-                }
-                img {
-                  width: 20px;
-                  height: 20px;
-                  border-radius: 50%;
-                  object-fit: cover;
-                }
-                .user-numb {
-                  font-size: 14px;
-                  font-variant-numeric: tabular-nums;
-                }
-                &.dead {
-                  opacity: 0.5;
-                }
-              }
-            }
-          }
-          .header-text {
-            margin-bottom: 10px;
-          }
         }
-        .ri-action {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          margin-top: 8px;
-          padding: 0 16px;
-          height: 40px;
-          border: none;
-          border-radius: 12px;
-          background-color: $green-500;
-          color: $neutral-900;
-          font-size: 16px;
-          font-family: Hauora-Regular;
-          line-height: 16px;
-          letter-spacing: -0.32px;
-          cursor: pointer;
-          transition: color 0.25s ease-in-out, background-color 0.25s ease-in-out;
-          &:disabled {
-            background-color: $neutral-800;
-            color: $neutral-500;
-            cursor: not-allowed;
-          }
-          &:not(:disabled):hover,
-          &:not(:disabled):focus-visible,
-          &:not(:disabled):active {
-            background-color: $green-300;
+        .ri-actions {
+          display: inline-grid;
+          .ri-action {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 8px;
+            padding: 0 16px;
+            height: 40px;
+            border: none;
+            border-radius: 12px;
+            background-color: $green-500;
+            color: $neutral-900;
+            font-size: 16px;
+            font-family: Hauora-Regular;
+            line-height: 16px;
+            letter-spacing: -0.32px;
+            cursor: pointer;
+            transition: color 0.25s ease-in-out, background-color 0.25s ease-in-out;
+            &:disabled {
+              background-color: $neutral-800;
+              color: $neutral-500;
+              cursor: not-allowed;
+            }
+            &:not(:disabled):hover,
+            &:not(:disabled):focus-visible,
+            &:not(:disabled):active {
+              background-color: $green-300;
+            }
           }
         }
       }
