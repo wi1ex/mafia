@@ -4,38 +4,34 @@
     <div class="carousel-viewport">
       <Transition :name="slideTransitionName" mode="out-in">
         <article v-if="activeIndex === 0" key="slide-1" class="slide slide--one">
-          <div class="slide-surface">
-            <div class="slide-content"></div>
+          <div class="slide-content">
+
           </div>
         </article>
 
         <article v-else-if="activeIndex === 1" key="slide-2" class="slide slide--two">
-          <div class="slide-surface">
-            <div class="slide-content"></div>
+          <div class="slide-content">
+
           </div>
         </article>
 
         <article v-else-if="activeIndex === 2" key="slide-3" class="slide slide--three">
-          <div class="slide-surface">
-            <div class="slide-content"></div>
+          <div class="slide-content">
+
           </div>
         </article>
 
         <article v-else-if="activeIndex === 3" key="slide-4" class="slide slide--four">
-          <div class="slide-surface">
-            <div class="slide-content"></div>
+          <div class="slide-content">
+
           </div>
         </article>
 
         <article v-else key="install" class="slide slide--install">
-          <div class="slide-surface">
-            <div class="slide-content slide-content--install">
-              <div class="slide-actions">
-                <button type="button" class="primary-btn" :disabled="installButtonDisabled" @click="openInstall">
-                  {{ installButtonLabel }}
-                </button>
-              </div>
-            </div>
+          <div class="slide-content">
+            <button type="button" class="primary-btn" :disabled="installButtonDisabled" @click="openInstall">
+              {{ installButtonLabel }}
+            </button>
           </div>
         </article>
       </Transition>
@@ -210,24 +206,19 @@ onBeforeUnmount(() => {
 <style scoped lang="scss">
 .home-carousel {
   display: flex;
-  flex-direction: column;
   width: 100%;
   height: 100%;
-  box-sizing: border-box;
-  outline: none;
   .carousel-viewport {
-    position: relative;
-    flex: 1 1 auto;
-    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 24px 24px 16px;
+    width: calc(100% - 48px);
+    height: calc(100% - 40px);
+    background-color: $neutral-800;
     .slide {
-      position: relative;
+      display: flex;
       width: 100%;
       height: 100%;
-      overflow: hidden;
-      .slide-surface {
-        position: absolute;
-        inset: 0;
-      }
       .slide-content {
         display: flex;
         position: relative;
@@ -236,48 +227,16 @@ onBeforeUnmount(() => {
         padding: 15px 15px 82px;
         gap: 15px;
         box-sizing: border-box;
-        background-color: $neutral-800;
         overflow: auto;
         scrollbar-width: none;
         z-index: 1;
-        &::-webkit-scrollbar {
-          display: none;
-        }
-        &.slide-content--install {
+        .primary-btn {
+          display: inline-flex;
           align-items: center;
           justify-content: center;
-        }
-      }
-      .slide-actions {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-      .primary-btn {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-width: 220px;
-        height: 40px;
-        border: none;
-        border-radius: 10px;
-        background-color: $fg;
-        color: $bg;
-        font-size: 16px;
-        font-family: Manrope-SemiBold;
-        text-decoration: none;
-        outline: none;
-        cursor: pointer;
-        transition: opacity 0.25s ease-in-out, box-shadow 0.25s ease-in-out, background-color 0.25s ease-in-out;
-        &:hover,
-        &:focus-visible {
-          box-shadow: 0 15px 30px rgba($black, 0.25);
-          background-color: $white;
-        }
-        &:disabled {
-          cursor: default;
-          opacity: 0.5;
-          box-shadow: none;
+          min-width: 220px;
+          height: 40px;
+          border: none;
         }
       }
     }
@@ -291,15 +250,7 @@ onBeforeUnmount(() => {
       padding: 5px 10px;
       gap: 10px;
       overflow: hidden;
-      isolation: isolate;
-      border: 1px solid rgba($white, 0.1);
       border-radius: 999px;
-      background:
-        linear-gradient(180deg, rgba($white, 0.1), rgba($white, 0.05) 50%, rgba($white, 0.01)),
-        radial-gradient(circle at top center, rgba($white, 0.1), transparent 75%),
-        rgba($bg, 0.5);
-      -webkit-backdrop-filter: blur(30px) saturate(180%) brightness(1.25);
-      backdrop-filter: blur(30px) saturate(180%) brightness(1.25);
       transform: translateX(-50%);
       box-shadow:
         inset 0 1px 0 rgba($white, 0.25),
@@ -315,29 +266,13 @@ onBeforeUnmount(() => {
         height: 40px;
         position: relative;
         overflow: hidden;
-        isolation: isolate;
-        border: 1px solid rgba($white, 0.1);
         border-radius: 50%;
-        background:
-          linear-gradient(180deg, rgba($white, 0.1), rgba($white, 0.05) 50%, rgba($white, 0.05)),
-          radial-gradient(circle at top left, rgba($white, 0.25), transparent 50%),
-          rgba($bg, 0.35);
-        box-shadow:
-          inset 0 1px 0 rgba($white, 0.25),
-          inset 0 -1px 0 rgba($white, 0.1),
-          0 10px 20px rgba($black, 0.1);
-        -webkit-backdrop-filter: blur(20px) saturate(180%) brightness(1.25);
-        backdrop-filter: blur(20px) saturate(180%) brightness(1.25);
-        outline: none;
+        background-color: grey;
         cursor: pointer;
         transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
         &:hover,
         &:focus-visible {
           border-color: rgba($white, 0.25);
-          box-shadow:
-            inset 0 1px 0 rgba($white, 0.25),
-            inset 0 -1px 0 rgba($white, 0.1),
-            0 15px 30px rgba($black, 0.1);
         }
         .nav-icon {
           width: 20px;
@@ -356,36 +291,20 @@ onBeforeUnmount(() => {
         overflow: hidden;
         width: 20px;
         height: 10px;
-        border: 1px solid rgba($white, 0.1);
         border-radius: 999px;
-        background:
-          linear-gradient(180deg, rgba($white, 0.1), rgba($white, 0.05)),
-          rgba($white, 0.1);
-        box-shadow:
-          inset 0 1px 0 rgba($white, 0.25),
-          0 5px 10px rgba($black, 0.1);
-        outline: none;
         cursor: pointer;
         transition: width 0.25s ease-in-out, background-color 0.25s ease-in-out, border-color 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
         &:hover,
         &:focus-visible {
-          border-color: rgba($white, 0.1);
           background:
             linear-gradient(180deg, rgba($white, 0.25), rgba($white, 0.1)),
             rgba($white, 0.25);
-          box-shadow:
-            inset 0 1px 0 rgba($white, 0.25),
-            0 5px 15px rgba($black, 0.1);
         }
         &.active {
           width: 50px;
-          border-color: rgba($white, 0.1);
           background:
             linear-gradient(180deg, rgba($white, 0.25), rgba($white, 0.1)),
             rgba($white, 0.25);
-          box-shadow:
-            inset 0 1px 0 rgba($white, 0.25),
-            0 5px 15px rgba($black, 0.1);
         }
       }
     }

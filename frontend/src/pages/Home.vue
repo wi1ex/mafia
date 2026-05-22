@@ -175,7 +175,6 @@
       <div class="right-extra right-extra--primary" :class="{ 'right--top-banner': topBannerActive }">
         <div class="support-extra">
           <div class="support-extra-copy">
-            <span class="support-extra-title">Приятные бонусы</span>
             <p>Кастомизация профиля (GIF-аватары, выбор цвета и иконки профиля), обнуление истории никнеймов, скрытые комнаты, игры без зрителей и трансляции в качестве 1080p.</p>
           </div>
           <button type="button" class="support-extra-btn" @click="openSupportModal">Поддержать платформу</button>
@@ -1481,11 +1480,11 @@ onBeforeUnmount(() => {
       padding: 24px;
       border-radius: 24px;
       &--primary {
-        height: 430px;
-        min-height: 138px;
+        height: 382px;
+        min-height: 90px;
         background-color: $neutral-800;
         &.right--top-banner {
-          height: 390px;
+          height: 342px;
         }
         .support-extra {
           display: flex;
@@ -1499,13 +1498,6 @@ onBeforeUnmount(() => {
             flex-direction: column;
             gap: 8px;
             min-height: 0;
-            .support-extra-title {
-              color: $neutral-white;
-              font-size: 20px;
-              font-family: Hauora-SemiBold;
-              line-height: 24px;
-              letter-spacing: -0.4px;
-            }
             p {
               margin: 0;
               color: $neutral-200;
@@ -1542,8 +1534,8 @@ onBeforeUnmount(() => {
         }
       }
       &--secondary {
-        height: 215px;
-        min-height: 122px;
+        height: 167px;
+        min-height: 74px;
         background-color: $neutral-800;
       }
     }
