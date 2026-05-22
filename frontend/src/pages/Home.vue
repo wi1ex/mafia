@@ -90,65 +90,63 @@
               </div>
 
               <div class="ri-meta-game" v-if="canShowGameMeta">
-                <div class="ri-game" v-if="game">
-                  <span>Параметры игры:</span>
-                  <div class="ri-game-div">
-                    <span>Зрители</span>
-                    <span ref="spectatorsWrapEl" class="spectators-wrap">
-                      <button v-if="spectatorsTooltipEnabled" class="spectators-btn" type="button" @click.stop="onSpectatorsToggle" aria-label="Показать зрителей">
-                        <img :src="iconVisOn" alt="" aria-hidden="true" />
-                      </button>
-                      <span>{{ spectatorsLabel }}</span>
-                      <div v-if="spectatorsTooltipVisible" class="spectators-tooltip">
-                        <div v-if="spectatorsError">{{ spectatorsError }}</div>
-                        <div v-else-if="spectators.length === 0">Нет зрителей</div>
-                        <div v-else class="spectators-list">
-                          <div v-for="s in spectators" :key="`spectator-${s.id}`" class="spectators-row">
-                            <button class="mini-profile-user-trigger" type="button" :disabled="!canOpenRoomInfoMiniProfileForUser(s)" @click="openMiniProfileFromRoomInfo(s)">
-                              <img v-minio-img="{ key: s.avatar_name ? `avatars/${s.avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false }" alt="avatar" />
-                              <span class="mini-profile-name">{{ s.username || ('user' + s.id) }}</span>
-                            </button>
-                          </div>
+                <span class="ri-meta-title">Параметры игры:</span>
+                <div class="ri-game-div">
+                  <span class="ri-meta-text">Зрители</span>
+                  <span ref="spectatorsWrapEl" class="spectators-wrap">
+                    <button v-if="spectatorsTooltipEnabled" class="spectators-btn" type="button" @click.stop="onSpectatorsToggle" aria-label="Показать зрителей">
+                      <img :src="iconVisOn" alt="" aria-hidden="true" />
+                    </button>
+                    <span class="ri-meta-value">{{ spectatorsLabel }}</span>
+                    <div v-if="spectatorsTooltipVisible" class="spectators-tooltip">
+                      <div v-if="spectatorsError">{{ spectatorsError }}</div>
+                      <div v-else-if="spectators.length === 0">Нет зрителей</div>
+                      <div v-else class="spectators-list">
+                        <div v-for="s in spectators" :key="`spectator-${s.id}`" class="spectators-row">
+                          <button class="mini-profile-user-trigger" type="button" :disabled="!canOpenRoomInfoMiniProfileForUser(s)" @click="openMiniProfileFromRoomInfo(s)">
+                            <img v-minio-img="{ key: s.avatar_name ? `avatars/${s.avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false }" alt="avatar" />
+                            <span class="mini-profile-name">{{ s.username || ('user' + s.id) }}</span>
+                          </button>
                         </div>
                       </div>
-                    </span>
-                  </div>
-                  <div class="ri-game-div">
-                    <span>Режим</span>
-                    <span>{{ game.mode === 'normal' ? 'Обычный' : 'Рейтинг' }}</span>
-                  </div>
-                  <div class="ri-game-div">
-                    <span>Судья</span>
-                    <span>{{ game.format === 'hosted' ? 'Ведущий' : 'Без ведущего' }}</span>
-                  </div>
-                  <div class="ri-game-div">
-                    <span>Выставления</span>
-                    <span>{{ game.nominate_mode === 'head' ? 'От ведущего' : 'От игроков' }}</span>
-                  </div>
-                  <div class="ri-game-div">
-                    <span>Завещания</span>
-                    <span>{{ game.farewell_wills ? 'Вкл' : 'Откл' }}</span>
-                  </div>
-                  <div class="ri-game-div">
-                    <span>Подмигивать/Стучать</span>
-                    <span>{{ game.wink_knock ? 'Вкл' : 'Откл' }}</span>
-                  </div>
-                  <div class="ri-game-div">
-                    <span>Слом в нуле</span>
-                    <span>{{ game.break_at_zero ? 'Вкл' : 'Откл' }}</span>
-                  </div>
-                  <div class="ri-game-div">
-                    <span>Подъем в нуле</span>
-                    <span>{{ game.lift_at_zero ? 'Вкл' : 'Откл' }}</span>
-                  </div>
-                  <div class="ri-game-div">
-                    <span>Подъем 3х при 9х</span>
-                    <span>{{ game.lift_3x ? 'Вкл' : 'Откл' }}</span>
-                  </div>
-                  <div class="ri-game-div">
-                    <span>Музыка</span>
-                    <span>{{ game.music ? 'Вкл' : 'Откл' }}</span>
-                  </div>
+                    </div>
+                  </span>
+                </div>
+                <div class="ri-game-div">
+                  <span class="ri-meta-text">Режим</span>
+                  <span class="ri-meta-value">{{ game.mode === 'normal' ? 'Обычный' : 'Рейтинг' }}</span>
+                </div>
+                <div class="ri-game-div">
+                  <span class="ri-meta-text">Судья</span>
+                  <span class="ri-meta-value">{{ game.format === 'hosted' ? 'Ведущий' : 'Без ведущего' }}</span>
+                </div>
+                <div class="ri-game-div">
+                  <span class="ri-meta-text">Выставления</span>
+                  <span class="ri-meta-value">{{ game.nominate_mode === 'head' ? 'От ведущего' : 'От игроков' }}</span>
+                </div>
+                <div class="ri-game-div">
+                  <span class="ri-meta-text">Завещания</span>
+                  <span class="ri-meta-value">{{ game.farewell_wills ? 'Вкл' : 'Откл' }}</span>
+                </div>
+                <div class="ri-game-div">
+                  <span class="ri-meta-text">Подмигивать/Стучать</span>
+                  <span class="ri-meta-value">{{ game.wink_knock ? 'Вкл' : 'Откл' }}</span>
+                </div>
+                <div class="ri-game-div">
+                  <span class="ri-meta-text">Слом в нуле</span>
+                  <span class="ri-meta-value">{{ game.break_at_zero ? 'Вкл' : 'Откл' }}</span>
+                </div>
+                <div class="ri-game-div">
+                  <span class="ri-meta-text">Подъем в нуле</span>
+                  <span class="ri-meta-value">{{ game.lift_at_zero ? 'Вкл' : 'Откл' }}</span>
+                </div>
+                <div class="ri-game-div">
+                  <span class="ri-meta-text">Подъем 3х при 9х</span>
+                  <span class="ri-meta-value">{{ game.lift_3x ? 'Вкл' : 'Откл' }}</span>
+                </div>
+                <div class="ri-game-div">
+                  <span class="ri-meta-text">Музыка</span>
+                  <span class="ri-meta-value">{{ game.music ? 'Вкл' : 'Откл' }}</span>
                 </div>
               </div>
             </div>
@@ -413,7 +411,7 @@ const canShowGameMeta = computed(() => {
   if (!room) return false
   if (room.in_game) return true
   const limit = Number(room.user_limit)
-  return Number.isFinite(limit) && limit === gameLimitMin.value
+  return Number.isFinite(limit) && limit === gameLimitMin.value && game
 })
 const spectatorsLabel = computed(() => {
   const limit = game.value?.spectators_limit ?? 0
@@ -1188,6 +1186,8 @@ onBeforeUnmount(() => {
         .ri-info {
           display: flex;
           gap: 10px;
+          width: 100%;
+          height: 100%;
           .mini-profile-user-trigger {
             display: inline-flex;
             align-items: center;
@@ -1283,86 +1283,95 @@ onBeforeUnmount(() => {
           .ri-meta-game {
             display: flex;
             flex-direction: column;
-            gap: 10px;
-            width: calc(60% - 15px);
-            .ri-game {
+            padding: 12px;
+            gap: 8px;
+            width: calc(50% - 24px);
+            border-radius: 20px;
+            background-color: $soft-purple-800;
+            .ri-meta-title {
+              color: $neutral-white;
+              font-family: Involve-Medium;
+              font-size: 14px;
+              line-height: 16px;
+              letter-spacing: -0.28px;
+            }
+            .ri-game-div {
               display: flex;
-              flex-direction: column;
-              padding: 10px;
-              gap: 5px;
-              border-radius: 5px;
-              background-color: $graphite;
-              box-shadow: 3px 3px 5px rgba($black, 0.25);
-              .ri-game-div {
+              align-items: center;
+              justify-content: space-between;
+              .ri-meta-text,
+              .ri-meta-value {
+                font-family: Hauora-Regular;
+                font-size: 14px;
+                line-height: 14px;
+                letter-spacing: -0.28px;
+              }
+              .ri-meta-text {
+                color: $neutral-300;
+              }
+              .ri-meta-value {
+                color: $neutral-white;
+              }
+              .spectators-wrap {
                 display: flex;
+                position: relative;
                 align-items: center;
-                justify-content: space-between;
-                span {
-                  height: 16px;
-                  font-size: 14px;
-                  color: $ashy;
-                }
-                .spectators-wrap {
+                gap: 5px;
+                cursor: default;
+                .spectators-btn {
                   display: flex;
-                  position: relative;
                   align-items: center;
-                  gap: 5px;
-                  cursor: default;
-                  .spectators-btn {
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
+                  justify-content: center;
+                  width: 16px;
+                  height: 16px;
+                  padding: 0;
+                  border: none;
+                  background: none;
+                  cursor: pointer;
+                  img {
                     width: 16px;
                     height: 16px;
-                    padding: 0;
-                    border: none;
-                    background: none;
-                    cursor: pointer;
-                    img {
-                      width: 16px;
-                      height: 16px;
-                    }
                   }
-                  .spectators-tooltip {
+                }
+                .spectators-tooltip {
+                  display: flex;
+                  position: absolute;
+                  flex-direction: column;
+                  top: calc(100% + 3px);
+                  right: -1px;
+                  padding: 10px;
+                  gap: 5px;
+                  min-width: 100px;
+                  max-width: 200px;
+                  border-radius: 5px;
+                  background-color: $dark;
+                  box-shadow: 0 5px 15px rgba($black, 0.25);
+                  border: 3px solid $lead;
+                  z-index: 5;
+                  pointer-events: auto;
+                  .spectators-list {
                     display: flex;
-                    position: absolute;
                     flex-direction: column;
-                    top: calc(100% + 3px);
-                    right: -1px;
-                    padding: 10px;
                     gap: 5px;
-                    min-width: 100px;
-                    max-width: 200px;
-                    border-radius: 5px;
-                    background-color: $dark;
-                    box-shadow: 0 5px 15px rgba($black, 0.25);
-                    border: 3px solid $lead;
-                    z-index: 5;
-                    pointer-events: auto;
-                    .spectators-list {
+                    .spectators-row {
                       display: flex;
-                      flex-direction: column;
+                      align-items: center;
                       gap: 5px;
-                      .spectators-row {
-                        display: flex;
-                        align-items: center;
-                        gap: 5px;
-                        .mini-profile-name {
-                          min-width: 0;
-                          max-width: 175px;
-                          overflow: hidden;
-                          color: $fg;
-                          font-size: 14px;
-                          line-height: 1.2;
-                          text-overflow: ellipsis;
-                          white-space: nowrap;
-                        }
-                        img {
-                          width: 20px;
-                          height: 20px;
-                          border-radius: 50%;
-                          object-fit: cover;
-                        }
+                      .mini-profile-name {
+                        min-width: 0;
+                        max-width: 175px;
+                        overflow: hidden;
+                        color: $fg;
+                        font-size: 14px;
+                        line-height: 1.2;
+                        text-overflow: ellipsis;
+                        white-space: nowrap;
+                      }
+                      img {
+                        width: 20px;
+                        height: 20px;
+                        border-radius: 50%;
+                        object-fit: cover;
                       }
                     }
                   }
