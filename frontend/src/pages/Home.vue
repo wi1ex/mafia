@@ -70,19 +70,19 @@
             </header>
 
             <div class="ri-info">
-              <div class="ri-members">
+              <div class="ri-members" :class="{ solo: !canShowGameMeta }">
                 <div class="ri-members-div">
                   <span class="ri-members-title">Участники:</span>
                   <span class="ri-members-count">{{ selectedRoom?.occupancy ?? 0 }}/{{ selectedRoom?.user_limit ?? 0 }}</span>
                 </div>
                 <div v-if="(info?.members?.length ?? 0) === 0" class="muted-members">Пока никого</div>
                 <ul v-else class="ri-users">
-                  <li class="ri-user" v-for="m in sortedMembers" :key="m.id" :class="{ dead: m.role === 'player' && m.alive === false }">
+                  <li class="ri-user" v-for="m in sortedMembers" :key="m.id">
                     <span v-if="m.role === 'head'" class="user-numb">Вед. </span>
                     <span v-else-if="m.role === 'player' && m.slot != null" class="user-numb">{{ formatSeatNumber(m.slot) }}. </span>
                     <button class="mini-profile-user-trigger" type="button" :disabled="!canOpenRoomInfoMiniProfileForUser(m)" @click="openMiniProfileFromRoomInfo(m)">
                       <img v-minio-img="{ key: m.avatar_name ? `avatars/${m.avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false }" alt="avatar" />
-                      <span class="mini-profile-name">{{ m.username || ('user' + m.id) }}</span>
+                      <span class="mini-profile-name" :class="{ dead: m.role === 'player' && m.alive === false }">{{ m.username || ('user' + m.id) }}</span>
                     </button>
                     <img v-if="m.screen" :src="iconScreenOn" alt="streaming" />
                   </li>
@@ -1213,6 +1213,9 @@ onBeforeUnmount(() => {
             width: calc(50% - 24px);
             border-radius: 20px;
             background-color: $soft-purple-800;
+            &.solo {
+              width: calc(100% - 24px);
+            }
             .ri-members-div {
               display: flex;
               align-items: center;
@@ -1220,8 +1223,8 @@ onBeforeUnmount(() => {
               .ri-members-title {
                 color: $neutral-white;
                 font-family: Involve-Medium;
-                font-size: 14px;
-                line-height: 16px;
+                font-size: 16px;
+                line-height: 22px;
                 letter-spacing: -0.28px;
               }
               .ri-members-count {
@@ -1245,14 +1248,17 @@ onBeforeUnmount(() => {
               flex-direction: column;
               margin: 0;
               padding: 0;
-              gap: 5px;
+              gap: 4px;
               list-style: none;
               .ri-user {
                 display: flex;
                 align-items: center;
-                gap: 3px;
+                gap: 8px;
                 width: 100%;
-                height: 20px;
+                .user-numb {
+                  font-size: 14px;
+                  font-variant-numeric: tabular-nums;
+                }
                 .mini-profile-name {
                   min-width: 0;
                   max-width: 150px;
@@ -1263,19 +1269,15 @@ onBeforeUnmount(() => {
                   line-height: 1.2;
                   text-overflow: ellipsis;
                   white-space: nowrap;
+                  &.dead {
+                    opacity: 0.5;
+                  }
                 }
                 img {
                   width: 20px;
                   height: 20px;
                   border-radius: 50%;
                   object-fit: cover;
-                }
-                .user-numb {
-                  font-size: 14px;
-                  font-variant-numeric: tabular-nums;
-                }
-                &.dead {
-                  opacity: 0.5;
                 }
               }
             }
@@ -1291,8 +1293,8 @@ onBeforeUnmount(() => {
             .ri-meta-title {
               color: $neutral-white;
               font-family: Involve-Medium;
-              font-size: 14px;
-              line-height: 16px;
+              font-size: 16px;
+              line-height: 22px;
               letter-spacing: -0.28px;
             }
             .ri-game-div {
@@ -1418,14 +1420,14 @@ onBeforeUnmount(() => {
       border-radius: 24px;
       &--primary {
         height: 178px;
-        background-color: $green-500;
+        background-color: $neutral-500;
         &.right--top-banner {
           height: 138px;
         }
       }
       &--secondary {
         height: 122px;
-        background-color: $red-500;
+        background-color: $neutral-500;
       }
     }
   }
