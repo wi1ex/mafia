@@ -1457,14 +1457,16 @@ onBeforeUnmount(() => {
       display: flex;
       border-radius: 24px;
       &--primary {
-        height: 178px;
+        height: 430px;
+        min-height: 138px;
         background-color: $neutral-500;
         &.right--top-banner {
-          height: 138px;
+          height: 390px;
         }
       }
       &--secondary {
-        height: 122px;
+        height: 215px;
+        min-height: 122px;
         background-color: $neutral-500;
       }
     }
