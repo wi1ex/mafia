@@ -39,6 +39,12 @@
                   </button>
                 </th>
                 <th>
+                  <button class="th-sort" type="button" :class="{ active: usersSortBy === 'registered_at' }" @click="setUsersSort('registered_at')">
+                    Регистрация
+                    <span class="th-sort-mark" aria-hidden="true">▼</span>
+                  </button>
+                </th>
+                <th>
                   <button class="th-sort" type="button" :class="{ active: usersSortBy === 'last_room_id' }" @click="setUsersSort('last_room_id')">
                     Последнее общение
                     <span class="th-sort-mark" aria-hidden="true">▼</span>
@@ -84,8 +90,9 @@
                     </button>
                   </div>
                 </td>
-                <td>{{ row.last_room_id ?? '-' }}</td>
-                <td>{{ row.last_spectator_room_id ?? '-' }}</td>
+                <td>{{ formatLocalDateTime(row.registered_at) }}</td>
+                <td>{{ formatRoomIdLabel(row.last_room_id) }}</td>
+                <td>{{ formatRoomIdLabel(row.last_spectator_room_id) }}</td>
                 <td>{{ row.suspends_count }}</td>
                 <td>{{ row.timeouts_count }}</td>
                 <td>{{ row.bans_count }}</td>
@@ -111,7 +118,7 @@
                 </td>
               </tr>
               <tr v-if="users.length === 0">
-                <td colspan="10" class="muted">Нет данных</td>
+                <td colspan="11" class="muted">Нет данных</td>
               </tr>
             </tbody>
           </table>
@@ -316,6 +323,7 @@ type UserMiniProfileTarget = {
 
 type UsersSortBy =
   | 'username'
+  | 'registered_at'
   | 'last_room_id'
   | 'last_spectator_room_id'
   | 'timeouts_count'
@@ -331,7 +339,7 @@ const usersTotal = ref(0)
 const usersPage = ref(1)
 const usersLimit = ref(20)
 const usersUser = ref('')
-const usersSortBy = ref<UsersSortBy>('username')
+const usersSortBy = ref<UsersSortBy>('registered_at')
 const usersSanctionBusy = reactive<Record<string, boolean>>({})
 const usersAvatarBusy = reactive<Record<number, boolean>>({})
 const usersNicknameBusy = reactive<Record<number, boolean>>({})
@@ -431,6 +439,11 @@ const sanctionAdjustTitle = computed(() => {
 function setUsersSort(sortBy: UsersSortBy): void {
   if (usersSortBy.value === sortBy) return
   usersSortBy.value = sortBy
+}
+
+function formatRoomIdLabel(value?: number | null): string {
+  const roomId = Number(value)
+  return Number.isFinite(roomId) && roomId > 0 ? `Комната ${Math.trunc(roomId)}` : '-'
 }
 
 function formatDurationSeconds(seconds?: number | null, zeroLabel = 'без срока'): string {

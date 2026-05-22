@@ -140,6 +140,14 @@
                 <span class="value">{{ stats.total_users }}</span>
               </div>
               <div class="stat-card">
+                <span class="label">Не верифицировано</span>
+                <span class="value">{{ stats.unverified_users }}</span>
+              </div>
+              <div class="stat-card">
+                <span class="label">Без уведомлений</span>
+                <span class="value">{{ stats.tg_invites_disabled_users }}</span>
+              </div>
+              <div class="stat-card">
                 <span class="label">Аватары</span>
                 <span class="value">{{ stats.avatars_count }} ({{ formatBytes(stats.avatars_bytes) }})</span>
               </div>
@@ -544,6 +552,12 @@
                     </button>
                   </th>
                   <th>
+                    <button class="th-sort" type="button" :class="{ active: usersSortBy === 'registered_at' }" @click="setUsersSort('registered_at')">
+                      Регистрация
+                      <span class="th-sort-mark" aria-hidden="true">▼</span>
+                    </button>
+                  </th>
+                  <th>
                     <button class="th-sort" type="button" :class="{ active: usersSortBy === 'last_room_id' }" @click="setUsersSort('last_room_id')">
                       Последнее общение
                       <span class="th-sort-mark" aria-hidden="true">▼</span>
@@ -552,12 +566,6 @@
                   <th>
                     <button class="th-sort" type="button" :class="{ active: usersSortBy === 'last_spectator_room_id' }" @click="setUsersSort('last_spectator_room_id')">
                       Последний зритель
-                      <span class="th-sort-mark" aria-hidden="true">▼</span>
-                    </button>
-                  </th>
-                  <th>
-                    <button class="th-sort" type="button" :class="{ active: usersSortBy === 'tg_invites_enabled' }" @click="setUsersSort('tg_invites_enabled')">
-                      TG-уведомления
                       <span class="th-sort-mark" aria-hidden="true">▼</span>
                     </button>
                   </th>
@@ -602,9 +610,9 @@
                     </div>
                     <span v-else>-</span>
                   </td>
-                  <td>{{ row.last_room_id ?? '-' }}</td>
-                  <td>{{ row.last_spectator_room_id ?? '-' }}</td>
-                  <td>{{ row.tg_invites_enabled ? 'Вкл' : 'Откл' }}</td>
+                  <td>{{ formatLocalDateTime(row.registered_at) }}</td>
+                  <td>{{ formatRoomIdLabel(row.last_room_id) }}</td>
+                  <td>{{ formatRoomIdLabel(row.last_spectator_room_id) }}</td>
                   <td>{{ row.suspends_count }}</td>
                   <td>{{ row.timeouts_count }}</td>
                   <td>{{ row.bans_count }}</td>
@@ -944,6 +952,8 @@ type PeriodStats = {
 
 type SiteStats = {
   total_users: number
+  unverified_users: number
+  tg_invites_disabled_users: number
   avatars_count: number
   avatars_bytes: number
   images_count: number
@@ -1193,6 +1203,8 @@ const gameSnapshot = ref('')
 const statsMonth = ref('')
 const stats = reactive<SiteStats>({
   total_users: 0,
+  unverified_users: 0,
+  tg_invites_disabled_users: 0,
   avatars_count: 0,
   avatars_bytes: 0,
   images_count: 0,
@@ -1237,7 +1249,7 @@ const usersTotal = ref(0)
 const usersPage = ref(1)
 const usersLimit = ref(20)
 const usersUser = ref('')
-const usersSortBy = ref<UsersSortBy>('username')
+const usersSortBy = ref<UsersSortBy>('registered_at')
 const sanctions = ref<SanctionsRow[]>([])
 const sanctionsTotal = ref(0)
 const sanctionsPage = ref(1)
@@ -1597,6 +1609,11 @@ function formatMinutes(value: number): string {
   if (hours > 0) parts.push(`${hours}ч`)
   if (minutes > 0 || parts.length === 0) parts.push(`${minutes}м`)
   return parts.join(' ')
+}
+
+function formatRoomIdLabel(value?: number | null): string {
+  const roomId = Number(value)
+  return Number.isFinite(roomId) && roomId > 0 ? `Комната ${Math.trunc(roomId)}` : '-'
 }
 
 function formatBytes(value: number): string {
@@ -2049,6 +2066,8 @@ async function loadStats(): Promise<void> {
     const { data } = await api.get('/admin/stats', { params })
     Object.assign(stats, {
       total_users: data?.total_users ?? 0,
+      unverified_users: data?.unverified_users ?? 0,
+      tg_invites_disabled_users: data?.tg_invites_disabled_users ?? 0,
       avatars_count: data?.avatars_count ?? 0,
       avatars_bytes: data?.avatars_bytes ?? 0,
       images_count: data?.images_count ?? 0,
