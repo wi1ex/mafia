@@ -309,6 +309,8 @@ MODERATION_USERS_SORT_ALLOWED = {
     "last_login_at",
     "last_visit_at",
     "last_game_at",
+    "last_room_id",
+    "last_spectator_room_id",
     "timeouts_count",
     "bans_count",
     "suspends_count",
@@ -815,9 +817,15 @@ def user_sort_metric(
     return 0
 
 
-def moderation_user_sort_metric(*, sort_by: str, uid: int, sanction_counts: dict[int, dict[str, int]], last_game_at_ts: dict[int, int]) -> int:
+def moderation_user_sort_metric(*, sort_by: str, uid: int, sanction_counts: dict[int, dict[str, int]], last_game_at_ts: dict[int, int], last_room_id: dict[int, int | None], last_spectator_room_id: dict[int, int | None]) -> int:
     if sort_by == "last_game_at":
         return last_game_at_ts.get(uid, 0)
+
+    if sort_by == "last_room_id":
+        return int(last_room_id.get(uid) or 0)
+
+    if sort_by == "last_spectator_room_id":
+        return int(last_spectator_room_id.get(uid) or 0)
 
     if sort_by == "timeouts_count":
         return (sanction_counts.get(uid) or {}).get(SANCTION_TIMEOUT, 0)

@@ -544,36 +544,6 @@
                     </button>
                   </th>
                   <th>
-                    <button class="th-sort" type="button" :class="{ active: usersSortBy === 'role' }" @click="setUsersSort('role')">
-                      Роль
-                      <span class="th-sort-mark" aria-hidden="true">▼</span>
-                    </button>
-                  </th>
-                  <th>
-                    <button class="th-sort" type="button" :class="{ active: usersSortBy === 'registered_at' }" @click="setUsersSort('registered_at')">
-                      Регистрация
-                      <span class="th-sort-mark" aria-hidden="true">▼</span>
-                    </button>
-                  </th>
-                  <th>
-                    <button class="th-sort" type="button" :class="{ active: usersSortBy === 'last_login_at' }" @click="setUsersSort('last_login_at')">
-                      Авторизация
-                      <span class="th-sort-mark" aria-hidden="true">▼</span>
-                    </button>
-                  </th>
-                  <th>
-                    <button class="th-sort" type="button" :class="{ active: usersSortBy === 'last_visit_at' }" @click="setUsersSort('last_visit_at')">
-                      Онлайн
-                      <span class="th-sort-mark" aria-hidden="true">▼</span>
-                    </button>
-                  </th>
-                  <th>
-                    <button class="th-sort" type="button" :class="{ active: usersSortBy === 'last_game_at' }" @click="setUsersSort('last_game_at')">
-                      Последняя игра
-                      <span class="th-sort-mark" aria-hidden="true">▼</span>
-                    </button>
-                  </th>
-                  <th>
                     <button class="th-sort" type="button" :class="{ active: usersSortBy === 'last_room_id' }" @click="setUsersSort('last_room_id')">
                       Последнее общение
                       <span class="th-sort-mark" aria-hidden="true">▼</span>
@@ -588,48 +558,6 @@
                   <th>
                     <button class="th-sort" type="button" :class="{ active: usersSortBy === 'tg_invites_enabled' }" @click="setUsersSort('tg_invites_enabled')">
                       TG-уведомления
-                      <span class="th-sort-mark" aria-hidden="true">▼</span>
-                    </button>
-                  </th>
-                  <th>
-                    <button class="th-sort" type="button" :class="{ active: usersSortBy === 'friends_count' }" @click="setUsersSort('friends_count')">
-                      Друзья
-                      <span class="th-sort-mark" aria-hidden="true">▼</span>
-                    </button>
-                  </th>
-                  <th>
-                    <button class="th-sort" type="button" :class="{ active: usersSortBy === 'rooms_created' }" @click="setUsersSort('rooms_created')">
-                      Комнаты
-                      <span class="th-sort-mark" aria-hidden="true">▼</span>
-                    </button>
-                  </th>
-                  <th>
-                    <button class="th-sort" type="button" :class="{ active: usersSortBy === 'room_minutes' }" @click="setUsersSort('room_minutes')">
-                      В комнатах
-                      <span class="th-sort-mark" aria-hidden="true">▼</span>
-                    </button>
-                  </th>
-                  <th>
-                    <button class="th-sort" type="button" :class="{ active: usersSortBy === 'stream_minutes' }" @click="setUsersSort('stream_minutes')">
-                      Стримы
-                      <span class="th-sort-mark" aria-hidden="true">▼</span>
-                    </button>
-                  </th>
-                  <th>
-                    <button class="th-sort" type="button" :class="{ active: usersSortBy === 'games_played' }" @click="setUsersSort('games_played')">
-                      Игры
-                      <span class="th-sort-mark" aria-hidden="true">▼</span>
-                    </button>
-                  </th>
-                  <th>
-                    <button class="th-sort" type="button" :class="{ active: usersSortBy === 'games_hosted' }" @click="setUsersSort('games_hosted')">
-                      Ведущий
-                      <span class="th-sort-mark" aria-hidden="true">▼</span>
-                    </button>
-                  </th>
-                  <th>
-                    <button class="th-sort" type="button" :class="{ active: usersSortBy === 'spectator_minutes' }" @click="setUsersSort('spectator_minutes')">
-                      Зритель
                       <span class="th-sort-mark" aria-hidden="true">▼</span>
                     </button>
                   </th>
@@ -674,21 +602,9 @@
                     </div>
                     <span v-else>-</span>
                   </td>
-                  <td>{{ row.role }}</td>
-                  <td>{{ formatLocalDateTime(row.registered_at) }}</td>
-                  <td>{{ formatLocalDateTime(row.last_login_at) }}</td>
-                  <td>{{ formatLocalDateTime(row.last_visit_at) }}</td>
-                  <td>{{ formatLocalDateTime(row.last_game_at) }}</td>
                   <td>{{ row.last_room_id ?? '-' }}</td>
                   <td>{{ row.last_spectator_room_id ?? '-' }}</td>
                   <td>{{ row.tg_invites_enabled ? 'Вкл' : 'Откл' }}</td>
-                  <td>{{ row.friends_count }}</td>
-                  <td>{{ row.rooms_created }}</td>
-                  <td>{{ formatMinutes(row.room_minutes) }}</td>
-                  <td>{{ formatMinutes(row.stream_minutes) }}</td>
-                  <td>{{ row.games_played }}</td>
-                  <td>{{ row.games_hosted }}</td>
-                  <td>{{ formatMinutes(row.spectator_minutes) }}</td>
                   <td>{{ row.suspends_count }}</td>
                   <td>{{ row.timeouts_count }}</td>
                   <td>{{ row.bans_count }}</td>
@@ -734,7 +650,7 @@
                   </td>
                 </tr>
                 <tr v-if="users.length === 0">
-                  <td colspan="30" class="muted">Нет данных</td>
+                  <td colspan="17" class="muted">Нет данных</td>
                 </tr>
               </tbody>
             </table>
@@ -1321,7 +1237,7 @@ const usersTotal = ref(0)
 const usersPage = ref(1)
 const usersLimit = ref(20)
 const usersUser = ref('')
-const usersSortBy = ref<UsersSortBy>('registered_at')
+const usersSortBy = ref<UsersSortBy>('username')
 const sanctions = ref<SanctionsRow[]>([])
 const sanctionsTotal = ref(0)
 const sanctionsPage = ref(1)

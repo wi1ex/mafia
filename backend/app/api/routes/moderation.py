@@ -42,6 +42,8 @@ from ..utils import (
     fetch_active_sanctions_for_users,
     fetch_sanction_counts_for_users,
     fetch_users_last_game_at,
+    fetch_users_last_room_id,
+    fetch_users_last_spectator_room_id,
     force_leave_user_from_rooms,
     format_duration_parts,
     format_duration_seconds_compact,
@@ -94,6 +96,8 @@ async def moderation_users_list(page: int = 1, limit: int = 20, username: str | 
         users = list(rows.scalars().all())
         ids = [int(u.id) for u in users]
         last_game_at = await fetch_users_last_game_at(session, ids)
+        last_room_id = await fetch_users_last_room_id(session, ids)
+        last_spectator_room_id = await fetch_users_last_spectator_room_id(session, ids)
     else:
         rows = await session.execute(select(User).where(*filters))
         all_users = list(rows.scalars().all())
@@ -108,6 +112,14 @@ async def moderation_users_list(page: int = 1, limit: int = 20, username: str | 
         else:
             all_last_game_at = {}
             last_game_at_ts = {}
+        if sort_key == "last_room_id":
+            all_last_room_id = await fetch_users_last_room_id(session, all_ids)
+        else:
+            all_last_room_id = {}
+        if sort_key == "last_spectator_room_id":
+            all_last_spectator_room_id = await fetch_users_last_spectator_room_id(session, all_ids)
+        else:
+            all_last_spectator_room_id = {}
 
         if sort_key == "username":
             users_sorted = sorted(
@@ -127,6 +139,8 @@ async def moderation_users_list(page: int = 1, limit: int = 20, username: str | 
                         uid=int(u.id),
                         sanction_counts=sanction_counts,
                         last_game_at_ts=last_game_at_ts,
+                        last_room_id=all_last_room_id,
+                        last_spectator_room_id=all_last_spectator_room_id,
                     ),
                     u.registered_at,
                     int(u.id),
@@ -139,6 +153,14 @@ async def moderation_users_list(page: int = 1, limit: int = 20, username: str | 
             last_game_at = {uid: all_last_game_at.get(uid) for uid in ids}
         else:
             last_game_at = await fetch_users_last_game_at(session, ids)
+        if sort_key == "last_room_id":
+            last_room_id = {uid: all_last_room_id.get(uid) for uid in ids}
+        else:
+            last_room_id = await fetch_users_last_room_id(session, ids)
+        if sort_key == "last_spectator_room_id":
+            last_spectator_room_id = {uid: all_last_spectator_room_id.get(uid) for uid in ids}
+        else:
+            last_spectator_room_id = await fetch_users_last_spectator_room_id(session, ids)
 
     ids = [int(u.id) for u in users]
     sanction_counts = await fetch_sanction_counts_for_users(session, ids)
@@ -160,6 +182,8 @@ async def moderation_users_list(page: int = 1, limit: int = 20, username: str | 
                 last_login_at=user.last_login_at,
                 last_visit_at=user.last_visit_at,
                 last_game_at=last_game_at.get(uid),
+                last_room_id=last_room_id.get(uid),
+                last_spectator_room_id=last_spectator_room_id.get(uid),
                 timeout_active=active_timeout is not None,
                 timeout_until=active_timeout.expires_at if active_timeout else None,
                 suspend_active=active_suspend is not None,

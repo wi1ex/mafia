@@ -39,26 +39,14 @@
                   </button>
                 </th>
                 <th>
-                  <button class="th-sort" type="button" :class="{ active: usersSortBy === 'registered_at' }" @click="setUsersSort('registered_at')">
-                    Регистрация
+                  <button class="th-sort" type="button" :class="{ active: usersSortBy === 'last_room_id' }" @click="setUsersSort('last_room_id')">
+                    Последнее общение
                     <span class="th-sort-mark" aria-hidden="true">▼</span>
                   </button>
                 </th>
                 <th>
-                  <button class="th-sort" type="button" :class="{ active: usersSortBy === 'last_login_at' }" @click="setUsersSort('last_login_at')">
-                    Авторизация
-                    <span class="th-sort-mark" aria-hidden="true">▼</span>
-                  </button>
-                </th>
-                <th>
-                  <button class="th-sort" type="button" :class="{ active: usersSortBy === 'last_visit_at' }" @click="setUsersSort('last_visit_at')">
-                    Онлайн
-                    <span class="th-sort-mark" aria-hidden="true">▼</span>
-                  </button>
-                </th>
-                <th>
-                  <button class="th-sort" type="button" :class="{ active: usersSortBy === 'last_game_at' }" @click="setUsersSort('last_game_at')">
-                    Последняя игра
+                  <button class="th-sort" type="button" :class="{ active: usersSortBy === 'last_spectator_room_id' }" @click="setUsersSort('last_spectator_room_id')">
+                    Последний зритель
                     <span class="th-sort-mark" aria-hidden="true">▼</span>
                   </button>
                 </th>
@@ -96,10 +84,8 @@
                     </button>
                   </div>
                 </td>
-                <td>{{ formatLocalDateTime(row.registered_at) }}</td>
-                <td>{{ formatLocalDateTime(row.last_login_at) }}</td>
-                <td>{{ formatLocalDateTime(row.last_visit_at) }}</td>
-                <td>{{ formatLocalDateTime(row.last_game_at) }}</td>
+                <td>{{ row.last_room_id ?? '-' }}</td>
+                <td>{{ row.last_spectator_room_id ?? '-' }}</td>
                 <td>{{ row.suspends_count }}</td>
                 <td>{{ row.timeouts_count }}</td>
                 <td>{{ row.bans_count }}</td>
@@ -125,7 +111,7 @@
                 </td>
               </tr>
               <tr v-if="users.length === 0">
-                <td colspan="12" class="muted">Нет данных</td>
+                <td colspan="10" class="muted">Нет данных</td>
               </tr>
             </tbody>
           </table>
@@ -309,6 +295,8 @@ type UserRow = {
   last_login_at: string
   last_visit_at: string
   last_game_at?: string | null
+  last_room_id?: number | null
+  last_spectator_room_id?: number | null
   timeout_active: boolean
   timeout_until?: string | null
   suspend_active: boolean
@@ -328,10 +316,8 @@ type UserMiniProfileTarget = {
 
 type UsersSortBy =
   | 'username'
-  | 'registered_at'
-  | 'last_login_at'
-  | 'last_visit_at'
-  | 'last_game_at'
+  | 'last_room_id'
+  | 'last_spectator_room_id'
   | 'timeouts_count'
   | 'bans_count'
   | 'suspends_count'
@@ -345,7 +331,7 @@ const usersTotal = ref(0)
 const usersPage = ref(1)
 const usersLimit = ref(20)
 const usersUser = ref('')
-const usersSortBy = ref<UsersSortBy>('registered_at')
+const usersSortBy = ref<UsersSortBy>('username')
 const usersSanctionBusy = reactive<Record<string, boolean>>({})
 const usersAvatarBusy = reactive<Record<number, boolean>>({})
 const usersNicknameBusy = reactive<Record<number, boolean>>({})
@@ -608,6 +594,8 @@ async function loadUsers(): Promise<void> {
       avatar_name: item?.avatar_name ?? null,
       role: String(item?.role || ''),
       last_game_at: item?.last_game_at ?? null,
+      last_room_id: Number.isFinite(item?.last_room_id) ? item.last_room_id : null,
+      last_spectator_room_id: Number.isFinite(item?.last_spectator_room_id) ? item.last_spectator_room_id : null,
       timeout_until: item?.timeout_until ?? null,
       suspend_until: item?.suspend_until ?? null,
     }))

@@ -13,6 +13,8 @@ class ModerationUserOut(BaseModel):
     last_login_at: datetime
     last_visit_at: datetime
     last_game_at: Optional[datetime] = None
+    last_room_id: Optional[int] = None
+    last_spectator_room_id: Optional[int] = None
     timeout_active: bool
     timeout_until: Optional[datetime] = None
     suspend_active: bool
