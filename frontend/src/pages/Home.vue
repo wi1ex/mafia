@@ -1481,11 +1481,11 @@ onBeforeUnmount(() => {
       border-radius: 24px;
       &--primary {
         min-height: 108px;
-        height: inherit;
-        max-height: 214px;
+        height: 108px;
+        max-height: 108px;
         background-color: $neutral-800;
         &.right--top-banner {
-          max-height: 174px;
+          max-height: 108px;
         }
         .support-extra {
           display: flex;
@@ -1535,8 +1535,8 @@ onBeforeUnmount(() => {
       }
       &--secondary {
         min-height: 74px;
-        height: inherit;
-        max-height: 139px;
+        height: 74px;
+        max-height: 74px;
         background-color: $neutral-800;
       }
     }
