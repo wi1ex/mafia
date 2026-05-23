@@ -1480,11 +1480,11 @@ onBeforeUnmount(() => {
       padding: 24px;
       border-radius: 24px;
       &--primary {
-        height: 382px;
-        min-height: 90px;
+        height: 262px;
+        min-height: 156px;
         background-color: $neutral-800;
         &.right--top-banner {
-          height: 342px;
+          height: 222px;
         }
         .support-extra {
           display: flex;
@@ -1496,7 +1496,6 @@ onBeforeUnmount(() => {
           .support-extra-copy {
             display: flex;
             flex-direction: column;
-            gap: 8px;
             min-height: 0;
             p {
               margin: 0;
@@ -1534,8 +1533,8 @@ onBeforeUnmount(() => {
         }
       }
       &--secondary {
-        height: 167px;
-        min-height: 74px;
+        height: 187px;
+        min-height: 122px;
         background-color: $neutral-800;
       }
     }

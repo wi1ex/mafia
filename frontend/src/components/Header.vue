@@ -737,11 +737,11 @@ function openAuth(mode: 'login' | 'register') {
         flex-direction: column;
         align-items: center;
         right: 0;
-        top: 72px;
+        top: 74px;
         padding: 16px 8px;
         gap: 16px;
         width: 261px;
-        border-radius: 16px;
+        border-radius: 24px;
         background-color: $neutral-100;
         box-shadow: 0 2px 16px 0 rgba($neutral-black, 0.16);
         z-index: 20;

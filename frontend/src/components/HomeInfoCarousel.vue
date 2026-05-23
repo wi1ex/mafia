@@ -242,20 +242,11 @@ onBeforeUnmount(() => {
     }
     .carousel-controls {
       display: flex;
-      position: absolute;
       align-items: center;
       justify-content: center;
-      left: 50%;
-      bottom: 15px;
       padding: 5px 10px;
       gap: 10px;
-      overflow: hidden;
       border-radius: 999px;
-      transform: translateX(-50%);
-      box-shadow:
-        inset 0 1px 0 rgba($white, 0.25),
-        inset 0 -1px 0 rgba($white, 0.1),
-        0 15px 30px rgba($black, 0.25);
       z-index: 5;
       .nav-btn {
         display: inline-flex;
