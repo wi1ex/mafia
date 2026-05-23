@@ -1,5 +1,6 @@
 <template>
-  <section class="home-carousel" role="region" aria-roledescription="carousel" aria-label="Информационная карусель" tabindex="0"
+  <section class="home-carousel" role="region" aria-roledescription="carousel" aria-label="Информационная карусель"
+           tabindex="0" :class="{ 'is-paused': isPaused }" :style="carouselProgressStyle"
            @mouseenter="hovered = true" @mouseleave="hovered = false" @focusin="focused = true" @focusout="onFocusOut" @keydown="onKeydown" >
     <div class="carousel-viewport">
       <Transition :name="slideTransitionName" mode="out-in">
@@ -69,6 +70,10 @@ const documentHidden = ref(false)
 const prefersReducedMotion = ref(false)
 const manualInstallHintVisible = ref(false)
 const pwaInstall = usePwaInstallState()
+
+const carouselProgressStyle = computed(() => ({
+  '--carousel-dot-duration': `${AUTOPLAY_DELAY_MS}ms`,
+}))
 
 let autoplayTimer: number | null = null
 let motionQuery: MediaQueryList | null = null
@@ -273,8 +278,8 @@ onBeforeUnmount(() => {
         .nav-icon {
           position: relative;
           z-index: 2;
-          width: 20px;
-          height: 20px;
+          width: 24px;
+          height: 24px;
           &.nav-icon--prev {
             transform: rotate(90deg);
           }
@@ -294,16 +299,48 @@ onBeforeUnmount(() => {
         background-color: $neutral-300;
         cursor: pointer;
         transition: width 0.25s ease-in-out, background-color 0.25s ease-in-out;
+        &::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          border-radius: inherit;
+          background-color: $neutral-100;
+          pointer-events: none;
+          transform: scaleX(0);
+          transform-origin: left center;
+        }
         &:hover,
         &:focus-visible {
           background-color: $neutral-100;
         }
         &.active {
           width: 64px;
-          background-color: $neutral-100;
+          background-color: $neutral-300;
+          &::after {
+            animation: carousel-dot-progress var(--carousel-dot-duration, 10000ms) linear forwards;
+          }
         }
       }
     }
+  }
+  &.is-paused {
+    .carousel-viewport {
+      .carousel-controls {
+        .carousel-dot.active::after {
+          animation: none;
+          transform: scaleX(0);
+        }
+      }
+    }
+  }
+}
+
+@keyframes carousel-dot-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
   }
 }
 
