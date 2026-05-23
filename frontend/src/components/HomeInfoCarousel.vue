@@ -314,9 +314,12 @@ onBeforeUnmount(() => {
   &.is-paused {
     .carousel-viewport {
       .carousel-controls {
-        .carousel-dot.active::after {
-          animation: none;
-          transform: scaleX(0);
+        .carousel-dot.active {
+          background-color: $neutral-100;
+          &::after {
+            animation: none;
+            transform: scaleX(0);
+          }
         }
       }
     }
