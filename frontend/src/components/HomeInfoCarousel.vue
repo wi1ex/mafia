@@ -1,44 +1,42 @@
 <template>
   <section class="home-carousel" role="region" aria-roledescription="carousel" aria-label="Информационная карусель" tabindex="0" :class="{ 'is-paused': isPaused }"
            :style="carouselProgressStyle" @mouseenter="hovered = true" @mouseleave="hovered = false" @focusin="focused = true" @focusout="onFocusOut" @keydown="onKeydown" >
-    <div class="carousel-viewport">
-      <Transition :name="slideTransitionName" mode="out-in">
-        <article v-if="activeIndex === 0" key="slide-1" class="slide-one">
+    <Transition :name="slideTransitionName" mode="out-in">
+      <article v-if="activeIndex === 0" key="slide-1" class="slide-one">
 
-        </article>
+      </article>
 
-        <article v-else-if="activeIndex === 1" key="slide-2" class="slide-two">
+      <article v-else-if="activeIndex === 1" key="slide-2" class="slide-two">
 
-        </article>
+      </article>
 
-        <article v-else-if="activeIndex === 2" key="slide-3" class="slide-three">
+      <article v-else-if="activeIndex === 2" key="slide-3" class="slide-three">
 
-        </article>
+      </article>
 
-        <article v-else-if="activeIndex === 3" key="slide-4" class="slide-four">
+      <article v-else-if="activeIndex === 3" key="slide-4" class="slide-four">
 
-        </article>
+      </article>
 
-        <article v-else key="install" class="slide-five">
-          <button type="button" class="primary-btn" :disabled="installButtonDisabled" @click="openInstall">
-            {{ installButtonLabel }}
-          </button>
-        </article>
-      </Transition>
-
-      <div class="carousel-controls">
-        <button type="button" class="nav-btn" aria-label="Предыдущий блок" @click="goPrevious(true)">
-          <img class="nav-icon nav-icon--prev" :src="iconArrowDown" alt="" aria-hidden="true" />
+      <article v-else key="install" class="slide-five">
+        <button type="button" class="primary-btn" :disabled="installButtonDisabled" @click="openInstall">
+          {{ installButtonLabel }}
         </button>
+      </article>
+    </Transition>
 
-        <div class="carousel-dots">
-          <span v-for="index in SLIDE_COUNT" :key="index" class="carousel-dot" :class="{ active: activeIndex === index - 1 }" aria-hidden="true" />
-        </div>
+    <div class="carousel-controls">
+      <button type="button" class="nav-btn" aria-label="Предыдущий блок" @click="goPrevious(true)">
+        <img class="nav-icon nav-icon--prev" :src="iconArrowDown" alt="" aria-hidden="true" />
+      </button>
 
-        <button type="button" class="nav-btn" aria-label="Следующий блок" @click="goNext(true)">
-          <img class="nav-icon nav-icon--next" :src="iconArrowDown" alt="" aria-hidden="true" />
-        </button>
+      <div class="carousel-dots">
+        <span v-for="index in SLIDE_COUNT" :key="index" class="carousel-dot" :class="{ active: activeIndex === index - 1 }" aria-hidden="true" />
       </div>
+
+      <button type="button" class="nav-btn" aria-label="Следующий блок" @click="goNext(true)">
+        <img class="nav-icon nav-icon--next" :src="iconArrowDown" alt="" aria-hidden="true" />
+      </button>
     </div>
   </section>
 </template>
@@ -191,153 +189,148 @@ onBeforeUnmount(() => {
   display: flex;
   width: 100%;
   height: 100%;
-  .carousel-viewport {
+  .slide-one {
     display: flex;
-    flex-direction: column;
-    width: 100%;
-    height: 100%;
-    .slide-one {
-      display: flex;
-      padding: 24px 24px 16px;
-      width: calc(100% - 48px);
-      height: calc(100% - 40px);
-      background-color: $neutral-800;
-      z-index: 1;
+    padding: 24px 24px 16px;
+    width: calc(100% - 48px);
+    height: calc(100% - 40px);
+    background-color: $neutral-800;
+    z-index: 1;
+  }
+  .slide-two {
+    display: flex;
+    padding: 24px 24px 16px;
+    width: calc(100% - 48px);
+    height: calc(100% - 40px);
+    background-color: $neutral-800;
+    z-index: 1;
+  }
+  .slide-three {
+    display: flex;
+    padding: 24px 24px 16px;
+    width: calc(100% - 48px);
+    height: calc(100% - 40px);
+    background-color: $neutral-800;
+    z-index: 1;
+  }
+  .slide-four {
+    display: flex;
+    padding: 24px 24px 16px;
+    width: calc(100% - 48px);
+    height: calc(100% - 40px);
+    background-color: $neutral-800;
+    z-index: 1;
+  }
+  .slide-five {
+    display: flex;
+    padding: 24px 24px 16px;
+    width: calc(100% - 48px);
+    height: calc(100% - 40px);
+    background-color: $neutral-800;
+    z-index: 1;
+    .primary-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      height: 40px;
     }
-    .slide-two {
-      display: flex;
-      padding: 24px 24px 16px;
-      width: calc(100% - 48px);
-      height: calc(100% - 40px);
-      background-color: $neutral-800;
-      z-index: 1;
-    }
-    .slide-three {
-      display: flex;
-      padding: 24px 24px 16px;
-      width: calc(100% - 48px);
-      height: calc(100% - 40px);
-      background-color: $neutral-800;
-      z-index: 1;
-    }
-    .slide-four {
-      display: flex;
-      padding: 24px 24px 16px;
-      width: calc(100% - 48px);
-      height: calc(100% - 40px);
-      background-color: $neutral-800;
-      z-index: 1;
-    }
-    .slide-five {
-      display: flex;
-      padding: 24px 24px 16px;
-      width: calc(100% - 48px);
-      height: calc(100% - 40px);
-      background-color: $neutral-800;
-      z-index: 1;
-      .primary-btn {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        height: 40px;
-      }
-    }
-    .carousel-controls {
+  }
+  .carousel-controls {
+    display: flex;
+    position: absolute;
+    align-items: center;
+    justify-content: space-between;
+    left: 24px;
+    bottom: 16px;
+    width: calc(100% - 48px);
+    height: 40px;
+    z-index: 5;
+    .nav-btn {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      width: 100%;
+      justify-content: center;
+      padding: 0;
+      width: 40px;
       height: 40px;
-      z-index: 5;
-      .nav-btn {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 0;
-        width: 40px;
-        height: 40px;
-        border: none;
-        border-radius: 12px;
-        background: linear-gradient(261deg, $green-700 0%, $soft-purple-800 100%);
-        cursor: pointer;
+      border: none;
+      border-radius: 12px;
+      background: linear-gradient(261deg, $green-700 0%, $soft-purple-800 100%);
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      isolation: isolate;
+      &::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        background: linear-gradient(261deg, $soft-purple-800 0%, $green-700 100%);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.25s ease-in-out;
+        z-index: 0;
+      }
+      &:hover,
+      &:focus-visible,
+      &:active {
+        &::after {
+          opacity: 1;
+        }
+      }
+      .nav-icon {
+        position: relative;
+        z-index: 2;
+        width: 24px;
+        height: 24px;
+        &.nav-icon--prev {
+          transform: rotate(90deg);
+        }
+        &.nav-icon--next {
+          transform: rotate(-90deg);
+        }
+      }
+    }
+    .carousel-dots {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      .carousel-dot {
+        display: block;
         position: relative;
         overflow: hidden;
-        isolation: isolate;
+        width: 4px;
+        height: 4px;
+        border-radius: 999px;
+        background-color: $neutral-300;
+        transition: width 0.25s ease-in-out, background-color 0.25s ease-in-out;
         &::after {
           content: '';
           position: absolute;
           inset: 0;
           border-radius: inherit;
-          background: linear-gradient(261deg, $soft-purple-800 0%, $green-700 100%);
-          opacity: 0;
+          background-color: $neutral-100;
           pointer-events: none;
-          transition: opacity 0.25s ease-in-out;
-          z-index: 0;
+          transform: scaleX(0);
+          transform-origin: left center;
         }
-        &:hover,
-        &:focus-visible,
-        &:active {
-          &::after {
-            opacity: 1;
-          }
-        }
-        .nav-icon {
-          position: relative;
-          z-index: 2;
-          width: 24px;
-          height: 24px;
-          &.nav-icon--prev {
-            transform: rotate(90deg);
-          }
-          &.nav-icon--next {
-            transform: rotate(-90deg);
-          }
-        }
-      }
-      .carousel-dots {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 4px;
-        .carousel-dot {
-          display: block;
-          position: relative;
-          overflow: hidden;
-          width: 4px;
-          height: 4px;
-          border-radius: 999px;
+        &.active {
+          width: 64px;
           background-color: $neutral-300;
-          transition: width 0.25s ease-in-out, background-color 0.25s ease-in-out;
           &::after {
-            content: '';
-            position: absolute;
-            inset: 0;
-            border-radius: inherit;
-            background-color: $neutral-100;
-            pointer-events: none;
-            transform: scaleX(0);
-            transform-origin: left center;
-          }
-          &.active {
-            width: 64px;
-            background-color: $neutral-300;
-            &::after {
-              animation: carousel-dot-progress var(--carousel-dot-duration, 10000ms) linear forwards;
-            }
+            animation: carousel-dot-progress var(--carousel-dot-duration, 10000ms) linear forwards;
           }
         }
       }
     }
   }
   &.is-paused {
-    .carousel-viewport {
-      .carousel-controls {
-        .carousel-dot.active {
-          background-color: $neutral-100;
-          &::after {
-            animation: none;
-            transform: scaleX(0);
-          }
+    .carousel-controls {
+      .carousel-dot.active {
+        background-color: $neutral-100;
+        &::after {
+          animation: none;
+          transform: scaleX(0);
         }
       }
     }
