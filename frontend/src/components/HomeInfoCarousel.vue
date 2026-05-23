@@ -3,23 +3,27 @@
            :style="carouselProgressStyle" @mouseenter="hovered = true" @mouseleave="hovered = false" @focusin="focused = true" @focusout="onFocusOut" @keydown="onKeydown" >
     <Transition :name="slideTransitionName" mode="out-in">
       <article v-if="activeIndex === 0" key="slide-1" class="slide-one">
+        <img class="background-image1" :src="imageSlide1" alt="" aria-hidden="true" />
 
       </article>
 
       <article v-else-if="activeIndex === 1" key="slide-2" class="slide-two">
+        <img class="background-image2" :src="imageSlide2" alt="" aria-hidden="true" />
 
       </article>
 
       <article v-else-if="activeIndex === 2" key="slide-3" class="slide-three">
+        <img class="background-image3" :src="imageSlide3" alt="" aria-hidden="true" />
 
       </article>
 
       <article v-else-if="activeIndex === 3" key="slide-4" class="slide-four">
+        <img class="background-image4" :src="imageSlide4" alt="" aria-hidden="true" />
 
       </article>
 
       <article v-else key="install" class="slide-five">
-        <img class="image51" :src="Image51" alt="" aria-hidden="true" />
+        <img class="background-image5" :src="imageSlide5" alt="" aria-hidden="true" />
         <button type="button" class="primary-btn" :disabled="installButtonDisabled" @click="openInstall">
           {{ installButtonLabel }}
         </button>
@@ -48,7 +52,11 @@ import { requestPwaInstall, usePwaInstallState } from '@/services/pwa'
 
 import iconArrowDown from '@/assets/svg/iconArrowDown.svg'
 
-import Image51 from '@/assets/images/carousel-image51.png'
+import imageSlide1 from '@/assets/images/carousel-image1.png'
+import imageSlide2 from '@/assets/images/carousel-image2.png'
+import imageSlide3 from '@/assets/images/carousel-image3.png'
+import imageSlide4 from '@/assets/images/carousel-image4.png'
+import imageSlide5 from '@/assets/images/carousel-image5.png'
 
 const AUTOPLAY_DELAY_MS = 10000
 const SLIDE_COUNT = 5
@@ -198,32 +206,57 @@ onBeforeUnmount(() => {
     padding: 24px 24px 72px;
     width: calc(100% - 48px);
     height: calc(100% - 96px);
-    background-color: $neutral-800;
     z-index: 1;
+    .background-image1 {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 607px;
+      height: 536px;
+    }
   }
   .slide-two {
     display: flex;
     padding: 24px 24px 72px;
     width: calc(100% - 48px);
     height: calc(100% - 96px);
-    background-color: $neutral-800;
     z-index: 1;
+    .background-image2 {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 607px;
+      height: 536px;
+    }
   }
   .slide-three {
     display: flex;
     padding: 24px 24px 72px;
     width: calc(100% - 48px);
     height: calc(100% - 96px);
-    background-color: $neutral-800;
+    background-color: rgba(20, 29, 33, 1);
     z-index: 1;
+    .background-image3 {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 607px;
+      height: 447px;
+    }
   }
   .slide-four {
     display: flex;
     padding: 24px 24px 72px;
     width: calc(100% - 48px);
     height: calc(100% - 96px);
-    background-color: $neutral-800;
     z-index: 1;
+    .background-image4 {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 607px;
+      height: 536px;
+    }
   }
   .slide-five {
     display: flex;
@@ -232,8 +265,12 @@ onBeforeUnmount(() => {
     height: calc(100% - 96px);
     background: linear-gradient(180deg, rgba(17, 18, 27, 0.00) 52.18%, rgba(17, 18, 27, 0.30) 100%), #151621;
     z-index: 1;
-    .image51 {
-
+    .background-image5 {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 607px;
+      height: 536px;
     }
     .primary-btn {
       display: inline-flex;
