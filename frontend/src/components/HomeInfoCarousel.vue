@@ -254,9 +254,6 @@ onBeforeUnmount(() => {
         justify-content: space-between;
         width: 100%;
         .slide-title {
-          position: relative;
-          isolation: isolate;
-          overflow: hidden;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -264,42 +261,31 @@ onBeforeUnmount(() => {
           border-radius: 12px;
           background:
             linear-gradient(
-              135deg,
+              -45deg,
               rgba($neutral-white, 0.22) 0%,
-              rgba($neutral-white, 0.10) 38%,
-              rgba($neutral-white, 0.04) 100%
+              rgba($neutral-white, 0.10) 22%,
+              rgba($neutral-white, 0.03) 48%,
+              transparent 72%
+            ),
+            linear-gradient(
+              135deg,
+              rgba($neutral-white, 0.16) 0%,
+              rgba($neutral-white, 0.08) 45%,
+              rgba($neutral-white, 0.03) 100%
             ),
             rgba($neutral-white, 0.08);
-          border: 1px solid rgba($neutral-white, 0.18);
+          border: 1px solid rgba($neutral-white, 0.14);
           color: $neutral-300;
           font-family: Hauora-Regular;
           font-size: 16px;
           line-height: 16px;
           letter-spacing: -0.32px;
-          backdrop-filter: blur(4px) saturate(145%) contrast(105%);
-          -webkit-backdrop-filter: blur(4px) saturate(145%) contrast(105%);
+          backdrop-filter: blur(4px) saturate(135%) contrast(105%);
+          -webkit-backdrop-filter: blur(4px) saturate(135%) contrast(105%);
           box-shadow:
-            inset 0 1px 1px rgba($neutral-white, 0.42),
-            inset 1px 0 1px rgba($neutral-white, 0.18),
-            inset 0 -1px 2px rgba($neutral-black, 0.22),
-            0 8px 24px rgba($neutral-black, 0.18);
-          &::before {
-            content: "";
-            position: absolute;
-            inset: 0;
-            z-index: -1;
-            pointer-events: none;
-            background:
-              linear-gradient(
-                -45deg,
-                rgba($neutral-white, 0.42) 0%,
-                rgba($neutral-white, 0.18) 18%,
-                rgba($neutral-white, 0.04) 42%,
-                transparent 70%
-              );
-            opacity: 0.8;
-            mix-blend-mode: screen;
-          }
+            inset 0 1px 1px rgba($neutral-white, 0.30),
+            inset 0 -1px 1px rgba($neutral-black, 0.16),
+            0 6px 18px rgba($neutral-black, 0.12);
         }
         .tooltip-img {
           --ui-icon-width: 24px;
