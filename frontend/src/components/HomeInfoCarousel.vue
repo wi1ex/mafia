@@ -259,6 +259,7 @@ onBeforeUnmount(() => {
           justify-content: center;
           padding: 8px 12px;
           border-radius: 12px;
+          border: 1px solid rgba($neutral-white, 0.14);
           background:
             linear-gradient(
               -45deg,
@@ -274,18 +275,17 @@ onBeforeUnmount(() => {
               rgba($neutral-white, 0.03) 100%
             ),
             rgba($neutral-white, 0.08);
-          border: 1px solid rgba($neutral-white, 0.14);
-          color: $neutral-300;
-          font-family: Hauora-Regular;
-          font-size: 16px;
-          line-height: 16px;
-          letter-spacing: -0.32px;
           backdrop-filter: blur(4px) saturate(135%) contrast(105%);
           -webkit-backdrop-filter: blur(4px) saturate(135%) contrast(105%);
           box-shadow:
             inset 0 1px 1px rgba($neutral-white, 0.30),
             inset 0 -1px 1px rgba($neutral-black, 0.16),
             0 6px 18px rgba($neutral-black, 0.12);
+          color: $neutral-300;
+          font-family: Hauora-Regular;
+          font-size: 16px;
+          line-height: 16px;
+          letter-spacing: -0.32px;
         }
         .tooltip-img {
           --ui-icon-width: 24px;
