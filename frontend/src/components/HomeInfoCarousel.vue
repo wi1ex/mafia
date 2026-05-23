@@ -221,22 +221,12 @@ onBeforeUnmount(() => {
       height: 100%;
       .slide-content {
         display: flex;
-        position: relative;
-        flex-direction: column;
-        height: 100%;
-        padding: 15px 15px 82px;
-        gap: 15px;
-        box-sizing: border-box;
-        overflow: auto;
-        scrollbar-width: none;
         z-index: 1;
         .primary-btn {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          min-width: 220px;
           height: 40px;
-          border: none;
         }
       }
     }
@@ -244,9 +234,9 @@ onBeforeUnmount(() => {
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 5px 10px;
       gap: 10px;
-      border-radius: 999px;
+      width: 100%;
+      height: 40px;
       z-index: 5;
       .nav-btn {
         display: inline-flex;
@@ -255,16 +245,8 @@ onBeforeUnmount(() => {
         padding: 0;
         width: 40px;
         height: 40px;
-        position: relative;
-        overflow: hidden;
-        border-radius: 50%;
-        background-color: grey;
+        border-radius: 12px;
         cursor: pointer;
-        transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
-        &:hover,
-        &:focus-visible {
-          border-color: rgba($white, 0.25);
-        }
         .nav-icon {
           width: 20px;
           height: 20px;

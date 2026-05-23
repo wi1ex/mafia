@@ -1480,11 +1480,11 @@ onBeforeUnmount(() => {
       padding: 24px;
       border-radius: 24px;
       &--primary {
-        height: 262px;
-        min-height: 156px;
+        height: 214px;
+        min-height: 108px;
         background-color: $neutral-800;
         &.right--top-banner {
-          height: 222px;
+          height: 174px;
         }
         .support-extra {
           display: flex;
@@ -1533,8 +1533,8 @@ onBeforeUnmount(() => {
         }
       }
       &--secondary {
-        height: 187px;
-        min-height: 122px;
+        height: 139px;
+        min-height: 74px;
         background-color: $neutral-800;
       }
     }
