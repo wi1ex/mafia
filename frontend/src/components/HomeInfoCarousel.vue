@@ -42,8 +42,10 @@
           <img class="nav-icon nav-icon--prev" :src="iconArrowDown" alt="" aria-hidden="true" />
         </button>
 
-        <button v-for="index in SLIDE_COUNT" :key="index" type="button" class="carousel-dot" :class="{ active: activeIndex === index - 1 }"
-                :aria-label="`Показать блок ${index}`" :aria-current="activeIndex === index - 1 ? 'true' : undefined" @click="goTo(index - 1, true)" />
+        <div class="carousel-dots">
+          <button v-for="index in SLIDE_COUNT" :key="index" type="button" class="carousel-dot" :class="{ active: activeIndex === index - 1 }"
+                  :aria-label="`Показать блок ${index}`" :aria-current="activeIndex === index - 1 ? 'true' : undefined" @click="goTo(index - 1, true)" />
+        </div>
 
         <button type="button" class="nav-btn" aria-label="Следующий блок" @click="goNext(true)">
           <img class="nav-icon nav-icon--next" :src="iconArrowDown" alt="" aria-hidden="true" />
@@ -238,13 +240,12 @@ onBeforeUnmount(() => {
     .carousel-controls {
       display: flex;
       align-items: center;
-      justify-content: center;
-      gap: 10px;
+      justify-content: space-between;
       width: 100%;
       height: 40px;
       z-index: 5;
       .nav-btn {
-        display: inline-flex;
+        display: flex;
         align-items: center;
         justify-content: center;
         padding: 0;
@@ -288,36 +289,42 @@ onBeforeUnmount(() => {
           }
         }
       }
-      .carousel-dot {
-        position: relative;
-        overflow: hidden;
-        padding: 0;
-        width: 4px;
-        height: 4px;
-        border: none;
-        border-radius: 999px;
-        background-color: $neutral-300;
-        cursor: pointer;
-        transition: width 0.25s ease-in-out, background-color 0.25s ease-in-out;
-        &::after {
-          content: '';
-          position: absolute;
-          inset: 0;
-          border-radius: inherit;
-          background-color: $neutral-100;
-          pointer-events: none;
-          transform: scaleX(0);
-          transform-origin: left center;
-        }
-        &:hover,
-        &:focus-visible {
-          background-color: $neutral-100;
-        }
-        &.active {
-          width: 64px;
+      .carousel-dots {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        .carousel-dot {
+          position: relative;
+          overflow: hidden;
+          padding: 0;
+          width: 4px;
+          height: 4px;
+          border: none;
+          border-radius: 999px;
           background-color: $neutral-300;
+          cursor: pointer;
+          transition: width 0.25s ease-in-out, background-color 0.25s ease-in-out;
           &::after {
-            animation: carousel-dot-progress var(--carousel-dot-duration, 10000ms) linear forwards;
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            background-color: $neutral-100;
+            pointer-events: none;
+            transform: scaleX(0);
+            transform-origin: left center;
+          }
+          &:hover,
+          &:focus-visible {
+            background-color: $neutral-100;
+          }
+          &.active {
+            width: 64px;
+            background-color: $neutral-300;
+            &::after {
+              animation: carousel-dot-progress var(--carousel-dot-duration, 10000ms) linear forwards;
+            }
           }
         }
       }
