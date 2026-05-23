@@ -19,6 +19,7 @@
       </article>
 
       <article v-else key="install" class="slide-five">
+        <img class="image51" :src="Image51" alt="" aria-hidden="true" />
         <button type="button" class="primary-btn" :disabled="installButtonDisabled" @click="openInstall">
           {{ installButtonLabel }}
         </button>
@@ -46,6 +47,8 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { requestPwaInstall, usePwaInstallState } from '@/services/pwa'
 
 import iconArrowDown from '@/assets/svg/iconArrowDown.svg'
+
+import Image51 from '@/assets/images/carousel-image51.png'
 
 const AUTOPLAY_DELAY_MS = 10000
 const SLIDE_COUNT = 5
@@ -187,47 +190,51 @@ onBeforeUnmount(() => {
 <style scoped lang="scss">
 .home-carousel {
   display: flex;
+  position: relative;
   width: 100%;
   height: 100%;
   .slide-one {
     display: flex;
-    padding: 24px 24px 16px;
+    padding: 24px 24px 72px;
     width: calc(100% - 48px);
-    height: calc(100% - 40px);
+    height: calc(100% - 96px);
     background-color: $neutral-800;
     z-index: 1;
   }
   .slide-two {
     display: flex;
-    padding: 24px 24px 16px;
+    padding: 24px 24px 72px;
     width: calc(100% - 48px);
-    height: calc(100% - 40px);
+    height: calc(100% - 96px);
     background-color: $neutral-800;
     z-index: 1;
   }
   .slide-three {
     display: flex;
-    padding: 24px 24px 16px;
+    padding: 24px 24px 72px;
     width: calc(100% - 48px);
-    height: calc(100% - 40px);
+    height: calc(100% - 96px);
     background-color: $neutral-800;
     z-index: 1;
   }
   .slide-four {
     display: flex;
-    padding: 24px 24px 16px;
+    padding: 24px 24px 72px;
     width: calc(100% - 48px);
-    height: calc(100% - 40px);
+    height: calc(100% - 96px);
     background-color: $neutral-800;
     z-index: 1;
   }
   .slide-five {
     display: flex;
-    padding: 24px 24px 16px;
+    padding: 24px 24px 72px;
     width: calc(100% - 48px);
-    height: calc(100% - 40px);
-    background-color: $neutral-800;
+    height: calc(100% - 96px);
+    background: linear-gradient(180deg, rgba(17, 18, 27, 0.00) 52.18%, rgba(17, 18, 27, 0.30) 100%), #151621;
     z-index: 1;
+    .image51 {
+
+    }
     .primary-btn {
       display: inline-flex;
       align-items: center;
