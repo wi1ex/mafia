@@ -11,7 +11,7 @@
         <div class="slide-div">
           <div class="slide-top">
             <span class="slide-title">Стриминг</span>
-            <img class="tooltip-img" :src="iconInfo" alt="tooltip-img" />
+            <UiIcon class="tooltip-img" :icon="iconInfo" />
           </div>
         </div>
       </article>
@@ -21,7 +21,7 @@
         <div class="slide-div">
           <div class="slide-top">
             <span class="slide-title">Статистика</span>
-            <img class="tooltip-img" :src="iconInfo" alt="tooltip-img" />
+            <UiIcon class="tooltip-img" :icon="iconInfo" />
           </div>
         </div>
       </article>
@@ -31,7 +31,7 @@
         <div class="slide-div">
           <div class="slide-top">
             <span class="slide-title">Комьюнити</span>
-            <img class="tooltip-img" :src="iconInfo" alt="tooltip-img" />
+            <UiIcon class="tooltip-img" :icon="iconInfo" />
           </div>
         </div>
       </article>
@@ -41,7 +41,7 @@
         <div class="slide-div">
           <div class="slide-top">
             <span class="slide-title">Web App</span>
-            <img class="tooltip-img" :src="iconInfo" alt="tooltip-img" />
+            <UiIcon class="tooltip-img" :icon="iconInfo" />
           </div>
           <div class="slide-bottom">
             <button type="button" class="slide-btn" :disabled="installButtonDisabled" @click="openInstall">
@@ -72,6 +72,8 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { requestPwaInstall, usePwaInstallState } from '@/services/pwa'
 
+import UiIcon from '@/components/UiIcon.vue'
+
 import iconArrowDown from '@/assets/svg/iconArrowDown.svg'
 import iconInfo from "@/assets/svg/iconInfo.svg"
 
@@ -80,6 +82,7 @@ import imageSlide2 from '@/assets/images/carousel-image2.png'
 import imageSlide3 from '@/assets/images/carousel-image3.png'
 import imageSlide4 from '@/assets/images/carousel-image4.png'
 import imageSlide5 from '@/assets/images/carousel-image5.png'
+import iconJudge from '@/assets/svg/iconJudge.svg'
 
 const AUTOPLAY_DELAY_MS = 10000
 const SLIDE_COUNT = 5
@@ -242,25 +245,61 @@ onBeforeUnmount(() => {
       flex-direction: column;
       align-items: flex-start;
       justify-content: space-between;
+      width: 100%;
+      height: 100%;
+      z-index: 5;
       .slide-top {
         display: flex;
         align-items: flex-start;
         justify-content: space-between;
+        width: 100%;
         .slide-title {
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 8px;
+          padding: 8px 12px;
+          border-radius: 12px;
+          background-color: rgba($neutral-white, 0.08);
+          color: $neutral-300;
+          font-family: Hauora-Regular;
+          font-size: 16px;
+          line-height: 16px;
+          letter-spacing: -0.32px;
         }
         .tooltip-img {
-          width: 20px;
-          height: 20px;
+          --ui-icon-width: 24px;
+          --ui-icon-height: 24px;
+          --ui-icon-color: #{$neutral-white};
+          &:hover,
+          &:focus-visible,
+          &:active {
+            --ui-icon-color: #{$green-500};
+          }
         }
       }
       .slide-bottom {
         display: flex;
         .slide-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0 16px;
+          height: 32px;
           border: none;
+          border-radius: 12px;
+          background-color: $green-500;
+          color: $neutral-900;
+          font-family: Hauora-Regular;
+          font-size: 16px;
+          line-height: 6px;
+          letter-spacing: -0.32px;
+          transition: background-color 0.25s ease-in-out;
+          &:hover,
+          &:focus-visible,
+          &:active {
+            background-color: $green-300;
+            color: $neutral-black;
+          }
         }
       }
     }
