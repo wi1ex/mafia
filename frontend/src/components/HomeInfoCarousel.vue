@@ -2,31 +2,53 @@
   <section class="home-carousel" role="region" aria-roledescription="carousel" aria-label="Информационная карусель" tabindex="0" :class="{ 'is-paused': isPaused }"
            :style="carouselProgressStyle" @mouseenter="hovered = true" @mouseleave="hovered = false" @focusin="focused = true" @focusout="onFocusOut" @keydown="onKeydown" >
     <Transition :name="slideTransitionName" mode="out-in">
-      <article v-if="activeIndex === 0" key="slide-1" class="slide-one">
-        <img class="background-image1" :src="imageSlide1" alt="" aria-hidden="true" />
-
+      <article v-if="activeIndex === 0" key="slide-1" class="slide slide-one">
+        <img class="background-image" :src="imageSlide1" alt="" aria-hidden="true" />
       </article>
 
-      <article v-else-if="activeIndex === 1" key="slide-2" class="slide-two">
-        <img class="background-image2" :src="imageSlide2" alt="" aria-hidden="true" />
-
+      <article v-else-if="activeIndex === 1" key="slide-2" class="slide slide-two">
+        <img class="background-image" :src="imageSlide2" alt="" aria-hidden="true" />
+        <div class="slide-div">
+          <div class="slide-top">
+            <span class="slide-title">Стриминг</span>
+            <img class="tooltip-img" :src="iconInfo" alt="tooltip-img" />
+          </div>
+        </div>
       </article>
 
-      <article v-else-if="activeIndex === 2" key="slide-3" class="slide-three">
-        <img class="background-image3" :src="imageSlide3" alt="" aria-hidden="true" />
-
+      <article v-else-if="activeIndex === 2" key="slide-3" class="slide slide-three">
+        <img class="background-image" :src="imageSlide3" alt="" aria-hidden="true" />
+        <div class="slide-div">
+          <div class="slide-top">
+            <span class="slide-title">Статистика</span>
+            <img class="tooltip-img" :src="iconInfo" alt="tooltip-img" />
+          </div>
+        </div>
       </article>
 
-      <article v-else-if="activeIndex === 3" key="slide-4" class="slide-four">
-        <img class="background-image4" :src="imageSlide4" alt="" aria-hidden="true" />
-
+      <article v-else-if="activeIndex === 3" key="slide-4" class="slide slide-four">
+        <img class="background-image" :src="imageSlide4" alt="" aria-hidden="true" />
+        <div class="slide-div">
+          <div class="slide-top">
+            <span class="slide-title">Комьюнити</span>
+            <img class="tooltip-img" :src="iconInfo" alt="tooltip-img" />
+          </div>
+        </div>
       </article>
 
-      <article v-else key="install" class="slide-five">
-        <img class="background-image5" :src="imageSlide5" alt="" aria-hidden="true" />
-        <button type="button" class="primary-btn" :disabled="installButtonDisabled" @click="openInstall">
-          {{ installButtonLabel }}
-        </button>
+      <article v-else key="install" class="slide slide-five">
+        <img class="background-image" :src="imageSlide5" alt="" aria-hidden="true" />
+        <div class="slide-div">
+          <div class="slide-top">
+            <span class="slide-title">Web App</span>
+            <img class="tooltip-img" :src="iconInfo" alt="tooltip-img" />
+          </div>
+          <div class="slide-bottom">
+            <button type="button" class="slide-btn" :disabled="installButtonDisabled" @click="openInstall">
+              {{ installButtonLabel }}
+            </button>
+          </div>
+        </div>
       </article>
     </Transition>
 
@@ -51,6 +73,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { requestPwaInstall, usePwaInstallState } from '@/services/pwa'
 
 import iconArrowDown from '@/assets/svg/iconArrowDown.svg'
+import iconInfo from "@/assets/svg/iconInfo.svg"
 
 import imageSlide1 from '@/assets/images/carousel-image1.png'
 import imageSlide2 from '@/assets/images/carousel-image2.png'
@@ -80,10 +103,10 @@ let motionQuery: MediaQueryList | null = null
 const canPromptInstall = computed(() => !pwaInstall.installed && pwaInstall.deferredPrompt !== null)
 const installButtonDisabled = computed(() => pwaInstall.installed || (manualInstallHintVisible.value && !canPromptInstall.value))
 const installButtonLabel = computed(() => {
-  if (pwaInstall.installed) return 'Приложение установлено'
+  if (pwaInstall.installed) return 'Установлено'
   if (manualInstallHintVisible.value && !canPromptInstall.value) return 'Используйте меню браузера'
-  if (canPromptInstall.value) return 'Установить приложение'
-  return 'Установить приложение'
+  if (canPromptInstall.value) return 'Установить'
+  return 'Установить'
 })
 
 watch(() => canPromptInstall.value, (next) => {
@@ -201,82 +224,54 @@ onBeforeUnmount(() => {
   position: relative;
   width: 100%;
   height: 100%;
-  .slide-one {
+  .slide {
     display: flex;
-    padding: 24px 24px 72px;
+    padding: 24px 24px 88px;
     width: calc(100% - 48px);
-    height: calc(100% - 96px);
+    height: calc(100% - 112px);
     z-index: 1;
-    .background-image1 {
+    .background-image {
       position: absolute;
       left: 0;
       top: 0;
       width: 607px;
       height: 536px;
     }
-  }
-  .slide-two {
-    display: flex;
-    padding: 24px 24px 72px;
-    width: calc(100% - 48px);
-    height: calc(100% - 96px);
-    z-index: 1;
-    .background-image2 {
-      position: absolute;
-      left: 0;
-      top: 0;
-      width: 607px;
-      height: 536px;
+    .slide-div {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      justify-content: space-between;
+      .slide-top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        .slide-title {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 8px;
+        }
+        .tooltip-img {
+          width: 20px;
+          height: 20px;
+        }
+      }
+      .slide-bottom {
+        display: flex;
+        .slide-btn {
+          border: none;
+        }
+      }
     }
-  }
-  .slide-three {
-    display: flex;
-    padding: 24px 24px 72px;
-    width: calc(100% - 48px);
-    height: calc(100% - 96px);
-    background-color: rgba(20, 29, 33, 1);
-    z-index: 1;
-    .background-image3 {
-      position: absolute;
-      left: 0;
-      top: 0;
-      width: 607px;
-      height: 447px;
+    &.slide-three {
+      background-color: rgba(20, 29, 33, 1);
+      .background-image {
+        height: 447px;
+      }
     }
-  }
-  .slide-four {
-    display: flex;
-    padding: 24px 24px 72px;
-    width: calc(100% - 48px);
-    height: calc(100% - 96px);
-    z-index: 1;
-    .background-image4 {
-      position: absolute;
-      left: 0;
-      top: 0;
-      width: 607px;
-      height: 536px;
-    }
-  }
-  .slide-five {
-    display: flex;
-    padding: 24px 24px 72px;
-    width: calc(100% - 48px);
-    height: calc(100% - 96px);
-    background: linear-gradient(180deg, rgba(17, 18, 27, 0.00) 52.18%, rgba(17, 18, 27, 0.30) 100%), #151621;
-    z-index: 1;
-    .background-image5 {
-      position: absolute;
-      left: 0;
-      top: 0;
-      width: 607px;
-      height: 536px;
-    }
-    .primary-btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      height: 40px;
+    &.slide-five {
+      background: linear-gradient(180deg, rgba(17, 18, 27, 0.00) 52.18%, rgba(17, 18, 27, 0.30) 100%), #151621;
     }
   }
   .carousel-controls {
