@@ -1,39 +1,28 @@
 <template>
-  <section class="home-carousel" role="region" aria-roledescription="carousel" aria-label="Информационная карусель"
-           tabindex="0" :class="{ 'is-paused': isPaused }" :style="carouselProgressStyle"
-           @mouseenter="hovered = true" @mouseleave="hovered = false" @focusin="focused = true" @focusout="onFocusOut" @keydown="onKeydown" >
+  <section class="home-carousel" role="region" aria-roledescription="carousel" aria-label="Информационная карусель" tabindex="0" :class="{ 'is-paused': isPaused }"
+           :style="carouselProgressStyle" @mouseenter="hovered = true" @mouseleave="hovered = false" @focusin="focused = true" @focusout="onFocusOut" @keydown="onKeydown" >
     <div class="carousel-viewport">
       <Transition :name="slideTransitionName" mode="out-in">
-        <article v-if="activeIndex === 0" key="slide-1" class="slide slide--one">
-          <div class="slide-content">
+        <article v-if="activeIndex === 0" key="slide-1" class="slide-one">
 
-          </div>
         </article>
 
-        <article v-else-if="activeIndex === 1" key="slide-2" class="slide slide--two">
-          <div class="slide-content">
+        <article v-else-if="activeIndex === 1" key="slide-2" class="slide-two">
 
-          </div>
         </article>
 
-        <article v-else-if="activeIndex === 2" key="slide-3" class="slide slide--three">
-          <div class="slide-content">
+        <article v-else-if="activeIndex === 2" key="slide-3" class="slide-three">
 
-          </div>
         </article>
 
-        <article v-else-if="activeIndex === 3" key="slide-4" class="slide slide--four">
-          <div class="slide-content">
+        <article v-else-if="activeIndex === 3" key="slide-4" class="slide-four">
 
-          </div>
         </article>
 
-        <article v-else key="install" class="slide slide--install">
-          <div class="slide-content">
-            <button type="button" class="primary-btn" :disabled="installButtonDisabled" @click="openInstall">
-              {{ installButtonLabel }}
-            </button>
-          </div>
+        <article v-else key="install" class="slide-five">
+          <button type="button" class="primary-btn" :disabled="installButtonDisabled" @click="openInstall">
+            {{ installButtonLabel }}
+          </button>
         </article>
       </Transition>
 
@@ -205,23 +194,52 @@ onBeforeUnmount(() => {
   .carousel-viewport {
     display: flex;
     flex-direction: column;
-    padding: 24px 24px 16px;
-    width: calc(100% - 48px);
-    height: calc(100% - 40px);
-    background-color: $neutral-800;
-    .slide {
+    width: 100%;
+    height: 100%;
+    .slide-one {
       display: flex;
-      width: 100%;
-      height: 100%;
-      .slide-content {
-        display: flex;
-        z-index: 1;
-        .primary-btn {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          height: 40px;
-        }
+      padding: 24px 24px 16px;
+      width: calc(100% - 48px);
+      height: calc(100% - 40px);
+      background-color: $neutral-800;
+      z-index: 1;
+    }
+    .slide-two {
+      display: flex;
+      padding: 24px 24px 16px;
+      width: calc(100% - 48px);
+      height: calc(100% - 40px);
+      background-color: $neutral-800;
+      z-index: 1;
+    }
+    .slide-three {
+      display: flex;
+      padding: 24px 24px 16px;
+      width: calc(100% - 48px);
+      height: calc(100% - 40px);
+      background-color: $neutral-800;
+      z-index: 1;
+    }
+    .slide-four {
+      display: flex;
+      padding: 24px 24px 16px;
+      width: calc(100% - 48px);
+      height: calc(100% - 40px);
+      background-color: $neutral-800;
+      z-index: 1;
+    }
+    .slide-five {
+      display: flex;
+      padding: 24px 24px 16px;
+      width: calc(100% - 48px);
+      height: calc(100% - 40px);
+      background-color: $neutral-800;
+      z-index: 1;
+      .primary-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 40px;
       }
     }
     .carousel-controls {
