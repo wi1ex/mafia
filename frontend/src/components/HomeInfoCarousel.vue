@@ -43,8 +43,7 @@
         </button>
 
         <div class="carousel-dots">
-          <button v-for="index in SLIDE_COUNT" :key="index" type="button" class="carousel-dot" :class="{ active: activeIndex === index - 1 }"
-                  :aria-label="`Показать блок ${index}`" :aria-current="activeIndex === index - 1 ? 'true' : undefined" @click="goTo(index - 1, true)" />
+          <span v-for="index in SLIDE_COUNT" :key="index" class="carousel-dot" :class="{ active: activeIndex === index - 1 }" aria-hidden="true" />
         </div>
 
         <button type="button" class="nav-btn" aria-label="Следующий блок" @click="goNext(true)">
@@ -137,12 +136,6 @@ function goNext(userInitiated = false) {
   setActive(activeIndex.value + 1, 1, userInitiated)
 }
 
-function goTo(index: number, userInitiated = false) {
-  const normalized = normalizeIndex(index)
-  const direction: 1 | -1 = normalized >= activeIndex.value ? 1 : -1
-  setActive(normalized, direction, userInitiated)
-}
-
 async function openInstall() {
   if (pwaInstall.installed) return
   if (!canPromptInstall.value) {
@@ -172,12 +165,6 @@ function onKeydown(event: KeyboardEvent) {
   } else if (event.key === 'ArrowRight') {
     event.preventDefault()
     goNext(true)
-  } else if (event.key === 'Home') {
-    event.preventDefault()
-    goTo(0, true)
-  } else if (event.key === 'End') {
-    event.preventDefault()
-    goTo(SLIDE_COUNT - 1, true)
   }
 }
 
@@ -293,17 +280,15 @@ onBeforeUnmount(() => {
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 10px;
+        gap: 4px;
         .carousel-dot {
+          display: block;
           position: relative;
           overflow: hidden;
-          padding: 0;
           width: 4px;
           height: 4px;
-          border: none;
           border-radius: 999px;
           background-color: $neutral-300;
-          cursor: pointer;
           transition: width 0.25s ease-in-out, background-color 0.25s ease-in-out;
           &::after {
             content: '';
@@ -314,10 +299,6 @@ onBeforeUnmount(() => {
             pointer-events: none;
             transform: scaleX(0);
             transform-origin: left center;
-          }
-          &:hover,
-          &:focus-visible {
-            background-color: $neutral-100;
           }
           &.active {
             width: 64px;
