@@ -259,28 +259,14 @@ onBeforeUnmount(() => {
           justify-content: center;
           padding: 8px 12px;
           border-radius: 12px;
-          border: 1px solid rgba($neutral-white, 0.14);
           background:
-            linear-gradient(
-              -45deg,
-              rgba($neutral-white, 0.22) 0%,
-              rgba($neutral-white, 0.10) 22%,
-              rgba($neutral-white, 0.03) 48%,
-              transparent 72%
-            ),
-            linear-gradient(
-              135deg,
-              rgba($neutral-white, 0.16) 0%,
-              rgba($neutral-white, 0.08) 45%,
-              rgba($neutral-white, 0.03) 100%
-            ),
-            rgba($neutral-white, 0.08);
-          backdrop-filter: blur(4px) saturate(135%) contrast(105%);
+            linear-gradient(-45deg, #ffffff1c 0%, #ffffff03 50%, #0000003d 100%),
+            linear-gradient(135deg, #ffffff21 0%, #ffffff00 100%), #ffffff00;
           -webkit-backdrop-filter: blur(4px) saturate(135%) contrast(105%);
+          backdrop-filter: blur(4px) saturate(135%) contrast(105%);
           box-shadow:
-            inset 0 1px 1px rgba($neutral-white, 0.30),
-            inset 0 -1px 1px rgba($neutral-black, 0.16),
-            0 6px 18px rgba($neutral-black, 0.12);
+            inset -1px -1px 1px -1px $neutral-white,
+            inset 1px 1px 1px -1px $neutral-white;
           color: $neutral-300;
           font-family: Hauora-Regular;
           font-size: 16px;
