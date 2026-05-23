@@ -56,7 +56,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { requestPwaInstall, usePwaInstallState } from '@/services/pwa'
 
-import iconArrowDown from '@/assets/svg/arrowDown.svg'
+import iconArrowDown from '@/assets/svg/iconArrowDown.svg'
 
 const AUTOPLAY_DELAY_MS = 10000
 const SLIDE_COUNT = 5
@@ -245,9 +245,34 @@ onBeforeUnmount(() => {
         padding: 0;
         width: 40px;
         height: 40px;
+        border: none;
         border-radius: 12px;
+        background: linear-gradient(261deg, $green-700 0%, $soft-purple-800 100%);
         cursor: pointer;
+        position: relative;
+        overflow: hidden;
+        isolation: isolate;
+        &::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          border-radius: inherit;
+          background: linear-gradient(261deg, $soft-purple-800 0%, $green-700 100%);
+          opacity: 0;
+          pointer-events: none;
+          transition: opacity 0.25s ease-in-out;
+          z-index: 0;
+        }
+        &:hover,
+        &:focus-visible,
+        &:active {
+          &::after {
+            opacity: 1;
+          }
+        }
         .nav-icon {
+          position: relative;
+          z-index: 2;
           width: 20px;
           height: 20px;
           &.nav-icon--prev {
@@ -259,25 +284,23 @@ onBeforeUnmount(() => {
         }
       }
       .carousel-dot {
-        padding: 0;
         position: relative;
         overflow: hidden;
-        width: 20px;
-        height: 10px;
+        padding: 0;
+        width: 4px;
+        height: 4px;
+        border: none;
         border-radius: 999px;
+        background-color: $neutral-300;
         cursor: pointer;
-        transition: width 0.25s ease-in-out, background-color 0.25s ease-in-out, border-color 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
+        transition: width 0.25s ease-in-out, background-color 0.25s ease-in-out;
         &:hover,
         &:focus-visible {
-          background:
-            linear-gradient(180deg, rgba($white, 0.25), rgba($white, 0.1)),
-            rgba($white, 0.25);
+          background-color: $neutral-100;
         }
         &.active {
-          width: 50px;
-          background:
-            linear-gradient(180deg, rgba($white, 0.25), rgba($white, 0.1)),
-            rgba($white, 0.25);
+          width: 64px;
+          background-color: $neutral-100;
         }
       }
     }
