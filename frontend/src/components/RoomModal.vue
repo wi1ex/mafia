@@ -381,7 +381,7 @@ onBeforeUnmount(() => {
       display: flex;
       flex-direction: column;
       padding: 10px 10px 0;
-      background-color: $dark;
+      background-color: $grey;
       .params {
         display: flex;
         flex-direction: column;
@@ -390,7 +390,7 @@ onBeforeUnmount(() => {
         .range {
           display: flex;
           flex-direction: column;
-          gap: 5px;
+          gap: 4px;
           .range-label {
             display: flex;
             align-items: center;
@@ -407,39 +407,38 @@ onBeforeUnmount(() => {
           }
           .range-marks {
             position: relative;
-            height: 26px;
-            margin-top: 4px;
+            height: 40px;
             pointer-events: none;
             .range-mark {
-              position: absolute;
-              top: 6px;
               display: inline-flex;
+              position: absolute;
               align-items: center;
               justify-content: center;
-              min-width: 44px;
-              height: 20px;
-              padding: 0 9px;
-              border-radius: 999px;
+              top: 7px;
+              height: 32px;
+              padding: 0 8px;
+              border-radius: 12px;
               background-color: $black;
-              color: $fg;
-              font-size: 10px;
-              font-family: Manrope-SemiBold;
-              letter-spacing: 0.8px;
-              line-height: 1;
+              color: $neutral-white;
+              font-family: Hauora-Regular;
+              font-size: 16px;
+              line-height: 16px;
+              letter-spacing: -0.32px;
               white-space: nowrap;
               transform: translateX(-50%);
               isolation: isolate;
             }
             .range-mark::before {
-              content: '';
+              content: "";
               position: absolute;
+              top: -4px;
               left: 50%;
-              top: -5px;
-              width: 11px;
-              height: 11px;
+              width: 9px;
+              height: 9px;
+              border-radius: 2px 0 0;
               background-color: inherit;
-              border-radius: 2px 0 0 0;
-              transform: translateX(-50%) rotate(45deg);
+              transform: translateX(-50%) scaleX(0.7) rotate(45deg);
+              transform-origin: center;
               z-index: -1;
             }
           }
