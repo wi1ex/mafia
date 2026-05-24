@@ -11,12 +11,12 @@
             <UiIcon class="close-icon" :icon="iconClose" />
           </button>
         </header>
-        <UiCheckbox v-if="showCheckbox" class="checkbox" :id="checkboxId" v-model="state.checkboxChecked">
-          <span v-if="state.checkboxLabel" class="checkbox-label">{{ state.checkboxLabel }}</span>
-          <router-link v-if="showCheckboxLink" class="checkbox-link" :to="state.checkboxLinkTo" target="_blank" rel="noopener noreferrer" @click.stop>
+        <UiCheckbox v-if="showCheckbox" :id="checkboxId" v-model="state.checkboxChecked">
+          <span v-if="state.checkboxLabel">{{ state.checkboxLabel }}</span>
+          <router-link v-if="showCheckboxLink" :to="state.checkboxLinkTo" target="_blank" rel="noopener noreferrer" @click.stop>
             {{ state.checkboxLinkText }}
           </router-link>
-          <span v-if="state.checkboxLabelSuffix" class="checkbox-label">{{ state.checkboxLabelSuffix }}</span>
+          <span v-if="state.checkboxLabelSuffix">{{ state.checkboxLabelSuffix }}</span>
         </UiCheckbox>
         <div class="actions">
           <button v-if="isConfirm" @click.stop="onClose">{{ state.cancelText }}</button>
@@ -131,25 +131,6 @@ onBeforeUnmount(() => {
             --ui-icon-color: #{$green-500};
           }
         }
-      }
-    }
-    .checkbox {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 3px;
-      margin: 0 15px;
-      font-size: 14px;
-      line-height: 1.25;
-      --ui-checkbox-size: 20px;
-      --ui-checkbox-accent: #{$green};
-      .checkbox-label {
-        font-size: 16px;
-        cursor: pointer;
-      }
-      .checkbox-link {
-        color: $white;
-        text-decoration: underline;
       }
     }
     .actions {

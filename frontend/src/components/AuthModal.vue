@@ -283,15 +283,6 @@ watch(() => props.open, (open) => {
         border-bottom: 3px solid $lead;
         border-radius: 0 0 5px 5px;
       }
-      .rules {
-        display: flex;
-        align-items: center;
-        gap: 5px;
-        font-size: 14px;
-        a {
-          color: $fg;
-        }
-      }
       .btn.confirm {
         padding: 0;
         height: 40px;

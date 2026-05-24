@@ -55,20 +55,34 @@ function onChange(e: Event): void {
 .ui-checkbox {
   display: inline-flex;
   align-items: center;
-  gap: var(--ui-checkbox-gap, 5px);
+  flex-wrap: wrap;
+  gap: 5px;
   min-width: 0;
+  color: $fg;
+  font-family: Hauora-Regular;
+  font-size: 16px;
+  line-height: 1.25;
 }
 .ui-checkbox__input {
   flex: 0 0 auto;
-  width: var(--ui-checkbox-size, auto);
-  height: var(--ui-checkbox-size, auto);
+  width: 20px;
+  height: 20px;
   margin: 0;
-  accent-color: var(--ui-checkbox-accent, auto);
+  accent-color: $green;
   cursor: pointer;
 }
 .ui-checkbox__label {
+  display: inline-flex;
+  flex: 1 1 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px;
   min-width: 0;
   cursor: pointer;
+}
+.ui-checkbox__label :deep(a) {
+  color: currentColor;
+  text-decoration: underline;
 }
 .ui-checkbox--disabled .ui-checkbox__input,
 .ui-checkbox--disabled .ui-checkbox__label {
