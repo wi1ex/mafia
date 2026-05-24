@@ -20,6 +20,7 @@
             v-model="spectatorsEnabled"
             :disabled="spectatorsToggleDisabled"
             :tooltip="spectatorsToggleTooltip"
+            tooltip-target="off"
             tooltip-position="bottom"
             label="Зрители:"
             off-label="Откл"

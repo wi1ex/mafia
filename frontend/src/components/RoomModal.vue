@@ -29,9 +29,8 @@
 
           <div class="range" :style="rangeStyle">
             <div class="range-label">
-              <span>Лимит участников: {{ limit }}</span>
-              <span v-if="limit === 2" class="limit-badge" aria-label="Высокое качество">DUO HD</span>
-              <span v-if="isMafiaRoom" class="limit-badge" aria-label="Лимит для игры">MAFIA</span>
+              <span class="limit-text">Лимит участников</span>
+              <span class="limit-badge" aria-label="Лимит участников">{{ limit }}</span>
             </div>
             <UiSlider
               v-model="limit"
@@ -43,8 +42,8 @@
               aria-label="Лимит участников"
             />
             <div class="range-marks" aria-hidden="true">
-              <span class="range-mark" :style="rangeMarkStyle(2)">DUO</span>
-              <span class="range-mark" :style="rangeMarkStyle(gameLimitMin)">MAFIA</span>
+              <span v-if="limit === 2" class="range-mark" :style="rangeMarkStyle(2)">DUO HD</span>
+              <span v-if="isMafiaRoom" class="range-mark" :style="rangeMarkStyle(gameLimitMin)">MAFIA</span>
             </div>
           </div>
 
@@ -60,6 +59,7 @@
             v-model="isAnonymous"
             :disabled="!canCreateHiddenRoom"
             :tooltip="!canCreateHiddenRoom ? hiddenRoomHint : undefined"
+            tooltip-target="on"
             label="Анонимность:"
             off-label="Видимая"
             on-label="Скрытая"
@@ -395,15 +395,21 @@ onBeforeUnmount(() => {
             display: flex;
             align-items: center;
             justify-content: space-between;
-          }
-          .limit-badge {
-            padding: 2px 5px 2px 7px;
-            border-radius: 5px;
-            background-color: $red;
-            color: $fg;
-            font-size: 12px;
-            font-weight: bold;
-            letter-spacing: 1px;
+            .limit-text {
+              color: $bg;
+              font-size: 12px;
+              font-weight: bold;
+              letter-spacing: 1px;
+            }
+            .limit-badge {
+              padding: 2px 5px 2px 7px;
+              border-radius: 5px;
+              background-color: $red;
+              color: $fg;
+              font-size: 12px;
+              font-weight: bold;
+              letter-spacing: 1px;
+            }
           }
           .range-marks {
             position: relative;
