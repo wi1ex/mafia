@@ -116,19 +116,24 @@ function onDeadZoneClick(): void {
   padding: 0;
 }
 .ui-slider--filled {
+  --ui-slider-track-height: var(--ui-slider-filled-track-height, 21px);
+  --ui-slider-thumb-size: var(--ui-slider-filled-thumb-size, 52px);
+  --ui-slider-thumb-border: var(--ui-slider-filled-thumb-border, 7px);
+  --ui-slider-track-radius: var(--ui-slider-filled-radius, 999px);
   .ui-slider__fill-wrap {
     position: relative;
     width: 100%;
-    height: var(--ui-slider-filled-height, 20px);
-    box-shadow: 3px 3px 5px rgba($black, 0.25);
+    height: var(--ui-slider-filled-height, var(--ui-slider-thumb-size));
+    box-shadow: none;
   }
   .ui-slider__dead-zone {
     position: absolute;
     left: 0;
-    top: 0;
-    bottom: 0;
+    top: 50%;
     width: var(--dead);
-    border-radius: var(--ui-slider-filled-radius, 5px);
+    height: var(--ui-slider-track-height);
+    transform: translateY(-50%);
+    border-radius: var(--ui-slider-track-radius);
     z-index: 3;
     pointer-events: auto;
     cursor: pointer;
@@ -139,11 +144,16 @@ function onDeadZoneClick(): void {
   }
   .ui-slider__fill-track {
     position: absolute;
-    inset: 0;
-    border-radius: var(--ui-slider-filled-radius, 5px);
-    border: 1px solid var(--ui-slider-filled-border, $lead);
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: var(--ui-slider-track-height);
+    transform: translateY(-50%);
+    border-radius: var(--ui-slider-track-radius);
+    border: none;
     background-color: var(--ui-slider-filled-bg, $graphite);
     overflow: hidden;
+    pointer-events: none;
   }
   .ui-slider__fill-track::after {
     content: "";
@@ -152,53 +162,184 @@ function onDeadZoneClick(): void {
     width: var(--fill);
     background-color: var(--ui-slider-filled-color, $fg);
     border-radius: inherit;
-    transition: width 0.25s ease-in-out;
+    transition: width 0.2s ease-in-out;
     will-change: width;
   }
   .ui-slider__input--filled {
     position: absolute;
     inset: 0;
     height: 100%;
-    background: none;
+    background: transparent;
     cursor: pointer;
     z-index: 2;
     -webkit-appearance: none;
     appearance: none;
   }
   .ui-slider__input--filled::-webkit-slider-runnable-track {
-    background: transparent;
+    width: 100%;
     height: 100%;
+    background: transparent;
+    border: none;
   }
   .ui-slider__input--filled::-moz-range-track {
-    background: transparent;
+    width: 100%;
     height: 100%;
+    background: transparent;
+    border: none;
+  }
+  .ui-slider__input--filled::-moz-range-progress {
+    background: transparent;
   }
   .ui-slider__input--filled::-ms-track {
+    width: 100%;
+    height: 100%;
     background: transparent;
     color: transparent;
     border: none;
-    height: 100%;
   }
   .ui-slider__input--filled::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 1px;
-    height: 100%;
-    background: transparent;
-    border: none;
+    width: var(--ui-slider-thumb-size);
+    height: var(--ui-slider-thumb-size);
+    border-radius: 50%;
+    border: var(--ui-slider-thumb-border) solid var(--ui-slider-filled-color, $fg);
+    background: var(--ui-slider-filled-thumb-bg, $black);
+    box-sizing: border-box;
+    cursor: grab;
   }
   .ui-slider__input--filled::-moz-range-thumb {
-    width: 1px;
-    height: 100%;
-    background: transparent;
-    border: none;
+    width: var(--ui-slider-thumb-size);
+    height: var(--ui-slider-thumb-size);
+    border-radius: 50%;
+    border: var(--ui-slider-thumb-border) solid var(--ui-slider-filled-color, $fg);
+    background: var(--ui-slider-filled-thumb-bg, $black);
+    box-sizing: border-box;
+    cursor: grab;
+  }
+  .ui-slider__input--filled:active::-webkit-slider-thumb {
+    cursor: grabbing;
+  }
+  .ui-slider__input--filled:active::-moz-range-thumb {
+    cursor: grabbing;
   }
   .ui-slider__input--filled:focus-visible {
     outline: 2px solid var(--ui-slider-filled-focus, $lead);
-    outline-offset: 2px;
+    outline-offset: 4px;
+    border-radius: 999px;
   }
   .ui-slider__input--filled:disabled {
     cursor: not-allowed;
   }
+  .ui-slider__input--filled:disabled::-webkit-slider-thumb {
+    cursor: not-allowed;
+  }
+  .ui-slider__input--filled:disabled::-moz-range-thumb {
+    cursor: not-allowed;
+  }
+  &.disabled {
+    opacity: 0.65;
+  }
 }
 </style>
+
+<!--<style scoped lang="scss">-->
+<!--.ui-slider {-->
+<!--  display: flex;-->
+<!--  align-items: center;-->
+<!--  width: 100%;-->
+<!--  min-width: 0;-->
+<!--}-->
+<!--.ui-slider__input {-->
+<!--  width: 100%;-->
+<!--  min-width: 0;-->
+<!--  margin: 0;-->
+<!--  padding: 0;-->
+<!--}-->
+<!--.ui-slider&#45;&#45;filled {-->
+<!--  .ui-slider__fill-wrap {-->
+<!--    position: relative;-->
+<!--    width: 100%;-->
+<!--    height: var(&#45;&#45;ui-slider-filled-height, 20px);-->
+<!--    box-shadow: 3px 3px 5px rgba($black, 0.25);-->
+<!--  }-->
+<!--  .ui-slider__dead-zone {-->
+<!--    position: absolute;-->
+<!--    left: 0;-->
+<!--    top: 0;-->
+<!--    bottom: 0;-->
+<!--    width: var(&#45;&#45;dead);-->
+<!--    border-radius: var(&#45;&#45;ui-slider-filled-radius, 5px);-->
+<!--    z-index: 3;-->
+<!--    pointer-events: auto;-->
+<!--    cursor: pointer;-->
+<!--  }-->
+<!--  &.disabled .ui-slider__dead-zone {-->
+<!--    cursor: default;-->
+<!--    pointer-events: none;-->
+<!--  }-->
+<!--  .ui-slider__fill-track {-->
+<!--    position: absolute;-->
+<!--    inset: 0;-->
+<!--    border-radius: var(&#45;&#45;ui-slider-filled-radius, 5px);-->
+<!--    border: 1px solid var(&#45;&#45;ui-slider-filled-border, $lead);-->
+<!--    background-color: var(&#45;&#45;ui-slider-filled-bg, $graphite);-->
+<!--    overflow: hidden;-->
+<!--  }-->
+<!--  .ui-slider__fill-track::after {-->
+<!--    content: "";-->
+<!--    position: absolute;-->
+<!--    inset: 0 auto 0 0;-->
+<!--    width: var(&#45;&#45;fill);-->
+<!--    background-color: var(&#45;&#45;ui-slider-filled-color, $fg);-->
+<!--    border-radius: inherit;-->
+<!--    transition: width 0.25s ease-in-out;-->
+<!--    will-change: width;-->
+<!--  }-->
+<!--  .ui-slider__input&#45;&#45;filled {-->
+<!--    position: absolute;-->
+<!--    inset: 0;-->
+<!--    height: 100%;-->
+<!--    background: none;-->
+<!--    cursor: pointer;-->
+<!--    z-index: 2;-->
+<!--    -webkit-appearance: none;-->
+<!--    appearance: none;-->
+<!--  }-->
+<!--  .ui-slider__input&#45;&#45;filled::-webkit-slider-runnable-track {-->
+<!--    background: transparent;-->
+<!--    height: 100%;-->
+<!--  }-->
+<!--  .ui-slider__input&#45;&#45;filled::-moz-range-track {-->
+<!--    background: transparent;-->
+<!--    height: 100%;-->
+<!--  }-->
+<!--  .ui-slider__input&#45;&#45;filled::-ms-track {-->
+<!--    background: transparent;-->
+<!--    color: transparent;-->
+<!--    border: none;-->
+<!--    height: 100%;-->
+<!--  }-->
+<!--  .ui-slider__input&#45;&#45;filled::-webkit-slider-thumb {-->
+<!--    -webkit-appearance: none;-->
+<!--    appearance: none;-->
+<!--    width: 1px;-->
+<!--    height: 100%;-->
+<!--    background: transparent;-->
+<!--    border: none;-->
+<!--  }-->
+<!--  .ui-slider__input&#45;&#45;filled::-moz-range-thumb {-->
+<!--    width: 1px;-->
+<!--    height: 100%;-->
+<!--    background: transparent;-->
+<!--    border: none;-->
+<!--  }-->
+<!--  .ui-slider__input&#45;&#45;filled:focus-visible {-->
+<!--    outline: 2px solid var(&#45;&#45;ui-slider-filled-focus, $lead);-->
+<!--    outline-offset: 2px;-->
+<!--  }-->
+<!--  .ui-slider__input&#45;&#45;filled:disabled {-->
+<!--    cursor: not-allowed;-->
+<!--  }-->
+<!--}-->
+<!--</style>-->
