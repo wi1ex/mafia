@@ -22,16 +22,19 @@ const props = withDefaults(defineProps<{
   placement?: TooltipPlacement
   ariaLabel?: string
   iconSize?: number | string
+  bubbleWidth?: number | string
 }>(), {
   text: '',
   placement: 'top-right',
   iconSize: 24,
+  bubbleWidth: 260,
   ariaLabel: 'Подсказка',
 })
 
 const tooltipId = useId()
 const tooltipStyle = computed<Record<string, string>>(() => ({
   '--ui-tooltip-icon-size': typeof props.iconSize === 'number' ? `${props.iconSize}px` : props.iconSize,
+  '--ui-tooltip-bubble-width': typeof props.bubbleWidth === 'number' ? `${props.bubbleWidth}px` : props.bubbleWidth,
 }))
 const tooltipAriaLabel = computed(() => props.ariaLabel || 'Подсказка')
 const tooltipPlacement = computed<TooltipPlacement>(() => {
@@ -71,22 +74,20 @@ const tooltipPlacement = computed<TooltipPlacement>(() => {
       --ui-icon-color: #{$green-500};
     }
   }
-  &:focus-visible {
-    border-radius: 50%;
-    box-shadow: 0 0 0 2px rgba($fg, 0.45);
-  }
   &__bubble {
     position: absolute;
-    min-width: 260px;
-    max-width: 360px;
+    width: var(--ui-tooltip-bubble-width);
     padding: 10px;
     border: 1px solid $grey;
     border-radius: 5px;
     background-color: $lead;
     box-shadow: 0 5px 15px rgba($black, 0.25);
-    color: $fg;
-    font-size: 12px;
-    line-height: 1.2;
+    color: var(--Text-Body-Secondary, #161717);
+    font-family: var(--Type-Font-Family-Body, Hauora);
+    font-size: var(--Typography-Font-size-Body-MD, 16px);
+    font-weight: 400;
+    line-height: var(--Typography-Line-height-Body-MD, 22px);
+    letter-spacing: -0.32px;
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;

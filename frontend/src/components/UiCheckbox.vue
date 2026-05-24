@@ -106,6 +106,9 @@ function onChange(e: Event): void {
       text-decoration: underline;
     }
   }
+  &:has(.ui-checkbox__input:checked) {
+    color: $neutral-black;
+  }
   &:has(.ui-checkbox__input:not(:checked)):hover {
     color: $neutral-black;
     .ui-checkbox__input {
