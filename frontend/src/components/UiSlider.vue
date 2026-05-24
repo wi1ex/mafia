@@ -116,9 +116,9 @@ function onDeadZoneClick(): void {
   padding: 0;
 }
 .ui-slider--filled {
-  --ui-slider-track-height: var(--ui-slider-filled-track-height, 21px);
-  --ui-slider-thumb-size: var(--ui-slider-filled-thumb-size, 52px);
-  --ui-slider-thumb-border: var(--ui-slider-filled-thumb-border, 7px);
+  --ui-slider-track-height: var(--ui-slider-filled-track-height, 10px);
+  --ui-slider-thumb-size: var(--ui-slider-filled-thumb-size, 20px);
+  --ui-slider-thumb-border: var(--ui-slider-filled-thumb-border, 3px);
   --ui-slider-track-radius: var(--ui-slider-filled-radius, 999px);
   .ui-slider__fill-wrap {
     position: relative;
@@ -151,7 +151,7 @@ function onDeadZoneClick(): void {
     transform: translateY(-50%);
     border-radius: var(--ui-slider-track-radius);
     border: none;
-    background-color: var(--ui-slider-filled-bg, $graphite);
+    background-color: $neutral-700;
     overflow: hidden;
     pointer-events: none;
   }
@@ -160,9 +160,8 @@ function onDeadZoneClick(): void {
     position: absolute;
     inset: 0 auto 0 0;
     width: var(--fill);
-    background-color: var(--ui-slider-filled-color, $fg);
+    background: linear-gradient(261deg, $green-700 0%, $soft-purple-800 100%);
     border-radius: inherit;
-    transition: width 0.2s ease-in-out;
     will-change: width;
   }
   .ui-slider__input--filled {
@@ -203,8 +202,8 @@ function onDeadZoneClick(): void {
     width: var(--ui-slider-thumb-size);
     height: var(--ui-slider-thumb-size);
     border-radius: 50%;
-    border: var(--ui-slider-thumb-border) solid var(--ui-slider-filled-color, $fg);
-    background: var(--ui-slider-filled-thumb-bg, $black);
+    border: var(--ui-slider-thumb-border) solid $green-500;
+    background-color: $soft-purple-900;
     box-sizing: border-box;
     cursor: grab;
   }
@@ -212,8 +211,8 @@ function onDeadZoneClick(): void {
     width: var(--ui-slider-thumb-size);
     height: var(--ui-slider-thumb-size);
     border-radius: 50%;
-    border: var(--ui-slider-thumb-border) solid var(--ui-slider-filled-color, $fg);
-    background: var(--ui-slider-filled-thumb-bg, $black);
+    border: var(--ui-slider-thumb-border) solid $green-500;
+    background-color: $soft-purple-900;
     box-sizing: border-box;
     cursor: grab;
   }
@@ -224,7 +223,7 @@ function onDeadZoneClick(): void {
     cursor: grabbing;
   }
   .ui-slider__input--filled:focus-visible {
-    outline: 2px solid var(--ui-slider-filled-focus, $lead);
+    outline: 1px solid inherit;
     outline-offset: 4px;
     border-radius: 999px;
   }
@@ -242,104 +241,3 @@ function onDeadZoneClick(): void {
   }
 }
 </style>
-
-<!--<style scoped lang="scss">-->
-<!--.ui-slider {-->
-<!--  display: flex;-->
-<!--  align-items: center;-->
-<!--  width: 100%;-->
-<!--  min-width: 0;-->
-<!--}-->
-<!--.ui-slider__input {-->
-<!--  width: 100%;-->
-<!--  min-width: 0;-->
-<!--  margin: 0;-->
-<!--  padding: 0;-->
-<!--}-->
-<!--.ui-slider&#45;&#45;filled {-->
-<!--  .ui-slider__fill-wrap {-->
-<!--    position: relative;-->
-<!--    width: 100%;-->
-<!--    height: var(&#45;&#45;ui-slider-filled-height, 20px);-->
-<!--    box-shadow: 3px 3px 5px rgba($black, 0.25);-->
-<!--  }-->
-<!--  .ui-slider__dead-zone {-->
-<!--    position: absolute;-->
-<!--    left: 0;-->
-<!--    top: 0;-->
-<!--    bottom: 0;-->
-<!--    width: var(&#45;&#45;dead);-->
-<!--    border-radius: var(&#45;&#45;ui-slider-filled-radius, 5px);-->
-<!--    z-index: 3;-->
-<!--    pointer-events: auto;-->
-<!--    cursor: pointer;-->
-<!--  }-->
-<!--  &.disabled .ui-slider__dead-zone {-->
-<!--    cursor: default;-->
-<!--    pointer-events: none;-->
-<!--  }-->
-<!--  .ui-slider__fill-track {-->
-<!--    position: absolute;-->
-<!--    inset: 0;-->
-<!--    border-radius: var(&#45;&#45;ui-slider-filled-radius, 5px);-->
-<!--    border: 1px solid var(&#45;&#45;ui-slider-filled-border, $lead);-->
-<!--    background-color: var(&#45;&#45;ui-slider-filled-bg, $graphite);-->
-<!--    overflow: hidden;-->
-<!--  }-->
-<!--  .ui-slider__fill-track::after {-->
-<!--    content: "";-->
-<!--    position: absolute;-->
-<!--    inset: 0 auto 0 0;-->
-<!--    width: var(&#45;&#45;fill);-->
-<!--    background-color: var(&#45;&#45;ui-slider-filled-color, $fg);-->
-<!--    border-radius: inherit;-->
-<!--    transition: width 0.25s ease-in-out;-->
-<!--    will-change: width;-->
-<!--  }-->
-<!--  .ui-slider__input&#45;&#45;filled {-->
-<!--    position: absolute;-->
-<!--    inset: 0;-->
-<!--    height: 100%;-->
-<!--    background: none;-->
-<!--    cursor: pointer;-->
-<!--    z-index: 2;-->
-<!--    -webkit-appearance: none;-->
-<!--    appearance: none;-->
-<!--  }-->
-<!--  .ui-slider__input&#45;&#45;filled::-webkit-slider-runnable-track {-->
-<!--    background: transparent;-->
-<!--    height: 100%;-->
-<!--  }-->
-<!--  .ui-slider__input&#45;&#45;filled::-moz-range-track {-->
-<!--    background: transparent;-->
-<!--    height: 100%;-->
-<!--  }-->
-<!--  .ui-slider__input&#45;&#45;filled::-ms-track {-->
-<!--    background: transparent;-->
-<!--    color: transparent;-->
-<!--    border: none;-->
-<!--    height: 100%;-->
-<!--  }-->
-<!--  .ui-slider__input&#45;&#45;filled::-webkit-slider-thumb {-->
-<!--    -webkit-appearance: none;-->
-<!--    appearance: none;-->
-<!--    width: 1px;-->
-<!--    height: 100%;-->
-<!--    background: transparent;-->
-<!--    border: none;-->
-<!--  }-->
-<!--  .ui-slider__input&#45;&#45;filled::-moz-range-thumb {-->
-<!--    width: 1px;-->
-<!--    height: 100%;-->
-<!--    background: transparent;-->
-<!--    border: none;-->
-<!--  }-->
-<!--  .ui-slider__input&#45;&#45;filled:focus-visible {-->
-<!--    outline: 2px solid var(&#45;&#45;ui-slider-filled-focus, $lead);-->
-<!--    outline-offset: 2px;-->
-<!--  }-->
-<!--  .ui-slider__input&#45;&#45;filled:disabled {-->
-<!--    cursor: not-allowed;-->
-<!--  }-->
-<!--}-->
-<!--</style>-->
