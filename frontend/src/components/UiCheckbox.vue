@@ -74,16 +74,17 @@ function onChange(e: Event): void {
     -webkit-appearance: none;
     transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out;
     &:checked {
-      border-color: $green-500;
+      border-color: $green-600;
       background-color: $green-100;
     }
-    &:checked::after {content: "";
+    &:checked::after {
+      content: "";
       display: block;
       margin: auto;
       width: 7px;
       height: 11px;
       border-radius: 0 0 3px;
-      border: solid $neutral-white;
+      border: solid $green-600;
       border-width: 0 1.75px 1.75px 0;
       transform: rotate(40deg);
     }
