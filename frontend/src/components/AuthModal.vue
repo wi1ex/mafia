@@ -53,10 +53,9 @@
                 <span id="auth-reg-password-confirm-hint">{{ reg.passwordConfirm.length }}/{{ PASSWORD_MAX }}</span>
               </template>
             </UiInput>
-            <label class="rules">
-              <input type="checkbox" v-model="reg.acceptRules" />
+            <UiCheckbox v-model="reg.acceptRules" class="rules">
               <span>С <router-link to="/rules" target="_blank">правилами</router-link> ознакомлен и согласен</span>
-            </label>
+            </UiCheckbox>
             <button class="btn confirm" type="submit" :disabled="regBusy || auth.registerCooldownActive || !canRegisterSubmit">
               {{ regBusy ? '...' : 'Зарегистрироваться' }}
             </button>
@@ -72,6 +71,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import { useAuthStore, useSettingsStore } from '@/store'
 
 import UiInput from '@/components/UiInput.vue'
+import UiCheckbox from '@/components/UiCheckbox.vue'
 
 import iconClose from '@/assets/svg/close.svg'
 

@@ -11,14 +11,13 @@
             <UiIcon class="close-icon" :icon="iconClose" />
           </button>
         </header>
-        <div v-if="showCheckbox" class="checkbox">
-          <input type="checkbox" :id="checkboxId" v-model="state.checkboxChecked" />
-          <label v-if="state.checkboxLabel" :for="checkboxId" class="checkbox-label">{{ state.checkboxLabel }}</label>
+        <UiCheckbox v-if="showCheckbox" class="checkbox" :id="checkboxId" v-model="state.checkboxChecked">
+          <span v-if="state.checkboxLabel" class="checkbox-label">{{ state.checkboxLabel }}</span>
           <router-link v-if="showCheckboxLink" class="checkbox-link" :to="state.checkboxLinkTo" target="_blank" rel="noopener noreferrer" @click.stop>
             {{ state.checkboxLinkText }}
           </router-link>
-          <label v-if="state.checkboxLabelSuffix" :for="checkboxId" class="checkbox-label">{{ state.checkboxLabelSuffix }}</label>
-        </div>
+          <span v-if="state.checkboxLabelSuffix" class="checkbox-label">{{ state.checkboxLabelSuffix }}</span>
+        </UiCheckbox>
         <div class="actions">
           <button v-if="isConfirm" @click.stop="onClose">{{ state.cancelText }}</button>
           <button class="confirm" :disabled="confirmDisabled" @click.stop="onConfirm">{{ state.confirmText }}</button>
@@ -33,6 +32,7 @@ import { computed, onBeforeUnmount, watch } from 'vue'
 import { resolveConfirm, useConfirmState } from '@/services/confirm'
 import iconClose from '@/assets/svg/iconClose.svg'
 import UiIcon from '@/components/UiIcon.vue'
+import UiCheckbox from '@/components/UiCheckbox.vue'
 
 const state = useConfirmState()
 const isConfirm = computed(() => state.mode === 'confirm')
@@ -141,12 +141,8 @@ onBeforeUnmount(() => {
       margin: 0 15px;
       font-size: 14px;
       line-height: 1.25;
-      input {
-        width: 20px;
-        height: 20px;
-        accent-color: $green;
-        cursor: pointer;
-      }
+      --ui-checkbox-size: 20px;
+      --ui-checkbox-accent: #{$green};
       .checkbox-label {
         font-size: 16px;
         cursor: pointer;
