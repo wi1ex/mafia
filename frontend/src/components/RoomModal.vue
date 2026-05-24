@@ -47,7 +47,7 @@
             </div>
           </div>
 
-          <ToggleSwitch
+          <UiSwitch
             v-model="isPrivate"
             :disabled="isPrivacyLocked"
             label="Приватность:"
@@ -55,11 +55,12 @@
             on-label="Закрытая"
             aria-label="Приватность: открытая/закрытая"
           />
-          <ToggleSwitch
+          <UiSwitch
             v-model="isAnonymous"
             :disabled="!canCreateHiddenRoom"
             :tooltip="!canCreateHiddenRoom ? hiddenRoomHint : undefined"
             tooltip-target="on"
+            tooltip-placement="top-left"
             label="Анонимность:"
             off-label="Видимая"
             on-label="Скрытая"
@@ -89,7 +90,7 @@ import { useUserStore, useSettingsStore } from '@/store'
 
 import UiSlider from '@/components/UiSlider.vue'
 import UiInput from '@/components/UiInput.vue'
-import ToggleSwitch from '@/components/ToggleSwitch.vue'
+import UiSwitch from '@/components/UiSwitch.vue'
 
 import iconClose from '@/assets/svg/close.svg'
 
@@ -494,7 +495,4 @@ onBeforeUnmount(() => {
   transform: translateY(-30px);
 }
 
-@media (max-width: 1280px) {
-
-}
 </style>

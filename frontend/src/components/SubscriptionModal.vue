@@ -238,15 +238,4 @@ function requestClose(): void {
   opacity: 0;
 }
 
-@media (max-width: 1280px) {
-  .overlay {
-    .modal {
-      .btn {
-        padding: 0 10px;
-        height: 30px;
-      }
-    }
-  }
-}
-
 </style>

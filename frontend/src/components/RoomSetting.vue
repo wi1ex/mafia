@@ -10,7 +10,7 @@
 
       <div class="change-devices">
         <div class="switch-div">
-          <ToggleSwitch
+          <UiSwitch
             :model-value="buttonsHigh"
             label="Расположение кнопок:"
             off-label="Стандарт"
@@ -21,7 +21,7 @@
           />
         </div>
         <div v-if="showVideoFillToggle" class="switch-div">
-          <ToggleSwitch
+          <UiSwitch
             :model-value="videoFillOn"
             label="Заполнение видео:"
             off-label="Откл"
@@ -32,7 +32,7 @@
           />
         </div>
         <div v-if="showMirrorToggle" class="switch-div">
-          <ToggleSwitch
+          <UiSwitch
             :model-value="mirrorOn"
             label="Зеркальность камеры:"
             aria-label="Зеркальность камеры"
@@ -41,7 +41,7 @@
           />
         </div>
         <div v-if="inGame && !isSpectator && canToggleKnownRoles" class="switch-div">
-          <ToggleSwitch
+          <UiSwitch
             :model-value="knownRolesVisible"
             off-label="Скрыть"
             on-label="Показать"
@@ -53,7 +53,7 @@
               Отображение ролей:
               <span v-if="!isMobile && hotkeysVisible" class="hot-btn">R</span>
             </template>
-          </ToggleSwitch>
+          </UiSwitch>
         </div>
 
         <div v-if="inGame && musicEnabled" class="volume-block">
@@ -119,7 +119,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
-import ToggleSwitch from '@/components/ToggleSwitch.vue'
+import UiSwitch from '@/components/UiSwitch.vue'
 import UiSlider from '@/components/UiSlider.vue'
 
 import iconClose from '@/assets/svg/close.svg'
@@ -484,9 +484,4 @@ onBeforeUnmount(() => {
   transform: translateY(30px);
 }
 
-@media (max-width: 1280px) {
-  .settings {
-    bottom: 30px;
-  }
-}
 </style>

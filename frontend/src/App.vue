@@ -170,4 +170,9 @@ onBeforeUnmount(() => {
     display: flex;
   }
 }
+
+@media (max-width: 1280px) {
+
+}
+
 </style>

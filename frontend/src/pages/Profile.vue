@@ -118,7 +118,7 @@
 
           <div class="block settings-block">
             <h3>Параметры</h3>
-            <ToggleSwitch
+            <UiSwitch
               class="profile-switch"
               :model-value="hotkeysVisible"
               label="Подсказки для горячих клавиш"
@@ -127,7 +127,7 @@
               :width="200"
               :disabled="hotkeysTogglePending"
               @update:modelValue="onToggleHotkeys" />
-            <ToggleSwitch
+            <UiSwitch
               class="profile-switch"
               :model-value="tgInvitesEnabled"
               label="Уведомления о приглашениях в TG"
@@ -319,7 +319,7 @@ import { formatLocalDateTime } from '@/services/datetime'
 
 import ProfileStatsTab from '@/components/ProfileStatsTab.vue'
 import ProfileHistoryTab from '@/components/ProfileHistoryTab.vue'
-import ToggleSwitch from '@/components/ToggleSwitch.vue'
+import UiSwitch from '@/components/UiSwitch.vue'
 import UiInput from '@/components/UiInput.vue'
 import UiSlider from '@/components/UiSlider.vue'
 import SupportSiteModal from '@/components/SupportSiteModal.vue'
@@ -2042,115 +2042,4 @@ onBeforeUnmount(() => {
   opacity: 0;
 }
 
-@media (max-width: 1280px) {
-  .profile {
-    .btn {
-      padding: 0 10px;
-      height: 30px;
-      font-size: 12px;
-      &.support-btn {
-        max-width: 145px;
-      }
-      &.nav {
-        font-size: 14px;
-      }
-    }
-    header {
-      .tabs {
-        .tab {
-          min-width: 125px;
-          padding: 0 10px;
-          font-size: 14px;
-        }
-      }
-    }
-    .tab-panel {
-      .grid {
-        grid-template-columns: 1fr 1fr;
-        .block {
-          padding: 10px;
-          min-height: 140px;
-          &.avatar-block {
-            .avatar-row {
-              gap: 10px;
-              .avatar-img {
-                width: 100px;
-                height: 100px;
-              }
-            }
-          }
-          &.theme-block {
-            .theme-row {
-              .theme-preview-card {
-                padding: 8px 10px;
-                gap: 3px;
-                border-radius: 10px;
-                .theme-preview-avatar {
-                  width: 30px;
-                  height: 30px;
-                }
-                .theme-preview-icon {
-                  width: 30px;
-                  height: 30px;
-                }
-                .theme-preview-icons {
-                  gap: 3px;
-                }
-                span {
-                  font-size: 16px;
-                }
-              }
-              .theme-palette {
-                margin: 10px 0;
-                gap: 10px;
-              }
-              .theme-icon-palette {
-                margin-bottom: 10px;
-                gap: 10px;
-              }
-              .theme-option {
-                width: 20px;
-                height: 20px;
-              }
-              .theme-icon-option {
-                width: 20px;
-                height: 20px;
-                img {
-                  width: 14px;
-                  height: 14px;
-                }
-                .theme-icon-none {
-                  width: 4px;
-                  height: 1px;
-                }
-              }
-            }
-          }
-          &.sanctions-block {
-            .sanctions-list {
-              grid-template-columns: 1fr 1fr;
-            }
-          }
-        }
-        .modal {
-          .modal-body {
-            .gif-preview-block {
-              span {
-                font-size: 14px;
-              }
-              img {
-                width: 160px;
-                height: 160px;
-              }
-            }
-            canvas {
-              width: 160px;
-              height: 160px;
-            }
-          }
-        }
-      }
-    }
-  }
-}
 </style>

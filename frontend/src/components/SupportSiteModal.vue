@@ -247,7 +247,4 @@ onBeforeUnmount(() => {
   opacity: 0;
 }
 
-@media (max-width: 1280px) {
-
-}
 </style>

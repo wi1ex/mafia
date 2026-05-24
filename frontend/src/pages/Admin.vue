@@ -37,14 +37,14 @@
         <div v-else-if="activeTab === 'settings'">
           <div class="grid">
             <div class="block">
-              <ToggleSwitch class="switch-item" v-model="site.registration_enabled" label="Регистрация" :disabled="savingSettings" />
-              <ToggleSwitch class="switch-item" v-model="site.rooms_can_create" label="Создание комнат" :disabled="savingSettings" />
-              <ToggleSwitch class="switch-item" v-model="site.rooms_can_enter" label="Вход в комнату" :disabled="savingSettings" />
-              <ToggleSwitch class="switch-item" v-model="site.games_can_start" label="Запуск игр" :disabled="savingSettings" />
-              <ToggleSwitch class="switch-item" v-model="site.streams_can_start" label="Запуск трансляций" :disabled="savingSettings" />
-              <ToggleSwitch class="switch-item" v-model="site.chat_open_enabled" label="Открытие чата" :disabled="savingSettings" />
-              <ToggleSwitch class="switch-item" v-model="site.chat_messages_enabled" label="Сообщения в чат" :disabled="savingSettings" />
-              <ToggleSwitch class="switch-item" v-model="site.verification_restrictions" label="Ограничения верификации" :disabled="savingSettings" />
+              <UiSwitch class="switch-item" v-model="site.registration_enabled" label="Регистрация" :disabled="savingSettings" />
+              <UiSwitch class="switch-item" v-model="site.rooms_can_create" label="Создание комнат" :disabled="savingSettings" />
+              <UiSwitch class="switch-item" v-model="site.rooms_can_enter" label="Вход в комнату" :disabled="savingSettings" />
+              <UiSwitch class="switch-item" v-model="site.games_can_start" label="Запуск игр" :disabled="savingSettings" />
+              <UiSwitch class="switch-item" v-model="site.streams_can_start" label="Запуск трансляций" :disabled="savingSettings" />
+              <UiSwitch class="switch-item" v-model="site.chat_open_enabled" label="Открытие чата" :disabled="savingSettings" />
+              <UiSwitch class="switch-item" v-model="site.chat_messages_enabled" label="Сообщения в чат" :disabled="savingSettings" />
+              <UiSwitch class="switch-item" v-model="site.verification_restrictions" label="Ограничения верификации" :disabled="savingSettings" />
               <div class="bulk-admin-actions">
                 <button class="btn danger width-full" :disabled="kickRoomsBusy || clearChatBusy" @click="kickAllRooms">
                   Кик из комнат
@@ -882,7 +882,7 @@ import { useSettingsStore, useUserStore } from '@/store'
 import SanctionModal from '@/components/SanctionModal.vue'
 import SubscriptionModal from '@/components/SubscriptionModal.vue'
 import MiniProfile from '@/components/MiniProfile.vue'
-import ToggleSwitch from '@/components/ToggleSwitch.vue'
+import UiSwitch from '@/components/UiSwitch.vue'
 import UiInput from '@/components/UiInput.vue'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
@@ -3409,103 +3409,5 @@ onMounted(() => {
   opacity: 0;
 }
 
-@media (max-width: 1280px) {
-  .admin {
-    .user-stats-overlay {
-      padding: 10px;
-      .user-stats-head {
-        padding: 5px;
-        span {
-          font-size: 14px;
-        }
-        button {
-          width: 24px;
-          height: 24px;
-          img {
-            width: 16px;
-            height: 16px;
-          }
-        }
-      }
-      .user-stats-body {
-        padding: 5px;
-      }
-    }
-    header {
-      .tabs {
-        .tab {
-          height: 25px;
-          font-size: 12px;
-          &.active {
-            height: 30px;
-          }
-        }
-      }
-    }
-    .btn {
-      padding: 0 5px;
-      gap: 3px;
-      height: 25px;
-      font-size: 14px;
-      &.nav {
-        padding: 0 10px;
-        font-size: 12px;
-      }
-      .btn-img {
-        width: 16px;
-        height: 16px;
-      }
-    }
-    .tab-panel {
-      .stats {
-        .stats-daily-grid {
-          grid-template-columns: 1fr;
-        }
-        .stats-monthly-grid {
-          grid-template-columns: 1fr;
-        }
-        .chart {
-          padding: 5px;
-        }
-      }
-      .table {
-        th {
-          padding: 3px;
-          font-size: 12px;
-        }
-        td {
-          padding: 3px;
-          font-size: 10px;
-        }
-        .user-avatar {
-          width: 16px;
-          height: 16px;
-        }
-        .tooltip {
-          .tooltip-body {
-            padding: 5px;
-          }
-        }
-      }
-      .subscriptions-tab {
-        .block {
-          padding: 5px 0;
-          h3 {
-            margin: 0 0 10px;
-            font-size: 16px;
-          }
-        }
-        .subscription-theme-chip {
-          width: 24px;
-          height: 24px;
-        }
-        .subscription-theme-icon {
-          width: 24px;
-          height: 24px;
-        }
-      }
-    }
-  }
-}
 </style>
 

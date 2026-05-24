@@ -16,18 +16,18 @@
 
       <div class="modal-div">
         <div class="params">
-          <ToggleSwitch
+          <UiSwitch
             v-model="spectatorsEnabled"
             :disabled="spectatorsToggleDisabled"
             :tooltip="spectatorsToggleTooltip"
             tooltip-target="off"
-            tooltip-position="bottom"
+            tooltip-placement="bottom-right"
             label="Зрители:"
             off-label="Откл"
             on-label="Вкл"
             aria-label="Зрители: откл/вкл"
           />
-          <ToggleSwitch
+          <UiSwitch
             v-model="isRating"
             label="Режим:"
             off-label="Обычный"
@@ -35,7 +35,7 @@
             aria-label="Режим: обычный/рейтинг"
             :disabled="true"
           />
-          <ToggleSwitch
+          <UiSwitch
             v-model="isNoHost"
             label="Ведущий:"
             off-label="Ведущий"
@@ -43,7 +43,7 @@
             aria-label="Ведущий: с ведущим/авто"
             :disabled="true"
           />
-          <ToggleSwitch
+          <UiSwitch
             v-model="isPlayersNomination"
             label="Выставления:"
             off-label="Ведущий"
@@ -51,37 +51,37 @@
             aria-label="Выставления"
             :disabled="gameParamsDisabled"
           />
-          <ToggleSwitch
+          <UiSwitch
             v-model="game.farewell_wills"
             label="Завещания:"
             aria-label="Завещания"
             :disabled="gameParamsDisabled"
           />
-          <ToggleSwitch
+          <UiSwitch
             v-model="game.wink_knock"
             label="Подмигивать/Стучать:"
             aria-label="Подмигивать/Стучать"
             :disabled="gameParamsDisabled"
           />
-          <ToggleSwitch
+          <UiSwitch
             v-model="game.break_at_zero"
             label="Слом в нуле:"
             aria-label="Слом в нуле"
             :disabled="gameParamsDisabled"
           />
-          <ToggleSwitch
+          <UiSwitch
             v-model="game.lift_at_zero"
             label="Подъём в нуле:"
             aria-label="Подъём в нуле"
             :disabled="gameParamsDisabled"
           />
-          <ToggleSwitch
+          <UiSwitch
             v-model="game.lift_3x"
             label="Подъём 3х при 9х:"
             aria-label="Подъём 3х при 9х"
             :disabled="gameParamsDisabled"
           />
-          <ToggleSwitch
+          <UiSwitch
             v-model="game.music"
             label="Музыка:"
             aria-label="Музыка"
@@ -102,7 +102,7 @@ import { computed, ref, watch } from 'vue'
 import { api } from '@/services/axios'
 import { alertDialog } from '@/services/confirm'
 import { useUserStore } from '@/store'
-import ToggleSwitch from '@/components/ToggleSwitch.vue'
+import UiSwitch from '@/components/UiSwitch.vue'
 import {
   normalizeRoomGameParams,
   roomGameDefault,
@@ -373,33 +373,4 @@ watch([canDisableSpectators, () => props.canEdit], ([allowDisable, canEdit]) => 
   transform: translateY(30px);
 }
 
-@media (max-width: 1280px) {
-  .game-params-panel {
-    bottom: 30px;
-    max-height: calc(100dvh - 40px);
-    header {
-      padding: 5px;
-      span {
-        font-size: 14px;
-      }
-      button {
-        width: 20px;
-        height: 20px;
-        img {
-          width: 15px;
-          height: 15px;
-        }
-      }
-    }
-    .save-game {
-      button {
-        height: 30px;
-        font-size: 14px;
-      }
-    }
-    .params {
-      gap: 10px;
-    }
-  }
-}
 </style>

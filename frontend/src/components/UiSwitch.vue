@@ -8,23 +8,11 @@
       <div class="slider">
         <span class="slider-option">
           <span class="slider-option__text">{{ offLabel }}</span>
-          <span v-if="showTooltipFor('off')" class="switch-tooltip-trigger" role="button" tabindex="0" :aria-label="tooltipAriaLabel"
-                :aria-describedby="tooltipId" @click.stop.prevent @keydown.enter.stop.prevent @keydown.space.stop.prevent>
-            <span class="switch-tooltip-icon" aria-hidden="true">?</span>
-            <span :id="tooltipId" class="switch-tooltip" :class="`switch-tooltip--${tooltipPosition}`" role="tooltip">
-              {{ props.tooltip }}
-            </span>
-          </span>
+          <UiTooltip v-if="showTooltipFor('off')" :text="props.tooltip" :placement="tooltipPlacement" :aria-label="tooltipAriaLabel" />
         </span>
         <span class="slider-option">
           <span class="slider-option__text">{{ onLabel }}</span>
-          <span v-if="showTooltipFor('on')" class="switch-tooltip-trigger" role="button" tabindex="0" :aria-label="tooltipAriaLabel"
-                :aria-describedby="tooltipId" @click.stop.prevent @keydown.enter.stop.prevent @keydown.space.stop.prevent>
-            <span class="switch-tooltip-icon" aria-hidden="true">?</span>
-            <span :id="tooltipId" class="switch-tooltip" :class="`switch-tooltip--${tooltipPosition}`" role="tooltip">
-              {{ props.tooltip }}
-            </span>
-          </span>
+          <UiTooltip v-if="showTooltipFor('on')" :text="props.tooltip" :placement="tooltipPlacement" :aria-label="tooltipAriaLabel" />
         </span>
       </div>
     </label>
@@ -32,10 +20,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, useId } from 'vue'
+import { computed, onBeforeUnmount, ref } from 'vue'
+
+import UiTooltip from '@/components/UiTooltip.vue'
 
 const TOGGLE_GUARD_MS = 500
 type TooltipTarget = 'off' | 'on'
+type TooltipPlacement = 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left'
 
 const props = defineProps<{
   modelValue: boolean
@@ -47,6 +38,7 @@ const props = defineProps<{
   width?: number
   tooltip?: string
   tooltipPosition?: 'top' | 'bottom'
+  tooltipPlacement?: TooltipPlacement
   tooltipTarget?: TooltipTarget
   tooltipAriaLabel?: string
 }>()
@@ -58,12 +50,14 @@ const emit = defineEmits<{
 
 const offLabel = computed(() => props.offLabel ?? 'Откл')
 const onLabel = computed(() => props.onLabel ?? 'Вкл')
-const tooltipPosition = computed(() => props.tooltipPosition === 'bottom' ? 'bottom' : 'top')
 const tooltipTarget = computed<TooltipTarget>(() => props.tooltipTarget === 'off' ? 'off' : 'on')
+const tooltipPlacement = computed<TooltipPlacement>(() => {
+  if (props.tooltipPlacement) return props.tooltipPlacement
+  return props.tooltipPosition === 'bottom' ? 'bottom-right' : 'top-right'
+})
 const tooltipAriaLabel = computed(() => props.tooltipAriaLabel || 'Подсказка')
 const widthPx = computed(() => `${Number.isFinite(props.width) && props.width ? props.width : 274}px`)
 const switchStyle = computed<Record<string, string>>(() => ({ '--switch-width': widthPx.value }))
-const tooltipId = useId()
 
 const switchLocked = ref(false)
 const isDisabled = computed(() => Boolean(props.disabled) || switchLocked.value)
@@ -159,26 +153,6 @@ onBeforeUnmount(() => {
         text-overflow: ellipsis;
         white-space: nowrap;
       }
-      .switch-tooltip-trigger {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        position: relative;
-        flex: 0 0 auto;
-        width: 15px;
-        height: 15px;
-        border-radius: 50%;
-        border: 1px solid currentColor;
-        color: currentColor;
-        cursor: help;
-        font-family: Hauora-Bold;
-        font-size: 10px;
-        line-height: 1;
-        outline: none;
-      }
-      .switch-tooltip-trigger:focus-visible {
-        box-shadow: 0 0 0 2px rgba($fg, 0.45);
-      }
     }
     .slider:before {
       content: "";
@@ -200,37 +174,6 @@ onBeforeUnmount(() => {
     }
     input:disabled + .slider {
       cursor: not-allowed;
-    }
-    .switch-tooltip {
-      position: absolute;
-      left: 50%;
-      bottom: calc(100% + 10px);
-      min-width: 260px;
-      max-width: 360px;
-      padding: 10px;
-      border: 1px solid $grey;
-      border-radius: 5px;
-      background-color: $lead;
-      box-shadow: 0 5px 15px rgba($black, 0.25);
-      color: $fg;
-      font-size: 12px;
-      line-height: 1.2;
-      opacity: 0;
-      transform: translate(-50%, 5px);
-      pointer-events: none;
-      transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
-      z-index: 5;
-      &.switch-tooltip--bottom {
-        top: calc(100% + 10px);
-        bottom: auto;
-        transform: translate(-50%, -5px);
-      }
-    }
-    .switch-tooltip-trigger:hover .switch-tooltip,
-    .switch-tooltip-trigger:focus-visible .switch-tooltip {
-      opacity: 1;
-      transform: translate(-50%, 0);
-      pointer-events: auto;
     }
   }
 }

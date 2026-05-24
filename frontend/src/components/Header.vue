@@ -827,7 +827,4 @@ function openAuth(mode: 'login' | 'register') {
   transform: translateY(-30px);
 }
 
-@media (max-width: 1280px) {
-
-}
 </style>

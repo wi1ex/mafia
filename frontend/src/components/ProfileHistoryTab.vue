@@ -691,39 +691,4 @@ onBeforeUnmount(() => {
   }
 }
 
-@media (max-width: 1280px) {
-  .profile-history {
-    .history-filters {
-      .history-filter-btn {
-        padding: 0 10px;
-        height: 30px;
-        font-size: 14px;
-        .history-filter-icon {
-          width: 20px;
-          height: 20px;
-        }
-      }
-    }
-    .history-list {
-      .history-item {
-        .history-main {
-          .history-main-div {
-            min-width: 300px;
-            .history-main-left {
-              .game-head {
-                span {
-                  max-width: 110px;
-                }
-              }
-            }
-          }
-          .history-main-stats {
-            min-width: 60px;
-          }
-        }
-      }
-    }
-  }
-}
-
 </style>

@@ -112,39 +112,4 @@ onBeforeUnmount(() => {
   }
 }
 
-@media (max-width: 1280px) {
-  .emoji-picker {
-    display: flex;
-    position: absolute;
-    transform-origin: bottom right;
-    background-color: $lead;
-    box-shadow: 0 15px 30px rgba($black, 0.25);
-    overflow: hidden;
-    z-index: 10;
-    .emoji-button {
-      font-size: 14px;
-    }
-    &--reactions {
-      padding: 3px;
-      gap: 3px;
-      > .emoji-button {
-        width: 20px;
-        height: 20px;
-      }
-    }
-    &--composer {
-      bottom: calc(100% + 5px);
-      right: 5px;
-      padding: 5px;
-      width: 200px;
-      height: 150px;
-      overflow-y: auto;
-      overflow-x: hidden;
-      .emoji-grid--composer {
-        gap: 3px;
-      }
-    }
-  }
-}
-
 </style>

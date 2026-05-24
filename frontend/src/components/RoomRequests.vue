@@ -344,46 +344,4 @@ onBeforeUnmount(() => {
   transform: translateY(30px);
 }
 
-@media (max-width: 1280px) {
-  .apps-panel {
-    bottom: 30px;
-    max-height: calc(100dvh - 40px);
-    header {
-      padding: 5px;
-      span {
-        font-size: 14px;
-      }
-      button {
-        width: 20px;
-        height: 20px;
-        img {
-          width: 15px;
-          height: 15px;
-        }
-      }
-    }
-    ul {
-      padding: 5px;
-      gap: 5px;
-      li {
-        img {
-          width: 16px;
-          height: 16px;
-        }
-        .username {
-          height: 14px;
-          font-size: 12px;
-        }
-        .req-time {
-          font-size: 12px;
-        }
-        button {
-          min-width: 75px;
-          height: 20px;
-          font-size: 12px;
-        }
-      }
-    }
-  }
-}
 </style>
