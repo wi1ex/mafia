@@ -27,7 +27,7 @@
             </template>
           </UiInput>
 
-          <div class="range">
+          <div class="range" :style="rangeStyle">
             <div class="range-label">
               <span>Лимит участников: {{ limit }}</span>
               <span v-if="limit === 2" class="limit-badge" aria-label="Высокое качество">DUO HD</span>
@@ -103,6 +103,7 @@ let prevOverflow = ''
 const RANGE_MIN = 0
 const RANGE_MAX = 12
 const DEAD_MIN = 2
+const RANGE_THUMB_SIZE = 26
 const TITLE_MAX = 32
 const titlePct = computed(() => {
   const used = Math.min(TITLE_MAX, Math.max(0, title.value.length))
@@ -114,6 +115,10 @@ const gameLimitMin = computed(() => {
   const minReady = Number(settings.gameMinReadyPlayers)
   return Number.isFinite(minReady) && minReady > 0 ? minReady + 1 : 11
 })
+const rangeStyle = computed<Record<string, string>>(() => ({
+  '--range-thumb-size': `${RANGE_THUMB_SIZE}px`,
+  '--ui-slider-filled-thumb-size': `${RANGE_THUMB_SIZE}px`,
+}))
 
 const emit = defineEmits<{
   (e: 'close'): void
@@ -207,10 +212,12 @@ function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n))
 }
 
-function rangeMarkStyle(value: number) {
+function rangeMarkStyle(value: number): Record<string, string> {
   const span = RANGE_MAX - RANGE_MIN
-  const pct = span > 0 ? ((value - RANGE_MIN) * 100) / span : 0
-  return { left: `${pct}%` }
+  const ratio = span > 0 ? (clamp(value, RANGE_MIN, RANGE_MAX) - RANGE_MIN) / span : 0
+  const pct = Number((ratio * 100).toFixed(4))
+  const thumbOffset = Number((RANGE_THUMB_SIZE * (0.5 - ratio)).toFixed(4))
+  return { left: `calc(${pct}% + ${thumbOffset}px)` }
 }
 
 function normalizeGame(value: unknown): RoomGameParams {
@@ -400,10 +407,20 @@ onBeforeUnmount(() => {
           }
           .range-marks {
             position: relative;
-            height: 5px;
+            height: 26px;
+            margin-top: 4px;
+            pointer-events: none;
             .range-mark {
               position: absolute;
-              top: 0;
+              top: 6px;
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
+              min-width: 44px;
+              height: 20px;
+              padding: 0 9px;
+              border-radius: 999px;
+              background-color: $black;
               color: $fg;
               font-size: 10px;
               font-family: Manrope-SemiBold;
@@ -411,16 +428,19 @@ onBeforeUnmount(() => {
               line-height: 1;
               white-space: nowrap;
               transform: translateX(-50%);
-              &::before {
-                content: '';
-                position: absolute;
-                left: 50%;
-                bottom: 100%;
-                width: 1px;
-                height: 5px;
-                background-color: $lead;
-                transform: translateX(-50%);
-              }
+              isolation: isolate;
+            }
+            .range-mark::before {
+              content: '';
+              position: absolute;
+              left: 50%;
+              top: -5px;
+              width: 11px;
+              height: 11px;
+              background-color: inherit;
+              border-radius: 2px 0 0 0;
+              transform: translateX(-50%) rotate(45deg);
+              z-index: -1;
             }
           }
         }
