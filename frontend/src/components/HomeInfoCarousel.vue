@@ -11,7 +11,10 @@
         <div class="slide-div">
           <div class="slide-top">
             <span class="slide-title">Стриминг</span>
-            <UiIcon class="tooltip-img" :icon="iconInfo" />
+            <UiTooltip
+              text="Временный текст подсказки"
+              placement="bottom-left"
+            />
           </div>
         </div>
       </article>
@@ -21,7 +24,10 @@
         <div class="slide-div">
           <div class="slide-top">
             <span class="slide-title">Статистика</span>
-            <UiIcon class="tooltip-img" :icon="iconInfo" />
+            <UiTooltip
+              text="Временный текст подсказки"
+              placement="bottom-left"
+            />
           </div>
         </div>
       </article>
@@ -31,7 +37,10 @@
         <div class="slide-div">
           <div class="slide-top">
             <span class="slide-title">Комьюнити</span>
-            <UiIcon class="tooltip-img" :icon="iconInfo" />
+            <UiTooltip
+              text="Временный текст подсказки"
+              placement="bottom-left"
+            />
           </div>
         </div>
       </article>
@@ -41,7 +50,10 @@
         <div class="slide-div">
           <div class="slide-top">
             <span class="slide-title">Web App</span>
-            <UiIcon class="tooltip-img" :icon="iconInfo" />
+            <UiTooltip
+              text="Временный текст подсказки"
+              placement="bottom-left"
+            />
           </div>
           <div class="slide-bottom">
             <button type="button" class="slide-btn" :disabled="installButtonDisabled" @click="openInstall">
@@ -72,10 +84,9 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { requestPwaInstall, usePwaInstallState } from '@/services/pwa'
 
-import UiIcon from '@/components/UiIcon.vue'
+import UiTooltip from '@/components/UiTooltip.vue'
 
 import iconArrowDown from '@/assets/svg/iconArrowDown.svg'
-import iconInfo from "@/assets/svg/iconInfo.svg"
 
 import imageSlide1 from '@/assets/images/carousel-image1.png'
 import imageSlide2 from '@/assets/images/carousel-image2.png'
@@ -271,16 +282,6 @@ onBeforeUnmount(() => {
           font-size: 16px;
           line-height: 16px;
           letter-spacing: -0.32px;
-        }
-        .tooltip-img {
-          --ui-icon-width: 24px;
-          --ui-icon-height: 24px;
-          --ui-icon-color: #{$neutral-300};
-          &:hover,
-          &:focus-visible,
-          &:active {
-            --ui-icon-color: #{$green-500};
-          }
         }
       }
       .slide-bottom {
