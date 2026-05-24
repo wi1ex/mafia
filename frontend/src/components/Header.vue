@@ -170,7 +170,7 @@ const um_open = ref(false)
 const userMenuEl = ref<HTMLElement | null>(null)
 const authOpen = ref(false)
 const authMode = ref<'login' | 'register'>('login')
-const BUILD = (import.meta.env.VITE_BUILD_ID as string || '').trim() || 'BUILD'
+// const BUILD = (import.meta.env.VITE_BUILD_ID as string || '').trim() || 'BUILD'
 const botName = (import.meta.env.VITE_TG_BOT_NAME as string || '').trim()
 const botLink = botName ? `https://t.me/${botName}` : 'https://t.me'
 const userMenuButtonStyle = computed(() => buildProfileThemeStyle(user.activeProfileThemeColor))
