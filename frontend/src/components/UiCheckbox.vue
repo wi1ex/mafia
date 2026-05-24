@@ -53,19 +53,20 @@ function onChange(e: Event): void {
   display: inline-flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 5px;
+  gap: 8px;
   min-width: 0;
-  color: $fg;
+  color: $neutral-300;
   font-family: Hauora-Regular;
-  font-size: 16px;
-  line-height: 1.25;
+  font-size: 14px;
+  line-height: 14px;
+  letter-spacing: -0.28px;
   transition: color 0.25s ease-in-out;
   &__input {
     flex: 0 0 auto;
     width: 20px;
     height: 20px;
     margin: 0;
-    border: 2px solid $neutral-500;
+    border: 1px solid $neutral-300;
     border-radius: 4px;
     background-color: transparent;
     cursor: pointer;
@@ -74,21 +75,21 @@ function onChange(e: Event): void {
     transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out;
     &:checked {
       border-color: $green-500;
-      background-color: $green-500;
+      background-color: $green-100;
     }
-    &:checked::after {
-      content: '';
+    &:checked::after {content: "";
       display: block;
-      width: 5px;
-      height: 10px;
-      margin: 1px auto 0;
+      margin: auto;
+      width: 7px;
+      height: 11px;
+      border-radius: 0 0 3px;
       border: solid $neutral-white;
-      border-width: 0 2px 2px 0;
-      transform: rotate(45deg);
+      border-width: 0 1.75px 1.75px 0;
+      transform: rotate(40deg);
     }
     &:focus-visible {
-      outline: 2px solid rgba($green-500, 0.45);
-      outline-offset: 2px;
+      outline: 1px solid $neutral-black;
+      outline-offset: 1px;
     }
   }
   &__label {
@@ -105,9 +106,9 @@ function onChange(e: Event): void {
     }
   }
   &:hover {
-    color: $green-500;
+    color: $neutral-black;
     .ui-checkbox__input {
-      border-color: $green-500;
+      border-color: $neutral-black;
     }
   }
 }
