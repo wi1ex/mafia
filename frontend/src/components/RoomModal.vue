@@ -61,6 +61,7 @@
             :tooltip="!canCreateHiddenRoom ? hiddenRoomHint : undefined"
             tooltip-target="on"
             tooltip-placement="top-left"
+            tooltip-bubble-width="320px"
             label="Анонимность:"
             off-label="Видимая"
             on-label="Скрытая"

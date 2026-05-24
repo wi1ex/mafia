@@ -14,6 +14,7 @@
             :placement="tooltipPlacement"
             :aria-label="tooltipAriaLabel"
             :icon-size="20"
+            :bubble-width="props.tooltipBubbleWidth"
           />
         </span>
         <span class="slider-option">
@@ -24,6 +25,7 @@
             :placement="tooltipPlacement"
             :aria-label="tooltipAriaLabel"
             :icon-size="20"
+            :bubble-width="props.tooltipBubbleWidth"
           />
         </span>
       </div>
@@ -53,6 +55,7 @@ const props = defineProps<{
   tooltipPlacement?: TooltipPlacement
   tooltipTarget?: TooltipTarget
   tooltipAriaLabel?: string
+  tooltipBubbleWidth?: number | string
 }>()
 
 const emit = defineEmits<{

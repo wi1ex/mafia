@@ -22,6 +22,7 @@
             :tooltip="spectatorsToggleTooltip"
             tooltip-target="off"
             tooltip-placement="bottom-center"
+            tooltip-bubble-width="320px"
             label="Зрители:"
             off-label="Откл"
             on-label="Вкл"

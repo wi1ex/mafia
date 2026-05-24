@@ -27,7 +27,7 @@ const props = withDefaults(defineProps<{
   text: '',
   placement: 'top-right',
   iconSize: 24,
-  bubbleWidth: 260,
+  bubbleWidth: 450,
   ariaLabel: 'Подсказка',
 })
 
