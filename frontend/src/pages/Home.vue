@@ -1534,9 +1534,9 @@ onBeforeUnmount(() => {
         }
       }
       &--secondary {
-        min-height: 74px;
-        height: 74px;
-        max-height: 74px;
+        min-height: 80px;
+        height: 80px;
+        max-height: 80px;
         background-color: $neutral-800;
       }
     }
