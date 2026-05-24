@@ -4,7 +4,7 @@
       <div v-if="open" class="support-site-overlay" @pointerdown.self="armed = true" @pointerup.self="armed && requestClose()" @pointerleave.self="armed = false" @pointercancel.self="armed = false">
         <div class="support-site-modal" role="dialog" aria-modal="true">
           <header>
-            <div class="support-header">
+            <div class="header-div">
               <span class="header-title">Выбери удобный способ поддержки</span>
               <span class="header-text">Помоги развитию проекта и получи дополнительные возможности внутри платформы.</span>
             </div>
@@ -132,7 +132,7 @@ onBeforeUnmount(() => {
       display: flex;
       align-items: flex-start;
       justify-content: space-between;
-      .support-header {
+      .header-div {
         display: flex;
         flex-direction: column;
         gap: 8px;

@@ -3,9 +3,14 @@
     <div v-if="state.open" class="overlay">
       <div class="modal" :role="dialogRole" aria-modal="true" :aria-labelledby="titleId">
         <header :id="titleId">
-          <span class="title">{{ state.title }}</span>
+          <div class="header-div">
+            <span class="header-title">{{ state.title }}</span>
+            <span v-if="showText" class="header-text">state.text</span>
+          </div>
+          <button type="button" aria-label="Закрыть">
+            <UiIcon class="close-icon" :icon="iconClose" />
+          </button>
         </header>
-        <span v-if="showText" class="text">{{ state.text }}</span>
         <div v-if="showCheckbox" class="checkbox">
           <input :id="checkboxId" v-model="state.checkboxChecked" type="checkbox" />
           <label v-if="state.checkboxLabel" :for="checkboxId" class="checkbox-label">{{ state.checkboxLabel }}</label>
@@ -26,6 +31,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, watch } from 'vue'
 import { resolveConfirm, useConfirmState } from '@/services/confirm'
+import iconClose from '@/assets/svg/iconClose.svg'
+import UiIcon from '@/components/UiIcon.vue'
 
 const state = useConfirmState()
 const isConfirm = computed(() => state.mode === 'confirm')
@@ -69,33 +76,62 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   inset: 0;
-  background-color: rgba($black, 0.25);
-  backdrop-filter: blur(5px);
+  padding: 20px;
+  background-color: rgba($neutral-black, 0.20);
+  backdrop-filter: blur(12px);
   z-index: 3000;
   .modal {
     display: flex;
     flex-direction: column;
-    gap: 15px;
-    width: min(60%, 600px);
-    border-radius: 5px;
-    background-color: $dark;
+    padding: 24px;
+    gap: 32px;
+    width: 558px;
+    border-radius: 24px;
+    background-color: $neutral-100;
+    box-shadow: 0 2px 16px 0 rgba($neutral-black, 0.20);
     header {
       display: flex;
+      align-items: flex-start;
       justify-content: space-between;
-      align-items: center;
-      padding: 15px;
-      border-radius: 5px;
-      background-color: $graphite;
-      box-shadow: 0 3px 5px rgba($black, 0.25);
-      .title {
-        font-size: 18px;
-        font-weight: bold;
+      .header-div {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        .header-title {
+          color: $neutral-black;
+          font-family: Involve-Medium;
+          font-size: 24px;
+          line-height: 26px;
+          letter-spacing: -0.48px;
+        }
+        .header-text {
+          color: $neutral-500;
+          font-family: Hauora-Regular;
+          font-size: 16px;
+          line-height: 22px;
+          letter-spacing: -0.32px;
+        }
       }
-    }
-    .text {
-      margin: 0 15px;
-      line-height: 1.25;
-      white-space: pre-line;
+      button {
+        padding: 0;
+        width: 24px;
+        height: 24px;
+        border: none;
+        background: none;
+        cursor: pointer;
+        .close-icon {
+          --ui-icon-width: 24px;
+          --ui-icon-height: 24px;
+          --ui-icon-color: #{$neutral-black};
+        }
+        &:hover,
+        &:focus-visible,
+        &:active {
+          .close-icon {
+            --ui-icon-color: #{$green-500};
+          }
+        }
+      }
     }
     .checkbox {
       display: flex;
@@ -166,6 +202,10 @@ onBeforeUnmount(() => {
 .confirm-enter-from,
 .confirm-leave-to {
   opacity: 0;
+}
+
+@media (max-width: 1280px) {
+
 }
 
 </style>
