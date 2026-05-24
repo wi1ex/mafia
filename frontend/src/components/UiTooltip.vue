@@ -1,5 +1,5 @@
 <template>
-  <span class="ui-tooltip" role="button" tabindex="0" :aria-label="tooltipAriaLabel" :aria-describedby="tooltipId"
+  <span class="ui-tooltip" :style="tooltipStyle" role="button" tabindex="0" :aria-label="tooltipAriaLabel" :aria-describedby="tooltipId"
         @click.stop.prevent @keydown.enter.stop.prevent @keydown.space.stop.prevent>
     <UiIcon class="tooltip-img" :icon="iconInfo" />
     <span :id="tooltipId" class="ui-tooltip__bubble" :class="`ui-tooltip__bubble--${tooltipPlacement}`" role="tooltip">
@@ -21,13 +21,18 @@ const props = withDefaults(defineProps<{
   text?: string
   placement?: TooltipPlacement
   ariaLabel?: string
+  iconSize?: number | string
 }>(), {
   text: '',
   placement: 'top-right',
+  iconSize: 24,
   ariaLabel: 'Подсказка',
 })
 
 const tooltipId = useId()
+const tooltipStyle = computed<Record<string, string>>(() => ({
+  '--ui-tooltip-icon-size': typeof props.iconSize === 'number' ? `${props.iconSize}px` : props.iconSize,
+}))
 const tooltipAriaLabel = computed(() => props.ariaLabel || 'Подсказка')
 const tooltipPlacement = computed<TooltipPlacement>(() => {
   switch (props.placement) {
@@ -48,13 +53,13 @@ const tooltipPlacement = computed<TooltipPlacement>(() => {
   justify-content: center;
   position: relative;
   flex: 0 0 auto;
-  width: 24px;
-  height: 24px;
+  width: var(--ui-tooltip-icon-size);
+  height: var(--ui-tooltip-icon-size);
   cursor: help;
   outline: none;
   .tooltip-img {
-    --ui-icon-width: 24px;
-    --ui-icon-height: 24px;
+    --ui-icon-width: var(--ui-tooltip-icon-size);
+    --ui-icon-height: var(--ui-tooltip-icon-size);
     --ui-icon-color: #{$neutral-300};
   }
   &:hover,

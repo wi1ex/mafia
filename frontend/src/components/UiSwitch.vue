@@ -8,11 +8,23 @@
       <div class="slider">
         <span class="slider-option">
           <span class="slider-option__text">{{ offLabel }}</span>
-          <UiTooltip v-if="showTooltipFor('off')" :text="props.tooltip" :placement="tooltipPlacement" :aria-label="tooltipAriaLabel" />
+          <UiTooltip
+            v-if="showTooltipFor('off')"
+            :text="props.tooltip"
+            :placement="tooltipPlacement"
+            :aria-label="tooltipAriaLabel"
+            :icon-size="20"
+          />
         </span>
         <span class="slider-option">
           <span class="slider-option__text">{{ onLabel }}</span>
-          <UiTooltip v-if="showTooltipFor('on')" :text="props.tooltip" :placement="tooltipPlacement" :aria-label="tooltipAriaLabel" />
+          <UiTooltip
+            v-if="showTooltipFor('on')"
+            :text="props.tooltip"
+            :placement="tooltipPlacement"
+            :aria-label="tooltipAriaLabel"
+            :icon-size="20"
+          />
         </span>
       </div>
     </label>
@@ -141,7 +153,7 @@ onBeforeUnmount(() => {
         color: $neutral-500;
         font-family: Hauora-Regular;
         font-size: 18px;
-        line-height: 20px;
+        line-height: 22px;
         letter-spacing: -0.36px;
         text-align: center;
         transition: color 0.25s ease-in-out;
