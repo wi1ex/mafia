@@ -73,7 +73,7 @@
           <UiIcon class="bell-icon" :icon="iconNotifBell" />
           <span class="bell-text">Уведомления</span>
           <UiIcon class="bell-arrow" :icon="iconArrow" :style="{ transform: nb_open ? 'rotate(180deg)' : 'none' }" />
-          <span v-if="notif.unread > 0" class="unread-text">{{ notif.unread < 100 ? notif.unread : '∞' }}</span>
+          <span v-if="notif.unread > 0" class="unread-text">{{ notif.unread < 10 ? notif.unread : '∞' }}</span>
         </button>
         <Notifs
           v-model:open="nb_open"
@@ -86,7 +86,7 @@
           <UiIcon class="bell-icon" :icon="iconFriends" />
           <span class="bell-text">Друзья</span>
           <UiIcon class="bell-arrow" :icon="iconArrow" :style="{ transform: friends_open ? 'rotate(180deg)' : 'none' }" />
-          <span v-if="friends.incomingCount > 0" class="unread-text">{{ friends.incomingCount < 100 ? friends.incomingCount : '∞' }}</span>
+          <span v-if="friends.incomingCount > 0" class="unread-text">{{ friends.incomingCount < 10 ? friends.incomingCount : '∞' }}</span>
         </button>
         <FriendsPanel
           v-model:open="friends_open"
@@ -100,7 +100,7 @@
           <UiIcon class="bell-icon" :icon="iconChat" />
           <span class="bell-text">Чат</span>
           <UiIcon class="bell-arrow" :icon="iconArrow" :style="{ transform: !globalChatButtonDisabled && chat.open ? 'rotate(180deg)' : 'none' }" />
-          <span v-if="!globalChatButtonDisabled && chat.unread > 0" class="unread-text">{{ chat.unread < 100 ? chat.unread : '∞' }}</span>
+          <span v-if="!globalChatButtonDisabled && chat.unread > 0" class="unread-text">{{ chat.unread < 10 ? chat.unread : '∞' }}</span>
         </button>
       </div>
 
@@ -667,12 +667,17 @@ function openAuth(mode: 'login' | 'register') {
           position: absolute;
           align-items: center;
           justify-content: center;
-          top: 16px;
+          top: 14px;
           left: 32px;
           width: 14px;
           height: 14px;
           border-radius: 50%;
           background-color: $red-500;
+          color: $neutral-white;
+          font-family: Hauora-Medium;
+          font-size: 10px;
+          line-height: 8px;
+          letter-spacing: -0.4px;
         }
         &:disabled {
           background-color: $neutral-800;

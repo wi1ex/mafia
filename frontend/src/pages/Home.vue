@@ -1143,7 +1143,7 @@ onBeforeUnmount(() => {
       width: 100%;
       min-width: 0;
       max-width: none;
-      height: 536px;
+      height: 510px;
       border-radius: 24px;
       overflow: hidden;
       .loading-overlay {

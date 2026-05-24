@@ -238,7 +238,7 @@ onBeforeUnmount(() => {
       left: 0;
       top: 0;
       width: 607px;
-      height: 536px;
+      height: 510px;
     }
     .slide-div {
       display: flex;
@@ -314,7 +314,7 @@ onBeforeUnmount(() => {
     &.slide-three {
       background-color: rgba(20, 29, 33, 1);
       .background-image {
-        height: 447px;
+        height: 421px;
       }
     }
     &.slide-five {
