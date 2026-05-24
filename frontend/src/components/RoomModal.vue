@@ -423,7 +423,7 @@ onBeforeUnmount(() => {
               font-family: Hauora-Regular;
               font-size: 16px;
               line-height: 16px;
-              letter-spacing: -0.32px;
+              letter-spacing: -0.3px;
               white-space: nowrap;
               transform: translateX(-50%);
               isolation: isolate;
@@ -431,11 +431,11 @@ onBeforeUnmount(() => {
             .range-mark::before {
               content: "";
               position: absolute;
-              top: -4px;
+              top: -5px;
               left: 50%;
-              width: 9px;
-              height: 9px;
-              border-radius: 2px 0 0;
+              width: 10px;
+              height: 10px;
+              border-radius: 3px 0 0;
               background-color: inherit;
               transform: translateX(-50%) scaleX(0.7) rotate(45deg);
               transform-origin: center;
