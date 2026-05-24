@@ -12,7 +12,7 @@
           </button>
         </header>
         <div v-if="showCheckbox" class="checkbox">
-          <input :id="checkboxId" v-model="state.checkboxChecked" type="checkbox" />
+          <input type="checkbox" :id="checkboxId" v-model="state.checkboxChecked" />
           <label v-if="state.checkboxLabel" :for="checkboxId" class="checkbox-label">{{ state.checkboxLabel }}</label>
           <router-link v-if="showCheckboxLink" class="checkbox-link" :to="state.checkboxLinkTo" target="_blank" rel="noopener noreferrer" @click.stop>
             {{ state.checkboxLinkText }}

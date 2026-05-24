@@ -194,10 +194,14 @@
               <canvas ref="canvasEl" @mousedown="dragStart" @mousemove="dragMove" @mouseup="dragStop" @mouseleave="dragStop" @wheel.passive="onWheel" />
               <div class="range">
                 <span>Масштаб</span>
-                <div class="range-wrap">
-                  <div class="range-track" :style="cropRangeFillStyle" aria-hidden="true"></div>
-                  <input class="range-native" type="range" aria-label="Масштаб" :min="crop.min" :max="crop.max" step="0.01" :value="crop.scale" @input="onRange" :disabled="isBanned" />
-                </div>
+                <UiSlider
+                  :model-value="crop.scale"
+                  :min="crop.min"
+                  :max="crop.max"
+                  :step="0.01"
+                  :disabled="isBanned"
+                  aria-label="Масштаб"
+                  @update:modelValue="scaleTo" />
               </div>
               <div class="modal-actions">
                 <button class="btn danger" @click="cancelCrop">Отменить</button>
@@ -221,11 +225,14 @@
               <p v-if="gifPicker.error" class="hint red">{{ gifPicker.error }}</p>
               <div class="range">
                 <span>Кадр {{ gifFrameLabel }}</span>
-                <div class="range-wrap">
-                  <div class="range-track" :style="gifRangeFillStyle" aria-hidden="true"></div>
-                  <input class="range-native" type="range" aria-label="Кадр GIF" min="0" :max="Math.max(0, gifPicker.frameCount - 1)" step="1"
-                         :value="gifPicker.frameIndex" @input="onGifFrameRange" :disabled="busyAva || isBanned || gifPicker.frameCount <= 1 || gifPicker.decoding" />
-                </div>
+                <UiSlider
+                  :model-value="gifPicker.frameIndex"
+                  :min="0"
+                  :max="Math.max(0, gifPicker.frameCount - 1)"
+                  :step="1"
+                  :disabled="busyAva || isBanned || gifPicker.frameCount <= 1 || gifPicker.decoding"
+                  aria-label="Кадр GIF"
+                  @update:modelValue="onGifFrameRange" />
               </div>
               <div class="modal-actions">
                 <button class="btn danger" @click="cancelGifPicker">Отменить</button>
@@ -314,6 +321,7 @@ import ProfileStatsTab from '@/components/ProfileStatsTab.vue'
 import ProfileHistoryTab from '@/components/ProfileHistoryTab.vue'
 import ToggleSwitch from '@/components/ToggleSwitch.vue'
 import UiInput from '@/components/UiInput.vue'
+import UiSlider from '@/components/UiSlider.vue'
 import SupportSiteModal from '@/components/SupportSiteModal.vue'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
@@ -1009,22 +1017,6 @@ function gifCanvasDisplaySize(canvas: HTMLCanvasElement): number {
   return Number.isFinite(cssWidth) && cssWidth > 0 ? Math.round(cssWidth) : 300
 }
 
-const cropRangePct = computed(() => {
-  if (crop.max === crop.min) return 0
-  const p = ((crop.scale - crop.min) * 100) / (crop.max - crop.min)
-  return Math.max(0, Math.min(100, p))
-})
-
-const cropRangeFillStyle = computed<Record<string, string>>(() => ({
-  '--fill': `${cropRangePct.value}%`,
-}))
-
-const gifRangeFillStyle = computed<Record<string, string>>(() => {
-  if (gifPicker.frameCount <= 1) return { '--fill': '0%' }
-  const pct = (gifPicker.frameIndex * 100) / (gifPicker.frameCount - 1)
-  return { '--fill': `${Math.max(0, Math.min(100, pct))}%` }
-})
-
 const gifFrameLabel = computed(() => `${gifPicker.frameIndex + 1}/${Math.max(1, gifPicker.frameCount)}`)
 
 function scaleTo(next: number) {
@@ -1148,8 +1140,8 @@ async function openGifFramePicker(file: File) {
   }
 }
 
-function onGifFrameRange(e: Event) {
-  const next = clamp(Math.trunc(Number((e.target as HTMLInputElement).value)), 0, Math.max(0, gifPicker.frameCount - 1))
+function onGifFrameRange(value: number) {
+  const next = clamp(Math.trunc(Number(value)), 0, Math.max(0, gifPicker.frameCount - 1))
   gifPicker.frameIndex = next
   void drawGifFrame(next)
 }
@@ -1225,11 +1217,6 @@ function redraw() {
   ctx.imageSmoothingEnabled = true
   ctx.imageSmoothingQuality = 'high' as any
   ctx.drawImage(img, crop.x, crop.y, img.width * crop.scale, img.height * crop.scale)
-}
-
-function onRange(e: Event) {
-  const next = clamp(Number((e.target as HTMLInputElement).value), crop.min, crop.max)
-  scaleTo(next)
 }
 
 function clampPosition() {
@@ -2022,77 +2009,6 @@ onBeforeUnmount(() => {
             display: flex;
             flex-direction: column;
             gap: 5px;
-            .range-wrap {
-              position: relative;
-              height: 20px;
-              box-shadow: 3px 3px 5px rgba($black, 0.25);
-              .range-track {
-                position: absolute;
-                inset: 0;
-                border-radius: 5px;
-                border: 1px solid $lead;
-                background-color: $graphite;
-                overflow: hidden;
-              }
-              .range-track::after {
-                content: "";
-                position: absolute;
-                inset: 0 auto 0 0;
-                width: var(--fill);
-                background-color: $fg;
-                border-radius: inherit;
-                transition: width 0.25s ease-in-out;
-                will-change: width;
-              }
-              .range-native {
-                position: absolute;
-                inset: 0;
-                width: 100%;
-                height: 100%;
-                margin: 0;
-                padding: 0;
-                background: none;
-                cursor: pointer;
-                z-index: 2;
-                -webkit-appearance: none;
-                appearance: none;
-              }
-              .range-native::-webkit-slider-runnable-track {
-                background: transparent;
-                height: 100%;
-              }
-              .range-native::-moz-range-track {
-                background: transparent;
-                height: 100%;
-              }
-              .range-native::-ms-track {
-                background: transparent;
-                color: transparent;
-                border: none;
-                height: 100%;
-              }
-              .range-native::-webkit-slider-thumb {
-                -webkit-appearance: none;
-                appearance: none;
-                width: 1px;
-                height: 100%;
-                background: transparent;
-                border: none;
-              }
-              .range-native::-moz-range-thumb {
-                width: 1px;
-                height: 100%;
-                background: transparent;
-                border: none;
-              }
-              .range-native:focus-visible {
-                outline: 2px solid $lead;
-                outline-offset: 2px;
-              }
-              .range-native:disabled {
-                cursor: not-allowed;
-              }
-            }
           }
           .modal-actions {
             display: flex;
