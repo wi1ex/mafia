@@ -5,7 +5,7 @@
         <header :id="titleId">
           <div class="header-div">
             <span class="header-title">{{ state.title }}</span>
-            <span v-if="showText" class="header-text">state.text</span>
+            <span v-if="showText" class="header-text">{{ state.text }}</span>
           </div>
           <button type="button" aria-label="Закрыть" @click.stop="onClose">
             <UiIcon class="close-icon" :icon="iconClose" />
@@ -163,28 +163,33 @@ onBeforeUnmount(() => {
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 15px;
-        height: 30px;
+        padding: 0 16px;
+        height: 40px;
+        border-radius: 12px;
         border: none;
-        border-radius: 5px;
-        background-color: $graphite;
-        color: $fg;
-        font-size: 14px;
-        font-family: Manrope-Medium;
-        line-height: 1;
+        background-color: $neutral-white;
+        color: $neutral-black;
+        font-family: Hauora-Regular;
+        font-size: 16px;
+        line-height: 16px;
+        letter-spacing: -0.32px;
         cursor: pointer;
-        transition: opacity 0.25s ease-in-out, background-color 0.25s ease-in-out;
-        &:hover {
-          background-color: $lead;
+        transition: opacity 0.25s ease-in-out, background-color 0.25s ease-in-out, color 0.25s ease-in-out;
+        &:not(:disabled):hover,
+        &:not(:disabled):focus-visible {
+          color: $green-600;
         }
         &.confirm {
-          background-color: rgba($green, 0.75);
-          color: $bg;
-          &:hover {
-            background-color: $green;
+          background-color: $green-500;
+          color: $neutral-900;
+          &:not(:disabled):hover,
+          &:not(:disabled):focus-visible {
+            background-color: $green-300;
+            color: $neutral-black;
           }
           &:disabled {
-            opacity: 0.5;
+            background-color: $neutral-200;
+            color: $neutral-400;
             cursor: not-allowed;
           }
         }
