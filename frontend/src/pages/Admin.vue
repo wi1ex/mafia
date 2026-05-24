@@ -2404,6 +2404,8 @@ async function kickAllRooms(): Promise<void> {
     text: 'Кикнуть всех пользователей из всех активных комнат?',
     confirmText: 'Кикнуть',
     cancelText: 'Отмена',
+    checkboxLabel: 'Подтверждаю',
+    checkboxRequired: true,
   })
   if (!ok) return
   kickRoomsBusy.value = true
@@ -2424,6 +2426,8 @@ async function clearGlobalChat(): Promise<void> {
     text: 'Полностью очистить общий чат?',
     confirmText: 'Очистить',
     cancelText: 'Отмена',
+    checkboxLabel: 'Подтверждаю',
+    checkboxRequired: true,
   })
   if (!ok) return
   clearChatBusy.value = true
