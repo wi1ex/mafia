@@ -422,18 +422,19 @@ function openAuth(mode: 'login' | 'register') {
   .sanction-duration-unit {
     display: inline-flex;
     align-items: center;
-    gap: 2px;
+    gap: 8px;
   }
   .sanction-timer-badge {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 22px;
-    height: 28px;
+    margin-left: 8px;
     padding: 0 6px;
+    min-width: 16px;
+    height: 28px;
     border-radius: 6px;
-    background-color: rgba($neutral-black, 0.4);
-    color: $neutral-white;
+    background-color: rgba($neutral-black, 0.6);
+    color: $neutral-white !important;
     font-family: Hauora-Bold;
     font-variant-numeric: tabular-nums;
   }
