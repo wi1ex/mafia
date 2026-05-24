@@ -15,7 +15,7 @@ import UiIcon from '@/components/UiIcon.vue'
 
 import iconInfo from '@/assets/svg/iconInfo.svg'
 
-type TooltipPlacement = 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left'
+type TooltipPlacement = 'top-right' | 'top-center' | 'top-left' | 'bottom-right' | 'bottom-center' | 'bottom-left'
 
 const props = withDefaults(defineProps<{
   text?: string
@@ -37,7 +37,9 @@ const tooltipAriaLabel = computed(() => props.ariaLabel || 'Подсказка')
 const tooltipPlacement = computed<TooltipPlacement>(() => {
   switch (props.placement) {
     case 'top-left':
+    case 'top-center':
     case 'bottom-right':
+    case 'bottom-center':
     case 'bottom-left':
       return props.placement
     default:
@@ -99,10 +101,20 @@ const tooltipPlacement = computed<TooltipPlacement>(() => {
       bottom: calc(100% + 10px);
       transform: translateY(5px);
     }
+    &--top-center {
+      left: 50%;
+      bottom: calc(100% + 10px);
+      transform: translate(-50%, 5px);
+    }
     &--bottom-right {
       left: 0;
       top: calc(100% + 10px);
       transform: translateY(-5px);
+    }
+    &--bottom-center {
+      left: 50%;
+      top: calc(100% + 10px);
+      transform: translate(-50%, -5px);
     }
     &--bottom-left {
       right: 0;
@@ -116,6 +128,10 @@ const tooltipPlacement = computed<TooltipPlacement>(() => {
       opacity: 1;
       transform: translateY(0);
       pointer-events: auto;
+    }
+    .ui-tooltip__bubble--top-center,
+    .ui-tooltip__bubble--bottom-center {
+      transform: translate(-50%, 0);
     }
   }
 }

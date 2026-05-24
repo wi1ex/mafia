@@ -21,7 +21,7 @@
             :disabled="spectatorsToggleDisabled"
             :tooltip="spectatorsToggleTooltip"
             tooltip-target="off"
-            tooltip-placement="bottom-right"
+            tooltip-placement="bottom-center"
             label="Зрители:"
             off-label="Откл"
             on-label="Вкл"

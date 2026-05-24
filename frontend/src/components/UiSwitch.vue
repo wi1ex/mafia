@@ -38,7 +38,7 @@ import UiTooltip from '@/components/UiTooltip.vue'
 
 const TOGGLE_GUARD_MS = 500
 type TooltipTarget = 'off' | 'on'
-type TooltipPlacement = 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left'
+type TooltipPlacement = 'top-right' | 'top-center' | 'top-left' | 'bottom-right' | 'bottom-center' | 'bottom-left'
 
 const props = defineProps<{
   modelValue: boolean
