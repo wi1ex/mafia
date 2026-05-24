@@ -22,17 +22,9 @@
     <template v-else>
       <span>{{ sanctionBanner.label }}</span>
       <span v-if="sanctionBanner.days > 0" class="sanction-duration-unit">
-        <span class="sanction-timer-badge">{{ sanctionBanner.days }}</span> д
+        <span class="sanction-timer-badge">{{ sanctionBanner.days }}</span> {{ sanctionBanner.daysLabel }}
       </span>
-      <span class="sanction-duration-unit">
-        <span class="sanction-timer-badge">{{ sanctionBanner.hours }}</span> ч
-      </span>
-      <span class="sanction-duration-unit">
-        <span class="sanction-timer-badge">{{ sanctionBanner.minutes }}</span> м
-      </span>
-      <span class="sanction-duration-unit">
-        <span class="sanction-timer-badge">{{ sanctionBanner.seconds }}</span> с
-      </span>
+      <span class="sanction-timer-badge">{{ sanctionBanner.time }}</span>
     </template>
   </div>
   <header class="bar">
@@ -187,14 +179,22 @@ const userMenuProfileIconSrcs = computed(() => getProfileThemeBadgeSources(user.
 
 type SanctionDuration = {
   days: number
-  hours: string
-  minutes: string
-  seconds: string
+  daysLabel: string
+  time: string
 }
 
 type SanctionBanner =
   | { kind: 'ban'; text: string }
-  | { kind: 'timeout' | 'suspend'; label: string; days: number; hours: string; minutes: string; seconds: string }
+  | { kind: 'timeout' | 'suspend'; label: string; days: number; daysLabel: string; time: string }
+
+function pluralizeDays(days: number): string {
+  const lastTwo = Math.abs(days) % 100
+  const last = lastTwo % 10
+  if (lastTwo >= 11 && lastTwo <= 14) return 'дней'
+  if (last === 1) return 'день'
+  if (last >= 2 && last <= 4) return 'дня'
+  return 'дней'
+}
 
 function formatRemaining(ms: number): SanctionDuration {
   const total = Math.max(0, Math.floor(ms / 1000))
@@ -205,7 +205,7 @@ function formatRemaining(ms: number): SanctionDuration {
   const hh = String(hours).padStart(2, '0')
   const mm = String(minutes).padStart(2, '0')
   const ss = String(seconds).padStart(2, '0')
-  return { days, hours: hh, minutes: mm, seconds: ss }
+  return { days, daysLabel: pluralizeDays(days), time: `${hh}:${mm}:${ss}` }
 }
 
 const sanctionBanner = computed<SanctionBanner | null>(() => {
@@ -423,18 +423,19 @@ function openAuth(mode: 'login' | 'register') {
     display: inline-flex;
     align-items: center;
     gap: 2px;
-    .sanction-timer-badge {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 22px;
-      height: 28px;
-      padding: 0 6px;
-      border-radius: 6px;
-      background-color: rgba($neutral-black, 0.4);
-      color: $neutral-white;
-      font-family: Hauora-Bold;
-    }
+  }
+  .sanction-timer-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 28px;
+    padding: 0 6px;
+    border-radius: 6px;
+    background-color: rgba($neutral-black, 0.4);
+    color: $neutral-white;
+    font-family: Hauora-Bold;
+    font-variant-numeric: tabular-nums;
   }
   &.sanction-banner--ban {
     background-color: $red-500;
