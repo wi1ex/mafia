@@ -99,7 +99,6 @@
         <button class="bell-dropdown-trigger" :disabled="globalChatButtonDisabled" @click.stop="toggleGlobalChat" :aria-expanded="!globalChatButtonDisabled && chat.open" aria-label="Общий чат">
           <UiIcon class="bell-icon" :icon="iconChat" />
           <span class="bell-text">Чат</span>
-          <UiIcon class="bell-arrow" :icon="iconArrow" :style="{ transform: !globalChatButtonDisabled && chat.open ? 'rotate(180deg)' : 'none' }" />
           <span v-if="!globalChatButtonDisabled && chat.unread > 0" class="unread-text">{{ chat.unread < 10 ? chat.unread : '∞' }}</span>
         </button>
       </div>
