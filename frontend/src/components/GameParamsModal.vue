@@ -115,6 +115,7 @@ const props = defineProps<{
   open: boolean
   roomId: number | string
   canEdit: boolean
+  externalGame?: RoomGameParams | null
 }>()
 
 const emit = defineEmits<{
@@ -160,7 +161,13 @@ const spectatorsToggleTooltip = computed(() => {
   return spectatorsDisabledHint
 })
 
-function normalizeGame(raw: unknown): RoomGameParams {
+function normalizeLoadedGame(raw: unknown): RoomGameParams {
+  return normalizeRoomGameParams(raw, {
+    allowDisableSpectators: true,
+  })
+}
+
+function normalizeSaveGame(raw: unknown): RoomGameParams {
   return normalizeRoomGameParams(raw, {
     allowDisableSpectators: canDisableSpectators.value,
   })
@@ -184,6 +191,11 @@ const isDirty = computed(() => {
   return !isSameGame(initialGame.value, game.value)
 })
 
+function applyGame(next: RoomGameParams): void {
+  game.value = { ...next }
+  initialGame.value = { ...next }
+}
+
 function emitClose() {
   emit('update:open', false)
 }
@@ -199,9 +211,8 @@ async function loadGame() {
   loading.value = true
   try {
     const { data } = await api.get(`/rooms/${props.roomId}/info`)
-    const next = data?.game ? normalizeGame(data.game) : { ...roomGameDefault }
-    game.value = next
-    initialGame.value = { ...next }
+    const next = data?.game ? normalizeLoadedGame(data.game) : { ...roomGameDefault }
+    applyGame(next)
   } catch {
     void alertDialog('Не удалось загрузить параметры игры')
   } finally {
@@ -213,11 +224,10 @@ async function save() {
   if (!props.canEdit || !isDirty.value || busy.value || loading.value) return
   busy.value = true
   try {
-    const payload = normalizeGame(game.value)
+    const payload = normalizeSaveGame(game.value)
     await api.patch(`/rooms/${props.roomId}/game`, payload)
     saveLastGame(payload)
-    initialGame.value = { ...payload }
-    game.value = { ...payload }
+    applyGame(payload)
     emit('saved', payload)
     emitClose()
   } catch (e: any) {
@@ -244,12 +254,17 @@ watch(() => props.roomId, () => {
   if (props.open) void loadGame()
 })
 
-watch(canDisableSpectators, (allowDisable) => {
+watch(() => props.externalGame, (next) => {
+  if (!next) return
+  applyGame(normalizeLoadedGame(next))
+}, { deep: true })
+
+watch([canDisableSpectators, () => props.canEdit], ([allowDisable, canEdit]) => {
   const normalizedGame = normalizeRoomGameParams(game.value, {
-    allowDisableSpectators: allowDisable,
+    allowDisableSpectators: !canEdit || allowDisable,
   })
   const normalizedInitial = initialGame.value
-    ? normalizeRoomGameParams(initialGame.value, { allowDisableSpectators: allowDisable })
+    ? normalizeRoomGameParams(initialGame.value, { allowDisableSpectators: !canEdit || allowDisable })
     : null
 
   if (JSON.stringify(normalizedGame) !== JSON.stringify(game.value)) {

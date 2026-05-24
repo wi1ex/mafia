@@ -386,6 +386,8 @@
           v-model:open="gameParamsOpen"
           :room-id="rid"
           :can-edit="canEditGameSettings"
+          :external-game="roomGameSnapshot"
+          @saved="applyRoomGameSnapshot"
         />
 
         <FriendsPanel
@@ -492,6 +494,7 @@ import {
 import { type CameraQuality, type ScreenShareQuality, useRTC, type VQ } from '@/composables/rtc'
 import { api } from '@/services/axios'
 import { alertDialog, confirmDialog, useConfirmState } from '@/services/confirm'
+import { normalizeRoomGameParams, type RoomGameParams } from '@/services/gameParams'
 import { canOpenMiniProfileTarget } from '@/services/miniProfile'
 import { setPageTitle } from '@/services/pwa'
 import { createAuthedSocket, disposeAuthedSocket } from '@/services/sio'
@@ -711,6 +714,7 @@ const settingsOpen = ref(false)
 const friendsPanelOpen = ref(false)
 const roomFriendsEl = ref<HTMLElement | null>(null)
 const gameParamsOpen = ref(false)
+const roomGameSnapshot = ref<RoomGameParams | null>(null)
 const uiReady = ref(false)
 const leaving = ref(false)
 const netReconnecting = ref(false)
@@ -1166,6 +1170,11 @@ function openGameSettings() {
   if (next && chat.open) chat.closePanel()
   closePanels('game')
   gameParamsOpen.value = next
+}
+function applyRoomGameSnapshot(raw: unknown) {
+  roomGameSnapshot.value = normalizeRoomGameParams(raw, {
+    allowDisableSpectators: true,
+  })
 }
 function onDocClick() {
   closePanels(undefined, { keepFriendsWhenConfirm: true })
@@ -2177,6 +2186,12 @@ socket.value?.on('connect', async () => {
 
   socket.value.on('screen_owner', (p: any) => {
     setScreenOwner(p?.user_id ? String(p.user_id) : '', p?.quality)
+  })
+
+  socket.value.on('room_game_updated', (p: any) => {
+    const roomId = Number(p?.room_id || 0)
+    if (roomId && roomId !== rid) return
+    applyRoomGameSnapshot(p?.game ?? p)
   })
 
   socket.value?.on('game_starting', async (p: any) => {

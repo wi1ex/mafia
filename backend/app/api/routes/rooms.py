@@ -318,6 +318,13 @@ async def update_game(room_id: int, payload: GameParams, ident: Identity = Depen
     game_data = serialize_game_for_redis(game_dict)
     await r.hset(f"room:{room_id}:game", mapping=game_data)
 
+    with suppress(Exception):
+        await sio.emit(
+            "room_game_updated",
+            {"room_id": room_id, "game": game_dict},
+            room=f"room:{room_id}",
+            namespace="/room",
+        )
     await log_action(
         session,
         user_id=int(ident["id"]),
