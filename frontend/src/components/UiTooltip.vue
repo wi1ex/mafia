@@ -77,16 +77,15 @@ const tooltipPlacement = computed<TooltipPlacement>(() => {
   &__bubble {
     position: absolute;
     width: var(--ui-tooltip-bubble-width);
-    padding: 10px;
-    border: 1px solid $grey;
-    border-radius: 5px;
-    background-color: $lead;
-    box-shadow: 0 5px 15px rgba($black, 0.25);
-    color: var(--Text-Body-Secondary, #161717);
-    font-family: var(--Type-Font-Family-Body, Hauora);
-    font-size: var(--Typography-Font-size-Body-MD, 16px);
-    font-weight: 400;
-    line-height: var(--Typography-Line-height-Body-MD, 22px);
+    padding: 16px;
+    border-radius: 20px;
+    border: 1px solid $neutral-200;
+    background-color: $neutral-100;
+    box-shadow: 0 2px 16px rgba($neutral-black, 0.20);
+    color: $neutral-900;
+    font-family: Hauora-Regular;
+    font-size: 16px;
+    line-height: 22px;
     letter-spacing: -0.32px;
     opacity: 0;
     pointer-events: none;
@@ -94,32 +93,32 @@ const tooltipPlacement = computed<TooltipPlacement>(() => {
     z-index: 20;
     &--top-right {
       left: 0;
-      bottom: calc(100% + 10px);
+      bottom: calc(100% + 4px);
       transform: translateY(5px);
     }
     &--top-left {
       right: 0;
-      bottom: calc(100% + 10px);
+      bottom: calc(100% + 4px);
       transform: translateY(5px);
     }
     &--top-center {
       left: 50%;
-      bottom: calc(100% + 10px);
+      bottom: calc(100% + 4px);
       transform: translate(-50%, 5px);
     }
     &--bottom-right {
       left: 0;
-      top: calc(100% + 10px);
+      top: calc(100% + 4px);
       transform: translateY(-5px);
     }
     &--bottom-center {
       left: 50%;
-      top: calc(100% + 10px);
+      top: calc(100% + 4px);
       transform: translate(-50%, -5px);
     }
     &--bottom-left {
       right: 0;
-      top: calc(100% + 10px);
+      top: calc(100% + 4px);
       transform: translateY(-5px);
     }
   }
