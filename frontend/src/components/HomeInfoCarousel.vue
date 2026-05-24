@@ -262,7 +262,6 @@ onBeforeUnmount(() => {
           background:
             linear-gradient(-45deg, #ffffff1c 0%, #ffffff03 50%, #0000003d 100%),
             linear-gradient(135deg, #ffffff21 0%, #ffffff00 100%), #ffffff00;
-          -webkit-backdrop-filter: blur(4px) saturate(135%) contrast(105%);
           backdrop-filter: blur(4px) saturate(135%) contrast(105%);
           box-shadow:
             inset -1px -1px 1px -1px $neutral-white,

@@ -4,8 +4,11 @@
       <div v-if="open" class="support-site-overlay" @pointerdown.self="armed = true" @pointerup.self="armed && requestClose()" @pointerleave.self="armed = false" @pointercancel.self="armed = false">
         <div class="support-site-modal" role="dialog" aria-modal="true">
           <header>
-            <span>Выберите сервис поддержки</span>
-            <button class="icon" type="button" aria-label="Закрыть" @click="requestClose">
+            <div class="support-header">
+              <span class="header-title">Выбери удобный способ поддержки</span>
+              <span class="header-text">Помоги развитию проекта и получи дополнительные возможности внутри платформы.</span>
+            </div>
+            <button type="button" aria-label="Закрыть" @click="requestClose">
               <img :src="iconClose" alt="close" />
             </button>
           </header>
@@ -107,32 +110,45 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   padding: 20px;
-  background-color: rgba($black, 0.25);
-  backdrop-filter: blur(5px);
+  background-color: rgba($neutral-black, 0.20);
+  backdrop-filter: blur(12px);
   z-index: 1000;
   .support-site-modal {
-    max-width: 100%;
     display: flex;
     flex-direction: column;
-    padding: 20px;
-    gap: 15px;
-    width: 500px;
-    border-radius: 20px;
-    background-color: $graphite;
-    box-shadow: 0 15px 30px rgba($black, 0.25);
+    padding: 24px;
+    gap: 32px;
+    width: 558px;
+    border-radius: 24px;
+    background-color: $neutral-100;
+    box-shadow: 0 2px 16px 0 rgba($neutral-black, 0.20);
     header {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: space-between;
-      gap: 10px;
-      span {
-        font-size: 20px;
-        font-family: Manrope-Medium;
+      .support-header {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        .header-title {
+          color: $neutral-black;
+          font-family: Involve-Medium;
+          font-size: 24px;
+          line-height: 26px;
+          letter-spacing: -0.48px;
+        }
+        .header-text {
+          color: $neutral-500;
+          font-family: Hauora-Regular;
+          font-size: 16px;
+          line-height: 22px;
+          letter-spacing: -0.32px;
+        }
       }
-      .icon {
-        width: 30px;
-        height: 30px;
+      button {
         padding: 0;
+        width: 24px;
+        height: 24px;
         border: none;
         background: none;
         cursor: pointer;
@@ -175,13 +191,13 @@ onBeforeUnmount(() => {
           flex-direction: column;
           gap: 5px;
           .site-name {
-            color: $fg;
+            color: $bg;
             font-size: 18px;
             font-family: Manrope-SemiBold;
             line-height: 1.2;
           }
           .site-note {
-            color: $grey;
+            color: $bg;
             font-size: 12px;
             line-height: 1.2;
           }
