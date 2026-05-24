@@ -7,7 +7,7 @@
             <span class="header-title">{{ state.title }}</span>
             <span v-if="showText" class="header-text">state.text</span>
           </div>
-          <button type="button" aria-label="Закрыть">
+          <button type="button" aria-label="Закрыть" @click.stop="onClose">
             <UiIcon class="close-icon" :icon="iconClose" />
           </button>
         </header>
@@ -20,7 +20,7 @@
           <label v-if="state.checkboxLabelSuffix" :for="checkboxId" class="checkbox-label">{{ state.checkboxLabelSuffix }}</label>
         </div>
         <div class="actions">
-          <button v-if="isConfirm" @click.stop="onCancel">{{ state.cancelText }}</button>
+          <button v-if="isConfirm" @click.stop="onClose">{{ state.cancelText }}</button>
           <button class="confirm" :disabled="confirmDisabled" @click.stop="onConfirm">{{ state.confirmText }}</button>
         </div>
       </div>
@@ -49,7 +49,7 @@ function onConfirm() {
   resolveConfirm(true)
 }
 
-function onCancel() {
+function onClose() {
   resolveConfirm(false)
 }
 
@@ -158,9 +158,7 @@ onBeforeUnmount(() => {
     }
     .actions {
       display: flex;
-      justify-content: flex-end;
-      margin: 0 15px 15px;
-      gap: 15px;
+      gap: 10px;
       button {
         display: flex;
         align-items: center;
