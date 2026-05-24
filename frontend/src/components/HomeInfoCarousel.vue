@@ -276,7 +276,7 @@ onBeforeUnmount(() => {
         .tooltip-img {
           --ui-icon-width: 24px;
           --ui-icon-height: 24px;
-          --ui-icon-color: #{$neutral-white};
+          --ui-icon-color: #{$neutral-300};
           &:hover,
           &:focus-visible,
           &:active {
@@ -295,6 +295,7 @@ onBeforeUnmount(() => {
           border: none;
           border-radius: 12px;
           background-color: $green-500;
+          cursor: pointer;
           color: $neutral-900;
           font-family: Hauora-Regular;
           font-size: 16px;
