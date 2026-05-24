@@ -203,6 +203,7 @@ import { createPublicSocket } from '@/services/sio'
 import { alertDialog, confirmDialog } from '@/services/confirm'
 import { api } from '@/services/axios'
 import { canOpenMiniProfileTarget, normalizeMiniProfileUserId } from '@/services/miniProfile'
+import { roomGameDefault, type RoomGameParams } from '@/services/gameParams'
 import { useAuthStore, useSettingsStore, useUserStore } from '@/store'
 import HomeInfoCarousel from '@/components/HomeInfoCarousel.vue'
 import RoomModal from '@/components/RoomModal.vue'
@@ -264,18 +265,7 @@ type HomeMiniProfileInitial = {
   avatar_name?: string | null
   role?: string | null
 }
-type Game = {
-  mode: 'normal' | 'rating'
-  format: 'hosted' | 'nohost'
-  spectators_limit: number
-  nominate_mode: 'players' | 'head'
-  break_at_zero: boolean
-  lift_at_zero: boolean
-  lift_3x: boolean
-  wink_knock: boolean
-  farewell_wills: boolean
-  music: boolean
-}
+type Game = RoomGameParams
 type Access = 'approved'|'pending'|'none'
 
 const router = useRouter()
@@ -414,7 +404,8 @@ const ctaState = computed<Cta>(() => {
   if (access.value === 'none') return 'apply'
   return 'pending'
 })
-const game = computed(() => info.value?.game)
+const hasGame = computed(() => Boolean(info.value?.game))
+const game = computed<Game>(() => info.value?.game ?? roomGameDefault)
 const gameLimitMin = computed(() => {
   const minReady = Number(settings.gameMinReadyPlayers)
   return Number.isFinite(minReady) && minReady > 0 ? minReady + 1 : 11
@@ -422,12 +413,12 @@ const gameLimitMin = computed(() => {
 const canShowGameMeta = computed(() => {
   const room = selectedRoom.value
   if (!room) return false
-  if (room.in_game) return true
+  if (room.in_game) return hasGame.value
   const limit = Number(room.user_limit)
-  return Number.isFinite(limit) && limit === gameLimitMin.value && game
+  return Number.isFinite(limit) && limit === gameLimitMin.value && hasGame.value
 })
 const spectatorsLabel = computed(() => {
-  const limit = game.value?.spectators_limit ?? 0
+  const limit = game.value.spectators_limit
   if (limit <= 0) return 'Без зрителей'
   if (selectedRoom.value?.in_game) {
     const count = info.value?.spectators_count ?? 0
@@ -436,7 +427,7 @@ const spectatorsLabel = computed(() => {
   return `до ${limit}`
 })
 const spectatorsTooltipEnabled = computed(() => {
-  const limit = game.value?.spectators_limit ?? 0
+  const limit = game.value.spectators_limit
   if (settings.verificationRestrictions && !userStore.telegramVerified) return false
   return auth.isAuthed && !!selectedRoom.value?.in_game && limit > 0
 })

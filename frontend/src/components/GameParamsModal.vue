@@ -15,13 +15,78 @@
       </header>
 
       <div class="modal-div">
-        <GameParamsForm
-          v-model="game"
-          :disabled="busy || loading || !canEdit"
-          :can-disable-spectators="canDisableSpectators"
-          spectators-disabled-hint="Отключение зрителей доступно пользователям, поддержавшим платформу"
-          spectators-tooltip-position="bottom"
-        />
+        <div class="params">
+          <ToggleSwitch
+            v-model="spectatorsEnabled"
+            :disabled="spectatorsToggleDisabled"
+            :tooltip="spectatorsToggleTooltip"
+            tooltip-position="bottom"
+            label="Зрители:"
+            off-label="Откл"
+            on-label="Вкл"
+            aria-label="Зрители: откл/вкл"
+          />
+          <ToggleSwitch
+            v-model="isRating"
+            label="Режим:"
+            off-label="Обычный"
+            on-label="Рейтинг"
+            aria-label="Режим: обычный/рейтинг"
+            :disabled="true"
+          />
+          <ToggleSwitch
+            v-model="isNoHost"
+            label="Ведущий:"
+            off-label="Ведущий"
+            on-label="Авто"
+            aria-label="Ведущий: с ведущим/авто"
+            :disabled="true"
+          />
+          <ToggleSwitch
+            v-model="isPlayersNomination"
+            label="Выставления:"
+            off-label="Ведущий"
+            on-label="Игрок"
+            aria-label="Выставления"
+            :disabled="gameParamsDisabled"
+          />
+          <ToggleSwitch
+            v-model="game.farewell_wills"
+            label="Завещания:"
+            aria-label="Завещания"
+            :disabled="gameParamsDisabled"
+          />
+          <ToggleSwitch
+            v-model="game.wink_knock"
+            label="Подмигивать/Стучать:"
+            aria-label="Подмигивать/Стучать"
+            :disabled="gameParamsDisabled"
+          />
+          <ToggleSwitch
+            v-model="game.break_at_zero"
+            label="Слом в нуле:"
+            aria-label="Слом в нуле"
+            :disabled="gameParamsDisabled"
+          />
+          <ToggleSwitch
+            v-model="game.lift_at_zero"
+            label="Подъём в нуле:"
+            aria-label="Подъём в нуле"
+            :disabled="gameParamsDisabled"
+          />
+          <ToggleSwitch
+            v-model="game.lift_3x"
+            label="Подъём 3х при 9х:"
+            aria-label="Подъём 3х при 9х"
+            :disabled="gameParamsDisabled"
+          />
+          <ToggleSwitch
+            v-model="game.music"
+            label="Музыка:"
+            aria-label="Музыка"
+            :disabled="gameParamsDisabled"
+          />
+        </div>
       </div>
 
       <div v-if="canEdit" class="save-game">
@@ -36,10 +101,12 @@ import { computed, ref, watch } from 'vue'
 import { api } from '@/services/axios'
 import { alertDialog } from '@/services/confirm'
 import { useUserStore } from '@/store'
-import GameParamsForm from '@/components/GameParamsForm.vue'
+import ToggleSwitch from '@/components/ToggleSwitch.vue'
 import {
   normalizeRoomGameParams,
   roomGameDefault,
+  SPECTATORS_DISABLED_LIMIT,
+  SPECTATORS_ENABLED_LIMIT,
   type RoomGameParams,
 } from '@/services/gameParams'
 import iconClose from '@/assets/svg/close.svg'
@@ -61,6 +128,37 @@ const loading = ref(false)
 const game = ref<RoomGameParams>({ ...roomGameDefault })
 const initialGame = ref<RoomGameParams | null>(null)
 const canDisableSpectators = computed(() => Boolean(user.subscriptionActive))
+const gameParamsDisabled = computed(() => busy.value || loading.value || !props.canEdit)
+const spectatorsDisabledHint = 'Отключение зрителей доступно пользователям, поддержавшим платформу'
+
+const isRating = computed<boolean>({
+  get: () => game.value.mode === 'rating',
+  set: v => { game.value.mode = v ? 'rating' : 'normal' },
+})
+
+const isNoHost = computed<boolean>({
+  get: () => game.value.format === 'nohost',
+  set: v => { game.value.format = v ? 'nohost' : 'hosted' },
+})
+
+const isPlayersNomination = computed<boolean>({
+  get: () => game.value.nominate_mode === 'players',
+  set: v => { game.value.nominate_mode = v ? 'players' : 'head' },
+})
+
+const spectatorsEnabled = computed<boolean>({
+  get: () => game.value.spectators_limit >= SPECTATORS_ENABLED_LIMIT,
+  set: (next) => {
+    if (!next && !canDisableSpectators.value) return
+    game.value.spectators_limit = next ? SPECTATORS_ENABLED_LIMIT : SPECTATORS_DISABLED_LIMIT
+  },
+})
+
+const spectatorsToggleDisabled = computed(() => Boolean(gameParamsDisabled.value || !canDisableSpectators.value))
+const spectatorsToggleTooltip = computed(() => {
+  if (gameParamsDisabled.value || canDisableSpectators.value) return undefined
+  return spectatorsDisabledHint
+})
 
 function normalizeGame(raw: unknown): RoomGameParams {
   return normalizeRoomGameParams(raw, {
@@ -214,6 +312,12 @@ watch(canDisableSpectators, (allowDisable) => {
     overflow-y: auto;
     scrollbar-width: none;
   }
+  .params {
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    gap: 15px;
+  }
   .save-game {
     display: flex;
     align-items: center;
@@ -276,6 +380,9 @@ watch(canDisableSpectators, (allowDisable) => {
         height: 30px;
         font-size: 14px;
       }
+    }
+    .params {
+      gap: 10px;
     }
   }
 }
