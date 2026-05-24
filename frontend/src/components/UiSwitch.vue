@@ -6,7 +6,7 @@
     <label>
       <input type="checkbox" :checked="modelValue" :disabled="isDisabled" :aria-label="ariaLabel || label" @change="onChange" />
       <div class="slider">
-        <span class="slider-option">
+        <span class="slider-option" :class="{ 'slider-option--with-tooltip': showTooltipFor('off') }">
           <span class="slider-option__text">{{ offLabel }}</span>
           <UiTooltip
             v-if="showTooltipFor('off')"
@@ -17,7 +17,7 @@
             :bubble-width="props.tooltipBubbleWidth"
           />
         </span>
-        <span class="slider-option">
+        <span class="slider-option" :class="{ 'slider-option--with-tooltip': showTooltipFor('on') }">
           <span class="slider-option__text">{{ onLabel }}</span>
           <UiTooltip
             v-if="showTooltipFor('on')"
@@ -160,6 +160,9 @@ onBeforeUnmount(() => {
         letter-spacing: -0.36px;
         transition: color 0.25s ease-in-out;
         z-index: 1;
+      }
+      .slider-option--with-tooltip {
+        z-index: 2;
       }
       .slider-option__text {
         min-width: 0;
