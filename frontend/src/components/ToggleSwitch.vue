@@ -41,7 +41,7 @@ const emit = defineEmits<{
 const offLabel = computed(() => props.offLabel ?? 'Откл')
 const onLabel = computed(() => props.onLabel ?? 'Вкл')
 const tooltipPosition = computed(() => props.tooltipPosition === 'bottom' ? 'bottom' : 'top')
-const widthPx = computed(() => `${Number.isFinite(props.width) && props.width ? props.width : 170}px`)
+const widthPx = computed(() => `${Number.isFinite(props.width) && props.width ? props.width : 274}px`)
 const switchStyle = computed<Record<string, string>>(() => ({ '--switch-width': widthPx.value }))
 
 const switchLocked = ref(false)
@@ -114,8 +114,11 @@ onBeforeUnmount(() => {
       span {
         position: relative;
         width: 100%;
-        color: $fg;
-        font-size: 14px;
+        color: $neutral-500;
+        font-family: Hauora-Regular;
+        font-size: 18px;
+        line-height: 20px;
+        letter-spacing: -0.36px;
         text-align: center;
         transition: color 0.25s ease-in-out;
       }
@@ -128,7 +131,7 @@ onBeforeUnmount(() => {
       width: var(--switch-knob);
       height: 48px;
       border-radius: 999px;
-      background: linear-gradient(261deg, $green-700 0%, $soft-purple-800 100%);
+      background: linear-gradient(261deg, $soft-purple-800 0%, $green-700 100%);
       transition: transform 0.25s ease-in-out;
     }
     input:checked + .slider:before {
@@ -136,7 +139,7 @@ onBeforeUnmount(() => {
     }
     input:not(:checked) + .slider span:first-child,
     input:checked + .slider span:last-child {
-      color: $bg;
+      color: $neutral-white;
     }
     input:disabled + .slider {
       cursor: not-allowed;

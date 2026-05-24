@@ -169,7 +169,7 @@ function onDeadZoneClick(): void {
     position: absolute;
     inset: 0 auto 0 0;
     width: var(--fill);
-    background: linear-gradient(261deg, $green-700 0%, $soft-purple-800 100%);
+    background: linear-gradient(261deg, $soft-purple-800 0%, $green-700 100%);
     border-radius: inherit;
     will-change: width;
   }
