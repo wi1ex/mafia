@@ -79,14 +79,17 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
   --switch-width: 274px;
-  --switch-knob: calc((var(--switch-width) - 4px) / 2);
-  --switch-translate: calc(var(--switch-knob) + 2px);
+  --switch-knob: calc((var(--switch-width) - 8px) / 2);
+  --switch-translate: calc(var(--switch-knob) + 0px);
   .switch-label {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    width: calc(100% - var(--switch-width) - 5px);
-    height: 18px;
+    width: calc(100% - var(--switch-width) - 10px);
+    color: $neutral-black;
+    font-family: Hauora-Bold;
+    font-size: 16px;
+    line-height: 18px;
+    letter-spacing: -0.32px;
   }
   label {
     position: relative;

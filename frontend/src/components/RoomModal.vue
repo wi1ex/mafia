@@ -344,7 +344,7 @@ onBeforeUnmount(() => {
   .modal {
     display: flex;
     flex-direction: column;
-    width: 400px;
+    width: 600px;
     border-radius: 5px;
     background-color: $dark;
     transform: translateY(0);
