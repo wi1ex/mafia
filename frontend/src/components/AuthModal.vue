@@ -53,7 +53,7 @@
                 <span id="auth-reg-password-confirm-hint">{{ reg.passwordConfirm.length }}/{{ PASSWORD_MAX }}</span>
               </template>
             </UiInput>
-            <UiCheckbox v-model="reg.acceptRules" class="rules">
+            <UiCheckbox v-model="reg.acceptRules">
               <span>С <router-link to="/rules" target="_blank">правилами</router-link> ознакомлен и согласен</span>
             </UiCheckbox>
             <button class="btn confirm" type="submit" :disabled="regBusy || auth.registerCooldownActive || !canRegisterSubmit">

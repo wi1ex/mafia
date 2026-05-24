@@ -62,30 +62,32 @@ function onChange(e: Event): void {
   font-family: Hauora-Regular;
   font-size: 16px;
   line-height: 1.25;
-}
-.ui-checkbox__input {
-  flex: 0 0 auto;
-  width: 20px;
-  height: 20px;
-  margin: 0;
-  accent-color: $green;
-  cursor: pointer;
-}
-.ui-checkbox__label {
-  display: inline-flex;
-  flex: 1 1 0;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 3px;
-  min-width: 0;
-  cursor: pointer;
-}
-.ui-checkbox__label :deep(a) {
-  color: currentColor;
-  text-decoration: underline;
-}
-.ui-checkbox--disabled .ui-checkbox__input,
-.ui-checkbox--disabled .ui-checkbox__label {
-  cursor: not-allowed;
+  &__input {
+    flex: 0 0 auto;
+    width: 20px;
+    height: 20px;
+    margin: 0;
+    accent-color: $green;
+    cursor: pointer;
+  }
+  &__label {
+    display: inline-flex;
+    flex: 1 1 0;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 3px;
+    min-width: 0;
+    cursor: pointer;
+    :deep(a) {
+      color: currentColor;
+      text-decoration: underline;
+    }
+  }
+  &--disabled {
+    .ui-checkbox__input,
+    .ui-checkbox__label {
+      cursor: not-allowed;
+    }
+  }
 }
 </style>
