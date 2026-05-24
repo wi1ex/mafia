@@ -78,7 +78,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  --switch-width: 170px;
+  --switch-width: 274px;
   --switch-knob: calc((var(--switch-width) - 4px) / 2);
   --switch-translate: calc(var(--switch-knob) + 2px);
   .switch-label {
@@ -91,8 +91,7 @@ onBeforeUnmount(() => {
   label {
     position: relative;
     width: var(--switch-width);
-    height: 25px;
-    box-shadow: 3px 3px 5px rgba($black, 0.25);
+    height: 56px;
     &.has-tooltip {
       cursor: help;
     }
@@ -109,9 +108,9 @@ onBeforeUnmount(() => {
       position: absolute;
       inset: 0;
       cursor: pointer;
-      border: 1px solid $lead;
-      border-radius: 5px;
-      background-color: $graphite;
+      border-radius: 999px;
+      border: 4px solid $soft-purple-900;
+      background-color: $soft-purple-900;
       span {
         position: relative;
         width: 100%;
@@ -127,9 +126,9 @@ onBeforeUnmount(() => {
       top: 0;
       left: 0;
       width: var(--switch-knob);
-      height: 23px;
-      background-color: $fg;
-      border-radius: 5px;
+      height: 48px;
+      border-radius: 999px;
+      background: linear-gradient(261deg, $green-700 0%, $soft-purple-800 100%);
       transition: transform 0.25s ease-in-out;
     }
     input:checked + .slider:before {
