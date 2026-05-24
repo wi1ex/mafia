@@ -62,7 +62,7 @@ const stepValue = computed(() => {
   return v > 0 ? v : 1
 })
 
-const currentValue = computed(() => clamp(toNum(props.modelValue, minValue.value), minValue.value, maxValue.value))
+const currentValue = computed(() => normalizeValue(toNum(props.modelValue, minValue.value)))
 
 const fillPct = computed(() => {
   const span = maxValue.value - minValue.value
@@ -88,12 +88,21 @@ const deadZonePct = computed(() => {
 })
 const deadZoneStyle = computed<Record<string, string>>(() => ({ '--dead': `${deadZonePct.value}%` }))
 
-function emitValue(next: number): void {
-  emit('update:modelValue', clamp(next, minValue.value, maxValue.value))
+function normalizeValue(next: number): number {
+  const clamped = clamp(next, minValue.value, maxValue.value)
+  if (!hasDeadZone.value || deadUntil.value == null || deadValue.value == null) return clamped
+  return clamped <= deadUntil.value ? deadValue.value : clamped
+}
+
+function emitValue(next: number): number {
+  const normalized = normalizeValue(next)
+  emit('update:modelValue', normalized)
+  return normalized
 }
 
 function onInput(e: Event): void {
-  emitValue(Number((e.target as HTMLInputElement).value))
+  const input = e.target as HTMLInputElement
+  input.value = String(emitValue(Number(input.value)))
 }
 
 function onDeadZoneClick(): void {
@@ -117,8 +126,8 @@ function onDeadZoneClick(): void {
 }
 .ui-slider--filled {
   --ui-slider-track-height: var(--ui-slider-filled-track-height, 10px);
-  --ui-slider-thumb-size: var(--ui-slider-filled-thumb-size, 20px);
-  --ui-slider-thumb-border: var(--ui-slider-filled-thumb-border, 3px);
+  --ui-slider-thumb-size: var(--ui-slider-filled-thumb-size, 26px);
+  --ui-slider-thumb-border: var(--ui-slider-filled-thumb-border, 4px);
   --ui-slider-track-radius: var(--ui-slider-filled-radius, 999px);
   .ui-slider__fill-wrap {
     position: relative;
@@ -203,7 +212,7 @@ function onDeadZoneClick(): void {
     height: var(--ui-slider-thumb-size);
     border-radius: 50%;
     border: var(--ui-slider-thumb-border) solid $green-500;
-    background-color: $soft-purple-900;
+    background-color: $neutral-white;
     box-sizing: border-box;
     cursor: grab;
   }
@@ -212,7 +221,7 @@ function onDeadZoneClick(): void {
     height: var(--ui-slider-thumb-size);
     border-radius: 50%;
     border: var(--ui-slider-thumb-border) solid $green-500;
-    background-color: $soft-purple-900;
+    background-color: $neutral-white;
     box-sizing: border-box;
     cursor: grab;
   }
