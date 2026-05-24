@@ -9,13 +9,16 @@
               <span class="header-text">Помоги развитию проекта и получи дополнительные возможности внутри платформы.</span>
             </div>
             <button type="button" aria-label="Закрыть" @click="requestClose">
-              <img :src="iconClose" alt="close" />
+              <UiIcon class="close-icon" :icon="iconClose" />
             </button>
           </header>
 
           <div class="site-list">
             <a v-for="site in supportSites" :key="site.id" class="site-option" :href="site.url" target="_blank" rel="noopener noreferrer" @click="onSelect(site)">
-              <img :src="site.icon" :alt="site.iconAlt" class="site-logo" />
+              <div class="site-title">
+                <img :src="site.icon" :alt="site.iconAlt" class="site-logo" />
+                <UiIcon class="arrow-icon" :icon="iconArrowNext" />
+              </div>
               <div class="site-copy">
                 <span class="site-name">{{ site.name }}</span>
                 <span class="site-note">{{ site.note }}</span>
@@ -31,9 +34,12 @@
 <script setup lang="ts">
 import { onBeforeUnmount, ref, watch } from 'vue'
 
-import iconClose from '@/assets/svg/close.svg'
-import iconTribute from '@/assets/svg/tribute.svg'
-import iconDonationAlerts from '@/assets/svg/donation.svg'
+import UiIcon from '@/components/UiIcon.vue'
+
+import iconClose from '@/assets/svg/iconClose.svg'
+import iconArrowNext from '@/assets/svg/iconArrowNext.svg'
+import iconTribute from '@/assets/images/donateTribute.png'
+import iconDonationAlerts from '@/assets/images/donateDonation.png'
 
 const props = defineProps<{
   open: boolean
@@ -152,54 +158,78 @@ onBeforeUnmount(() => {
         border: none;
         background: none;
         cursor: pointer;
-        img {
-          width: 24px;
-          height: 24px;
+        .close-icon {
+          --ui-icon-width: 24px;
+          --ui-icon-height: 24px;
+          --ui-icon-color: #{$neutral-black};
+        }
+        &:hover,
+        &:focus-visible,
+        &:active {
+          .close-icon {
+            --ui-icon-color: #{$green-500};
+          }
         }
       }
     }
     .site-list {
       display: flex;
-      gap: 15px;
+      gap: 10px;
       .site-option {
         display: flex;
-        gap: 10px;
-        padding: 15px;
-        min-width: 210px;
-        max-width: 210px;
-        border: 1px solid $lead;
-        border-radius: 10px;
-        background-color: $dark;
+        flex-direction: column;
+        padding: 16px;
+        gap: 40px;
+        width: 242px;
+        height: 122px;
+        border-radius: 20px;
+        border: 1px solid $neutral-white;
+        background-color: $neutral-white;
         color: $fg;
         text-decoration: none;
-        box-shadow: 3px 3px 5px rgba($black, 0.25);
         outline: none;
-        transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
+        transition: border-color 0.25s ease-in-out;
         &:hover,
-        &:focus-visible {
-          border-color: $grey;
-          background-color: $graphite;
-          box-shadow: 0 15px 30px rgba($black, 0.25);
+        &:focus-visible,
+        &:active {
+          border-color: $green-600;
+          .site-title {
+            .arrow-icon {
+              --ui-icon-color: #{$green-600};
+            }
+          }
         }
-        .site-logo {
-          width: 65px;
-          height: 65px;
+        .site-title {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          .site-logo {
+            width: 40px;
+            height: 40px;
+          }
+          .arrow-icon {
+            --ui-icon-width: 20px;
+            --ui-icon-height: 20px;
+            --ui-icon-color: #{$neutral-white};
+          }
         }
         .site-copy {
           display: flex;
-          min-width: 0;
           flex-direction: column;
-          gap: 5px;
+          gap: 8px;
           .site-name {
-            color: $bg;
-            font-size: 18px;
-            font-family: Manrope-SemiBold;
-            line-height: 1.2;
+            color: $neutral-black;
+            font-family: Hauora-Bold;
+            font-size: 16px;
+            line-height: 18px;
+            letter-spacing: -0.32px;
           }
           .site-note {
-            color: $bg;
-            font-size: 12px;
-            line-height: 1.2;
+            color: $neutral-500;
+            font-family: Hauora-Regular;
+            font-size: 16px;
+            line-height: 16px;
+            letter-spacing: -0.32px;
           }
         }
       }
@@ -218,45 +248,6 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 1280px) {
-  .support-site-overlay {
-    .support-site-modal {
-      padding: 15px;
-      gap: 10px;
-      width: 400px;
-      header {
-        span {
-          font-size: 16px;
-        }
-        .icon {
-          width: 25px;
-          height: 25px;
-          img {
-            width: 20px;
-            height: 20px;
-          }
-        }
-      }
-      .site-list {
-        .site-option {
-          gap: 5px;
-          padding: 10px;
-          min-width: 170px;
-          max-width: 170px;
-          .site-logo {
-            width: 50px;
-            height: 50px;
-          }
-          .site-copy {
-            .site-name {
-              font-size: 14px;
-            }
-            .site-note {
-              font-size: 10px;
-            }
-          }
-        }
-      }
-    }
-  }
+
 }
 </style>
