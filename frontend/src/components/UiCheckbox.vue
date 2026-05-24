@@ -55,7 +55,7 @@ function onChange(e: Event): void {
   flex-wrap: wrap;
   gap: 8px;
   min-width: 0;
-  color: $neutral-300;
+  color: $neutral-500;
   font-family: Hauora-Regular;
   font-size: 14px;
   line-height: 14px;
@@ -66,7 +66,7 @@ function onChange(e: Event): void {
     width: 20px;
     height: 20px;
     margin: 0;
-    border: 1px solid $neutral-300;
+    border: 1px solid $neutral-700;
     border-radius: 4px;
     background-color: transparent;
     cursor: pointer;
@@ -106,7 +106,7 @@ function onChange(e: Event): void {
       text-decoration: underline;
     }
   }
-  &:hover {
+  &:has(.ui-checkbox__input:not(:checked)):hover {
     color: $neutral-black;
     .ui-checkbox__input {
       border-color: $neutral-black;
