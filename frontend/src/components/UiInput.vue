@@ -78,7 +78,7 @@ function onInput(e: Event) {
   --ui-input-meta: #{$neutral-300};
   --ui-input-error-border: #{$red-500};
   --ui-input-error-text: #{$neutral-white};
-  --ui-input-label-bg: #{$bg};
+  --ui-input-label-bg: #{$neutral-black};
   &.ui-input--light {
     --ui-input-border: #{$green-800};
     --ui-input-text: #{$neutral-700};
@@ -87,7 +87,7 @@ function onInput(e: Event) {
     --ui-input-meta: #{$neutral-500};
     --ui-input-error-border: #{$red-600};
     --ui-input-error-text: #{$neutral-black};
-    --ui-input-label-bg: #{$fg};
+    --ui-input-label-bg: #{$neutral-100};
   }
   input,
   textarea {

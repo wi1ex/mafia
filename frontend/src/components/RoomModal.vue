@@ -18,8 +18,8 @@
             mode="light"
             label="Название комнаты"
             autocomplete="off"
-            :invalid="!title"
-            :aria-invalid="!title"
+            :invalid="titleInvalid"
+            :aria-invalid="titleInvalid"
             aria-describedby="room-title-hint"
           >
             <template #meta>
@@ -168,6 +168,7 @@ const title = computed({
   get: () => _title.value,
   set: v => { _title.value = sanitizeTitle(v, TITLE_MAX) },
 })
+const titleInvalid = computed(() => title.value.length > TITLE_MAX)
 
 const initialLimit = (() => {
   const value = Number(initialBasic.user_limit)
