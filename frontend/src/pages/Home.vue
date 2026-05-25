@@ -188,7 +188,7 @@
 
       <div class="right-extra right-extra--secondary">
         <img class="background-image-7" :src="imageSlide7" alt="" aria-hidden="true" />
-        <button type="button" class="right-extra-btn" @click="">
+        <button type="button" class="right-extra-btn" @click="openContactModal">
           <UiIcon class="btn-icon" :icon="iconArrowNext" />
         </button>
       </div>
@@ -201,6 +201,7 @@
     :show-stats-button="true"
   />
   <SupportSiteModal v-model:open="supportModalOpen" @select="onSupportSiteSelect" />
+  <ContactModal v-model:open="contactModalOpen" />
 </template>
 
 <script setup lang="ts">
@@ -217,6 +218,7 @@ import HomeInfoCarousel from '@/components/HomeInfoCarousel.vue'
 import RoomModal from '@/components/RoomModal.vue'
 import MiniProfile from '@/components/MiniProfile.vue'
 import SupportSiteModal from '@/components/SupportSiteModal.vue'
+import ContactModal from '@/components/ContactModal.vue'
 import UiTooltip from '@/components/UiTooltip.vue'
 import UiIcon from '@/components/UiIcon.vue'
 
@@ -314,6 +316,7 @@ const miniProfileOpen = ref(false)
 const miniProfileUserId = ref<number | null>(null)
 const miniProfileInitial = ref<HomeMiniProfileInitial | null>(null)
 const supportModalOpen = ref(false)
+const contactModalOpen = ref(false)
 
 const selectedId = ref<number | null>(null)
 const pendingRoomId = ref<number | null>(null)
@@ -497,6 +500,10 @@ function openMiniProfileFromRoomInfo(user: { id: number; username?: string | nul
 
 function openSupportModal() {
   supportModalOpen.value = true
+}
+
+function openContactModal() {
+  contactModalOpen.value = true
 }
 
 function onSupportSiteSelect(site: { id: string; name: string; url: string }) {

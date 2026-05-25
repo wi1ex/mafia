@@ -266,6 +266,12 @@ class SupportLinkClickIn(BaseModel):
     url: Optional[str] = Field(default=None, max_length=512)
 
 
+class ContactRequestIn(BaseModel):
+    category: str = Field(min_length=1, max_length=80)
+    topic: str = Field(min_length=1, max_length=120)
+    text: str = Field(min_length=1, max_length=2000)
+
+
 class UserProfileThemeIn(BaseModel):
     color: str = Field(min_length=1, max_length=32)
     icon: Optional[str] = Field(default=None, max_length=32)

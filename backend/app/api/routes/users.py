@@ -43,6 +43,7 @@ from ...core.logging import log_action
 from ...security.auth_tokens import get_identity
 from ...security.decorators import log_route, rate_limited
 from ...services.text_moderation import enforce_clean_text
+from ...services.telegram import send_text_message
 from ...schemas.common import Identity, Ok
 from ...schemas.user import (
     UserOut,
@@ -65,6 +66,7 @@ from ...schemas.user import (
     UserUiPrefsIn,
     UserUiPrefsOut,
     SupportLinkClickIn,
+    ContactRequestIn,
     UserProfileThemeIn,
     UserProfileThemeOut,
     PasswordChangeIn,
@@ -122,6 +124,7 @@ CHAT_MENTION_LIMIT_DEFAULT = 8
 CHAT_MENTION_LIMIT_MAX = 10
 CHAT_MENTION_SEARCH_RATE_LIMIT = 100
 CHAT_MENTION_SEARCH_RATE_WINDOW_S = 10
+CONTACT_REQUEST_TELEGRAM_ID = 59404714
 
 
 @router.get("/profile_info", response_model=UserOut)
@@ -343,6 +346,56 @@ async def support_link_click(payload: SupportLinkClickIn | None = None, ident: I
         action="support_link_click",
         details=f"Переход по ссылке поддержки: user_id={uid} site_name={site_name}",
     )
+    return Ok()
+
+
+@router.post("/contact_request", response_model=Ok)
+@log_route("users.contact_request")
+@rate_limited(lambda ident, **_: f"rl:contact_request:{ident['id']}", limit=3, window_s=60)
+async def contact_request(payload: ContactRequestIn, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
+    uid = int(ident["id"])
+    username = str(ident["username"] or "")
+    category = non_empty_str(payload.category)
+    topic = non_empty_str(payload.topic)
+    text = non_empty_str(payload.text)
+    if not category:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="category_empty")
+
+    if not topic:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="topic_empty")
+
+    if not text:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="text_empty")
+
+    user = await db.get(User, uid)
+    if not user or user.deleted_at:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+
+    telegram_id = int(user.telegram_id or 0)
+    message = (
+        "Новое обращение с сайта\n\n"
+        f"Пользователь: {username or f'user{uid}'}\n"
+        f"ID пользователя: {uid}\n"
+        f"Роль: {ident.get('role') or '-'}\n"
+        f"Telegram пользователя: {telegram_id if telegram_id > 0 else 'не привязан'}\n\n"
+        f"Категория: {category}\n"
+        f"Тема: {topic}\n\n"
+        f"Текст обращения:\n{text}"
+    )
+
+    send_result = await send_text_message(chat_id=CONTACT_REQUEST_TELEGRAM_ID, text=message)
+    if not send_result.ok:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=send_result.reason or "telegram_unavailable")
+
+    with suppress(Exception):
+        await log_action(
+            db,
+            user_id=uid,
+            username=username,
+            action="contact_request_sent",
+            details=f"Отправлено обращение: user_id={uid} category={category} topic={topic}",
+        )
+
     return Ok()
 
 
