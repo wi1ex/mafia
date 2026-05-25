@@ -38,7 +38,7 @@ const props = withDefaults(defineProps<{
   as: 'input',
   invalid: false,
   placeholder: ' ',
-  mode: 'light',
+  mode: 'dark',
 })
 
 const emit = defineEmits<{ (e: 'update:modelValue', value: string | number): void }>()
@@ -89,15 +89,17 @@ function onInput(e: Event) {
   }
   input,
   textarea {
-    width: calc(100% - 22px);
-    padding: 20px 10px 5px;
+    width: calc(100% - 64px);
+    height: 16px;
+    padding: 20px 32px 19px;
+    border-radius: 999px;
     border: 1px solid var(--ui-input-border);
-    border-radius: 5px;
     background-color: transparent;
     color: var(--ui-input-text);
+    font-family: Hauora-Regular;
     font-size: 16px;
-    font-family: Manrope-Medium;
-    line-height: 1;
+    line-height: 16px;
+    letter-spacing: -0.32px;
     outline: none;
     transition: border-color 0.25s ease-in-out, color 0.25s ease-in-out;
   }
@@ -118,23 +120,29 @@ function onInput(e: Event) {
   }
   label {
     position: absolute;
-    top: 5px;
-    left: 10px;
+    top: -6px;
+    left: 32px;
     color: var(--ui-input-meta);
     transform: none;
     pointer-events: none;
+    font-family: Hauora-Regular;
     font-size: 12px;
+    line-height: 12px;
+    letter-spacing: -0.24px;
     opacity: 0;
     visibility: hidden;
     transition: opacity 0.25s ease-in-out, visibility 0.25s ease-in-out, color 0.25s ease-in-out;
   }
   .meta {
     position: absolute;
-    top: 5px;
-    right: 10px;
+    top: -6px;
+    right: 32px;
     pointer-events: none;
-    font-size: 12px;
     color: var(--ui-input-meta);
+    font-family: Hauora-Regular;
+    font-size: 12px;
+    line-height: 12px;
+    letter-spacing: -0.24px;
     opacity: 0;
     visibility: hidden;
     transition: opacity 0.25s ease-in-out, visibility 0.25s ease-in-out, color 0.25s ease-in-out;

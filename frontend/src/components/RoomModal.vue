@@ -15,7 +15,7 @@
             id="room-title"
             v-model.trim="title"
             :maxlength="TITLE_MAX"
-            mode="dark"
+            mode="light"
             label="Название комнаты"
             autocomplete="off"
             :invalid="!title"
@@ -378,7 +378,7 @@ onBeforeUnmount(() => {
       display: flex;
       flex-direction: column;
       padding: 10px 10px 0;
-      background-color: $grey;
+      background-color: $fg;
       .params {
         display: flex;
         flex-direction: column;
