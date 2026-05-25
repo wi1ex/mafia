@@ -120,8 +120,10 @@ function onInput(e: Event) {
   }
   label {
     position: absolute;
-    top: -6px;
+    top: -5px;
     left: 32px;
+    padding: 0 4px;
+    background-color: $neutral-100;
     color: var(--ui-input-meta);
     transform: none;
     pointer-events: none;
@@ -135,8 +137,10 @@ function onInput(e: Event) {
   }
   .meta {
     position: absolute;
-    top: -6px;
+    top: -5px;
     right: 32px;
+    padding: 0 4px;
+    background-color: $neutral-100;
     pointer-events: none;
     color: var(--ui-input-meta);
     font-family: Hauora-Regular;
