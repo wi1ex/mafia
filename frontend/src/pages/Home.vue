@@ -178,15 +178,19 @@
             text="Выберите удобный способ поддержки и получите бонусы внутри платформы:
             кастомизация профиля (GIF-аватары, выбор цвета и иконки профиля),
             обнуление истории никнеймов, скрытые комнаты, игры без зрителей и трансляции в качестве 1080p."
-            placement="bottom-left"
+            placement="top-left"
           />
         </div>
-        <button type="button" class="right-extra-btn" @click="openSupportModal"></button>
+        <button type="button" class="right-extra-btn" @click="openSupportModal">
+          <UiIcon class="btn-icon" :icon="iconArrowNext" />
+        </button>
       </div>
 
       <div class="right-extra right-extra--secondary">
         <img class="background-image-7" :src="imageSlide7" alt="" aria-hidden="true" />
-        <button type="button" class="right-extra-btn" @click=""></button>
+        <button type="button" class="right-extra-btn" @click="">
+          <UiIcon class="btn-icon" :icon="iconArrowNext" />
+        </button>
       </div>
     </div>
   </section>
@@ -224,6 +228,7 @@ import iconLockClose from '@/assets/svg/iconLockClose.svg'
 import iconClose from '@/assets/svg/iconClose.svg'
 import iconDelete from '@/assets/svg/iconDelete.svg'
 import iconVisOn from '@/assets/svg/iconVisOn.svg'
+import iconArrowNext from '@/assets/svg/iconArrowNext.svg'
 import iconAddPlus from '@/assets/svg/iconAddPlus.svg'
 import iconNoRooms from '@/assets/svg/iconNoRooms.svg'
 import iconNoMembers from '@/assets/svg/iconNoMembers.svg'
@@ -1481,15 +1486,38 @@ onBeforeUnmount(() => {
       .right-extra-tooltip {
         display: flex;
         position: absolute;
-        top: 0;
-        right: 0;
-
+        top: 24px;
+        right: 24px;
       }
       .right-extra-btn {
         display: flex;
         position: absolute;
-        bottom: 0;
-        left: 0;
+        align-items: center;
+        justify-content: center;
+        bottom: 24px;
+        left: 24px;
+        padding: 0;
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+        border: 1px solid $green-200;
+        background: none;
+        cursor: pointer;
+        transition: border-color 0.25s ease-in-out;
+        .btn-icon {
+          --ui-icon-width: 20px;
+          --ui-icon-height: 20px;
+          --ui-icon-color: #{$neutral-white};
+        }
+        &:not(:disabled):hover,
+        &:not(:disabled):focus-visible,
+        &:not(:disabled):active,
+        &.is-open {
+          border-color: $green-500;
+          .btn-icon {
+            --ui-icon-color: #{$green-500};
+          }
+        }
       }
       &--primary {
         min-height: 110px;
