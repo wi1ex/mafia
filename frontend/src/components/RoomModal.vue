@@ -12,64 +12,62 @@
       </header>
 
       <div class="modal-div">
-        <div class="params">
-          <UiInput
-            id="room-title"
-            v-model.trim="title"
-            :maxlength="TITLE_MAX"
-            mode="light"
-            label="Название комнаты"
-            autocomplete="off"
-            :invalid="titleInvalid"
-            :aria-invalid="titleInvalid"
-            aria-describedby="room-title-hint"
-          >
-            <template #meta>
-              <span id="room-title-hint">{{ title.length }}/{{ TITLE_MAX }}</span>
-            </template>
-          </UiInput>
+        <UiInput
+          id="room-title"
+          v-model.trim="title"
+          :maxlength="TITLE_MAX"
+          mode="light"
+          label="Название комнаты"
+          autocomplete="off"
+          :invalid="titleInvalid"
+          :aria-invalid="titleInvalid"
+          aria-describedby="room-title-hint"
+        >
+          <template #meta>
+            <span id="room-title-hint">{{ title.length }}/{{ TITLE_MAX }}</span>
+          </template>
+        </UiInput>
 
-          <div class="range" :style="rangeStyle">
-            <div class="range-label">
-              <span class="limit-text">Лимит участников</span>
-              <span class="limit-badge" aria-label="Лимит участников">{{ limit }}</span>
-            </div>
-            <UiSlider
-              v-model="limit"
-              :min="RANGE_MIN"
-              :max="RANGE_MAX"
-              :step="1"
-              :dead-zone-until="DEAD_MIN"
-              :dead-zone-value="DEAD_MIN"
-              aria-label="Лимит участников"
-            />
-            <div class="range-marks" aria-hidden="true">
-              <span v-if="limit === 2" class="range-mark" :style="rangeMarkStyle(2)">DUO HD</span>
-              <span v-if="isMafiaRoom" class="range-mark" :style="rangeMarkStyle(gameLimitMin)">MAFIA</span>
-            </div>
+        <div class="range" :style="rangeStyle">
+          <div class="range-label">
+            <span class="limit-text">Лимит участников</span>
+            <span class="limit-badge" aria-label="Лимит участников">{{ limit }}</span>
           </div>
-
-          <UiSwitch
-            v-model="isPrivate"
-            :disabled="isPrivacyLocked"
-            label="Приватность:"
-            off-label="Открытая"
-            on-label="Закрытая"
-            aria-label="Приватность: открытая/закрытая"
+          <UiSlider
+            v-model="limit"
+            :min="RANGE_MIN"
+            :max="RANGE_MAX"
+            :step="1"
+            :dead-zone-until="DEAD_MIN"
+            :dead-zone-value="DEAD_MIN"
+            aria-label="Лимит участников"
           />
-          <UiSwitch
-            v-model="isAnonymous"
-            :disabled="!canCreateHiddenRoom"
-            :tooltip="!canCreateHiddenRoom ? hiddenRoomHint : undefined"
-            tooltip-target="on"
-            tooltip-placement="top-left"
-            tooltip-bubble-width="320px"
-            label="Анонимность:"
-            off-label="Видимая"
-            on-label="Скрытая"
-            aria-label="Анонимность: видимая/скрытая"
-          />
+          <div class="range-marks" aria-hidden="true">
+            <span v-if="limit === 2" class="range-mark" :style="rangeMarkStyle(2)">DUO HD</span>
+            <span v-if="isMafiaRoom" class="range-mark" :style="rangeMarkStyle(gameLimitMin)">MAFIA</span>
+          </div>
         </div>
+
+        <UiSwitch
+          v-model="isPrivate"
+          :disabled="isPrivacyLocked"
+          label="Приватность:"
+          off-label="Открытая"
+          on-label="Закрытая"
+          aria-label="Приватность: открытая/закрытая"
+        />
+        <UiSwitch
+          v-model="isAnonymous"
+          :disabled="!canCreateHiddenRoom"
+          :tooltip="!canCreateHiddenRoom ? hiddenRoomHint : undefined"
+          tooltip-target="on"
+          tooltip-placement="top-left"
+          tooltip-bubble-width="320px"
+          label="Анонимность:"
+          off-label="Видимая"
+          on-label="Скрытая"
+          aria-label="Анонимность: видимая/скрытая"
+        />
       </div>
 
       <button class="create-room" :disabled="busy || !ok" @click="create">
@@ -393,74 +391,68 @@ onBeforeUnmount(() => {
     .modal-div {
       display: flex;
       flex-direction: column;
-      padding: 10px 10px 0;
+      gap: 24px;
       background-color: $neutral-100;
       --ui-input-label-bg: #{$neutral-100};
-      .params {
+      .range {
         display: flex;
         flex-direction: column;
-        gap: 10px;
-        border-bottom: none;
-        .range {
+        gap: 4px;
+        .range-label {
           display: flex;
-          flex-direction: column;
-          gap: 4px;
-          .range-label {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            .limit-text {
-              color: $bg;
-              font-size: 12px;
-              font-weight: bold;
-              letter-spacing: 1px;
-            }
-            .limit-badge {
-              padding: 2px 5px 2px 7px;
-              border-radius: 5px;
-              background-color: $red;
-              color: $fg;
-              font-size: 12px;
-              font-weight: bold;
-              letter-spacing: 1px;
-            }
+          align-items: center;
+          justify-content: space-between;
+          .limit-text {
+            color: $bg;
+            font-size: 12px;
+            font-weight: bold;
+            letter-spacing: 1px;
           }
-          .range-marks {
-            position: relative;
-            height: 40px;
-            pointer-events: none;
-            .range-mark {
-              display: inline-flex;
-              position: absolute;
-              align-items: center;
-              justify-content: center;
-              top: 7px;
-              height: 32px;
-              padding: 0 8px;
-              border-radius: 12px;
-              background-color: $black;
-              color: $neutral-white;
-              font-family: Hauora-Regular;
-              font-size: 16px;
-              line-height: 16px;
-              letter-spacing: -0.3px;
-              white-space: nowrap;
-              transform: translateX(-50%);
-              isolation: isolate;
-            }
-            .range-mark::before {
-              content: "";
-              position: absolute;
-              top: -5px;
-              left: 50%;
-              width: 10px;
-              height: 10px;
-              border-radius: 3px 0 0;
-              background-color: inherit;
-              transform: translateX(-50%) scaleX(0.7) rotate(45deg);
-              transform-origin: center;
-              z-index: -1;
-            }
+          .limit-badge {
+            padding: 2px 5px 2px 7px;
+            border-radius: 5px;
+            background-color: $red;
+            color: $fg;
+            font-size: 12px;
+            font-weight: bold;
+            letter-spacing: 1px;
+          }
+        }
+        .range-marks {
+          position: relative;
+          height: 40px;
+          pointer-events: none;
+          .range-mark {
+            display: inline-flex;
+            position: absolute;
+            align-items: center;
+            justify-content: center;
+            top: 7px;
+            height: 32px;
+            padding: 0 8px;
+            border-radius: 12px;
+            background-color: $black;
+            color: $neutral-white;
+            font-family: Hauora-Regular;
+            font-size: 16px;
+            line-height: 16px;
+            letter-spacing: -0.3px;
+            white-space: nowrap;
+            transform: translateX(-50%);
+            isolation: isolate;
+          }
+          .range-mark::before {
+            content: "";
+            position: absolute;
+            top: -5px;
+            left: 50%;
+            width: 10px;
+            height: 10px;
+            border-radius: 3px 0 0;
+            background-color: inherit;
+            transform: translateX(-50%) scaleX(0.7) rotate(45deg);
+            transform-origin: center;
+            z-index: -1;
           }
         }
       }
