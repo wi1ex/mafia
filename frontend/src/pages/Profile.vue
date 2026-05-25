@@ -45,7 +45,7 @@
             <div class="nick-row">
               <div class="nick-input-line">
                 <UiInput class="profile-input" id="profile-nick" v-model.trim="nick" :maxlength="NICK_MAX" :disabled="busyNick || isBanned || isProtectedAdminSelf" autocomplete="off" inputmode="text" label="Никнейм"
-                  :invalid="!!nick && !validNick" :underline-style="nickUnderlineStyle" :aria-invalid="!!nick && !validNick" aria-describedby="profile-nick-hint" >
+                  :invalid="!!nick && !validNick" :aria-invalid="!!nick && !validNick" aria-describedby="profile-nick-hint" >
                   <template #meta>
                     <span id="profile-nick-hint">{{ nick.length }}/{{ NICK_MAX }}</span>
                   </template>
@@ -162,19 +162,19 @@
             <p v-if="passwordTemp" class="hint warn">У вас временный пароль — рекомендуем изменить его</p>
             <div class="password-row">
               <UiInput class="profile-input" id="profile-pass-current" v-model="pwd.current" type="password" autocomplete="current-password" minlength="8" maxlength="32" label="Текущий пароль"
-                :invalid="currentPasswordInvalid" :underline-style="currentPasswordUnderlineStyle" :aria-invalid="currentPasswordInvalid" aria-describedby="profile-pass-current-hint">
+                :invalid="currentPasswordInvalid" :aria-invalid="currentPasswordInvalid" aria-describedby="profile-pass-current-hint">
                 <template #meta>
                   <span id="profile-pass-current-hint">{{ pwd.current.length }}/{{ PASSWORD_MAX }}</span>
                 </template>
               </UiInput>
               <UiInput class="profile-input" id="profile-pass-new" v-model="pwd.next" type="password" autocomplete="new-password" minlength="8" maxlength="32" label="Новый пароль"
-                :invalid="newPasswordInvalid" :underline-style="newPasswordUnderlineStyle" :aria-invalid="newPasswordInvalid" aria-describedby="profile-pass-new-hint">
+                :invalid="newPasswordInvalid" :aria-invalid="newPasswordInvalid" aria-describedby="profile-pass-new-hint">
                 <template #meta>
                   <span id="profile-pass-new-hint">{{ pwd.next.length }}/{{ PASSWORD_MAX }}</span>
                 </template>
               </UiInput>
               <UiInput class="profile-input" id="profile-pass-confirm" v-model="pwd.confirm" type="password" autocomplete="new-password" minlength="8" maxlength="32" label="Повторите пароль"
-                :invalid="confirmPasswordInvalid" :underline-style="confirmPasswordUnderlineStyle" :aria-invalid="confirmPasswordInvalid" aria-describedby="profile-pass-confirm-hint">
+                :invalid="confirmPasswordInvalid" :aria-invalid="confirmPasswordInvalid" aria-describedby="profile-pass-confirm-hint">
                 <template #meta>
                   <span id="profile-pass-confirm-hint">{{ pwd.confirm.length }}/{{ PASSWORD_MAX }}</span>
                 </template>
@@ -408,17 +408,6 @@ const CROP_CANVAS_MOBILE_SIZE = 200
 const CROP_CANVAS_MOBILE_QUERY = '(max-width: 1280px)'
 const STATIC_AVATAR_TYPES = new Set(['image/jpeg', 'image/png'])
 const ANIMATED_AVATAR_TYPE = 'image/gif'
-const nickPct = computed(() => {
-  const used = Math.min(NICK_MAX, Math.max(0, nick.value.length))
-  return (used / NICK_MAX) * 100
-})
-const nickUnderlineStyle = computed(() => ({ width: `${nickPct.value}%` }))
-
-function underlineStyle(len: number, max: number) {
-  const used = Math.min(max, Math.max(0, len))
-  return { width: `${(used / max) * 100}%` }
-}
-
 const route = useRoute()
 const router = useRouter()
 
@@ -502,9 +491,6 @@ function hasPasswordWhitespace(value: string) {
   return PASSWORD_SPACE_RE.test(value)
 }
 
-const currentPasswordUnderlineStyle = computed(() => underlineStyle(pwd.current.length, PASSWORD_MAX))
-const newPasswordUnderlineStyle = computed(() => underlineStyle(pwd.next.length, PASSWORD_MAX))
-const confirmPasswordUnderlineStyle = computed(() => underlineStyle(pwd.confirm.length, PASSWORD_MAX))
 const selectedProfileThemeColor = ref<ProfileThemeColor>(resolveProfileThemeColor(null))
 const selectedProfileThemeIcon = ref<ProfileThemeIcon | null>(null)
 const subscriptionUntilMs = computed(() => parseDateMs(me.subscription_until))

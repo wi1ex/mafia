@@ -18,7 +18,6 @@
             label="Название комнаты"
             autocomplete="off"
             :invalid="!title"
-            :underline-style="titleUnderlineStyle"
             :aria-invalid="!title"
             aria-describedby="room-title-hint"
           >
@@ -107,11 +106,6 @@ const RANGE_MAX = 12
 const DEAD_MIN = 2
 const RANGE_THUMB_SIZE = 26
 const TITLE_MAX = 32
-const titlePct = computed(() => {
-  const used = Math.min(TITLE_MAX, Math.max(0, title.value.length))
-  return (used / TITLE_MAX) * 100
-})
-const titleUnderlineStyle = computed(() => ({ width: `${titlePct.value}%` }))
 
 const gameLimitMin = computed(() => {
   const minReady = Number(settings.gameMinReadyPlayers)

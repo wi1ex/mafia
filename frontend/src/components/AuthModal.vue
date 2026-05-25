@@ -17,13 +17,13 @@
 
           <form v-if="activeTab === 'login'" class="form" @submit.prevent="submitLogin">
             <UiInput id="auth-login-username" v-model.trim="login.username" maxlength="20" autocomplete="username" label="Никнейм"
-              :invalid="loginUsernameInvalid" :underline-style="underlineStyle(login.username.length, USERNAME_MAX)" :aria-invalid="loginUsernameInvalid" aria-describedby="auth-login-username-hint">
+              :invalid="loginUsernameInvalid" :aria-invalid="loginUsernameInvalid" aria-describedby="auth-login-username-hint">
               <template #meta>
                 <span id="auth-login-username-hint">{{ login.username.length }}/{{ USERNAME_MAX }}</span>
               </template>
             </UiInput>
             <UiInput id="auth-login-password" v-model="login.password" type="password" autocomplete="current-password" minlength="8" maxlength="32" label="Пароль"
-              :invalid="loginPasswordInvalid" :underline-style="underlineStyle(login.password.length, PASSWORD_MAX)" :aria-invalid="loginPasswordInvalid" aria-describedby="auth-login-password-hint">
+              :invalid="loginPasswordInvalid" :aria-invalid="loginPasswordInvalid" aria-describedby="auth-login-password-hint">
               <template #meta>
                 <span id="auth-login-password-hint">{{ login.password.length }}/{{ PASSWORD_MAX }}</span>
               </template>
@@ -36,19 +36,19 @@
 
           <form v-else class="form" @submit.prevent="submitRegister">
             <UiInput id="auth-reg-username" v-model.trim="reg.username" maxlength="20" autocomplete="username" label="Никнейм"
-              :invalid="regUsernameInvalid" :underline-style="underlineStyle(reg.username.length, USERNAME_MAX)" :aria-invalid="regUsernameInvalid" aria-describedby="auth-reg-username-hint">
+              :invalid="regUsernameInvalid" :aria-invalid="regUsernameInvalid" aria-describedby="auth-reg-username-hint">
               <template #meta>
                 <span id="auth-reg-username-hint">{{ reg.username.length }}/{{ USERNAME_MAX }}</span>
               </template>
             </UiInput>
             <UiInput id="auth-reg-password" v-model="reg.password" type="password" autocomplete="new-password" minlength="8" maxlength="32" label="Пароль"
-              :invalid="regPasswordInvalid" :underline-style="underlineStyle(reg.password.length, PASSWORD_MAX)" :aria-invalid="regPasswordInvalid" aria-describedby="auth-reg-password-hint">
+              :invalid="regPasswordInvalid" :aria-invalid="regPasswordInvalid" aria-describedby="auth-reg-password-hint">
               <template #meta>
                 <span id="auth-reg-password-hint">{{ reg.password.length }}/{{ PASSWORD_MAX }}</span>
               </template>
             </UiInput>
             <UiInput id="auth-reg-password-confirm" v-model="reg.passwordConfirm" type="password" autocomplete="new-password" minlength="8" maxlength="32" label="Повторите пароль"
-              :invalid="regPasswordConfirmInvalid" :underline-style="underlineStyle(reg.passwordConfirm.length, PASSWORD_MAX)" :aria-invalid="regPasswordConfirmInvalid" aria-describedby="auth-reg-password-confirm-hint">
+              :invalid="regPasswordConfirmInvalid" :aria-invalid="regPasswordConfirmInvalid" aria-describedby="auth-reg-password-confirm-hint">
               <template #meta>
                 <span id="auth-reg-password-confirm-hint">{{ reg.passwordConfirm.length }}/{{ PASSWORD_MAX }}</span>
               </template>
@@ -142,11 +142,6 @@ const regPasswordConfirmInvalid = computed(() => {
 
 function hasPasswordWhitespace(value: string) {
   return PASSWORD_SPACE_RE.test(value)
-}
-
-function underlineStyle(len: number, max: number) {
-  const used = Math.min(max, Math.max(0, len))
-  return { width: `${(used / max) * 100}%` }
 }
 
 function close() {

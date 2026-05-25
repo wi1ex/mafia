@@ -10,14 +10,9 @@
       @input="onInput"
     />
     <label :for="id">{{ label }}</label>
-    <div v-if="showUnderline" class="underline">
-      <span :style="underlineStyle"></span>
-    </div>
-    <div v-if="$slots.meta || meta" class="meta">
-      <slot name="meta">
-        <span>{{ meta }}</span>
-      </slot>
-    </div>
+    <slot name="meta">
+      <span v-if="$slots.meta || meta" class="meta" >{{ meta }}</span>
+    </slot>
   </div>
 </template>
 
@@ -36,16 +31,13 @@ const props = withDefaults(defineProps<{
   invalid?: boolean
   filled?: boolean
   placeholder?: string
-  underlineStyle?: Record<string, string>
   meta?: string
-  showUnderline?: boolean
 }>(), {
   modelValue: '',
   type: 'text',
   as: 'input',
   invalid: false,
   placeholder: ' ',
-  showUnderline: true,
 })
 
 const emit = defineEmits<{ (e: 'update:modelValue', value: string | number): void }>()
@@ -84,13 +76,12 @@ function onInput(e: Event) {
   display: block;
   position: relative;
   width: 100%;
-  box-shadow: 3px 3px 5px rgba($black, 0.25);
   input,
   textarea {
     width: calc(100% - 22px);
     padding: 20px 10px 5px;
     border: 1px solid $lead;
-    border-radius: 5px 5px 0 0;
+    border-radius: 5px;
     background-color: $graphite;
     color: $fg;
     font-size: 16px;
@@ -116,31 +107,6 @@ function onInput(e: Event) {
     pointer-events: none;
     transition: all 0.25s ease-in-out;
   }
-  .underline {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: -3px;
-    height: 3px;
-    border-radius: 0 0 3px 3px;
-    overflow: hidden;
-    span {
-      position: absolute;
-      left: 0;
-      bottom: 0;
-      height: 3px;
-      width: 0;
-      background-color: $fg;
-      transition: width 0.25s ease-in-out;
-    }
-  }
-  .underline::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background-color: $lead;
-    transition: background-color 0.25s ease-in-out;
-  }
   .meta {
     position: absolute;
     top: 5px;
@@ -154,9 +120,6 @@ function onInput(e: Event) {
   }
   &.invalid label {
     color: $red;
-  }
-  &.invalid .underline::before {
-    background-color: rgba($red, 0.75);
   }
 }
 .ui-input:focus-within label,
