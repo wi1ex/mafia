@@ -124,7 +124,7 @@ function onInput(e: Event) {
   label {
     position: absolute;
     top: 50%;
-    left: 32px;
+    left: 29px;
     max-width: calc(100% - 64px);
     padding: 0;
     overflow: hidden;
@@ -145,7 +145,7 @@ function onInput(e: Event) {
   .meta {
     position: absolute;
     top: -6px;
-    right: 32px;
+    right: 29px;
     padding: 0 4px;
     background-color: var(--ui-input-resolved-label-bg);
     pointer-events: none;

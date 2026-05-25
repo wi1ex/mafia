@@ -505,7 +505,6 @@ function openAuth(mode: 'login' | 'register') {
       border-radius: 16px;
       background-color: $soft-purple-900;
       img {
-        width: 115px;
         height: 32px;
       }
     }
