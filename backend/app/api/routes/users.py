@@ -3,7 +3,7 @@ from contextlib import suppress
 from typing import cast, Literal
 from sqlalchemy import select, update, exists, func, literal, and_, case
 from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Response
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Response, Request
 from ..utils import (
     broadcast_creator_rooms,
     fetch_active_sanctions,
@@ -19,6 +19,7 @@ from ..utils import (
     delete_user_avatar,
     safe_int,
     non_empty_str,
+    contact_request_rate_key,
     normalize_game_result,
     fetch_games_history_page,
     build_user_stats_out,
@@ -40,7 +41,7 @@ from ...core.roles import ROLE_MODER, normalize_user_role
 from ...core.settings import settings
 from ...core.clients import get_redis
 from ...core.logging import log_action
-from ...security.auth_tokens import get_identity
+from ...security.auth_tokens import get_identity, get_identity_optional
 from ...security.decorators import log_route, rate_limited
 from ...services.text_moderation import enforce_clean_text
 from ...services.telegram import send_text_message
@@ -351,13 +352,12 @@ async def support_link_click(payload: SupportLinkClickIn | None = None, ident: I
 
 @router.post("/contact_request", response_model=Ok)
 @log_route("users.contact_request")
-@rate_limited(lambda ident, **_: f"rl:contact_request:{ident['id']}", limit=3, window_s=60)
-async def contact_request(payload: ContactRequestIn, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
-    uid = int(ident["id"])
-    username = str(ident["username"] or "")
+@rate_limited(contact_request_rate_key, limit=3, window_s=60)
+async def contact_request(request: Request, payload: ContactRequestIn, ident: Identity | None = Depends(get_identity_optional), db: AsyncSession = Depends(get_session)) -> Ok:
     category = non_empty_str(payload.category)
     topic = non_empty_str(payload.topic)
     text = non_empty_str(payload.text)
+    contact = non_empty_str(payload.contact)
     if not category:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="category_empty")
 
@@ -367,17 +367,35 @@ async def contact_request(payload: ContactRequestIn, ident: Identity = Depends(g
     if not text:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="text_empty")
 
-    user = await db.get(User, uid)
-    if not user or user.deleted_at:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+    if not contact:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="contact_empty")
 
-    telegram_id = int(user.telegram_id or 0)
+    uid = int(ident["id"]) if ident else None
+    db_username: str | None = None
+    db_role: str | None = None
+    db_telegram_id = 0
+    if uid is not None:
+        user = await db.get(User, uid)
+        if user and not user.deleted_at:
+            db_username = str(user.username or ident.get("username") or f"user{uid}")
+            db_role = str(user.role or ident.get("role") or "")
+            db_telegram_id = int(user.telegram_id or 0)
+
+    user_lines = ["Пользователь сайта: гость"]
+    if uid is not None and db_username is not None:
+        user_lines = [
+            "Пользователь сайта: зарегистрирован",
+            f"Ник: {db_username}",
+            f"ID пользователя: {uid}",
+            f"Роль: {db_role or '-'}",
+            f"TG ID из БД: {db_telegram_id if db_telegram_id > 0 else 'не привязан'}",
+        ]
+    user_block = "\n".join(user_lines)
+
     message = (
         "Новое обращение с сайта\n\n"
-        f"Пользователь: {username or f'user{uid}'}\n"
-        f"ID пользователя: {uid}\n"
-        f"Роль: {ident.get('role') or '-'}\n"
-        f"Telegram пользователя: {telegram_id if telegram_id > 0 else 'не привязан'}\n\n"
+        f"{user_block}\n\n"
+        f"Контакт для обратной связи: {contact}\n\n"
         f"Категория: {category}\n"
         f"Тема: {topic}\n\n"
         f"Текст обращения:\n{text}"
@@ -391,9 +409,9 @@ async def contact_request(payload: ContactRequestIn, ident: Identity = Depends(g
         await log_action(
             db,
             user_id=uid,
-            username=username,
+            username=db_username,
             action="contact_request_sent",
-            details=f"Отправлено обращение: user_id={uid} category={category} topic={topic}",
+            details=f"Отправлено обращение: user_id={uid or '-'} category={category} topic={topic}",
         )
 
     return Ok()

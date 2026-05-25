@@ -2,69 +2,86 @@
   <Teleport to="body">
     <Transition name="contact-drawer">
       <div v-if="open" class="contact-drawer-overlay" @pointerdown.self="armed = true" @pointerup.self="armed && requestClose()" @pointerleave.self="armed = false" @pointercancel.self="armed = false">
-        <form class="contact-drawer-panel" role="dialog" aria-modal="true" aria-labelledby="contact-request-title" @submit.prevent="submit">
-          <header>
-            <span id="contact-request-title" class="header-title">Связаться с нами</span>
-            <button type="button" aria-label="Закрыть" @click="requestClose">
-              <UiIcon class="close-icon" :icon="iconClose" />
-            </button>
-          </header>
-
-          <div class="contact-body">
-            <UiInput
-              id="contact-request-category"
-              v-model="category"
-              mode="light"
-              label="Категория обращения"
-              :maxlength="CATEGORY_MAX"
-              autocomplete="off"
-              :invalid="categoryInvalid"
-              :disabled="busy"
-            >
-              <template #meta>
-                <span>{{ category.length }}/{{ CATEGORY_MAX }}</span>
-              </template>
-            </UiInput>
-
-            <div ref="topicRoot" class="topic-field" :class="{ open: topicOpen, filled: Boolean(selectedTopicLabel), invalid: topicInvalid }">
-              <button id="contact-request-topic" type="button" @click="toggleTopic" :disabled="busy" :aria-expanded="topicOpen" aria-haspopup="listbox">
-                <span>{{ selectedTopicLabel }}</span>
-                <UiIcon class="topic-icon" :icon="iconArrowDown" />
+        <form class="contact-drawer-form" @submit.prevent="submit">
+          <div class="contact-drawer-panel" role="dialog" aria-modal="true" aria-labelledby="contact-request-title">
+            <header>
+              <span id="contact-request-title" class="header-title">Связаться с нами</span>
+              <button type="button" aria-label="Закрыть" @click="requestClose">
+                <UiIcon class="close-icon" :icon="iconClose" />
               </button>
-              <label for="contact-request-topic">Тема обращения</label>
-              <Transition name="topic-menu">
-                <ul v-show="topicOpen" role="listbox" aria-labelledby="contact-request-topic">
-                  <li v-for="option in topicOptions" :key="option.value" class="topic-option" :class="{ selected: option.value === topic }"
-                      role="option" :aria-selected="option.value === topic" @click="selectTopic(option.value)">
-                    {{ option.label }}
-                  </li>
-                </ul>
-              </Transition>
+            </header>
+
+            <div class="contact-body">
+              <UiInput
+                id="contact-request-category"
+                v-model="category"
+                mode="light"
+                label="Категория обращения"
+                :maxlength="CATEGORY_MAX"
+                autocomplete="off"
+                :invalid="categoryInvalid"
+                :disabled="busy"
+              >
+                <template #meta>
+                  <span>{{ category.length }}/{{ CATEGORY_MAX }}</span>
+                </template>
+              </UiInput>
+
+              <div ref="topicRoot" class="topic-field" :class="{ open: topicOpen, filled: Boolean(selectedTopicLabel), invalid: topicInvalid }">
+                <button id="contact-request-topic" type="button" @click="toggleTopic" :disabled="busy" :aria-expanded="topicOpen" aria-haspopup="listbox">
+                  <span :class="{ placeholder: !selectedTopicLabel }">{{ selectedTopicText }}</span>
+                  <UiIcon class="topic-icon" :icon="iconArrowDown" />
+                </button>
+                <label for="contact-request-topic">Тема обращения</label>
+                <Transition name="topic-menu">
+                  <ul v-show="topicOpen" role="listbox" aria-labelledby="contact-request-topic">
+                    <li v-for="option in topicOptions" :key="option.value" class="topic-option" :class="{ selected: option.value === topic }"
+                        role="option" :aria-selected="option.value === topic" @click="selectTopic(option.value)">
+                      {{ option.label }}
+                    </li>
+                  </ul>
+                </Transition>
+              </div>
+
+              <UiInput
+                id="contact-request-text"
+                v-model="messageText"
+                class="contact-textarea"
+                mode="light"
+                as="textarea"
+                label="Текст обращения"
+                :maxlength="TEXT_MAX"
+                rows="8"
+                :invalid="textInvalid"
+                :disabled="busy"
+              >
+                <template #meta>
+                  <span>{{ messageText.length }}/{{ TEXT_MAX }}</span>
+                </template>
+              </UiInput>
+
+              <UiInput
+                id="contact-request-contact"
+                v-model="replyContact"
+                mode="light"
+                label="Email/Telegram для обратной связи"
+                :maxlength="CONTACT_MAX"
+                autocomplete="off"
+                :invalid="replyContactInvalid"
+                :disabled="busy"
+              >
+                <template #meta>
+                  <span>{{ replyContact.length }}/{{ CONTACT_MAX }}</span>
+                </template>
+              </UiInput>
             </div>
 
-            <UiInput
-              id="contact-request-text"
-              v-model="messageText"
-              class="contact-textarea"
-              mode="light"
-              as="textarea"
-              label="Текст обращения"
-              :maxlength="TEXT_MAX"
-              rows="8"
-              :invalid="textInvalid"
-              :disabled="busy"
-            >
-              <template #meta>
-                <span>{{ messageText.length }}/{{ TEXT_MAX }}</span>
-              </template>
-            </UiInput>
-          </div>
-
-          <div class="contact-actions">
-            <button type="button" class="cancel" :disabled="busy" @click="requestClose">Отмена</button>
-            <button type="submit" class="submit" :disabled="busy || !canSubmit">
-              {{ busy ? 'Отправка...' : 'Отправить' }}
-            </button>
+            <div class="contact-actions">
+              <button type="button" class="cancel" :disabled="busy" @click="requestClose">Отмена</button>
+              <button type="submit" class="submit" :disabled="busy || !canSubmit">
+                {{ busy ? 'Отправка...' : 'Отправить' }}
+              </button>
+            </div>
           </div>
         </form>
       </div>
@@ -97,6 +114,7 @@ type TopicOption = {
 }
 
 const CATEGORY_MAX = 80
+const CONTACT_MAX = 160
 const TEXT_MAX = 2000
 
 const topicOptions: readonly TopicOption[] = [
@@ -111,21 +129,26 @@ const armed = ref(false)
 const busy = ref(false)
 const submitAttempted = ref(false)
 const category = ref('')
-const topic = ref(topicOptions[0].value)
+const topic = ref('')
 const messageText = ref('')
+const replyContact = ref('')
 const topicOpen = ref(false)
 const topicRoot = ref<HTMLElement | null>(null)
 
 let prevOverflow = ''
 
 const normalizedCategory = computed(() => normalizeInlineText(category.value).slice(0, CATEGORY_MAX))
+const normalizedContact = computed(() => normalizeInlineText(replyContact.value).slice(0, CONTACT_MAX))
 const normalizedText = computed(() => normalizeMessageText(messageText.value).slice(0, TEXT_MAX))
 const selectedTopicLabel = computed(() => topicOptions.find((option) => option.value === topic.value)?.label || '')
+const selectedTopicText = computed(() => selectedTopicLabel.value || 'Выберите тему')
 const categoryOk = computed(() => normalizedCategory.value.length > 0)
+const contactOk = computed(() => normalizedContact.value.length > 0)
 const topicOk = computed(() => Boolean(selectedTopicLabel.value))
 const textOk = computed(() => normalizedText.value.length > 0)
-const canSubmit = computed(() => categoryOk.value && topicOk.value && textOk.value)
+const canSubmit = computed(() => categoryOk.value && topicOk.value && textOk.value && contactOk.value)
 const categoryInvalid = computed(() => submitAttempted.value && !categoryOk.value)
+const replyContactInvalid = computed(() => submitAttempted.value && !contactOk.value)
 const topicInvalid = computed(() => submitAttempted.value && !topicOk.value)
 const textInvalid = computed(() => submitAttempted.value && !textOk.value)
 
@@ -167,8 +190,9 @@ function selectTopic(value: string): void {
 
 function resetForm(): void {
   category.value = ''
-  topic.value = topicOptions[0].value
+  topic.value = ''
   messageText.value = ''
+  replyContact.value = ''
   submitAttempted.value = false
   topicOpen.value = false
 }
@@ -183,6 +207,7 @@ async function submit(): Promise<void> {
       category: normalizedCategory.value,
       topic: selectedTopicLabel.value,
       text: normalizedText.value,
+      contact: normalizedContact.value,
     })
     resetForm()
     emit('update:open', false)
@@ -247,6 +272,10 @@ onBeforeUnmount(() => {
   background-color: rgba($neutral-black, 0.20);
   backdrop-filter: blur(12px);
   z-index: 1000;
+  .contact-drawer-form {
+    height: 100dvh;
+    margin: 0;
+  }
   .contact-drawer-panel {
     display: flex;
     flex-direction: column;
@@ -343,6 +372,9 @@ onBeforeUnmount(() => {
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
+          &.placeholder {
+            color: $neutral-500;
+          }
         }
         .topic-icon {
           --ui-icon-width: 20px;

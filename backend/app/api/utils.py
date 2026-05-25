@@ -9,7 +9,7 @@ import structlog
 from time import time
 from datetime import date, datetime, timezone, timedelta
 from typing import Optional, Dict, Any, Literal, Sequence, Iterable, cast, TYPE_CHECKING
-from fastapi import Depends, HTTPException, status, Header
+from fastapi import Depends, HTTPException, status, Header, Request
 from sqlalchemy import update, func, select, or_, and_, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.clients import get_redis
@@ -178,6 +178,7 @@ __all__ = [
     "find_user_by_username",
     "generate_user_id",
     "require_bot_token",
+    "contact_request_rate_key",
     "pair",
     "load_link",
     "friend_status_for",
@@ -2499,6 +2500,17 @@ def non_empty_str(raw: Any) -> str | None:
 
     out = raw.strip()
     return out or None
+
+
+def contact_request_rate_key(*, request: Request, ident: Identity | None = None, **_: object) -> str:
+    if ident:
+        return f"rl:contact_request:user:{int(ident['id'])}"
+
+    forwarded_for = str(request.headers.get("x-forwarded-for") or "").strip()
+    real_ip = str(request.headers.get("x-real-ip") or "").strip()
+    client_host = str((request.client.host if request.client else "") or "").strip()
+    ip = (forwarded_for.split(",", 1)[0].strip() if forwarded_for else "") or real_ip or client_host or "unknown"
+    return f"rl:contact_request:ip:{ip}"
 
 
 def normalizeGameActionsForUpdate(raw: object) -> list[object]:

@@ -270,6 +270,7 @@ class ContactRequestIn(BaseModel):
     category: str = Field(min_length=1, max_length=80)
     topic: str = Field(min_length=1, max_length=120)
     text: str = Field(min_length=1, max_length=2000)
+    contact: str = Field(min_length=1, max_length=160)
 
 
 class UserProfileThemeIn(BaseModel):
