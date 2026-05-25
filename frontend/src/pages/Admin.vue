@@ -327,18 +327,24 @@
               <UiInput id="logs-day" v-model="logsDay" type="date" label="Дата" :disabled="logsLoading" />
             </div>
             <div class="field">
-              <span>Событие</span>
-              <select v-model="logsAction" :disabled="logsLoading">
-                <option value="all">Все</option>
-                <option v-for="act in logActions" :key="act" :value="act">{{ act }}</option>
-              </select>
+              <UiDropdown
+                :model-value="logsAction"
+                :options="logActionOptions"
+                label="Событие"
+                :disabled="logsLoading"
+                size="compact"
+                @update:modelValue="setLogsAction"
+              />
             </div>
             <div class="field">
-              <span>Отображать по</span>
-              <select v-model.number="logsLimit" :disabled="logsLoading">
-                <option :value="20">20</option>
-                <option :value="100">100</option>
-              </select>
+              <UiDropdown
+                :model-value="logsLimit"
+                :options="PAGE_LIMIT_OPTIONS"
+                label="Отображать по"
+                :disabled="logsLoading"
+                size="compact"
+                @update:modelValue="setLogsLimit"
+              />
             </div>
           </div>
 
@@ -387,21 +393,24 @@
               <UiInput id="rooms-user" v-model.trim="roomsUser" label="Никнейм" :disabled="roomsLoading" />
             </div>
             <div class="field">
-              <span>Фильтры</span>
-              <select v-model="roomsFilter" :disabled="roomsLoading">
-                <option value="all">Все комнаты</option>
-                <option value="stream_only">Только со стримом</option>
-                <option value="hidden_only">Скрытые комнаты</option>
-                <option value="has_games">Комната с играми</option>
-                <option value="duo_only">Duo-комната</option>
-              </select>
+              <UiDropdown
+                :model-value="roomsFilter"
+                :options="ROOM_FILTER_OPTIONS"
+                label="Фильтры"
+                :disabled="roomsLoading"
+                size="compact"
+                @update:modelValue="setRoomsFilter"
+              />
             </div>
             <div class="field">
-              <span>Отображать по</span>
-              <select v-model.number="roomsLimit" :disabled="roomsLoading">
-                <option :value="20">20</option>
-                <option :value="100">100</option>
-              </select>
+              <UiDropdown
+                :model-value="roomsLimit"
+                :options="PAGE_LIMIT_OPTIONS"
+                label="Отображать по"
+                :disabled="roomsLoading"
+                size="compact"
+                @update:modelValue="setRoomsLimit"
+              />
             </div>
           </div>
 
@@ -530,11 +539,14 @@
               <UiInput id="users-user" v-model.trim="usersUser" label="Никнейм" :disabled="usersLoading" />
             </div>
             <div class="field">
-              <span>Отображать по</span>
-              <select v-model.number="usersLimit" :disabled="usersLoading">
-                <option :value="20">20</option>
-                <option :value="100">100</option>
-              </select>
+              <UiDropdown
+                :model-value="usersLimit"
+                :options="PAGE_LIMIT_OPTIONS"
+                label="Отображать по"
+                :disabled="usersLoading"
+                size="compact"
+                @update:modelValue="setUsersLimit"
+              />
             </div>
           </div>
 
@@ -676,11 +688,14 @@
               <UiInput id="sanctions-user" v-model.trim="sanctionsUser" label="Никнейм" :disabled="sanctionsLoading" />
             </div>
             <div class="field">
-              <span>Отображать по</span>
-              <select v-model.number="sanctionsLimit" :disabled="sanctionsLoading">
-                <option :value="20">20</option>
-                <option :value="100">100</option>
-              </select>
+              <UiDropdown
+                :model-value="sanctionsLimit"
+                :options="PAGE_LIMIT_OPTIONS"
+                label="Отображать по"
+                :disabled="sanctionsLoading"
+                size="compact"
+                @update:modelValue="setSanctionsLimit"
+              />
             </div>
           </div>
 
@@ -883,6 +898,7 @@ import SanctionModal from '@/components/SanctionModal.vue'
 import SubscriptionModal from '@/components/SubscriptionModal.vue'
 import MiniProfile from '@/components/MiniProfile.vue'
 import UiSwitch from '@/components/UiSwitch.vue'
+import UiDropdown from '@/components/UiDropdown.vue'
 import UiInput from '@/components/UiInput.vue'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
@@ -890,14 +906,8 @@ import iconClose from '@/assets/svg/close.svg'
 import iconJudge from '@/assets/svg/judge.svg'
 import iconDelete from '@/assets/svg/delete.svg'
 import iconSave from '@/assets/svg/save.svg'
-import {
-  buildProfileThemeBgStyle,
-  getProfileThemeOption,
-} from '@/constants/profileThemes'
-import {
-  getProfileThemeIconOption,
-  getProfileThemeBadgeSources,
-} from '@/constants/profileThemeIcons'
+import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
+import { getProfileThemeBadgeSources } from '@/constants/profileThemeIcons'
 
 type SiteSettings = {
   registration_enabled: boolean
@@ -1115,12 +1125,24 @@ type UsersSortBy =
   | 'suspends_count'
 
 type RoomFilter = 'all' | 'stream_only' | 'hidden_only' | 'has_games' | 'duo_only'
+type DropdownValue = string | number | null
 
 const route = useRoute()
 const router = useRouter()
 
 const TAB_KEYS = ['settings', 'updates', 'stats', 'logs', 'rooms', 'users', 'sanctions', 'subscriptions'] as const
 type TabKey = typeof TAB_KEYS[number]
+const PAGE_LIMIT_OPTIONS = [
+  { value: 20, label: '20' },
+  { value: 100, label: '100' },
+] as const
+const ROOM_FILTER_OPTIONS = [
+  { value: 'all', label: 'Все комнаты' },
+  { value: 'stream_only', label: 'Только со стримом' },
+  { value: 'hidden_only', label: 'Скрытые комнаты' },
+  { value: 'has_games', label: 'Комната с играми' },
+  { value: 'duo_only', label: 'Duo-комната' },
+] as const
 
 function normalizeTab(v: unknown): TabKey {
   if (typeof v === 'string' && (TAB_KEYS as readonly string[]).includes(v)) return v as TabKey
@@ -1482,6 +1504,10 @@ const logsPages = computed(() => Math.max(1, Math.ceil(logsTotal.value / logsLim
 const roomsPages = computed(() => Math.max(1, Math.ceil(roomsTotal.value / roomsLimit.value)))
 const usersPages = computed(() => Math.max(1, Math.ceil(usersTotal.value / usersLimit.value)))
 const sanctionsPages = computed(() => Math.max(1, Math.ceil(sanctionsTotal.value / sanctionsLimit.value)))
+const logActionOptions = computed(() => [
+  { value: 'all', label: 'Все' },
+  ...logActions.value.map((action) => ({ value: action, label: action })),
+])
 const subscriptionsByUserId = computed(() => {
   const mapped = new Map<number, SubscriptionRow>()
   for (const item of subscriptions.value) mapped.set(item.user_id, item)
@@ -1521,6 +1547,37 @@ const subscriptionCanSave = computed(() => {
 function setUsersSort(sortBy: UsersSortBy): void {
   if (usersSortBy.value === sortBy) return
   usersSortBy.value = sortBy
+}
+
+function normalizePageLimit(value: DropdownValue): number {
+  return Number(value) === 100 ? 100 : 20
+}
+
+function setLogsLimit(value: DropdownValue): void {
+  logsLimit.value = normalizePageLimit(value)
+}
+
+function setRoomsLimit(value: DropdownValue): void {
+  roomsLimit.value = normalizePageLimit(value)
+}
+
+function setUsersLimit(value: DropdownValue): void {
+  usersLimit.value = normalizePageLimit(value)
+}
+
+function setSanctionsLimit(value: DropdownValue): void {
+  sanctionsLimit.value = normalizePageLimit(value)
+}
+
+function setLogsAction(value: DropdownValue): void {
+  logsAction.value = typeof value === 'string' ? value : 'all'
+}
+
+function setRoomsFilter(value: DropdownValue): void {
+  const next = String(value || 'all')
+  roomsFilter.value = ROOM_FILTER_OPTIONS.some((option) => option.value === next)
+    ? next as RoomFilter
+    : 'all'
 }
 
 const registrationsMax = computed(() => {
@@ -3029,22 +3086,6 @@ onMounted(() => {
         flex-direction: column;
         gap: 5px;
         min-width: 160px;
-        > span {
-          font-size: 14px;
-          color: $grey;
-        }
-        > input,
-        > select {
-          height: 35px;
-          padding: 0 10px;
-          border: 1px solid $lead;
-          border-radius: 5px;
-          background-color: $graphite;
-          color: $fg;
-          font-size: 14px;
-          font-family: Manrope-Medium;
-          outline: none;
-        }
       }
     }
     .tooltip {

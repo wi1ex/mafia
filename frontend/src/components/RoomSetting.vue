@@ -75,42 +75,30 @@
 
         <div v-if="!isSpectator" class="switch-device-div">
           <span>Выбор камеры:</span>
-          <div class="ui-select" ref="camRoot" :class="{ open: camOpen }">
-            <button type="button" @click="toggleCamDd" :aria-expanded="camOpen" aria-label="Список камер">
-              <span>{{ camLabel }}</span>
-              <img :src="iconArrowDown" alt="arrow" />
-            </button>
-            <Transition name="menu">
-              <ul v-show="camOpen" :data-open="camOpen ? 1 : 0" role="listbox">
-                <li v-for="it in cams" :key="it.deviceId" class="option" :aria-selected="it.deviceId === camId"
-                    :class="{ selected: it.deviceId === camId }" @click="selectCam(it.deviceId)">
-                  <span>{{ it.label || 'Камера' }}</span>
-                  <img v-if="it.deviceId === camId" :src="iconReadyGreen" alt="ready" />
-                </li>
-                <li v-if="cams.length === 0" class="empty" aria-disabled="true">Нет устройств</li>
-              </ul>
-            </Transition>
-          </div>
+          <UiDropdown
+            :model-value="camId"
+            :options="camOptions"
+            placeholder="Камера"
+            empty-text="Нет устройств"
+            aria-label="Список камер"
+            size="compact"
+            menu-placement="top"
+            @update:modelValue="onCamDropdownUpdate"
+          />
         </div>
 
         <div v-if="!isSpectator" class="switch-device-div">
           <span>Выбор микрофона:</span>
-          <div class="ui-select" ref="micRoot" :class="{ open: micOpen }">
-            <button type="button" @click="toggleMicDd" :aria-expanded="micOpen" aria-label="Список микрофонов">
-              <span>{{ micLabel }}</span>
-              <img :src="iconArrowDown" alt="arrow" />
-            </button>
-            <Transition name="menu">
-              <ul v-show="micOpen" :data-open="micOpen ? 1 : 0" role="listbox">
-                <li v-for="it in mics" :key="it.deviceId" class="option" :aria-selected="it.deviceId === micId"
-                    :class="{ selected: it.deviceId === micId }" @click="selectMic(it.deviceId)">
-                  <span>{{ it.label || 'Микрофон' }}</span>
-                  <img v-if="it.deviceId === micId" :src="iconReadyGreen" alt="ready" />
-                </li>
-                <li v-if="mics.length === 0" class="empty" aria-disabled="true">Нет устройств</li>
-              </ul>
-            </Transition>
-          </div>
+          <UiDropdown
+            :model-value="micId"
+            :options="micOptions"
+            placeholder="Микрофон"
+            empty-text="Нет устройств"
+            aria-label="Список микрофонов"
+            size="compact"
+            menu-placement="top"
+            @update:modelValue="onMicDropdownUpdate"
+          />
         </div>
       </div>
     </div>
@@ -118,18 +106,19 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
+import { computed } from 'vue'
+import UiDropdown from '@/components/UiDropdown.vue'
 import UiSwitch from '@/components/UiSwitch.vue'
 import UiSlider from '@/components/UiSlider.vue'
 
 import iconClose from '@/assets/svg/close.svg'
-import iconReadyGreen from '@/assets/svg/readyGreen.svg'
-import iconArrowDown from '@/assets/svg/arrowDown.svg'
 
 type Dev = {
   deviceId: string
   label: string
 }
+
+type DropdownValue = string | number | null
 
 const props = defineProps<{
   open: boolean
@@ -165,22 +154,14 @@ const emit = defineEmits<{
   'close': []
 }>()
 
-const camRoot = ref<HTMLElement|null>(null)
-const micRoot = ref<HTMLElement|null>(null)
-const camOpen = ref(false)
-const micOpen = ref(false)
-let suppressNextDocClick = false
-
-const camLabel = computed(() => props.cams.find(i => i.deviceId === props.camId)?.label || 'Камера')
-const micLabel = computed(() => props.mics.find(i => i.deviceId === props.micId)?.label || 'Микрофон')
-const micIdProxy = computed({
-  get: () => props.micId,
-  set: (v: string) => { pickDevice('audioinput', v) }
-})
-const camIdProxy = computed({
-  get: () => props.camId,
-  set: (v: string) => { pickDevice('videoinput', v) }
-})
+const camOptions = computed(() => props.cams.map((item) => ({
+  value: item.deviceId,
+  label: item.label || 'Камера',
+})))
+const micOptions = computed(() => props.mics.map((item) => ({
+  value: item.deviceId,
+  label: item.label || 'Микрофон',
+})))
 
 function onToggleMirror(next: boolean) {
   emit('update:mirrorOn', next)
@@ -205,59 +186,15 @@ function pickDevice(kind: 'audioinput'|'videoinput', id: string) {
   emit('device-change', kind)
 }
 
-function toggleCamDd() {
-  camOpen.value = !camOpen.value
-  if (camOpen.value) micOpen.value = false
-}
-function toggleMicDd() {
-  micOpen.value = !micOpen.value
-  if (micOpen.value) camOpen.value = false
-}
-function closeDropdowns() {
-  camOpen.value = false
-  micOpen.value = false
-}
-function selectCam(id: string) {
-  if (id !== props.camId) camIdProxy.value = id
-  closeDropdowns()
-}
-function selectMic(id: string) {
-  if (id !== props.micId) micIdProxy.value = id
-  closeDropdowns()
+function onCamDropdownUpdate(value: DropdownValue): void {
+  if (typeof value !== 'string') return
+  pickDevice('videoinput', value)
 }
 
-function onDocPointerDown(ev: PointerEvent) {
-  const t = ev.target as Node
-  const clickedOutsideCam = camOpen.value && camRoot.value && !camRoot.value.contains(t)
-  const clickedOutsideMic = micOpen.value && micRoot.value && !micRoot.value.contains(t)
-  if (clickedOutsideCam || clickedOutsideMic) {
-    closeDropdowns()
-    suppressNextDocClick = true
-    ev.stopPropagation?.()
-  }
+function onMicDropdownUpdate(value: DropdownValue): void {
+  if (typeof value !== 'string') return
+  pickDevice('audioinput', value)
 }
-function onDocClickCapture(e: MouseEvent) {
-  if (suppressNextDocClick) {
-    e.stopPropagation()
-    suppressNextDocClick = false
-  }
-}
-
-watch(() => props.open, (v) => {
-  if (!v) {
-    camOpen.value = false
-    micOpen.value = false
-  }
-})
-
-onMounted(() => {
-  document.addEventListener('pointerdown', onDocPointerDown, { capture: true })
-  document.addEventListener('click', onDocClickCapture, { capture: true })
-})
-onBeforeUnmount(() => {
-  document.removeEventListener('pointerdown', onDocPointerDown, { capture: true } as any)
-  document.removeEventListener('click', onDocClickCapture, { capture: true } as any)
-})
 </script>
 
 <style scoped lang="scss">
@@ -379,101 +316,10 @@ onBeforeUnmount(() => {
       flex-direction: column;
       width: 100%;
       gap: 5px;
-      .ui-select {
-        position: relative;
-        width: 100%;
-        box-shadow: 3px 3px 5px rgba($black, 0.25);
-        button {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          width: 100%;
-          height: 30px;
-          border: 1px solid $lead;
-          border-radius: 5px;
-          background-color: $dark;
-          padding: 0 10px;
-          cursor: pointer;
-          transition: background-color 0.25s ease-in-out;
-          &:hover {
-            background-color: $graphite;
-          }
-          span {
-            height: 16px;
-            color: $fg;
-            font-size: 14px;
-            font-family: Manrope-Medium;
-            line-height: 1;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-          }
-          img {
-            width: 15px;
-            height: 15px;
-          }
-        }
-      }
-      ul {
-        position: absolute;
-        z-index: 30;
-        bottom: 0;
-        margin: 0;
-        padding: 0;
-        width: calc(100% - 2px);
-        border: 1px solid $lead;
-        border-radius: 5px;
-        background-color: $graphite;
-        transform-origin: bottom;
-        &[data-open="0"] {
-          pointer-events: none;
-        }
-        .option {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          padding: 10px;
-          cursor: pointer;
-          transition: background-color 0.25s ease-in-out;
-          &:hover {
-            background-color: $lead;
-          }
-          span {
-            height: 16px;
-            font-size: 14px;
-            color: $fg;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-          }
-          img {
-            width: 15px;
-            height: 15px;
-          }
-        }
-        .option.selected {
-          background-color: $lead;
-        }
-        .empty {
-          padding: 10px;
-          color: $grey;
-          font-size: 14px;
-        }
-      }
     }
   }
 }
 
-.menu-enter-active,
-.menu-leave-active {
-  transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
-  will-change: opacity, transform;
-}
-.menu-enter-from,
-.menu-leave-to {
-  opacity: 0;
-  transform: translateY(30px);
-}
 .panel-enter-active,
 .panel-leave-active {
   transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;

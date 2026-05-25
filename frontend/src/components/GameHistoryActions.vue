@@ -14,44 +14,32 @@
               <div class="editors">
                 <div class="editor">
                   <label :for="`game-history-result-${gameId}`">Исход игры</label>
-                  <div ref="resultRoot" class="ui-select" :class="{ open: resultOpen }">
-                    <button type="button" :disabled="loading || savingResult || savingPpk" :aria-expanded="resultOpen" aria-label="Выбрать исход игры" @click="toggleResultDd">
-                      <span>{{ selectedResultLabel }}</span>
-                      <img :src="iconArrowDown" alt="arrow" />
-                    </button>
-                    <Transition name="menu">
-                      <ul v-show="resultOpen" :data-open="resultOpen ? 1 : 0" role="listbox">
-                        <li v-for="option in RESULT_OPTIONS" :key="option.value" class="option"
-                            :aria-selected="option.value === selectedResult" :class="{ selected: option.value === selectedResult }"
-                            @click="selectResult(option.value)">
-                          <span>{{ option.label }}</span>
-                          <img v-if="option.value === selectedResult" :src="iconReadyGreen" alt="ready" />
-                        </li>
-                      </ul>
-                    </Transition>
-                  </div>
+                  <UiDropdown
+                    :id="`game-history-result-${gameId}`"
+                    :model-value="selectedResult"
+                    :options="RESULT_OPTIONS"
+                    aria-label="Выбрать исход игры"
+                    size="compact"
+                    menu-placement="top"
+                    :disabled="loading || savingResult || savingPpk"
+                    @update:modelValue="selectResult"
+                  />
                   <span v-if="savingResult" class="editor-status">Сохраняем...</span>
                   <span v-else-if="saveError" class="editor-status editor-status--error">{{ saveError }}</span>
                 </div>
 
                 <div class="editor">
                   <label :for="`game-history-ppk-${gameId}`">ППК</label>
-                  <div ref="ppkRoot" class="ui-select" :class="{ open: ppkOpen }">
-                    <button type="button" :disabled="ppkSelectDisabled" :aria-expanded="ppkOpen" aria-label="Выбрать ППК" @click="togglePpkDd">
-                      <span>{{ selectedPpkLabel }}</span>
-                      <img :src="iconArrowDown" alt="arrow" />
-                    </button>
-                    <Transition name="menu">
-                      <ul v-show="ppkOpen" :data-open="ppkOpen ? 1 : 0" role="listbox">
-                        <li v-for="option in ppkOptions" :key="option.key" class="option"
-                            :aria-selected="option.value === selectedPpkUserId" :class="{ selected: option.value === selectedPpkUserId }"
-                            @click="selectPpk(option.value)">
-                          <span>{{ option.label }}</span>
-                          <img v-if="option.value === selectedPpkUserId" :src="iconReadyGreen" alt="ready" />
-                        </li>
-                      </ul>
-                    </Transition>
-                  </div>
+                  <UiDropdown
+                    :id="`game-history-ppk-${gameId}`"
+                    :model-value="selectedPpkUserId"
+                    :options="ppkOptions"
+                    aria-label="Выбрать ППК"
+                    size="compact"
+                    menu-placement="top"
+                    :disabled="ppkSelectDisabled"
+                    @update:modelValue="selectPpk"
+                  />
                   <span v-if="savingPpk" class="editor-status">Сохраняем...</span>
                   <span v-else-if="ppkSaveError" class="editor-status editor-status--error">{{ ppkSaveError }}</span>
                   <span v-else-if="ppkHint" class="editor-status">{{ ppkHint }}</span>
@@ -99,14 +87,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { api } from '@/services/axios'
 import { formatLocalDateTime } from '@/services/datetime'
 import { useUserStore } from '@/store'
 
+import UiDropdown from '@/components/UiDropdown.vue'
+
 import iconClose from '@/assets/svg/close.svg'
-import iconReadyGreen from '@/assets/svg/readyGreen.svg'
-import iconArrowDown from '@/assets/svg/arrowDown.svg'
 
 interface AdminGameActionField {
   label: string
@@ -125,6 +113,7 @@ interface AdminGameActionItem {
 type GameHistoryRole = 'citizen' | 'mafia' | 'don' | 'sheriff'
 type LeaveReason = 'vote' | 'foul' | 'suicide' | 'night'
 type GameResult = 'red' | 'black' | 'draw'
+type DropdownValue = string | number | null
 
 interface GameHistorySlot {
   slot: number
@@ -181,16 +170,10 @@ const selectedResult = ref<GameResult>(normalizeGameResult(props.gameResult))
 const savedResult = ref<GameResult>(normalizeGameResult(props.gameResult))
 const savingResult = ref(false)
 const saveError = ref('')
-const resultOpen = ref(false)
-const resultRoot = ref<HTMLElement | null>(null)
 const selectedPpkUserId = ref<number | null>(null)
 const savedPpkUserId = ref<number | null>(null)
 const savingPpk = ref(false)
 const ppkSaveError = ref('')
-const ppkOpen = ref(false)
-const ppkRoot = ref<HTMLElement | null>(null)
-
-let suppressNextDocClick = false
 
 const DATE_OPTIONS: Intl.DateTimeFormatOptions = {
   year: 'numeric',
@@ -207,7 +190,6 @@ const RESULT_OPTIONS: Array<{ value: GameResult; label: string }> = [
   { value: 'draw', label: 'Ничья' },
 ]
 
-const selectedResultLabel = computed(() => RESULT_OPTIONS.find((option) => option.value === selectedResult.value)?.label || '')
 const ppkPlayerOptions = computed<Array<{ key: string; value: number; label: string }>>(() => {
   const slots = Array.isArray(props.detailsSlots) ? [...props.detailsSlots] : []
   slots.sort((left, right) => normalizeSlotNumber(left.slot) - normalizeSlotNumber(right.slot))
@@ -228,16 +210,8 @@ const ppkPlayerOptions = computed<Array<{ key: string; value: number; label: str
   return out
 })
 const ppkOptions = computed<Array<{ key: string; value: number | null; label: string }>>(() => (
-  [{ key: 'none', value: null, label: 'Без ППК' }, ...ppkPlayerOptions.value]
+  buildPpkOptions()
 ))
-const selectedPpkLabel = computed(() => {
-  if (selectedPpkUserId.value === null) return 'Без ППК'
-  const fromOptions = ppkOptions.value.find((option) => option.value === selectedPpkUserId.value)
-  if (fromOptions) return fromOptions.label
-  const slot = findSlotByUserId(selectedPpkUserId.value)
-  if (slot) return formatPpkOptionLabel(slot)
-  return `user${selectedPpkUserId.value}`
-})
 const ppkSelectDisabled = computed(() => {
   if (loading.value || savingResult.value || savingPpk.value) return true
   return ppkOptions.value.length <= 1 && selectedPpkUserId.value === null
@@ -267,13 +241,22 @@ function normalizeSlotNumber(raw: unknown): number {
   return Math.max(0, Math.trunc(value))
 }
 
-function findSlotByUserId(userId: number | null): GameHistorySlot | null {
-  if (userId === null) return null
-  const slots = Array.isArray(props.detailsSlots) ? props.detailsSlots : []
-  for (const slot of slots) {
-    if (normalizeOptionalUserId(slot.user_id) === userId) return slot
+function buildPpkOptions(): Array<{ key: string; value: number | null; label: string }> {
+  const options: Array<{ key: string; value: number | null; label: string }> = [
+    { key: 'none', value: null, label: 'Без ППК' },
+    ...ppkPlayerOptions.value,
+  ]
+  const selected = selectedPpkUserId.value
+  if (selected !== null && !options.some((option) => option.value === selected)) {
+    const slot = (Array.isArray(props.detailsSlots) ? props.detailsSlots : [])
+      .find((item) => normalizeOptionalUserId(item.user_id) === selected)
+    options.push({
+      key: `current-${selected}`,
+      value: selected,
+      label: slot ? formatPpkOptionLabel(slot) : `user${selected}`,
+    })
   }
-  return null
+  return options
 }
 
 function formatPpkOptionLabel(slot: GameHistorySlot): string {
@@ -296,42 +279,20 @@ function applyActionsPayload(data: AdminGameActionsResponse | undefined): void {
 
 function closeModal(): void {
   armed.value = false
-  closeResultDropdown()
-  closePpkDropdown()
   open.value = false
 }
 
-function toggleResultDd(): void {
-  if (loading.value || savingResult.value || savingPpk.value) return
-  closePpkDropdown()
-  resultOpen.value = !resultOpen.value
-}
-
-function closeResultDropdown(): void {
-  resultOpen.value = false
-}
-
-function togglePpkDd(): void {
-  if (ppkSelectDisabled.value) return
-  closeResultDropdown()
-  ppkOpen.value = !ppkOpen.value
-}
-
-function closePpkDropdown(): void {
-  ppkOpen.value = false
-}
-
-function selectResult(value: GameResult): void {
-  closeResultDropdown()
-  if (savingResult.value || savingPpk.value || value === selectedResult.value) return
-  selectedResult.value = value
+function selectResult(value: DropdownValue): void {
+  const next = normalizeGameResult(value)
+  if (savingResult.value || savingPpk.value || next === selectedResult.value) return
+  selectedResult.value = next
   void onResultChange()
 }
 
-function selectPpk(value: number | null): void {
-  closePpkDropdown()
-  if (savingResult.value || savingPpk.value || value === selectedPpkUserId.value) return
-  selectedPpkUserId.value = value
+function selectPpk(value: DropdownValue): void {
+  const next = value === null ? null : normalizeOptionalUserId(value)
+  if (savingResult.value || savingPpk.value || next === selectedPpkUserId.value) return
+  selectedPpkUserId.value = next
   void onPpkChange()
 }
 
@@ -395,8 +356,6 @@ function openModal(): void {
   armed.value = false
   saveError.value = ''
   ppkSaveError.value = ''
-  closeResultDropdown()
-  closePpkDropdown()
   open.value = true
   void loadActions()
 }
@@ -469,23 +428,6 @@ function formatOccurredAt(value: string): string {
   return formatLocalDateTime(value, DATE_OPTIONS)
 }
 
-function onDocPointerDown(ev: PointerEvent): void {
-  const target = ev.target as Node | null
-  const clickedOutsideResult = resultOpen.value && resultRoot.value && target && !resultRoot.value.contains(target)
-  const clickedOutsidePpk = ppkOpen.value && ppkRoot.value && target && !ppkRoot.value.contains(target)
-  if (!clickedOutsideResult && !clickedOutsidePpk) return
-  closeResultDropdown()
-  closePpkDropdown()
-  suppressNextDocClick = true
-  ev.stopPropagation?.()
-}
-
-function onDocClickCapture(ev: MouseEvent): void {
-  if (!suppressNextDocClick) return
-  ev.stopPropagation()
-  suppressNextDocClick = false
-}
-
 watch(
   () => props.gameResult,
   (value) => {
@@ -497,22 +439,6 @@ watch(
   },
 )
 
-watch(open, (value) => {
-  if (!value) {
-    closeResultDropdown()
-    closePpkDropdown()
-  }
-})
-
-onMounted(() => {
-  document.addEventListener('pointerdown', onDocPointerDown, { capture: true })
-  document.addEventListener('click', onDocClickCapture, { capture: true })
-})
-
-onBeforeUnmount(() => {
-  document.removeEventListener('pointerdown', onDocPointerDown, { capture: true } as AddEventListenerOptions)
-  document.removeEventListener('click', onDocClickCapture, { capture: true } as AddEventListenerOptions)
-})
 </script>
 
 <style scoped lang="scss">
@@ -575,87 +501,6 @@ onBeforeUnmount(() => {
             color: $grey;
             font-size: 13px;
             line-height: 1.2;
-          }
-          .ui-select {
-            position: relative;
-            width: 100%;
-            box-shadow: 3px 3px 5px rgba($black, 0.25);
-            button {
-              display: flex;
-              align-items: center;
-              justify-content: space-between;
-              width: 100%;
-              height: 30px;
-              border: 1px solid $lead;
-              border-radius: 5px;
-              background-color: $dark;
-              padding: 0 10px;
-              cursor: pointer;
-              transition: background-color 0.25s ease-in-out;
-              &:hover {
-                background-color: $graphite;
-              }
-              &:disabled {
-                opacity: 0.65;
-                cursor: not-allowed;
-              }
-              span {
-                height: 16px;
-                color: $fg;
-                font-size: 14px;
-                font-family: Manrope-Medium;
-                line-height: 1;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
-              }
-              img {
-                width: 15px;
-                height: 15px;
-              }
-            }
-            ul {
-              position: absolute;
-              z-index: 30;
-              bottom: 0;
-              margin: 0;
-              padding: 0;
-              width: calc(100% - 2px);
-              border: 1px solid $lead;
-              border-radius: 5px;
-              background-color: $graphite;
-              transform-origin: bottom;
-              list-style: none;
-              &[data-open="0"] {
-                pointer-events: none;
-              }
-              .option {
-                display: flex;
-                align-items: flex-start;
-                justify-content: space-between;
-                padding: 10px;
-                cursor: pointer;
-                transition: background-color 0.25s ease-in-out;
-                &:hover {
-                  background-color: $lead;
-                }
-                span {
-                  height: 16px;
-                  color: $fg;
-                  font-size: 14px;
-                  white-space: nowrap;
-                  overflow: hidden;
-                  text-overflow: ellipsis;
-                }
-                img {
-                  width: 15px;
-                  height: 15px;
-                }
-              }
-              .option.selected {
-                background-color: $lead;
-              }
-            }
           }
           .editor-status {
             color: $ashy;
@@ -792,15 +637,4 @@ onBeforeUnmount(() => {
   opacity: 0;
 }
 
-.menu-enter-active,
-.menu-leave-active {
-  transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
-  will-change: opacity, transform;
-}
-
-.menu-enter-from,
-.menu-leave-to {
-  opacity: 0;
-  transform: translateY(30px);
-}
 </style>

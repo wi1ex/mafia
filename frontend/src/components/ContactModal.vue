@@ -13,6 +13,21 @@
 
             <div class="contact-body">
               <UiInput
+                id="contact-request-contact"
+                v-model="replyContact"
+                mode="light"
+                label="Email/Telegram для обратной связи"
+                :maxlength="CONTACT_MAX"
+                autocomplete="off"
+                :invalid="replyContactInvalid"
+                :disabled="busy"
+              >
+                <template #meta>
+                  <span>{{ replyContact.length }}/{{ CONTACT_MAX }}</span>
+                </template>
+              </UiInput>
+
+              <UiInput
                 id="contact-request-category"
                 v-model="category"
                 mode="light"
@@ -27,21 +42,16 @@
                 </template>
               </UiInput>
 
-              <div ref="topicRoot" class="topic-field" :class="{ open: topicOpen, filled: Boolean(selectedTopicLabel), invalid: topicInvalid }">
-                <button id="contact-request-topic" type="button" @click="toggleTopic" :disabled="busy" :aria-expanded="topicOpen" aria-haspopup="listbox">
-                  <span :class="{ placeholder: !selectedTopicLabel }">{{ selectedTopicText }}</span>
-                  <UiIcon class="topic-icon" :icon="iconArrowDown" />
-                </button>
-                <label for="contact-request-topic">Тема обращения</label>
-                <Transition name="topic-menu">
-                  <ul v-show="topicOpen" role="listbox" aria-labelledby="contact-request-topic">
-                    <li v-for="option in topicOptions" :key="option.value" class="topic-option" :class="{ selected: option.value === topic }"
-                        role="option" :aria-selected="option.value === topic" @click="selectTopic(option.value)">
-                      {{ option.label }}
-                    </li>
-                  </ul>
-                </Transition>
-              </div>
+              <UiDropdown
+                id="contact-request-topic"
+                v-model="topic"
+                mode="light"
+                label="Тема обращения"
+                placeholder="Выберите тему"
+                :options="topicOptions"
+                :invalid="topicInvalid"
+                :disabled="busy"
+              />
 
               <UiInput
                 id="contact-request-text"
@@ -57,21 +67,6 @@
               >
                 <template #meta>
                   <span>{{ messageText.length }}/{{ TEXT_MAX }}</span>
-                </template>
-              </UiInput>
-
-              <UiInput
-                id="contact-request-contact"
-                v-model="replyContact"
-                mode="light"
-                label="Email/Telegram для обратной связи"
-                :maxlength="CONTACT_MAX"
-                autocomplete="off"
-                :invalid="replyContactInvalid"
-                :disabled="busy"
-              >
-                <template #meta>
-                  <span>{{ replyContact.length }}/{{ CONTACT_MAX }}</span>
                 </template>
               </UiInput>
             </div>
@@ -95,9 +90,9 @@ import { api } from '@/services/axios'
 import { alertDialog } from '@/services/confirm'
 
 import UiIcon from '@/components/UiIcon.vue'
+import UiDropdown from '@/components/UiDropdown.vue'
 import UiInput from '@/components/UiInput.vue'
 
-import iconArrowDown from '@/assets/svg/iconArrowDown.svg'
 import iconClose from '@/assets/svg/iconClose.svg'
 
 const props = defineProps<{
@@ -132,8 +127,6 @@ const category = ref('')
 const topic = ref('')
 const messageText = ref('')
 const replyContact = ref('')
-const topicOpen = ref(false)
-const topicRoot = ref<HTMLElement | null>(null)
 
 let prevOverflow = ''
 
@@ -141,7 +134,6 @@ const normalizedCategory = computed(() => normalizeInlineText(category.value).sl
 const normalizedContact = computed(() => normalizeInlineText(replyContact.value).slice(0, CONTACT_MAX))
 const normalizedText = computed(() => normalizeMessageText(messageText.value).slice(0, TEXT_MAX))
 const selectedTopicLabel = computed(() => topicOptions.find((option) => option.value === topic.value)?.label || '')
-const selectedTopicText = computed(() => selectedTopicLabel.value || 'Выберите тему')
 const categoryOk = computed(() => normalizedCategory.value.length > 0)
 const contactOk = computed(() => normalizedContact.value.length > 0)
 const topicOk = computed(() => Boolean(selectedTopicLabel.value))
@@ -173,19 +165,7 @@ function normalizeMessageText(value: string): string {
 
 function requestClose(): void {
   if (busy.value) return
-  topicOpen.value = false
   emit('update:open', false)
-}
-
-function toggleTopic(): void {
-  if (busy.value) return
-  topicOpen.value = !topicOpen.value
-}
-
-function selectTopic(value: string): void {
-  if (busy.value) return
-  if (topicOptions.some((option) => option.value === value)) topic.value = value
-  topicOpen.value = false
 }
 
 function resetForm(): void {
@@ -194,7 +174,6 @@ function resetForm(): void {
   messageText.value = ''
   replyContact.value = ''
   submitAttempted.value = false
-  topicOpen.value = false
 }
 
 async function submit(): Promise<void> {
@@ -234,32 +213,21 @@ function onKeydown(event: KeyboardEvent): void {
   if (event.key === 'Escape') requestClose()
 }
 
-function onDocumentPointerDown(event: PointerEvent): void {
-  if (!topicOpen.value) return
-  const target = event.target as Node | null
-  if (target && topicRoot.value?.contains(target)) return
-  topicOpen.value = false
-}
-
 watch(() => props.open, (open) => {
   armed.value = false
   if (open) {
     prevOverflow = document.documentElement.style.overflow
     document.documentElement.style.overflow = 'hidden'
     document.addEventListener('keydown', onKeydown)
-    document.addEventListener('pointerdown', onDocumentPointerDown, { capture: true })
   } else {
-    topicOpen.value = false
     document.documentElement.style.overflow = prevOverflow
     document.removeEventListener('keydown', onKeydown)
-    document.removeEventListener('pointerdown', onDocumentPointerDown, { capture: true } as AddEventListenerOptions)
   }
 })
 
 onBeforeUnmount(() => {
   document.documentElement.style.overflow = prevOverflow
   document.removeEventListener('keydown', onKeydown)
-  document.removeEventListener('pointerdown', onDocumentPointerDown, { capture: true } as AddEventListenerOptions)
 })
 </script>
 
@@ -345,128 +313,6 @@ onBeforeUnmount(() => {
         background-color: $neutral-300;
       }
     }
-    .topic-field {
-      position: relative;
-      width: 100%;
-      button {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-        width: 100%;
-        height: 58px;
-        padding: 0 32px;
-        border: 1px solid $green-800;
-        border-radius: 999px;
-        background-color: transparent;
-        color: $neutral-700;
-        font-family: Hauora-Regular;
-        font-size: 16px;
-        line-height: 16px;
-        letter-spacing: -0.32px;
-        cursor: pointer;
-        outline: none;
-        transition: border-color 0.25s ease-in-out, color 0.25s ease-in-out;
-        span {
-          min-width: 0;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-          &.placeholder {
-            color: $neutral-500;
-          }
-        }
-        .topic-icon {
-          --ui-icon-width: 20px;
-          --ui-icon-height: 20px;
-          --ui-icon-color: #{$neutral-700};
-          transition: transform 0.25s ease-in-out, background-color 0.25s ease-in-out;
-        }
-        &:disabled {
-          border-color: $neutral-300;
-          color: $neutral-400;
-          cursor: not-allowed;
-          .topic-icon {
-            --ui-icon-color: #{$neutral-400};
-          }
-        }
-        &:not(:disabled):hover,
-        &:not(:disabled):focus-visible {
-          border-color: $green-500;
-          color: $neutral-900;
-          .topic-icon {
-            --ui-icon-color: #{$neutral-900};
-          }
-        }
-      }
-      label {
-        position: absolute;
-        top: -6px;
-        left: 29px;
-        max-width: calc(100% - 64px);
-        padding: 0 4px;
-        overflow: hidden;
-        background-color: $neutral-100;
-        color: $neutral-500;
-        pointer-events: none;
-        font-family: Hauora-Regular;
-        font-size: 12px;
-        line-height: 12px;
-        letter-spacing: -0.24px;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      ul {
-        position: absolute;
-        left: 0;
-        right: 0;
-        top: calc(100% + 8px);
-        z-index: 10;
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        margin: 0;
-        padding: 8px;
-        border: 1px solid $neutral-200;
-        border-radius: 20px;
-        background-color: $neutral-white;
-        box-shadow: 0 2px 16px rgba($neutral-black, 0.20);
-        list-style: none;
-        .topic-option {
-          padding: 12px 16px;
-          border-radius: 12px;
-          color: $neutral-black;
-          font-family: Hauora-Regular;
-          font-size: 16px;
-          line-height: 18px;
-          letter-spacing: -0.32px;
-          cursor: pointer;
-          transition: background-color 0.25s ease-in-out, color 0.25s ease-in-out;
-          &:hover,
-          &:focus-visible,
-          &.selected {
-            background-color: $green-100;
-            color: $neutral-900;
-          }
-        }
-      }
-      &.open {
-        button {
-          border-color: $green-500;
-          color: $neutral-900;
-          .topic-icon {
-            --ui-icon-color: #{$neutral-900};
-            transform: rotate(180deg);
-          }
-        }
-      }
-      &.invalid {
-        button {
-          border-color: $red-600;
-          color: $neutral-black;
-        }
-      }
-    }
     :deep(.contact-textarea textarea) {
       min-height: 180px;
       border-radius: 24px;
@@ -544,17 +390,6 @@ onBeforeUnmount(() => {
   .contact-drawer-panel {
     transform: translateX(100%);
   }
-}
-
-.topic-menu-enter-active,
-.topic-menu-leave-active {
-  transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out;
-}
-
-.topic-menu-enter-from,
-.topic-menu-leave-to {
-  opacity: 0;
-  transform: translateY(-6px);
 }
 
 </style>

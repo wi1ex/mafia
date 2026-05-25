@@ -16,12 +16,14 @@
               <UiInput id="sanction-days" v-model.number="form.days" type="number" min="0" max="31" step="1" autocomplete="off" label="Дни" />
               <UiInput id="sanction-hours" v-model.number="form.hours" type="number" min="0" max="23" step="1" autocomplete="off" label="Часы" />
             </div>
-            <div v-if="showReason" class="select-field" :class="{ filled: Boolean(form.reason) }">
-              <select id="sanction-reason" v-model="form.reason">
-                <option v-for="item in reasons" :key="item.value" :value="item.value">{{ item.label }}</option>
-              </select>
-              <label for="sanction-reason">Причина</label>
-            </div>
+            <UiDropdown
+              v-if="showReason"
+              id="sanction-reason"
+              v-model="form.reason"
+              label="Причина"
+              :options="reasons"
+              :disabled="saving"
+            />
           </div>
           <div class="modal-actions">
             <button class="btn dark" @click="close">Отмена</button>
@@ -38,6 +40,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 
+import UiDropdown from '@/components/UiDropdown.vue'
 import UiInput from '@/components/UiInput.vue'
 
 import iconClose from '@/assets/svg/close.svg'
@@ -159,51 +162,6 @@ function close() {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 10px;
-      }
-    }
-    .select-field {
-      display: block;
-      position: relative;
-      width: 100%;
-      box-shadow: 3px 3px 5px rgba($black, 0.25);
-      input,
-      select {
-        width: 100%;
-        padding: 20px 10px 5px;
-        border: 1px solid $lead;
-        border-radius: 5px;
-        background-color: $graphite;
-        color: $fg;
-        font-size: 16px;
-        font-family: Manrope-Medium;
-        line-height: 1;
-        outline: none;
-        transition: border-color 0.25s ease-in-out, background-color 0.25s ease-in-out;
-      }
-      select {
-        appearance: none;
-      }
-      input::placeholder {
-        color: transparent;
-      }
-      label {
-        position: absolute;
-        top: 50%;
-        left: 12px;
-        color: $fg;
-        transform: translateY(-50%);
-        pointer-events: none;
-        transition: all 0.25s ease-in-out;
-      }
-      &:focus-within label,
-      input:not(:placeholder-shown) + label,
-      select:valid + label,
-      &.filled label {
-        top: 5px;
-        left: 10px;
-        transform: none;
-        font-size: 12px;
-        color: $grey;
       }
     }
     .modal-actions {

@@ -19,11 +19,14 @@
             <UiInput id="moderation-users-user" v-model.trim="usersUser" label="Никнейм" :disabled="usersLoading" />
           </div>
           <div class="field">
-            <span>Отображать по</span>
-            <select v-model.number="usersLimit" :disabled="usersLoading">
-              <option :value="20">20</option>
-              <option :value="100">100</option>
-            </select>
+            <UiDropdown
+              :model-value="usersLimit"
+              :options="PAGE_LIMIT_OPTIONS"
+              label="Отображать по"
+              :disabled="usersLoading"
+              size="compact"
+              @update:modelValue="setUsersLimit"
+            />
           </div>
         </div>
 
@@ -136,11 +139,14 @@
             <UiInput id="moderation-sanctions-user" v-model.trim="sanctionsUser" label="Никнейм" :disabled="sanctionsLoading" />
           </div>
           <div class="field">
-            <span>Отображать по</span>
-            <select v-model.number="sanctionsLimit" :disabled="sanctionsLoading">
-              <option :value="20">20</option>
-              <option :value="100">100</option>
-            </select>
+            <UiDropdown
+              :model-value="sanctionsLimit"
+              :options="PAGE_LIMIT_OPTIONS"
+              label="Отображать по"
+              :disabled="sanctionsLoading"
+              size="compact"
+              @update:modelValue="setSanctionsLimit"
+            />
           </div>
         </div>
 
@@ -260,6 +266,7 @@ import { useUserStore } from '@/store'
 
 import MiniProfile from '@/components/MiniProfile.vue'
 import SanctionModal from '@/components/SanctionModal.vue'
+import UiDropdown from '@/components/UiDropdown.vue'
 import UiInput from '@/components/UiInput.vue'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
@@ -269,6 +276,7 @@ import iconJudge from '@/assets/svg/judge.svg'
 type TabKey = 'users' | 'sanctions'
 type SanctionListStatus = 'active' | 'expired_auto' | 'revoked'
 type SanctionAdjustMode = 'increase' | 'decrease'
+type DropdownValue = string | number | null
 
 type SanctionsRow = {
   id: number
@@ -326,6 +334,11 @@ type UsersSortBy =
   | 'timeouts_count'
   | 'bans_count'
   | 'suspends_count'
+
+const PAGE_LIMIT_OPTIONS = [
+  { value: 20, label: '20' },
+  { value: 100, label: '100' },
+] as const
 
 const activeTab = ref<TabKey>('users')
 const userStore = useUserStore()
@@ -432,6 +445,18 @@ const sanctionAdjustTitle = computed(() => {
   const userLabel = target.username || `user${target.user_id}`
   return `${actionLabel} ${formatSanctionKindLabel(target.kind).toLowerCase()}: ${userLabel}`
 })
+
+function normalizePageLimit(value: DropdownValue): number {
+  return Number(value) === 100 ? 100 : 20
+}
+
+function setUsersLimit(value: DropdownValue): void {
+  usersLimit.value = normalizePageLimit(value)
+}
+
+function setSanctionsLimit(value: DropdownValue): void {
+  sanctionsLimit.value = normalizePageLimit(value)
+}
 
 function setUsersSort(sortBy: UsersSortBy): void {
   if (usersSortBy.value === sortBy) return
@@ -1020,22 +1045,6 @@ onBeforeUnmount(() => {
       flex-direction: column;
       gap: 5px;
       min-width: 160px;
-      > span {
-        font-size: 14px;
-        color: $grey;
-      }
-      > input,
-      > select {
-        height: 35px;
-        padding: 0 10px;
-        border: 1px solid $lead;
-        border-radius: 5px;
-        background-color: $graphite;
-        color: $fg;
-        font-size: 14px;
-        font-family: Manrope-Medium;
-        outline: none;
-      }
     }
   }
   .table {

@@ -144,7 +144,7 @@ function onInput(e: Event) {
   }
   .meta {
     position: absolute;
-    top: -6px;
+    top: -7px;
     right: 29px;
     padding: 0 4px;
     background-color: var(--ui-input-resolved-label-bg);
@@ -152,7 +152,7 @@ function onInput(e: Event) {
     color: var(--ui-input-meta);
     font-family: Hauora-Regular;
     font-size: 12px;
-    line-height: 12px;
+    line-height: 14px;
     letter-spacing: -0.24px;
     opacity: 0;
     visibility: hidden;
@@ -166,13 +166,13 @@ function onInput(e: Event) {
   input:not(:placeholder-shown) + label,
   textarea:not(:placeholder-shown) + label,
   &.invalid label {
-    top: -6px;
+    top: -7px;
     padding: 0 4px;
     background-color: var(--ui-input-resolved-label-bg);
     color: var(--ui-input-meta);
     transform: none;
     font-size: 12px;
-    line-height: 12px;
+    line-height: 14px;
     letter-spacing: -0.24px;
   }
   &:focus-within .meta,
