@@ -1,5 +1,5 @@
 <template>
-  <div class="ui-input" :class="[rootClass, { filled: isFilled, invalid }]" :style="rootStyle">
+  <div class="ui-input" :class="[rootClass, modeClass, { invalid }]" :style="rootStyle">
     <component
       :is="controlTag"
       :id="id"
@@ -10,9 +10,9 @@
       @input="onInput"
     />
     <label :for="id">{{ label }}</label>
-    <slot name="meta">
-      <span v-if="$slots.meta || meta" class="meta" >{{ meta }}</span>
-    </slot>
+    <span v-if="$slots.meta || meta" class="meta">
+      <slot name="meta">{{ meta }}</slot>
+    </span>
   </div>
 </template>
 
@@ -29,15 +29,16 @@ const props = withDefaults(defineProps<{
   type?: string
   as?: 'input' | 'textarea'
   invalid?: boolean
-  filled?: boolean
   placeholder?: string
   meta?: string
+  mode?: 'light' | 'dark'
 }>(), {
   modelValue: '',
   type: 'text',
   as: 'input',
   invalid: false,
   placeholder: ' ',
+  mode: 'light',
 })
 
 const emit = defineEmits<{ (e: 'update:modelValue', value: string | number): void }>()
@@ -50,13 +51,7 @@ const inputAttrs = computed(() => {
 const rootClass = computed(() => attrs.class)
 const rootStyle = computed<StyleValue>(() => (attrs.style ?? null) as StyleValue)
 const controlTag = computed(() => props.as)
-
-const isFilled = computed(() => {
-  if (props.filled !== undefined) return props.filled
-  if (typeof props.modelValue === 'number') return Number.isFinite(props.modelValue)
-  return String(props.modelValue ?? '').length > 0
-})
-
+const modeClass = computed(() => `ui-input--${props.mode}`)
 const resolvedPlaceholder = computed(() => props.placeholder ?? ' ')
 
 function onInput(e: Event) {
@@ -76,19 +71,42 @@ function onInput(e: Event) {
   display: block;
   position: relative;
   width: 100%;
+  --ui-input-border: #{$green-200};
+  --ui-input-text: #{$neutral-300};
+  --ui-input-hover-border: #{$green-500};
+  --ui-input-hover-text: #{$neutral-100};
+  --ui-input-meta: #{$neutral-300};
+  --ui-input-error-border: #{$red-500};
+  --ui-input-error-text: #{$neutral-white};
+  &.ui-input--light {
+    --ui-input-border: #{$green-800};
+    --ui-input-text: #{$neutral-700};
+    --ui-input-hover-border: #{$green-500};
+    --ui-input-hover-text: #{$neutral-900};
+    --ui-input-meta: #{$neutral-500};
+    --ui-input-error-border: #{$red-600};
+    --ui-input-error-text: #{$neutral-black};
+  }
   input,
   textarea {
     width: calc(100% - 22px);
     padding: 20px 10px 5px;
-    border: 1px solid $lead;
+    border: 1px solid var(--ui-input-border);
     border-radius: 5px;
-    background-color: $graphite;
-    color: $fg;
+    background-color: transparent;
+    color: var(--ui-input-text);
     font-size: 16px;
     font-family: Manrope-Medium;
     line-height: 1;
     outline: none;
-    transition: border-color 0.25s ease-in-out, background-color 0.25s ease-in-out;
+    transition: border-color 0.25s ease-in-out, color 0.25s ease-in-out;
+  }
+  &:hover:not(.invalid) input:not(:disabled),
+  &:hover:not(.invalid) textarea:not(:disabled),
+  &:focus-within:not(.invalid) input,
+  &:focus-within:not(.invalid) textarea {
+    border-color: var(--ui-input-hover-border);
+    color: var(--ui-input-hover-text);
   }
   input::placeholder,
   textarea::placeholder {
@@ -100,12 +118,15 @@ function onInput(e: Event) {
   }
   label {
     position: absolute;
-    top: 50%;
-    left: 12px;
-    color: $fg;
-    transform: translateY(-50%);
+    top: 5px;
+    left: 10px;
+    color: var(--ui-input-meta);
+    transform: none;
     pointer-events: none;
-    transition: all 0.25s ease-in-out;
+    font-size: 12px;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.25s ease-in-out, visibility 0.25s ease-in-out, color 0.25s ease-in-out;
   }
   .meta {
     position: absolute;
@@ -113,23 +134,23 @@ function onInput(e: Event) {
     right: 10px;
     pointer-events: none;
     font-size: 12px;
-    color: $grey;
+    color: var(--ui-input-meta);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.25s ease-in-out, visibility 0.25s ease-in-out, color 0.25s ease-in-out;
   }
-  &.invalid input {
-    border-color: rgba($red, 0.75);
+  &:focus-within label,
+  &:focus-within .meta,
+  &.invalid label,
+  &.invalid .meta {
+    opacity: 1;
+    visibility: visible;
   }
-  &.invalid label {
-    color: $red;
+  &.invalid input,
+  &.invalid textarea {
+    border-color: var(--ui-input-error-border);
+    color: var(--ui-input-error-text);
   }
 }
-.ui-input:focus-within label,
-.ui-input input:not(:placeholder-shown) + label,
-.ui-input textarea:not(:placeholder-shown) + label,
-.ui-input.filled label {
-  top: 5px;
-  left: 10px;
-  transform: none;
-  font-size: 12px;
-  color: $grey;
-}
+
 </style>

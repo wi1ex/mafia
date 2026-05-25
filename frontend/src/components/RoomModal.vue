@@ -15,6 +15,7 @@
             id="room-title"
             v-model.trim="title"
             :maxlength="TITLE_MAX"
+            mode="dark"
             label="Название комнаты"
             autocomplete="off"
             :invalid="!title"
