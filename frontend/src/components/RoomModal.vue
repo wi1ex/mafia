@@ -380,6 +380,7 @@ onBeforeUnmount(() => {
       flex-direction: column;
       padding: 10px 10px 0;
       background-color: $neutral-100;
+      --ui-input-label-bg: #{$neutral-100};
       .params {
         display: flex;
         flex-direction: column;

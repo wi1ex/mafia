@@ -78,7 +78,8 @@ function onInput(e: Event) {
   --ui-input-meta: #{$neutral-300};
   --ui-input-error-border: #{$red-500};
   --ui-input-error-text: #{$neutral-white};
-  --ui-input-label-bg: #{$neutral-black};
+  --ui-input-default-label-bg: #{$neutral-black};
+  --ui-input-resolved-label-bg: var(--ui-input-label-bg, var(--ui-input-default-label-bg));
   &.ui-input--light {
     --ui-input-border: #{$green-800};
     --ui-input-text: #{$neutral-700};
@@ -87,7 +88,7 @@ function onInput(e: Event) {
     --ui-input-meta: #{$neutral-500};
     --ui-input-error-border: #{$red-600};
     --ui-input-error-text: #{$neutral-black};
-    --ui-input-label-bg: #{$neutral-100};
+    --ui-input-default-label-bg: #{$neutral-100};
   }
   input,
   textarea {
@@ -143,10 +144,10 @@ function onInput(e: Event) {
   }
   .meta {
     position: absolute;
-    top: -5px;
+    top: -6px;
     right: 32px;
     padding: 0 4px;
-    background-color: var(--ui-input-label-bg);
+    background-color: var(--ui-input-resolved-label-bg);
     pointer-events: none;
     color: var(--ui-input-meta);
     font-family: Hauora-Regular;
@@ -165,9 +166,9 @@ function onInput(e: Event) {
   input:not(:placeholder-shown) + label,
   textarea:not(:placeholder-shown) + label,
   &.invalid label {
-    top: -5px;
+    top: -6px;
     padding: 0 4px;
-    background-color: var(--ui-input-label-bg);
+    background-color: var(--ui-input-resolved-label-bg);
     color: var(--ui-input-meta);
     transform: none;
     font-size: 12px;
