@@ -171,18 +171,22 @@
           <HomeInfoCarousel v-else key="placeholder" />
         </Transition>
       </aside>
-
       <div class="right-extra right-extra--primary" :class="{ 'right--top-banner': topBannerActive }">
-        <div class="support-extra">
-          <div class="support-extra-copy">
-            <p>Кастомизация профиля (GIF-аватары, выбор цвета и иконки профиля), обнуление истории никнеймов, скрытые комнаты, игры без зрителей и трансляции в качестве 1080p.</p>
-          </div>
-          <button type="button" class="support-extra-btn" @click="openSupportModal">Поддержать платформу</button>
+        <img class="background-image-6" :src="imageSlide6" alt="" aria-hidden="true" />
+        <div class="right-extra-tooltip">
+          <UiTooltip
+            text="Выберите удобный способ поддержки и получите бонусы внутри платформы:
+            кастомизация профиля (GIF-аватары, выбор цвета и иконки профиля),
+            обнуление истории никнеймов, скрытые комнаты, игры без зрителей и трансляции в качестве 1080p."
+            placement="bottom-left"
+          />
         </div>
+        <button type="button" class="right-extra-btn" @click="openSupportModal"></button>
       </div>
 
       <div class="right-extra right-extra--secondary">
-
+        <img class="background-image-7" :src="imageSlide7" alt="" aria-hidden="true" />
+        <button type="button" class="right-extra-btn" @click=""></button>
       </div>
     </div>
   </section>
@@ -209,6 +213,7 @@ import HomeInfoCarousel from '@/components/HomeInfoCarousel.vue'
 import RoomModal from '@/components/RoomModal.vue'
 import MiniProfile from '@/components/MiniProfile.vue'
 import SupportSiteModal from '@/components/SupportSiteModal.vue'
+import UiTooltip from '@/components/UiTooltip.vue'
 import UiIcon from '@/components/UiIcon.vue'
 
 import iconDefaultAvatarBlack from '@/assets/svg/iconDefaultAvatarBlack.svg'
@@ -223,6 +228,8 @@ import iconAddPlus from '@/assets/svg/iconAddPlus.svg'
 import iconNoRooms from '@/assets/svg/iconNoRooms.svg'
 import iconNoMembers from '@/assets/svg/iconNoMembers.svg'
 import iconDot from '@/assets/svg/iconDot.svg'
+import imageSlide6 from '@/assets/images/carousel-image6.png'
+import imageSlide7 from '@/assets/images/carousel-image7.png'
 
 type Room = {
   id: number
@@ -1468,67 +1475,48 @@ onBeforeUnmount(() => {
     }
     .right-extra {
       display: flex;
+      position: relative;
       padding: 24px;
       border-radius: 24px;
+      .right-extra-tooltip {
+        display: flex;
+        position: absolute;
+        top: 0;
+        right: 0;
+
+      }
+      .right-extra-btn {
+        display: flex;
+        position: absolute;
+        bottom: 0;
+        left: 0;
+      }
       &--primary {
-        min-height: 108px;
-        height: 108px;
-        max-height: 108px;
-        background-color: $neutral-800;
+        min-height: 110px;
+        height: 110px;
+        max-height: 110px;
         &.right--top-banner {
-          max-height: 108px;
+          max-height: 110px;
         }
-        .support-extra {
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-          width: 100%;
-          min-height: 0;
-          gap: 24px;
-          .support-extra-copy {
-            display: flex;
-            flex-direction: column;
-            min-height: 0;
-            p {
-              margin: 0;
-              color: $neutral-200;
-              font-size: 16px;
-              font-family: Hauora-Regular;
-              line-height: 20px;
-              letter-spacing: -0.32px;
-            }
-          }
-          .support-extra-btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            align-self: flex-start;
-            padding: 0 16px;
-            min-width: 190px;
-            height: 40px;
-            border: none;
-            border-radius: 12px;
-            background-color: $green-500;
-            color: $neutral-900;
-            font-size: 16px;
-            font-family: Hauora-Regular;
-            line-height: 16px;
-            letter-spacing: -0.32px;
-            cursor: pointer;
-            transition: background-color 0.25s ease-in-out;
-            &:hover,
-            &:focus-visible,
-            &:active {
-              background-color: $green-300;
-            }
-          }
+        .background-image-6 {
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 607px;
+          height: 158px;
         }
       }
       &--secondary {
         min-height: 80px;
         height: 80px;
         max-height: 80px;
-        background-color: $neutral-800;
+        .background-image-7 {
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 607px;
+          height: 128px;
+        }
       }
     }
   }
