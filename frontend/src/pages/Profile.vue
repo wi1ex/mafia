@@ -1807,6 +1807,7 @@ onBeforeUnmount(() => {
             flex-direction: column;
             align-items: flex-start;
             gap: 10px;
+            --ui-input-label-bg: #{$dark};
             :deep(.profile-input) {
               max-width: 320px;
               width: 100%;
