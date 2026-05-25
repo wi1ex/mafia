@@ -51,7 +51,7 @@
         <UiSwitch
           v-model="isPrivate"
           :disabled="isPrivacyLocked"
-          label="Приватность:"
+          label="Приватность"
           off-label="Открытая"
           on-label="Закрытая"
           aria-label="Приватность: открытая/закрытая"
@@ -63,7 +63,7 @@
           tooltip-target="on"
           tooltip-placement="top-left"
           tooltip-bubble-width="320px"
-          label="Анонимность:"
+          label="Анонимность"
           off-label="Видимая"
           on-label="Скрытая"
           aria-label="Анонимность: видимая/скрытая"
@@ -402,25 +402,32 @@ onBeforeUnmount(() => {
           display: flex;
           align-items: center;
           justify-content: space-between;
+          margin-bottom: 12px;
           .limit-text {
-            color: $bg;
-            font-size: 12px;
-            font-weight: bold;
-            letter-spacing: 1px;
+            color: $neutral-black;
+            font-family: Hauora-Bold;
+            font-size: 16px;
+            line-height: 18px;
+            letter-spacing: -0.32px;
           }
           .limit-badge {
-            padding: 2px 5px 2px 7px;
-            border-radius: 5px;
-            background-color: $red;
-            color: $fg;
-            font-size: 12px;
-            font-weight: bold;
-            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            background-color: $neutral-900;
+            color: $neutral-white;
+            font-family: Hauora-Bold;
+            font-size: 16px;
+            line-height: 18px;
+            letter-spacing: -0.32px;
           }
         }
         .range-marks {
           position: relative;
-          height: 40px;
+          height: 38px;
           pointer-events: none;
           .range-mark {
             display: inline-flex;
