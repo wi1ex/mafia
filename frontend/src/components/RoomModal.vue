@@ -378,7 +378,7 @@ onBeforeUnmount(() => {
       display: flex;
       flex-direction: column;
       padding: 10px 10px 0;
-      background-color: $fg;
+      background-color: $neutral-100;
       .params {
         display: flex;
         flex-direction: column;
