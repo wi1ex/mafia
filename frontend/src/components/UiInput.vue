@@ -78,6 +78,7 @@ function onInput(e: Event) {
   --ui-input-meta: #{$neutral-300};
   --ui-input-error-border: #{$red-500};
   --ui-input-error-text: #{$neutral-white};
+  --ui-input-label-bg: #{$bg};
   &.ui-input--light {
     --ui-input-border: #{$green-800};
     --ui-input-text: #{$neutral-700};
@@ -86,6 +87,7 @@ function onInput(e: Event) {
     --ui-input-meta: #{$neutral-500};
     --ui-input-error-border: #{$red-600};
     --ui-input-error-text: #{$neutral-black};
+    --ui-input-label-bg: #{$fg};
   }
   input,
   textarea {
@@ -120,27 +122,31 @@ function onInput(e: Event) {
   }
   label {
     position: absolute;
-    top: -5px;
+    top: 50%;
     left: 32px;
-    padding: 0 4px;
-    background-color: $neutral-100;
-    color: var(--ui-input-meta);
-    transform: none;
+    max-width: calc(100% - 64px);
+    padding: 0;
+    overflow: hidden;
+    background-color: transparent;
+    color: var(--ui-input-text);
+    transform: translateY(-50%);
     pointer-events: none;
     font-family: Hauora-Regular;
-    font-size: 12px;
-    line-height: 12px;
-    letter-spacing: -0.24px;
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.25s ease-in-out, visibility 0.25s ease-in-out, color 0.25s ease-in-out;
+    font-size: 16px;
+    line-height: 16px;
+    letter-spacing: -0.32px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transition: top 0.25s ease-in-out, padding 0.25s ease-in-out, background-color 0.25s ease-in-out,
+      color 0.25s ease-in-out, transform 0.25s ease-in-out, font-size 0.25s ease-in-out,
+      line-height 0.25s ease-in-out, letter-spacing 0.25s ease-in-out;
   }
   .meta {
     position: absolute;
     top: -5px;
     right: 32px;
     padding: 0 4px;
-    background-color: $neutral-100;
+    background-color: var(--ui-input-label-bg);
     pointer-events: none;
     color: var(--ui-input-meta);
     font-family: Hauora-Regular;
@@ -151,9 +157,24 @@ function onInput(e: Event) {
     visibility: hidden;
     transition: opacity 0.25s ease-in-out, visibility 0.25s ease-in-out, color 0.25s ease-in-out;
   }
+  &:hover:not(.invalid) input:placeholder-shown + label,
+  &:hover:not(.invalid) textarea:placeholder-shown + label {
+    color: var(--ui-input-hover-text);
+  }
   &:focus-within label,
+  input:not(:placeholder-shown) + label,
+  textarea:not(:placeholder-shown) + label,
+  &.invalid label {
+    top: -5px;
+    padding: 0 4px;
+    background-color: var(--ui-input-label-bg);
+    color: var(--ui-input-meta);
+    transform: none;
+    font-size: 12px;
+    line-height: 12px;
+    letter-spacing: -0.24px;
+  }
   &:focus-within .meta,
-  &.invalid label,
   &.invalid .meta {
     opacity: 1;
     visibility: visible;
