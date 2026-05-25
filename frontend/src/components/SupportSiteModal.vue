@@ -110,12 +110,11 @@ onBeforeUnmount(() => {
 
 <style scoped lang="scss">
 .support-site-overlay {
-  position: fixed;
-  inset: 0;
   display: flex;
+  position: fixed;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  inset: 0;
   background-color: rgba($neutral-black, 0.20);
   backdrop-filter: blur(12px);
   z-index: 1000;

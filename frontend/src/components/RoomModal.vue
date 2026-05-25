@@ -3,9 +3,11 @@
        @pointerleave.self="armed = false" @pointercancel.self="armed = false">
     <div class="modal">
       <header>
-        <span>Создать комнату</span>
-        <button @click="$emit('close')" aria-label="Закрыть">
-          <img :src="iconClose" alt="close" />
+        <div class="header-div">
+          <span class="header-title">Создать комнату</span>
+        </div>
+        <button type="button" @click.stop="$emit('close')" aria-label="Закрыть">
+          <UiIcon class="close-icon" :icon="iconClose" />
         </button>
       </header>
 
@@ -70,9 +72,9 @@
         </div>
       </div>
 
-      <div class="create-room">
-        <button :disabled="busy || !ok" @click="create">Создать</button>
-      </div>
+      <button class="create-room" :disabled="busy || !ok" @click="create">
+        <span>Создать комнату</span>
+      </button>
     </div>
   </div>
 </template>
@@ -94,6 +96,7 @@ import UiInput from '@/components/UiInput.vue'
 import UiSwitch from '@/components/UiSwitch.vue'
 
 import iconClose from '@/assets/svg/close.svg'
+import UiIcon from '@/components/UiIcon.vue'
 
 const user = useUserStore()
 const settings = useSettingsStore()
@@ -331,47 +334,59 @@ onBeforeUnmount(() => {
 
 <style scoped lang="scss">
 .overlay {
-  position: fixed;
   display: flex;
+  position: fixed;
   align-items: center;
   justify-content: center;
   inset: 0;
-  background-color: rgba($black, 0.25);
-  backdrop-filter: blur(5px);
+  background-color: rgba($neutral-black, 0.20);
+  backdrop-filter: blur(12px);
   z-index: 1000;
   .modal {
     display: flex;
     flex-direction: column;
-    width: 600px;
-    border-radius: 5px;
-    background-color: $dark;
+    padding: 24px;
+    gap: 32px;
+    width: 606px;
+    border-radius: 24px;
+    background-color: $neutral-100;
+    box-shadow: 0 2px 16px 0 rgba($neutral-black, 0.20);
     transform: translateY(0);
     transition: transform 0.25s ease-in-out;
     header {
       display: flex;
+      align-items: flex-start;
       justify-content: space-between;
-      align-items: center;
-      padding: 5px 10px;
-      border-radius: 5px;
-      background-color: $graphite;
-      box-shadow: 0 3px 5px rgba($black, 0.25);
-      span {
-        font-size: 18px;
-        font-weight: bold;
+      .header-div {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        .header-title {
+          color: $neutral-black;
+          font-family: Involve-Medium;
+          font-size: 24px;
+          line-height: 26px;
+          letter-spacing: -0.48px;
+        }
       }
       button {
-        display: flex;
-        align-items: center;
-        justify-content: center;
         padding: 0;
-        width: 25px;
-        height: 30px;
+        width: 24px;
+        height: 24px;
         border: none;
         background: none;
         cursor: pointer;
-        img {
-          width: 25px;
-          height: 25px;
+        .close-icon {
+          --ui-icon-width: 24px;
+          --ui-icon-height: 24px;
+          --ui-icon-color: #{$neutral-black};
+        }
+        &:hover,
+        &:focus-visible,
+        &:active {
+          .close-icon {
+            --ui-icon-color: #{$green-500};
+          }
         }
       }
     }
@@ -454,26 +469,35 @@ onBeforeUnmount(() => {
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 10px 0 0;
-      button {
-        padding: 0;
-        width: 100%;
-        height: 40px;
-        border: none;
-        border-radius: 5px;
-        background-color: $fg;
-        color: $bg;
+      padding: 0 16px;
+      gap: 8px;
+      height: 64px;
+      border: none;
+      border-radius: 999px;
+      background-color: $green-500;
+      cursor: pointer;
+      transition: background-color 0.25s ease-in-out;
+      span {
+        color: $neutral-900;
+        font-family: Hauora-Regular;
         font-size: 18px;
-        font-family: Manrope-Medium;
-        line-height: 1;
-        cursor: pointer;
-        transition: opacity 0.25s ease-in-out, background-color 0.25s ease-in-out;
-        &:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
+        line-height: 20px;
+        letter-spacing: -0.36px;
+        transition: color 0.25s ease-in-out;
+      }
+      &:disabled {
+        background-color: $neutral-800;
+        cursor: not-allowed;
+        span {
+          color: $neutral-500;
         }
-        &:hover {
-          background-color: $white;
+      }
+      &:not(:disabled):hover,
+      &:not(:disabled):focus-visible,
+      &:not(:disabled):active {
+        background-color: $green-300;
+        span {
+          color: $neutral-black;
         }
       }
     }
