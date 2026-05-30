@@ -188,7 +188,7 @@ onBeforeUnmount(() => {
     color: var(--ui-dropdown-text);
     font-family: Hauora-Regular;
     font-size: 16px;
-    line-height: 16px;
+    line-height: 20px;
     letter-spacing: -0.32px;
     cursor: pointer;
     outline: none;
@@ -283,7 +283,7 @@ onBeforeUnmount(() => {
       color: var(--ui-dropdown-option-text);
       font-family: Hauora-Regular;
       font-size: 18px;
-      line-height: 20px;
+      line-height: 22px;
       letter-spacing: -0.36px;
     }
     .option {

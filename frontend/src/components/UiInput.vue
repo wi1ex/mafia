@@ -192,7 +192,10 @@ function onInput(e: Event) {
     textarea::placeholder {
       color: var(--ui-input-text);
       opacity: 1;
-      transition: opacity 0.25s ease-in-out;
+      transition: color 0.25s ease-in-out, opacity 0.25s ease-in-out;
+    }
+    &:hover:not(.invalid) textarea:not(:disabled)::placeholder {
+      color: var(--ui-input-hover-text);
     }
     input:focus::placeholder,
     textarea:focus::placeholder {
