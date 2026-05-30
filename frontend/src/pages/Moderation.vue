@@ -24,7 +24,6 @@
               :options="PAGE_LIMIT_OPTIONS"
               label="Отображать по"
               :disabled="usersLoading"
-              size="compact"
               @update:modelValue="setUsersLimit"
             />
           </div>
@@ -144,7 +143,6 @@
               :options="PAGE_LIMIT_OPTIONS"
               label="Отображать по"
               :disabled="sanctionsLoading"
-              size="compact"
               @update:modelValue="setSanctionsLimit"
             />
           </div>

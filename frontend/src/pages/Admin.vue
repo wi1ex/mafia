@@ -332,7 +332,6 @@
                 :options="logActionOptions"
                 label="Событие"
                 :disabled="logsLoading"
-                size="compact"
                 @update:modelValue="setLogsAction"
               />
             </div>
@@ -342,7 +341,6 @@
                 :options="PAGE_LIMIT_OPTIONS"
                 label="Отображать по"
                 :disabled="logsLoading"
-                size="compact"
                 @update:modelValue="setLogsLimit"
               />
             </div>
@@ -398,7 +396,6 @@
                 :options="ROOM_FILTER_OPTIONS"
                 label="Фильтры"
                 :disabled="roomsLoading"
-                size="compact"
                 @update:modelValue="setRoomsFilter"
               />
             </div>
@@ -408,7 +405,6 @@
                 :options="PAGE_LIMIT_OPTIONS"
                 label="Отображать по"
                 :disabled="roomsLoading"
-                size="compact"
                 @update:modelValue="setRoomsLimit"
               />
             </div>
@@ -544,7 +540,6 @@
                 :options="PAGE_LIMIT_OPTIONS"
                 label="Отображать по"
                 :disabled="usersLoading"
-                size="compact"
                 @update:modelValue="setUsersLimit"
               />
             </div>
@@ -693,7 +688,6 @@
                 :options="PAGE_LIMIT_OPTIONS"
                 label="Отображать по"
                 :disabled="sanctionsLoading"
-                size="compact"
                 @update:modelValue="setSanctionsLimit"
               />
             </div>

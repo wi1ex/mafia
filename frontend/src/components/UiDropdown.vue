@@ -1,5 +1,5 @@
 <template>
-  <div ref="rootEl" class="ui-dropdown" :class="[rootClass, modeClass, sizeClass, placementClass, labelModeClass, { open, invalid, disabled }]" :style="rootStyle">
+  <div ref="rootEl" class="ui-dropdown" :class="[rootClass, { open, invalid, 'ui-dropdown--light': mode === 'light', 'ui-dropdown--top': menuPlacement === 'top', 'ui-dropdown--placeholder-label': labelMode === 'placeholder' }]" :style="rootStyle">
     <button :id="resolvedId" type="button" @click="toggle" :disabled="disabled" :aria-expanded="open"
             :aria-controls="listId" :aria-label="buttonAriaLabel" aria-haspopup="listbox">
       <span :class="{ placeholder: !selectedLabel }">{{ displayLabel }}</span>
@@ -8,8 +8,8 @@
     <label v-if="label" :for="resolvedId">{{ label }}</label>
     <Transition name="ui-dropdown-menu">
       <ul v-show="open" :id="listId" role="listbox" :data-open="open ? 1 : 0">
-        <li v-for="option in options" :key="optionKey(option)" class="option" :class="{ selected: isSelected(option.value), disabled: option.disabled }"
-            role="option" :aria-selected="isSelected(option.value)" :aria-disabled="option.disabled || undefined" @click="selectOption(option)">
+        <li v-for="option in options" :key="optionKey(option)" class="option" :class="{ selected: isSelected(option.value) }"
+            role="option" :aria-selected="isSelected(option.value)" @click="selectOption(option)">
           <span>{{ option.label }}</span>
         </li>
         <li v-if="options.length === 0" class="empty" aria-disabled="true">{{ emptyText }}</li>
@@ -32,7 +32,6 @@ type UiDropdownValue = string | number | null
 type UiDropdownOption = {
   value: UiDropdownValue
   label: string
-  disabled?: boolean
 }
 
 let uid = 0
@@ -47,7 +46,6 @@ const props = withDefaults(defineProps<{
   disabled?: boolean
   invalid?: boolean
   mode?: 'light' | 'dark'
-  size?: 'default' | 'compact'
   menuPlacement?: 'bottom' | 'top'
   ariaLabel?: string
   labelMode?: 'floating' | 'placeholder'
@@ -61,7 +59,6 @@ const props = withDefaults(defineProps<{
   disabled: false,
   invalid: false,
   mode: 'dark',
-  size: 'default',
   menuPlacement: 'bottom',
   ariaLabel: '',
   labelMode: 'floating',
@@ -79,10 +76,6 @@ const resolvedId = computed(() => props.id || fallbackId)
 const listId = computed(() => `${resolvedId.value}-listbox`)
 const rootClass = computed(() => attrs.class)
 const rootStyle = computed<StyleValue>(() => (attrs.style ?? null) as StyleValue)
-const modeClass = computed(() => `ui-dropdown--${props.mode}`)
-const sizeClass = computed(() => `ui-dropdown--${props.size}`)
-const placementClass = computed(() => `ui-dropdown--${props.menuPlacement}`)
-const labelModeClass = computed(() => `ui-dropdown--${props.labelMode}-label`)
 const selectedOption = computed(() => props.options.find((option) => isSameValue(option.value, props.modelValue)) ?? null)
 const selectedLabel = computed(() => selectedOption.value?.label || '')
 const displayLabel = computed(() => selectedLabel.value || props.placeholder)
@@ -110,7 +103,6 @@ function close(): void {
 }
 
 function selectOption(option: UiDropdownOption): void {
-  if (option.disabled) return
   emit('update:modelValue', option.value)
   close()
 }
@@ -305,14 +297,9 @@ onBeforeUnmount(() => {
         white-space: nowrap;
       }
       &:hover,
-      &:focus-visible,
-      .selected {
+      &.selected {
         background-color: var(--ui-dropdown-option-hover-bg);
         color: var(--ui-dropdown-option-hover-text);
-      }
-      &.disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
       }
     }
     .empty {
@@ -338,61 +325,6 @@ onBeforeUnmount(() => {
     ul {
       top: auto;
       bottom: calc(100% + 4px);
-      transform-origin: bottom;
-    }
-  }
-  &.ui-dropdown--compact {
-    button {
-      height: 35px;
-      padding: 0 12px;
-      border-color: $lead;
-      border-radius: 5px;
-      background-color: $graphite;
-      font-family: Manrope-Medium;
-      font-size: 14px;
-      line-height: 14px;
-      letter-spacing: 0;
-      &:not(:disabled):hover,
-      &:not(:disabled):focus-visible {
-        border-color: $grey;
-        background-color: $lead;
-      }
-    }
-    label {
-      left: 10px;
-      max-width: calc(100% - 24px);
-      font-family: Manrope-Medium;
-      letter-spacing: 0;
-    }
-    ul {
-      gap: 0;
-      top: calc(100% + 4px);
-      padding: 0;
-      border-color: $lead;
-      border-radius: 5px;
-      background-color: $graphite;
-      box-shadow: 3px 3px 5px rgba($black, 0.25);
-      .option,
-      .empty {
-        padding: 10px;
-        border-radius: 0;
-        font-family: Manrope-Medium;
-        font-size: 14px;
-        line-height: 16px;
-        letter-spacing: 0;
-      }
-      .option:hover,
-      .option:focus-visible,
-      .option.selected {
-        background-color: $lead;
-        color: $fg;
-      }
-    }
-    &.ui-dropdown--top {
-      ul {
-        top: auto;
-        bottom: calc(100% + 4px);
-      }
     }
   }
 }
