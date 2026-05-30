@@ -12,6 +12,7 @@
             </header>
 
             <div class="contact-body">
+              <span class="contact-body-title">Контактные данные</span>
               <UiInput
                 class="contact-body-input"
                 id="contact-request-contact"
@@ -28,6 +29,7 @@
                 </template>
               </UiInput>
 
+              <span class="contact-body-title">Категория обращения</span>
               <UiInput
                 class="contact-body-input"
                 id="contact-request-category"
@@ -44,6 +46,7 @@
                 </template>
               </UiInput>
 
+              <span class="contact-body-title">Тема обращения</span>
               <UiDropdown
                 class="contact-body-input"
                 id="contact-request-topic"
@@ -56,6 +59,7 @@
                 :disabled="busy"
               />
 
+              <span class="contact-body-title">Текст обращения</span>
               <UiInput
                 id="contact-request-text"
                 v-model="messageText"
@@ -248,7 +252,7 @@ onBeforeUnmount(() => {
     flex-direction: column;
     padding: 24px;
     gap: 40px;
-    width: 434px;
+    width: 482px;
     height: 100%;
     border-radius: 24px;
     background-color: $neutral-100;
@@ -310,7 +314,7 @@ onBeforeUnmount(() => {
       line-height: 22px;
     }
     :deep(.contact-textarea label) {
-      top: 38px;
+      top: 34px;
     }
     :deep(.contact-textarea:focus-within label),
     :deep(.contact-textarea textarea:not(:placeholder-shown) + label),
@@ -327,7 +331,7 @@ onBeforeUnmount(() => {
         justify-content: center;
         padding: 0 16px;
         height: 64px;
-        border-radius: 14px;
+        border-radius: 999px;
         border: none;
         font-family: Hauora-Regular;
         font-size: 18px;

@@ -3,7 +3,7 @@
     <button :id="resolvedId" type="button" @click="toggle" :disabled="disabled" :aria-expanded="open"
             :aria-controls="listId" :aria-label="buttonAriaLabel" aria-haspopup="listbox">
       <span :class="{ placeholder: !selectedLabel }">{{ displayLabel }}</span>
-      <UiIcon class="dropdown-icon" :icon="iconArrowDown" />
+      <UiIcon class="dropdown-icon" :icon="iconArrow" />
     </button>
     <label v-if="label" :for="resolvedId">{{ label }}</label>
     <Transition name="ui-dropdown-menu">
@@ -23,7 +23,7 @@ import { computed, onBeforeUnmount, ref, useAttrs, watch, type StyleValue } from
 
 import UiIcon from '@/components/UiIcon.vue'
 
-import iconArrowDown from '@/assets/svg/iconArrowDown.svg'
+import iconArrow from '@/assets/svg/iconArrow.svg'
 
 defineOptions({ inheritAttrs: false })
 
