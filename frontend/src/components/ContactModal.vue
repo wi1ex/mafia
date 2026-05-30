@@ -2,10 +2,10 @@
   <Teleport to="body">
     <Transition name="contact-drawer">
       <div v-if="open" class="contact-drawer-overlay" @pointerdown.self="armed = true" @pointerup.self="armed && requestClose()" @pointerleave.self="armed = false" @pointercancel.self="armed = false">
-        <form class="contact-drawer-form" @submit.prevent="submit">
+        <form @submit.prevent="submit">
           <div class="contact-drawer-panel" role="dialog" aria-modal="true" aria-labelledby="contact-request-title">
             <header>
-              <span id="contact-request-title" class="header-title">Связаться с нами</span>
+              <span id="contact-request-title" class="header-title">Связаться с командой deceit.games</span>
               <button type="button" aria-label="Закрыть" @click="requestClose">
                 <UiIcon class="close-icon" :icon="iconClose" />
               </button>
@@ -13,6 +13,7 @@
 
             <div class="contact-body">
               <UiInput
+                class="contact-body-input"
                 id="contact-request-contact"
                 v-model="replyContact"
                 mode="light"
@@ -28,6 +29,7 @@
               </UiInput>
 
               <UiInput
+                class="contact-body-input"
                 id="contact-request-category"
                 v-model="category"
                 mode="light"
@@ -43,6 +45,7 @@
               </UiInput>
 
               <UiDropdown
+                class="contact-body-input"
                 id="contact-request-topic"
                 v-model="topic"
                 mode="light"
@@ -56,7 +59,7 @@
               <UiInput
                 id="contact-request-text"
                 v-model="messageText"
-                class="contact-textarea"
+                class="contact-textarea contact-body-input"
                 mode="light"
                 as="textarea"
                 label="Текст обращения"
@@ -236,33 +239,27 @@ onBeforeUnmount(() => {
   display: flex;
   position: fixed;
   justify-content: flex-end;
-  inset: 0;
+  inset: 10px;
   background-color: rgba($neutral-black, 0.20);
   backdrop-filter: blur(12px);
   z-index: 1000;
-  .contact-drawer-form {
-    height: 100dvh;
-    margin: 0;
-  }
   .contact-drawer-panel {
     display: flex;
     flex-direction: column;
-    gap: 24px;
-    width: min(520px, 100vw);
-    height: 100dvh;
     padding: 24px;
-    border-radius: 24px 0 0 24px;
+    gap: 40px;
+    width: 434px;
+    height: 100%;
+    border-radius: 24px;
     background-color: $neutral-100;
-    box-shadow: 0 2px 16px 0 rgba($neutral-black, 0.20);
+    box-shadow: 0 0 16px 0 rgba($neutral-black, 0.16);
     box-sizing: border-box;
     --ui-input-label-bg: #{$neutral-100};
     header {
       display: flex;
       align-items: flex-start;
       justify-content: space-between;
-      gap: 16px;
       .header-title {
-        min-width: 0;
         color: $neutral-black;
         font-family: Involve-Medium;
         font-size: 24px;
@@ -295,36 +292,30 @@ onBeforeUnmount(() => {
       display: flex;
       flex: 1 1 auto;
       flex-direction: column;
-      gap: 24px;
-      min-height: 0;
-      overflow-y: auto;
-      overflow-x: hidden;
-      padding: 2px 2px 8px;
-      scrollbar-width: thin;
-      scrollbar-color: $neutral-300 transparent;
-      &::-webkit-scrollbar {
-        width: 6px;
+      gap: 16px;
+      .contact-body-title {
+        color: $neutral-black;
+        font-family: Hauora-SemiBold;
+        font-size: 16px;
+        line-height: 18px;
+        letter-spacing: -0.32px;
       }
-      &::-webkit-scrollbar-track {
-        background-color: transparent;
-      }
-      &::-webkit-scrollbar-thumb {
-        border-radius: 999px;
-        background-color: $neutral-300;
+      .contact-body-input {
+        margin-bottom: 8px;
       }
     }
     :deep(.contact-textarea textarea) {
-      min-height: 180px;
+      min-height: 344px;
       border-radius: 24px;
       line-height: 22px;
     }
     :deep(.contact-textarea label) {
-      top: 28px;
+      top: 38px;
     }
     :deep(.contact-textarea:focus-within label),
     :deep(.contact-textarea textarea:not(:placeholder-shown) + label),
     :deep(.contact-textarea.invalid label) {
-      top: -6px;
+      top: -7px;
     }
     .contact-actions {
       display: flex;
@@ -334,15 +325,14 @@ onBeforeUnmount(() => {
         display: flex;
         align-items: center;
         justify-content: center;
-        min-width: 0;
-        height: 48px;
-        padding: 0 18px;
+        padding: 0 16px;
+        height: 64px;
         border-radius: 14px;
         border: none;
         font-family: Hauora-Regular;
-        font-size: 16px;
-        line-height: 16px;
-        letter-spacing: -0.32px;
+        font-size: 18px;
+        line-height: 20px;
+        letter-spacing: -0.36px;
         cursor: pointer;
         transition: background-color 0.25s ease-in-out, color 0.25s ease-in-out;
         &:disabled {
@@ -359,7 +349,7 @@ onBeforeUnmount(() => {
         }
       }
       .submit {
-        flex: 1.5 1 0;
+        flex: 1 1 0;
         background-color: $green-500;
         color: $neutral-900;
         &:not(:disabled):hover,
