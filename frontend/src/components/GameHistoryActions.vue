@@ -14,30 +14,30 @@
               <div class="editors">
                 <div class="editor">
                   <label :for="`game-history-result-${gameId}`">Исход игры</label>
-                  <UiDropdown
+                  <select
                     :id="`game-history-result-${gameId}`"
-                    :model-value="selectedResult"
-                    :options="RESULT_OPTIONS"
+                    :value="selectedResult"
                     aria-label="Выбрать исход игры"
-                    menu-placement="top"
                     :disabled="loading || savingResult || savingPpk"
-                    @update:modelValue="selectResult"
-                  />
+                    @change="selectResult"
+                  >
+                    <option v-for="option in RESULT_OPTIONS" :key="option.value" :value="option.value">{{ option.label }}</option>
+                  </select>
                   <span v-if="savingResult" class="editor-status">Сохраняем...</span>
                   <span v-else-if="saveError" class="editor-status editor-status--error">{{ saveError }}</span>
                 </div>
 
                 <div class="editor">
                   <label :for="`game-history-ppk-${gameId}`">ППК</label>
-                  <UiDropdown
+                  <select
                     :id="`game-history-ppk-${gameId}`"
-                    :model-value="selectedPpkUserId"
-                    :options="ppkOptions"
+                    :value="selectedPpkUserId ?? ''"
                     aria-label="Выбрать ППК"
-                    menu-placement="top"
                     :disabled="ppkSelectDisabled"
-                    @update:modelValue="selectPpk"
-                  />
+                    @change="selectPpk"
+                  >
+                    <option v-for="option in ppkOptions" :key="option.key" :value="option.value ?? ''">{{ option.label }}</option>
+                  </select>
                   <span v-if="savingPpk" class="editor-status">Сохраняем...</span>
                   <span v-else-if="ppkSaveError" class="editor-status editor-status--error">{{ ppkSaveError }}</span>
                   <span v-else-if="ppkHint" class="editor-status">{{ ppkHint }}</span>
@@ -90,8 +90,6 @@ import { api } from '@/services/axios'
 import { formatLocalDateTime } from '@/services/datetime'
 import { useUserStore } from '@/store'
 
-import UiDropdown from '@/components/UiDropdown.vue'
-
 import iconClose from '@/assets/svg/close.svg'
 
 interface AdminGameActionField {
@@ -111,8 +109,6 @@ interface AdminGameActionItem {
 type GameHistoryRole = 'citizen' | 'mafia' | 'don' | 'sheriff'
 type LeaveReason = 'vote' | 'foul' | 'suicide' | 'night'
 type GameResult = 'red' | 'black' | 'draw'
-type DropdownValue = string | number | null
-
 interface GameHistorySlot {
   slot: number
   user_id?: number | null
@@ -280,15 +276,19 @@ function closeModal(): void {
   open.value = false
 }
 
-function selectResult(value: DropdownValue): void {
-  const next = normalizeGameResult(value)
+function selectValue(event: Event): string {
+  return (event.target as HTMLSelectElement).value
+}
+
+function selectResult(event: Event): void {
+  const next = normalizeGameResult(selectValue(event))
   if (savingResult.value || savingPpk.value || next === selectedResult.value) return
   selectedResult.value = next
   void onResultChange()
 }
 
-function selectPpk(value: DropdownValue): void {
-  const next = value === null ? null : normalizeOptionalUserId(value)
+function selectPpk(event: Event): void {
+  const next = normalizeOptionalUserId(selectValue(event))
   if (savingResult.value || savingPpk.value || next === selectedPpkUserId.value) return
   selectedPpkUserId.value = next
   void onPpkChange()

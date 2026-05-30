@@ -19,13 +19,10 @@
             <UiInput id="moderation-users-user" v-model.trim="usersUser" label="Никнейм" :disabled="usersLoading" />
           </div>
           <div class="field">
-            <UiDropdown
-              :model-value="usersLimit"
-              :options="PAGE_LIMIT_OPTIONS"
-              label="Отображать по"
-              :disabled="usersLoading"
-              @update:modelValue="setUsersLimit"
-            />
+            <label for="moderation-users-limit">Отображать по</label>
+            <select id="moderation-users-limit" :value="usersLimit" :disabled="usersLoading" @change="setUsersLimit">
+              <option v-for="option in PAGE_LIMIT_OPTIONS" :key="option.value" :value="option.value">{{ option.label }}</option>
+            </select>
           </div>
         </div>
 
@@ -138,13 +135,10 @@
             <UiInput id="moderation-sanctions-user" v-model.trim="sanctionsUser" label="Никнейм" :disabled="sanctionsLoading" />
           </div>
           <div class="field">
-            <UiDropdown
-              :model-value="sanctionsLimit"
-              :options="PAGE_LIMIT_OPTIONS"
-              label="Отображать по"
-              :disabled="sanctionsLoading"
-              @update:modelValue="setSanctionsLimit"
-            />
+            <label for="moderation-sanctions-limit">Отображать по</label>
+            <select id="moderation-sanctions-limit" :value="sanctionsLimit" :disabled="sanctionsLoading" @change="setSanctionsLimit">
+              <option v-for="option in PAGE_LIMIT_OPTIONS" :key="option.value" :value="option.value">{{ option.label }}</option>
+            </select>
           </div>
         </div>
 
@@ -264,7 +258,6 @@ import { useUserStore } from '@/store'
 
 import MiniProfile from '@/components/MiniProfile.vue'
 import SanctionModal from '@/components/SanctionModal.vue'
-import UiDropdown from '@/components/UiDropdown.vue'
 import UiInput from '@/components/UiInput.vue'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
@@ -274,8 +267,6 @@ import iconJudge from '@/assets/svg/judge.svg'
 type TabKey = 'users' | 'sanctions'
 type SanctionListStatus = 'active' | 'expired_auto' | 'revoked'
 type SanctionAdjustMode = 'increase' | 'decrease'
-type DropdownValue = string | number | null
-
 type SanctionsRow = {
   id: number
   user_id: number
@@ -444,16 +435,20 @@ const sanctionAdjustTitle = computed(() => {
   return `${actionLabel} ${formatSanctionKindLabel(target.kind).toLowerCase()}: ${userLabel}`
 })
 
-function normalizePageLimit(value: DropdownValue): number {
+function selectValue(event: Event): string {
+  return (event.target as HTMLSelectElement).value
+}
+
+function normalizePageLimit(value: string): number {
   return Number(value) === 100 ? 100 : 20
 }
 
-function setUsersLimit(value: DropdownValue): void {
-  usersLimit.value = normalizePageLimit(value)
+function setUsersLimit(event: Event): void {
+  usersLimit.value = normalizePageLimit(selectValue(event))
 }
 
-function setSanctionsLimit(value: DropdownValue): void {
-  sanctionsLimit.value = normalizePageLimit(value)
+function setSanctionsLimit(event: Event): void {
+  sanctionsLimit.value = normalizePageLimit(selectValue(event))
 }
 
 function setUsersSort(sortBy: UsersSortBy): void {

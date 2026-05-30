@@ -327,22 +327,16 @@
               <UiInput id="logs-day" v-model="logsDay" type="date" label="Дата" :disabled="logsLoading" />
             </div>
             <div class="field">
-              <UiDropdown
-                :model-value="logsAction"
-                :options="logActionOptions"
-                label="Событие"
-                :disabled="logsLoading"
-                @update:modelValue="setLogsAction"
-              />
+              <label for="admin-logs-action">Событие</label>
+              <select id="admin-logs-action" :value="logsAction" :disabled="logsLoading" @change="setLogsAction">
+                <option v-for="option in logActionOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+              </select>
             </div>
             <div class="field">
-              <UiDropdown
-                :model-value="logsLimit"
-                :options="PAGE_LIMIT_OPTIONS"
-                label="Отображать по"
-                :disabled="logsLoading"
-                @update:modelValue="setLogsLimit"
-              />
+              <label for="admin-logs-limit">Отображать по</label>
+              <select id="admin-logs-limit" :value="logsLimit" :disabled="logsLoading" @change="setLogsLimit">
+                <option v-for="option in PAGE_LIMIT_OPTIONS" :key="option.value" :value="option.value">{{ option.label }}</option>
+              </select>
             </div>
           </div>
 
@@ -391,22 +385,16 @@
               <UiInput id="rooms-user" v-model.trim="roomsUser" label="Никнейм" :disabled="roomsLoading" />
             </div>
             <div class="field">
-              <UiDropdown
-                :model-value="roomsFilter"
-                :options="ROOM_FILTER_OPTIONS"
-                label="Фильтры"
-                :disabled="roomsLoading"
-                @update:modelValue="setRoomsFilter"
-              />
+              <label for="admin-rooms-filter">Фильтры</label>
+              <select id="admin-rooms-filter" :value="roomsFilter" :disabled="roomsLoading" @change="setRoomsFilter">
+                <option v-for="option in ROOM_FILTER_OPTIONS" :key="option.value" :value="option.value">{{ option.label }}</option>
+              </select>
             </div>
             <div class="field">
-              <UiDropdown
-                :model-value="roomsLimit"
-                :options="PAGE_LIMIT_OPTIONS"
-                label="Отображать по"
-                :disabled="roomsLoading"
-                @update:modelValue="setRoomsLimit"
-              />
+              <label for="admin-rooms-limit">Отображать по</label>
+              <select id="admin-rooms-limit" :value="roomsLimit" :disabled="roomsLoading" @change="setRoomsLimit">
+                <option v-for="option in PAGE_LIMIT_OPTIONS" :key="option.value" :value="option.value">{{ option.label }}</option>
+              </select>
             </div>
           </div>
 
@@ -535,13 +523,10 @@
               <UiInput id="users-user" v-model.trim="usersUser" label="Никнейм" :disabled="usersLoading" />
             </div>
             <div class="field">
-              <UiDropdown
-                :model-value="usersLimit"
-                :options="PAGE_LIMIT_OPTIONS"
-                label="Отображать по"
-                :disabled="usersLoading"
-                @update:modelValue="setUsersLimit"
-              />
+              <label for="admin-users-limit">Отображать по</label>
+              <select id="admin-users-limit" :value="usersLimit" :disabled="usersLoading" @change="setUsersLimit">
+                <option v-for="option in PAGE_LIMIT_OPTIONS" :key="option.value" :value="option.value">{{ option.label }}</option>
+              </select>
             </div>
           </div>
 
@@ -683,13 +668,10 @@
               <UiInput id="sanctions-user" v-model.trim="sanctionsUser" label="Никнейм" :disabled="sanctionsLoading" />
             </div>
             <div class="field">
-              <UiDropdown
-                :model-value="sanctionsLimit"
-                :options="PAGE_LIMIT_OPTIONS"
-                label="Отображать по"
-                :disabled="sanctionsLoading"
-                @update:modelValue="setSanctionsLimit"
-              />
+              <label for="admin-sanctions-limit">Отображать по</label>
+              <select id="admin-sanctions-limit" :value="sanctionsLimit" :disabled="sanctionsLoading" @change="setSanctionsLimit">
+                <option v-for="option in PAGE_LIMIT_OPTIONS" :key="option.value" :value="option.value">{{ option.label }}</option>
+              </select>
             </div>
           </div>
 
@@ -892,7 +874,6 @@ import SanctionModal from '@/components/SanctionModal.vue'
 import SubscriptionModal from '@/components/SubscriptionModal.vue'
 import MiniProfile from '@/components/MiniProfile.vue'
 import UiSwitch from '@/components/UiSwitch.vue'
-import UiDropdown from '@/components/UiDropdown.vue'
 import UiInput from '@/components/UiInput.vue'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
@@ -1119,8 +1100,6 @@ type UsersSortBy =
   | 'suspends_count'
 
 type RoomFilter = 'all' | 'stream_only' | 'hidden_only' | 'has_games' | 'duo_only'
-type DropdownValue = string | number | null
-
 const route = useRoute()
 const router = useRouter()
 
@@ -1543,32 +1522,36 @@ function setUsersSort(sortBy: UsersSortBy): void {
   usersSortBy.value = sortBy
 }
 
-function normalizePageLimit(value: DropdownValue): number {
+function selectValue(event: Event): string {
+  return (event.target as HTMLSelectElement).value
+}
+
+function normalizePageLimit(value: string): number {
   return Number(value) === 100 ? 100 : 20
 }
 
-function setLogsLimit(value: DropdownValue): void {
-  logsLimit.value = normalizePageLimit(value)
+function setLogsLimit(event: Event): void {
+  logsLimit.value = normalizePageLimit(selectValue(event))
 }
 
-function setRoomsLimit(value: DropdownValue): void {
-  roomsLimit.value = normalizePageLimit(value)
+function setRoomsLimit(event: Event): void {
+  roomsLimit.value = normalizePageLimit(selectValue(event))
 }
 
-function setUsersLimit(value: DropdownValue): void {
-  usersLimit.value = normalizePageLimit(value)
+function setUsersLimit(event: Event): void {
+  usersLimit.value = normalizePageLimit(selectValue(event))
 }
 
-function setSanctionsLimit(value: DropdownValue): void {
-  sanctionsLimit.value = normalizePageLimit(value)
+function setSanctionsLimit(event: Event): void {
+  sanctionsLimit.value = normalizePageLimit(selectValue(event))
 }
 
-function setLogsAction(value: DropdownValue): void {
-  logsAction.value = typeof value === 'string' ? value : 'all'
+function setLogsAction(event: Event): void {
+  logsAction.value = selectValue(event) || 'all'
 }
 
-function setRoomsFilter(value: DropdownValue): void {
-  const next = String(value || 'all')
+function setRoomsFilter(event: Event): void {
+  const next = selectValue(event) || 'all'
   roomsFilter.value = ROOM_FILTER_OPTIONS.some((option) => option.value === next)
     ? next as RoomFilter
     : 'all'
