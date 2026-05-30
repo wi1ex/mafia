@@ -125,10 +125,11 @@ const TEXT_MAX = 2000
 
 const topicOptions: readonly TopicOption[] = [
   { value: 'technical_problem', label: 'Техническая проблема' },
-  { value: 'payment_question', label: 'Вопрос по оплате' },
+  { value: 'payment_question', label: 'Поддержка платформы' },
   { value: 'player_report', label: 'Жалоба на пользователя' },
-  { value: 'gameplay_question', label: 'Вопрос по игре' },
+  { value: 'appeal_sanction', label: 'Апелляция по санкции' },
   { value: 'feature_suggestion', label: 'Предложение по платформе' },
+  { value: 'other_question', label: 'Иной вопрос' },
 ] as const
 
 const armed = ref(false)

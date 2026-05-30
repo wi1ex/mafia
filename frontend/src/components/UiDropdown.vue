@@ -162,8 +162,7 @@ onBeforeUnmount(() => {
   --ui-dropdown-menu-border: #{$neutral-700};
   --ui-dropdown-option-text: #{$neutral-100};
   --ui-dropdown-option-hover-bg: #{$neutral-800};
-  --ui-dropdown-option-selected-bg: #{$green-900};
-  --ui-dropdown-option-selected-text: #{$neutral-white};
+  --ui-dropdown-option-hover-text: #{$neutral-white};
   --ui-dropdown-error-border: #{$red-500};
   --ui-dropdown-disabled-border: #{$neutral-700};
   --ui-dropdown-disabled-text: #{$neutral-500};
@@ -175,12 +174,11 @@ onBeforeUnmount(() => {
     --ui-dropdown-hover-text: #{$neutral-900};
     --ui-dropdown-label-bg: var(--ui-dropdown-label-bg-override, #{$neutral-100});
     --ui-dropdown-label-text: #{$neutral-500};
-    --ui-dropdown-menu-bg: #{$neutral-600};
+    --ui-dropdown-menu-bg: #{$neutral-100};
     --ui-dropdown-menu-border: #{$neutral-200};
-    --ui-dropdown-option-text: #{$neutral-black};
+    --ui-dropdown-option-text: #{$neutral-600};
     --ui-dropdown-option-hover-bg: #{$neutral-50};
-    --ui-dropdown-option-selected-bg: #{$neutral-50};
-    --ui-dropdown-option-selected-text: #{$neutral-900};
+    --ui-dropdown-option-hover-text: #{$neutral-black};
     --ui-dropdown-error-border: #{$red-600};
     --ui-dropdown-disabled-border: #{$neutral-300};
     --ui-dropdown-disabled-text: #{$neutral-400};
@@ -270,7 +268,7 @@ onBeforeUnmount(() => {
     flex-direction: column;
     top: calc(100% + 4px);
     left: 0;
-    right: 0;
+    right: -2px;
     margin: 0;
     padding: 8px;
     gap: 4px;
@@ -307,12 +305,10 @@ onBeforeUnmount(() => {
         white-space: nowrap;
       }
       &:hover,
-      &:focus-visible {
+      &:focus-visible,
+      .selected {
         background-color: var(--ui-dropdown-option-hover-bg);
-      }
-      &.selected {
-        background-color: var(--ui-dropdown-option-selected-bg);
-        color: var(--ui-dropdown-option-selected-text);
+        color: var(--ui-dropdown-option-hover-text);
       }
       &.disabled {
         opacity: 0.5;
