@@ -191,10 +191,12 @@ function onInput(e: Event) {
     input::placeholder,
     textarea::placeholder {
       color: var(--ui-input-text);
+      opacity: 1;
+      transition: opacity 0.25s ease-in-out;
     }
     input:focus::placeholder,
     textarea:focus::placeholder {
-      color: transparent;
+      opacity: 0;
     }
     label {
       top: auto;

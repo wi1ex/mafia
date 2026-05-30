@@ -153,7 +153,7 @@ onBeforeUnmount(() => {
   width: 100%;
   --ui-dropdown-border: #{$green-200};
   --ui-dropdown-text: #{$neutral-300};
-  --ui-dropdown-placeholder: #{$neutral-500};
+  --ui-dropdown-placeholder: #{$neutral-700};
   --ui-dropdown-hover-border: #{$green-500};
   --ui-dropdown-hover-text: #{$neutral-100};
   --ui-dropdown-label-bg: var(--ui-dropdown-label-bg-override, #{$neutral-black});
@@ -170,16 +170,16 @@ onBeforeUnmount(() => {
   &.ui-dropdown--light {
     --ui-dropdown-border: #{$green-800};
     --ui-dropdown-text: #{$neutral-700};
-    --ui-dropdown-placeholder: #{$neutral-500};
+    --ui-dropdown-placeholder: #{$neutral-700};
     --ui-dropdown-hover-border: #{$green-500};
     --ui-dropdown-hover-text: #{$neutral-900};
     --ui-dropdown-label-bg: var(--ui-dropdown-label-bg-override, #{$neutral-100});
     --ui-dropdown-label-text: #{$neutral-500};
-    --ui-dropdown-menu-bg: #{$neutral-white};
+    --ui-dropdown-menu-bg: #{$neutral-600};
     --ui-dropdown-menu-border: #{$neutral-200};
     --ui-dropdown-option-text: #{$neutral-black};
-    --ui-dropdown-option-hover-bg: #{$green-100};
-    --ui-dropdown-option-selected-bg: #{$green-100};
+    --ui-dropdown-option-hover-bg: #{$neutral-50};
+    --ui-dropdown-option-selected-bg: #{$neutral-50};
     --ui-dropdown-option-selected-text: #{$neutral-900};
     --ui-dropdown-error-border: #{$red-600};
     --ui-dropdown-disabled-border: #{$neutral-300};
@@ -189,9 +189,8 @@ onBeforeUnmount(() => {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
     width: 100%;
-    height: 58px;
+    height: 56px;
     padding: 0 32px;
     border: 1px solid var(--ui-dropdown-border);
     border-radius: 999px;
@@ -214,8 +213,8 @@ onBeforeUnmount(() => {
       }
     }
     .dropdown-icon {
-      --ui-icon-width: 20px;
-      --ui-icon-height: 20px;
+      --ui-icon-width: 24px;
+      --ui-icon-height: 24px;
       --ui-icon-color: var(--ui-dropdown-text);
       transition: transform 0.25s ease-in-out, background-color 0.25s ease-in-out;
     }
@@ -238,7 +237,7 @@ onBeforeUnmount(() => {
   }
   label {
     position: absolute;
-    top: -6px;
+    top: -7px;
     left: 29px;
     max-width: calc(100% - 64px);
     padding: 0 4px;
@@ -266,48 +265,36 @@ onBeforeUnmount(() => {
     white-space: nowrap;
   }
   ul {
+    display: flex;
     position: absolute;
+    flex-direction: column;
+    top: calc(100% + 4px);
     left: 0;
     right: 0;
-    top: calc(100% + 8px);
-    z-index: 30;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    max-height: 260px;
     margin: 0;
     padding: 8px;
+    gap: 4px;
+    border-radius: 24px;
     border: 1px solid var(--ui-dropdown-menu-border);
-    border-radius: 20px;
     background-color: var(--ui-dropdown-menu-bg);
     box-shadow: 0 2px 16px rgba($neutral-black, 0.20);
     list-style: none;
-    overflow-y: auto;
-    overflow-x: hidden;
-    scrollbar-width: thin;
-    scrollbar-color: $neutral-300 transparent;
+    z-index: 30;
     &[data-open="0"] {
       pointer-events: none;
     }
-    &::-webkit-scrollbar {
-      width: 6px;
-    }
-    &::-webkit-scrollbar-track {
-      background-color: transparent;
-    }
-    &::-webkit-scrollbar-thumb {
-      border-radius: 999px;
-      background-color: $neutral-300;
-    }
     .option,
     .empty {
-      padding: 12px 16px;
-      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      height: 64px;
+      border-radius: 16px;
       color: var(--ui-dropdown-option-text);
       font-family: Hauora-Regular;
-      font-size: 16px;
-      line-height: 18px;
-      letter-spacing: -0.32px;
+      font-size: 18px;
+      line-height: 20px;
+      letter-spacing: -0.36px;
     }
     .option {
       cursor: pointer;
@@ -354,7 +341,7 @@ onBeforeUnmount(() => {
   &.ui-dropdown--top {
     ul {
       top: auto;
-      bottom: calc(100% + 8px);
+      bottom: calc(100% + 4px);
       transform-origin: bottom;
     }
   }
@@ -416,19 +403,19 @@ onBeforeUnmount(() => {
 
 .ui-dropdown-menu-enter-active,
 .ui-dropdown-menu-leave-active {
-  transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out;
+  transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
 }
 
 .ui-dropdown-menu-enter-from,
 .ui-dropdown-menu-leave-to {
   opacity: 0;
-  transform: translateY(-6px);
+  transform: translateY(-5px);
 }
 
 .ui-dropdown--top {
   .ui-dropdown-menu-enter-from,
   .ui-dropdown-menu-leave-to {
-    transform: translateY(6px);
+    transform: translateY(5px);
   }
 }
 
