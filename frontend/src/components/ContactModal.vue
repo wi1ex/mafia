@@ -18,7 +18,8 @@
                 id="contact-request-contact"
                 v-model="replyContact"
                 mode="light"
-                label="Email/Telegram для обратной связи"
+                label-mode="placeholder"
+                label="Оставьте ваш email или telegram"
                 :maxlength="CONTACT_MAX"
                 autocomplete="off"
                 :invalid="replyContactInvalid"
@@ -35,7 +36,8 @@
                 id="contact-request-category"
                 v-model="category"
                 mode="light"
-                label="Категория обращения"
+                label-mode="placeholder"
+                label="Напишите тему"
                 :maxlength="CATEGORY_MAX"
                 autocomplete="off"
                 :invalid="categoryInvalid"
@@ -52,6 +54,7 @@
                 id="contact-request-topic"
                 v-model="topic"
                 mode="light"
+                label-mode="placeholder"
                 label="Тема обращения"
                 placeholder="Выберите тему"
                 :options="topicOptions"
@@ -65,8 +68,9 @@
                 v-model="messageText"
                 class="contact-textarea contact-body-input"
                 mode="light"
+                label-mode="placeholder"
                 as="textarea"
-                label="Текст обращения"
+                label="Подробно опишите обращение"
                 :maxlength="TEXT_MAX"
                 rows="8"
                 :invalid="textInvalid"
@@ -309,17 +313,9 @@ onBeforeUnmount(() => {
       }
     }
     :deep(.contact-textarea textarea) {
-      min-height: 344px;
+      min-height: 200px;
       border-radius: 24px;
       line-height: 22px;
-    }
-    :deep(.contact-textarea label) {
-      top: 34px;
-    }
-    :deep(.contact-textarea:focus-within label),
-    :deep(.contact-textarea textarea:not(:placeholder-shown) + label),
-    :deep(.contact-textarea.invalid label) {
-      top: -7px;
     }
     .contact-actions {
       display: flex;

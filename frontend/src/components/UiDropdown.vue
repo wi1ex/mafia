@@ -1,5 +1,5 @@
 <template>
-  <div ref="rootEl" class="ui-dropdown" :class="[rootClass, modeClass, sizeClass, placementClass, { open, invalid, disabled }]" :style="rootStyle">
+  <div ref="rootEl" class="ui-dropdown" :class="[rootClass, modeClass, sizeClass, placementClass, labelModeClass, { open, invalid, disabled }]" :style="rootStyle">
     <button :id="resolvedId" type="button" @click="toggle" :disabled="disabled" :aria-expanded="open"
             :aria-controls="listId" :aria-label="buttonAriaLabel" aria-haspopup="listbox">
       <span :class="{ placeholder: !selectedLabel }">{{ displayLabel }}</span>
@@ -50,6 +50,7 @@ const props = withDefaults(defineProps<{
   size?: 'default' | 'compact'
   menuPlacement?: 'bottom' | 'top'
   ariaLabel?: string
+  labelMode?: 'floating' | 'placeholder'
 }>(), {
   modelValue: null,
   options: () => [],
@@ -63,6 +64,7 @@ const props = withDefaults(defineProps<{
   size: 'default',
   menuPlacement: 'bottom',
   ariaLabel: '',
+  labelMode: 'floating',
 })
 
 const emit = defineEmits<{
@@ -80,6 +82,7 @@ const rootStyle = computed<StyleValue>(() => (attrs.style ?? null) as StyleValue
 const modeClass = computed(() => `ui-dropdown--${props.mode}`)
 const sizeClass = computed(() => `ui-dropdown--${props.size}`)
 const placementClass = computed(() => `ui-dropdown--${props.menuPlacement}`)
+const labelModeClass = computed(() => `ui-dropdown--${props.labelMode}-label`)
 const selectedOption = computed(() => props.options.find((option) => isSameValue(option.value, props.modelValue)) ?? null)
 const selectedLabel = computed(() => selectedOption.value?.label || '')
 const displayLabel = computed(() => selectedLabel.value || props.placeholder)
@@ -248,6 +251,18 @@ onBeforeUnmount(() => {
     line-height: 12px;
     letter-spacing: -0.24px;
     text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  &.ui-dropdown--placeholder-label label {
+    top: auto;
+    left: auto;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    background-color: transparent;
     white-space: nowrap;
   }
   ul {

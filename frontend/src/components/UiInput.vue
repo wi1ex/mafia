@@ -1,5 +1,5 @@
 <template>
-  <div class="ui-input" :class="[rootClass, modeClass, { invalid }]" :style="rootStyle">
+  <div class="ui-input" :class="[rootClass, modeClass, labelModeClass, { invalid }]" :style="rootStyle">
     <component
       :is="controlTag"
       :id="id"
@@ -32,13 +32,14 @@ const props = withDefaults(defineProps<{
   placeholder?: string
   meta?: string
   mode?: 'light' | 'dark'
+  labelMode?: 'floating' | 'placeholder'
 }>(), {
   modelValue: '',
   type: 'text',
   as: 'input',
   invalid: false,
-  placeholder: ' ',
   mode: 'dark',
+  labelMode: 'floating',
 })
 
 const emit = defineEmits<{ (e: 'update:modelValue', value: string | number): void }>()
@@ -52,7 +53,8 @@ const rootClass = computed(() => attrs.class)
 const rootStyle = computed<StyleValue>(() => (attrs.style ?? null) as StyleValue)
 const controlTag = computed(() => props.as)
 const modeClass = computed(() => `ui-input--${props.mode}`)
-const resolvedPlaceholder = computed(() => props.placeholder ?? ' ')
+const labelModeClass = computed(() => `ui-input--${props.labelMode}-label`)
+const resolvedPlaceholder = computed(() => props.placeholder ?? (props.labelMode === 'placeholder' ? props.label : ' '))
 
 function onInput(e: Event) {
   const target = e.target as HTMLInputElement | HTMLTextAreaElement
@@ -184,6 +186,28 @@ function onInput(e: Event) {
   &.invalid textarea {
     border-color: var(--ui-input-error-border);
     color: var(--ui-input-error-text);
+  }
+  &.ui-input--placeholder-label {
+    input::placeholder,
+    textarea::placeholder {
+      color: var(--ui-input-text);
+    }
+    input:focus::placeholder,
+    textarea:focus::placeholder {
+      color: transparent;
+    }
+    label {
+      top: auto;
+      left: auto;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      clip-path: inset(50%);
+      background-color: transparent;
+      white-space: nowrap;
+    }
   }
 }
 
