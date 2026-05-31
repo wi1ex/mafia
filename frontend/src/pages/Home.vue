@@ -171,7 +171,7 @@
           <HomeInfoCarousel v-else key="placeholder" />
         </Transition>
       </aside>
-      <div class="right-extra right-extra--primary" :class="{ 'right--top-banner': topBannerActive }">
+      <div class="right-extra right-extra--primary">
         <img class="background-image-6" :src="imageSlide6" alt="" aria-hidden="true" />
         <div class="right-extra-tooltip">
           <UiTooltip
@@ -182,7 +182,7 @@
           />
         </div>
         <div class="right-extra-content">
-          <div class="right-extra-copy">
+          <div class="right-extra-copy-support">
             <span>Поддержи проект и получи</span>
             <span class="right-extra-copy-accent">бонусы!</span>
           </div>
@@ -195,7 +195,7 @@
       <div class="right-extra right-extra--secondary">
         <img class="background-image-7" :src="imageSlide7" alt="" aria-hidden="true" />
         <div class="right-extra-content">
-          <div class="right-extra-copy">
+          <div class="right-extra-copy-connect">
             <span>Связаться с командой deceit.games</span>
           </div>
           <button type="button" class="right-extra-btn" @click="openContactModal">
@@ -1516,7 +1516,7 @@ onBeforeUnmount(() => {
         gap: 12px;
         max-width: calc(100% - 48px);
         z-index: 1;
-        .right-extra-copy {
+        .right-extra-copy-support {
           display: flex;
           flex-direction: column;
           gap: 4px;
@@ -1528,6 +1528,17 @@ onBeforeUnmount(() => {
           .right-extra-copy-accent {
             color: $green-500;
           }
+        }
+        .right-extra-copy-connect {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          width: 216px;
+          color: $neutral-white;
+          font-family: Involve-Medium;
+          font-size: 24px;
+          line-height: 26px;
+          letter-spacing: -0.48px;
         }
         .right-extra-btn {
           display: flex;
@@ -1561,9 +1572,6 @@ onBeforeUnmount(() => {
         min-height: 110px;
         height: 110px;
         max-height: 214px;
-        &.right--top-banner {
-          //max-height: 174px;
-        }
         .background-image-6 {
           position: absolute;
           left: 0;
