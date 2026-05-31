@@ -1488,6 +1488,7 @@ onBeforeUnmount(() => {
     .right-extra {
       display: flex;
       position: relative;
+      flex: 1 1 auto;
       padding: 24px;
       border-radius: 24px;
       .right-extra-tooltip {
@@ -1529,28 +1530,32 @@ onBeforeUnmount(() => {
       &--primary {
         min-height: 110px;
         height: 110px;
-        max-height: 110px;
+        max-height: 214px;
         &.right--top-banner {
-          max-height: 110px;
+          max-height: 174px;
         }
         .background-image-6 {
           position: absolute;
           left: 0;
           top: 0;
-          width: 607px;
-          height: 158px;
+          width: 100%;
+          height: 100%;
+          border-radius: inherit;
+          object-fit: cover;
         }
       }
       &--secondary {
         min-height: 80px;
         height: 80px;
-        max-height: 80px;
+        max-height: 139px;
         .background-image-7 {
           position: absolute;
           left: 0;
           top: 0;
-          width: 607px;
-          height: 128px;
+          width: 100%;
+          height: 100%;
+          border-radius: inherit;
+          object-fit: cover;
         }
       }
     }

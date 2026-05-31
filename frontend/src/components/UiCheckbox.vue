@@ -121,7 +121,6 @@ function onChange(e: Event): void {
     }
   }
   &:has(.ui-checkbox__input:disabled) {
-    opacity: 0.4;
     .ui-checkbox__input,
     .ui-checkbox__label {
       cursor: not-allowed;
