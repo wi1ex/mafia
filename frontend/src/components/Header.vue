@@ -548,7 +548,7 @@ function openAuth(mode: 'login' | 'register') {
       }
     }
   }
-  .profile-btn {
+  .profile-no-btn {
     display: flex;
     align-items: center;
     justify-content: center;
