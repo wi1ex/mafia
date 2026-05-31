@@ -53,10 +53,10 @@
       </div>
     </div>
 
-    <button v-if="!auth.isAuthed && !auth.foreignActive" class="profile-btn" type="button" @click="openAuth('login')">
+    <button v-if="!auth.isAuthed && !auth.foreignActive" class="profile-no-btn" type="button" @click="openAuth('login')">
       <span>Вход/Регистрация</span>
     </button>
-    <div v-else-if="!auth.isAuthed && auth.foreignActive" class="profile-btn">
+    <div v-else-if="!auth.isAuthed && auth.foreignActive" class="profile-no-btn">
       <span>Вы авторизованы в другой вкладке</span>
     </div>
     <div v-else class="user">
@@ -546,6 +546,51 @@ function openAuth(mode: 'login' | 'register') {
           }
         }
       }
+    }
+  }
+  .profile-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 16px;
+    gap: 8px;
+    border: none;
+    border-radius: 16px;
+    background: var(--user-theme-bg, linear-gradient(261deg, $soft-purple-800 0%, $green-700 100%));
+    text-decoration: none;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: var(--user-theme-bg-hover, linear-gradient(261deg, $green-700 0%, $soft-purple-800 100%));
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease-in-out;
+      z-index: 0;
+    }
+    &:hover,
+    &:focus-visible,
+    &:active,
+    &.profile-dropdown-trigger[aria-expanded='true'] {
+      &::after {
+        opacity: 1;
+      }
+    }
+    > * {
+      position: relative;
+      z-index: 2;
+    }
+    span {
+      color: $neutral-white;
+      font-family: Hauora-Regular;
+      font-size: 18px;
+      line-height: 20px;
+      letter-spacing: -0.36px;
     }
   }
   .profile-btn {
