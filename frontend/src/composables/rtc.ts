@@ -187,6 +187,7 @@ export function useRTC(): UseRTC {
   const lowVideoQuality = new VideoPreset(480, 270, 250_000, 30)
   const highVideoQuality = VideoPresets.h720
   const lowScreenQuality = new VideoPreset(960, 540, 900_000, 15, 'medium')
+  const midScreenQuality = ScreenSharePresets.h720fps30
   const highScreenQuality = ScreenSharePresets.h1080fps30
   const screenPresetFor = (quality?: ScreenShareQuality) => (quality === 'low' ? lowScreenQuality : highScreenQuality)
   const cameraQuality = ref<CameraQuality>('low')

@@ -19,7 +19,7 @@
                 v-model="replyContact"
                 mode="light"
                 label-mode="placeholder"
-                label="Оставьте ваш email или telegram"
+                label="Оставьте email/telegram для обратной связи"
                 :maxlength="CONTACT_MAX"
                 autocomplete="off"
                 :invalid="replyContactInvalid"
