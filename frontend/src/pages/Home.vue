@@ -181,16 +181,27 @@
             placement="top-left"
           />
         </div>
-        <button type="button" class="right-extra-btn" @click="openSupportModal">
-          <UiIcon class="btn-icon" :icon="iconArrowNext" />
-        </button>
+        <div class="right-extra-content">
+          <div class="right-extra-copy">
+            <span>Поддержи проект и получи</span>
+            <span class="right-extra-copy-accent">бонусы!</span>
+          </div>
+          <button type="button" class="right-extra-btn" @click="openSupportModal">
+            <UiIcon class="btn-icon" :icon="iconArrowNext" />
+          </button>
+        </div>
       </div>
 
       <div class="right-extra right-extra--secondary">
         <img class="background-image-7" :src="imageSlide7" alt="" aria-hidden="true" />
-        <button type="button" class="right-extra-btn" @click="openContactModal">
-          <UiIcon class="btn-icon" :icon="iconArrowNext" />
-        </button>
+        <div class="right-extra-content">
+          <div class="right-extra-copy">
+            <span>Связаться с командой deceit.games</span>
+          </div>
+          <button type="button" class="right-extra-btn" @click="openContactModal">
+            <UiIcon class="btn-icon" :icon="iconArrowNext" />
+          </button>
+        </div>
       </div>
     </div>
   </section>
@@ -1497,13 +1508,32 @@ onBeforeUnmount(() => {
         top: 24px;
         right: 24px;
       }
+      .right-extra-content {
+        display: flex;
+        flex-direction: column;
+        align-self: center;
+        align-items: flex-start;
+        gap: 12px;
+        max-width: calc(100% - 48px);
+        z-index: 1;
+      }
+      .right-extra-copy {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        color: $neutral-white;
+        font-family: Involve-Medium;
+        font-size: 24px;
+        line-height: 26px;
+        letter-spacing: -0.48px;
+        .right-extra-copy-accent {
+          color: $green-500;
+        }
+      }
       .right-extra-btn {
         display: flex;
-        position: absolute;
         align-items: center;
         justify-content: center;
-        bottom: 24px;
-        left: 24px;
         padding: 0;
         width: 40px;
         height: 40px;
@@ -1532,7 +1562,7 @@ onBeforeUnmount(() => {
         height: 110px;
         max-height: 214px;
         &.right--top-banner {
-          max-height: 174px;
+          //max-height: 174px;
         }
         .background-image-6 {
           position: absolute;
