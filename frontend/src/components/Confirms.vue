@@ -19,18 +19,25 @@
           <span v-if="state.checkboxLabelSuffix">{{ state.checkboxLabelSuffix }}</span>
         </UiCheckbox>
         <div v-if="showRadioOptions" class="radio-options" role="radiogroup">
-          <UiCheckbox
-            v-for="option in state.radioOptions"
-            :id="`${radioGroupId}-${option.value}`"
-            :key="option.value"
-            :model-value="state.radioValue === option.value"
-            :name="radioGroupId"
-            :disabled="option.disabled"
-            input-type="radio"
-            @update:model-value="checked => onRadioChange(option.value, checked)"
-          >
-            {{ option.label }}
-          </UiCheckbox>
+          <div v-for="option in state.radioOptions" :key="option.value" class="radio-option">
+            <UiCheckbox
+              :id="`${radioGroupId}-${option.value}`"
+              :model-value="state.radioValue === option.value"
+              :name="radioGroupId"
+              :disabled="option.disabled"
+              input-type="radio"
+              @update:model-value="checked => onRadioChange(option.value, checked)"
+            >
+              {{ option.label }}
+            </UiCheckbox>
+            <UiTooltip
+              v-if="option.tooltip"
+              :text="option.tooltip"
+              placement="top-left"
+              bubble-width="320px"
+              :icon-size="20"
+            />
+          </div>
         </div>
         <div class="actions">
           <button v-if="isConfirm" @click.stop="onClose">{{ state.cancelText }}</button>
@@ -47,6 +54,7 @@ import { resolveConfirm, useConfirmState } from '@/services/confirm'
 import iconClose from '@/assets/svg/iconClose.svg'
 import UiIcon from '@/components/UiIcon.vue'
 import UiCheckbox from '@/components/UiCheckbox.vue'
+import UiTooltip from '@/components/UiTooltip.vue'
 
 const state = useConfirmState()
 const isConfirm = computed(() => state.mode === 'confirm')
@@ -156,6 +164,11 @@ onBeforeUnmount(() => {
       display: flex;
       flex-direction: column;
       gap: 16px;
+      .radio-option {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
     }
     .actions {
       display: flex;

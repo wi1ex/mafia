@@ -6,6 +6,7 @@ export type ConfirmRadioOption = {
   value: string
   label: string
   disabled?: boolean
+  tooltip?: string
 }
 
 export type ConfirmPayload = {
@@ -95,7 +96,12 @@ function open(mode: ConfirmMode, payload: ConfirmPayload): Promise<ConfirmResult
   state.checkboxChecked = Boolean(payload.checkboxDefault)
   state.radioOptions = (payload.radioOptions || [])
     .filter(option => Boolean(option?.value) && Boolean(option?.label))
-    .map(option => ({ value: String(option.value), label: String(option.label), disabled: Boolean(option.disabled) }))
+    .map(option => ({
+      value: String(option.value),
+      label: String(option.label),
+      disabled: Boolean(option.disabled),
+      tooltip: option.tooltip ? String(option.tooltip) : '',
+    }))
   state.radioValue = state.radioOptions.some(option => option.value === payload.radioDefault)
     ? String(payload.radioDefault)
     : (state.radioOptions[0]?.value || '')
