@@ -1513,32 +1513,27 @@ onBeforeUnmount(() => {
         flex-direction: column;
         align-self: center;
         align-items: flex-start;
-        gap: 12px;
+        gap: 16px;
         max-width: calc(100% - 48px);
         z-index: 1;
         .right-extra-copy-support {
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-          color: $neutral-white;
-          font-family: Involve-Medium;
-          font-size: 24px;
-          line-height: 26px;
-          letter-spacing: -0.48px;
-          .right-extra-copy-accent {
-            color: $green-500;
-          }
-        }
-        .right-extra-copy-connect {
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
           width: 216px;
           color: $neutral-white;
           font-family: Involve-Medium;
           font-size: 24px;
           line-height: 26px;
           letter-spacing: -0.48px;
+          .right-extra-copy-accent {
+            margin-left: 6px;
+            color: $green-500;
+          }
+        }
+        .right-extra-copy-connect {
+          color: $neutral-white;
+          font-family: Hauora-Bold;
+          font-size: 16px;
+          line-height: 18px;
+          letter-spacing: -0.32px;
         }
         .right-extra-btn {
           display: flex;
@@ -1571,7 +1566,7 @@ onBeforeUnmount(() => {
       &--primary {
         min-height: 110px;
         height: 110px;
-        max-height: 214px;
+        max-height: 310px;
         .background-image-6 {
           position: absolute;
           left: 0;
@@ -1585,7 +1580,7 @@ onBeforeUnmount(() => {
       &--secondary {
         min-height: 80px;
         height: 80px;
-        max-height: 139px;
+        max-height: 160px;
         .background-image-7 {
           position: absolute;
           left: 0;
