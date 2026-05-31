@@ -1,6 +1,6 @@
 <template>
-  <div ref="rootEl" class="ui-dropdown" :class="[rootClass, { open, invalid, 'ui-dropdown--light': mode === 'light', 'ui-dropdown--top': menuPlacement === 'top', 'ui-dropdown--placeholder-label': labelMode === 'placeholder' }]" :style="rootStyle">
-    <button :id="resolvedId" type="button" @click="toggle" :disabled="disabled" :aria-expanded="open"
+  <div ref="rootEl" class="ui-dropdown" :class="[rootClass, { open, invalid, 'ui-dropdown--selected': selectedOption, 'ui-dropdown--light': mode === 'light', 'ui-dropdown--top': menuPlacement === 'top', 'ui-dropdown--placeholder-label': labelMode === 'placeholder' }]" :style="rootStyle">
+    <button :id="resolvedId" type="button" @click="toggle" :aria-expanded="open"
             :aria-controls="listId" :aria-label="buttonAriaLabel" aria-haspopup="listbox">
       <span :class="{ placeholder: !selectedLabel }">{{ displayLabel }}</span>
       <UiIcon class="dropdown-icon" :icon="iconArrow" />
@@ -43,7 +43,6 @@ const props = withDefaults(defineProps<{
   label?: string
   placeholder?: string
   emptyText?: string
-  disabled?: boolean
   invalid?: boolean
   mode?: 'light' | 'dark'
   menuPlacement?: 'bottom' | 'top'
@@ -56,7 +55,6 @@ const props = withDefaults(defineProps<{
   label: '',
   placeholder: 'Выберите значение',
   emptyText: 'Нет вариантов',
-  disabled: false,
   invalid: false,
   mode: 'dark',
   menuPlacement: 'bottom',
@@ -94,7 +92,6 @@ function optionKey(option: UiDropdownOption): string {
 }
 
 function toggle(): void {
-  if (props.disabled) return
   open.value = !open.value
 }
 
@@ -129,10 +126,6 @@ watch(open, (value) => {
   }
 })
 
-watch(() => props.disabled, (disabled) => {
-  if (disabled) close()
-})
-
 onBeforeUnmount(() => {
   document.removeEventListener('pointerdown', onDocumentPointerDown, { capture: true } as AddEventListenerOptions)
   document.removeEventListener('keydown', onKeydown)
@@ -145,25 +138,30 @@ onBeforeUnmount(() => {
   width: 100%;
   --ui-dropdown-border: #{$green-200};
   --ui-dropdown-text: #{$neutral-300};
-  --ui-dropdown-placeholder: #{$neutral-700};
+  --ui-dropdown-selected-text: #{$neutral-100};
+  --ui-dropdown-placeholder: #{$neutral-300};
+  --ui-dropdown-icon: #{$neutral-300};
   --ui-dropdown-hover-border: #{$green-500};
   --ui-dropdown-hover-text: #{$neutral-100};
+  --ui-dropdown-hover-icon: #{$neutral-white};
   --ui-dropdown-label-bg: var(--ui-dropdown-label-bg-override, #{$neutral-black});
   --ui-dropdown-label-text: #{$neutral-300};
-  --ui-dropdown-menu-bg: #{$neutral-900};
+  --ui-dropdown-menu-bg: #{$neutral-black};
   --ui-dropdown-menu-border: #{$neutral-700};
-  --ui-dropdown-option-text: #{$neutral-100};
-  --ui-dropdown-option-hover-bg: #{$neutral-800};
+  --ui-dropdown-option-text: #{$neutral-300};
+  --ui-dropdown-option-hover-bg: #{$soft-purple-900};
   --ui-dropdown-option-hover-text: #{$neutral-white};
   --ui-dropdown-error-border: #{$red-500};
-  --ui-dropdown-disabled-border: #{$neutral-700};
-  --ui-dropdown-disabled-text: #{$neutral-500};
+  --ui-dropdown-error-text: #{$neutral-white};
   &.ui-dropdown--light {
     --ui-dropdown-border: #{$green-800};
     --ui-dropdown-text: #{$neutral-700};
+    --ui-dropdown-selected-text: #{$neutral-900};
     --ui-dropdown-placeholder: #{$neutral-700};
+    --ui-dropdown-icon: #{$neutral-700};
     --ui-dropdown-hover-border: #{$green-500};
     --ui-dropdown-hover-text: #{$neutral-900};
+    --ui-dropdown-hover-icon: #{$neutral-black};
     --ui-dropdown-label-bg: var(--ui-dropdown-label-bg-override, #{$neutral-100});
     --ui-dropdown-label-text: #{$neutral-500};
     --ui-dropdown-menu-bg: #{$neutral-100};
@@ -172,8 +170,10 @@ onBeforeUnmount(() => {
     --ui-dropdown-option-hover-bg: #{$neutral-50};
     --ui-dropdown-option-hover-text: #{$neutral-black};
     --ui-dropdown-error-border: #{$red-600};
-    --ui-dropdown-disabled-border: #{$neutral-300};
-    --ui-dropdown-disabled-text: #{$neutral-400};
+    --ui-dropdown-error-text: #{$neutral-black};
+  }
+  &.ui-dropdown--selected {
+    --ui-dropdown-text: var(--ui-dropdown-selected-text);
   }
   button {
     display: flex;
@@ -205,23 +205,18 @@ onBeforeUnmount(() => {
     .dropdown-icon {
       --ui-icon-width: 24px;
       --ui-icon-height: 24px;
-      --ui-icon-color: var(--ui-dropdown-text);
+      --ui-icon-color: var(--ui-dropdown-icon);
       transition: transform 0.25s ease-in-out, background-color 0.25s ease-in-out;
     }
-    &:not(:disabled):hover,
-    &:not(:disabled):focus-visible {
+    &:hover,
+    &:focus-visible {
       border-color: var(--ui-dropdown-hover-border);
       color: var(--ui-dropdown-hover-text);
-      .dropdown-icon {
-        --ui-icon-color: var(--ui-dropdown-hover-text);
+      span.placeholder {
+        color: var(--ui-dropdown-hover-text);
       }
-    }
-    &:disabled {
-      border-color: var(--ui-dropdown-disabled-border);
-      color: var(--ui-dropdown-disabled-text);
-      cursor: not-allowed;
       .dropdown-icon {
-        --ui-icon-color: var(--ui-dropdown-disabled-text);
+        --ui-icon-color: var(--ui-dropdown-hover-icon);
       }
     }
   }
@@ -310,8 +305,11 @@ onBeforeUnmount(() => {
     button {
       border-color: var(--ui-dropdown-hover-border);
       color: var(--ui-dropdown-hover-text);
+      span.placeholder {
+        color: var(--ui-dropdown-hover-text);
+      }
       .dropdown-icon {
-        --ui-icon-color: var(--ui-dropdown-hover-text);
+        --ui-icon-color: var(--ui-dropdown-hover-icon);
         transform: rotate(180deg);
       }
     }
@@ -319,6 +317,13 @@ onBeforeUnmount(() => {
   &.invalid {
     button {
       border-color: var(--ui-dropdown-error-border);
+      color: var(--ui-dropdown-error-text);
+      span.placeholder {
+        color: var(--ui-dropdown-error-text);
+      }
+      .dropdown-icon {
+        --ui-icon-color: var(--ui-dropdown-error-text);
+      }
     }
   }
   &.ui-dropdown--top {

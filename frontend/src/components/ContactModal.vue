@@ -59,7 +59,6 @@
                 placeholder="Выберите тему"
                 :options="topicOptions"
                 :invalid="topicInvalid"
-                :disabled="busy"
               />
 
               <span class="contact-body-title">Текст обращения</span>

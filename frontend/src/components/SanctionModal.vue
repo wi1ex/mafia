@@ -22,7 +22,6 @@
               v-model="form.reason"
               label="Причина"
               :options="reasons"
-              :disabled="saving"
             />
           </div>
           <div class="modal-actions">
