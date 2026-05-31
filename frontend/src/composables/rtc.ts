@@ -24,7 +24,7 @@ setLogLevel(LogLevel.error)
 export type DeviceKind = 'audioinput' | 'videoinput'
 export type VQ = 'sd' | 'hd'
 export type CameraQuality = 'low' | 'high'
-export type ScreenShareQuality = 'low' | 'high'
+export type ScreenShareQuality = 'low' | 'medium' | 'high'
 const LS = {
   mic: 'audioDeviceId',
   cam: 'videoDeviceId',
@@ -189,7 +189,11 @@ export function useRTC(): UseRTC {
   const lowScreenQuality = new VideoPreset(960, 540, 900_000, 15, 'medium')
   const midScreenQuality = ScreenSharePresets.h720fps30
   const highScreenQuality = ScreenSharePresets.h1080fps30
-  const screenPresetFor = (quality?: ScreenShareQuality) => (quality === 'low' ? lowScreenQuality : highScreenQuality)
+  const screenPresetFor = (quality?: ScreenShareQuality) => {
+    if (quality === 'low') return lowScreenQuality
+    if (quality === 'medium') return midScreenQuality
+    return highScreenQuality
+  }
   const cameraQuality = ref<CameraQuality>('low')
   const cameraPresetFor = (quality: CameraQuality) => {
     if (quality === 'low') return lowVideoQuality
@@ -906,7 +910,7 @@ export function useRTC(): UseRTC {
     return tracks
   }
   async function prepareScreenShare(opts?: { audio?: boolean; quality?: ScreenShareQuality }): Promise<boolean> {
-    const quality: ScreenShareQuality = opts?.quality === 'low' ? 'low' : 'high'
+    const quality: ScreenShareQuality = opts?.quality === 'low' || opts?.quality === 'medium' ? opts.quality : 'high'
     try {
       lastScreenShareError = null
       preparedScreen = await createScreenTracks(opts?.audio ?? true, quality)

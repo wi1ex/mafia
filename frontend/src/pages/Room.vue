@@ -493,7 +493,7 @@ import {
 } from '@/composables/roomGame'
 import { type CameraQuality, type ScreenShareQuality, useRTC, type VQ } from '@/composables/rtc'
 import { api } from '@/services/axios'
-import { alertDialog, confirmDialog, useConfirmState } from '@/services/confirm'
+import { alertDialog, confirmDialog, confirmDialogWithRadio, useConfirmState } from '@/services/confirm'
 import { normalizeRoomGameParams, type RoomGameParams } from '@/services/gameParams'
 import { canOpenMiniProfileTarget } from '@/services/miniProfile'
 import { setPageTitle } from '@/services/pwa'
@@ -784,10 +784,19 @@ const ws_url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.
 const isTheater = computed(() => !!screenOwnerId.value)
 const isMyScreen = computed(() => !!localId.value && screenOwnerId.value === localId.value)
 const streamAudioKey = computed(() => screenOwnerId.value ? rtc.screenKey(screenOwnerId.value) : '')
-const SCREEN_QUALITY_HINT = 'Качество 1080p доступно для обладателей подписки'
-const screenQualityLabel = computed(() => screenQuality.value === 'high' ? '1080p' : '540p')
+const SCREEN_QUALITY_HINT = 'Качество 720p и 1080p доступно для обладателей подписки'
+const SCREEN_QUALITY_OPTIONS = [
+  { value: 'low', label: '540p' },
+  { value: 'medium', label: '720p' },
+  { value: 'high', label: '1080p' },
+] satisfies Array<{ value: ScreenShareQuality; label: string }>
+const screenQualityLabel = computed(() => {
+  if (screenQuality.value === 'high') return '1080p'
+  if (screenQuality.value === 'medium') return '720p'
+  return '540p'
+})
 function normalizeScreenQuality(raw: unknown, fallback: ScreenShareQuality = 'low'): ScreenShareQuality {
-  return raw === 'high' ? 'high' : raw === 'low' ? 'low' : fallback
+  return raw === 'high' || raw === 'medium' || raw === 'low' ? raw : fallback
 }
 function volumeFor(id: string, fallback = 100): number {
   if (!id) return fallback
@@ -2709,19 +2718,38 @@ const toggleVisibility = toggleFactory('visibility',
 const toggleScreen = async () => {
   if (pendingScreen.value) return
   const wantEnable = !isMyScreen.value
-  const confirmed = await confirmDialog({
+  const confirmPayload = {
     title: wantEnable ? 'Запуск трансляции' : 'Остановка трансляции',
     text: wantEnable
       ? 'Вы уверены, что хотите запустить трансляцию экрана?'
       : 'Вы уверены, что хотите остановить трансляцию экрана?',
     confirmText: wantEnable ? 'Запустить' : 'Остановить',
     cancelText: 'Отмена',
-  })
+  }
+  let requestedScreenQuality: ScreenShareQuality = 'low'
+  let confirmed: boolean
+  if (wantEnable) {
+    const hasSubscription = userStore.subscriptionActive
+    const result = await confirmDialogWithRadio({
+      ...confirmPayload,
+      radioOptions: SCREEN_QUALITY_OPTIONS.map(option => ({
+        ...option,
+        disabled: !hasSubscription,
+      })),
+      radioDefault: hasSubscription ? 'medium' : 'low',
+    })
+    confirmed = result.ok
+    requestedScreenQuality = hasSubscription
+      ? normalizeScreenQuality(result.radioValue, 'medium')
+      : 'low'
+  } else {
+    confirmed = await confirmDialog(confirmPayload)
+  }
   if (!confirmed) return
   pendingScreen.value = true
   try {
     if (wantEnable) {
-      const resp = await sendAck('screen', { on: true })
+      const resp = await sendAck('screen', { on: true, quality: requestedScreenQuality })
       if (!resp || !resp.ok) {
         if (resp?.status === 409 && resp?.owner) setScreenOwner(String(resp.owner), resp?.quality)
         else if (resp?.status === 403 && resp?.error === 'streams_start_disabled') void alertDialog('Запуск трансляций отключен')
@@ -2729,9 +2757,7 @@ const toggleScreen = async () => {
         else void alertDialog('Не удалось запустить трансляцию')
         return
       }
-      const nextScreenQuality = resp?.quality === 'high'
-        ? 'high'
-        : (resp?.quality === 'low' ? 'low' : (userStore.subscriptionActive ? 'high' : 'low'))
+      const nextScreenQuality = normalizeScreenQuality(resp?.quality, requestedScreenQuality)
       const ok = await rtc.startScreenShare({ audio: true, quality: nextScreenQuality })
       if (ok) {
         setScreenOwner(localId.value, nextScreenQuality)

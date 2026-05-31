@@ -43,11 +43,13 @@ __all__ = [
     "KEYS_STATE",
     "KEYS_BLOCK",
     "SCREEN_QUALITY_LOW",
+    "SCREEN_QUALITY_MEDIUM",
     "SCREEN_QUALITY_HIGH",
     "SANCTION_TIMEOUT",
     "SANCTION_BAN",
     "SANCTION_SUSPEND",
     "resolve_screen_quality",
+    "normalize_screen_quality",
     "payload_dict",
     "positive_int",
     "permissions_status",
@@ -190,7 +192,9 @@ _single_gc_tasks: dict[int, tuple[str, asyncio.Task[None]]] = {}
 HOST_BLUR_AUTO_OFF_SECONDS = 120
 _host_blur_auto_tasks: dict[int, asyncio.Task[None]] = {}
 SCREEN_QUALITY_LOW = "low"
+SCREEN_QUALITY_MEDIUM = "medium"
 SCREEN_QUALITY_HIGH = "high"
+SCREEN_QUALITIES = {SCREEN_QUALITY_LOW, SCREEN_QUALITY_MEDIUM, SCREEN_QUALITY_HIGH}
 
 
 def normalize_uid_set(values: object) -> set[int]:
@@ -440,11 +444,20 @@ async def finalize_guarded_disconnect_cleanup(*, rid: int, uid: int, expected_ep
     return True
 
 
-async def resolve_screen_quality(user_id: int) -> str:
+def normalize_screen_quality(value: object, *, fallback: str = SCREEN_QUALITY_LOW) -> str:
+    quality = str(value or "").strip().lower()
+    return quality if quality in SCREEN_QUALITIES else fallback
+
+
+async def resolve_screen_quality(user_id: int, requested_quality: object = None) -> str:
     try:
         async with SessionLocal() as session:
             theme_state = await resolve_profile_theme_state(session, int(user_id))
-        return SCREEN_QUALITY_HIGH if theme_state.subscription_active else SCREEN_QUALITY_LOW
+        if not theme_state.subscription_active:
+            return SCREEN_QUALITY_LOW
+
+        return normalize_screen_quality(requested_quality, fallback=SCREEN_QUALITY_MEDIUM)
+
     except Exception:
         log.warning("sio.screen.quality_resolve_failed", uid=int(user_id))
         return SCREEN_QUALITY_LOW

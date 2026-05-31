@@ -2,10 +2,11 @@
   <div class="ui-checkbox">
     <input
       class="ui-checkbox__input"
-      type="checkbox"
+      :type="inputType"
       :id="checkboxId"
       :name="name || undefined"
       :checked="modelValue"
+      :disabled="disabled"
       :required="required"
       :aria-label="ariaLabel || undefined"
       @change="onChange"
@@ -28,12 +29,16 @@ const props = withDefaults(defineProps<{
   label?: string
   required?: boolean
   ariaLabel?: string
+  inputType?: 'checkbox' | 'radio'
+  disabled?: boolean
 }>(), {
   id: '',
   name: '',
   label: '',
   required: false,
   ariaLabel: '',
+  inputType: 'checkbox',
+  disabled: false,
 })
 
 const emit = defineEmits<{
@@ -109,10 +114,17 @@ function onChange(e: Event): void {
   &:has(.ui-checkbox__input:checked) {
     color: $neutral-black;
   }
-  &:has(.ui-checkbox__input:not(:checked)):hover {
+  &:has(.ui-checkbox__input:not(:checked):not(:disabled)):hover {
     color: $neutral-black;
     .ui-checkbox__input {
       border-color: $neutral-black;
+    }
+  }
+  &:has(.ui-checkbox__input:disabled) {
+    opacity: 0.4;
+    .ui-checkbox__input,
+    .ui-checkbox__label {
+      cursor: not-allowed;
     }
   }
 }

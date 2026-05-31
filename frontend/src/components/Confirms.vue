@@ -18,6 +18,20 @@
           </router-link>
           <span v-if="state.checkboxLabelSuffix">{{ state.checkboxLabelSuffix }}</span>
         </UiCheckbox>
+        <div v-if="showRadioOptions" class="radio-options" role="radiogroup">
+          <UiCheckbox
+            v-for="option in state.radioOptions"
+            :id="`${radioGroupId}-${option.value}`"
+            :key="option.value"
+            :model-value="state.radioValue === option.value"
+            :name="radioGroupId"
+            :disabled="option.disabled"
+            input-type="radio"
+            @update:model-value="checked => onRadioChange(option.value, checked)"
+          >
+            {{ option.label }}
+          </UiCheckbox>
+        </div>
         <div class="actions">
           <button v-if="isConfirm" @click.stop="onClose">{{ state.cancelText }}</button>
           <button class="confirm" :disabled="confirmDisabled" @click.stop="onConfirm">{{ state.confirmText }}</button>
@@ -39,10 +53,16 @@ const isConfirm = computed(() => state.mode === 'confirm')
 const showText = computed(() => Boolean(state.text) && !state.hideText)
 const showCheckbox = computed(() => Boolean(state.checkboxLabel) || Boolean(state.checkboxLinkText) || Boolean(state.checkboxLabelSuffix))
 const showCheckboxLink = computed(() => Boolean(state.checkboxLinkText) && Boolean(state.checkboxLinkTo))
+const showRadioOptions = computed(() => state.radioOptions.length > 0)
 const confirmDisabled = computed(() => state.checkboxRequired && !state.checkboxChecked)
 const dialogRole = computed(() => (state.mode === 'alert' ? 'alertdialog' : 'dialog'))
 const titleId = 'confirm-title'
 const checkboxId = 'confirm-checkbox'
+const radioGroupId = 'confirm-radio'
+
+function onRadioChange(value: string, checked: boolean) {
+  if (checked) state.radioValue = value
+}
 
 function onConfirm() {
   if (confirmDisabled.value) return
@@ -131,6 +151,11 @@ onBeforeUnmount(() => {
           }
         }
       }
+    }
+    .radio-options {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
     }
     .actions {
       display: flex;

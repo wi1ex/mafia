@@ -27,8 +27,7 @@ from ..utils import (
 from ..utils import (
     KEYS_STATE,
     KEYS_BLOCK,
-    SCREEN_QUALITY_LOW,
-    SCREEN_QUALITY_HIGH,
+    normalize_screen_quality,
     resolve_screen_quality,
     to_bool01,
     apply_state,
@@ -497,7 +496,7 @@ async def join(sid, data) -> JoinAck:
         owner_raw = await r.get(f"room:{rid}:screen_owner")
         owner = int(owner_raw) if owner_raw else 0
         screen_quality_raw = await r.get(f"room:{rid}:screen_quality") if owner else None
-        screen_quality = SCREEN_QUALITY_HIGH if screen_quality_raw == SCREEN_QUALITY_HIGH else SCREEN_QUALITY_LOW
+        screen_quality = normalize_screen_quality(screen_quality_raw)
         livekit_room = get_livekit_room_name(rid)
         token = make_livekit_token(identity=str(uid), name=ev_username, room=livekit_room, can_publish=not spectator_mode)
         game_runtime, game_roles_view, my_game_role = await get_game_runtime_and_roles_view(r, rid, uid)
@@ -844,7 +843,7 @@ async def screen(sid, data) -> ScreenAck:
             if not ok and owner and owner != target:
                 return {"ok": False, "error": "busy", "status": 409, "owner": owner}
 
-            screen_quality = await resolve_screen_quality(target)
+            screen_quality = await resolve_screen_quality(target, (data or {}).get("quality"))
             await r.set(f"room:{rid}:screen_quality", screen_quality)
             await sio.emit("screen_owner",
                            {"user_id": target, "quality": screen_quality},
