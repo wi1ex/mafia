@@ -33,7 +33,7 @@
             <UiTooltip
               v-if="option.tooltip"
               :text="option.tooltip"
-              placement="top-left"
+              placement="top-right"
               bubble-width="320px"
               :icon-size="20"
             />
