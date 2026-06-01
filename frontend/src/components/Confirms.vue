@@ -26,6 +26,7 @@
               :name="radioGroupId"
               :disabled="option.disabled"
               input-type="radio"
+              radio-style
               @update:model-value="checked => onRadioChange(option.value, checked)"
             >
               {{ option.label }}

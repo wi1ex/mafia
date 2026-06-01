@@ -2,6 +2,7 @@
   <div class="ui-checkbox">
     <input
       class="ui-checkbox__input"
+      :class="{ 'ui-checkbox__input--radio': radioStyle }"
       :type="inputType"
       :id="checkboxId"
       :name="name || undefined"
@@ -30,6 +31,7 @@ const props = withDefaults(defineProps<{
   required?: boolean
   ariaLabel?: string
   inputType?: 'checkbox' | 'radio'
+  radioStyle?: boolean
   disabled?: boolean
 }>(), {
   id: '',
@@ -38,6 +40,7 @@ const props = withDefaults(defineProps<{
   required: false,
   ariaLabel: '',
   inputType: 'checkbox',
+  radioStyle: false,
   disabled: false,
 })
 
@@ -92,6 +95,24 @@ function onChange(e: Event): void {
       border: solid $green-600;
       border-width: 0 1.75px 1.75px 0;
       transform: rotate(40deg);
+    }
+    &--radio {
+      position: relative;
+      border-radius: 50%;
+      &:checked {
+        background-color: transparent;
+      }
+      &:checked::after {
+        position: absolute;
+        inset: 4px;
+        width: auto;
+        height: auto;
+        margin: 0;
+        border: none;
+        border-radius: 50%;
+        background-color: $green-600;
+        transform: none;
+      }
     }
     &:focus-visible {
       outline: 1px solid $neutral-black;
