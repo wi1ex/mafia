@@ -350,6 +350,7 @@ async def moderation_sanctions_list(page: int = 1, limit: int = 20, username: st
                 served_seconds=sanction_served_seconds(sanction, now),
                 hosted_workoff_seconds=hosted_workoff,
                 reason=sanction.reason or None,
+                description=sanction.description or None,
             )
         )
 
@@ -389,6 +390,10 @@ async def moderation_apply_user_timeout(user_id: int, payload: AdminSanctionTime
     if not reason:
         raise HTTPException(status_code=422, detail="reason_required")
 
+    description = payload.description.strip()
+    if not description:
+        raise HTTPException(status_code=422, detail="description_required")
+
     now = datetime.now(timezone.utc)
     expires_at = now + timedelta(seconds=duration_seconds)
     duration_label = format_duration_parts(months, days, hours, minutes)
@@ -398,6 +403,7 @@ async def moderation_apply_user_timeout(user_id: int, payload: AdminSanctionTime
         telegram_id_snapshot=user.telegram_id,
         kind=SANCTION_TIMEOUT,
         reason=reason,
+        description=description,
         issued_at=now,
         issued_by_id=int(ident["id"]),
         issued_by_name=ident["username"],
@@ -469,6 +475,10 @@ async def moderation_apply_user_suspend(user_id: int, payload: AdminSanctionTime
     if not reason:
         raise HTTPException(status_code=422, detail="reason_required")
 
+    description = payload.description.strip()
+    if not description:
+        raise HTTPException(status_code=422, detail="description_required")
+
     now = datetime.now(timezone.utc)
     expires_at = now + timedelta(seconds=duration_seconds)
     duration_label = format_duration_parts(months, days, hours, minutes)
@@ -478,6 +488,7 @@ async def moderation_apply_user_suspend(user_id: int, payload: AdminSanctionTime
         telegram_id_snapshot=user.telegram_id,
         kind=SANCTION_SUSPEND,
         reason=reason,
+        description=description,
         issued_at=now,
         issued_by_id=int(ident["id"]),
         issued_by_name=ident["username"],

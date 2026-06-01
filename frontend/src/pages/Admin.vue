@@ -691,6 +691,7 @@
                   <th>Срок по факту</th>
                   <th>Отработка ведущим</th>
                   <th>Пункт правил</th>
+                  <th>Описание</th>
                   <th>Уменьшить</th>
                   <th>Увеличить</th>
                   <th>Удаление</th>
@@ -718,6 +719,7 @@
                   <td>{{ formatSanctionDuration(row.served_seconds) }}</td>
                   <td>{{ formatSanctionWorkoff(row) }}</td>
                   <td class="rule-cell">{{ row.reason || '-' }}</td>
+                  <td class="description-cell">{{ row.description || '-' }}</td>
                   <td class="actions-cell">
                     <button v-if="canAdjustSanction(row)" class="btn dark" :disabled="isSanctionAdjustBusy(row, 'decrease')" @click="openSanctionAdjust(row, 'decrease')">
                       Уменьшить
@@ -739,7 +741,7 @@
                   </td>
                 </tr>
                 <tr v-if="sanctions.length === 0">
-                  <td colspan="14" class="muted">Нет данных</td>
+                  <td colspan="15" class="muted">Нет данных</td>
                 </tr>
               </tbody>
             </table>
@@ -828,6 +830,7 @@
       :can-save="sanctionAdjustCanSave"
       :show-duration="true"
       :show-reason="false"
+      :show-description="false"
       :save-label="sanctionAdjustSaveLabel"
       :form="sanctionAdjustForm"
       :reasons="sanctionReasons"
@@ -1088,6 +1091,7 @@ type SanctionsRow = {
   served_seconds: number
   hosted_workoff_seconds?: number | null
   reason?: string | null
+  description?: string | null
 }
 
 type UsersSortBy =
@@ -1270,6 +1274,7 @@ const sanctionForm = reactive({
   days: 0,
   hours: 0,
   reason: DEFAULT_SANCTION_REASON,
+  description: '',
 })
 function isSanctionDurationPartValid(value: number, max: number): boolean {
   const parsed = Number(value)
@@ -1288,7 +1293,7 @@ const sanctionTotalSeconds = computed(() => {
   return totalMinutes * 60
 })
 const sanctionCanSave = computed(() => {
-  if (!sanctionForm.reason) return false
+  if (!sanctionForm.reason || !sanctionForm.description.trim()) return false
   if (sanctionKind.value === 'ban') return true
   return sanctionDurationValid.value && sanctionTotalSeconds.value > 0
 })
@@ -1306,6 +1311,7 @@ const sanctionAdjustForm = reactive({
   days: 0,
   hours: 0,
   reason: '',
+  description: '',
 })
 const sanctionAdjustDurationValid = computed(() => (
   isSanctionDurationPartValid(sanctionAdjustForm.months, SANCTION_DURATION_LIMITS.months)
@@ -2231,6 +2237,7 @@ async function loadSanctions(): Promise<void> {
         ? Math.max(0, Number(item.hosted_workoff_seconds))
         : null,
       reason: item?.reason ?? null,
+      description: item?.description ?? null,
     }))
     sanctionsTotal.value = Number.isFinite(data?.total) ? data.total : 0
   } catch {
@@ -2275,6 +2282,7 @@ function resetSanctionAdjustForm(): void {
   sanctionAdjustForm.days = 0
   sanctionAdjustForm.hours = 0
   sanctionAdjustForm.reason = ''
+  sanctionAdjustForm.description = ''
 }
 
 function clearSanctionAdjustModalState(): void {
@@ -2631,6 +2639,7 @@ function resetSanctionForm(): void {
   sanctionForm.days = 0
   sanctionForm.hours = 0
   sanctionForm.reason = DEFAULT_SANCTION_REASON
+  sanctionForm.description = ''
 }
 
 function openSanction(row: UserRow, kind: 'timeout' | 'ban' | 'suspend'): void {
@@ -2656,12 +2665,13 @@ async function saveSanction(): Promise<void> {
       ? `/admin/users/${target.id}/timeout`
       : `/admin/users/${target.id}/suspend`
   const payload = kind === 'ban'
-    ? { reason: sanctionForm.reason }
+    ? { reason: sanctionForm.reason, description: sanctionForm.description.trim() }
     : {
       months: sanctionForm.months,
       days: sanctionForm.days,
       hours: sanctionForm.hours,
       reason: sanctionForm.reason,
+      description: sanctionForm.description.trim(),
     }
   try {
     await api.post(url, payload)
@@ -3331,7 +3341,8 @@ onMounted(() => {
     :deep(.update-notice-textarea textarea) {
       min-height: 200px;
     }
-    .sanctions-table .rule-cell {
+    .sanctions-table .rule-cell,
+    .sanctions-table .description-cell {
       max-width: 520px;
       white-space: pre-wrap;
       word-break: break-word;

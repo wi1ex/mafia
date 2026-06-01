@@ -1198,6 +1198,7 @@ async def sanctions_list(page: int = 1, limit: int = 20, username: str | None = 
                 served_seconds=sanction_served_seconds(sanction, now),
                 hosted_workoff_seconds=hosted_workoff,
                 reason=sanction.reason or None,
+                description=sanction.description or None,
             )
         )
 
@@ -1743,6 +1744,10 @@ async def apply_user_timeout(user_id: int, payload: AdminSanctionTimedIn, ident:
     now = datetime.now(timezone.utc)
     expires_at = now + timedelta(seconds=duration_seconds)
     reason = payload.reason.strip()
+    description = payload.description.strip()
+    if not description:
+        raise HTTPException(status_code=422, detail="description_required")
+
     duration_label = format_duration_parts(months, days, hours, minutes)
 
     sanction = UserSanction(
@@ -1750,6 +1755,7 @@ async def apply_user_timeout(user_id: int, payload: AdminSanctionTimedIn, ident:
         telegram_id_snapshot=user.telegram_id,
         kind=SANCTION_TIMEOUT,
         reason=reason,
+        description=description,
         issued_at=now,
         issued_by_id=int(ident["id"]),
         issued_by_name=ident["username"],
@@ -1905,12 +1911,17 @@ async def apply_user_ban(user_id: int, payload: AdminSanctionBanIn, ident: Ident
         raise HTTPException(status_code=409, detail="sanction_active")
 
     reason = payload.reason.strip()
+    description = payload.description.strip()
+    if not description:
+        raise HTTPException(status_code=422, detail="description_required")
+
     now = datetime.now(timezone.utc)
     sanction = UserSanction(
         user_id=uid,
         telegram_id_snapshot=user.telegram_id,
         kind=SANCTION_BAN,
         reason=reason,
+        description=description,
         issued_at=now,
         issued_by_id=int(ident["id"]),
         issued_by_name=ident["username"],
@@ -2070,6 +2081,10 @@ async def apply_user_suspend(user_id: int, payload: AdminSanctionTimedIn, ident:
     now = datetime.now(timezone.utc)
     expires_at = now + timedelta(seconds=duration_seconds)
     reason = payload.reason.strip()
+    description = payload.description.strip()
+    if not description:
+        raise HTTPException(status_code=422, detail="description_required")
+
     duration_label = format_duration_parts(months, days, hours, minutes)
 
     sanction = UserSanction(
@@ -2077,6 +2092,7 @@ async def apply_user_suspend(user_id: int, payload: AdminSanctionTimedIn, ident:
         telegram_id_snapshot=user.telegram_id,
         kind=SANCTION_SUSPEND,
         reason=reason,
+        description=description,
         issued_at=now,
         issued_by_id=int(ident["id"]),
         issued_by_name=ident["username"],

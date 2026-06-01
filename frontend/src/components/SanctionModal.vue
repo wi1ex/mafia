@@ -23,6 +23,16 @@
               label="Причина"
               :options="reasons"
             />
+            <UiInput
+              v-if="showDescription"
+              id="sanction-description"
+              v-model="form.description"
+              as="textarea"
+              rows="5"
+              maxlength="2048"
+              label="Описание (пользователь не увидит этот текст)"
+              class="sanction-description-textarea"
+            />
           </div>
           <div class="modal-actions">
             <button class="btn dark" @click="close">Отмена</button>
@@ -51,6 +61,7 @@ withDefaults(defineProps<{
   canSave: boolean
   showDuration?: boolean
   showReason?: boolean
+  showDescription?: boolean
   saveLabel?: string
   reasons: { value: string; label: string }[]
   form: {
@@ -58,10 +69,12 @@ withDefaults(defineProps<{
     days: number
     hours: number
     reason: string
+    description: string
   }
 }>(), {
   showDuration: true,
   showReason: true,
+  showDescription: true,
   saveLabel: 'Применить',
 })
 
@@ -161,6 +174,9 @@ function close() {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 10px;
+      }
+      :deep(.sanction-description-textarea textarea) {
+        min-height: 100px;
       }
     }
     .modal-actions {

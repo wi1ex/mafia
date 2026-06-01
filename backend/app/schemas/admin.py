@@ -214,6 +214,7 @@ class AdminSanctionListItemOut(BaseModel):
     served_seconds: int
     hosted_workoff_seconds: Optional[int] = None
     reason: Optional[str] = None
+    description: Optional[str] = None
 
 
 class AdminSanctionsOut(BaseModel):
@@ -374,6 +375,7 @@ class AdminSanctionTimedIn(BaseModel):
     days: int = Field(default=0, ge=0, le=31)
     hours: int = Field(default=0, ge=0, le=23)
     reason: str = Field(min_length=1, max_length=1024)
+    description: str = Field(min_length=1, max_length=2048)
 
 
 class AdminSanctionDurationAdjustIn(BaseModel):
@@ -384,6 +386,7 @@ class AdminSanctionDurationAdjustIn(BaseModel):
 
 class AdminSanctionBanIn(BaseModel):
     reason: str = Field(min_length=1, max_length=1024)
+    description: str = Field(min_length=1, max_length=2048)
 
 
 class AdminUserRoleIn(BaseModel):
