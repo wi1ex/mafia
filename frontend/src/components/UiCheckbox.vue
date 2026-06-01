@@ -104,7 +104,7 @@ function onChange(e: Event): void {
       }
       &:checked::after {
         position: absolute;
-        inset: 4px;
+        inset: 2px;
         width: auto;
         height: auto;
         margin: 0;

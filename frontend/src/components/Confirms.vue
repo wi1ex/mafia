@@ -164,11 +164,11 @@ onBeforeUnmount(() => {
     .radio-options {
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 10px;
       .radio-option {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 4px;
       }
     }
     .actions {
