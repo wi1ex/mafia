@@ -467,6 +467,33 @@ async def contact_requests_list(page: int = 1, limit: int = 20, username: str | 
     )
 
 
+@router.delete("/contact_requests/{contact_request_id}", response_model=Ok, dependencies=ADMIN_GUARD)
+@log_route("admin.contact_requests.delete")
+async def delete_contact_request(contact_request_id: int, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
+    row = await session.get(ContactRequestRecord, int(contact_request_id))
+    if not row:
+        raise HTTPException(status_code=404, detail="contact_request_not_found")
+
+    request_id = cast(int, row.id)
+    request_user_id = cast(int | None, row.user_id)
+    request_topic = str(row.topic or "")
+    await session.delete(row)
+    await session.commit()
+
+    await log_action(
+        session,
+        user_id=int(ident["id"]),
+        username=ident["username"],
+        action="contact_request_delete",
+        details=(
+            f"Удаление обращения id={request_id} "
+            f"user_id={request_user_id or '-'} topic={request_topic}"
+        ),
+    )
+
+    return Ok()
+
+
 @router.get("/rooms", response_model=AdminRoomsOut, dependencies=ADMIN_GUARD)
 @log_route("admin.rooms.list")
 async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None, room_filter: str | None = None, stream_only: bool | None = None, hidden_only: bool | None = None, has_games: bool | None = None, duo_only: bool | None = None, session: AsyncSession = Depends(get_session)) -> AdminRoomsOut:

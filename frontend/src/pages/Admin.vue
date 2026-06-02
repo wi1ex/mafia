@@ -782,6 +782,7 @@
                   <th>Контактные данные</th>
                   <th>Тема обращения</th>
                   <th>Текст обращения</th>
+                  <th>Действия</th>
                 </tr>
               </thead>
               <tbody>
@@ -800,9 +801,15 @@
                   <td class="contact-cell">{{ row.contact }}</td>
                   <td class="topic-cell">{{ row.topic }}</td>
                   <td class="text-cell">{{ row.text }}</td>
+                  <td>
+                    <button class="btn danger" :disabled="contactRequestsDeleting[row.id]" @click="deleteContactRequest(row)">
+                      <img class="btn-img" :src="iconDelete" alt="delete" />
+                      Удалить
+                    </button>
+                  </td>
                 </tr>
                 <tr v-if="contactRequests.length === 0">
-                  <td colspan="6" class="muted">Нет данных</td>
+                  <td colspan="7" class="muted">Нет данных</td>
                 </tr>
               </tbody>
             </table>
@@ -1315,6 +1322,7 @@ const contactRequestsTotal = ref(0)
 const contactRequestsPage = ref(1)
 const contactRequestsLimit = ref(20)
 const contactRequestsUser = ref('')
+const contactRequestsDeleting = reactive<Record<number, boolean>>({})
 const usersRoleBusy = reactive<Record<number, boolean>>({})
 const usersDeleteBusy = reactive<Record<number, boolean>>({})
 const usersAvatarBusy = reactive<Record<number, boolean>>({})
@@ -2382,6 +2390,33 @@ async function loadContactRequests(): Promise<void> {
     void alertDialog('Не удалось загрузить обращения')
   } finally {
     contactRequestsLoading.value = false
+  }
+}
+
+async function deleteContactRequest(row: ContactRequestRow): Promise<void> {
+  if (contactRequestsDeleting[row.id]) return
+  const ok = await confirmDialog({
+    title: 'Удалить обращение',
+    text: `Удалить обращение #${row.id} из базы данных?`,
+    confirmText: 'Удалить',
+    cancelText: 'Отмена',
+  })
+  if (!ok) return
+  contactRequestsDeleting[row.id] = true
+  try {
+    await api.delete(`/admin/contact_requests/${row.id}`)
+    const nextTotal = Math.max(0, contactRequestsTotal.value - 1)
+    const nextPages = Math.max(1, Math.ceil(nextTotal / contactRequestsLimit.value))
+    if (contactRequestsPage.value > nextPages) contactRequestsPage.value = nextPages
+    await loadContactRequests()
+    void alertDialog('Обращение удалено')
+  } catch (e: any) {
+    const st = e?.response?.status
+    const d = e?.response?.data?.detail
+    if (st === 404 && d === 'contact_request_not_found') void alertDialog('Обращение не найдено')
+    else void alertDialog('Не удалось удалить обращение')
+  } finally {
+    contactRequestsDeleting[row.id] = false
   }
 }
 

@@ -8,10 +8,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...core.clients import get_redis
 from ...core.db import get_session
 from ...core.logging import log_action
+from ...models.contact_request import ContactRequestRecord
 from ...models.notif import Notif
 from ...models.sanction import UserSanction
 from ...models.user import User
-from ...schemas.admin import AdminSanctionDurationAdjustIn, AdminSanctionListItemOut, AdminSanctionsOut, AdminSanctionTimedIn, AdminUserNameOut
+from ...schemas.admin import (
+    AdminContactRequestOut,
+    AdminContactRequestsOut,
+    AdminSanctionDurationAdjustIn,
+    AdminSanctionListItemOut,
+    AdminSanctionsOut,
+    AdminSanctionTimedIn,
+    AdminUserNameOut,
+)
 from ...schemas.common import Identity, Ok
 from ...schemas.moderation import ModerationUserOut, ModerationUsersOut
 from ...schemas.user import UserStatsOut
@@ -175,6 +184,55 @@ async def moderation_users_list(page: int = 1, limit: int = 20, username: str | 
         )
 
     return ModerationUsersOut(total=total, items=items)
+
+
+@router.get("/contact_requests", response_model=AdminContactRequestsOut, dependencies=MODERATION_GUARD)
+@log_route("moderation.contact_requests.list")
+async def moderation_contact_requests_list(page: int = 1, limit: int = 20, username: str | None = None, session: AsyncSession = Depends(get_session)) -> AdminContactRequestsOut:
+    limit, page, offset = normalize_pagination(page, limit)
+    filters = []
+    if username:
+        user_ids = await find_user_ids_by_username_search(session, username)
+        if not user_ids:
+            return AdminContactRequestsOut(total=0, items=[])
+
+        filters.append(ContactRequestRecord.user_id.in_(user_ids))
+
+    total = int(
+        await session.scalar(select(func.count(ContactRequestRecord.id)).where(*filters)) or 0
+    )
+    rows = await session.execute(
+        select(
+            ContactRequestRecord,
+            User.username,
+            User.avatar_name,
+            User.role,
+            User.deleted_at,
+        )
+        .outerjoin(User, User.id == ContactRequestRecord.user_id)
+        .where(*filters)
+        .order_by(ContactRequestRecord.id.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    return AdminContactRequestsOut(
+        total=total,
+        items=[
+            AdminContactRequestOut(
+                id=row.id,
+                user_id=row.user_id,
+                username=current_username,
+                avatar_name=avatar_name,
+                role=role,
+                deleted_at=deleted_at,
+                contact=row.contact,
+                topic=row.topic,
+                text=row.text,
+                created_at=row.created_at,
+            )
+            for row, current_username, avatar_name, role, deleted_at in rows.all()
+        ],
+    )
 
 
 @router.get("/users/{user_id}/stats", response_model=UserStatsOut, dependencies=MODERATION_GUARD)

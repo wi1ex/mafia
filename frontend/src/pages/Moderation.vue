@@ -8,6 +8,9 @@
         <button class="tab" type="button" :class="{ active: activeTab === 'sanctions' }" @click="activeTab = 'sanctions'">
           Санкции
         </button>
+        <button class="tab" type="button" :class="{ active: activeTab === 'contact_requests' }" @click="activeTab = 'contact_requests'">
+          Обращения
+        </button>
       </nav>
       <router-link class="btn nav" :to="{ name: 'home' }" aria-label="На главную">На главную</router-link>
     </header>
@@ -129,7 +132,7 @@
         </div>
       </div>
 
-      <div v-else>
+      <div v-else-if="activeTab === 'sanctions'">
         <div class="filters">
           <div class="field">
             <UiInput id="moderation-sanctions-user" v-model.trim="sanctionsUser" label="Никнейм" :disabled="sanctionsLoading" />
@@ -211,6 +214,62 @@
           </div>
         </div>
       </div>
+
+      <div v-else>
+        <div class="filters">
+          <div class="field">
+            <UiInput id="moderation-contact-requests-user" v-model.trim="contactRequestsUser" label="Никнейм" :disabled="contactRequestsLoading" />
+          </div>
+          <div class="field">
+            <label for="moderation-contact-requests-limit">Отображать по</label>
+            <select id="moderation-contact-requests-limit" :value="contactRequestsLimit" :disabled="contactRequestsLoading" @change="setContactRequestsLimit">
+              <option v-for="option in PAGE_LIMIT_OPTIONS" :key="option.value" :value="option.value">{{ option.label }}</option>
+            </select>
+          </div>
+        </div>
+
+        <div v-if="contactRequestsLoading" class="loading">Загрузка...</div>
+        <div v-else>
+          <table class="table contact-requests-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Дата</th>
+                <th>Никнейм</th>
+                <th>Контактные данные</th>
+                <th>Тема обращения</th>
+                <th>Текст обращения</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in contactRequests" :key="row.id">
+                <td>{{ row.id }}</td>
+                <td>{{ formatLocalDateTime(row.created_at) }}</td>
+                <td>
+                  <div v-if="row.user_id" class="user-cell">
+                    <button class="user-link user-profile-trigger" type="button" :disabled="!canOpenContactRequestUserMiniProfile(row)" @click="openContactRequestUserMiniProfile(row)">
+                      <img class="user-avatar" v-minio-img="{ key: row.avatar_name ? `avatars/${row.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                      <span>{{ row.username || `user${row.user_id}` }}</span>
+                    </button>
+                  </div>
+                  <span v-else>-</span>
+                </td>
+                <td class="contact-cell">{{ row.contact }}</td>
+                <td class="topic-cell">{{ row.topic }}</td>
+                <td class="text-cell">{{ row.text }}</td>
+              </tr>
+              <tr v-if="contactRequests.length === 0">
+                <td colspan="6" class="muted">Нет данных</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="pager">
+            <button class="btn" :disabled="contactRequestsPage <= 1" @click="prevContactRequests">Назад</button>
+            <span>{{ contactRequestsPage }} / {{ contactRequestsPages }}</span>
+            <button class="btn" :disabled="contactRequestsPage >= contactRequestsPages" @click="nextContactRequests">Вперед</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <SanctionModal
@@ -267,7 +326,7 @@ import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 import iconClose from '@/assets/svg/close.svg'
 import iconJudge from '@/assets/svg/judge.svg'
 
-type TabKey = 'users' | 'sanctions'
+type TabKey = 'users' | 'sanctions' | 'contact_requests'
 type SanctionListStatus = 'active' | 'expired_auto' | 'revoked'
 type SanctionAdjustMode = 'increase' | 'decrease'
 type SanctionsRow = {
@@ -309,6 +368,19 @@ type UserRow = {
   timeouts_count: number
   bans_count: number
   suspends_count: number
+}
+
+type ContactRequestRow = {
+  id: number
+  user_id?: number | null
+  username?: string | null
+  avatar_name?: string | null
+  role?: string | null
+  deleted_at?: string | null
+  contact: string
+  topic: string
+  text: string
+  created_at: string
 }
 
 type UserMiniProfileTarget = {
@@ -353,8 +425,15 @@ const sanctionsPage = ref(1)
 const sanctionsLimit = ref(20)
 const sanctionsUser = ref('')
 const sanctionsAdjusting = reactive<Record<string, boolean>>({})
+const contactRequests = ref<ContactRequestRow[]>([])
+const contactRequestsLoading = ref(false)
+const contactRequestsTotal = ref(0)
+const contactRequestsPage = ref(1)
+const contactRequestsLimit = ref(20)
+const contactRequestsUser = ref('')
 let usersUserTimer: number | undefined
 let sanctionsUserTimer: number | undefined
+let contactRequestsUserTimer: number | undefined
 
 const sanctionReasons = SANCTION_REASONS
 const sanctionModalOpen = ref(false)
@@ -368,7 +447,7 @@ const SANCTION_DURATION_LIMITS = {
 } as const
 const userMiniProfileOpen = ref(false)
 const userMiniProfileTarget = ref<UserMiniProfileTarget | null>(null)
-const userMiniProfileAllowDeleted = computed(() => activeTab.value === 'sanctions')
+const userMiniProfileAllowDeleted = computed(() => activeTab.value === 'sanctions' || activeTab.value === 'contact_requests')
 const userMiniProfileStatsUrl = computed(() => {
   const target = userMiniProfileTarget.value
   return target ? `/moderation/users/${target.id}/stats` : null
@@ -387,6 +466,7 @@ function isSanctionDurationPartValid(value: number, max: number): boolean {
 
 const usersPages = computed(() => Math.max(1, Math.ceil(usersTotal.value / usersLimit.value)))
 const sanctionsPages = computed(() => Math.max(1, Math.ceil(sanctionsTotal.value / sanctionsLimit.value)))
+const contactRequestsPages = computed(() => Math.max(1, Math.ceil(contactRequestsTotal.value / contactRequestsLimit.value)))
 const sanctionDurationValid = computed(() => (
   isSanctionDurationPartValid(sanctionForm.months, SANCTION_DURATION_LIMITS.months)
   && isSanctionDurationPartValid(sanctionForm.days, SANCTION_DURATION_LIMITS.days)
@@ -455,6 +535,10 @@ function setUsersLimit(event: Event): void {
 
 function setSanctionsLimit(event: Event): void {
   sanctionsLimit.value = normalizePageLimit(selectValue(event))
+}
+
+function setContactRequestsLimit(event: Event): void {
+  contactRequestsLimit.value = normalizePageLimit(selectValue(event))
 }
 
 function setUsersSort(sortBy: UsersSortBy): void {
@@ -565,6 +649,14 @@ function canOpenSanctionUserMiniProfile(row: SanctionsRow): boolean {
   }, { allowDeleted: true })
 }
 
+function canOpenContactRequestUserMiniProfile(row: ContactRequestRow): boolean {
+  return canOpenMiniProfileOnModerationPage({
+    id: row.user_id,
+    role: row.role,
+    deleted_at: row.deleted_at,
+  }, { allowDeleted: true })
+}
+
 function canAdjustSanction(row: SanctionsRow): boolean {
   return row.status === 'active'
     && (row.kind === 'timeout' || row.kind === 'suspend')
@@ -581,6 +673,18 @@ function isSanctionAdjustBusy(row: SanctionsRow, mode: SanctionAdjustMode): bool
 }
 
 function openSanctionUserMiniProfile(row: SanctionsRow): void {
+  const id = getPositiveUserId(row.user_id)
+  if (id <= 0) return
+  openUserMiniProfile({
+    id,
+    username: row.username ?? null,
+    avatar_name: row.avatar_name ?? null,
+    role: row.role ?? null,
+    deleted_at: row.deleted_at ?? null,
+  })
+}
+
+function openContactRequestUserMiniProfile(row: ContactRequestRow): void {
   const id = getPositiveUserId(row.user_id)
   if (id <= 0) return
   openUserMiniProfile({
@@ -673,6 +777,27 @@ async function loadSanctions(): Promise<void> {
     void alertDialog('Не удалось загрузить санкции')
   } finally {
     sanctionsLoading.value = false
+  }
+}
+
+async function loadContactRequests(): Promise<void> {
+  if (contactRequestsLoading.value) return
+  contactRequestsLoading.value = true
+  try {
+    const { data } = await api.get('/moderation/contact_requests', {
+      params: {
+        page: contactRequestsPage.value,
+        limit: contactRequestsLimit.value,
+        username: contactRequestsUser.value || undefined,
+      },
+    })
+    contactRequests.value = Array.isArray(data?.items) ? data.items : []
+    contactRequestsTotal.value = Number.isFinite(data?.total) ? data.total : 0
+  } catch {
+    contactRequests.value = []
+    void alertDialog('Не удалось загрузить обращения')
+  } finally {
+    contactRequestsLoading.value = false
   }
 }
 
@@ -896,12 +1021,28 @@ function prevSanctions(): void {
   void loadSanctions()
 }
 
+function nextContactRequests(): void {
+  if (contactRequestsPage.value >= contactRequestsPages.value) return
+  contactRequestsPage.value += 1
+  void loadContactRequests()
+}
+
+function prevContactRequests(): void {
+  if (contactRequestsPage.value <= 1) return
+  contactRequestsPage.value -= 1
+  void loadContactRequests()
+}
+
 function refreshActiveTab(tab: TabKey): void {
   if (tab === 'users') {
     void loadUsers()
     return
   }
-  void loadSanctions()
+  if (tab === 'sanctions') {
+    void loadSanctions()
+    return
+  }
+  void loadContactRequests()
 }
 
 watch(activeTab, (tab) => {
@@ -934,6 +1075,19 @@ watch(sanctionsUser, () => {
   sanctionsUserTimer = window.setTimeout(() => { void loadSanctions() }, 500)
 })
 
+watch(contactRequestsLimit, () => {
+  contactRequestsPage.value = 1
+  if (activeTab.value !== 'contact_requests') return
+  void loadContactRequests()
+})
+
+watch(contactRequestsUser, () => {
+  contactRequestsPage.value = 1
+  if (activeTab.value !== 'contact_requests') return
+  if (contactRequestsUserTimer) window.clearTimeout(contactRequestsUserTimer)
+  contactRequestsUserTimer = window.setTimeout(() => { void loadContactRequests() }, 500)
+})
+
 onMounted(() => {
   refreshActiveTab(activeTab.value)
 })
@@ -941,6 +1095,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   if (usersUserTimer) window.clearTimeout(usersUserTimer)
   if (sanctionsUserTimer) window.clearTimeout(sanctionsUserTimer)
+  if (contactRequestsUserTimer) window.clearTimeout(contactRequestsUserTimer)
 })
 </script>
 
@@ -1129,6 +1284,13 @@ onBeforeUnmount(() => {
   }
   .sanctions-table .rule-cell,
   .sanctions-table .description-cell {
+    max-width: 520px;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .contact-requests-table .contact-cell,
+  .contact-requests-table .topic-cell,
+  .contact-requests-table .text-cell {
     max-width: 520px;
     white-space: pre-wrap;
     word-break: break-word;

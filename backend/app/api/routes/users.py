@@ -20,6 +20,7 @@ from ..utils import (
     safe_int,
     non_empty_str,
     contact_request_rate_key,
+    emit_notify,
     normalize_game_result,
     fetch_games_history_page,
     build_user_stats_out,
@@ -36,9 +37,10 @@ from ..utils import (
 )
 from ...models.game import Game
 from ...models.contact_request import ContactRequestRecord
+from ...models.notif import Notif
 from ...models.user import User
 from ...core.db import get_session
-from ...core.roles import ROLE_MODER, normalize_user_role
+from ...core.roles import ROLE_ADMIN, ROLE_MODER, normalize_user_role
 from ...core.settings import settings
 from ...core.clients import get_redis
 from ...core.logging import log_action
@@ -375,6 +377,30 @@ async def contact_request(request: Request, payload: ContactRequestIn, ident: Id
         )
     )
     await db.commit()
+
+    with suppress(Exception):
+        staff_ids = await db.scalars(
+            select(User.id).where(
+                User.role.in_((ROLE_ADMIN, ROLE_MODER)),
+                User.deleted_at.is_(None),
+            )
+        )
+        author_label = username or (
+            f"user{uid}" if uid else "неизвестного пользователя"
+        )
+        notes = [
+            Notif(
+                user_id=int(staff_id),
+                title="Новое обращение",
+                text=f"Поступило обращение от {author_label}",
+            )
+            for staff_id in staff_ids.all()
+        ]
+        db.add_all(notes)
+        await db.commit()
+        for note in notes:
+            await db.refresh(note)
+            await emit_notify(int(note.user_id), note, kind="contact_request")
 
     with suppress(Exception):
         await log_action(
