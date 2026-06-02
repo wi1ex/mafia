@@ -187,7 +187,11 @@ class AdminLogActionsOut(BaseModel):
 
 class AdminContactRequestOut(BaseModel):
     id: int
+    user_id: Optional[int] = None
     username: Optional[str] = None
+    avatar_name: Optional[str] = None
+    role: Optional[str] = None
+    deleted_at: Optional[datetime] = None
     contact: str
     topic: str
     text: str

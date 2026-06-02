@@ -364,13 +364,11 @@ async def contact_request(request: Request, payload: ContactRequestIn, ident: Id
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="contact_empty")
 
     uid = int(ident["id"]) if ident else None
-    db_username: str | None = None
-    if uid is not None:
-        db_username = await db.scalar(select(User.username).where(User.id == uid))
+    username = str(ident.get("username") or "") if ident else None
 
     db.add(
         ContactRequestRecord(
-            username=db_username,
+            user_id=uid,
             contact=contact,
             topic=topic,
             text=text,
@@ -382,7 +380,7 @@ async def contact_request(request: Request, payload: ContactRequestIn, ident: Id
         await log_action(
             db,
             user_id=uid,
-            username=db_username,
+            username=username,
             action="contact_request_sent",
             details=f"Сохранено обращение: user_id={uid or '-'} topic={topic}",
         )

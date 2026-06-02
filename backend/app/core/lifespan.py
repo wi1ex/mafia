@@ -61,7 +61,7 @@ async def lifespan(app) -> AsyncIterator[None]:
             await conn.execute(text(
                 "CREATE TABLE IF NOT EXISTS contact_requests ("
                 "id SERIAL PRIMARY KEY, "
-                "username VARCHAR(20), "
+                "user_id BIGINT, "
                 "contact VARCHAR(160) NOT NULL, "
                 "topic VARCHAR(120) NOT NULL, "
                 "text TEXT NOT NULL, "

@@ -423,11 +423,26 @@ async def logs_list(page: int = 1, limit: int = 20, action: str | None = None, u
 
 @router.get("/contact_requests", response_model=AdminContactRequestsOut, dependencies=ADMIN_GUARD)
 @log_route("admin.contact_requests.list")
-async def contact_requests_list(page: int = 1, limit: int = 20, session: AsyncSession = Depends(get_session)) -> AdminContactRequestsOut:
+async def contact_requests_list(page: int = 1, limit: int = 20, username: str | None = None, session: AsyncSession = Depends(get_session)) -> AdminContactRequestsOut:
     limit, page, offset = normalize_pagination(page, limit)
-    total = int(await session.scalar(select(func.count(ContactRequestRecord.id))) or 0)
+    filters = []
+    if username:
+        user_ids = await find_user_ids_by_username_search(session, username)
+        if not user_ids:
+            return AdminContactRequestsOut(total=0, items=[])
+        filters.append(ContactRequestRecord.user_id.in_(user_ids))
+
+    total = int(await session.scalar(select(func.count(ContactRequestRecord.id)).where(*filters)) or 0)
     rows = await session.execute(
-        select(ContactRequestRecord)
+        select(
+            ContactRequestRecord,
+            User.username,
+            User.avatar_name,
+            User.role,
+            User.deleted_at,
+        )
+        .outerjoin(User, User.id == ContactRequestRecord.user_id)
+        .where(*filters)
         .order_by(ContactRequestRecord.id.desc())
         .offset(offset)
         .limit(limit)
@@ -437,13 +452,17 @@ async def contact_requests_list(page: int = 1, limit: int = 20, session: AsyncSe
         items=[
             AdminContactRequestOut(
                 id=row.id,
-                username=row.username,
+                user_id=row.user_id,
+                username=current_username,
+                avatar_name=avatar_name,
+                role=role,
+                deleted_at=deleted_at,
                 contact=row.contact,
                 topic=row.topic,
                 text=row.text,
                 created_at=row.created_at,
             )
-            for row in rows.scalars().all()
+            for row, current_username, avatar_name, role, deleted_at in rows.all()
         ],
     )
 

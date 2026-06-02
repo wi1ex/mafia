@@ -761,6 +761,9 @@
         <div v-else-if="activeTab === 'contact_requests'">
           <div class="filters">
             <div class="field">
+              <UiInput id="contact-requests-user" v-model.trim="contactRequestsUser" label="Никнейм" :disabled="contactRequestsLoading" />
+            </div>
+            <div class="field">
               <label for="admin-contact-requests-limit">Отображать по</label>
               <select id="admin-contact-requests-limit" :value="contactRequestsLimit" :disabled="contactRequestsLoading" @change="setContactRequestsLimit">
                 <option v-for="option in PAGE_LIMIT_OPTIONS" :key="option.value" :value="option.value">{{ option.label }}</option>
@@ -785,7 +788,15 @@
                 <tr v-for="row in contactRequests" :key="row.id">
                   <td>{{ row.id }}</td>
                   <td>{{ formatLocalDateTime(row.created_at) }}</td>
-                  <td>{{ row.username || '-' }}</td>
+                  <td>
+                    <div v-if="row.user_id" class="user-cell">
+                      <button class="user-link user-profile-trigger" type="button" :disabled="!canOpenContactRequestUserMiniProfile(row)" @click="openContactRequestUserMiniProfile(row)">
+                        <img class="user-avatar" v-minio-img="{ key: row.avatar_name ? `avatars/${row.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                        <span>{{ row.username || `user${row.user_id}` }}</span>
+                      </button>
+                    </div>
+                    <span v-else>-</span>
+                  </td>
                   <td class="contact-cell">{{ row.contact }}</td>
                   <td class="topic-cell">{{ row.topic }}</td>
                   <td class="text-cell">{{ row.text }}</td>
@@ -1027,7 +1038,11 @@ type LogRow = {
 
 type ContactRequestRow = {
   id: number
+  user_id?: number | null
   username?: string | null
+  avatar_name?: string | null
+  role?: string | null
+  deleted_at?: string | null
   contact: string
   topic: string
   text: string
@@ -1299,6 +1314,7 @@ const contactRequests = ref<ContactRequestRow[]>([])
 const contactRequestsTotal = ref(0)
 const contactRequestsPage = ref(1)
 const contactRequestsLimit = ref(20)
+const contactRequestsUser = ref('')
 const usersRoleBusy = reactive<Record<number, boolean>>({})
 const usersDeleteBusy = reactive<Record<number, boolean>>({})
 const usersAvatarBusy = reactive<Record<number, boolean>>({})
@@ -1319,7 +1335,7 @@ const subscriptionForm = reactive({
 })
 const userMiniProfileOpen = ref(false)
 const userMiniProfileTarget = ref<UserMiniProfileTarget | null>(null)
-const userMiniProfileAllowDeleted = computed(() => activeTab.value === 'users' || activeTab.value === 'sanctions')
+const userMiniProfileAllowDeleted = computed(() => activeTab.value === 'users' || activeTab.value === 'sanctions' || activeTab.value === 'contact_requests')
 const userMiniProfileStatsUrl = computed(() => {
   const target = userMiniProfileTarget.value
   return target ? `/admin/users/${target.id}/stats` : null
@@ -1411,6 +1427,7 @@ let logsUserTimer: number | undefined
 let roomsUserTimer: number | undefined
 let usersUserTimer: number | undefined
 let sanctionsUserTimer: number | undefined
+let contactRequestsUserTimer: number | undefined
 
 function parseSeasonStartNumbers(raw: unknown): number[] {
   const source = String(raw ?? '').trim()
@@ -1896,6 +1913,26 @@ function openSanctionUserMiniProfile(row: SanctionsRow): void {
   })
 }
 
+function canOpenContactRequestUserMiniProfile(row: ContactRequestRow): boolean {
+  return canOpenMiniProfileOnAdminPage({
+    id: row.user_id,
+    role: row.role,
+    deleted_at: row.deleted_at,
+  }, { allowDeleted: true })
+}
+
+function openContactRequestUserMiniProfile(row: ContactRequestRow): void {
+  const id = getPositiveUserId(row.user_id)
+  if (id <= 0) return
+  openUserMiniProfile({
+    id,
+    username: row.username ?? null,
+    avatar_name: row.avatar_name ?? null,
+    role: row.role ?? null,
+    deleted_at: row.deleted_at ?? null,
+  })
+}
+
 function canDeleteSanction(row: SanctionsRow): boolean {
   return row.status !== 'active'
 }
@@ -2335,6 +2372,7 @@ async function loadContactRequests(): Promise<void> {
       params: {
         page: contactRequestsPage.value,
         limit: contactRequestsLimit.value,
+        username: contactRequestsUser.value || undefined,
       },
     })
     contactRequests.value = Array.isArray(data?.items) ? data.items : []
@@ -2978,6 +3016,13 @@ watch(contactRequestsLimit, () => {
   contactRequestsPage.value = 1
   if (activeTab.value !== 'contact_requests') return
   void loadContactRequests()
+})
+
+watch(contactRequestsUser, () => {
+  contactRequestsPage.value = 1
+  if (activeTab.value !== 'contact_requests') return
+  if (contactRequestsUserTimer) window.clearTimeout(contactRequestsUserTimer)
+  contactRequestsUserTimer = window.setTimeout(() => { void loadContactRequests() }, 500)
 })
 
 onMounted(() => {
