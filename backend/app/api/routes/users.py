@@ -35,6 +35,7 @@ from ..utils import (
     friend_status_for,
 )
 from ...models.game import Game
+from ...models.contact_request import ContactRequestRecord
 from ...models.user import User
 from ...core.db import get_session
 from ...core.roles import ROLE_MODER, normalize_user_role
@@ -44,7 +45,6 @@ from ...core.logging import log_action
 from ...security.auth_tokens import get_identity, get_identity_optional
 from ...security.decorators import log_route, rate_limited
 from ...services.text_moderation import enforce_clean_text
-from ...services.telegram import send_text_message
 from ...schemas.common import Identity, Ok
 from ...schemas.user import (
     UserOut,
@@ -125,9 +125,6 @@ CHAT_MENTION_LIMIT_DEFAULT = 8
 CHAT_MENTION_LIMIT_MAX = 10
 CHAT_MENTION_SEARCH_RATE_LIMIT = 100
 CHAT_MENTION_SEARCH_RATE_WINDOW_S = 10
-CONTACT_REQUEST_TELEGRAM_ID = 59404714
-
-
 @router.get("/profile_info", response_model=UserOut)
 @log_route("users.profile_info")
 @rate_limited(lambda ident, **_: f"rl:profile_info:{ident['id']}", limit=10, window_s=1)
@@ -354,13 +351,9 @@ async def support_link_click(payload: SupportLinkClickIn | None = None, ident: I
 @log_route("users.contact_request")
 @rate_limited(contact_request_rate_key, limit=3, window_s=60)
 async def contact_request(request: Request, payload: ContactRequestIn, ident: Identity | None = Depends(get_identity_optional), db: AsyncSession = Depends(get_session)) -> Ok:
-    category = non_empty_str(payload.category)
     topic = non_empty_str(payload.topic)
     text = non_empty_str(payload.text)
     contact = non_empty_str(payload.contact)
-    if not category:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="category_empty")
-
     if not topic:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="topic_empty")
 
@@ -372,38 +365,18 @@ async def contact_request(request: Request, payload: ContactRequestIn, ident: Id
 
     uid = int(ident["id"]) if ident else None
     db_username: str | None = None
-    db_role: str | None = None
-    db_telegram_id = 0
     if uid is not None:
-        user = await db.get(User, uid)
-        if user and not user.deleted_at:
-            db_username = str(user.username or ident.get("username") or f"user{uid}")
-            db_role = str(user.role or ident.get("role") or "")
-            db_telegram_id = int(user.telegram_id or 0)
+        db_username = await db.scalar(select(User.username).where(User.id == uid))
 
-    user_lines = ["Пользователь сайта: гость"]
-    if uid is not None and db_username is not None:
-        user_lines = [
-            "Пользователь сайта: зарегистрирован",
-            f"Ник: {db_username}",
-            f"ID пользователя: {uid}",
-            f"Роль: {db_role or '-'}",
-            f"TG ID из БД: {db_telegram_id if db_telegram_id > 0 else 'не привязан'}",
-        ]
-    user_block = "\n".join(user_lines)
-
-    message = (
-        "Новое обращение с сайта\n\n"
-        f"{user_block}\n\n"
-        f"Контакт для обратной связи: {contact}\n\n"
-        f"Категория: {category}\n"
-        f"Тема: {topic}\n\n"
-        f"Текст обращения:\n{text}"
+    db.add(
+        ContactRequestRecord(
+            username=db_username,
+            contact=contact,
+            topic=topic,
+            text=text,
+        )
     )
-
-    send_result = await send_text_message(chat_id=CONTACT_REQUEST_TELEGRAM_ID, text=message)
-    if not send_result.ok:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=send_result.reason or "telegram_unavailable")
+    await db.commit()
 
     with suppress(Exception):
         await log_action(
@@ -411,7 +384,7 @@ async def contact_request(request: Request, payload: ContactRequestIn, ident: Id
             user_id=uid,
             username=db_username,
             action="contact_request_sent",
-            details=f"Отправлено обращение: user_id={uid or '-'} category={category} topic={topic}",
+            details=f"Сохранено обращение: user_id={uid or '-'} topic={topic}",
         )
 
     return Ok()

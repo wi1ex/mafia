@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...core.clients import get_redis
 from ...core.db import get_session
 from ...models.log import AppLog
+from ...models.contact_request import ContactRequestRecord
 from ...models.game import Game
 from ...models.room import Room
 from ...models.notif import Notif
@@ -61,6 +62,8 @@ from ...schemas.admin import (
     AdminLogOut,
     AdminLogsOut,
     AdminLogActionsOut,
+    AdminContactRequestOut,
+    AdminContactRequestsOut,
     AdminSanctionListItemOut,
     AdminSanctionsOut,
     AdminRoomOut,
@@ -416,6 +419,33 @@ async def logs_list(page: int = 1, limit: int = 20, action: str | None = None, u
         )
 
     return AdminLogsOut(total=total, items=items)
+
+
+@router.get("/contact_requests", response_model=AdminContactRequestsOut, dependencies=ADMIN_GUARD)
+@log_route("admin.contact_requests.list")
+async def contact_requests_list(page: int = 1, limit: int = 20, session: AsyncSession = Depends(get_session)) -> AdminContactRequestsOut:
+    limit, page, offset = normalize_pagination(page, limit)
+    total = int(await session.scalar(select(func.count(ContactRequestRecord.id))) or 0)
+    rows = await session.execute(
+        select(ContactRequestRecord)
+        .order_by(ContactRequestRecord.id.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    return AdminContactRequestsOut(
+        total=total,
+        items=[
+            AdminContactRequestOut(
+                id=row.id,
+                username=row.username,
+                contact=row.contact,
+                topic=row.topic,
+                text=row.text,
+                created_at=row.created_at,
+            )
+            for row in rows.scalars().all()
+        ],
+    )
 
 
 @router.get("/rooms", response_model=AdminRoomsOut, dependencies=ADMIN_GUARD)

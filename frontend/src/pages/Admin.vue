@@ -23,6 +23,9 @@
         <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'sanctions' }" :aria-selected="activeTab === 'sanctions'" @click="activeTab = 'sanctions'">
           Санкции
         </button>
+        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'contact_requests' }" :aria-selected="activeTab === 'contact_requests'" @click="activeTab = 'contact_requests'">
+          Обращения
+        </button>
         <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'subscriptions' }" :aria-selected="activeTab === 'subscriptions'" @click="activeTab = 'subscriptions'">
           Подписки
         </button>
@@ -755,6 +758,51 @@
           </div>
         </div>
 
+        <div v-else-if="activeTab === 'contact_requests'">
+          <div class="filters">
+            <div class="field">
+              <label for="admin-contact-requests-limit">Отображать по</label>
+              <select id="admin-contact-requests-limit" :value="contactRequestsLimit" :disabled="contactRequestsLoading" @change="setContactRequestsLimit">
+                <option v-for="option in PAGE_LIMIT_OPTIONS" :key="option.value" :value="option.value">{{ option.label }}</option>
+              </select>
+            </div>
+          </div>
+
+          <div v-if="contactRequestsLoading" class="loading">Загрузка...</div>
+          <div v-else>
+            <table class="table contact-requests-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Дата</th>
+                  <th>Никнейм</th>
+                  <th>Контактные данные</th>
+                  <th>Тема обращения</th>
+                  <th>Текст обращения</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in contactRequests" :key="row.id">
+                  <td>{{ row.id }}</td>
+                  <td>{{ formatLocalDateTime(row.created_at) }}</td>
+                  <td>{{ row.username || '-' }}</td>
+                  <td class="contact-cell">{{ row.contact }}</td>
+                  <td class="topic-cell">{{ row.topic }}</td>
+                  <td class="text-cell">{{ row.text }}</td>
+                </tr>
+                <tr v-if="contactRequests.length === 0">
+                  <td colspan="6" class="muted">Нет данных</td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="pager">
+              <button class="btn" :disabled="contactRequestsPage <= 1" @click="prevContactRequests">Назад</button>
+              <span>{{ contactRequestsPage }} / {{ contactRequestsPages }}</span>
+              <button class="btn" :disabled="contactRequestsPage >= contactRequestsPages" @click="nextContactRequests">Вперед</button>
+            </div>
+          </div>
+        </div>
+
         <div v-else-if="activeTab === 'subscriptions'" class="subscriptions-tab">
           <div class="block subscription-table-block">
             <h3>Активные подписки — {{ activeSubscriptionsCount }}</h3>
@@ -977,6 +1025,15 @@ type LogRow = {
   created_at: string
 }
 
+type ContactRequestRow = {
+  id: number
+  username?: string | null
+  contact: string
+  topic: string
+  text: string
+  created_at: string
+}
+
 type RoomUserStat = {
   id: number
   username?: string | null
@@ -1111,7 +1168,7 @@ type RoomFilter = 'all' | 'stream_only' | 'hidden_only' | 'has_games' | 'duo_onl
 const route = useRoute()
 const router = useRouter()
 
-const TAB_KEYS = ['settings', 'updates', 'stats', 'logs', 'rooms', 'users', 'sanctions', 'subscriptions'] as const
+const TAB_KEYS = ['settings', 'updates', 'stats', 'logs', 'rooms', 'users', 'sanctions', 'contact_requests', 'subscriptions'] as const
 type TabKey = typeof TAB_KEYS[number]
 const PAGE_LIMIT_OPTIONS = [
   { value: 20, label: '20' },
@@ -1138,6 +1195,7 @@ const logsLoading = ref(false)
 const roomsLoading = ref(false)
 const usersLoading = ref(false)
 const sanctionsLoading = ref(false)
+const contactRequestsLoading = ref(false)
 const subscriptionsLoading = ref(false)
 
 const site = reactive<SiteSettings>({
@@ -1237,6 +1295,10 @@ const sanctionsTotal = ref(0)
 const sanctionsPage = ref(1)
 const sanctionsLimit = ref(20)
 const sanctionsUser = ref('')
+const contactRequests = ref<ContactRequestRow[]>([])
+const contactRequestsTotal = ref(0)
+const contactRequestsPage = ref(1)
+const contactRequestsLimit = ref(20)
 const usersRoleBusy = reactive<Record<number, boolean>>({})
 const usersDeleteBusy = reactive<Record<number, boolean>>({})
 const usersAvatarBusy = reactive<Record<number, boolean>>({})
@@ -1491,6 +1553,7 @@ const logsPages = computed(() => Math.max(1, Math.ceil(logsTotal.value / logsLim
 const roomsPages = computed(() => Math.max(1, Math.ceil(roomsTotal.value / roomsLimit.value)))
 const usersPages = computed(() => Math.max(1, Math.ceil(usersTotal.value / usersLimit.value)))
 const sanctionsPages = computed(() => Math.max(1, Math.ceil(sanctionsTotal.value / sanctionsLimit.value)))
+const contactRequestsPages = computed(() => Math.max(1, Math.ceil(contactRequestsTotal.value / contactRequestsLimit.value)))
 const logActionOptions = computed(() => [
   { value: 'all', label: 'Все' },
   ...logActions.value.map((action) => ({ value: action, label: action })),
@@ -1558,6 +1621,10 @@ function setUsersLimit(event: Event): void {
 
 function setSanctionsLimit(event: Event): void {
   sanctionsLimit.value = normalizePageLimit(selectValue(event))
+}
+
+function setContactRequestsLimit(event: Event): void {
+  contactRequestsLimit.value = normalizePageLimit(selectValue(event))
 }
 
 function setLogsAction(event: Event): void {
@@ -2260,6 +2327,26 @@ async function loadSanctions(): Promise<void> {
   }
 }
 
+async function loadContactRequests(): Promise<void> {
+  if (contactRequestsLoading.value) return
+  contactRequestsLoading.value = true
+  try {
+    const { data } = await api.get('/admin/contact_requests', {
+      params: {
+        page: contactRequestsPage.value,
+        limit: contactRequestsLimit.value,
+      },
+    })
+    contactRequests.value = Array.isArray(data?.items) ? data.items : []
+    contactRequestsTotal.value = Number.isFinite(data?.total) ? data.total : 0
+  } catch {
+    contactRequests.value = []
+    void alertDialog('Не удалось загрузить обращения')
+  } finally {
+    contactRequestsLoading.value = false
+  }
+}
+
 async function deleteSanction(row: SanctionsRow): Promise<void> {
   if (!canDeleteSanction(row) || sanctionsDeleting[row.id]) return
   const userLabel = row.username || `user${row.user_id}`
@@ -2543,6 +2630,18 @@ function prevSanctions(): void {
   void loadSanctions()
 }
 
+function nextContactRequests(): void {
+  if (contactRequestsPage.value >= contactRequestsPages.value) return
+  contactRequestsPage.value += 1
+  void loadContactRequests()
+}
+
+function prevContactRequests(): void {
+  if (contactRequestsPage.value <= 1) return
+  contactRequestsPage.value -= 1
+  void loadContactRequests()
+}
+
 async function toggleUserRole(row: UserRow): Promise<void> {
   if (isDeletedUserActionsLocked(row)) return
   if (String(row.role || 'user') === 'admin') return
@@ -2791,6 +2890,10 @@ function refreshActiveTab(tab: typeof activeTab.value): void {
     void loadSanctions()
     return
   }
+  if (tab === 'contact_requests') {
+    void loadContactRequests()
+    return
+  }
   if (tab === 'subscriptions') {
     void loadSubscriptions()
   }
@@ -2869,6 +2972,12 @@ watch(sanctionsUser, () => {
   if (activeTab.value !== 'sanctions') return
   if (sanctionsUserTimer) window.clearTimeout(sanctionsUserTimer)
   sanctionsUserTimer = window.setTimeout(() => { void loadSanctions() }, 500)
+})
+
+watch(contactRequestsLimit, () => {
+  contactRequestsPage.value = 1
+  if (activeTab.value !== 'contact_requests') return
+  void loadContactRequests()
 })
 
 onMounted(() => {
@@ -3361,6 +3470,13 @@ onMounted(() => {
     }
     .sanctions-table .actions-cell {
       white-space: nowrap;
+    }
+    .contact-requests-table .contact-cell,
+    .contact-requests-table .topic-cell,
+    .contact-requests-table .text-cell {
+      max-width: 520px;
+      white-space: pre-wrap;
+      word-break: break-word;
     }
     .status-badge {
       display: inline-flex;

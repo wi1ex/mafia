@@ -30,24 +30,6 @@
                 </template>
               </UiInput>
 
-              <span class="contact-body-title">Категория обращения</span>
-              <UiInput
-                class="contact-body-input"
-                id="contact-request-category"
-                v-model="category"
-                mode="light"
-                label-mode="placeholder"
-                label="Напишите тему"
-                :maxlength="CATEGORY_MAX"
-                autocomplete="off"
-                :invalid="categoryInvalid"
-                :disabled="busy"
-              >
-                <template #meta>
-                  <span>{{ category.length }}/{{ CATEGORY_MAX }}</span>
-                </template>
-              </UiInput>
-
               <span class="contact-body-title">Тема обращения</span>
               <UiDropdown
                 class="contact-body-input"
@@ -118,7 +100,6 @@ type TopicOption = {
   label: string
 }
 
-const CATEGORY_MAX = 80
 const CONTACT_MAX = 160
 const TEXT_MAX = 2000
 
@@ -134,23 +115,19 @@ const topicOptions: readonly TopicOption[] = [
 const armed = ref(false)
 const busy = ref(false)
 const submitAttempted = ref(false)
-const category = ref('')
 const topic = ref('')
 const messageText = ref('')
 const replyContact = ref('')
 
 let prevOverflow = ''
 
-const normalizedCategory = computed(() => normalizeInlineText(category.value).slice(0, CATEGORY_MAX))
 const normalizedContact = computed(() => normalizeInlineText(replyContact.value).slice(0, CONTACT_MAX))
 const normalizedText = computed(() => normalizeMessageText(messageText.value).slice(0, TEXT_MAX))
 const selectedTopicLabel = computed(() => topicOptions.find((option) => option.value === topic.value)?.label || '')
-const categoryOk = computed(() => normalizedCategory.value.length > 0)
 const contactOk = computed(() => normalizedContact.value.length > 0)
 const topicOk = computed(() => Boolean(selectedTopicLabel.value))
 const textOk = computed(() => normalizedText.value.length > 0)
-const canSubmit = computed(() => categoryOk.value && topicOk.value && textOk.value && contactOk.value)
-const categoryInvalid = computed(() => submitAttempted.value && !categoryOk.value)
+const canSubmit = computed(() => topicOk.value && textOk.value && contactOk.value)
 const replyContactInvalid = computed(() => submitAttempted.value && !contactOk.value)
 const topicInvalid = computed(() => submitAttempted.value && !topicOk.value)
 const textInvalid = computed(() => submitAttempted.value && !textOk.value)
@@ -180,7 +157,6 @@ function requestClose(): void {
 }
 
 function resetForm(): void {
-  category.value = ''
   topic.value = ''
   messageText.value = ''
   replyContact.value = ''
@@ -194,7 +170,6 @@ async function submit(): Promise<void> {
   busy.value = true
   try {
     await api.post('/users/contact_request', {
-      category: normalizedCategory.value,
       topic: selectedTopicLabel.value,
       text: normalizedText.value,
       contact: normalizedContact.value,
@@ -204,13 +179,8 @@ async function submit(): Promise<void> {
     void alertDialog('Обращение отправлено')
   } catch (e: any) {
     const status = Number(e?.response?.status || 0)
-    const detail = String(e?.response?.data?.detail || e?.message || '')
-    if (status === 401 || detail === 'auth_expired') {
-      void alertDialog('Авторизуйтесь, чтобы отправить обращение')
-    } else if (status === 422) {
+    if (status === 422) {
       void alertDialog('Заполните все поля обращения')
-    } else if (status === 503) {
-      void alertDialog('Не удалось отправить обращение в Telegram. Попробуйте позже')
     } else {
       void alertDialog('Не удалось отправить обращение')
     }

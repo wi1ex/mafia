@@ -185,6 +185,20 @@ class AdminLogActionsOut(BaseModel):
     actions: List[str]
 
 
+class AdminContactRequestOut(BaseModel):
+    id: int
+    username: Optional[str] = None
+    contact: str
+    topic: str
+    text: str
+    created_at: datetime
+
+
+class AdminContactRequestsOut(BaseModel):
+    total: int
+    items: List[AdminContactRequestOut]
+
+
 class AdminSanctionOut(BaseModel):
     id: int
     kind: Literal["timeout", "ban", "suspend"]
