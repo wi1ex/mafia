@@ -218,6 +218,8 @@ onBeforeUnmount(() => {
           }
         }
         &:disabled {
+          width: 274px;
+          height: 154px;
           opacity: 0.5;
           cursor: not-allowed;
         }
