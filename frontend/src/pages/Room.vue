@@ -1365,6 +1365,14 @@ function onHotkey(e: KeyboardEvent) {
     }
     return
   }
+  if (code === 'Space') {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!hostBlurActive.value && (gamePhase.value === 'idle' || isHead.value || amIAlive.value)) {
+      tryHandleSpaceHotkey()
+    }
+    return
+  }
 
   if (hostBlurActive.value) return
   if (gamePhase.value !== 'idle' && !(isHead.value || amIAlive.value)) return
@@ -1374,13 +1382,6 @@ function onHotkey(e: KeyboardEvent) {
       e.preventDefault()
       e.stopPropagation()
       void takeFoulUi()
-    }
-    return
-  }
-  if (code === 'Space') {
-    if (tryHandleSpaceHotkey()) {
-      e.preventDefault()
-      e.stopPropagation()
     }
     return
   }

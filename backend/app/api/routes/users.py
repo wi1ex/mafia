@@ -385,8 +385,8 @@ async def contact_request(request: Request, payload: ContactRequestIn, ident: Id
                 User.deleted_at.is_(None),
             )
         )
-        author_label = username or (
-            f"user{uid}" if uid else "неизвестного пользователя"
+        author_label = f"пользователя {username}" or (
+            f"пользователя с id={uid}" if uid else "неизвестного пользователя"
         )
         notes = [
             Notif(
