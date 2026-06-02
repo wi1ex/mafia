@@ -153,6 +153,25 @@
                 <span class="value">{{ stats.tg_invites_disabled_users }}</span>
               </div>
               <div class="stat-card">
+                <span class="label">В комнатах</span>
+                <span class="value">{{ stats.active_room_users }}</span>
+              </div>
+              <div class="stat-card">
+                <span class="label">Онлайн текущий</span>
+                <div class="tooltip" tabindex="0">
+                  <span class="value tooltip-value">{{ stats.online_users }}</span>
+                  <div class="tooltip-body">
+                    <div v-if="stats.online_users_list.length === 0" class="tooltip-empty">Нет данных</div>
+                    <div v-else class="tooltip-list">
+                      <div v-for="item in stats.online_users_list" :key="`online-${item.id}`" class="tooltip-row">
+                        <img class="tooltip-avatar" v-minio-img="{ key: item.avatar_name ? `avatars/${item.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                        <span>{{ item.username || `user${item.id}` }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="stat-card">
                 <span class="label">Аватары</span>
                 <span class="value">{{ stats.avatars_count }} ({{ formatBytes(stats.avatars_bytes) }})</span>
               </div>
@@ -171,25 +190,6 @@
               <div class="stat-card">
                 <span class="label">Всего стримы</span>
                 <span class="value">{{ formatMinutes(stats.total_stream_minutes) }}</span>
-              </div>
-              <div class="stat-card">
-                <span class="label">В комнатах</span>
-                <span class="value">{{ stats.active_room_users }}</span>
-              </div>
-              <div class="stat-card">
-                <span class="label">Онлайн текущий</span>
-                <div class="tooltip" tabindex="0">
-                  <span class="value tooltip-value">{{ stats.online_users }}</span>
-                  <div class="tooltip-body">
-                    <div v-if="stats.online_users_list.length === 0" class="tooltip-empty">Нет данных</div>
-                    <div v-else class="tooltip-list">
-                      <div v-for="item in stats.online_users_list" :key="`online-${item.id}`" class="tooltip-row">
-                        <img class="tooltip-avatar" v-minio-img="{ key: item.avatar_name ? `avatars/${item.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
-                        <span>{{ item.username || `user${item.id}` }}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
               </div>
             </div>
             <div class="chart">
