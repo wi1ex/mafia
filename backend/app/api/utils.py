@@ -123,6 +123,7 @@ __all__ = [
     "compute_duration_seconds",
     "elapsed_seconds_since",
     "is_sanction_active",
+    "is_sanction_expired_after_game",
     "fetch_active_sanction",
     "fetch_active_sanctions",
     "fetch_active_sanctions_for_users",

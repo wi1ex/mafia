@@ -276,21 +276,35 @@
                     <span class="sanction-tag">{{ formatSanctionKind(item.kind) }}</span>
                     <span class="sanction-status" :class="`status--${sanctionStatus(item).tone}`">{{ sanctionStatus(item).text }}</span>
                   </div>
-                  <span class="sanction-issued">{{ formatLocalDateTime(item.issued_at) }}</span>
                 </div>
-                <div class="sanction-reason">{{ item.reason || 'Причина не указана' }}</div>
                 <div class="sanction-grid">
                   <div class="sanction-cell">
-                    <span>Выдал</span>
-                    <strong>{{ formatSanctionActor(item.issued_by_name, item.issued_by_id) }}</strong>
+                    <span>Дата выдачи</span>
+                    <strong>{{ formatLocalDateTime(item.issued_at) }}</strong>
                   </div>
                   <div class="sanction-cell">
-                    <span>Срок</span>
+                    <span>Пункт правил</span>
+                    <strong>{{ item.reason || 'Причина не указана' }}</strong>
+                  </div>
+                  <div class="sanction-cell">
+                    <span>Срок изначальный</span>
                     <strong>{{ formatSanctionDuration(item.duration_seconds) }}</strong>
                   </div>
-                  <div v-if="isSanctionCompleted(item)" class="sanction-cell">
-                    <span>Завершение</span>
-                    <strong>{{ formatSanctionEnd(item) }}</strong>
+                  <div class="sanction-cell">
+                    <span>Дата снятия</span>
+                    <strong>{{ formatSanctionFinishedAt(item) }}</strong>
+                  </div>
+                  <div class="sanction-cell">
+                    <span>Причина снятия</span>
+                    <strong>{{ formatSanctionCompletionReason(item) }}</strong>
+                  </div>
+                  <div class="sanction-cell">
+                    <span>Срок по факту</span>
+                    <strong>{{ formatDurationSeconds(item.served_seconds, '0м') }}</strong>
+                  </div>
+                  <div v-if="item.kind === 'suspend'" class="sanction-cell">
+                    <span>Отработка ведущим</span>
+                    <strong>{{ formatDurationSeconds(item.hosted_workoff_seconds, '0м') }}</strong>
                   </div>
                 </div>
               </article>
@@ -432,15 +446,14 @@ let onProfileSync: ((e: Event) => void) | null = null
 type SanctionItem = {
   id: number
   kind: 'timeout' | 'ban' | 'suspend'
+  status: 'active' | 'expired_auto' | 'revoked'
+  completion_reason: 'active' | 'expired' | 'revoked_staff' | 'hosted_game'
   reason?: string | null
   issued_at: string
-  issued_by_id?: number | null
-  issued_by_name?: string | null
+  finished_at?: string | null
   duration_seconds?: number | null
-  expires_at?: string | null
-  revoked_at?: string | null
-  revoked_by_id?: number | null
-  revoked_by_name?: string | null
+  served_seconds: number
+  hosted_workoff_seconds?: number | null
 }
 
 const sanctions = ref<SanctionItem[]>([])
@@ -863,8 +876,8 @@ function formatSanctionKind(kind: SanctionItem['kind']): string {
   return kind
 }
 
-function formatSanctionDuration(seconds?: number | null): string {
-  if (!seconds) return 'без срока'
+function formatDurationSeconds(seconds?: number | null, zeroLabel = 'без срока'): string {
+  if (!seconds) return zeroLabel
   const total = Math.max(0, Math.floor(Number(seconds) || 0))
   const mins = Math.floor(total / 60)
   const days = Math.floor(mins / 1440)
@@ -877,68 +890,30 @@ function formatSanctionDuration(seconds?: number | null): string {
   return parts.join(' ')
 }
 
-function formatSanctionActor(name?: string | null, id?: number | null): string {
-  if (name) return name
-  if (Number.isFinite(id)) return `#${id}`
-  return '-'
-}
-
-function parseSanctionDate(value?: string | null): Date | null {
-  if (!value) return null
-  const dt = new Date(value)
-  return Number.isNaN(dt.getTime()) ? null : dt
-}
-
-function isSanctionExpiredAfterGame(item: SanctionItem): boolean {
-  const revokedByName = String(item.revoked_by_name || '').trim().toLowerCase()
-  return Boolean(
-    item.revoked_at
-    && item.kind === 'suspend'
-    && item.revoked_by_id == null
-    && revokedByName === 'проведение игры',
-  )
-}
-
-function getSanctionState(item: SanctionItem) {
-  const now = Date.now()
-  const revokedAt = parseSanctionDate(item.revoked_at)
-  if (revokedAt) {
-    if (isSanctionExpiredAfterGame(item)) return { state: 'expired', endAt: revokedAt, now }
-    return { state: 'revoked', endAt: revokedAt, now }
-  }
-  const expiresAt = parseSanctionDate(item.expires_at)
-  if (expiresAt) {
-    if (expiresAt.getTime() <= now) return { state: 'expired', endAt: expiresAt, now }
-    return { state: 'active', endAt: expiresAt, now }
-  }
-  return { state: 'active_forever', endAt: null, now }
+function formatSanctionDuration(seconds?: number | null): string {
+  return formatDurationSeconds(seconds, 'без срока')
 }
 
 function isSanctionCompleted(item: SanctionItem): boolean {
-  const st = getSanctionState(item)
-  return st.state === 'revoked' || st.state === 'expired'
+  return item.status !== 'active'
+}
+
+function formatSanctionFinishedAt(item: SanctionItem): string {
+  if (!isSanctionCompleted(item) || !item.finished_at) return '-'
+  return formatLocalDateTime(item.finished_at)
+}
+
+function formatSanctionCompletionReason(item: SanctionItem): string {
+  if (item.completion_reason === 'expired') return 'Истекла'
+  if (item.completion_reason === 'revoked_staff') return 'Досрочное снятие администрацией'
+  if (item.completion_reason === 'hosted_game') return 'Проведение игры'
+  return '-'
 }
 
 function sanctionStatus(item: SanctionItem): { text: string; tone: 'active' | 'ended' | 'revoked' } {
-  const st = getSanctionState(item)
-  if (st.state === 'revoked') return { text: 'Снято досрочно', tone: 'revoked' }
-  if (st.state === 'expired') return { text: 'Срок истек', tone: 'ended' }
+  if (item.status === 'revoked') return { text: 'Снято досрочно', tone: 'revoked' }
+  if (item.status === 'expired_auto') return { text: 'Срок истек', tone: 'ended' }
   return { text: 'Активно', tone: 'active' }
-}
-
-function formatSanctionEnd(item: SanctionItem): string {
-  const st = getSanctionState(item)
-  if (st.state === 'revoked') {
-    const revokedBy = formatSanctionActor(item.revoked_by_name, item.revoked_by_id)
-    return `Снято досрочно: ${revokedBy} ${formatLocalDateTime(st.endAt)}`
-  }
-  if (st.state === 'expired') {
-    return `${formatLocalDateTime(st.endAt)}`
-  }
-  if (st.state === 'active') {
-    return `Ожидается: ${formatLocalDateTime(st.endAt)}`
-  }
-  return 'Без срока'
 }
 
 type Crop = {
@@ -1892,28 +1867,11 @@ onBeforeUnmount(() => {
                     }
                   }
                 }
-                .sanction-issued {
-                  font-size: 12px;
-                  color: $ashy;
-                  white-space: nowrap;
-                }
-              }
-              .sanction-reason {
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                padding: 5px 10px;
-                min-width: 30px;
-                border-radius: 5px;
-                background-color: $graphite;
-                margin-top: 5px;
-                font-size: 14px;
-                color: $fg;
               }
               .sanction-grid {
                 display: grid;
                 grid-template-columns: repeat(2, minmax(0, 1fr));
-                gap: 10px 0;
+                gap: 10px;
                 margin-top: 10px;
                 .sanction-cell {
                   display: flex;
@@ -1926,6 +1884,7 @@ onBeforeUnmount(() => {
                   }
                   strong {
                     color: $fg;
+                    overflow-wrap: anywhere;
                   }
                 }
               }

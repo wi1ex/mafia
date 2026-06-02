@@ -1,5 +1,6 @@
 from __future__ import annotations
 from contextlib import suppress
+from datetime import datetime, timezone
 from typing import cast, Literal
 from sqlalchemy import select, update, exists, func, literal, and_, case
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,7 +9,12 @@ from ..utils import (
     broadcast_creator_rooms,
     fetch_active_sanctions,
     fetch_sanctions_for_users,
+    fetch_suspend_hosted_workoff_seconds,
+    is_sanction_expired_after_game,
     pick_active_sanction_kind,
+    sanction_finished_at,
+    sanction_served_seconds,
+    sanction_status,
     ensure_profile_changes_allowed,
     set_user_deleted,
     force_logout_user,
@@ -740,22 +746,40 @@ async def sanctions_history(ident: Identity = Depends(get_identity), db: AsyncSe
     uid = cast(int, user.id)
     sanctions_map = await fetch_sanctions_for_users(db, [uid])
     rows = sanctions_map.get(uid, [])
-    items = [
-        UserSanctionOut(
+    now = datetime.now(timezone.utc)
+    hosted_workoff_seconds = await fetch_suspend_hosted_workoff_seconds(db, rows, now=now)
+    items: list[UserSanctionOut] = []
+    for row in rows:
+        status_value = sanction_status(row, now)
+        expired_after_game = is_sanction_expired_after_game(row)
+        completion_reason = (
+            "active"
+            if status_value == "active"
+            else "hosted_game"
+            if expired_after_game
+            else "expired"
+            if status_value == "expired_auto"
+            else "revoked_staff"
+        )
+        items.append(UserSanctionOut(
             id=cast(int, row.id),
             kind=str(row.kind),
+            status=cast(Literal["active", "expired_auto", "revoked"], status_value),
+            completion_reason=cast(
+                Literal["active", "expired", "revoked_staff", "hosted_game"],
+                completion_reason,
+            ),
             reason=row.reason or None,
             issued_at=row.issued_at,
-            issued_by_id=cast(int, row.issued_by_id) if row.issued_by_id is not None else None,
-            issued_by_name=row.issued_by_name,
+            finished_at=sanction_finished_at(row),
             duration_seconds=row.duration_seconds,
-            expires_at=row.expires_at,
-            revoked_at=row.revoked_at,
-            revoked_by_id=cast(int, row.revoked_by_id) if row.revoked_by_id is not None else None,
-            revoked_by_name=row.revoked_by_name,
-        )
-        for row in rows
-    ]
+            served_seconds=sanction_served_seconds(row, now),
+            hosted_workoff_seconds=(
+                hosted_workoff_seconds.get(cast(int, row.id))
+                if row.kind == "suspend"
+                else None
+            ),
+        ))
 
     return UserSanctionsOut(items=items)
 
