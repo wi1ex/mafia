@@ -19,6 +19,7 @@ from ..models.sanction import UserSanction
 from ..models.user import User
 from ..core.db import SessionLocal
 from ..core.roles import (
+    ROLE_MODER,
     can_moderate_chat_message,
     can_purge_deleted_chat_message,
     can_view_deleted_chat_message,
@@ -38,6 +39,7 @@ GLOBAL_CHAT_OPEN_USER_ROOM_PREFIX = "global_chat:user_open"
 GLOBAL_CHAT_HISTORY_LIMIT = 100
 GLOBAL_CHAT_CONTEXT_WINDOW = 25
 GLOBAL_CHAT_MAX_TEXT_LEN = 1000
+GLOBAL_CHAT_ADMIN_USERNAME = "admin"
 GLOBAL_CHAT_IMAGE_KEY_RE = re.compile(r"^[a-zA-Z0-9._/-]{3,256}$")
 GLOBAL_CHAT_MENTION_RE = re.compile(r"(?<!\S)@([a-zA-Zа-яА-ЯёЁ0-9._\-()]{2,20})(?![a-zA-Zа-яА-ЯёЁ0-9._\-()])")
 SANCTION_RULE_POINT_RE = re.compile(r"^\s*([0-9]+(?:\.[0-9]+)*)\.")
@@ -286,6 +288,26 @@ def _mentioned_user_ids_from_spans(mention_spans: Sequence[dict[str, Any]], *, i
         for user_id in (_positive_int(mention.get("user_id")),)
         if user_id > 0
     }
+
+
+def _mention_spans_include_username(text: str, mention_spans: Sequence[dict[str, Any]], username: str) -> bool:
+    source = str(text or "")
+    target = f"@{str(username or '').strip()}".casefold()
+    if target == "@":
+        return False
+
+    for mention in mention_spans:
+        if _mention_span_is_silent(mention):
+            continue
+        try:
+            start = int(mention.get("start"))
+            end = int(mention.get("end"))
+        except Exception:
+            continue
+        if 0 <= start < end <= len(source) and source[start:end].casefold() == target:
+            return True
+
+    return False
 
 
 def _build_mentions_payload_from_spans(mention_spans: Sequence[dict[str, Any]], profiles: dict[int, dict[str, Any]]) -> list[dict[str, Any]]:
@@ -859,6 +881,7 @@ async def _build_global_chat_alert_user_ids_map(session: AsyncSession, messages:
 
     mention_spans_by_message_id, _, mentioned_usernames = _collect_message_mention_context(messages)
     resolved_mentions = await _resolve_mentioned_users(session, mentioned_usernames)
+    moderator_user_ids: set[int] | None = None
 
     out: dict[int, set[int]] = {}
     for message in messages:
@@ -876,8 +899,38 @@ async def _build_global_chat_alert_user_ids_map(session: AsyncSession, messages:
         mention_spans = mention_spans_by_message_id.get(message_id) or []
         if mention_spans:
             alert_user_ids.update(_mentioned_user_ids_from_spans(mention_spans, include_silent=False))
+            mentions_admin = _mention_spans_include_username(
+                str(message.text or ""),
+                mention_spans,
+                GLOBAL_CHAT_ADMIN_USERNAME,
+            )
         else:
             alert_user_ids.update(_build_mentioned_user_ids(str(message.text or ""), resolved_mentions))
+            mentions_admin = (
+                GLOBAL_CHAT_ADMIN_USERNAME in resolved_mentions
+                and GLOBAL_CHAT_ADMIN_USERNAME in {
+                    username.casefold()
+                    for username in _extract_mentioned_usernames(str(message.text or ""))
+                }
+            )
+
+        if mentions_admin:
+            if moderator_user_ids is None:
+                moderator_rows = await session.execute(
+                    select(User.id).where(
+                        User.deleted_at.is_(None),
+                        func.lower(User.role) == ROLE_MODER,
+                    )
+                )
+                moderator_user_ids = {
+                    user_id
+                    for user_id in (
+                        _positive_int(raw_user_id)
+                        for raw_user_id in moderator_rows.scalars().all()
+                    )
+                    if user_id > 0
+                }
+            alert_user_ids.update(moderator_user_ids)
 
         author_user_id = _positive_int(message.user_id)
         if author_user_id > 0:
