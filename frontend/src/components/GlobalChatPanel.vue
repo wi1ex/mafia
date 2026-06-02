@@ -117,8 +117,11 @@
                     <img :src="iconDelete" alt="" />
                   </button>
                   <Transition name="emoji-picker-pop">
-                    <component :is="EmojiPicker" v-if="reactionPickerMessageId === message.id" mode="reactions" :reactions="reactionsAllowlist"
-                               @select="onSelectReaction(message.id, $event)" @close="reactionPickerMessageId = null" />
+                    <div v-if="reactionPickerMessageId === message.id" class="emoji-picker emoji-picker--reactions" @click.stop>
+                      <button v-for="emoji in reactionPickerItems" :key="emoji" class="emoji-button" type="button" @click="onSelectReaction(message.id, emoji)">
+                        {{ emoji }}
+                      </button>
+                    </div>
                   </Transition>
                 </div>
               </div>
@@ -200,7 +203,13 @@
             <img :src="iconEmoji" alt="" />
           </button>
           <Transition name="emoji-picker-pop">
-            <component :is="EmojiPicker" v-if="composerPickerOpen" mode="composer" @select="insertEmoji" @close="composerPickerOpen = false" />
+            <div v-if="composerPickerOpen" class="emoji-picker emoji-picker--composer" @click.stop>
+              <div class="emoji-grid emoji-grid--composer">
+                <button v-for="emoji in GLOBAL_CHAT_COMPOSER_EMOJIS" :key="emoji" class="emoji-button" type="button" @click="insertEmoji(emoji)">
+                  {{ emoji }}
+                </button>
+              </div>
+            </div>
           </Transition>
 
           <button class="send-button" type="button" :disabled="!canSendCurrentDraft" @click="onSend" >
@@ -273,10 +282,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { api } from '@/services/axios'
+import { GLOBAL_CHAT_COMPOSER_EMOJIS } from '@/constants/globalChatComposerEmojis'
 import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
 import { getProfileThemeBadgeSources } from '@/constants/profileThemeIcons'
 import { alertDialog, confirmDialog } from '@/services/confirm'
@@ -305,7 +315,6 @@ import type {
   GlobalChatReactionParticipant,
 } from '@/store/modules/globalChat'
 
-const EmojiPicker = defineAsyncComponent(() => import('@/components/GlobalChatEmojiPicker.vue'))
 const auth = useAuthStore()
 const user = useUserStore()
 const settings = useSettingsStore()
@@ -447,6 +456,7 @@ const composerDisabled = computed(() => {
     || sending.value
     || uploadingImage.value
 })
+const reactionPickerItems = computed(() => reactionsAllowlist.value.filter((item, index, list) => Boolean(item) && list.indexOf(item) === index))
 const composerPlaceholder = computed(() => (
   permissions.value.can_send ? 'Введите текст...' : 'Чат временно отключен...'
 ))
@@ -1134,6 +1144,19 @@ function onWindowKeydown(event: KeyboardEvent): void {
   }
 }
 
+function isPickerPointerTarget(target: EventTarget | null, pickerClass: string): boolean {
+  return target instanceof Element && Boolean(target.closest(`.${pickerClass}`))
+}
+
+function onDocumentPointerDown(event: PointerEvent): void {
+  if (composerPickerOpen.value && !isPickerPointerTarget(event.target, 'emoji-picker--composer')) {
+    composerPickerOpen.value = false
+  }
+  if (reactionPickerMessageId.value !== null && !isPickerPointerTarget(event.target, 'emoji-picker--reactions')) {
+    reactionPickerMessageId.value = null
+  }
+}
+
 function scrollToBottom(behavior: ScrollBehavior = 'auto'): void {
   const list = listEl.value
   if (!list) return
@@ -1581,6 +1604,7 @@ function onWindowResize(): void {
 }
 
 onMounted(() => {
+  document.addEventListener('pointerdown', onDocumentPointerDown)
   window.addEventListener('keydown', onWindowKeydown)
   window.addEventListener('resize', onWindowResize)
   stickToBottom.value = true
@@ -1595,6 +1619,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  document.removeEventListener('pointerdown', onDocumentPointerDown)
   window.removeEventListener('keydown', onWindowKeydown)
   window.removeEventListener('resize', onWindowResize)
   cancelScheduledScrollToBottom()
@@ -2325,6 +2350,57 @@ onBeforeUnmount(() => {
         width: 16px;
         height: 16px;
       }
+    }
+  }
+}
+.emoji-picker {
+  display: flex;
+  position: absolute;
+  transform-origin: bottom right;
+  background-color: $lead;
+  box-shadow: 0 15px 30px rgba($black, 0.25);
+  overflow: hidden;
+  z-index: 10;
+  .emoji-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: none;
+    font-size: 18px;
+    transition: transform 0.25s ease-in-out;
+    cursor: pointer;
+    &:hover {
+      transform: translateY(-3px);
+    }
+  }
+  &--reactions {
+    bottom: calc(100% + 5px);
+    right: 0;
+    padding: 5px;
+    border-radius: 999px;
+    > .emoji-button {
+      padding: 0;
+      width: 30px;
+      height: 30px;
+    }
+  }
+  &--composer {
+    flex-direction: column;
+    bottom: calc(100% + 10px);
+    right: 10px;
+    padding: 10px;
+    width: 250px;
+    height: 200px;
+    border-radius: 5px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    .emoji-grid--composer {
+      display: grid;
+      grid-template-columns: repeat(8, minmax(0, 1fr));
+      gap: 5px;
     }
   }
 }
