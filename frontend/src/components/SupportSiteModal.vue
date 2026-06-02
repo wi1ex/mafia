@@ -14,7 +14,18 @@
           </header>
 
           <div class="site-list">
-            <a v-for="site in supportSites" :key="site.id" class="site-option" :href="site.url" target="_blank" rel="noopener noreferrer" @click="onSelect(site)">
+            <component
+              :is="site.enabled ? 'a' : 'button'"
+              v-for="site in supportSites"
+              :key="site.id"
+              class="site-option"
+              :href="site.enabled ? site.url : undefined"
+              :target="site.enabled ? '_blank' : undefined"
+              :rel="site.enabled ? 'noopener noreferrer' : undefined"
+              :type="site.enabled ? undefined : 'button'"
+              :disabled="!site.enabled"
+              @click="onSelect(site)"
+            >
               <div class="site-title">
                 <img :src="site.icon" :alt="site.iconAlt" class="site-logo" />
                 <UiIcon class="arrow-icon" :icon="iconArrowNext" />
@@ -23,7 +34,7 @@
                 <span class="site-name">{{ site.name }}</span>
                 <span class="site-note">{{ site.note }}</span>
               </div>
-            </a>
+            </component>
           </div>
         </div>
       </div>
@@ -32,14 +43,15 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
 import UiIcon from '@/components/UiIcon.vue'
+import { useSettingsStore } from '@/store'
 
 import iconClose from '@/assets/svg/iconClose.svg'
 import iconArrowNext from '@/assets/svg/iconArrowNext.svg'
-import iconTribute from '@/assets/images/donateTribute.png'
-import iconDonationAlerts from '@/assets/images/donateDonation.png'
+import iconSupportService1 from '@/assets/images/donateTribute.png'
+import iconSupportService2 from '@/assets/images/donateDonation.png'
 
 const props = defineProps<{
   open: boolean
@@ -55,6 +67,7 @@ type SupportSiteOption = SupportSite & {
   icon: string
   iconAlt: string
   note: string
+  enabled: boolean
 }
 
 const emit = defineEmits<{
@@ -62,24 +75,28 @@ const emit = defineEmits<{
   'select': [SupportSite]
 }>()
 
-const supportSites: readonly SupportSiteOption[] = [
+const settings = useSettingsStore()
+
+const supportSites = computed<readonly SupportSiteOption[]>(() => [
   {
-    id: 'tribute',
+    id: 'service_1',
     name: 'Tribute',
     url: 'https://web.tribute.tg/d/Cvc',
-    icon: iconTribute,
+    icon: iconSupportService1,
     iconAlt: 'tribute',
     note: 'Сервис поддержки в Telegram',
+    enabled: Boolean(settings.supportService1Enabled),
   },
   {
-    id: 'donation_alerts',
+    id: 'service_2',
     name: 'DonationAlerts',
     url: 'https://dalink.to/deceit_games',
-    icon: iconDonationAlerts,
+    icon: iconSupportService2,
     iconAlt: 'donation',
     note: 'Внешний сервис поддержки',
+    enabled: Boolean(settings.supportService2Enabled),
   },
-] as const
+])
 
 const armed = ref(false)
 
@@ -87,7 +104,8 @@ function requestClose(): void {
   emit('update:open', false)
 }
 
-function onSelect(site: SupportSite): void {
+function onSelect(site: SupportSiteOption): void {
+  if (!site.enabled) return
   emit('select', { id: site.id, name: site.name, url: site.url })
   requestClose()
 }
@@ -185,18 +203,23 @@ onBeforeUnmount(() => {
         border: 1px solid $neutral-white;
         background-color: $neutral-white;
         color: $fg;
+        text-align: left;
         text-decoration: none;
         outline: none;
         transition: border-color 0.25s ease-in-out;
-        &:hover,
-        &:focus-visible,
-        &:active {
+        &:not(:disabled):hover,
+        &:not(:disabled):focus-visible,
+        &:not(:disabled):active {
           border-color: $green-600;
           .site-title {
             .arrow-icon {
               --ui-icon-color: #{$green-600};
             }
           }
+        }
+        &:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
         }
         .site-title {
           display: flex;

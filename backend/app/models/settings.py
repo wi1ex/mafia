@@ -20,6 +20,8 @@ class AppSettings(Base):
     streams_can_start: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.STREAMS_CAN_START))
     chat_open_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.CHAT_OPEN_ENABLED))
     chat_messages_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.CHAT_MESSAGES_ENABLED))
+    support_service_1_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.SUPPORT_SERVICE_1_ENABLED))
+    support_service_2_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.SUPPORT_SERVICE_2_ENABLED))
     verification_restrictions: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.VERIFICATION_RESTRICTIONS))
     admin_banner_text: Mapped[str] = mapped_column(String(2048), nullable=False, server_default="0")
     admin_banner_link: Mapped[str] = mapped_column(String(2048), nullable=False, server_default="0")

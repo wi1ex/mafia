@@ -50,6 +50,14 @@ async def lifespan(app) -> AsyncIterator[None]:
                 "ALTER TABLE user_sanctions "
                 "ADD COLUMN IF NOT EXISTS description VARCHAR(2048)"
             ))
+            await conn.execute(text(
+                "ALTER TABLE settings "
+                f"ADD COLUMN IF NOT EXISTS support_service_1_enabled BOOLEAN NOT NULL DEFAULT {'true' if settings.SUPPORT_SERVICE_1_ENABLED else 'false'}"
+            ))
+            await conn.execute(text(
+                "ALTER TABLE settings "
+                f"ADD COLUMN IF NOT EXISTS support_service_2_enabled BOOLEAN NOT NULL DEFAULT {'true' if settings.SUPPORT_SERVICE_2_ENABLED else 'false'}"
+            ))
             await conn.execute(text("DROP TABLE IF EXISTS update_reads"))
             await conn.execute(text("DROP TABLE IF EXISTS updates"))
             # AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
