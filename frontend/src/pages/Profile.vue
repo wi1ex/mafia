@@ -274,7 +274,6 @@
                 <div class="sanction-head">
                   <div class="sanction-kind">
                     <span class="sanction-tag">{{ formatSanctionKind(item.kind) }}</span>
-                    <span class="sanction-status" :class="`status--${sanctionStatus(item).tone}`">{{ sanctionStatus(item).text }}</span>
                   </div>
                 </div>
                 <div class="sanction-grid">
@@ -446,7 +445,6 @@ let onProfileSync: ((e: Event) => void) | null = null
 type SanctionItem = {
   id: number
   kind: 'timeout' | 'ban' | 'suspend'
-  status: 'active' | 'expired_auto' | 'revoked'
   completion_reason: 'active' | 'expired' | 'revoked_staff' | 'hosted_game'
   reason?: string | null
   issued_at: string
@@ -895,7 +893,7 @@ function formatSanctionDuration(seconds?: number | null): string {
 }
 
 function isSanctionCompleted(item: SanctionItem): boolean {
-  return item.status !== 'active'
+  return item.completion_reason !== 'active'
 }
 
 function formatSanctionFinishedAt(item: SanctionItem): string {
@@ -908,12 +906,6 @@ function formatSanctionCompletionReason(item: SanctionItem): string {
   if (item.completion_reason === 'revoked_staff') return 'Досрочное снятие администрацией'
   if (item.completion_reason === 'hosted_game') return 'Проведение игры'
   return '-'
-}
-
-function sanctionStatus(item: SanctionItem): { text: string; tone: 'active' | 'ended' | 'revoked' } {
-  if (item.status === 'revoked') return { text: 'Снято досрочно', tone: 'revoked' }
-  if (item.status === 'expired_auto') return { text: 'Срок истек', tone: 'ended' }
-  return { text: 'Активно', tone: 'active' }
 }
 
 type Crop = {
@@ -1852,19 +1844,6 @@ onBeforeUnmount(() => {
                     background-color: $dark;
                     font-size: 12px;
                     color: $fg;
-                  }
-                  .sanction-status {
-                    font-size: 12px;
-                    color: $grey;
-                    &.status--active {
-                      color: $orange;
-                    }
-                    &.status--ended {
-                      color: $green;
-                    }
-                    &.status--revoked {
-                      color: $ashy;
-                    }
                   }
                 }
               }

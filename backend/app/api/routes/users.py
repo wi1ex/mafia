@@ -764,7 +764,6 @@ async def sanctions_history(ident: Identity = Depends(get_identity), db: AsyncSe
         items.append(UserSanctionOut(
             id=cast(int, row.id),
             kind=str(row.kind),
-            status=cast(Literal["active", "expired_auto", "revoked"], status_value),
             completion_reason=cast(
                 Literal["active", "expired", "revoked_staff", "hosted_game"],
                 completion_reason,

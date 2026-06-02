@@ -133,7 +133,6 @@ class UserStatsOut(BaseModel):
 class UserSanctionOut(BaseModel):
     id: int
     kind: Literal["timeout", "ban", "suspend"]
-    status: Literal["active", "expired_auto", "revoked"]
     completion_reason: Literal["active", "expired", "revoked_staff", "hosted_game"]
     reason: Optional[str] = None
     issued_at: datetime
