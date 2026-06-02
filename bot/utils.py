@@ -48,7 +48,6 @@ def keyboard_verify_only() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="Верификация")],
-            [KeyboardButton(text="Поддержать платформу")],
         ],
         resize_keyboard=True,
         one_time_keyboard=False,
@@ -59,7 +58,6 @@ def keyboard_reset_only() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="Сбросить пароль")],
-            [KeyboardButton(text="Поддержать платформу")],
         ],
         resize_keyboard=True,
         one_time_keyboard=False,

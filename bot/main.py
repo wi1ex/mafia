@@ -41,12 +41,6 @@ WEBHOOK_PORT = int(os.getenv("WEBHOOK_PORT", "8081"))
 
 REQUEST_TIMEOUT = 10
 RETRY_ATTEMPTS = 3
-TRIBUTE_DONATE_URL = "https://t.me/tribute/app?startapp=dCvc"
-DONATION_ALERTS_DONATE_URL = "https://dalink.to/deceit_games"
-SUPPORT_DONATE_LINKS = (
-    ("Tribute", TRIBUTE_DONATE_URL),
-    ("DonationAlerts", DONATION_ALERTS_DONATE_URL),
-)
 
 REDIS_URL = os.getenv("REDIS_URL", "").strip()
 if not REDIS_URL:
@@ -124,14 +118,6 @@ async def verify_start(message: types.Message, state: FSMContext, session: aioht
     await state.clear()
     await state.set_state(VerifyState.username)
     await safe_message_answer(message, "Введите никнейм:")
-
-
-@router.message(Command("support"))
-@router.message(F.text == "Поддержать платформу")
-@guarded_handler
-async def support_project(message: types.Message) -> None:
-    for name, url in SUPPORT_DONATE_LINKS:
-        await safe_message_answer(message, f"Поддержать платформу через {name}: {url}")
 
 
 @router.message(VerifyState.username, F.text)
@@ -264,7 +250,6 @@ async def on_startup(app: web.Application) -> None:
                 types.BotCommand(command="start", description="Показать меню"),
                 types.BotCommand(command="verify", description="Пройти верификацию"),
                 types.BotCommand(command="reset", description="Сбросить пароль"),
-                types.BotCommand(command="support", description="Поддержать платформу"),
                 types.BotCommand(command="cancel", description="Отмена текущего действия"),
             ]
         ),
