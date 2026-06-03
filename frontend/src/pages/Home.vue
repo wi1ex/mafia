@@ -1133,7 +1133,7 @@ onBeforeUnmount(() => {
                 text-overflow: ellipsis;
               }
               &.margin {
-                margin-right: 10px;
+                margin-right: 24px;
               }
             }
             .status-room {
