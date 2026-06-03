@@ -966,55 +966,63 @@ async def rooms_kick_all(ident: Identity = Depends(require_protected_admin_dep),
 
         gc_seq_on_empty: int | None = None
         for uid in member_ids:
-            await sio.emit("force_leave",
-                           {"room_id": rid, "reason": "admin_kick_all"},
-                           room=f"user:{uid}",
-                           namespace="/room")
             try:
-                await stop_screen_for_user(r, rid, uid)
-                occ, gc_seq, pos_updates = await leave_room_atomic(r, rid, uid)
-                if occ == 0:
-                    gc_seq_on_empty = gc_seq
-            except Exception:
-                continue
+                await sio.emit("force_leave",
+                               {"room_id": rid, "reason": "admin_kick_all"},
+                               room=f"user:{uid}",
+                               namespace="/room")
+                try:
+                    await stop_screen_for_user(r, rid, uid)
+                    occ, gc_seq, pos_updates = await leave_room_atomic(r, rid, uid)
+                    if occ == 0:
+                        gc_seq_on_empty = gc_seq
+                except Exception:
+                    continue
 
-            try:
-                await r.srem(f"room:{rid}:ready", str(uid))
-            except Exception:
-                pass
-            try:
-                await r.delete(
-                    f"room:{rid}:user:{uid}:epoch",
-                    f"room:{rid}:user:{uid}:bg_state",
-                    f"room:{rid}:user:{uid}:sid",
-                )
-            except Exception:
-                pass
+                try:
+                    await r.srem(f"room:{rid}:ready", str(uid))
+                except Exception:
+                    pass
+                try:
+                    await r.delete(
+                        f"room:{rid}:user:{uid}:epoch",
+                        f"room:{rid}:user:{uid}:bg_state",
+                        f"room:{rid}:user:{uid}:sid",
+                    )
+                except Exception:
+                    pass
 
-            await sio.emit("member_left",
-                           {"user_id": uid},
-                           room=f"room:{rid}",
-                           namespace="/room")
-            if pos_updates:
-                await sio.emit("positions",
-                               {"updates": [{"user_id": u, "position": p} for u, p in pos_updates]},
+                await sio.emit("member_left",
+                               {"user_id": uid},
                                room=f"room:{rid}",
                                namespace="/room")
-            await emit_rooms_occupancy_safe(r, rid, occ)
-            with suppress(Exception):
-                await remove_livekit_participant(rid=rid, uid=uid)
+                if pos_updates:
+                    await sio.emit("positions",
+                                   {"updates": [{"user_id": u, "position": p} for u, p in pos_updates]},
+                                   room=f"room:{rid}",
+                                   namespace="/room")
+                await emit_rooms_occupancy_safe(r, rid, occ)
+                with suppress(Exception):
+                    await remove_livekit_participant(rid=rid, uid=uid)
+            except Exception:
+                log.exception("admin.rooms.kick_all.member_failed", rid=rid, uid=uid)
+                continue
 
         for uid in spectator_ids - member_ids:
-            await sio.emit("force_leave",
-                           {"room_id": rid, "reason": "admin_kick_all"},
-                           room=f"user:{uid}",
-                           namespace="/room")
-            with suppress(Exception):
-                await remove_livekit_participant(rid=rid, uid=uid)
             try:
-                await record_spectator_leave(r, rid, uid, int(time()))
+                await sio.emit("force_leave",
+                               {"room_id": rid, "reason": "admin_kick_all"},
+                               room=f"user:{uid}",
+                               namespace="/room")
+                with suppress(Exception):
+                    await remove_livekit_participant(rid=rid, uid=uid)
+                try:
+                    await record_spectator_leave(r, rid, uid, int(time()))
+                except Exception:
+                    pass
             except Exception:
-                pass
+                log.exception("admin.rooms.kick_all.spectator_failed", rid=rid, uid=uid)
+                continue
 
         should_gc = gc_seq_on_empty is not None
         if not should_gc:
@@ -1032,16 +1040,19 @@ async def rooms_kick_all(ident: Identity = Depends(require_protected_admin_dep),
 
     asyncio.create_task(refresh_rooms_after(delay_s + 1, "admin_kick_all"))
 
-    await log_action(
-        session,
-        user_id=int(ident["id"]),
-        username=ident["username"],
-        action="admin_rooms_kick_all",
-        details=(
-            f"Принудительное освобождение всех комнат rooms={processed_rooms} "
-            f"members={total_member_ids} spectators={total_spectator_ids}"
-        ),
-    )
+    try:
+        await log_action(
+            session,
+            user_id=int(ident["id"]),
+            username=ident["username"],
+            action="admin_rooms_kick_all",
+            details=(
+                f"Принудительное освобождение всех комнат rooms={processed_rooms} "
+                f"members={total_member_ids} spectators={total_spectator_ids}"
+            ),
+        )
+    except Exception:
+        log.exception("admin.rooms.kick_all.log_failed")
 
     return Ok()
 
