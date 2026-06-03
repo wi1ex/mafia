@@ -2086,24 +2086,15 @@ onBeforeUnmount(() => {
     }
     .profile-staff-actions {
       display: flex;
-      flex-wrap: nowrap;
-      gap: 10px;
-      padding: 10px;
-      overflow-x: auto;
-      border-radius: 5px;
-      background-color: rgba($graphite, 0.5);
-      box-shadow: 3px 3px 5px rgba($black, 0.25);
-      scrollbar-width: thin;
+      align-items: center;
+      justify-content: space-between;
       .staff-action-item {
         display: flex;
-        flex: 0 0 auto;
         flex-direction: column;
         align-items: center;
         gap: 5px;
-        min-width: 46px;
       }
       .staff-action-label {
-        max-width: 78px;
         color: $fg;
         text-align: center;
         font-size: 12px;
