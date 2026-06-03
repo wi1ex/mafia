@@ -60,6 +60,9 @@
             <header>
               <span>{{ selectedRoom?.title }}</span>
               <div class="room-actions">
+                <button v-if="canAdminSpectateRoom" :disabled="entering" @click="onAdminSpectateRoom" aria-label="Войти зрителем">
+                  <UiIcon class="room-icon" :icon="iconVisOn" />
+                </button>
                 <button v-if="canCloseRooms" :disabled="adminKickBusy || selectedRoom?.in_game || selectedRoom?.entry_closed || selectedRoom?.occupancy === 0" @click="onAdminKickRoom" aria-label="Удалить комнату">
                   <UiIcon class="room-icon" :icon="iconDelete" />
                 </button>
@@ -302,6 +305,10 @@ const isAdmin = computed(() => userStore.user?.role === 'admin')
 const isModer = computed(() => userStore.user?.role === 'moder')
 const canCloseRooms = computed(() => isAdmin.value || isModer.value)
 const canBypassSpectatorsLimit = computed(() => isAdmin.value || isModer.value)
+const canAdminSpectateRoom = computed(() => {
+  const room = selectedRoom.value
+  return isAdmin.value && !!room && !room.in_game && !room.entry_closed
+})
 
 const roomsMap = reactive(new Map<number, Room>())
 const sio = ref<Socket | null>(null)
@@ -745,6 +752,17 @@ async function onEnter() {
   entering.value = true
   try { await router.push(`/room/${id}`) }
   finally { entering.value = false }
+}
+
+async function onAdminSpectateRoom() {
+  const id = selectedRoom?.value?.id
+  if (!id || entering.value || !canAdminSpectateRoom.value) return
+  entering.value = true
+  try {
+    await router.push({ path: `/room/${id}`, query: { spectator: 'admin' } })
+  } finally {
+    entering.value = false
+  }
 }
 
 async function syncRoomsSnapshot() {

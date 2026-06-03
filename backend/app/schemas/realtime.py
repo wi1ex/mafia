@@ -19,6 +19,8 @@ class JoinAck(TypedDict, total=False):
     screen_owner: int
     screen_quality: Literal["low", "medium", "high"]
     pending: bool
+    spectator: bool
+    admin_spectator: bool
     game_runtime: dict
     game_roles: Dict[str, str]
     my_game_role: Optional[str]

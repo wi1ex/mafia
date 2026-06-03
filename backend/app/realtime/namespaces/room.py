@@ -171,10 +171,16 @@ async def join(sid, data) -> JoinAck:
         uid = int(sess["uid"])
         prev_rid = int(sess.get("rid") or 0)
         base_role = str(sess.get("base_role") or "user")
-        rid = int((data or {}).get("room_id") or 0)
+        payload = data if isinstance(data, dict) else {}
+        rid = int(payload.get("room_id") or 0)
+        admin_spectator_requested = to_bool01(payload.get("admin_spectator"))
         if not rid:
             log.warning("sio.join.bad_room_id", sid=sid)
             return {"ok": False, "error": "bad_room_id", "status": 400}
+
+        base_role_normalized = normalize_user_role(base_role)
+        if admin_spectator_requested and base_role_normalized != ROLE_ADMIN:
+            return {"ok": False, "error": "forbidden", "status": 403}
 
         r = get_redis()
         active_alive_rid = await active_alive_room_conflict(r, uid, rid)
@@ -193,21 +199,22 @@ async def join(sid, data) -> JoinAck:
         if str(params.get("entry_closed") or "0") == "1":
             return {"ok": False, "error": "room_closed", "status": 410}
 
-        if not get_cached_settings().rooms_can_enter:
+        if not admin_spectator_requested and not get_cached_settings().rooms_can_enter:
             return {"ok": False, "error": "rooms_entry_disabled", "status": 403}
 
-        async with SessionLocal() as s:
-            active = await fetch_active_sanctions(s, uid)
-            if active.get(SANCTION_BAN):
-                return {"ok": False, "error": "user_banned", "status": 403}
+        if not admin_spectator_requested:
+            async with SessionLocal() as s:
+                active = await fetch_active_sanctions(s, uid)
+                if active.get(SANCTION_BAN):
+                    return {"ok": False, "error": "user_banned", "status": 403}
 
-            if active.get(SANCTION_TIMEOUT):
-                return {"ok": False, "error": "user_timeout", "status": 403}
+                if active.get(SANCTION_TIMEOUT):
+                    return {"ok": False, "error": "user_timeout", "status": 403}
 
-            if get_cached_settings().verification_restrictions:
-                verified = await s.scalar(select(User.telegram_id).where(User.id == uid).where(User.deleted_at.is_(None)))
-                if not verified:
-                    return {"ok": False, "error": "not_verified", "status": 403}
+                if get_cached_settings().verification_restrictions:
+                    verified = await s.scalar(select(User.telegram_id).where(User.id == uid).where(User.deleted_at.is_(None)))
+                    if not verified:
+                        return {"ok": False, "error": "not_verified", "status": 403}
 
         allowed = True
         pending = False
@@ -220,7 +227,11 @@ async def join(sid, data) -> JoinAck:
 
         raw_gstate = await r.hgetall(f"room:{rid}:game_state")
         phase = str(raw_gstate.get("phase") or "idle")
-        if is_private and not is_creator and not allowed and phase == "idle":
+        admin_spectator_mode = admin_spectator_requested and phase == "idle"
+        if admin_spectator_requested and not admin_spectator_mode:
+            return {"ok": False, "error": "admin_spectator_unavailable", "status": 409}
+
+        if is_private and not is_creator and not allowed and phase == "idle" and not admin_spectator_mode:
             return {"ok": False, "error": "private_room", "status": 403, "pending": bool(pending)}
 
         spectator_mode = False
@@ -236,7 +247,7 @@ async def join(sid, data) -> JoinAck:
                 except Exception:
                     raw_game = {}
                 spectators_limit = normalize_spectators_limit(raw_game.get("spectators_limit"))
-                can_bypass_spectators_limit = normalize_user_role(base_role) in {ROLE_ADMIN, ROLE_MODER}
+                can_bypass_spectators_limit = base_role_normalized in {ROLE_ADMIN, ROLE_MODER}
                 if spectators_limit <= 0 and not can_bypass_spectators_limit:
                     return {"ok": False, "error": "game_in_progress", "status": 409}
 
@@ -264,7 +275,7 @@ async def join(sid, data) -> JoinAck:
         pos = 0
         already = False
         pos_updates = []
-        if not spectator_mode:
+        if not spectator_mode and not admin_spectator_mode:
             occ, pos, already, pos_updates = await join_room_atomic(r, rid, uid, base_role)
             if occ == -3:
                 log.warning("sio.join.room_closed", rid=rid, uid=uid)
@@ -274,36 +285,44 @@ async def join(sid, data) -> JoinAck:
                 log.warning("sio.join.room_full", rid=rid, uid=uid)
                 return {"ok": False, "error": "room_is_full", "status": 409}
 
-        await persist_join_user_info(
-            r,
-            rid,
-            uid,
-            sess.get("username"),
-            sess.get("avatar_name"),
-            sess.get("theme_color"),
-            sess.get("theme_icon"),
-        )
+        if not admin_spectator_mode:
+            await persist_join_user_info(
+                r,
+                rid,
+                uid,
+                sess.get("username"),
+                sess.get("avatar_name"),
+                sess.get("theme_color"),
+                sess.get("theme_icon"),
+            )
 
-        try:
-            foul_removed = int(await r.hdel(f"room:{rid}:foul_active", str(uid)) or 0)
-        except Exception:
+        if admin_spectator_mode:
             foul_removed = 0
-            log.warning("sio.join.clear_foul_active_failed", rid=rid, uid=uid)
-        if foul_removed and not spectator_mode:
-            await maybe_block_foul_on_reconnect(r, rid, uid, raw_gstate)
+        else:
+            try:
+                foul_removed = int(await r.hdel(f"room:{rid}:foul_active", str(uid)) or 0)
+            except Exception:
+                foul_removed = 0
+                log.warning("sio.join.clear_foul_active_failed", rid=rid, uid=uid)
+            if foul_removed and not spectator_mode:
+                await maybe_block_foul_on_reconnect(r, rid, uid, raw_gstate)
 
-        try:
-            await r.srem(f"room:{rid}:ready", str(uid))
-        except Exception:
-            log.warning("sio.join.ready_reset_failed", rid=rid, uid=uid)
+        if not admin_spectator_mode:
+            try:
+                await r.srem(f"room:{rid}:ready", str(uid))
+            except Exception:
+                log.warning("sio.join.ready_reset_failed", rid=rid, uid=uid)
+
         await sio.enter_room(sid,
                              f"room:{rid}",
                              namespace="/room")
-        await set_user_current_room(r, uid, rid)
-        try:
-            await r.srem(f"room:{rid}:invited", str(uid))
-        except Exception:
-            log.warning("sio.join.invited_cleanup_failed", rid=rid, uid=uid)
+
+        if not admin_spectator_mode:
+            await set_user_current_room(r, uid, rid)
+            try:
+                await r.srem(f"room:{rid}:invited", str(uid))
+            except Exception:
+                log.warning("sio.join.invited_cleanup_failed", rid=rid, uid=uid)
 
         if prev_rid and prev_rid != rid:
             try:
@@ -376,23 +395,25 @@ async def join(sid, data) -> JoinAck:
                         safe_blocked[uk] = nb
                 blocked = safe_blocked
 
-        me_prof = profiles.get(str(uid)) or {}
+        me_prof = {} if admin_spectator_mode else (profiles.get(str(uid)) or {})
         ev_username = me_prof.get("username") or sess.get("username") or f"user{uid}"
         ev_avatar = me_prof.get("avatar_name") or sess.get("avatar_name") or None
         ev_theme_color = me_prof.get("theme_color") if "theme_color" in me_prof else sess.get("theme_color")
         ev_theme_color = ev_theme_color or None
         ev_theme_icon = me_prof.get("theme_icon") if "theme_icon" in me_prof else sess.get("theme_icon")
         ev_theme_icon = ev_theme_icon or None
-        eff_role = roles.get(str(uid), base_role)
+        eff_role = base_role if admin_spectator_mode else roles.get(str(uid), base_role)
 
-        epoch = int(await r.incr(f"room:{rid}:user:{uid}:epoch"))
-        exp_ok = await r.expire(f"room:{rid}:user:{uid}:epoch", 86400)
-        if not exp_ok:
-            log.warning("sio.join.epoch_expire_not_set", rid=rid, uid=uid)
-        try:
-            await r.set(f"room:{rid}:user:{uid}:sid", sid, ex=86400)
-        except Exception:
-            log.warning("sio.join.sid_store_failed", rid=rid, uid=uid)
+        epoch = 0
+        if not admin_spectator_mode:
+            epoch = int(await r.incr(f"room:{rid}:user:{uid}:epoch"))
+            exp_ok = await r.expire(f"room:{rid}:user:{uid}:epoch", 86400)
+            if not exp_ok:
+                log.warning("sio.join.epoch_expire_not_set", rid=rid, uid=uid)
+            try:
+                await r.set(f"room:{rid}:user:{uid}:sid", sid, ex=86400)
+            except Exception:
+                log.warning("sio.join.sid_store_failed", rid=rid, uid=uid)
 
         await sio.save_session(sid,
                                {"uid": uid,
@@ -404,13 +425,15 @@ async def join(sid, data) -> JoinAck:
                                 "theme_color": ev_theme_color,
                                 "theme_icon": ev_theme_icon,
                                 "epoch": epoch,
-                                "spectator": spectator_mode},
+                                "spectator": spectator_mode or admin_spectator_mode,
+                                "admin_spectator": admin_spectator_mode},
                                namespace="/room")
-        cancel_disconnect_cleanup_task(rid, uid)
+        if not admin_spectator_mode:
+            cancel_disconnect_cleanup_task(rid, uid)
 
         user_state: dict[str, str] = {}
-        if not spectator_mode:
-            incoming = (data.get("state") or {}) if isinstance(data, dict) else {}
+        if not spectator_mode and not admin_spectator_mode:
+            incoming = (payload.get("state") or {}) if isinstance(payload, dict) else {}
             if incoming and "visibility" in incoming:
                 want_visibility = to_bool01(incoming.get("visibility"))
                 if want_visibility:
@@ -498,7 +521,7 @@ async def join(sid, data) -> JoinAck:
         screen_quality_raw = await r.get(f"room:{rid}:screen_quality") if owner else None
         screen_quality = normalize_screen_quality(screen_quality_raw)
         livekit_room = get_livekit_room_name(rid)
-        token = make_livekit_token(identity=str(uid), name=ev_username, room=livekit_room, can_publish=not spectator_mode)
+        token = make_livekit_token(identity=str(uid), name=ev_username, room=livekit_room, can_publish=not (spectator_mode or admin_spectator_mode))
         game_runtime, game_roles_view, my_game_role = await get_game_runtime_and_roles_view(r, rid, uid)
         game_runtime = await enrich_game_runtime_with_vote(r, rid, game_runtime, raw_gstate)
         game_fouls = await get_game_fouls(r, rid)
@@ -528,6 +551,8 @@ async def join(sid, data) -> JoinAck:
             "game_deaths": game_deaths,
             "farewell_wills": farewell_wills,
             "farewell_limits": farewell_limits,
+            "spectator": spectator_mode or admin_spectator_mode,
+            "admin_spectator": admin_spectator_mode,
         }
 
         return payload

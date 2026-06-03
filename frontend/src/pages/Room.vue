@@ -325,19 +325,19 @@
             <span v-if="!IS_MOBILE && hotkeysVisible" class="hot-btn">↩</span>
           </button>
 
-          <button v-if="gamePhase === 'idle' && canShowStartGame && canUseReadyStart" @click="startGameUi" :disabled="startingGame" aria-label="Запустить игру">
+          <button v-if="gamePhase === 'idle' && !adminSpectator && canShowStartGame && canUseReadyStart" @click="startGameUi" :disabled="startingGame" aria-label="Запустить игру">
             <img :src="iconGameStart" alt="start" />
               <span v-if="!IS_MOBILE && hotkeysVisible" class="hot-btn">G</span>
           </button>
-          <button v-if="gamePhase === 'idle' && !canShowStartGame && canUseReadyToggle" @click="toggleReady" :aria-pressed="readyOn" aria-label="Готовность">
+          <button v-if="gamePhase === 'idle' && !adminSpectator && !canShowStartGame && canUseReadyToggle" @click="toggleReady" :aria-pressed="readyOn" aria-label="Готовность">
             <img :src="readyOn ? iconReadyGreen : iconReadyWhite" alt="ready" />
               <span v-if="!IS_MOBILE && hotkeysVisible" class="hot-btn">G</span>
           </button>
-          <button v-if="gamePhase === 'idle' || isHead" @click="toggleMic" :disabled="pending.mic || blockedSelf.mic === 1" :aria-pressed="micOn">
+          <button v-if="!adminSpectator && (gamePhase === 'idle' || isHead)" @click="toggleMic" :disabled="pending.mic || blockedSelf.mic === 1" :aria-pressed="micOn">
             <img :src="stateIcon('mic', localId)" alt="mic" />
               <span v-if="!IS_MOBILE && hotkeysVisible" class="hot-btn">M</span>
           </button>
-          <button v-if="gamePhase === 'idle' || isHead" @click="toggleCam" :disabled="pending.cam || blockedSelf.cam === 1" :aria-pressed="camOn">
+          <button v-if="!adminSpectator && (gamePhase === 'idle' || isHead)" @click="toggleCam" :disabled="pending.cam || blockedSelf.cam === 1" :aria-pressed="camOn">
             <img :src="stateIcon('cam', localId)" alt="cam" />
               <span v-if="!IS_MOBILE && hotkeysVisible" class="hot-btn">C</span>
           </button>
@@ -345,7 +345,7 @@
             <img :src="stateIcon('speakers', localId)" alt="speakers" />
               <span v-if="!IS_MOBILE && hotkeysVisible" class="hot-btn">S</span>
           </button>
-          <button v-if="gamePhase === 'idle' && !IS_MOBILE && settings.streamsCanStart" @click="toggleScreen" :disabled="pendingScreen || (!!screenOwnerId && screenOwnerId !== localId) || blockedSelf.screen === 1" :aria-pressed="isMyScreen">
+          <button v-if="gamePhase === 'idle' && !adminSpectator && !IS_MOBILE && settings.streamsCanStart" @click="toggleScreen" :disabled="pendingScreen || (!!screenOwnerId && screenOwnerId !== localId) || blockedSelf.screen === 1" :aria-pressed="isMyScreen">
             <img :src="stateIcon('screen', localId)" alt="screen" />
           </button>
           <button v-if="gamePhase !== 'idle' && isHead" @click="toggleHostBlur" :disabled="!hostBlurToggleEnabled || hostBlurPending" :aria-pressed="hostBlurActive" aria-label="Затемнить экран">
@@ -408,7 +408,7 @@
         <RoomSetting
           :open="settingsOpen"
           :in-game="gamePhase !== 'idle'"
-          :is-spectator="isSpectatorInGame"
+          :is-spectator="isSpectatorLike"
           :show-mirror-toggle="canShowMirrorToggle"
           :is-mobile="IS_MOBILE"
           :hotkeys-visible="hotkeysVisible"
@@ -675,6 +675,8 @@ const IS_MOBILE = isUaDataMobile || isMobileUa || isIpadOsDesktopUa
 
 const local = reactive({ mic: false, cam: false, speakers: true, visibility: true })
 const desiredMedia = reactive({ mic: false, cam: false })
+const adminSpectatorRequested = computed(() => String(route.query.spectator || '').toLowerCase() === 'admin')
+const adminSpectator = ref(false)
 const pending = reactive<{ [k in keyof typeof local]: boolean }>({ mic: false, cam: false, speakers: false, visibility: false })
 const micOn = computed({ get: () => local.mic, set: v => { local.mic = v } })
 const camOn = computed({ get: () => local.cam, set: v => { local.cam = v } })
@@ -728,7 +730,7 @@ const canUseVerifiedFeatures = computed(() => {
   if (!userStore.user) return false
   return !(settings.verificationRestrictions && !userStore.telegramVerified)
 })
-const showRoomFriendsButton = computed(() => gamePhase.value === 'idle' && canUseVerifiedFeatures.value)
+const showRoomFriendsButton = computed(() => gamePhase.value === 'idle' && !adminSpectator.value && canUseVerifiedFeatures.value)
 const showGlobalChatButton = computed(() => {
   if (!canUseVerifiedFeatures.value) return false
   if (!settings.chatOpenEnabled) return false
@@ -837,6 +839,7 @@ const isSpectatorInGame = computed(() => {
   if (!id || gamePhase.value === 'idle') return false
   return !seatsByUser[id]
 })
+const isSpectatorLike = computed(() => adminSpectator.value || isSpectatorInGame.value)
 const hostBlurPending = ref(false)
 const hostBlurToggleEnabled = computed(() => gamePhase.value === 'day' || gamePhase.value === 'vote')
 const hostBlurVisible = computed(() => gamePhase.value !== 'idle' && hostBlurActive.value)
@@ -851,17 +854,20 @@ const canShowLeaveGameButton = computed(() =>
 const leaveGameActsAsFinishSpeech = computed(() => currentFarewellSpeech.value && isCurrentSpeaker.value)
 const leaveGameButtonLabel = computed(() => leaveGameActsAsFinishSpeech.value ? 'Завершить речь' : 'Выйти из игры')
 const canShowFoulButtons = computed(() =>
+  !adminSpectator.value &&
   ACTION_PHASES.includes(gamePhase.value as (typeof ACTION_PHASES)[number])
 )
 const isMafiaLimitRoom = computed(() => roomUserLimit.value === gameLimitMin.value)
-const canViewGameSettings = computed(() => isMafiaLimitRoom.value)
+const canViewGameSettings = computed(() => !adminSpectator.value && isMafiaLimitRoom.value)
 const canEditGameSettings = computed(() =>
+  !adminSpectator.value &&
   myRole.value === 'host' &&
   gamePhase.value === 'idle' &&
   isMafiaLimitRoom.value
 )
 const canShowMirrorToggle = computed(() =>
-  gamePhase.value === 'idle' || (!isSpectatorInGame.value && amIAlive.value)
+  !adminSpectator.value &&
+  (gamePhase.value === 'idle' || (!isSpectatorInGame.value && amIAlive.value))
 )
 const knockModalOpen = ref(false)
 const knockModalTargetId = ref<string>('')
@@ -953,9 +959,10 @@ const canUseReadyStart = computed(() => {
   if (limit <= 0 || min <= 0) return false
   return limit === min + 1
 })
-const canUseReadyToggle = computed(() => canUseReadyStart.value)
+const canUseReadyToggle = computed(() => !adminSpectator.value && canUseReadyStart.value)
 const canShowHeadPicks = computed(() => isHead.value && knownRolesVisible.value)
 const canShowStartGame = computed(() => {
+  if (adminSpectator.value) return false
   if (!localId.value) return false
   if (gamePhase.value !== 'idle') return false
   const total = totalPlayers.value
@@ -1350,7 +1357,7 @@ function onHotkey(e: KeyboardEvent) {
     return
   }
   if (code === 'KeyC') {
-    if ((gamePhase.value === 'idle' || isHead.value) && !pending.cam && !blockedSelf.value.cam) {
+    if (!adminSpectator.value && (gamePhase.value === 'idle' || isHead.value) && !pending.cam && !blockedSelf.value.cam) {
       e.preventDefault()
       e.stopPropagation()
       void toggleCam()
@@ -1358,7 +1365,7 @@ function onHotkey(e: KeyboardEvent) {
     return
   }
   if (code === 'KeyM') {
-    if ((gamePhase.value === 'idle' || isHead.value) && !pending.mic && !blockedSelf.value.mic) {
+    if (!adminSpectator.value && (gamePhase.value === 'idle' || isHead.value) && !pending.mic && !blockedSelf.value.mic) {
       e.preventDefault()
       e.stopPropagation()
       void toggleMic()
@@ -1368,7 +1375,7 @@ function onHotkey(e: KeyboardEvent) {
   if (code === 'Space') {
     e.preventDefault()
     e.stopPropagation()
-    if (!hostBlurActive.value && (gamePhase.value === 'idle' || isHead.value || amIAlive.value)) {
+    if (!adminSpectator.value && !hostBlurActive.value && (gamePhase.value === 'idle' || isHead.value || amIAlive.value)) {
       tryHandleSpaceHotkey()
     }
     return
@@ -1526,6 +1533,7 @@ function showTransientToast(title: string, text: string): void {
 
 const sendAckGame: SendAckFn = (event, payload, timeoutMs) => sendAck(event, payload, timeoutMs)
 const startGameUi = async () => {
+  if (adminSpectator.value) return
   if (!canUseReadyStart.value) return
   await game.startGame(sendAckGame)
 }
@@ -1600,7 +1608,7 @@ const wantsAudioRequest = computed(() => desiredMedia.mic || (desiredMedia.cam &
 const wantsVideoRequest = computed(() => desiredMedia.cam || (desiredMedia.mic && rtc.hasVideoInput.value))
 const needsMediaAccess = computed(() => wantsAudioRequest.value || wantsVideoRequest.value)
 const showPermProbe = computed(() => {
-  if (isSpectatorInGame.value) return false
+  if (isSpectatorLike.value) return false
   if (!needsMediaAccess.value) return false
   const needAudio = wantsAudioRequest.value && (!rtc.hasAudioInput.value || !rtc.permAudio.value)
   const needVideo = wantsVideoRequest.value && (!rtc.hasVideoInput.value || !rtc.permVideo.value)
@@ -1608,7 +1616,7 @@ const showPermProbe = computed(() => {
 })
 
 async function requestMediaPermissions(opts?: { force?: boolean }) {
-  if (isSpectatorInGame.value) return
+  if (isSpectatorLike.value) return
   if (!needsMediaAccess.value) return
   const audio = wantsAudioRequest.value
   const video = wantsVideoRequest.value
@@ -1626,7 +1634,7 @@ async function requestMediaPermissions(opts?: { force?: boolean }) {
   await rtc.probePermissions({ audio, video })
 }
 async function onProbeClick() {
-  if (isSpectatorInGame.value) return
+  if (isSpectatorLike.value) return
   rtc.primeAudioOnGesture()
   try { await rtc.resumeAudio({ force: true }) } catch {}
   await rtc.unlockBgmOnGesture()
@@ -1644,7 +1652,7 @@ const sortedPeerIds = computed(() => {
   if (idsSet.size === 0) {
     peerIds.value.forEach((id) => idsSet.add(id))
   }
-  const ids = Array.from(idsSet)
+  const ids = Array.from(idsSet).filter(id => !(adminSpectator.value && id === localId.value))
   return ids.sort((a, b) => {
     if (gamePhase.value !== 'idle') {
       const sa = seatsByUser[a]
@@ -2402,7 +2410,11 @@ async function safeJoin() {
         })
       })
     }
-    return await sendAck('join', { room_id: rid, state: { ...local } })
+    return await sendAck('join', {
+      room_id: rid,
+      state: { ...local },
+      admin_spectator: adminSpectatorRequested.value,
+    })
   })()
   joinInFlight.value = p
   try {
@@ -2456,10 +2468,12 @@ async function enforceInitialGameControls() {
 }
 
 async function enforceNoPublishWhenInactive(): Promise<void> {
-  if (gamePhase.value === 'idle') return
-  if (amIAlive.value) return
+  if (!adminSpectator.value) {
+    if (gamePhase.value === 'idle') return
+    if (amIAlive.value) return
+  }
   if (!localId.value) return
-  const isSpectator = isSpectatorInGame.value
+  const isSpectator = isSpectatorLike.value
   let changed = false
   if (local.mic) {
     local.mic = false
@@ -2568,6 +2582,7 @@ function clampLocalVisibilityForCurrentPhase(): void {
 }
 
 function applyJoinAck(j: any) {
+  adminSpectator.value = !!j?.admin_spectator
   isPrivate.value = (j?.privacy || j?.room?.privacy) === 'private'
   const limitRaw = Number(j?.user_limit ?? j?.room_user_limit ?? 0)
   roomUserLimit.value = Number.isFinite(limitRaw) ? limitRaw : 0
@@ -2673,6 +2688,7 @@ async function publishState(delta: PublishDelta) {
 }
 
 const toggleFactory = (k: keyof typeof local, onEnable?: () => Promise<boolean | void>, onDisable?: () => Promise<void>) => async () => {
+  if (adminSpectator.value && (k === 'mic' || k === 'cam')) return
   if (pending[k]) return
   if (blockedSelf.value[k]) return
   if ((k === 'mic' || k === 'cam') && gamePhase.value !== 'idle' && isSpectatorInGame.value) return
@@ -2718,6 +2734,7 @@ const toggleVisibility = toggleFactory('visibility',
 )
 
 const toggleScreen = async () => {
+  if (adminSpectator.value) return
   if (pendingScreen.value) return
   const wantEnable = !isMyScreen.value
   const confirmPayload = {
@@ -2853,6 +2870,7 @@ function joinFailureMessage(j: any): string {
   if (st === 404) return 'Комната не найдена'
   if (st === 410) return 'Комната закрыта'
   if (st === 409 && code === 'active_alive_game_conflict') return 'Вы живой игрок в другой активной игре'
+  if (st === 409 && code === 'admin_spectator_unavailable') return 'Игра уже началась'
   if (st === 409 && code === 'game_in_progress') return 'В комнате нет мест для зрителей'
   if (st === 409 && code === 'spectators_full') return 'В комнате нет мест для зрителей'
   if (st === 409) return 'Комната заполнена'
@@ -2910,6 +2928,11 @@ async function handleJoinFailure(j: any) {
     } else {
       await router.replace({ name: 'home', query: { focus: String(rid) } })
     }
+    return
+  }
+  if (j?.status === 409 && j?.error === 'admin_spectator_unavailable') {
+    void alertDialog('Игра уже началась')
+    await router.replace({ name: 'home', query: { focus: String(rid) } })
     return
   }
   if (j?.status === 409 && (j?.error === 'game_in_progress' || j?.error === 'spectators_full')) {
@@ -3249,7 +3272,7 @@ watch(canViewGameSettings, (ok) => {
   if (!ok && gameParamsOpen.value) gameParamsOpen.value = false
 })
 
-watch(() => [gamePhase.value, amIAlive.value, isSpectatorInGame.value, localId.value], () => {
+watch(() => [gamePhase.value, amIAlive.value, isSpectatorLike.value, adminSpectator.value, localId.value], () => {
   void enforceNoPublishWhenInactive()
 }, { immediate: true })
 
