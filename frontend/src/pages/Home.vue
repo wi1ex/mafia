@@ -40,11 +40,11 @@
             </div>
             <div class="cell">
               <img :src="r.privacy === 'private' ? iconLockClose : iconLockOpen" alt="lock" />
-              <span class="item-text">{{ r.title }}</span>
+              <span class="item-text ellipsis margin">{{ r.title }}</span>
             </div>
             <div class="cell">
               <img class="user-avatar" v-minio-img="{key: r.creator_avatar_name ? `avatars/${r.creator_avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false}" alt="avatar" />
-              <span class="item-text">{{ r.creator_name }}</span>
+              <span class="item-text ellipsis">{{ r.creator_name }}</span>
             </div>
             <span class="text-center">{{ r.occupancy }}/{{ r.user_limit }}</span>
           </li>
@@ -1035,7 +1035,7 @@ onBeforeUnmount(() => {
       }
       .list-header {
         display: grid;
-        grid-template-columns: 10% 45% 30% 15%;
+        grid-template-columns: 15% 45% 30% 10%;
         padding: 0 16px;
         span {
           color: $neutral-300;
@@ -1081,7 +1081,7 @@ onBeforeUnmount(() => {
         .item {
           display: grid;
           position: relative;
-          grid-template-columns: 10% 45% 30% 15%;
+          grid-template-columns: 15% 45% 30% 10%;
           align-items: center;
           padding: 16px;
           min-height: 30px;
@@ -1127,6 +1127,14 @@ onBeforeUnmount(() => {
               font-size: 16px;
               line-height: 16px;
               letter-spacing: -0.32px;
+              &.ellipsis {
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+              }
+              &.margin {
+                margin-right: 10px;
+              }
             }
             .status-room {
               display: flex;
