@@ -5080,12 +5080,53 @@ async def get_room_params_or_404(r, room_id: int) -> Dict[str, Any]:
     return params
 
 
+def _room_log_user_ids(raw_ids: Iterable[Any]) -> set[int]:
+    ids: set[int] = set()
+    for raw in raw_ids or []:
+        uid = _parse_int(raw)
+        if uid > 0:
+            ids.add(uid)
+    return ids
+
+
+async def _room_log_user_list(session: AsyncSession, r, room_id: int, user_ids: Iterable[int]) -> str:
+    ids = sorted({int(uid) for uid in user_ids if int(uid) > 0})
+    if not ids:
+        return "[]"
+
+    names: dict[int, str] = {}
+    try:
+        async with r.pipeline() as p:
+            for uid in ids:
+                await p.hget(f"room:{room_id}:user:{uid}:info", "username")
+            rows = await p.execute()
+        for uid, raw_name in zip(ids, rows):
+            name = redis_text(raw_name).strip()
+            if name:
+                names[uid] = name
+    except Exception:
+        log.warning("room.close.log_user_names_redis_failed", rid=room_id)
+
+    missing = [uid for uid in ids if uid not in names]
+    if missing:
+        try:
+            profiles = await get_user_profiles_cached(session, missing)
+            for uid, profile in profiles.items():
+                name = str((profile or {}).get("username") or "").strip()
+                if name:
+                    names[int(uid)] = name
+        except Exception:
+            log.warning("room.close.log_user_names_db_failed", rid=room_id)
+
+    return "[" + ",".join(f"{uid}:{names[uid]}" if uid in names else str(uid) for uid in ids) + "]"
+
+
 async def close_room_as_staff(*, room_id: int, ident: Identity, session: AsyncSession, log_action_name: str, details_suffix: str = "") -> Ok:
     from ..realtime.utils import emit_rooms_occupancy_safe, leave_room_atomic, record_spectator_leave, stop_screen_for_user
     from ..services.livekit import remove_livekit_participant
 
     r = get_redis()
-    await get_room_params_or_404(r, room_id)
+    params = await get_room_params_or_404(r, room_id)
 
     phase = str(await r.hget(f"room:{room_id}:game_state", "phase") or "idle")
     if phase != "idle":
@@ -5103,19 +5144,27 @@ async def close_room_as_staff(*, room_id: int, ident: Identity, session: AsyncSe
     except Exception:
         spectators_raw = set()
 
-    member_ids: set[int] = set()
-    for value in members_raw or []:
-        try:
-            member_ids.add(int(value))
-        except Exception:
-            continue
+    member_ids = _room_log_user_ids(members_raw)
+    spectator_ids = _room_log_user_ids(spectators_raw)
+    spectator_only_ids = spectator_ids - member_ids
 
-    spectator_ids: set[int] = set()
-    for value in spectators_raw or []:
+    title = redis_text(params.get("title")).strip()
+    owner_id = _parse_int(params.get("creator"))
+    owner_name = redis_text(params.get("creator_name")).strip()
+    if not title or owner_id <= 0 or not owner_name:
         try:
-            spectator_ids.add(int(value))
+            room_row = await session.get(Room, int(room_id))
         except Exception:
-            continue
+            room_row = None
+        if room_row is not None:
+            if not title:
+                title = str(room_row.title or "").strip()
+            if owner_id <= 0:
+                owner_id = int(room_row.creator or 0)
+            if not owner_name:
+                owner_name = str(room_row.creator_name or "").strip()
+
+    members_log = await _room_log_user_list(session, r, room_id, member_ids)
 
     gc_seq_on_empty: int | None = None
     for uid in member_ids:
@@ -5163,7 +5212,7 @@ async def close_room_as_staff(*, room_id: int, ident: Identity, session: AsyncSe
         with suppress(Exception):
             await remove_livekit_participant(rid=room_id, uid=uid)
 
-    for uid in spectator_ids - member_ids:
+    for uid in spectator_only_ids:
         await sio.emit(
             "force_leave",
             {"room_id": room_id, "reason": "room_deleted"},
@@ -5187,10 +5236,10 @@ async def close_room_as_staff(*, room_id: int, ident: Identity, session: AsyncSe
     if should_gc:
         asyncio.create_task(gc_empty_room_and_emit(room_id, expected_seq=gc_seq_on_empty))
 
-    spectator_only_count = len(spectator_ids - member_ids)
     details = (
-        f"Закрытие комнаты room_id={room_id} phase={phase} "
-        f"members={len(member_ids)} spectators={spectator_only_count}"
+        f"Закрытие комнаты room_id={room_id} title={title} "
+        f"owner={owner_id} owner_username={owner_name} phase={phase} "
+        f"members_count={len(member_ids)} members={members_log}"
     )
     if details_suffix:
         details = f"{details} {details_suffix}"
