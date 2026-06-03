@@ -1,7 +1,7 @@
 <template>
   <Teleport to="body">
     <Transition name="overlay">
-      <div v-if="open" class="overlay" @pointerdown.self="armed = true"
+      <div v-if="open" class="overlay" :style="{ zIndex }" @pointerdown.self="armed = true"
            @pointerup.self="armed && requestClose()" @pointerleave.self="armed = false" @pointercancel.self="armed = false">
         <div class="modal" role="dialog" aria-modal="true" :aria-label="title">
           <header>
@@ -76,6 +76,7 @@ withDefaults(defineProps<{
   saveLabel: string
   saving: boolean
   canSave: boolean
+  zIndex?: number
   target: SubscriptionTarget | null
   form: {
     months: number
@@ -83,6 +84,7 @@ withDefaults(defineProps<{
   }
 }>(), {
   statusText: '',
+  zIndex: 1000,
 })
 
 const emit = defineEmits<{

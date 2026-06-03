@@ -927,6 +927,7 @@
       show-stats-button
       admin-mode
       @update:open="onUserMiniProfileOpenUpdate"
+      @staff-action-complete="onUserMiniProfileStaffActionComplete"
     />
   </section>
 </template>
@@ -1977,6 +1978,15 @@ function closeUserMiniProfile(): void {
 function onUserMiniProfileOpenUpdate(open: boolean): void {
   userMiniProfileOpen.value = open
   if (!open) userMiniProfileTarget.value = null
+}
+
+function onUserMiniProfileStaffActionComplete(): void {
+  if (activeTab.value === 'users'
+    || activeTab.value === 'sanctions'
+    || activeTab.value === 'contact_requests'
+    || activeTab.value === 'subscriptions') {
+    refreshActiveTab(activeTab.value)
+  }
 }
 
 function formatRoomGame(row: RoomRow): string {
@@ -3289,8 +3299,8 @@ onMounted(() => {
         position: absolute;
         top: calc(100% - 35px);
         right: 15px;
-        min-width: 200px;
-        max-width: 300px;
+        min-width: 300px;
+        max-width: 400px;
         max-height: 200px;
         overflow: auto;
         padding: 10px;
@@ -3314,7 +3324,7 @@ onMounted(() => {
         align-items: center;
         flex-wrap: wrap;
         gap: 5px;
-        font-size: 12px;
+        font-size: 18px;
         color: $fg;
       }
       .tooltip-avatar {

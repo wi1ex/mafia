@@ -220,6 +220,7 @@ onBeforeUnmount(() => {
         &:disabled {
           width: 274px;
           height: 154px;
+          filter: grayscale(100%) brightness(60%);
           opacity: 0.5;
           cursor: not-allowed;
         }

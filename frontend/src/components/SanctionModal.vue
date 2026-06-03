@@ -1,7 +1,7 @@
 <template>
   <Teleport to="body">
     <Transition name="overlay">
-      <div v-if="open" class="overlay" @pointerdown.self="armed = true" @pointerup.self="armed && close()"
+      <div v-if="open" class="overlay" :style="{ zIndex }" @pointerdown.self="armed = true" @pointerup.self="armed && close()"
            @pointerleave.self="armed = false" @pointercancel.self="armed = false">
         <div class="modal" role="dialog" aria-modal="true" :aria-label="title">
           <header>
@@ -63,6 +63,7 @@ withDefaults(defineProps<{
   showReason?: boolean
   showDescription?: boolean
   saveLabel?: string
+  zIndex?: number
   reasons: { value: string; label: string }[]
   form: {
     months: number
@@ -76,6 +77,7 @@ withDefaults(defineProps<{
   showReason: true,
   showDescription: true,
   saveLabel: 'Применить',
+  zIndex: 1000,
 })
 
 const emit = defineEmits<{

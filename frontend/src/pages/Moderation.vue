@@ -305,6 +305,7 @@
       show-stats-button
       admin-mode
       @update:open="onUserMiniProfileOpenUpdate"
+      @staff-action-complete="onUserMiniProfileStaffActionComplete"
     />
   </section>
 </template>
@@ -699,6 +700,10 @@ function openContactRequestUserMiniProfile(row: ContactRequestRow): void {
 function onUserMiniProfileOpenUpdate(open: boolean): void {
   userMiniProfileOpen.value = open
   if (!open) userMiniProfileTarget.value = null
+}
+
+function onUserMiniProfileStaffActionComplete(): void {
+  refreshActiveTab(activeTab.value)
 }
 
 function resetSanctionForm(): void {

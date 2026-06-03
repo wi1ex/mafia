@@ -57,6 +57,7 @@ class UserMiniProfileOut(BaseModel):
     username: Optional[str] = None
     avatar_name: Optional[str] = None
     role: str
+    protected_user: bool = False
     deleted: bool = False
     registered_at: Optional[datetime] = None
     last_visit_at: Optional[datetime] = None
@@ -64,6 +65,11 @@ class UserMiniProfileOut(BaseModel):
     last_game_id: Optional[int] = None
     online: bool = False
     subscription_active: bool = False
+    timeout_active: bool = False
+    timeout_until: Optional[datetime] = None
+    ban_active: bool = False
+    suspend_active: bool = False
+    suspend_until: Optional[datetime] = None
     profile_theme_color: Optional[str] = None
     profile_theme_icon: Optional[str] = None
     friend_status: Literal["self", "friends", "outgoing", "incoming", "none"] = "none"

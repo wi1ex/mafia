@@ -118,6 +118,17 @@
                 <span>{{ friendActionLabel }}</span>
               </button>
             </div>
+
+            <div v-if="showStaffActionBlock" class="profile-staff-actions" aria-label="Действия с пользователем">
+              <div v-for="action in staffActionItems" :key="action.key" class="staff-action-item">
+                <button class="btn staff-action-button" :class="action.buttonClass" type="button" :disabled="action.disabled"
+                        :aria-label="action.ariaLabel" @click="onStaffAction(action.key)">
+                  <img v-if="action.icon" class="btn-img" :src="action.icon" alt="" />
+                  <span v-if="action.buttonText">{{ action.buttonText }}</span>
+                </button>
+                <span class="staff-action-label">{{ action.label }}</span>
+              </div>
+            </div>
           </template>
 
           <template v-else>
@@ -135,14 +146,39 @@
         <img class="avatar-lightbox-image" :src="avatarLightboxSrc" alt="avatar" />
       </div>
     </Transition>
+    <SanctionModal
+      :open="staffSanctionModalOpen"
+      :title="staffSanctionTitle"
+      :saving="staffSanctionSaving"
+      :can-save="staffSanctionCanSave"
+      :show-duration="staffSanctionKind !== 'ban'"
+      :form="staffSanctionForm"
+      :reasons="staffSanctionReasons"
+      :z-index="STAFF_MODAL_Z_INDEX"
+      @update:open="onStaffSanctionModalOpenUpdate"
+      @save="saveStaffSanction"
+    />
+    <SubscriptionModal
+      :open="staffSubscriptionModalOpen"
+      title="Выдать подписку"
+      save-label="Выдать"
+      :saving="staffSubscriptionSaving"
+      :can-save="staffSubscriptionCanSave"
+      :target="staffSubscriptionTarget"
+      :form="staffSubscriptionForm"
+      :z-index="STAFF_MODAL_Z_INDEX"
+      @update:open="onStaffSubscriptionModalOpenUpdate"
+      @save="saveStaffSubscription"
+    />
   </Teleport>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { api } from '@/services/axios'
 import { alertDialog, confirmDialog } from '@/services/confirm'
 import { isMiniProfilePrivilegedViewer, normalizeMiniProfileRole } from '@/services/miniProfile'
+import { DEFAULT_SANCTION_REASON, SANCTION_REASONS } from '@/constants/sanctionReasons'
 import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
 import { getProfileThemeBadgeSources } from '@/constants/profileThemeIcons'
 import {
@@ -155,6 +191,8 @@ import {
   type FriendStatus,
 } from '@/store'
 import ProfileStatsTab from '@/components/ProfileStatsTab.vue'
+import SanctionModal from '@/components/SanctionModal.vue'
+import SubscriptionModal from '@/components/SubscriptionModal.vue'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 import iconClose from '@/assets/svg/close.svg'
@@ -172,8 +210,20 @@ import nominationSpectator from '@/assets/svg/nominationSpectator.svg'
 
 type FriendActionKind = 'add' | 'remove' | 'incoming' | 'outgoing'
 type MiniProfileSanctionKind = 'timeout' | 'ban' | 'suspend'
+type StaffActionKey = 'subscription' | 'role' | 'account' | 'avatar' | 'nickname' | 'suspend' | 'timeout' | 'ban'
+type StaffActionScope = 'admin' | 'moderation'
 type NominationLevel = 1 | 2 | 3 | 4 | 5
 type NominationStatKey = 'games_played' | 'games_hosted' | 'room_minutes' | 'stream_minutes' | 'spectator_minutes'
+
+type StaffActionItem = {
+  key: StaffActionKey
+  label: string
+  buttonClass: string
+  disabled: boolean
+  ariaLabel: string
+  icon?: string
+  buttonText?: string
+}
 
 type MiniProfileSanction = {
   kind?: MiniProfileSanctionKind | string | null
@@ -238,6 +288,7 @@ type MiniProfileResponse = {
   username?: string | null
   avatar_name?: string | null
   role?: string | null
+  protected_user?: boolean
   deleted?: boolean
   registered_at?: string | null
   last_visit_at?: string | null
@@ -245,6 +296,11 @@ type MiniProfileResponse = {
   last_game_id?: number | null
   online?: boolean
   subscription_active?: boolean
+  timeout_active?: boolean
+  timeout_until?: string | null
+  ban_active?: boolean
+  suspend_active?: boolean
+  suspend_until?: string | null
   profile_theme_color?: string | null
   profile_theme_icon?: string | null
   friend_status?: FriendStatus | null
@@ -282,6 +338,7 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   'update:open': [value: boolean]
   'friend-status-change': [userId: number, status: FriendStatus]
+  'staff-action-complete': [payload: { userId: number, action: StaffActionKey | 'sanction' }]
 }>()
 
 const friends = useFriendsStore()
@@ -300,10 +357,38 @@ const nicknameHistoryLoading = ref(false)
 const nicknameHistoryError = ref('')
 const nicknameHistoryItems = ref<string[]>([])
 const nicknameHistoryLoadedForTarget = ref(0)
+const staffRoleBusy = ref(false)
+const staffAccountBusy = ref(false)
+const staffAvatarBusy = ref(false)
+const staffNicknameBusy = ref(false)
+const staffSanctionBusy = reactive<Record<string, boolean>>({})
+const staffSanctionModalOpen = ref(false)
+const staffSanctionSaving = ref(false)
+const staffSanctionKind = ref<MiniProfileSanctionKind>('timeout')
+const staffSanctionReasons = SANCTION_REASONS
+const staffSanctionForm = reactive({
+  months: 0,
+  days: 0,
+  hours: 0,
+  reason: DEFAULT_SANCTION_REASON,
+  description: '',
+})
+const staffSubscriptionModalOpen = ref(false)
+const staffSubscriptionSaving = ref(false)
+const staffSubscriptionForm = reactive({
+  months: 0,
+  days: 0,
+})
 let requestSeq = 0
 let nicknameHistorySeq = 0
 
 const MINUTES_IN_DAY = 24 * 60
+const STAFF_MODAL_Z_INDEX = 1700
+const STAFF_SANCTION_DURATION_LIMITS = {
+  months: 240,
+  days: 31,
+  hours: 23,
+} as const
 const nominationIntFmt = new Intl.NumberFormat('ru-RU')
 const PROFILE_NOMINATION_DEFINITIONS: readonly ProfileNominationDefinition[] = [
   {
@@ -502,6 +587,181 @@ const showStatsButton = computed(() => Boolean(
   && (isSelfProfile.value || privilegedViewer.value || friendStatus.value === 'friends')
 ))
 const showActionBlock = computed(() => showStatsButton.value || showFriendAction.value)
+const isAdminViewer = computed(() => viewerRole.value === 'admin')
+const isModerViewer = computed(() => viewerRole.value === 'moder')
+const staffActionScope = computed<StaffActionScope | null>(() => {
+  if (isAdminViewer.value) return 'admin'
+  if (isModerViewer.value) return 'moderation'
+  return null
+})
+const targetRoleNormalized = computed(() => normalizeMiniProfileRole(profileRole.value))
+const targetUsername = computed(() => {
+  if (profileLoadedForTarget.value) return profile.value?.username || ''
+  return initialProfileForTarget.value?.username || ''
+})
+const targetProtectedUser = computed(() => Boolean(profileLoadedForTarget.value && profile.value?.protected_user))
+const targetSubscriptionActive = computed(() => Boolean(profileLoadedForTarget.value && profile.value?.subscription_active))
+const targetTimeoutActive = computed(() => Boolean(profileLoadedForTarget.value && profile.value?.timeout_active))
+const targetBanActive = computed(() => Boolean(profileLoadedForTarget.value && profile.value?.ban_active))
+const targetSuspendActive = computed(() => Boolean(profileLoadedForTarget.value && profile.value?.suspend_active))
+const targetNicknameDefault = computed(() => targetUserId.value > 0 && targetUsername.value === `user_${targetUserId.value}`)
+const staffAdminUserActionsLocked = computed(() => targetProtectedUser.value)
+const staffAdminDeletedUserActionsLocked = computed(() => staffAdminUserActionsLocked.value || targetDeleted.value)
+const staffModerationTargetAllowed = computed(() => targetRoleNormalized.value === 'user' && !targetDeleted.value)
+const staffSubscriptionTarget = computed(() => {
+  const uid = targetUserId.value
+  if (uid <= 0) return null
+  return {
+    user_id: uid,
+    username: targetUsername.value || displayName.value,
+    avatar_name: avatarName.value || null,
+  }
+})
+const staffSubscriptionCanSave = computed(() => {
+  const months = Number(staffSubscriptionForm.months) || 0
+  const days = Number(staffSubscriptionForm.days) || 0
+  return Boolean(staffSubscriptionTarget.value && (months > 0 || days > 0))
+})
+const staffSanctionDurationValid = computed(() => (
+  isStaffSanctionDurationPartValid(staffSanctionForm.months, STAFF_SANCTION_DURATION_LIMITS.months)
+  && isStaffSanctionDurationPartValid(staffSanctionForm.days, STAFF_SANCTION_DURATION_LIMITS.days)
+  && isStaffSanctionDurationPartValid(staffSanctionForm.hours, STAFF_SANCTION_DURATION_LIMITS.hours)
+))
+const staffSanctionTotalSeconds = computed(() => {
+  const months = Math.max(0, Number(staffSanctionForm.months) || 0)
+  const days = Math.max(0, Number(staffSanctionForm.days) || 0)
+  const hours = Math.max(0, Number(staffSanctionForm.hours) || 0)
+  return ((months * 30 * 24 * 60) + (days * 24 * 60) + (hours * 60)) * 60
+})
+const staffSanctionCanSave = computed(() => {
+  if (!staffSanctionForm.reason || !staffSanctionForm.description.trim()) return false
+  if (staffSanctionKind.value === 'ban') return isAdminViewer.value
+  return staffSanctionDurationValid.value && staffSanctionTotalSeconds.value > 0
+})
+const staffSanctionTitle = computed(() => {
+  const label = displayName.value
+  if (staffSanctionKind.value === 'timeout') return `Таймаут: ${label}`
+  if (staffSanctionKind.value === 'ban') return `Бан: ${label}`
+  return `Отстранение от игр: ${label}`
+})
+const staffActionItems = computed<StaffActionItem[]>(() => {
+  if (!profileLoadedForTarget.value || targetUserId.value <= 0) return []
+
+  const avatarDisabled = staffAvatarBusy.value || !avatarName.value
+  const nicknameDisabled = staffNicknameBusy.value || targetNicknameDefault.value
+  const suspendDisabled = isStaffSanctionBusy('suspend')
+  const timeoutDisabled = isStaffSanctionBusy('timeout')
+
+  if (isAdminViewer.value) {
+    return [
+      {
+        key: 'subscription',
+        label: 'Подписка',
+        buttonText: 'Выдать',
+        buttonClass: 'confirm',
+        disabled: staffSubscriptionSaving.value || targetDeleted.value || targetSubscriptionActive.value,
+        ariaLabel: `Выдать подписку ${displayName.value}`,
+      },
+      {
+        key: 'role',
+        label: 'Модерка',
+        icon: targetRoleNormalized.value === 'moder' ? iconClose : iconJudge,
+        buttonClass: targetRoleNormalized.value === 'moder' ? 'dark' : 'danger',
+        disabled: staffAdminDeletedUserActionsLocked.value || staffRoleBusy.value || targetRoleNormalized.value === 'admin',
+        ariaLabel: targetRoleNormalized.value === 'moder' ? `Снять модерку ${displayName.value}` : `Выдать модерку ${displayName.value}`,
+      },
+      {
+        key: 'account',
+        label: 'Аккаунт',
+        icon: targetDeleted.value ? iconClose : iconJudge,
+        buttonClass: targetDeleted.value ? 'dark' : 'danger',
+        disabled: staffAdminUserActionsLocked.value || staffAccountBusy.value,
+        ariaLabel: targetDeleted.value ? `Восстановить аккаунт ${displayName.value}` : `Удалить аккаунт ${displayName.value}`,
+      },
+      {
+        key: 'avatar',
+        label: 'Аватар',
+        icon: iconClose,
+        buttonClass: avatarName.value ? 'danger' : 'dark',
+        disabled: staffAdminDeletedUserActionsLocked.value || avatarDisabled,
+        ariaLabel: `Удалить аватар ${displayName.value}`,
+      },
+      {
+        key: 'nickname',
+        label: 'Никнейм',
+        icon: iconClose,
+        buttonClass: targetNicknameDefault.value ? 'dark' : 'danger',
+        disabled: staffAdminDeletedUserActionsLocked.value || nicknameDisabled,
+        ariaLabel: `Сбросить никнейм ${displayName.value}`,
+      },
+      {
+        key: 'suspend',
+        label: 'Отстранить',
+        icon: targetSuspendActive.value ? iconClose : iconJudge,
+        buttonClass: targetSuspendActive.value ? 'dark' : 'danger',
+        disabled: staffAdminDeletedUserActionsLocked.value || suspendDisabled,
+        ariaLabel: targetSuspendActive.value ? `Снять отстранение ${displayName.value}` : `Выдать отстранение ${displayName.value}`,
+      },
+      {
+        key: 'timeout',
+        label: 'Таймаут',
+        icon: targetTimeoutActive.value ? iconClose : iconJudge,
+        buttonClass: targetTimeoutActive.value ? 'dark' : 'danger',
+        disabled: staffAdminDeletedUserActionsLocked.value || timeoutDisabled,
+        ariaLabel: targetTimeoutActive.value ? `Снять таймаут ${displayName.value}` : `Выдать таймаут ${displayName.value}`,
+      },
+      {
+        key: 'ban',
+        label: 'Бан',
+        icon: targetBanActive.value ? iconClose : iconJudge,
+        buttonClass: targetBanActive.value ? 'dark' : 'danger',
+        disabled: staffAdminDeletedUserActionsLocked.value || isStaffSanctionBusy('ban'),
+        ariaLabel: targetBanActive.value ? `Снять бан ${displayName.value}` : `Выдать бан ${displayName.value}`,
+      },
+    ]
+  }
+
+  if (isModerViewer.value) {
+    const moderationLocked = !staffModerationTargetAllowed.value
+    return [
+      {
+        key: 'avatar',
+        label: 'Аватар',
+        icon: iconClose,
+        buttonClass: avatarName.value ? 'danger' : 'dark',
+        disabled: moderationLocked || avatarDisabled,
+        ariaLabel: `Удалить аватар ${displayName.value}`,
+      },
+      {
+        key: 'nickname',
+        label: 'Никнейм',
+        icon: iconClose,
+        buttonClass: targetNicknameDefault.value ? 'dark' : 'danger',
+        disabled: moderationLocked || nicknameDisabled,
+        ariaLabel: `Сбросить никнейм ${displayName.value}`,
+      },
+      {
+        key: 'suspend',
+        label: 'Отстранить',
+        icon: targetSuspendActive.value ? iconClose : iconJudge,
+        buttonClass: targetSuspendActive.value ? 'dark' : 'danger',
+        disabled: moderationLocked || suspendDisabled,
+        ariaLabel: targetSuspendActive.value ? `Снять отстранение ${displayName.value}` : `Выдать отстранение ${displayName.value}`,
+      },
+      {
+        key: 'timeout',
+        label: 'Таймаут',
+        icon: targetTimeoutActive.value ? iconClose : iconJudge,
+        buttonClass: targetTimeoutActive.value ? 'dark' : 'danger',
+        disabled: moderationLocked || timeoutDisabled,
+        ariaLabel: targetTimeoutActive.value ? `Снять таймаут ${displayName.value}` : `Выдать таймаут ${displayName.value}`,
+      },
+    ]
+  }
+
+  return []
+})
+const showStaffActionBlock = computed(() => staffActionItems.value.length > 0)
 
 function safeNonNegativeInt(raw: unknown): number {
   const value = Number(raw)
@@ -720,6 +980,366 @@ function openAvatarLightbox() {
   avatarLightboxOpen.value = true
 }
 
+function isStaffSanctionDurationPartValid(value: number, max: number): boolean {
+  const parsed = Number(value)
+  return Number.isInteger(parsed) && parsed >= 0 && parsed <= max
+}
+
+function staffSanctionBusyKey(kind: MiniProfileSanctionKind): string {
+  return `${targetUserId.value}:${kind}`
+}
+
+function isStaffSanctionBusy(kind: MiniProfileSanctionKind): boolean {
+  return Boolean(staffSanctionBusy[staffSanctionBusyKey(kind)])
+}
+
+function setStaffSanctionBusy(kind: MiniProfileSanctionKind, value: boolean): void {
+  staffSanctionBusy[staffSanctionBusyKey(kind)] = value
+}
+
+function staffActionDisabled(key: StaffActionKey): boolean {
+  return Boolean(staffActionItems.value.find(item => item.key === key)?.disabled ?? true)
+}
+
+function staffApiPrefix(): string {
+  const scope = staffActionScope.value
+  return scope ? `/${scope}` : ''
+}
+
+function currentTargetLabel(): string {
+  return targetUsername.value || (targetUserId.value > 0 ? `#${targetUserId.value}` : displayName.value)
+}
+
+function patchProfile(values: Partial<MiniProfileResponse>): void {
+  if (!profileLoadedForTarget.value || !profile.value) return
+  Object.assign(profile.value, values)
+}
+
+function emitStaffActionComplete(action: StaffActionKey | 'sanction'): void {
+  if (targetUserId.value <= 0) return
+  emit('staff-action-complete', { userId: targetUserId.value, action })
+}
+
+function resetStaffSanctionForm(): void {
+  staffSanctionForm.months = 0
+  staffSanctionForm.days = 0
+  staffSanctionForm.hours = 0
+  staffSanctionForm.reason = DEFAULT_SANCTION_REASON
+  staffSanctionForm.description = ''
+}
+
+function closeStaffSanctionModal(): void {
+  if (staffSanctionSaving.value) return
+  staffSanctionModalOpen.value = false
+  resetStaffSanctionForm()
+}
+
+function onStaffSanctionModalOpenUpdate(open: boolean): void {
+  if (open) return
+  closeStaffSanctionModal()
+}
+
+function resetStaffSubscriptionForm(): void {
+  staffSubscriptionForm.months = 0
+  staffSubscriptionForm.days = 0
+}
+
+function closeStaffSubscriptionModal(): void {
+  if (staffSubscriptionSaving.value) return
+  staffSubscriptionModalOpen.value = false
+  resetStaffSubscriptionForm()
+}
+
+function onStaffSubscriptionModalOpenUpdate(open: boolean): void {
+  if (open) return
+  closeStaffSubscriptionModal()
+}
+
+function openStaffSubscription(): void {
+  if (!isAdminViewer.value || staffActionDisabled('subscription')) return
+  resetStaffSubscriptionForm()
+  staffSubscriptionModalOpen.value = true
+}
+
+function openStaffSanction(kind: MiniProfileSanctionKind): void {
+  if (kind === 'ban' && !isAdminViewer.value) return
+  if (staffActionDisabled(kind)) return
+  staffSanctionKind.value = kind
+  resetStaffSanctionForm()
+  staffSanctionModalOpen.value = true
+}
+
+async function saveStaffSubscription(): Promise<void> {
+  if (!isAdminViewer.value || staffSubscriptionSaving.value || !staffSubscriptionCanSave.value) return
+  const uid = targetUserId.value
+  if (uid <= 0) return
+  const hadActiveSubscription = targetSubscriptionActive.value
+  staffSubscriptionSaving.value = true
+  try {
+    await api.post('/admin/subscriptions', {
+      user_id: uid,
+      months: Math.max(0, Math.trunc(Number(staffSubscriptionForm.months) || 0)),
+      days: Math.max(0, Math.trunc(Number(staffSubscriptionForm.days) || 0)),
+    })
+    staffSubscriptionModalOpen.value = false
+    resetStaffSubscriptionForm()
+    patchProfile({ subscription_active: true })
+    emitStaffActionComplete('subscription')
+    void alertDialog(hadActiveSubscription ? 'Подписка продлена' : 'Подписка выдана')
+    void loadProfile()
+  } catch (e: any) {
+    const st = e?.response?.status
+    const d = e?.response?.data?.detail
+    if (st === 404 && d === 'user_not_found') void alertDialog('Пользователь не найден')
+    else if (st === 422 && d === 'duration_required') void alertDialog('Укажите срок подписки')
+    else void alertDialog('Не удалось сохранить подписку')
+  } finally {
+    staffSubscriptionSaving.value = false
+  }
+}
+
+async function toggleStaffRole(): Promise<void> {
+  if (!isAdminViewer.value || staffActionDisabled('role')) return
+  const uid = targetUserId.value
+  if (uid <= 0 || staffRoleBusy.value) return
+  const isModer = targetRoleNormalized.value === 'moder'
+  const targetRole = isModer ? 'user' : 'moder'
+  const userLabel = currentTargetLabel()
+  const ok = await confirmDialog({
+    title: isModer ? 'Снять MODER' : 'Выдать MODER',
+    text: `${isModer ? 'Снять' : 'Выдать'} права модератора пользователю ${userLabel}?`,
+    confirmText: isModer ? 'Снять' : 'Выдать',
+    cancelText: 'Отмена',
+  })
+  if (!ok) return
+  staffRoleBusy.value = true
+  try {
+    const { data } = await api.patch(`/admin/users/${uid}/role`, { role: targetRole })
+    patchProfile({ role: data?.role || targetRole })
+    emitStaffActionComplete('role')
+  } catch (e: any) {
+    const d = e?.response?.data?.detail
+    if (d === 'protected_user') void alertDialog('Пользователь защищен от админ-действий')
+    else if (d === 'user_deleted') void alertDialog('Аккаунт удален')
+    else if (d === 'admin_role_locked') void alertDialog('Нельзя изменить роль администратора')
+    else void alertDialog('Не удалось обновить роль пользователя')
+  } finally {
+    staffRoleBusy.value = false
+  }
+}
+
+async function toggleStaffAccount(): Promise<void> {
+  if (!isAdminViewer.value || staffActionDisabled('account')) return
+  const uid = targetUserId.value
+  if (uid <= 0 || staffAccountBusy.value) return
+  const isDeleted = targetDeleted.value
+  const userLabel = currentTargetLabel()
+  const ok = await confirmDialog({
+    title: isDeleted ? 'Восстановить аккаунт' : 'Удалить аккаунт',
+    text: isDeleted
+      ? `Восстановить доступ для ${userLabel}?`
+      : `Удаление аккаунта ${userLabel} произойдет навсегда без возможности восстановления.`,
+    confirmText: isDeleted ? 'Восстановить' : 'Удалить',
+    cancelText: 'Отмена',
+  })
+  if (!ok) return
+  staffAccountBusy.value = true
+  try {
+    await api.post(`/admin/users/${uid}/${isDeleted ? 'restore' : 'delete'}`)
+    patchProfile({ deleted: !isDeleted })
+    emitStaffActionComplete('account')
+  } catch (e: any) {
+    const d = e?.response?.data?.detail
+    if (d === 'protected_user') void alertDialog('Пользователь защищен от админ-действий')
+    else void alertDialog(isDeleted ? 'Не удалось восстановить аккаунт' : 'Не удалось удалить аккаунт')
+  } finally {
+    staffAccountBusy.value = false
+  }
+}
+
+async function deleteStaffAvatar(): Promise<void> {
+  if (staffActionDisabled('avatar')) return
+  const prefix = staffApiPrefix()
+  const uid = targetUserId.value
+  if (!prefix || uid <= 0 || staffAvatarBusy.value) return
+  const userLabel = currentTargetLabel()
+  const ok = await confirmDialog({
+    title: 'Удалить аватар',
+    text: `Удалить аватар у ${userLabel}?`,
+    confirmText: 'Удалить',
+    cancelText: 'Отмена',
+  })
+  if (!ok) return
+  staffAvatarBusy.value = true
+  try {
+    await api.post(`${prefix}/users/${uid}/avatar_delete`)
+    patchProfile({ avatar_name: null })
+    emitStaffActionComplete('avatar')
+    void alertDialog('Аватар удален')
+  } catch (e: any) {
+    const d = e?.response?.data?.detail
+    if (d === 'forbidden') void alertDialog('Нельзя удалить аватар этого пользователя')
+    else if (d === 'protected_user') void alertDialog('Пользователь защищен от админ-действий')
+    else void alertDialog('Не удалось удалить аватар')
+  } finally {
+    staffAvatarBusy.value = false
+  }
+}
+
+async function resetStaffNickname(): Promise<void> {
+  if (staffActionDisabled('nickname')) return
+  const prefix = staffApiPrefix()
+  const uid = targetUserId.value
+  if (!prefix || uid <= 0 || staffNicknameBusy.value) return
+  const userLabel = currentTargetLabel()
+  const ok = await confirmDialog({
+    title: 'Сбросить никнейм',
+    text: `Сбросить никнейм ${userLabel} на user_${uid}?`,
+    confirmText: 'Сбросить',
+    cancelText: 'Отмена',
+  })
+  if (!ok) return
+  staffNicknameBusy.value = true
+  try {
+    const { data } = await api.post(`${prefix}/users/${uid}/nickname_reset`)
+    patchProfile({ username: data?.username || `user_${uid}` })
+    resetNicknameHistory()
+    emitStaffActionComplete('nickname')
+    void alertDialog('Никнейм сброшен')
+  } catch (e: any) {
+    const d = e?.response?.data?.detail
+    if (e?.response?.status === 409 && d === 'username_taken') void alertDialog('Не удалось сбросить никнейм: имя уже занято')
+    else if (d === 'forbidden') void alertDialog('Нельзя сбросить никнейм этого пользователя')
+    else if (d === 'protected_user') void alertDialog('Пользователь защищен от админ-действий')
+    else void alertDialog('Не удалось сбросить никнейм')
+  } finally {
+    staffNicknameBusy.value = false
+  }
+}
+
+async function saveStaffSanction(): Promise<void> {
+  const kind = staffSanctionKind.value
+  if (staffSanctionSaving.value || !staffSanctionCanSave.value || staffActionDisabled(kind)) return
+  const prefix = staffApiPrefix()
+  const uid = targetUserId.value
+  if (!prefix || uid <= 0 || (kind === 'ban' && !isAdminViewer.value)) return
+  staffSanctionSaving.value = true
+  setStaffSanctionBusy(kind, true)
+  const payload = kind === 'ban'
+    ? { reason: staffSanctionForm.reason, description: staffSanctionForm.description.trim() }
+    : {
+      months: staffSanctionForm.months,
+      days: staffSanctionForm.days,
+      hours: staffSanctionForm.hours,
+      reason: staffSanctionForm.reason,
+      description: staffSanctionForm.description.trim(),
+    }
+  try {
+    await api.post(`${prefix}/users/${uid}/${kind}`, payload)
+    staffSanctionModalOpen.value = false
+    resetStaffSanctionForm()
+    emitStaffActionComplete('sanction')
+    void alertDialog(kind === 'timeout' ? 'Таймаут выдан' : kind === 'ban' ? 'Бан выдан' : 'Отстранение выдано')
+    await loadProfile()
+  } catch (e: any) {
+    const st = e?.response?.status
+    const d = e?.response?.data?.detail
+    if (st === 409 && d === 'sanction_active') void alertDialog('Санкция уже активна')
+    else if (st === 422 && d === 'duration_required') void alertDialog('Укажите срок санкции')
+    else if (d === 'forbidden') void alertDialog('Нельзя применить санкцию к этому пользователю')
+    else if (d === 'protected_user') void alertDialog('Пользователь защищен от админ-действий')
+    else void alertDialog(kind === 'timeout' ? 'Не удалось выдать таймаут' : kind === 'ban' ? 'Не удалось выдать бан' : 'Не удалось выдать отстранение')
+  } finally {
+    setStaffSanctionBusy(kind, false)
+    staffSanctionSaving.value = false
+  }
+}
+
+async function revokeStaffSanction(kind: MiniProfileSanctionKind): Promise<void> {
+  if (staffActionDisabled(kind)) return
+  const prefix = staffApiPrefix()
+  const uid = targetUserId.value
+  if (!prefix || uid <= 0 || isStaffSanctionBusy(kind) || (kind === 'ban' && !isAdminViewer.value)) return
+  const userLabel = currentTargetLabel()
+  const title = kind === 'ban' ? 'Разбанить' : kind === 'timeout' ? 'Снять таймаут' : 'Снять отстранение'
+  const text = kind === 'ban'
+    ? `Разбанить ${userLabel}?`
+    : kind === 'timeout'
+      ? `Снять таймаут у ${userLabel}?`
+      : `Снять отстранение у ${userLabel}?`
+  const ok = await confirmDialog({
+    title,
+    text,
+    confirmText: title,
+    cancelText: 'Отмена',
+  })
+  if (!ok) return
+  setStaffSanctionBusy(kind, true)
+  try {
+    await api.delete(`${prefix}/users/${uid}/${kind}`)
+    emitStaffActionComplete('sanction')
+    void alertDialog(kind === 'ban' ? 'Бан снят' : kind === 'timeout' ? 'Таймаут снят' : 'Отстранение снято')
+    await loadProfile()
+  } catch (e: any) {
+    const d = e?.response?.data?.detail
+    if (d === 'sanction_not_found') void alertDialog('Санкция не найдена')
+    else if (d === 'forbidden') void alertDialog('Нельзя снять санкцию этого пользователя')
+    else if (d === 'protected_user') void alertDialog('Пользователь защищен от админ-действий')
+    else void alertDialog(kind === 'ban' ? 'Не удалось снять бан' : kind === 'timeout' ? 'Не удалось снять таймаут' : 'Не удалось снять отстранение')
+  } finally {
+    setStaffSanctionBusy(kind, false)
+  }
+}
+
+async function toggleStaffSanction(kind: MiniProfileSanctionKind): Promise<void> {
+  if ((kind === 'timeout' && targetTimeoutActive.value)
+    || (kind === 'ban' && targetBanActive.value)
+    || (kind === 'suspend' && targetSuspendActive.value)) {
+    await revokeStaffSanction(kind)
+    return
+  }
+  openStaffSanction(kind)
+}
+
+function onStaffAction(key: StaffActionKey): void {
+  if (staffActionDisabled(key)) return
+  if (key === 'subscription') {
+    openStaffSubscription()
+    return
+  }
+  if (key === 'role') {
+    void toggleStaffRole()
+    return
+  }
+  if (key === 'account') {
+    void toggleStaffAccount()
+    return
+  }
+  if (key === 'avatar') {
+    void deleteStaffAvatar()
+    return
+  }
+  if (key === 'nickname') {
+    void resetStaffNickname()
+    return
+  }
+  void toggleStaffSanction(key)
+}
+
+function resetStaffActionState(): void {
+  staffRoleBusy.value = false
+  staffAccountBusy.value = false
+  staffAvatarBusy.value = false
+  staffNicknameBusy.value = false
+  for (const key of Object.keys(staffSanctionBusy)) delete staffSanctionBusy[key]
+  staffSanctionSaving.value = false
+  staffSanctionModalOpen.value = false
+  resetStaffSanctionForm()
+  staffSubscriptionSaving.value = false
+  staffSubscriptionModalOpen.value = false
+  resetStaffSubscriptionForm()
+}
+
 function applyFriendStatus(status: FriendStatus) {
   friendStatus.value = status
   if (targetUserId.value > 0) emit('friend-status-change', targetUserId.value, status)
@@ -765,6 +1385,7 @@ async function loadProfile() {
       username: data?.username ?? null,
       avatar_name: data?.avatar_name ?? null,
       role: data?.role ?? null,
+      protected_user: Boolean(data?.protected_user),
       deleted: Boolean(data?.deleted),
       registered_at: data?.registered_at ?? null,
       last_visit_at: data?.last_visit_at ?? null,
@@ -772,6 +1393,11 @@ async function loadProfile() {
       last_game_id: Number.isFinite(Number(data?.last_game_id)) ? Math.trunc(Number(data?.last_game_id)) : null,
       online: Boolean(data?.online),
       subscription_active: Boolean(data?.subscription_active),
+      timeout_active: Boolean(data?.timeout_active),
+      timeout_until: data?.timeout_until ?? null,
+      ban_active: Boolean(data?.ban_active),
+      suspend_active: Boolean(data?.suspend_active),
+      suspend_until: data?.suspend_until ?? null,
       profile_theme_color: data?.profile_theme_color ?? null,
       profile_theme_icon: data?.profile_theme_icon ?? null,
       friend_status: normalizeFriendStatus(data?.friend_status),
@@ -911,6 +1537,7 @@ watch([() => props.open, targetUserId, viewerVerificationRestricted], ([open, ui
     view.value = 'profile'
     closeAvatarLightbox()
     resetNicknameHistory()
+    resetStaffActionState()
     return
   }
 
@@ -924,6 +1551,7 @@ watch([() => props.open, targetUserId, viewerVerificationRestricted], ([open, ui
   loadError.value = ''
   closeAvatarLightbox()
   resetNicknameHistory()
+  resetStaffActionState()
   applyFriendStatus(inferInitialFriendStatus())
   if (uid > 0) void loadProfile()
 }, { immediate: true })
@@ -935,6 +1563,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   resetNicknameHistory()
+  resetStaffActionState()
   window.removeEventListener('keydown', onKeydown)
   window.removeEventListener('auth-friends_update', onFriendsUpdate)
 })
@@ -1452,6 +2081,83 @@ onBeforeUnmount(() => {
           &:not(:disabled):hover {
             background-color: $orange;
           }
+        }
+      }
+    }
+    .profile-staff-actions {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 10px;
+      padding: 10px;
+      overflow-x: auto;
+      border-radius: 5px;
+      background-color: rgba($graphite, 0.5);
+      box-shadow: 3px 3px 5px rgba($black, 0.25);
+      scrollbar-width: thin;
+      .staff-action-item {
+        display: flex;
+        flex: 0 0 auto;
+        flex-direction: column;
+        align-items: center;
+        gap: 5px;
+        min-width: 46px;
+      }
+      .staff-action-label {
+        max-width: 78px;
+        color: $fg;
+        text-align: center;
+        font-size: 12px;
+        line-height: 1.2;
+        overflow-wrap: anywhere;
+      }
+      .btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 12px;
+        gap: 5px;
+        min-width: 40px;
+        height: 40px;
+        border: none;
+        border-radius: 5px;
+        background-color: $fg;
+        color: $bg;
+        font-size: 14px;
+        font-family: Manrope-Medium;
+        line-height: 1;
+        text-decoration: none;
+        cursor: pointer;
+        transition: opacity 0.25s ease-in-out, color 0.25s ease-in-out, border-radius 0.25s ease-in-out, background-color 0.25s ease-in-out;
+        &:hover {
+          background-color: $white;
+        }
+        &.dark {
+          background-color: $lead;
+          color: $fg;
+          &:hover {
+            background-color: rgba($grey, 0.5);
+          }
+        }
+        &.confirm {
+          background-color: rgba($green, 0.75);
+          &:hover {
+            background-color: $green;
+          }
+        }
+        &.danger {
+          background-color: rgba($red, 0.75);
+          color: $fg;
+          &:hover {
+            background-color: $red;
+          }
+        }
+        &:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+        .btn-img {
+          width: 20px;
+          height: 20px;
         }
       }
     }
