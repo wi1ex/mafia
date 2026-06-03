@@ -696,7 +696,7 @@ const staffActionItems = computed<StaffActionItem[]>(() => {
       },
       {
         key: 'suspend',
-        label: 'Отстранить',
+        label: 'Отстран.',
         icon: targetSuspendActive.value ? iconClose : iconJudge,
         buttonClass: targetSuspendActive.value ? 'dark' : 'danger',
         disabled: staffAdminDeletedUserActionsLocked.value || suspendDisabled,
@@ -726,7 +726,7 @@ const staffActionItems = computed<StaffActionItem[]>(() => {
     return [
       {
         key: 'avatar',
-        label: 'Аватар',
+        label: 'Удалить аватар',
         icon: iconClose,
         buttonClass: avatarName.value ? 'danger' : 'dark',
         disabled: moderationLocked || avatarDisabled,
@@ -734,7 +734,7 @@ const staffActionItems = computed<StaffActionItem[]>(() => {
       },
       {
         key: 'nickname',
-        label: 'Никнейм',
+        label: 'Сбросить никнейм',
         icon: iconClose,
         buttonClass: targetNicknameDefault.value ? 'dark' : 'danger',
         disabled: moderationLocked || nicknameDisabled,
@@ -742,7 +742,7 @@ const staffActionItems = computed<StaffActionItem[]>(() => {
       },
       {
         key: 'suspend',
-        label: 'Отстранить',
+        label: 'Отстранить от игр',
         icon: targetSuspendActive.value ? iconClose : iconJudge,
         buttonClass: targetSuspendActive.value ? 'dark' : 'danger',
         disabled: moderationLocked || suspendDisabled,
@@ -750,7 +750,7 @@ const staffActionItems = computed<StaffActionItem[]>(() => {
       },
       {
         key: 'timeout',
-        label: 'Таймаут',
+        label: 'Выдать таймаут',
         icon: targetTimeoutActive.value ? iconClose : iconJudge,
         buttonClass: targetTimeoutActive.value ? 'dark' : 'danger',
         disabled: moderationLocked || timeoutDisabled,
@@ -2107,7 +2107,7 @@ onBeforeUnmount(() => {
         justify-content: center;
         padding: 0 12px;
         gap: 5px;
-        min-width: 40px;
+        min-width: 54px;
         height: 40px;
         border: none;
         border-radius: 5px;

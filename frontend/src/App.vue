@@ -171,7 +171,11 @@ onBeforeUnmount(() => {
   }
 }
 
-@media (max-width: 1280px) {
+@media (max-width: 1439px) {
+
+}
+
+@media (max-width: 959px) {
 
 }
 
