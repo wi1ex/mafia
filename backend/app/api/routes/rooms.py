@@ -6,6 +6,7 @@ from typing import cast
 from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...core.clients import get_redis
+from ...core.roles import ROLE_ADMIN, normalize_user_role
 from ...security.decorators import log_route, rate_limited, require_room_creator
 from ...core.logging import log_action
 from ...security.auth_tokens import get_identity
@@ -271,10 +272,13 @@ async def room_spectators(room_id: int, ident: Identity = Depends(get_identity),
 @router.patch("/{room_id}/game", response_model=Ok)
 @log_route("rooms.update_game")
 @rate_limited(lambda ident, room_id, **_: f"rl:rooms:update_game:{ident['id']}:{room_id}", limit=5, window_s=1)
-@require_room_creator("room_id")
 async def update_game(room_id: int, payload: GameParams, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
     r = get_redis()
     params = await get_room_params_or_404(r, room_id)
+    actor_id = int(ident["id"])
+    actor_role = normalize_user_role(ident.get("role"))
+    if int(params.get("creator") or 0) != actor_id and actor_role != ROLE_ADMIN:
+        raise HTTPException(status_code=403, detail="forbidden")
 
     raw_gstate = await r.hgetall(f"room:{room_id}:game_state")
     phase = str(raw_gstate.get("phase") or "idle")
@@ -283,8 +287,8 @@ async def update_game(room_id: int, payload: GameParams, ident: Identity = Depen
 
     spectators_limit = normalize_spectators_limit(payload.spectators_limit)
     if spectators_limit <= 0:
-        theme_state = await resolve_profile_theme_state(session, int(ident["id"]))
-        if not theme_state.subscription_active:
+        theme_state = await resolve_profile_theme_state(session, actor_id)
+        if not theme_state.subscription_active and actor_role != ROLE_ADMIN:
             raise HTTPException(status_code=403, detail="subscription_required")
 
     game_dict = {

@@ -130,7 +130,8 @@ const busy = ref(false)
 const loading = ref(false)
 const game = ref<RoomGameParams>({ ...roomGameDefault })
 const initialGame = ref<RoomGameParams | null>(null)
-const canDisableSpectators = computed(() => Boolean(user.subscriptionActive))
+const isAdminUser = computed(() => String(user.user?.role || '').toLowerCase() === 'admin')
+const canDisableSpectators = computed(() => Boolean(user.subscriptionActive || isAdminUser.value))
 const gameParamsDisabled = computed(() => busy.value || loading.value || !props.canEdit)
 const spectatorsDisabledHint = 'Отключение зрителей доступно пользователям, поддержавшим платформу'
 

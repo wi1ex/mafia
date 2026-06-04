@@ -70,7 +70,7 @@
                 </div>
               </div>
               <span class="hint"><code>латиница, кириллица, цифры, символы ()._-</code></span>
-              <span class="hint nickname-limit" :class="{ red: nicknameChangesLeft <= 0 }">Осталось изменений никнейма: {{ nicknameChangesLeft }}</span>
+              <span class="hint" :class="{ red: nicknameChangesLeft <= 0 }">Осталось изменений никнейма: {{ nicknameChangesLeft }}</span>
               <button class="btn confirm" @click="saveNick" :disabled="saveNickDisabled">
                 <img class="btn-img" :src="iconSave" alt="save" />
                 {{ busyNick ? '...' : 'Сохранить' }}
@@ -1438,7 +1438,7 @@ onBeforeUnmount(() => {
       }
     }
     &.support-btn {
-      max-width: 190px;
+      max-width: 240px;
       background-color: $fg;
       color: $bg;
       font-family: Manrope-SemiBold;
