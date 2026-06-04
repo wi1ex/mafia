@@ -29,7 +29,7 @@
   </div>
   <header class="bar">
     <div class="links">
-      <router-link class="home" :to="{ name: 'home' }" aria-label="DECEIT.games">
+      <router-link class="home" :to="{ name: 'home' }" aria-label="deceit.games">
         <img :src="iconLogo" alt="" aria-hidden="true" />
 <!--        <span data-nosnippet>{{ BUILD }}</span>-->
       </router-link>

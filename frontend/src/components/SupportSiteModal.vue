@@ -51,7 +51,7 @@ import { useSettingsStore } from '@/store'
 import iconClose from '@/assets/svg/iconClose.svg'
 import iconArrowNext from '@/assets/svg/iconArrowNext.svg'
 import iconSupportService1 from '@/assets/images/donateTribute.png'
-import iconSupportService2 from '@/assets/images/donateDonation.png'
+import iconSupportService2 from '@/assets/images/donateBoosty.png'
 
 const props = defineProps<{
   open: boolean
@@ -89,10 +89,10 @@ const supportSites = computed<readonly SupportSiteOption[]>(() => [
   },
   {
     id: 'service_2',
-    name: 'DonationAlerts',
-    url: 'https://dalink.to/deceit_games',
+    name: 'Boosty',
+    url: 'https://boosty.to/deceit_games',
     icon: iconSupportService2,
-    iconAlt: 'donation',
+    iconAlt: 'boosty',
     note: 'Внешний сервис поддержки',
     enabled: Boolean(settings.supportService2Enabled),
   },
