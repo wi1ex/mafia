@@ -22,6 +22,7 @@ class UserOut(BaseModel):
     subscription_active: bool = False
     subscription_started_at: Optional[datetime] = None
     subscription_until: Optional[datetime] = None
+    nickname_changes_left: int = 0
     profile_theme_color: Optional[str] = None
     profile_theme_icon: Optional[str] = None
     timeout_until: Optional[datetime] = None
@@ -220,6 +221,7 @@ class UsernameUpdateIn(BaseModel):
 
 class UsernameUpdateOut(BaseModel):
     username: str
+    nickname_changes_left: int = 0
 
 
 class AvatarUploadOut(BaseModel):

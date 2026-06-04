@@ -113,6 +113,7 @@ from ...services.profile_theme import (
     upsert_profile_theme_icon_preference,
     upsert_profile_theme_preference,
 )
+from ...services.nickname_limits import MAX_NICKNAME_CHANGE_LIMIT, normalize_nickname_changes_left
 from ...services.nickname_history import (
     build_nickname_history_out,
     prepend_nickname_history,
@@ -810,7 +811,10 @@ async def update_username(payload: UsernameUpdateIn, ident: Identity = Depends(g
     await ensure_profile_changes_allowed(db, uid)
 
     if user.username == new:
-        return UsernameUpdateOut(username=user.username)
+        return UsernameUpdateOut(
+            username=user.username,
+            nickname_changes_left=normalize_nickname_changes_left(user.nickname_changes_left),
+        )
 
     exists_case_ins = await db.scalar(select(exists().where(and_(func.lower(User.username) == func.lower(literal(new)), User.id != uid))))
     if exists_case_ins:
@@ -818,11 +822,26 @@ async def update_username(payload: UsernameUpdateIn, ident: Identity = Depends(g
 
     old_username = user.username
     next_nickname_history = prepend_nickname_history(user.nickname_history, old_username, current_username=new)
-    await db.execute(
-        update(User)
-        .where(User.id == uid)
-        .values(username=new, nickname_history=next_nickname_history)
+    current_nickname_changes_left = func.least(
+        func.greatest(func.coalesce(User.nickname_changes_left, 0), 0),
+        MAX_NICKNAME_CHANGE_LIMIT,
     )
+    update_result = await db.execute(
+        update(User)
+        .where(User.id == uid, current_nickname_changes_left > 0)
+        .values(
+            username=new,
+            nickname_history=next_nickname_history,
+            nickname_changes_left=current_nickname_changes_left - 1,
+        )
+        .returning(User.nickname_changes_left)
+    )
+    nickname_changes_left_raw = update_result.scalar_one_or_none()
+    if nickname_changes_left_raw is None:
+        await db.rollback()
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="nickname_change_limit_exhausted")
+
+    nickname_changes_left = normalize_nickname_changes_left(nickname_changes_left_raw)
     await db.commit()
     theme_state = await resolve_profile_theme_state(db, uid)
     await write_user_profile_cache(
@@ -845,7 +864,7 @@ async def update_username(payload: UsernameUpdateIn, ident: Identity = Depends(g
 
     await broadcast_creator_rooms(uid, update_name=new)
     await emit_global_chat_messages_refresh()
-    return UsernameUpdateOut(username=new)
+    return UsernameUpdateOut(username=new, nickname_changes_left=nickname_changes_left)
 
 
 @router.get("/chat/mentions", response_model=ChatMentionSearchOut)

@@ -2,6 +2,8 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { api } from '@/services/axios'
 
+const MAX_NICKNAME_CHANGES_LEFT = 30
+
 export interface UserProfile {
   id: number
   username?: string
@@ -16,6 +18,7 @@ export interface UserProfile {
   subscription_active?: boolean
   subscription_started_at?: string | null
   subscription_until?: string | null
+  nickname_changes_left?: number
   profile_theme_color?: string | null
   profile_theme_icon?: string | null
   timeout_until?: string | null
@@ -71,6 +74,12 @@ export const useUserStore = defineStore('user', () => {
   }
 
   function setAvatarName(name: string | null) { if (user.value) user.value.avatar_name = name }
+
+  function setNicknameChangesLeft(value: number): void {
+    if (!user.value) return
+    const parsed = Number(value)
+    user.value.nickname_changes_left = Number.isFinite(parsed) ? Math.min(MAX_NICKNAME_CHANGES_LEFT, Math.max(0, Math.floor(parsed))) : 0
+  }
 
   function setProfileTheme(payload: {
     subscription_active?: boolean
@@ -198,6 +207,7 @@ export const useUserStore = defineStore('user', () => {
     updateUiPrefs,
     setUsername,
     setAvatarName,
+    setNicknameChangesLeft,
     setProfileTheme,
     setSanctions,
     setInActiveGameAsAlivePlayer,

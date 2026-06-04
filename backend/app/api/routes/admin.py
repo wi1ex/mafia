@@ -39,6 +39,13 @@ from ...services.profile_theme import (
     resolve_profile_theme_state,
     resolve_profile_theme_states,
 )
+from ...services.nickname_limits import (
+    SUBSCRIPTION_EXPIRED_NICKNAME_CHANGE_RESET,
+    SUBSCRIPTION_NICKNAME_CHANGE_LIMIT,
+    FREE_NICKNAME_CHANGE_LIMIT,
+    normalize_nickname_changes_left,
+    set_user_nickname_changes,
+)
 from ...services.global_chat import (
     emit_global_chat_cleared,
     emit_global_chat_permissions_refresh,
@@ -1411,19 +1418,25 @@ async def subscriptions_upsert(payload: AdminSubscriptionCreateIn, ident: Identi
 
     had_subscription = subscription is not None
     had_active_subscription = False
+    should_issue_subscription_nickname_limit = False
     if subscription is None:
         starts_at = now
         ends_at = compute_subscription_end(starts_at, months=months, days=days)
         subscription = UserSubscription(user_id=uid, starts_at=starts_at, ends_at=ends_at)
         session.add(subscription)
+        should_issue_subscription_nickname_limit = True
     else:
         had_active_subscription = subscription.starts_at <= now < subscription.ends_at
         if had_active_subscription:
             subscription.ends_at = compute_subscription_end(subscription.ends_at, months=months, days=days)
+            user.nickname_changes_left = normalize_nickname_changes_left(user.nickname_changes_left)
         else:
             subscription.starts_at = now
             subscription.ends_at = compute_subscription_end(now, months=months, days=days)
+            should_issue_subscription_nickname_limit = True
 
+    if should_issue_subscription_nickname_limit:
+        set_user_nickname_changes(user, SUBSCRIPTION_NICKNAME_CHANGE_LIMIT)
     await ensure_profile_theme_defaults(session, uid, now=now)
 
     await session.commit()
@@ -1564,6 +1577,7 @@ async def subscriptions_delete(user_id: int, ident: Identity = Depends(get_ident
     if subscription is None:
         raise HTTPException(status_code=404, detail="subscription_not_found")
 
+    set_user_nickname_changes(user, SUBSCRIPTION_EXPIRED_NICKNAME_CHANGE_RESET)
     await session.delete(subscription)
     await session.commit()
     avatar_deleted = await delete_gif_avatar_for_inactive_subscription(session, uid)
@@ -1714,6 +1728,7 @@ async def reset_user_nickname(user_id: int, ident: Identity = Depends(get_identi
     telegram_id = int(user.telegram_id or 0)
     user.nickname_history = prepend_nickname_history(user.nickname_history, prev_username, current_username=next_username)
     user.username = next_username
+    set_user_nickname_changes(user, FREE_NICKNAME_CHANGE_LIMIT)
     note = build_nickname_reset_notice(uid, next_username)
     session.add(note)
     await session.commit()

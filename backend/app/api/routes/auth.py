@@ -14,6 +14,7 @@ from ...security.passwords import hash_password, verify_password
 from ...security.sessions import new_login_session, rotate_refresh, logout as sess_logout
 from ...services.user_cache import refresh_user_profile_cache
 from ...services.text_moderation import enforce_clean_text
+from ...services.nickname_limits import FREE_NICKNAME_CHANGE_LIMIT
 from ...schemas.common import Ok
 from ...schemas.auth import AccessTokenOut, PasswordLoginIn, PasswordRegisterIn
 from ..utils import (
@@ -56,6 +57,7 @@ async def register(payload: PasswordRegisterIn, resp: Response, request: Request
         password_temp=False,
         telegram_id=None,
         tg_invites_enabled=True,
+        nickname_changes_left=FREE_NICKNAME_CHANGE_LIMIT,
     )
     db.add(user)
 

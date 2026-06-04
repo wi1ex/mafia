@@ -29,6 +29,7 @@ from ...security.auth_tokens import get_identity
 from ...security.decorators import log_route, require_roles_dep
 from ...services.global_chat import emit_global_chat_sanction_issued_notice, emit_global_chat_sanction_removed_notice
 from ...services.nickname_history import prepend_nickname_history
+from ...services.nickname_limits import FREE_NICKNAME_CHANGE_LIMIT, set_user_nickname_changes
 from ...services.user_cache import refresh_user_profile_cache
 from ..utils import (
     SANCTION_BAN,
@@ -275,6 +276,7 @@ async def moderation_reset_user_nickname(user_id: int, ident: Identity = Depends
     telegram_id = int(user.telegram_id or 0)
     user.nickname_history = prepend_nickname_history(user.nickname_history, prev_username, current_username=next_username)
     user.username = next_username
+    set_user_nickname_changes(user, FREE_NICKNAME_CHANGE_LIMIT)
     note = build_nickname_reset_notice(uid, next_username)
     session.add(note)
     await session.commit()

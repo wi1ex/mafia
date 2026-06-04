@@ -10,6 +10,8 @@ from ..core.settings import settings
 from ..api.utils import (
     emit_expired_timed_sanctions_chat_notices,
     delete_stale_unverified_accounts,
+    emit_auth_profile_sync,
+    fetch_online_user_ids,
     notify_expiring_profile_subscriptions,
     sync_expired_profile_subscriptions,
 )
@@ -19,6 +21,11 @@ from ..services.minio import ensure_bucket
 from ..realtime.utils import recalculate_all_friend_closeness
 from .clients import close_clients, get_redis, init_clients
 from .logging import configure_logging
+from ..services.nickname_limits import (
+    FREE_NICKNAME_CHANGE_LIMIT,
+    SUBSCRIPTION_NICKNAME_CHANGE_LIMIT,
+    reset_monthly_nickname_change_limits,
+)
 
 
 def _next_local_daily_run_at(*, hour: int, minute: int = 0) -> datetime:
@@ -49,6 +56,32 @@ async def lifespan(app) -> AsyncIterator[None]:
             await conn.execute(text(
                 "ALTER TABLE user_sanctions "
                 "ADD COLUMN IF NOT EXISTS description VARCHAR(2048)"
+            ))
+            await conn.execute(text(
+                "ALTER TABLE users "
+                "ADD COLUMN IF NOT EXISTS nickname_changes_left INTEGER"
+            ))
+            await conn.execute(text(
+                "UPDATE users u "
+                "SET nickname_changes_left = CASE "
+                "WHEN EXISTS ("
+                "SELECT 1 FROM user_subscriptions s "
+                "WHERE s.user_id = u.id AND s.starts_at <= NOW() AND s.ends_at > NOW()"
+                f") THEN {SUBSCRIPTION_NICKNAME_CHANGE_LIMIT} ELSE {FREE_NICKNAME_CHANGE_LIMIT} END "
+                "WHERE u.nickname_changes_left IS NULL"
+            ))
+            await conn.execute(text(
+                "UPDATE users "
+                f"SET nickname_changes_left = LEAST(GREATEST(nickname_changes_left, 0), {SUBSCRIPTION_NICKNAME_CHANGE_LIMIT}) "
+                f"WHERE nickname_changes_left < 0 OR nickname_changes_left > {SUBSCRIPTION_NICKNAME_CHANGE_LIMIT}"
+            ))
+            await conn.execute(text(
+                "ALTER TABLE users "
+                "ALTER COLUMN nickname_changes_left SET DEFAULT 1"
+            ))
+            await conn.execute(text(
+                "ALTER TABLE users "
+                "ALTER COLUMN nickname_changes_left SET NOT NULL"
             ))
             await conn.execute(text(
                 "ALTER TABLE settings "
@@ -150,6 +183,20 @@ async def lifespan(app) -> AsyncIterator[None]:
             pass
 
     async def expired_profile_subscriptions_loop() -> None:
+        async def sync_online_profiles_after_nickname_limit_reset() -> int:
+            try:
+                online_user_ids = await fetch_online_user_ids(get_redis())
+            except Exception:
+                log.warning("app.users.nickname_changes_monthly_reset.online_lookup_failed")
+                return 0
+
+            synced = 0
+            for uid in online_user_ids:
+                with suppress(Exception):
+                    await emit_auth_profile_sync(uid)
+                    synced += 1
+            return synced
+
         try:
             while True:
                 next_run = _next_local_daily_run_at(hour=3, minute=0)
@@ -160,6 +207,18 @@ async def lifespan(app) -> AsyncIterator[None]:
                     delay_s=int(delay_s),
                 )
                 await asyncio.sleep(delay_s)
+                try:
+                    reset_users = await reset_monthly_nickname_change_limits()
+                    if reset_users > 0:
+                        synced_online_profiles = await sync_online_profiles_after_nickname_limit_reset()
+                        log.info(
+                            "app.users.nickname_changes_monthly_reset.done",
+                            reset_users=reset_users,
+                            synced_online_profiles=synced_online_profiles,
+                            scheduled_at=next_run.isoformat(),
+                        )
+                except Exception:
+                    log.exception("app.users.nickname_changes_monthly_reset.failed")
                 try:
                     synced = await sync_expired_profile_subscriptions()
                     log.info(

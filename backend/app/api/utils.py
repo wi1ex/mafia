@@ -35,6 +35,10 @@ from ..services.user_cache import (
     invalidate_avatar_presign_cache,
 )
 from ..services.profile_theme import ensure_profile_theme_defaults, resolve_profile_theme_state
+from ..services.nickname_limits import (
+    normalize_nickname_changes_left,
+    reset_nickname_changes_after_subscription_expired,
+)
 from ..services.telegram import send_text_message
 from ..schemas.common import Ok, Identity
 if TYPE_CHECKING:
@@ -1527,6 +1531,7 @@ async def build_user_out_payload(session: AsyncSession, *, user_id: int, role: s
         subscription_active=theme_state.subscription_active,
         subscription_started_at=theme_state.subscription_started_at,
         subscription_until=theme_state.subscription_until,
+        nickname_changes_left=normalize_nickname_changes_left(user.nickname_changes_left),
         profile_theme_color=theme_state.color,
         profile_theme_icon=theme_state.icon,
         timeout_until=timeout.expires_at if timeout else None,
@@ -1818,7 +1823,13 @@ async def sync_expired_profile_subscriptions() -> int:
                 continue
 
             try:
+                nickname_counter_reset = await reset_nickname_changes_after_subscription_expired(
+                    session,
+                    user_id=uid,
+                )
                 avatar_deleted = await delete_gif_avatar_for_inactive_subscription(session, uid, redis_client=r)
+                if nickname_counter_reset and not avatar_deleted:
+                    await session.commit()
                 if not avatar_deleted:
                     await refresh_user_profile_cache(session, uid, redis_client=r)
                 await emit_auth_profile_sync(uid)

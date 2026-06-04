@@ -70,7 +70,8 @@
                 </div>
               </div>
               <span class="hint"><code>латиница, кириллица, цифры, символы ()._-</code></span>
-              <button class="btn confirm" @click="saveNick" :disabled="busyNick || isBanned || isProtectedAdminSelf || nick === me.username || !validNick">
+              <span class="hint nickname-limit" :class="{ red: nicknameChangesLeft <= 0 }">Осталось изменений никнейма: {{ nicknameChangesLeft }}</span>
+              <button class="btn confirm" @click="saveNick" :disabled="saveNickDisabled">
                 <img class="btn-img" :src="iconSave" alt="save" />
                 {{ busyNick ? '...' : 'Сохранить' }}
               </button>
@@ -378,6 +379,7 @@ const me = reactive({
   subscription_active: false,
   subscription_started_at: null as string | null,
   subscription_until: null as string | null,
+  nickname_changes_left: 0,
   profile_theme_color: null as ProfileThemeColor | null,
   profile_theme_icon: null as ProfileThemeIcon | null,
 })
@@ -409,8 +411,18 @@ const validNick = computed(() => {
   const lower = value.toLowerCase()
   return !lower.startsWith('deleted_') && !lower.startsWith('user_')
 })
+const nicknameChangesLeft = computed(() => normalizeNicknameChangesLeft(me.nickname_changes_left))
+const saveNickDisabled = computed(() => (
+  busyNick.value
+  || isBanned.value
+  || isProtectedAdminSelf.value
+  || nick.value === me.username
+  || !validNick.value
+  || nicknameChangesLeft.value <= 0
+))
 
 const NICK_MAX = 20
+const NICKNAME_CHANGES_MAX = 30
 const PASSWORD_MIN = 8
 const PASSWORD_MAX = 32
 const PASSWORD_SPACE_RE = /\s/
@@ -436,6 +448,11 @@ function parseDateMs(raw: string | null | undefined): number {
   if (!raw) return 0
   const ts = Date.parse(raw)
   return Number.isFinite(ts) ? ts : 0
+}
+
+function normalizeNicknameChangesLeft(raw: unknown): number {
+  const parsed = Number(raw)
+  return Number.isFinite(parsed) ? Math.min(NICKNAME_CHANGES_MAX, Math.max(0, Math.floor(parsed))) : 0
 }
 
 const activeTab = ref<TabKey>('profile')
@@ -616,6 +633,7 @@ function applyMePayload(data: any, options: { keepNickDraft?: boolean; keepTheme
   me.password_temp = Boolean(data?.password_temp)
   me.protected_user = Boolean(data?.protected_user)
   me.tg_invites_enabled = data?.tg_invites_enabled !== false
+  me.nickname_changes_left = normalizeNicknameChangesLeft(data?.nickname_changes_left)
   applyProfileThemePayload(data, { keepDraft: options.keepThemeDraft })
   const hasNickDraft = Boolean(options.keepNickDraft) && nick.value !== prevUsername
   if (!hasNickDraft) nick.value = me.username
@@ -735,12 +753,14 @@ async function clearNicknameHistory() {
 }
 
 async function saveNick() {
-  if (!validNick.value || busyNick.value || nick.value === me.username || isProtectedAdminSelf.value) return
+  if (saveNickDisabled.value) return
   busyNick.value = true
   try {
     const { data } = await api.patch('/users/username', { username: nick.value })
     me.username = data.username
+    me.nickname_changes_left = normalizeNicknameChangesLeft(data?.nickname_changes_left)
     userStore.setUsername(data.username)
+    userStore.setNicknameChangesLeft(me.nickname_changes_left)
     resetNicknameHistory()
     try { await refreshAccessTokenFull(false) } catch {}
   } catch (e: any) {
@@ -749,6 +769,11 @@ async function saveNick() {
     const moderationText = formatModerationAlert(d)
     if (st === 409 && d === 'username_taken')               void alertDialog('Данный никнейм уже занят')
     else if (st === 403 && d === 'user_banned')             void alertDialog('Аккаунт забанен. Изменение никнейма недоступно')
+    else if (st === 403 && d === 'nickname_change_limit_exhausted') {
+      me.nickname_changes_left = 0
+      userStore.setNicknameChangesLeft(0)
+      void alertDialog('Лимит изменений никнейма исчерпан')
+    }
     else if (st === 422 && moderationText)                  void alertDialog({ title: 'Отказ в сохранении', text: moderationText })
     else if (st === 422 && d === 'invalid_username_format') void alertDialog('Никнейм не должен начинаться с deleted_ или user_ и не должен содержать символы кроме ()._-')
     else                                                    void alertDialog('Не удалось сохранить никнейм')
