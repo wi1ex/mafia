@@ -229,7 +229,6 @@ onBeforeUnmount(() => {
           align-items: flex-start;
           justify-content: space-between;
           .site-logo {
-            width: 40px;
             height: 40px;
           }
           .arrow-icon {
