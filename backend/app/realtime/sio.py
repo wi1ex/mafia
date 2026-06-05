@@ -1,13 +1,21 @@
 from __future__ import annotations
+from importlib import import_module
 import socketio
 import structlog
-from importlib import import_module
 from ..core.settings import settings
 
 log = structlog.get_logger()
 
 _ns_loaded = False
-mgr = socketio.AsyncRedisManager(settings.redis_url)
+_redis_options = {
+    "socket_connect_timeout": 3.0,
+    "socket_timeout": None,
+    "socket_keepalive": True,
+    "health_check_interval": 10,
+    "retry_on_timeout": True,
+}
+
+mgr = socketio.AsyncRedisManager(settings.redis_url, redis_options=_redis_options)
 sio = socketio.AsyncServer(
     async_mode="asgi",
     cors_allowed_origins=settings.BACKEND_CORS_ORIGINS,
@@ -20,6 +28,7 @@ sio = socketio.AsyncServer(
     allow_upgrades=True,
     http_compression=True,
 )
+
 
 def register_namespaces() -> None:
     global _ns_loaded

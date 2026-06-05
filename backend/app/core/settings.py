@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import List
+from urllib.parse import quote
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -83,7 +84,8 @@ class Settings(BaseSettings):
 
     @property
     def redis_url(self) -> str:
-        return f"redis://:{self.REDIS_PASSWORD}@{self.REDIS_HOST}:{self.REDIS_PORT}/0"
+        auth = f":{quote(self.REDIS_PASSWORD, safe='')}@" if self.REDIS_PASSWORD else ""
+        return f"redis://{auth}{self.REDIS_HOST}:{self.REDIS_PORT}/0"
 
 
 settings = Settings()
