@@ -1036,7 +1036,7 @@ onBeforeUnmount(() => {
       }
       .list-header {
         display: grid;
-        grid-template-columns: 15% 45% 30% 10%;
+        grid-template-columns: 10% 50% 30% 10%;
         padding: 0 16px;
         span {
           color: $neutral-300;
@@ -1082,7 +1082,7 @@ onBeforeUnmount(() => {
         .item {
           display: grid;
           position: relative;
-          grid-template-columns: 15% 45% 30% 10%;
+          grid-template-columns: 10% 50% 30% 10%;
           align-items: center;
           padding: 16px;
           min-height: 30px;
