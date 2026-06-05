@@ -171,7 +171,7 @@
           </div>
 
           <div v-else-if="pendingRoomId" key="pending" class="loading-overlay">Загрузка информации о комнате…</div>
-          <HomeInfoCarousel v-else key="placeholder" />
+          <Carousel v-else key="placeholder" />
         </Transition>
       </aside>
       <div class="right-extra right-extra--primary">
@@ -215,8 +215,8 @@
     :initial-profile="miniProfileInitial"
     :show-stats-button="true"
   />
-  <SupportSiteModal v-model:open="supportModalOpen" @select="onSupportSiteSelect" />
-  <ContactModal v-model:open="contactModalOpen" />
+  <Donation v-model:open="supportModalOpen" @select="onSupportSiteSelect" />
+  <Contact v-model:open="contactModalOpen" />
 </template>
 
 <script setup lang="ts">
@@ -229,11 +229,11 @@ import { api } from '@/services/axios'
 import { canOpenMiniProfileTarget, normalizeMiniProfileUserId } from '@/services/miniProfile'
 import { roomGameDefault, type RoomGameParams } from '@/services/gameParams'
 import { useAuthStore, useSettingsStore, useUserStore } from '@/store'
-import HomeInfoCarousel from '@/components/HomeInfoCarousel.vue'
+import Carousel from '@/components/Carousel.vue'
 import RoomModal from '@/components/RoomModal.vue'
 import MiniProfile from '@/components/MiniProfile.vue'
-import SupportSiteModal from '@/components/SupportSiteModal.vue'
-import ContactModal from '@/components/ContactModal.vue'
+import Donation from '@/components/Donation.vue'
+import Contact from '@/components/Contact.vue'
 import UiTooltip from '@/components/UiTooltip.vue'
 import UiIcon from '@/components/UiIcon.vue'
 

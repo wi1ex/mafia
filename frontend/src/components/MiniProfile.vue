@@ -135,7 +135,7 @@
             <div class="stats-toolbar">
               <button class="profile-action secondary" type="button" @click="view = 'profile'">Назад к профилю</button>
             </div>
-            <ProfileStatsTab :stats-url="resolvedStatsUrl" />
+            <Stats :stats-url="resolvedStatsUrl" />
           </template>
         </section>
       </div>
@@ -146,7 +146,7 @@
         <img class="avatar-lightbox-image" :src="avatarLightboxSrc" alt="avatar" />
       </div>
     </Transition>
-    <SanctionModal
+    <Sanction
       :open="staffSanctionModalOpen"
       :title="staffSanctionTitle"
       :saving="staffSanctionSaving"
@@ -158,7 +158,7 @@
       @update:open="onStaffSanctionModalOpenUpdate"
       @save="saveStaffSanction"
     />
-    <SubscriptionModal
+    <Subscription
       :open="staffSubscriptionModalOpen"
       title="Выдать подписку"
       save-label="Выдать"
@@ -180,7 +180,7 @@ import { alertDialog, confirmDialog } from '@/services/confirm'
 import { isMiniProfilePrivilegedViewer, normalizeMiniProfileRole } from '@/services/miniProfile'
 import { DEFAULT_SANCTION_REASON, SANCTION_REASONS } from '@/constants/sanctionReasons'
 import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
-import { getProfileThemeBadgeSources } from '@/constants/profileThemeIcons'
+import { getProfileThemeBadgeSources } from '@/constants/profileIcons'
 import {
   useFriendsStore,
   useSettingsStore,
@@ -190,9 +190,9 @@ import {
   type FriendApiAction,
   type FriendStatus,
 } from '@/store'
-import ProfileStatsTab from '@/components/ProfileStatsTab.vue'
-import SanctionModal from '@/components/SanctionModal.vue'
-import SubscriptionModal from '@/components/SubscriptionModal.vue'
+import Stats from '@/components/Stats.vue'
+import Sanction from '@/components/Sanction.vue'
+import Subscription from '@/components/Subscription.vue'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 import iconClose from '@/assets/svg/close.svg'

@@ -20,7 +20,7 @@
             <div class="history-main-left">
               <div class="game-number-row">
                 <span class="game-number">Игра #{{ game.number }}</span>
-                <GameHistoryActions
+                <HistoryActions
                   v-if="isExpanded(game.id)"
                   :game-id="game.id"
                   :game-number="game.number"
@@ -68,7 +68,7 @@
           <div v-if="isExpanded(game.id)" class="history-extra">
             <div v-if="isDetailsLoading(game.id)" class="history-extra-state">Загрузка деталей игры...</div>
             <div v-else-if="detailsErrorFor(game.id)" class="history-extra-state history-extra-state--error">{{ detailsErrorFor(game.id) }}</div>
-            <GameHistoryDetails v-else :slots="detailsSlots(game.id)" />
+            <HistoryDetails v-else :slots="detailsSlots(game.id)" />
           </div>
         </Transition>
       </li>
@@ -86,8 +86,8 @@
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { api } from '@/services/axios'
 import { formatLocalDateTime } from '@/services/datetime'
-import GameHistoryDetails from '@/components/GameHistoryDetails.vue'
-import GameHistoryActions from '@/components/GameHistoryActions.vue'
+import HistoryDetails from '@/components/HistoryDetails.vue'
+import HistoryActions from '@/components/HistoryActions.vue'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 import iconArrowDown from '@/assets/svg/arrowDown.svg'

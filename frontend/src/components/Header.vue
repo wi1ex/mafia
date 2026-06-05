@@ -80,7 +80,7 @@
           <UiIcon class="bell-arrow" :icon="iconArrow" :style="{ transform: friends_open ? 'rotate(180deg)' : 'none' }" />
           <span v-if="friends.incomingCount > 0" class="unread-text">{{ friends.incomingCount < 10 ? friends.incomingCount : '∞' }}</span>
         </button>
-        <FriendsPanel
+        <Friends
           v-model:open="friends_open"
           :anchor="friendsEl"
           mode="header"
@@ -127,15 +127,15 @@
       </div>
     </div>
   </header>
-  <AuthModal v-model:open="authOpen" :mode="authMode" />
+  <Auth v-model:open="authOpen" :mode="authMode" />
 </template>
 
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, watch, ref, computed } from 'vue'
 import { useAuthStore, useUserStore, useNotifStore, useFriendsStore, useSettingsStore, useGlobalChatStore } from '@/store'
 import Notifs from '@/components/Notifs.vue'
-import FriendsPanel from '@/components/FriendsPanel.vue'
-import AuthModal from '@/components/AuthModal.vue'
+import Friends from '@/components/Friends.vue'
+import Auth from '@/components/Auth.vue'
 import UiIcon from '@/components/UiIcon.vue'
 
 import iconTelegram from "@/assets/svg/iconTelegram.svg"
@@ -153,7 +153,7 @@ import iconArrow from '@/assets/svg/iconArrow.svg'
 import iconProfile from "@/assets/svg/iconProfile.svg"
 import iconLogout from '@/assets/svg/iconLogout.svg'
 import { buildProfileThemeStyle } from '@/constants/profileThemes'
-import { getProfileThemeBadgeSources } from '@/constants/profileThemeIcons'
+import { getProfileThemeBadgeSources } from '@/constants/profileIcons'
 
 const auth = useAuthStore()
 const user = useUserStore()

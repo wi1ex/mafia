@@ -881,7 +881,7 @@
       </div>
     </Transition>
 
-    <SanctionModal
+    <Sanction
       v-model:open="sanctionModalOpen"
       :title="sanctionTitle"
       :saving="sanctionSaving"
@@ -891,7 +891,7 @@
       :reasons="sanctionReasons"
       @save="saveSanction"
     />
-    <SanctionModal
+    <Sanction
       :open="sanctionAdjustModalOpen"
       :title="sanctionAdjustTitle"
       :saving="sanctionAdjustSaving"
@@ -905,7 +905,7 @@
       @update:open="onSanctionAdjustModalOpenUpdate"
       @save="saveSanctionAdjust"
     />
-    <SubscriptionModal
+    <Subscription
       :open="subscriptionModalOpen && Boolean(subscriptionTarget)"
       :title="subscriptionModalTitle"
       :status-text="selectedSubscriptionStatusText"
@@ -942,8 +942,8 @@ import { DEFAULT_SANCTION_REASON, SANCTION_REASONS } from '@/constants/sanctionR
 import { canOpenMiniProfileTarget, normalizeMiniProfileUserId } from '@/services/miniProfile'
 import { useSettingsStore, useUserStore } from '@/store'
 
-import SanctionModal from '@/components/SanctionModal.vue'
-import SubscriptionModal from '@/components/SubscriptionModal.vue'
+import Sanction from '@/components/Sanction.vue'
+import Subscription from '@/components/Subscription.vue'
 import MiniProfile from '@/components/MiniProfile.vue'
 import UiSwitch from '@/components/UiSwitch.vue'
 import UiInput from '@/components/UiInput.vue'
@@ -954,7 +954,7 @@ import iconJudge from '@/assets/svg/judge.svg'
 import iconDelete from '@/assets/svg/delete.svg'
 import iconSave from '@/assets/svg/save.svg'
 import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
-import { getProfileThemeBadgeSources } from '@/constants/profileThemeIcons'
+import { getProfileThemeBadgeSources } from '@/constants/profileIcons'
 
 type SiteSettings = {
   registration_enabled: boolean

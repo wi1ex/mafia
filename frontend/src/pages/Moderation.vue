@@ -272,7 +272,7 @@
       </div>
     </div>
 
-    <SanctionModal
+    <Sanction
       v-model:open="sanctionModalOpen"
       :title="sanctionTitle"
       :saving="sanctionSaving"
@@ -282,7 +282,7 @@
       :reasons="sanctionReasons"
       @save="saveSanction"
     />
-    <SanctionModal
+    <Sanction
       :open="sanctionAdjustModalOpen"
       :title="sanctionAdjustTitle"
       :saving="sanctionAdjustSaving"
@@ -320,7 +320,7 @@ import { canOpenMiniProfileTarget, normalizeMiniProfileUserId } from '@/services
 import { useUserStore } from '@/store'
 
 import MiniProfile from '@/components/MiniProfile.vue'
-import SanctionModal from '@/components/SanctionModal.vue'
+import Sanction from '@/components/Sanction.vue'
 import UiInput from '@/components/UiInput.vue'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'

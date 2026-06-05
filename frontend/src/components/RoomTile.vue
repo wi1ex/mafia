@@ -157,7 +157,7 @@ import iconWink from '@/assets/svg/wink.svg'
 import iconKnock from '@/assets/svg/knock.svg'
 import iconProfile from '@/assets/svg/profile.svg'
 import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
-import { getProfileThemeBadgeSources } from '@/constants/profileThemeIcons'
+import { getProfileThemeBadgeSources } from '@/constants/profileIcons'
 
 type IconKind = 'mic' | 'cam' | 'speakers' | 'visibility' | 'screen'
 

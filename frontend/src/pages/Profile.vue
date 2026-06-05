@@ -245,14 +245,14 @@
 
         <div v-else-if="activeTab === 'stats'" class="grid grid-stats">
           <div class="block">
-            <ProfileStatsTab />
+            <Stats />
           </div>
         </div>
 
         <div v-else-if="activeTab === 'history' && showHistoryTab" class="grid grid-history">
           <div class="block history-block">
             <h3>Личная история игр</h3>
-            <ProfileHistoryTab />
+            <ProfileHistory />
           </div>
         </div>
 
@@ -317,7 +317,7 @@
         </div>
       </div>
     </Transition>
-    <SupportSiteModal v-model:open="supportModalOpen" @select="onSupportSiteSelect" />
+    <Donation v-model:open="supportModalOpen" @select="onSupportSiteSelect" />
   </section>
 </template>
 
@@ -331,12 +331,12 @@ import { confirmDialog, alertDialog } from '@/services/confirm'
 import { formatModerationAlert } from '@/services/moderation'
 import { formatLocalDateTime } from '@/services/datetime'
 
-import ProfileStatsTab from '@/components/ProfileStatsTab.vue'
-import ProfileHistoryTab from '@/components/ProfileHistoryTab.vue'
+import Stats from '@/components/Stats.vue'
+import ProfileHistory from '@/components/ProfileHistory.vue'
 import UiSwitch from '@/components/UiSwitch.vue'
 import UiInput from '@/components/UiInput.vue'
 import UiSlider from '@/components/UiSlider.vue'
-import SupportSiteModal from '@/components/SupportSiteModal.vue'
+import Donation from '@/components/Donation.vue'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 import iconSave from '@/assets/svg/save.svg'
@@ -356,7 +356,7 @@ import {
   getProfileThemeIconSrc,
   normalizeProfileThemeIcon,
   type ProfileThemeIcon,
-} from '@/constants/profileThemeIcons'
+} from '@/constants/profileIcons'
 
 const userStore = useUserStore()
 const auth = useAuthStore()

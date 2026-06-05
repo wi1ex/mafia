@@ -4,7 +4,7 @@
     <div class="rotate-box" data-nosnippet>Поверните устройство</div>
   </div>
   <router-view :key="routerViewKey" />
-  <GlobalChatPanel />
+  <Chat />
   <Confirms />
   <Toast />
 </template>
@@ -21,7 +21,7 @@ import { alertDialog } from '@/services/confirm'
 import Header from '@/components/Header.vue'
 import Toast from '@/components/Toasts.vue'
 import Confirms from '@/components/Confirms.vue'
-import GlobalChatPanel from '@/components/GlobalChatPanel.vue'
+import Chat from '@/components/Chat.vue'
 
 const route = useRoute()
 const router = useRouter()

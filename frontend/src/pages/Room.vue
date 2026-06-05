@@ -382,7 +382,7 @@
           @counts="onAppsCounts"
         />
 
-        <GameParamsModal
+        <GameParams
           v-model:open="gameParamsOpen"
           :room-id="rid"
           :can-edit="canEditGameSettings"
@@ -390,7 +390,7 @@
           @saved="applyRoomGameSnapshot"
         />
 
-        <FriendsPanel
+        <Friends
           v-if="showRoomFriendsButton"
           v-model:open="friendsPanelOpen"
           :anchor="roomFriendsEl"
@@ -501,8 +501,8 @@ import { createAuthedSocket, disposeAuthedSocket } from '@/services/sio'
 import RoomTile from '@/components/RoomTile.vue'
 import RoomRequests from '@/components/RoomRequests.vue'
 import RoomSetting from '@/components/RoomSetting.vue'
-import GameParamsModal from '@/components/GameParamsModal.vue'
-import FriendsPanel from '@/components/FriendsPanel.vue'
+import GameParams from '@/components/GameParams.vue'
+import Friends from '@/components/Friends.vue'
 import MiniProfile from '@/components/MiniProfile.vue'
 import UiSlider from '@/components/UiSlider.vue'
 

@@ -51,7 +51,7 @@ export default defineConfig({
 
           if (
             normalized.includes('/src/components/RoomSetting.vue')
-            || normalized.includes('/src/components/GameParamsModal.vue')
+            || normalized.includes('/src/components/GameParams.vue')
             || normalized.includes('/src/components/GameParamsForm.vue')
             || normalized.includes('/src/components/FriendsPanel.vue')
           ) {
