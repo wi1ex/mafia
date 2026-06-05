@@ -3,6 +3,43 @@ import vue from '@vitejs/plugin-vue'
 import path from 'node:path'
 import compression from 'vite-plugin-compression'
 
+const vendorChunkRules: Array<[string, string]> = [
+  ['/node_modules/vue/', 'vue-vendor'],
+  ['/node_modules/@vue/', 'vue-vendor'],
+  ['/node_modules/vue-router/', 'vue-vendor'],
+  ['/node_modules/pinia/', 'vue-vendor'],
+
+  ['/node_modules/axios/', 'http-vendor'],
+  ['/node_modules/follow-redirects/', 'http-vendor'],
+  ['/node_modules/form-data/', 'http-vendor'],
+  ['/node_modules/proxy-from-env/', 'http-vendor'],
+
+  ['/node_modules/socket.io-client/', 'socket-vendor'],
+  ['/node_modules/socket.io-parser/', 'socket-vendor'],
+  ['/node_modules/engine.io-client/', 'socket-vendor'],
+  ['/node_modules/engine.io-parser/', 'socket-vendor'],
+  ['/node_modules/@socket.io/', 'socket-vendor'],
+  ['/node_modules/debug/', 'socket-vendor'],
+  ['/node_modules/ms/', 'socket-vendor'],
+  ['/node_modules/ws/', 'socket-vendor'],
+  ['/node_modules/xmlhttprequest-ssl/', 'socket-vendor'],
+
+  ['/node_modules/livekit-client/', 'rtc-vendor'],
+  ['/node_modules/@livekit/', 'rtc-vendor'],
+  ['/node_modules/@bufbuild/', 'rtc-vendor'],
+  ['/node_modules/events/', 'rtc-vendor'],
+  ['/node_modules/jose/', 'rtc-vendor'],
+  ['/node_modules/loglevel/', 'rtc-vendor'],
+  ['/node_modules/sdp-transform/', 'rtc-vendor'],
+  ['/node_modules/tslib/', 'rtc-vendor'],
+  ['/node_modules/typed-emitter/', 'rtc-vendor'],
+  ['/node_modules/webrtc-adapter/', 'rtc-vendor'],
+]
+
+function vendorChunkFor(id: string): string | undefined {
+  return vendorChunkRules.find(([needle]) => id.includes(needle))?.[1]
+}
+
 export default defineConfig({
   plugins: [
     vue(),
@@ -24,39 +61,7 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           const normalized = id.replace(/\\/g, '/')
-
-          if (
-            normalized.includes('/node_modules/vue/')
-            || normalized.includes('/node_modules/@vue/')
-            || normalized.includes('/node_modules/vue-router/')
-            || normalized.includes('/node_modules/pinia/')
-          ) {
-            return 'vue-vendor'
-          }
-
-          if (normalized.includes('/node_modules/livekit-client/')) {
-            return 'room-rtc-vendor'
-          }
-
-          if (normalized.includes('/src/composables/rtc.ts')) {
-            return 'room-rtc'
-          }
-
-          if (
-            normalized.includes('/src/composables/roomGame.ts')
-            || normalized.includes('/src/components/RoomTile.vue')
-          ) {
-            return 'room-game'
-          }
-
-          if (
-            normalized.includes('/src/components/RoomSetting.vue')
-            || normalized.includes('/src/components/GameParams.vue')
-            || normalized.includes('/src/components/GameParamsForm.vue')
-            || normalized.includes('/src/components/FriendsPanel.vue')
-          ) {
-            return 'room-panels'
-          }
+          return vendorChunkFor(normalized)
         },
       },
     },
