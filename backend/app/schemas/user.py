@@ -106,7 +106,6 @@ class UserBestMoveStatsOut(BaseModel):
 class UserGameStatsOut(BaseModel):
     games_played: int = 0
     games_won: int = 0
-    games_hosted: int = 0
     vote_leave_day12_percent: float = 0.0
     vote_out_don_day12_black_count: int = 0
     vote_out_sheriff_day12_black_count: int = 0
@@ -129,11 +128,6 @@ class UserGameStatsOut(BaseModel):
 
 
 class UserStatsOut(BaseModel):
-    rooms_created: int = 0
-    games_in_my_rooms: int = 0
-    room_minutes: int = 0
-    stream_minutes: int = 0
-    spectator_minutes: int = 0
     game: UserGameStatsOut
 
 

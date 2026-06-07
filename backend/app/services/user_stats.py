@@ -166,7 +166,6 @@ def _build_game_stats(stats_row: dict[str, int], top_players: list[UserTopPlayer
     return UserGameStatsOut(
         games_played=games_played,
         games_won=games_won,
-        games_hosted=_safe_int(stats_row.get("games_hosted")),
         vote_leave_day12_percent=_pct(vote_leave_day12, games_played),
         vote_out_don_day12_black_count=vote_out_don_day12_black_count,
         vote_out_sheriff_day12_black_count=vote_out_sheriff_day12_black_count,

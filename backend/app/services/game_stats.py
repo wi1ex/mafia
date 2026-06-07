@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import Any
-from sqlalchemy import or_, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..models.game import Game
 
@@ -11,7 +11,6 @@ RED_ROLES = {"citizen", "sheriff"}
 GAME_STATS_FIELDS: tuple[str, ...] = (
     "games_decisive",
     "games_won",
-    "games_hosted",
     "vote_leave_day12",
     "vote_out_don_day12_black_count",
     "vote_out_sheriff_day12_black_count",
@@ -285,7 +284,7 @@ def _parse_actions(actions: list[dict[str, Any]], roles: dict[int, str]) -> dict
     }
 
 
-def _apply_game_to_row(row: dict[str, int], *, uid: int, roles: dict[int, str], players: set[int], head_id: int, result: str, parsed: dict[str, Any]) -> None:
+def _apply_game_to_row(row: dict[str, int], *, uid: int, roles: dict[int, str], players: set[int], result: str, parsed: dict[str, Any]) -> None:
     if uid <= 0 or result not in DECISIVE_RESULTS:
         return
 
@@ -347,10 +346,6 @@ def _apply_game_to_row(row: dict[str, int], *, uid: int, roles: dict[int, str], 
         row["best_move_black_2"] += _safe_int(best_move_bucket.get(2))
         row["best_move_black_3"] += _safe_int(best_move_bucket.get(3))
 
-    if 0 < head_id == uid:
-        row["games_hosted"] += 1
-
-
 def _build_game_payload(game: Game) -> dict[str, Any] | None:
     result = _safe_str(getattr(game, "result", ""))
     if result not in DECISIVE_RESULTS:
@@ -358,7 +353,6 @@ def _build_game_payload(game: Game) -> dict[str, Any] | None:
 
     roles = _normalize_roles(getattr(game, "roles", {}))
     players = set(roles.keys())
-    head_id = _safe_int(getattr(game, "head_id", 0))
     actions = _normalize_actions(getattr(game, "actions", []))
     parsed = _parse_actions(actions, roles)
 
@@ -366,7 +360,6 @@ def _build_game_payload(game: Game) -> dict[str, Any] | None:
         "result": result,
         "roles": roles,
         "players": players,
-        "head_id": head_id,
         "parsed": parsed,
     }
 
@@ -376,7 +369,7 @@ async def build_user_game_stats_row(session: AsyncSession, user_id: int, *, game
     if uid <= 0:
         raise ValueError("invalid_user_id")
 
-    filters = [or_(Game.head_id == uid, Game.roles.has_key(str(uid)))]
+    filters = [Game.roles.has_key(str(uid))]
     min_id = _safe_int(game_id_min) if game_id_min is not None else 0
     max_id = _safe_int(game_id_max) if game_id_max is not None else 0
     if min_id > 0:
@@ -395,7 +388,6 @@ async def build_user_game_stats_row(session: AsyncSession, user_id: int, *, game
             uid=uid,
             roles=payload["roles"],
             players=payload["players"],
-            head_id=payload["head_id"],
             result=payload["result"],
             parsed=payload["parsed"],
         )

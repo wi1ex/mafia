@@ -118,7 +118,6 @@
             <h3>Аккаунт</h3>
             <div class="verify-row">
               <p class="hint text">Дата регистрации: {{ registrationDateLabel }}</p>
-              <p class="hint text">{{ subscriptionStatusLabel }}</p>
               <UiSwitch
                 class="profile-switch"
                 :model-value="tgInvitesEnabled"
@@ -557,12 +556,6 @@ const registrationDateLabel = computed(() => {
   const dt = new Date(raw)
   if (Number.isNaN(dt.getTime())) return '-'
   return dt.toLocaleDateString('ru-RU')
-})
-const subscriptionStatusLabel = computed(() => {
-  if (!me.subscription_active || subscriptionUntilMs.value <= userNow.value) return 'Подписка: отсутствует'
-  const dt = new Date(me.subscription_until || '')
-  if (Number.isNaN(dt.getTime())) return 'Подписка: отсутствует'
-  return `Подписка: активна до ${dt.toLocaleDateString('ru-RU')}`
 })
 
 async function onToggleTgInvites(next: boolean) {

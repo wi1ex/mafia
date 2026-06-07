@@ -16,13 +16,6 @@
     </div>
 
     <div v-else class="stats-layout">
-      <div class="non-game-grid">
-        <article v-for="item in nonGameItems" :key="item.key" class="metric-card">
-          <span>{{ item.label }}</span>
-          <strong>{{ item.value }}</strong>
-        </article>
-      </div>
-
       <div class="overview">
         <article class="result-card">
           <div class="result-ring" :style="overviewRingStyle">
@@ -161,7 +154,6 @@ type UserBestMoveStats = {
 type UserGameStats = {
   games_played: number
   games_won: number
-  games_hosted: number
   vote_leave_day12_percent: number
   vote_out_don_day12_black_count: number
   vote_out_sheriff_day12_black_count: number
@@ -184,11 +176,6 @@ type UserGameStats = {
 }
 
 type UserStats = {
-  rooms_created: number
-  games_in_my_rooms: number
-  room_minutes: number
-  stream_minutes: number
-  spectator_minutes: number
   game: UserGameStats
 }
 
@@ -214,15 +201,9 @@ const selectedSeasonKey = computed(() => (selectedSeason.value === null ? 'all' 
 let requestSeq = 0
 
 const stats = reactive<UserStats>({
-  rooms_created: 0,
-  games_in_my_rooms: 0,
-  room_minutes: 0,
-  stream_minutes: 0,
-  spectator_minutes: 0,
   game: {
     games_played: 0,
     games_won: 0,
-    games_hosted: 0,
     vote_leave_day12_percent: 0,
     vote_out_don_day12_black_count: 0,
     vote_out_sheriff_day12_black_count: 0,
@@ -314,19 +295,6 @@ function formatPctWithGames(percentRaw: unknown, countRaw: unknown): string {
   return `${formatInt(count)} - ${formatPct(percentRaw)}`
 }
 
-function formatDurationDhm(raw: unknown): string {
-  const totalMinutes = safeInt(raw)
-  const minutesInDay = 24 * 60
-  const days = Math.floor(totalMinutes / minutesInDay)
-  const hours = Math.floor((totalMinutes % minutesInDay) / 60)
-  const minutes = totalMinutes % 60
-  const parts: string[] = []
-  if (days > 0) parts.push(`${days}д`)
-  if (hours > 0) parts.push(`${hours}ч`)
-  parts.push(`${minutes}м`)
-  return parts.join(' ')
-}
-
 function barPct(valueRaw: unknown, maxRaw: unknown): number {
   const value = safeFloat(valueRaw)
   const max = safeFloat(maxRaw)
@@ -355,15 +323,6 @@ function setSeason(season: number | null): void {
   if (selectedSeason.value === season) return
   selectedSeason.value = season
 }
-
-const nonGameItems = computed(() => [
-  { key: 'room-minutes', label: 'В комнатах', value: formatDurationDhm(stats.room_minutes) },
-  { key: 'rooms-created', label: 'Мои комнаты', value: formatInt(stats.rooms_created) },
-  { key: 'games-in-my-rooms', label: 'Игры в моих комнатах', value: formatInt(stats.games_in_my_rooms) },
-  { key: 'stream-minutes', label: 'Трансляции', value: formatDurationDhm(stats.stream_minutes) },
-  { key: 'spectator-minutes', label: 'Зритель', value: formatDurationDhm(stats.spectator_minutes) },
-  { key: 'games-hosted', label: 'Ведущий', value: formatInt(game.value.games_hosted) },
-])
 
 const lossesCount = computed(() => Math.max(0, safeInt(game.value.games_played) - safeInt(game.value.games_won)))
 
@@ -479,7 +438,6 @@ function normalizeGame(raw: any): UserGameStats {
   return {
     games_played: safeInt(raw?.games_played),
     games_won: safeInt(raw?.games_won),
-    games_hosted: safeInt(raw?.games_hosted),
     vote_leave_day12_percent: clampPct(raw?.vote_leave_day12_percent),
     vote_out_don_day12_black_count: safeInt(raw?.vote_out_don_day12_black_count),
     vote_out_sheriff_day12_black_count: safeInt(raw?.vote_out_sheriff_day12_black_count),
@@ -518,11 +476,6 @@ async function load(force = false) {
     if (selectedSeason.value !== null) params.season = selectedSeason.value
     const { data } = await api.get<UserStats>(props.statsUrl, { params })
     if (seq !== requestSeq) return
-    stats.rooms_created = safeInt(data?.rooms_created)
-    stats.games_in_my_rooms = safeInt(data?.games_in_my_rooms)
-    stats.room_minutes = safeInt(data?.room_minutes)
-    stats.stream_minutes = safeInt(data?.stream_minutes)
-    stats.spectator_minutes = safeInt(data?.spectator_minutes)
     stats.game = normalizeGame(data?.game)
     loaded.value = true
   } catch (e: any) {
@@ -656,11 +609,6 @@ onMounted(() => {
         font-size: 20px;
         line-height: 1.1;
       }
-    }
-    .non-game-grid {
-      display: grid;
-      grid-template-columns: repeat(6, minmax(0, 1fr));
-      gap: 10px;
     }
     .overview {
       display: grid;

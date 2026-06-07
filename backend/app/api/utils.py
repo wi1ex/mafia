@@ -4906,18 +4906,39 @@ async def aggregate_user_room_time_stats(session: AsyncSession, ids: list[int], 
     return rooms_created, room_seconds, stream_seconds, spectator_seconds
 
 
+async def fetch_user_mini_profile_game_counts(session: AsyncSession, uid: int) -> tuple[int, int]:
+    if uid <= 0:
+        return 0, 0
+
+    played_row = await session.execute(
+        select(func.count(Game.id)).where(
+            Game.roles.has_key(str(uid)),
+            Game.result.in_(("red", "black")),
+        )
+    )
+    hosted_row = await session.execute(
+        select(func.count(Game.id)).where(
+            Game.head_id == uid,
+            Game.result.in_(("red", "black")),
+        )
+    )
+    return (
+        max(0, safe_int(played_row.scalar_one_or_none())),
+        max(0, safe_int(hosted_row.scalar_one_or_none())),
+    )
+
+
 async def build_user_mini_profile_nomination_stats_out(db: AsyncSession, uid: int) -> UserMiniProfileNominationStatsOut:
     from ..schemas.user import UserMiniProfileNominationStatsOut
-    from ..services.user_stats import get_user_game_stats_cached
 
     _rooms_created, room_seconds, stream_seconds, spectator_seconds = (
         await aggregate_user_room_time_stats(db, [uid], season=None)
     )
-    game_stats = await get_user_game_stats_cached(db, uid, None)
+    games_played, games_hosted = await fetch_user_mini_profile_game_counts(db, uid)
 
     return UserMiniProfileNominationStatsOut(
-        games_played=max(0, safe_int(game_stats.games_played)),
-        games_hosted=max(0, safe_int(game_stats.games_hosted)),
+        games_played=games_played,
+        games_hosted=games_hosted,
         room_minutes=max(0, safe_int(room_seconds.get(uid, 0)) // 60),
         stream_minutes=max(0, safe_int(stream_seconds.get(uid, 0)) // 60),
         spectator_minutes=max(0, safe_int(spectator_seconds.get(uid, 0)) // 60),
@@ -4929,11 +4950,6 @@ async def build_user_stats_out(db: AsyncSession, uid: int, season: int | None = 
     from ..services.user_stats import get_user_game_stats_cached
 
     try:
-        rooms_created, room_seconds, stream_seconds, spectator_seconds = await aggregate_user_room_time_stats(db, [uid], season=season)
-        games_in_owned_rooms = await aggregate_user_games_in_owned_rooms_stats(db, [uid], season=season)
-        room_minutes = max(0, int(room_seconds.get(uid, 0)) // 60)
-        stream_minutes = max(0, int(stream_seconds.get(uid, 0)) // 60)
-        spectator_minutes = max(0, int(spectator_seconds.get(uid, 0)) // 60)
         game_stats = await get_user_game_stats_cached(db, uid, season)
     except ValueError as exc:
         detail = str(exc) or "season_invalid"
@@ -4959,11 +4975,6 @@ async def build_user_stats_out(db: AsyncSession, uid: int, season: int | None = 
         game_stats = game_stats.model_copy(update={"top_players": refreshed_top_players})
 
     return UserStatsOut(
-        rooms_created=max(0, safe_int(rooms_created.get(uid, 0))),
-        games_in_my_rooms=max(0, safe_int(games_in_owned_rooms.get(uid, 0))),
-        room_minutes=room_minutes,
-        stream_minutes=stream_minutes,
-        spectator_minutes=spectator_minutes,
         game=game_stats,
     )
 
