@@ -254,7 +254,7 @@ async def mini_profile(user_id: int, allow_deleted: bool = False, ident: Identit
             username=viewer_username,
             action="mini_profile_opened",
             details=(
-                f"Открыт мини-профиль target_user={uid} "
+                f"Открыт профиль target_user={uid} "
                 f"target_username={target_username}"
             ),
         )

@@ -117,6 +117,8 @@
           <div class="block account-block">
             <h3>Аккаунт</h3>
             <div class="verify-row">
+              <p class="hint text">Дата регистрации: {{ registrationDateLabel }}</p>
+              <p class="hint text">{{ subscriptionStatusLabel }}</p>
               <UiSwitch
                 class="profile-switch"
                 :model-value="tgInvitesEnabled"
@@ -126,7 +128,6 @@
                 :width="200"
                 :disabled="tgInvitesTogglePending || !telegramVerified"
                 @update:modelValue="onToggleTgInvites" />
-              <p class="hint text">Дата регистрации: {{ registrationDateLabel }}</p>
               <button v-if="telegramVerified" class="btn danger" @click="unlinkTelegram" :disabled="unlinkTgBusy">
                 {{ unlinkTgBusy ? '...' : 'Отвязать TG-аккаунт' }}
               </button>
@@ -139,38 +140,36 @@
                 {{ deleteBusy ? '...' : 'Удалить аккаунт' }}
               </button>
               <p class="hint red">Удаление произойдет навсегда без возможности восстановления</p>
-            </div>
-          </div>
 
-          <div v-if="me.has_password" class="block password-block">
-            <h3>Пароль</h3>
-            <p v-if="passwordTemp" class="hint warn">У вас временный пароль — рекомендуем изменить его</p>
-            <div class="password-row">
-              <UiInput class="profile-input" id="profile-pass-current" v-model="pwd.current" type="password" autocomplete="current-password" minlength="8" maxlength="32" label="Текущий пароль"
-                :invalid="currentPasswordInvalid" :aria-invalid="currentPasswordInvalid" aria-describedby="profile-pass-current-hint">
-                <template #meta>
-                  <span id="profile-pass-current-hint">{{ pwd.current.length }}/{{ PASSWORD_MAX }}</span>
-                </template>
-              </UiInput>
-              <UiInput class="profile-input" id="profile-pass-new" v-model="pwd.next" type="password" autocomplete="new-password" minlength="8" maxlength="32" label="Новый пароль"
-                :invalid="newPasswordInvalid" :aria-invalid="newPasswordInvalid" aria-describedby="profile-pass-new-hint">
-                <template #meta>
-                  <span id="profile-pass-new-hint">{{ pwd.next.length }}/{{ PASSWORD_MAX }}</span>
-                </template>
-              </UiInput>
-              <UiInput class="profile-input" id="profile-pass-confirm" v-model="pwd.confirm" type="password" autocomplete="new-password" minlength="8" maxlength="32" label="Повторите пароль"
-                :invalid="confirmPasswordInvalid" :aria-invalid="confirmPasswordInvalid" aria-describedby="profile-pass-confirm-hint">
-                <template #meta>
-                  <span id="profile-pass-confirm-hint">{{ pwd.confirm.length }}/{{ PASSWORD_MAX }}</span>
-                </template>
-              </UiInput>
-              <button class="btn confirm" @click="changePassword" :disabled="pwdBusy || !canChangePassword">
-                {{ pwdBusy ? '...' : 'Сменить пароль' }}
-              </button>
-              <p class="hint">
-                Сбросить пароль можно через
-                <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">TG-бота</a>
-              </p>
+              <div v-if="me.has_password" class="password-row">
+                <p class="hint text">Пароль</p>
+                <p v-if="passwordTemp" class="hint warn">У вас временный пароль — рекомендуем изменить его</p>
+                <UiInput class="profile-input" id="profile-pass-current" v-model="pwd.current" type="password" autocomplete="current-password" minlength="8" maxlength="32" label="Текущий пароль"
+                  :invalid="currentPasswordInvalid" :aria-invalid="currentPasswordInvalid" aria-describedby="profile-pass-current-hint">
+                  <template #meta>
+                    <span id="profile-pass-current-hint">{{ pwd.current.length }}/{{ PASSWORD_MAX }}</span>
+                  </template>
+                </UiInput>
+                <UiInput class="profile-input" id="profile-pass-new" v-model="pwd.next" type="password" autocomplete="new-password" minlength="8" maxlength="32" label="Новый пароль"
+                  :invalid="newPasswordInvalid" :aria-invalid="newPasswordInvalid" aria-describedby="profile-pass-new-hint">
+                  <template #meta>
+                    <span id="profile-pass-new-hint">{{ pwd.next.length }}/{{ PASSWORD_MAX }}</span>
+                  </template>
+                </UiInput>
+                <UiInput class="profile-input" id="profile-pass-confirm" v-model="pwd.confirm" type="password" autocomplete="new-password" minlength="8" maxlength="32" label="Повторите пароль"
+                  :invalid="confirmPasswordInvalid" :aria-invalid="confirmPasswordInvalid" aria-describedby="profile-pass-confirm-hint">
+                  <template #meta>
+                    <span id="profile-pass-confirm-hint">{{ pwd.confirm.length }}/{{ PASSWORD_MAX }}</span>
+                  </template>
+                </UiInput>
+                <button class="btn confirm" @click="changePassword" :disabled="pwdBusy || !canChangePassword">
+                  {{ pwdBusy ? '...' : 'Сменить пароль' }}
+                </button>
+                <p class="hint">
+                  Сбросить пароль можно через
+                  <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">TG-бота</a>
+                </p>
+              </div>
             </div>
           </div>
 
@@ -558,6 +557,12 @@ const registrationDateLabel = computed(() => {
   const dt = new Date(raw)
   if (Number.isNaN(dt.getTime())) return '-'
   return dt.toLocaleDateString('ru-RU')
+})
+const subscriptionStatusLabel = computed(() => {
+  if (!me.subscription_active || subscriptionUntilMs.value <= userNow.value) return 'Подписка: отсутствует'
+  const dt = new Date(me.subscription_until || '')
+  if (Number.isNaN(dt.getTime())) return 'Подписка: отсутствует'
+  return `Подписка: активна до ${dt.toLocaleDateString('ru-RU')}`
 })
 
 async function onToggleTgInvites(next: boolean) {
@@ -1761,12 +1766,11 @@ onBeforeUnmount(() => {
             flex-direction: column;
             gap: 10px;
           }
-        }
-        &.password-block {
           .password-row {
             display: flex;
             flex-direction: column;
             align-items: flex-start;
+            margin-top: 5px;
             gap: 10px;
             --ui-input-label-bg: #{$dark};
             :deep(.profile-input) {
@@ -1883,8 +1887,6 @@ onBeforeUnmount(() => {
           border: 1px solid $graphite;
           border-radius: 5px;
           background-color: $dark;
-          &.gif-modal-body {
-          }
           .gif-preview-row {
             display: flex;
             flex-wrap: wrap;
