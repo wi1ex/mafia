@@ -22,7 +22,7 @@
       <div :key="activeTab" class="tab-panel">
         <div v-if="activeTab === 'profile'" class="grid">
           <div class="block avatar-block">
-            <h3>Аватар</h3>
+            <h3>Аватар и Никнейм</h3>
             <div class="avatar-row">
               <img class="avatar-img" v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="Текущий аватар" />
               <div class="actions">
@@ -38,10 +38,7 @@
                 </button>
               </div>
             </div>
-          </div>
 
-          <div class="block nick-block">
-            <h3>Никнейм</h3>
             <div class="nick-row">
               <div class="nick-input-line">
                 <UiInput class="profile-input" id="profile-nick" v-model.trim="nick" :maxlength="NICK_MAX" :disabled="busyNick || isBanned || isProtectedAdminSelf" autocomplete="off" inputmode="text" label="Никнейм"
@@ -117,22 +114,18 @@
             <p class="hint">{{ profileThemeMessageText }}</p>
           </div>
 
-          <div class="block settings-block">
-            <h3>Параметры</h3>
-            <UiSwitch
-              class="profile-switch"
-              :model-value="tgInvitesEnabled"
-              label="Уведомления о приглашениях в TG"
-              off-label="Запретить"
-              on-label="Разрешить"
-              :width="200"
-              :disabled="tgInvitesTogglePending || !telegramVerified"
-              @update:modelValue="onToggleTgInvites" />
-          </div>
-
           <div class="block account-block">
             <h3>Аккаунт</h3>
             <div class="verify-row">
+              <UiSwitch
+                class="profile-switch"
+                :model-value="tgInvitesEnabled"
+                label="Уведомления о приглашениях в TG"
+                off-label="Запретить"
+                on-label="Разрешить"
+                :width="200"
+                :disabled="tgInvitesTogglePending || !telegramVerified"
+                @update:modelValue="onToggleTgInvites" />
               <p class="hint text">Дата регистрации: {{ registrationDateLabel }}</p>
               <button v-if="telegramVerified" class="btn danger" @click="unlinkTelegram" :disabled="unlinkTgBusy">
                 {{ unlinkTgBusy ? '...' : 'Отвязать TG-аккаунт' }}
@@ -1530,8 +1523,6 @@ onBeforeUnmount(() => {
               gap: 10px;
             }
           }
-        }
-        &.nick-block {
           .nick-row {
             display: flex;
             flex-direction: column;
@@ -1762,11 +1753,6 @@ onBeforeUnmount(() => {
                 cursor: not-allowed;
               }
             }
-          }
-        }
-        &.settings-block {
-          :deep(.profile-switch + .profile-switch) {
-            margin-top: 10px;
           }
         }
         &.account-block {
