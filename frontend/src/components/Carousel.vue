@@ -11,10 +11,6 @@
         <div class="slide-div">
           <div class="slide-top">
             <span class="slide-title">Стриминг</span>
-            <UiTooltip
-              text="Временный текст подсказки"
-              placement="bottom-left"
-            />
           </div>
         </div>
       </article>
@@ -24,10 +20,6 @@
         <div class="slide-div">
           <div class="slide-top">
             <span class="slide-title">Статистика</span>
-            <UiTooltip
-              text="Временный текст подсказки"
-              placement="bottom-left"
-            />
           </div>
         </div>
       </article>
@@ -37,10 +29,6 @@
         <div class="slide-div">
           <div class="slide-top">
             <span class="slide-title">Комьюнити</span>
-            <UiTooltip
-              text="Временный текст подсказки"
-              placement="bottom-left"
-            />
           </div>
         </div>
       </article>
@@ -50,10 +38,6 @@
         <div class="slide-div">
           <div class="slide-top">
             <span class="slide-title">Web App</span>
-            <UiTooltip
-              text="Временный текст подсказки"
-              placement="bottom-left"
-            />
           </div>
           <div class="slide-bottom">
             <button type="button" class="slide-btn" :disabled="installButtonDisabled" @click="openInstall">
@@ -83,8 +67,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { requestPwaInstall, usePwaInstallState } from '@/services/pwa'
-
-import UiTooltip from '@/components/UiTooltip.vue'
 
 import iconArrowDown from '@/assets/svg/iconArrowDown.svg'
 

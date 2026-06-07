@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select, or_, delete, update, func, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...core.db import get_session
+from ...core.roles import ROLE_ADMIN, normalize_user_role
 from ...core.settings import settings
 from ...core.clients import get_redis
 from ...core.logging import log_action
@@ -400,6 +401,9 @@ async def send_friend_request(user_id: int, ident: Identity = Depends(get_identi
     target = await db.get(User, target_id)
     if not target or target.deleted_at:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user_not_found")
+
+    if normalize_user_role(ident.get("role")) == ROLE_ADMIN or normalize_user_role(target.role) == ROLE_ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="admin_friend_requests_disabled")
 
     requester_profile = await get_user_profile_cached(db, uid)
 
