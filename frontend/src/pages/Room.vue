@@ -409,9 +409,11 @@
           :open="settingsOpen"
           :in-game="gamePhase !== 'idle'"
           :is-spectator="isSpectatorLike"
+          :show-hotkeys-toggle="canShowHotkeysToggle"
           :show-mirror-toggle="canShowMirrorToggle"
           :is-mobile="IS_MOBILE"
           :hotkeys-visible="hotkeysVisible"
+          :hotkeys-toggle-pending="hotkeysTogglePending"
           :mics="mics"
           :cams="cams"
           v-model:micId="selectedMicId"
@@ -426,6 +428,7 @@
           :can-toggle-known-roles="canToggleKnownRoles"
           :known-roles-visible="knownRolesVisible"
           @device-change="(kind) => rtc.onDeviceChange(kind)"
+          @toggle-hotkeys="onToggleRoomHotkeys"
           @toggle-known-roles="toggleKnownRolesUi"
           @close="settingsOpen=false"
         />
@@ -713,6 +716,7 @@ const miniProfileUserId = ref<number | null>(null)
 const miniProfileInitial = ref<RoomMiniProfileInitial | null>(null)
 const pendingScreen = ref(false)
 const settingsOpen = ref(false)
+const hotkeysTogglePending = ref(false)
 const friendsPanelOpen = ref(false)
 const roomFriendsEl = ref<HTMLElement | null>(null)
 const gameParamsOpen = ref(false)
@@ -867,6 +871,10 @@ const canEditGameSettings = computed(() =>
   isMafiaLimitRoom.value
 )
 const canShowMirrorToggle = computed(() =>
+  !adminSpectator.value &&
+  (gamePhase.value === 'idle' || (!isSpectatorInGame.value && amIAlive.value))
+)
+const canShowHotkeysToggle = computed(() =>
   !adminSpectator.value &&
   (gamePhase.value === 'idle' || (!isSpectatorInGame.value && amIAlive.value))
 )
@@ -1430,6 +1438,12 @@ function onHotkey(e: KeyboardEvent) {
 function toggleKnownRolesUi(): void {
   if (!canToggleKnownRoles.value) return
   game.toggleKnownRolesVisibility()
+}
+async function onToggleRoomHotkeys(next: boolean): Promise<void> {
+  if (hotkeysTogglePending.value) return
+  hotkeysTogglePending.value = true
+  try { await userStore.setHotkeysVisible(next) }
+  finally { hotkeysTogglePending.value = false }
 }
 function volumeIcon(val: number, enabled: boolean) {
   if (!enabled) return iconVolumeMute

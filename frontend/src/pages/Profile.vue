@@ -121,15 +121,6 @@
             <h3>Параметры</h3>
             <UiSwitch
               class="profile-switch"
-              :model-value="hotkeysVisible"
-              label="Подсказки для горячих клавиш"
-              off-label="Скрыть"
-              on-label="Показать"
-              :width="200"
-              :disabled="hotkeysTogglePending"
-              @update:modelValue="onToggleHotkeys" />
-            <UiSwitch
-              class="profile-switch"
               :model-value="tgInvitesEnabled"
               label="Уведомления о приглашениях в TG"
               off-label="Запретить"
@@ -362,8 +353,8 @@ const userStore = useUserStore()
 const auth = useAuthStore()
 const settings = useSettingsStore()
 const isBanned = computed(() => userStore.banActive)
-const { hotkeysVisible, tgInvitesEnabled, now: userNow } = storeToRefs(userStore)
-const { setHotkeysVisible, setTgInvitesEnabled, setProfileTheme } = userStore
+const { tgInvitesEnabled, now: userNow } = storeToRefs(userStore)
+const { setTgInvitesEnabled, setProfileTheme } = userStore
 
 const me = reactive({
   id: 0,
@@ -475,7 +466,6 @@ const sanctions = ref<SanctionItem[]>([])
 const sanctionsLoading = ref(false)
 const sanctionsLoaded = ref(false)
 const sanctionsError = ref('')
-const hotkeysTogglePending = ref(false)
 const tgInvitesTogglePending = ref(false)
 const themeSaveBusy = ref(false)
 const supportModalOpen = ref(false)
@@ -576,13 +566,6 @@ const registrationDateLabel = computed(() => {
   if (Number.isNaN(dt.getTime())) return '-'
   return dt.toLocaleDateString('ru-RU')
 })
-
-async function onToggleHotkeys(next: boolean) {
-  if (hotkeysTogglePending.value) return
-  hotkeysTogglePending.value = true
-  try { await setHotkeysVisible(next) }
-  finally { hotkeysTogglePending.value = false }
-}
 
 async function onToggleTgInvites(next: boolean) {
   if (tgInvitesTogglePending.value || !telegramVerified.value) return

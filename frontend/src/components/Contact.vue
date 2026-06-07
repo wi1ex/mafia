@@ -104,6 +104,7 @@ const CONTACT_MAX = 160
 const TEXT_MAX = 2000
 
 const topicOptions: readonly TopicOption[] = [
+  { value: 'verif_question', label: 'Верификация на платформе' },
   { value: 'technical_problem', label: 'Техническая проблема' },
   { value: 'payment_question', label: 'Поддержка платформы' },
   { value: 'player_report', label: 'Жалоба на пользователя' },
@@ -272,6 +273,7 @@ onBeforeUnmount(() => {
       flex-direction: column;
       gap: 16px;
       .contact-body-title {
+        margin-left: 12px;
         color: $neutral-black;
         font-family: Hauora-SemiBold;
         font-size: 16px;
