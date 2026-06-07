@@ -56,6 +56,7 @@ from ...services.global_chat import (
 )
 from ...services.minio import CHAT_IMAGE_PREFIX, delete_chat_images_async, get_prefix_storage_stats_async
 from ...services.nickname_history import prepend_nickname_history
+from ...services.user_stats import invalidate_user_game_stats_cache_for_users
 from ...schemas.common import Ok, Identity
 from ...schemas.user import UserStatsOut
 from ...schemas.admin import (
@@ -188,6 +189,32 @@ public_router = APIRouter()
 ADMIN_GUARD = (Depends(require_protected_admin_dep),)
 router = APIRouter(dependencies=ADMIN_GUARD)
 log = structlog.get_logger()
+
+
+def _game_stats_cache_user_ids(game: Game) -> set[int]:
+    user_ids: set[int] = set()
+    roles = getattr(game, "roles", None)
+    if isinstance(roles, dict):
+        for raw_uid in roles.keys():
+            uid = safe_int(raw_uid)
+            if uid > 0:
+                user_ids.add(uid)
+
+    head_uid = safe_int(getattr(game, "head_id", None))
+    if head_uid > 0:
+        user_ids.add(head_uid)
+
+    return user_ids
+
+
+async def _invalidate_game_stats_cache_for_game_users(user_ids: set[int], log_event: str, *, game_id: int) -> None:
+    if not user_ids:
+        return
+
+    try:
+        await invalidate_user_game_stats_cache_for_users(user_ids)
+    except Exception:
+        log.warning(log_event, game_id=game_id, users=len(user_ids))
 
 
 @public_router.get("/settings/public", response_model=PublicSettingsOut)
@@ -806,6 +833,7 @@ async def update_game_result(game_id: int, payload: AdminGameResultUpdateIn, ide
     next_result = payload.result
 
     if prev_result_raw != next_result:
+        cache_user_ids = _game_stats_cache_user_ids(game)
         game.result = next_result
         await log_action(
             session,
@@ -817,7 +845,8 @@ async def update_game_result(game_id: int, payload: AdminGameResultUpdateIn, ide
         )
         await session.commit()
         await session.refresh(game)
-        schedule_user_game_stats_cache_invalidation(
+        await _invalidate_game_stats_cache_for_game_users(
+            cache_user_ids,
             "admin.games.result_update.invalidate_stats_cache_failed",
             game_id=gid,
         )
@@ -884,6 +913,7 @@ async def update_game_ppk(game_id: int, payload: AdminGamePpkUpdateIn, ident: Id
     actual_target_user_id = findGamePpkTargetUserId(actions)
 
     if changed:
+        cache_user_ids = _game_stats_cache_user_ids(game)
         game.actions = actions
         await log_action(
             session,
@@ -897,7 +927,8 @@ async def update_game_ppk(game_id: int, payload: AdminGamePpkUpdateIn, ident: Id
             commit=False,
         )
         await session.commit()
-        schedule_user_game_stats_cache_invalidation(
+        await _invalidate_game_stats_cache_for_game_users(
+            cache_user_ids,
             "admin.games.ppk_update.invalidate_stats_cache_failed",
             game_id=gid,
         )
