@@ -267,7 +267,7 @@ async function create() {
     else if (st === 403 && d === 'user_timeout') void alertDialog('Вам выдан таймаут, создание комнаты недоступно')
     else if (st === 403 && d === 'user_banned') void alertDialog('Аккаунт забанен, создание комнаты недоступно')
     else if (st === 403 && d === 'not_verified') void alertDialog('Для создания комнаты требуется верификация')
-    else if (st === 403 && d === 'subscription_required') void alertDialog('Скрытые комнаты и отключение зрителей доступны только обладателям подписки')
+    else if (st === 403 && d === 'subscription_required') void alertDialog('Скрытые комнаты доступны только обладателям подписки')
     else if (st === 409 && d === 'rooms_limit_global') void alertDialog('Достигнут общий лимит комнат')
     else if (st === 409 && d === 'rooms_limit_user') void alertDialog('Достигнут личный лимит комнат')
     else if (st === 422 && moderationText) void alertDialog({ title: 'Отказ в создании', text: moderationText })
