@@ -43,8 +43,8 @@
             aria-label="Лимит участников"
           />
           <div class="range-marks" aria-hidden="true">
-            <span v-if="limit === 2" class="range-mark" :style="rangeMarkStyle(2)">DUO HD</span>
-            <span v-if="isMafiaRoom" class="range-mark" :style="rangeMarkStyle(gameLimitMin)">MAFIA</span>
+            <span class="range-mark" :style="rangeMarkStyle(2)">DUO HD</span>
+            <span class="range-mark" :style="rangeMarkStyle(gameLimitMin)">MAFIA</span>
           </div>
         </div>
 
@@ -176,7 +176,6 @@ const initialLimit = (() => {
   return Number.isFinite(value) ? clamp(value, 2, 12) : 11
 })()
 const limit = ref<number>(initialLimit)
-const isMafiaRoom = computed(() => limit.value === gameLimitMin.value)
 const hiddenRoomHint = 'Создание скрытых комнат доступно пользователям, поддержавшим платформу'
 
 const privacy = ref<'open' | 'private'>(initialBasic.privacy === 'private' ? 'private' : 'open')
