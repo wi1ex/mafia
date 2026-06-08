@@ -230,6 +230,7 @@ onBeforeUnmount(() => {
     padding: 24px 24px 88px;
     width: calc(100% - 48px);
     height: calc(100% - 112px);
+    border-radius: 24px;
     z-index: 1;
     will-change: transform;
     .background-image {
@@ -238,6 +239,7 @@ onBeforeUnmount(() => {
       top: 0;
       width: 607px;
       height: 510px;
+      border-radius: 24px;
     }
     .slide-div {
       display: flex;
