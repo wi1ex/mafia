@@ -388,7 +388,7 @@ const verificationRestricted = computed(() => auth.isAuthed && settings.verifica
 const canOpenRoomInfoMiniProfile = computed(() => {
   if (!auth.ready || !settings.ready || !auth.isAuthed) return false
   if (!userStore.user) return false
-  if (userStore.banActive || userStore.timeoutActive) return false
+  if (userStore.banActive) return false
   return !(settings.verificationRestrictions && !userStore.telegramVerified)
 })
 const topBannerActive = computed(() => {

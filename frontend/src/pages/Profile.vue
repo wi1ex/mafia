@@ -227,7 +227,7 @@
 
         <div v-else-if="activeTab === 'stats'" class="grid grid-stats">
           <div class="block">
-            <Stats />
+            <ProfileStats />
           </div>
         </div>
 
@@ -313,7 +313,7 @@ import { confirmDialog, alertDialog } from '@/services/confirm'
 import { formatModerationAlert } from '@/services/moderation'
 import { formatLocalDateTime } from '@/services/datetime'
 
-import Stats from '@/components/Stats.vue'
+import ProfileStats from '@/components/ProfileStats.vue'
 import ProfileHistory from '@/components/ProfileHistory.vue'
 import UiSwitch from '@/components/UiSwitch.vue'
 import UiInput from '@/components/UiInput.vue'

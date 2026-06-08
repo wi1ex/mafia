@@ -136,6 +136,7 @@
     v-model:open="selfMiniProfileOpen"
     :user-id="selfMiniProfileUserId"
     :initial-profile="selfMiniProfileInitial"
+    show-stats-button
   />
 </template>
 

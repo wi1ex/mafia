@@ -135,7 +135,7 @@
             <div class="stats-toolbar">
               <button class="profile-action secondary" type="button" @click="view = 'profile'">Назад к профилю</button>
             </div>
-            <Stats :stats-url="resolvedStatsUrl" />
+            <ProfileStats :stats-url="resolvedStatsUrl" />
           </template>
         </section>
       </div>
@@ -190,7 +190,7 @@ import {
   type FriendApiAction,
   type FriendStatus,
 } from '@/store'
-import Stats from '@/components/Stats.vue'
+import ProfileStats from '@/components/ProfileStats.vue'
 import Sanction from '@/components/Sanction.vue'
 import Subscription from '@/components/Subscription.vue'
 
@@ -457,14 +457,18 @@ const initialProfileForTarget = computed<MiniProfileInitial | null>(() => {
 const profileLoadedForTarget = computed(() => Boolean(profile.value && profile.value.id === targetUserId.value))
 const viewerUserId = computed(() => Number(userStore.user?.id || 0))
 const viewerRole = computed(() => normalizeMiniProfileRole(userStore.user?.role))
-const viewerVerificationRestricted = computed(() => Boolean(settingsStore.verificationRestrictions && !userStore.telegramVerified))
-const canRenderOpen = computed(() => props.open && !viewerVerificationRestricted.value)
+const isAdminViewer = computed(() => viewerRole.value === 'admin')
+const isModerViewer = computed(() => viewerRole.value === 'moder')
 const isSelfProfile = computed(() => targetUserId.value > 0 && viewerUserId.value === targetUserId.value)
+const viewerVerificationRestricted = computed(() => Boolean(settingsStore.verificationRestrictions && !userStore.telegramVerified && !isSelfProfile.value))
 const privilegedViewer = computed(() => isMiniProfilePrivilegedViewer(viewerRole.value, props.adminMode))
 const initialTargetDeleted = computed(() => {
   const initial = initialProfileForTarget.value
   return Boolean(initial?.deleted || initial?.deleted_at)
 })
+const deletedTargetBlocked = computed(() => Boolean((initialTargetDeleted.value || (profileLoadedForTarget.value && profile.value?.deleted)) && !isAdminViewer.value))
+const canRenderOpen = computed(() => props.open && !viewerVerificationRestricted.value && !deletedTargetBlocked.value)
+const canRequestDeletedProfile = computed(() => Boolean(props.allowDeleted && isAdminViewer.value))
 const targetDeleted = computed(() => Boolean(
   (profileLoadedForTarget.value && profile.value?.deleted)
   || (!profileLoadedForTarget.value && initialTargetDeleted.value)
@@ -587,8 +591,6 @@ const showStatsButton = computed(() => Boolean(
   && (isSelfProfile.value || privilegedViewer.value || friendStatus.value === 'friends')
 ))
 const showActionBlock = computed(() => showStatsButton.value || showFriendAction.value)
-const isAdminViewer = computed(() => viewerRole.value === 'admin')
-const isModerViewer = computed(() => viewerRole.value === 'moder')
 const staffActionScope = computed<StaffActionScope | null>(() => {
   if (isAdminViewer.value) return 'admin'
   if (isModerViewer.value) return 'moderation'
@@ -653,6 +655,8 @@ const staffActionItems = computed<StaffActionItem[]>(() => {
   const timeoutDisabled = isStaffSanctionBusy('timeout')
 
   if (isAdminViewer.value) {
+    if (targetDeleted.value || isSelfProfile.value || targetRoleNormalized.value === 'admin') return []
+
     return [
       {
         key: 'subscription',
@@ -1377,7 +1381,7 @@ async function loadProfile() {
   loading.value = true
   loadError.value = ''
   try {
-    const reqConfig = props.allowDeleted ? { params: { allow_deleted: 1 } } : undefined
+    const reqConfig = canRequestDeletedProfile.value ? { params: { allow_deleted: 1 } } : undefined
     const { data } = await api.get<MiniProfileResponse>(`/users/${uid}/mini_profile`, reqConfig)
     if (seq !== requestSeq) return
     profile.value = {
@@ -1433,7 +1437,7 @@ async function loadNicknameHistory() {
   nicknameHistoryLoading.value = true
   nicknameHistoryError.value = ''
   try {
-    const reqConfig = props.allowDeleted ? { params: { allow_deleted: 1 } } : undefined
+    const reqConfig = canRequestDeletedProfile.value ? { params: { allow_deleted: 1 } } : undefined
     const { data } = await api.get<NicknameHistoryResponse>(`/users/${uid}/nickname_history`, reqConfig)
     if (seq !== nicknameHistorySeq) return
     nicknameHistoryItems.value = Array.isArray(data?.items)
@@ -1529,7 +1533,7 @@ function onFriendsUpdate(e: Event) {
   if (previousStatus === 'friends' && nextStatus !== 'friends') adjustProfileFriendsCount(-1)
 }
 
-watch([() => props.open, targetUserId, viewerVerificationRestricted], ([open, uid, restricted]) => {
+watch([() => props.open, targetUserId, viewerVerificationRestricted, deletedTargetBlocked], ([open, uid, restricted, deletedBlocked]) => {
   if (!open) {
     requestSeq += 1
     loading.value = false
@@ -1541,7 +1545,7 @@ watch([() => props.open, targetUserId, viewerVerificationRestricted], ([open, ui
     return
   }
 
-  if (restricted) {
+  if (restricted || deletedBlocked) {
     emit('update:open', false)
     return
   }

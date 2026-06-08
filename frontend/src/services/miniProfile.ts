@@ -57,5 +57,8 @@ export function canOpenMiniProfileTarget(input: MiniProfileOpenGuardInput): bool
   if (targetId <= 0) return false
   if (isViewerBlockedByVerification(input)) return false
   if (isMiniProfileAdminTargetRole(input.targetRole) && normalizeMiniProfileRole(input.viewerRole) !== 'admin') return false
-  return !(!input.allowDeleted && hasMiniProfileDeletedAt(input.targetDeletedAt))
+  if (hasMiniProfileDeletedAt(input.targetDeletedAt)) {
+    return Boolean(input.allowDeleted) && normalizeMiniProfileRole(input.viewerRole) === 'admin'
+  }
+  return true
 }
