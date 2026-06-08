@@ -274,7 +274,6 @@
       v-model:open="miniProfileOpen"
       :user-id="miniProfileUserId"
       :initial-profile="miniProfileInitial"
-      :allow-deleted="miniProfileAllowDeleted"
       :stats-url="miniProfileStatsUrl"
       :show-stats-button="true"
     />
@@ -409,7 +408,6 @@ const viewerMiniProfileRole = computed(() => normalizeMiniProfileRole(user.user?
 const isChatModerator = computed(() => {
   return viewerMiniProfileRole.value === 'admin' || viewerMiniProfileRole.value === 'moder'
 })
-const miniProfileAllowDeleted = computed(() => isChatModerator.value)
 const miniProfileStatsUrl = computed(() => {
   const uid = Number(miniProfileUserId.value || 0)
   if (!Number.isFinite(uid) || uid <= 0) return null
@@ -472,7 +470,6 @@ function canOpenAuthorMiniProfile(message: GlobalChatMessage): boolean {
     viewerRole: user.user?.role,
     targetRole: message.author?.role,
     targetDeletedAt: message.author?.deleted,
-    allowDeleted: miniProfileAllowDeleted.value,
   })
 }
 
@@ -502,7 +499,6 @@ function canOpenMentionMiniProfile(mention: GlobalChatMention): boolean {
     viewerRole: user.user?.role,
     targetRole: mention?.role,
     targetDeletedAt: mention?.deleted,
-    allowDeleted: miniProfileAllowDeleted.value,
   })
 }
 

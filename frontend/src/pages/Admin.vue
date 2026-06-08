@@ -922,7 +922,6 @@
       :open="userMiniProfileOpen"
       :user-id="userMiniProfileTarget?.id ?? null"
       :initial-profile="userMiniProfileTarget"
-      :allow-deleted="userMiniProfileAllowDeleted"
       :stats-url="userMiniProfileStatsUrl"
       show-stats-button
       admin-mode
@@ -1344,7 +1343,6 @@ const subscriptionForm = reactive({
 })
 const userMiniProfileOpen = ref(false)
 const userMiniProfileTarget = ref<UserMiniProfileTarget | null>(null)
-const userMiniProfileAllowDeleted = computed(() => activeTab.value === 'users' || activeTab.value === 'sanctions' || activeTab.value === 'contact_requests')
 const userMiniProfileStatsUrl = computed(() => {
   const target = userMiniProfileTarget.value
   return target ? `/admin/users/${target.id}/stats` : null
@@ -1819,19 +1817,18 @@ function canOpenMiniProfileOnAdminPage(value: {
   id?: unknown
   role?: unknown
   deleted_at?: unknown
-}, opts?: { allowDeleted?: boolean }): boolean {
+}): boolean {
   return canOpenMiniProfileTarget({
     targetId: value.id,
     viewerId: viewerUserId.value,
     viewerRole: userStore.user?.role,
     targetRole: value.role,
     targetDeletedAt: value.deleted_at,
-    allowDeleted: Boolean(opts?.allowDeleted),
   })
 }
 
 function canOpenAdminUserMiniProfile(row: UserRow): boolean {
-  return canOpenMiniProfileOnAdminPage(row, { allowDeleted: true })
+  return canOpenMiniProfileOnAdminPage(row)
 }
 
 function openAdminUserMiniProfile(row: UserRow): void {
@@ -1907,7 +1904,7 @@ function canOpenSanctionUserMiniProfile(row: SanctionsRow): boolean {
     id: row.user_id,
     role: row.role,
     deleted_at: row.deleted_at,
-  }, { allowDeleted: true })
+  })
 }
 
 function openSanctionUserMiniProfile(row: SanctionsRow): void {
@@ -1927,7 +1924,7 @@ function canOpenContactRequestUserMiniProfile(row: ContactRequestRow): boolean {
     id: row.user_id,
     role: row.role,
     deleted_at: row.deleted_at,
-  }, { allowDeleted: true })
+  })
 }
 
 function openContactRequestUserMiniProfile(row: ContactRequestRow): void {

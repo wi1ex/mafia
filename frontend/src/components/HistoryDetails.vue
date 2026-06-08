@@ -60,7 +60,6 @@
       v-model:open="miniProfileOpen"
       :user-id="miniProfileUserId"
       :initial-profile="miniProfileInitial"
-      :allow-deleted="miniProfileAllowDeleted"
       :stats-url="miniProfileStatsUrl"
       :show-stats-button="true"
     />
@@ -153,7 +152,6 @@ const miniProfileUserId = ref<number | null>(null)
 const miniProfileInitial = ref<GameHistoryMiniProfileInitial | null>(null)
 const viewerUserId = computed(() => normalizeMiniProfileUserId(userStore.user?.id))
 const viewerRole = computed(() => normalizeMiniProfileRole(userStore.user?.role))
-const miniProfileAllowDeleted = computed(() => viewerRole.value === 'admin' || viewerRole.value === 'moder')
 const miniProfileStatsUrl = computed(() => {
   const uid = Number(miniProfileUserId.value || 0)
   if (!Number.isFinite(uid) || uid <= 0) return null
@@ -229,7 +227,6 @@ function canOpenSlotMiniProfile(slot: GameHistorySlotView): boolean {
     viewerRole: viewerRole.value,
     targetRole: slot.profile_role,
     targetDeletedAt: slot.deleted,
-    allowDeleted: miniProfileAllowDeleted.value,
   })
 }
 

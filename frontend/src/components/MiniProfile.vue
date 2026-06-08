@@ -320,7 +320,6 @@ const props = withDefaults(defineProps<{
   initialProfile?: MiniProfileInitial | null
   showStatsButton?: boolean
   adminMode?: boolean
-  allowDeleted?: boolean
   statsUrl?: string | null
   refreshFriendsListOnAction?: boolean
   refreshFriendsRoomId?: number | null
@@ -329,7 +328,6 @@ const props = withDefaults(defineProps<{
   initialProfile: null,
   showStatsButton: false,
   adminMode: false,
-  allowDeleted: false,
   statsUrl: null,
   refreshFriendsListOnAction: false,
   refreshFriendsRoomId: null,
@@ -468,7 +466,7 @@ const initialTargetDeleted = computed(() => {
 })
 const deletedTargetBlocked = computed(() => Boolean((initialTargetDeleted.value || (profileLoadedForTarget.value && profile.value?.deleted)) && !isAdminViewer.value))
 const canRenderOpen = computed(() => props.open && !viewerVerificationRestricted.value && !deletedTargetBlocked.value)
-const canRequestDeletedProfile = computed(() => Boolean(props.allowDeleted && isAdminViewer.value))
+const adminDeletedLookupConfig = computed(() => (isAdminViewer.value ? { params: { allow_deleted: 1 } } : undefined))
 const targetDeleted = computed(() => Boolean(
   (profileLoadedForTarget.value && profile.value?.deleted)
   || (!profileLoadedForTarget.value && initialTargetDeleted.value)
@@ -1381,8 +1379,7 @@ async function loadProfile() {
   loading.value = true
   loadError.value = ''
   try {
-    const reqConfig = canRequestDeletedProfile.value ? { params: { allow_deleted: 1 } } : undefined
-    const { data } = await api.get<MiniProfileResponse>(`/users/${uid}/mini_profile`, reqConfig)
+    const { data } = await api.get<MiniProfileResponse>(`/users/${uid}/mini_profile`, adminDeletedLookupConfig.value)
     if (seq !== requestSeq) return
     profile.value = {
       id: Number(data?.id || uid),
@@ -1437,8 +1434,7 @@ async function loadNicknameHistory() {
   nicknameHistoryLoading.value = true
   nicknameHistoryError.value = ''
   try {
-    const reqConfig = canRequestDeletedProfile.value ? { params: { allow_deleted: 1 } } : undefined
-    const { data } = await api.get<NicknameHistoryResponse>(`/users/${uid}/nickname_history`, reqConfig)
+    const { data } = await api.get<NicknameHistoryResponse>(`/users/${uid}/nickname_history`, adminDeletedLookupConfig.value)
     if (seq !== nicknameHistorySeq) return
     nicknameHistoryItems.value = Array.isArray(data?.items)
       ? data.items.map((item) => String(item || '').trim()).filter(Boolean)

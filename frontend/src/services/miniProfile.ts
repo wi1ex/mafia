@@ -7,7 +7,6 @@ export type MiniProfileOpenGuardInput = {
   viewerRole?: unknown
   targetRole?: unknown
   targetDeletedAt?: unknown
-  allowDeleted?: boolean
   verificationRestrictions?: unknown
   viewerTelegramVerified?: unknown
 }
@@ -58,7 +57,7 @@ export function canOpenMiniProfileTarget(input: MiniProfileOpenGuardInput): bool
   if (isViewerBlockedByVerification(input)) return false
   if (isMiniProfileAdminTargetRole(input.targetRole) && normalizeMiniProfileRole(input.viewerRole) !== 'admin') return false
   if (hasMiniProfileDeletedAt(input.targetDeletedAt)) {
-    return Boolean(input.allowDeleted) && normalizeMiniProfileRole(input.viewerRole) === 'admin'
+    return normalizeMiniProfileRole(input.viewerRole) === 'admin'
   }
   return true
 }

@@ -182,6 +182,7 @@ async def mini_profile(user_id: int, allow_deleted: bool = False, ident: Identit
     viewer_id = int(ident["id"])
     await ensure_verification_allowed(db, viewer_id)
     viewer_role = str(ident["role"] or "").strip().lower()
+    is_admin_viewer = viewer_role == "admin"
     is_staff_viewer = viewer_role in {"admin", "moder"}
     uid = int(user_id)
     if uid <= 0:
@@ -195,7 +196,7 @@ async def mini_profile(user_id: int, allow_deleted: bool = False, ident: Identit
     if target_role == "admin" and viewer_role != "admin":
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user_not_found")
 
-    if user.deleted_at and not (allow_deleted and is_staff_viewer):
+    if user.deleted_at and not (allow_deleted and is_admin_viewer):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user_not_found")
 
     defaults_changed = await ensure_profile_theme_defaults(db, uid)
@@ -292,7 +293,7 @@ async def mini_profile(user_id: int, allow_deleted: bool = False, ident: Identit
 @rate_limited(lambda ident, user_id, **_: f"rl:user_nickname_history:{ident['id']}:{user_id}", limit=10, window_s=1)
 async def nickname_history(user_id: int, allow_deleted: bool = False, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserNicknameHistoryOut:
     viewer_role = str(ident["role"] or "").strip().lower()
-    is_staff_viewer = viewer_role in {"admin", "moder"}
+    is_admin_viewer = viewer_role == "admin"
     uid = int(user_id)
     if uid <= 0:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="bad_user_id")
@@ -305,7 +306,7 @@ async def nickname_history(user_id: int, allow_deleted: bool = False, ident: Ide
     if target_role == "admin" and viewer_role != "admin":
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user_not_found")
 
-    if user.deleted_at and not (allow_deleted and is_staff_viewer):
+    if user.deleted_at and not (allow_deleted and is_admin_viewer):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user_not_found")
 
     return UserNicknameHistoryOut(items=build_nickname_history_out(user.username, user.nickname_history))

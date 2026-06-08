@@ -300,7 +300,6 @@
       :open="userMiniProfileOpen"
       :user-id="userMiniProfileTarget?.id ?? null"
       :initial-profile="userMiniProfileTarget"
-      :allow-deleted="userMiniProfileAllowDeleted"
       :stats-url="userMiniProfileStatsUrl"
       show-stats-button
       admin-mode
@@ -448,7 +447,6 @@ const SANCTION_DURATION_LIMITS = {
 } as const
 const userMiniProfileOpen = ref(false)
 const userMiniProfileTarget = ref<UserMiniProfileTarget | null>(null)
-const userMiniProfileAllowDeleted = computed(() => activeTab.value === 'sanctions' || activeTab.value === 'contact_requests')
 const userMiniProfileStatsUrl = computed(() => {
   const target = userMiniProfileTarget.value
   return target ? `/moderation/users/${target.id}/stats` : null
@@ -615,14 +613,13 @@ function canOpenMiniProfileOnModerationPage(value: {
   id?: unknown
   role?: unknown
   deleted_at?: unknown
-}, opts?: { allowDeleted?: boolean }): boolean {
+}): boolean {
   return canOpenMiniProfileTarget({
     targetId: value.id,
     viewerId: viewerUserId.value,
     viewerRole: userStore.user?.role,
     targetRole: value.role,
     targetDeletedAt: value.deleted_at,
-    allowDeleted: Boolean(opts?.allowDeleted),
   })
 }
 
@@ -647,7 +644,7 @@ function canOpenSanctionUserMiniProfile(row: SanctionsRow): boolean {
     id: row.user_id,
     role: row.role,
     deleted_at: row.deleted_at,
-  }, { allowDeleted: true })
+  })
 }
 
 function canOpenContactRequestUserMiniProfile(row: ContactRequestRow): boolean {
@@ -655,7 +652,7 @@ function canOpenContactRequestUserMiniProfile(row: ContactRequestRow): boolean {
     id: row.user_id,
     role: row.role,
     deleted_at: row.deleted_at,
-  }, { allowDeleted: true })
+  })
 }
 
 function canAdjustSanction(row: SanctionsRow): boolean {
