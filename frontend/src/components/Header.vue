@@ -114,7 +114,7 @@
             <div class="border-line"></div>
             <div class="user-menu-items">
               <button type="button" class="user-menu-item" role="menuitem" @click="openSelfMiniProfile">
-                <UiIcon class="profile-icon" :icon="iconProfile" />
+                <UiIcon class="profile-icon" :icon="iconMiniProfile" />
                 <span>Профиль</span>
               </button>
               <router-link to="/profile" class="user-menu-item" role="menuitem" @click="closeUserMenu">
@@ -162,6 +162,7 @@ import iconDefaultAvatar from "@/assets/svg/iconDefaultAvatar.svg"
 import iconBigDefaultAvatar from "@/assets/svg/iconBigDefaultAvatar.svg"
 import iconArrow from '@/assets/svg/iconArrow.svg'
 import iconProfile from "@/assets/svg/iconProfile.svg"
+import iconMiniProfile from "@/assets/svg/iconMiniProfile.svg"
 import iconLogout from '@/assets/svg/iconLogout.svg'
 import { buildProfileThemeStyle } from '@/constants/profileThemes'
 import { getProfileThemeBadgeSources } from '@/constants/profileIcons'

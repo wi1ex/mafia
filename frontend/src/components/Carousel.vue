@@ -11,6 +11,12 @@
         <div class="slide-div">
           <div class="slide-top">
             <span class="slide-title">Стриминг</span>
+            <UiTooltip
+              text="Платформа для тех, кто хочет не только играть. Общайтесь, смотрите фильмы,
+              проводите стримы и собирайте своё сообщество в одном месте. Бесплатно, без ограничений
+              по времени и без необходимости переключаться между разными сервисами."
+              placement="bottom-left"
+            />
           </div>
         </div>
       </article>
@@ -20,6 +26,12 @@
         <div class="slide-div">
           <div class="slide-top">
             <span class="slide-title">Статистика</span>
+            <UiTooltip
+              text="Каждая партия влияет на ваш прогресс. Изучайте статистику,
+              зарабатывайте достижения, повышайте рейтинг и наблюдайте, как растёт ваш уровень игры.
+              Все результаты сохраняются автоматически и доступны в любое время."
+              placement="bottom-left"
+            />
           </div>
         </div>
       </article>
@@ -29,6 +41,12 @@
         <div class="slide-div">
           <div class="slide-top">
             <span class="slide-title">Комьюнити</span>
+            <UiTooltip
+              text="Игра — это только начало. Общайтесь в общем чате, находите единомышленников,
+              собирайте команды для новых партий и знакомьтесь с людьми, которые разделяют ваши интересы.
+              Здесь формируется настоящее игровое сообщество."
+              placement="bottom-left"
+            />
           </div>
         </div>
       </article>
@@ -38,6 +56,14 @@
         <div class="slide-div">
           <div class="slide-top">
             <span class="slide-title">Web App</span>
+            <UiTooltip
+              text="Платформу можно установить на смартфон и запускать как обычное приложение.
+              После установки она появится на главном экране устройства, будет открываться
+              в отдельном окне и обеспечит быстрый доступ. Android (Chrome): откройте меню браузера
+              и выберите «Установить приложение» или «Добавить на главный экран».
+              iPhone/iPad (Safari): нажмите кнопку «Поделиться» и выберите «На экран Домой»."
+              placement="bottom-left"
+            />
           </div>
           <div class="slide-bottom">
             <button type="button" class="slide-btn" :disabled="installButtonDisabled" @click="openInstall">
@@ -67,6 +93,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { requestPwaInstall, usePwaInstallState } from '@/services/pwa'
+
+import UiTooltip from '@/components/UiTooltip.vue'
 
 import iconArrowDown from '@/assets/svg/iconArrowDown.svg'
 
