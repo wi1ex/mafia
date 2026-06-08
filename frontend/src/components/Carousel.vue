@@ -1,7 +1,7 @@
 <template>
   <section class="home-carousel" role="region" aria-roledescription="carousel" aria-label="Информационная карусель" tabindex="0" :class="{ 'is-paused': isPaused }"
            :style="carouselProgressStyle" @mouseenter="hovered = true" @mouseleave="hovered = false" @focusin="focused = true" @focusout="onFocusOut" @keydown="onKeydown" >
-    <Transition :name="slideTransitionName" mode="out-in">
+    <Transition :name="slideTransitionName">
       <article v-if="activeIndex === 0" key="slide-1" class="slide slide-one">
         <img class="background-image" :src="imageSlide1" alt="" aria-hidden="true" />
       </article>
@@ -220,12 +220,18 @@ onBeforeUnmount(() => {
   position: relative;
   width: 100%;
   height: 100%;
+  overflow: hidden;
+  isolation: isolate;
   .slide {
     display: flex;
+    position: absolute;
+    left: 0;
+    top: 0;
     padding: 24px 24px 88px;
     width: calc(100% - 48px);
     height: calc(100% - 112px);
     z-index: 1;
+    will-change: transform;
     .background-image {
       position: absolute;
       left: 0;
@@ -418,26 +424,39 @@ onBeforeUnmount(() => {
 .carousel-slide-forward-leave-active,
 .carousel-slide-backward-enter-active,
 .carousel-slide-backward-leave-active {
-  transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
+  transition: transform 0.55s cubic-bezier(0.25, 1, 0.40, 1);
 }
 
-.carousel-slide-forward-enter-from,
-.carousel-slide-backward-leave-to {
-  opacity: 0;
-  transform: translateX(30px);
+.carousel-slide-forward-enter-active,
+.carousel-slide-backward-enter-active {
+  z-index: 3;
 }
 
-.carousel-slide-forward-leave-to,
+.carousel-slide-forward-leave-active,
+.carousel-slide-backward-leave-active {
+  z-index: 2;
+}
+
+.carousel-slide-forward-enter-from {
+  transform: translateX(100%);
+}
+
+.carousel-slide-forward-leave-to {
+  transform: translateX(-25%);
+}
+
 .carousel-slide-backward-enter-from {
-  opacity: 0;
-  transform: translateX(-30px);
+  transform: translateX(-100%);
+}
+
+.carousel-slide-backward-leave-to {
+  transform: translateX(25%);
 }
 
 .carousel-slide-forward-enter-to,
 .carousel-slide-forward-leave-from,
 .carousel-slide-backward-enter-to,
 .carousel-slide-backward-leave-from {
-  opacity: 1;
   transform: translateX(0);
 }
 
