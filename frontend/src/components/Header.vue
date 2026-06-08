@@ -113,6 +113,10 @@
             </div>
             <div class="border-line"></div>
             <div class="user-menu-items">
+              <button type="button" class="user-menu-item" role="menuitem" @click="openSelfMiniProfile">
+                <UiIcon class="profile-icon" :icon="iconProfile" />
+                <span>Профиль</span>
+              </button>
               <router-link to="/profile" class="user-menu-item" role="menuitem" @click="closeUserMenu">
                 <UiIcon class="profile-icon" :icon="iconProfile" />
                 <span>Личный кабинет</span>
@@ -128,6 +132,11 @@
     </div>
   </header>
   <Auth v-model:open="authOpen" :mode="authMode" />
+  <MiniProfile
+    v-model:open="selfMiniProfileOpen"
+    :user-id="selfMiniProfileUserId"
+    :initial-profile="selfMiniProfileInitial"
+  />
 </template>
 
 <script setup lang="ts">
@@ -136,6 +145,7 @@ import { useAuthStore, useUserStore, useNotifStore, useFriendsStore, useSettings
 import Notifs from '@/components/Notifs.vue'
 import Friends from '@/components/Friends.vue'
 import Auth from '@/components/Auth.vue'
+import MiniProfile from '@/components/MiniProfile.vue'
 import UiIcon from '@/components/UiIcon.vue'
 
 import iconTelegram from "@/assets/svg/iconTelegram.svg"
@@ -176,6 +186,24 @@ const botLink = botName ? `https://t.me/${botName}` : 'https://t.me'
 const userMenuButtonStyle = computed(() => buildProfileThemeStyle(user.activeProfileThemeColor))
 const hasUserMenuProfileTheme = computed(() => Boolean(user.activeProfileThemeColor))
 const userMenuProfileIconSrcs = computed(() => getProfileThemeBadgeSources(user.activeProfileThemeIcon, user.user?.role))
+const selfMiniProfileOpen = ref(false)
+const selfMiniProfileUserId = computed(() => {
+  const uid = Number(user.user?.id || 0)
+  return Number.isFinite(uid) && uid > 0 ? Math.trunc(uid) : 0
+})
+const selfMiniProfileInitial = computed(() => {
+  const current = user.user
+  const uid = selfMiniProfileUserId.value
+  if (!current || uid <= 0) return null
+  return {
+    id: uid,
+    username: current.username || null,
+    avatar_name: current.avatar_name || null,
+    role: current.role || null,
+    profile_theme_color: user.activeProfileThemeColor,
+    profile_theme_icon: user.activeProfileThemeIcon,
+  }
+})
 
 type SanctionDuration = {
   days: number
@@ -300,6 +328,11 @@ function onToggleUserMenu() {
 function closeUserMenu() {
   um_open.value = false
 }
+function openSelfMiniProfile() {
+  if (selfMiniProfileUserId.value <= 0) return
+  closeHeaderPanels()
+  selfMiniProfileOpen.value = true
+}
 function closeHeaderPanels(options: {
   keepChat?: boolean
   keepNotifs?: boolean
@@ -346,6 +379,8 @@ watch(() => auth.isAuthed, async ok => {
     notif.ensureWS()
     await notif.fetchAll()
     await syncFriendsAccess()
+  } else {
+    selfMiniProfileOpen.value = false
   }
 })
 
