@@ -1940,7 +1940,6 @@ function canModerate(targetId: string): boolean {
   if (me === trg) return false
   if (me === 'admin') return trg !== 'admin'
   if (me === 'host') return trg === 'moder' || trg === 'user'
-  if (me === 'moder') return trg === 'user'
   return false
 }
 

@@ -473,7 +473,7 @@ async def moderation_apply_user_timeout(user_id: int, payload: AdminSanctionTime
     note = Notif(
         user_id=uid,
         title="Таймаут",
-        text=f"Вам выдан таймаут на {duration_label}. Причина: {reason}",
+        text=f"Вам выдан таймаут на {duration_label}. Пункт правил: {reason}",
     )
     session.add(sanction)
     session.add(note)
@@ -557,8 +557,9 @@ async def moderation_apply_user_suspend(user_id: int, payload: AdminSanctionTime
         user_id=uid,
         title="Отстранение от игр",
         text=(
-            f"Доступ к играм ограничен на {duration_label}. Причина: {reason} "
-            "Вы можете проводить игры: после каждой проведенной вами игры срок отстранения от игр будет уменьшаться на 4 часа."
+            f"Доступ к играм ограничен на {duration_label}. "
+            f"Вы можете проводить игры: после каждой проведенной вами игры срок отстранения от игр будет уменьшаться на 4 часа."
+            f"Пункт правил: {reason} "
         ),
     )
     session.add(sanction)

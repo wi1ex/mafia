@@ -67,9 +67,6 @@ def can_room_moderate(*, actor_room_role: object, target_room_role: object, acto
     if actor_role == ROOM_ROLE_HOST:
         return target_role in {ROLE_MODER, ROLE_USER}
 
-    if actor_role == ROLE_MODER:
-        return target_role == ROLE_USER
-
     return False
 
 
