@@ -424,7 +424,7 @@ onBeforeUnmount(() => {
 .carousel-slide-forward-leave-active,
 .carousel-slide-backward-enter-active,
 .carousel-slide-backward-leave-active {
-  transition: transform 0.55s cubic-bezier(0.25, 1, 0.40, 1);
+  transition: transform 1s cubic-bezier(0.25, 1, 0.50, 1);
 }
 
 .carousel-slide-forward-enter-active,
