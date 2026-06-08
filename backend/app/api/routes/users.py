@@ -439,22 +439,23 @@ async def games_history(page: int = 1, ident: Identity = Depends(get_identity), 
 @router.get("/games/history/personal", response_model=UserGamesHistoryOut)
 @log_route("users.games_history_personal")
 @rate_limited(lambda ident, **_: f"rl:games_history_personal:{ident['id']}", limit=10, window_s=1)
-async def games_history_personal(page: int = 1, role: Literal["citizen", "mafia", "don", "sheriff"] | None = None, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserGamesHistoryOut:
+async def games_history_personal(page: int = 1, role: Literal["citizen", "mafia", "don", "sheriff"] | None = None, per_page: int = PERSONAL_GAME_HISTORY_PER_PAGE, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserGamesHistoryOut:
     await ensure_verification_allowed(db, int(ident["id"]))
     uid = safe_int((ident or {}).get("id"))
+    per_page_i = max(1, min(int(per_page or PERSONAL_GAME_HISTORY_PER_PAGE), PERSONAL_GAME_HISTORY_PER_PAGE))
     return await fetch_games_history_page(
         db,
         page=page,
         player_uid=uid,
         player_role=role,
-        per_page=PERSONAL_GAME_HISTORY_PER_PAGE,
+        per_page=per_page_i,
     )
 
 
 @router.get("/{user_id}/games/history", response_model=UserGamesHistoryOut)
 @log_route("users.public_games_history")
 @rate_limited(lambda ident, user_id, **_: f"rl:user_public_games_history:{ident['id']}:{user_id}", limit=10, window_s=1)
-async def public_games_history(user_id: int, page: int = 1, role: Literal["citizen", "mafia", "don", "sheriff"] | None = None, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserGamesHistoryOut:
+async def public_games_history(user_id: int, page: int = 1, role: Literal["citizen", "mafia", "don", "sheriff"] | None = None, per_page: int = PERSONAL_GAME_HISTORY_PER_PAGE, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserGamesHistoryOut:
     viewer_id = int(ident["id"])
     viewer_role = str(ident["role"] or "").strip().lower()
     uid = int(user_id)
@@ -470,12 +471,13 @@ async def public_games_history(user_id: int, page: int = 1, role: Literal["citiz
         if friendship_status != "friends":
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="friends_only")
 
+    per_page_i = max(1, min(int(per_page or PERSONAL_GAME_HISTORY_PER_PAGE), PERSONAL_GAME_HISTORY_PER_PAGE))
     return await fetch_games_history_page(
         db,
         page=page,
         player_uid=uid,
         player_role=role,
-        per_page=PERSONAL_GAME_HISTORY_PER_PAGE,
+        per_page=per_page_i,
     )
 
 

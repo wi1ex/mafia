@@ -177,8 +177,10 @@ interface GameHistoryResponse {
 
 const props = withDefaults(defineProps<{
   historyUrl?: string
+  perPage?: number
 }>(), {
   historyUrl: '/users/games/history/personal',
+  perPage: 10,
 })
 
 const loading = ref(false)
@@ -406,7 +408,10 @@ async function fetchHistory(): Promise<void> {
   loading.value = true
   error.value = ''
   try {
-    const params: { page: number; role?: GameHistoryRole } = { page: page.value }
+    const params: { page: number; per_page: number; role?: GameHistoryRole } = {
+      page: page.value,
+      per_page: Math.max(1, Math.trunc(Number(props.perPage) || 10)),
+    }
     if (roleFilter.value !== 'all') {
       params.role = roleFilter.value
     }
@@ -457,7 +462,7 @@ onMounted(() => {
   void fetchHistory()
 })
 
-watch(() => props.historyUrl, () => {
+watch([() => props.historyUrl, () => props.perPage], () => {
   page.value = 1
   clearDetailsCache()
   clearExpanded()

@@ -139,7 +139,7 @@
               <button class="profile-action secondary" type="button" @click="view = 'profile'">Назад к профилю</button>
             </div>
             <ProfileStats v-if="view === 'stats'" :stats-url="resolvedStatsUrl" />
-            <ProfileHistory v-else :history-url="resolvedHistoryUrl" />
+            <ProfileHistory v-else :history-url="resolvedHistoryUrl" :per-page="5" />
           </template>
         </section>
       </div>

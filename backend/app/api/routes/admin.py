@@ -1648,13 +1648,14 @@ async def user_stats(user_id: int, season: int | None = None, session: AsyncSess
 
 @router.get("/users/{user_id}/games/history", response_model=UserGamesHistoryOut, dependencies=ADMIN_GUARD)
 @log_route("admin.users.games_history")
-async def user_games_history(user_id: int, page: int = 1, role: Literal["citizen", "mafia", "don", "sheriff"] | None = None, session: AsyncSession = Depends(get_session)) -> UserGamesHistoryOut:
+async def user_games_history(user_id: int, page: int = 1, role: Literal["citizen", "mafia", "don", "sheriff"] | None = None, per_page: int = 10, session: AsyncSession = Depends(get_session)) -> UserGamesHistoryOut:
     uid = int(user_id)
     user = await session.get(User, uid)
     if not user:
         raise HTTPException(status_code=404, detail="user_not_found")
 
-    return await fetch_games_history_page(session, page=page, player_uid=uid, player_role=role, per_page=10)
+    per_page_i = max(1, min(int(per_page or 10), 10))
+    return await fetch_games_history_page(session, page=page, player_uid=uid, player_role=role, per_page=per_page_i)
 
 
 @router.patch("/users/{user_id}/role", response_model=AdminUserRoleOut, dependencies=ADMIN_GUARD)
