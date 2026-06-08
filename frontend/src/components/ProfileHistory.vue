@@ -473,6 +473,7 @@ onBeforeUnmount(() => {
 .profile-history {
   display: flex;
   flex-direction: column;
+  align-self: center;
   justify-self: center;
   gap: 10px;
   width: min(1100px, 100%);

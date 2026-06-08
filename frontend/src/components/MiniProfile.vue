@@ -1595,7 +1595,6 @@ onBeforeUnmount(() => {
   .user-mini-profile-panel {
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
     padding: 20px;
     gap: 20px;
     width: 500px;
