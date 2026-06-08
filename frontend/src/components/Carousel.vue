@@ -442,7 +442,7 @@ onBeforeUnmount(() => {
 }
 
 .carousel-slide-forward-leave-to {
-  transform: translateX(-25%);
+  transform: translateX(-50%);
 }
 
 .carousel-slide-backward-enter-from {
@@ -450,7 +450,7 @@ onBeforeUnmount(() => {
 }
 
 .carousel-slide-backward-leave-to {
-  transform: translateX(25%);
+  transform: translateX(50%);
 }
 
 .carousel-slide-forward-enter-to,
