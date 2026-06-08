@@ -83,7 +83,7 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { api } from '@/services/axios'
 import { formatLocalDateTime } from '@/services/datetime'
 import HistoryDetails from '@/components/HistoryDetails.vue'
@@ -174,6 +174,12 @@ interface GameHistoryResponse {
   total_black_wins: number
   items: GameHistoryListItem[]
 }
+
+const props = withDefaults(defineProps<{
+  historyUrl?: string
+}>(), {
+  historyUrl: '/users/games/history/personal',
+})
 
 const loading = ref(false)
 const error = ref('')
@@ -404,7 +410,7 @@ async function fetchHistory(): Promise<void> {
     if (roleFilter.value !== 'all') {
       params.role = roleFilter.value
     }
-    const { data } = await api.get<GameHistoryResponse>('/users/games/history/personal', {
+    const { data } = await api.get<GameHistoryResponse>(props.historyUrl, {
       params,
     })
     if (seq !== requestSeq) return
@@ -448,6 +454,13 @@ function nextPage(): void {
 }
 
 onMounted(() => {
+  void fetchHistory()
+})
+
+watch(() => props.historyUrl, () => {
+  page.value = 1
+  clearDetailsCache()
+  clearExpanded()
   void fetchHistory()
 })
 

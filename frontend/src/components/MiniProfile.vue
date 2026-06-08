@@ -2,7 +2,7 @@
   <Teleport to="body">
     <Transition name="user-mini-profile-fade">
       <div v-if="canRenderOpen" class="user-mini-profile-overlay" role="presentation" @pointerdown.stop.self @click.stop.self="close">
-        <section class="user-mini-profile-panel" :class="{ 'stats-mode': view === 'stats' }" :style="profilePanelStyle"
+        <section class="user-mini-profile-panel" :class="{ 'stats-mode': view !== 'profile' }" :style="profilePanelStyle"
                  role="dialog" aria-modal="true" :aria-label="`Профиль ${displayName}`" @pointerdown.stop @click.stop>
           <header class="profile-top">
             <div class="profile-identity">
@@ -112,6 +112,9 @@
               <button v-if="showStatsButton" class="profile-action secondary" type="button" @click="view = 'stats'">
                 Статистика пользователя
               </button>
+              <button v-if="showGameHistoryButton" class="profile-action secondary" type="button" @click="view = 'history'">
+                История игр
+              </button>
               <button v-if="showFriendAction" class="profile-action friend-action" :class="`status-${friendStatusClass}`"
                       type="button" :disabled="friendDisabled" @click="onFriendAction(friendActionKind)">
                 <img :src="friendActionIcon" alt="" />
@@ -135,7 +138,8 @@
             <div class="stats-toolbar">
               <button class="profile-action secondary" type="button" @click="view = 'profile'">Назад к профилю</button>
             </div>
-            <ProfileStats :stats-url="resolvedStatsUrl" />
+            <ProfileStats v-if="view === 'stats'" :stats-url="resolvedStatsUrl" />
+            <ProfileHistory v-else :history-url="resolvedHistoryUrl" />
           </template>
         </section>
       </div>
@@ -191,6 +195,7 @@ import {
   type FriendStatus,
 } from '@/store'
 import ProfileStats from '@/components/ProfileStats.vue'
+import ProfileHistory from '@/components/ProfileHistory.vue'
 import Sanction from '@/components/Sanction.vue'
 import Subscription from '@/components/Subscription.vue'
 
@@ -321,6 +326,7 @@ const props = withDefaults(defineProps<{
   showStatsButton?: boolean
   adminMode?: boolean
   statsUrl?: string | null
+  historyUrl?: string | null
   refreshFriendsListOnAction?: boolean
   refreshFriendsRoomId?: number | null
 }>(), {
@@ -329,6 +335,7 @@ const props = withDefaults(defineProps<{
   showStatsButton: false,
   adminMode: false,
   statsUrl: null,
+  historyUrl: null,
   refreshFriendsListOnAction: false,
   refreshFriendsRoomId: null,
 })
@@ -347,7 +354,7 @@ const loadError = ref('')
 const profile = ref<MiniProfileResponse | null>(null)
 const friendStatus = ref<FriendStatus>('none')
 const friendBusy = ref(false)
-const view = ref<'profile' | 'stats'>('profile')
+const view = ref<'profile' | 'stats' | 'history'>('profile')
 const avatarImageEl = ref<HTMLImageElement | null>(null)
 const avatarLightboxOpen = ref(false)
 const avatarLightboxSrc = ref('')
@@ -549,6 +556,10 @@ const resolvedStatsUrl = computed(() => {
   const provided = String(props.statsUrl || '').trim()
   return provided || `/users/${targetUserId.value}/stats`
 })
+const resolvedHistoryUrl = computed(() => {
+  const provided = String(props.historyUrl || '').trim()
+  return provided || `/users/${targetUserId.value}/games/history`
+})
 
 const friendStatusClass = computed(() => (friendStatus.value === 'self' ? 'none' : friendStatus.value))
 const friendActionLabel = computed(() => {
@@ -583,12 +594,14 @@ const showFriendAction = computed(() => (
   && !targetDeleted.value
   && friendActionLabel.value !== ''
 ))
-const showStatsButton = computed(() => Boolean(
+const showProfileDataButtons = computed(() => Boolean(
   props.showStatsButton
   && targetUserId.value > 0
   && (isSelfProfile.value || privilegedViewer.value || friendStatus.value === 'friends')
 ))
-const showActionBlock = computed(() => showStatsButton.value || showFriendAction.value)
+const showStatsButton = computed(() => showProfileDataButtons.value)
+const showGameHistoryButton = computed(() => showProfileDataButtons.value)
+const showActionBlock = computed(() => showStatsButton.value || showGameHistoryButton.value || showFriendAction.value)
 const staffActionScope = computed<StaffActionScope | null>(() => {
   if (isAdminViewer.value) return 'admin'
   if (isModerViewer.value) return 'moderation'

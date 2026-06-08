@@ -301,6 +301,7 @@
       :user-id="userMiniProfileTarget?.id ?? null"
       :initial-profile="userMiniProfileTarget"
       :stats-url="userMiniProfileStatsUrl"
+      :history-url="userMiniProfileHistoryUrl"
       show-stats-button
       admin-mode
       @update:open="onUserMiniProfileOpenUpdate"
@@ -450,6 +451,10 @@ const userMiniProfileTarget = ref<UserMiniProfileTarget | null>(null)
 const userMiniProfileStatsUrl = computed(() => {
   const target = userMiniProfileTarget.value
   return target ? `/moderation/users/${target.id}/stats` : null
+})
+const userMiniProfileHistoryUrl = computed(() => {
+  const target = userMiniProfileTarget.value
+  return target ? `/moderation/users/${target.id}/games/history` : null
 })
 const sanctionForm = reactive({
   months: 0,

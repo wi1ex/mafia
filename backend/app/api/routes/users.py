@@ -451,6 +451,34 @@ async def games_history_personal(page: int = 1, role: Literal["citizen", "mafia"
     )
 
 
+@router.get("/{user_id}/games/history", response_model=UserGamesHistoryOut)
+@log_route("users.public_games_history")
+@rate_limited(lambda ident, user_id, **_: f"rl:user_public_games_history:{ident['id']}:{user_id}", limit=10, window_s=1)
+async def public_games_history(user_id: int, page: int = 1, role: Literal["citizen", "mafia", "don", "sheriff"] | None = None, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserGamesHistoryOut:
+    viewer_id = int(ident["id"])
+    viewer_role = str(ident["role"] or "").strip().lower()
+    uid = int(user_id)
+    if uid <= 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="bad_user_id")
+
+    user = await db.get(User, uid)
+    if not user or user.deleted_at:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user_not_found")
+
+    if uid != viewer_id and viewer_role not in {"admin", "moder"}:
+        friendship_status = await friend_status_for(db, viewer_id, uid)
+        if friendship_status != "friends":
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="friends_only")
+
+    return await fetch_games_history_page(
+        db,
+        page=page,
+        player_uid=uid,
+        player_role=role,
+        per_page=PERSONAL_GAME_HISTORY_PER_PAGE,
+    )
+
+
 @router.get("/games/history/{game_id}", response_model=GameHistoryItemOut)
 @log_route("users.game_history_details")
 @rate_limited(lambda ident, game_id=None, **_: f"rl:game_history_details:{ident['id']}:{game_id}", limit=10, window_s=1)

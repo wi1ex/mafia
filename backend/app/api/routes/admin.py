@@ -1,5 +1,5 @@
 ﻿from __future__ import annotations
-from typing import cast
+from typing import Literal, cast
 import asyncio
 import structlog
 from contextlib import suppress
@@ -58,7 +58,7 @@ from ...services.minio import CHAT_IMAGE_PREFIX, delete_chat_images_async, get_p
 from ...services.nickname_history import prepend_nickname_history
 from ...services.user_stats import invalidate_user_game_stats_cache_for_users
 from ...schemas.common import Ok, Identity
-from ...schemas.user import UserStatsOut
+from ...schemas.user import UserGamesHistoryOut, UserStatsOut
 from ...schemas.admin import (
     AdminSettingsOut,
     AdminSettingsUpdateIn,
@@ -132,6 +132,7 @@ from ..utils import (
     fetch_live_room_stats,
     fetch_active_room_game_numbers,
     build_user_stats_out,
+    fetch_games_history_page,
     fetch_users_last_room_id,
     fetch_users_last_spectator_room_id,
     fetch_sanction_counts_for_users,
@@ -1643,6 +1644,17 @@ async def user_stats(user_id: int, season: int | None = None, session: AsyncSess
         raise HTTPException(status_code=404, detail="user_not_found")
 
     return await build_user_stats_out(session, uid, season)
+
+
+@router.get("/users/{user_id}/games/history", response_model=UserGamesHistoryOut, dependencies=ADMIN_GUARD)
+@log_route("admin.users.games_history")
+async def user_games_history(user_id: int, page: int = 1, role: Literal["citizen", "mafia", "don", "sheriff"] | None = None, session: AsyncSession = Depends(get_session)) -> UserGamesHistoryOut:
+    uid = int(user_id)
+    user = await session.get(User, uid)
+    if not user:
+        raise HTTPException(status_code=404, detail="user_not_found")
+
+    return await fetch_games_history_page(session, page=page, player_uid=uid, player_role=role, per_page=10)
 
 
 @router.patch("/users/{user_id}/role", response_model=AdminUserRoleOut, dependencies=ADMIN_GUARD)
