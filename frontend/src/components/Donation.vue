@@ -1,7 +1,14 @@
 <template>
   <Teleport to="body">
     <Transition name="support-site-overlay">
-      <div v-if="open" class="support-site-overlay" @pointerdown.self="armed = true" @pointerup.self="armed && requestClose()" @pointerleave.self="armed = false" @pointercancel.self="armed = false">
+      <div
+        v-if="open"
+        class="support-site-overlay"
+        @pointerdown.self="armed = true"
+        @pointerup.self="armed && requestClose()"
+        @pointerleave.self="armed = false"
+        @pointercancel.self="armed = false"
+      >
         <div class="support-site-modal" role="dialog" aria-modal="true">
           <header>
             <div class="header-div">
@@ -35,6 +42,17 @@
                 <span class="site-note">{{ site.note }}</span>
               </div>
             </component>
+
+            <button class="site-option lava-option" type="button" :disabled="lavaBusy" @click="onLavaPay">
+              <div class="site-title">
+                <span class="lava-logo">Lava</span>
+                <UiIcon class="arrow-icon" :icon="iconArrowNext" />
+              </div>
+              <div class="site-copy">
+                <span class="site-name">Lava.top</span>
+                <span class="site-note">Подписка на месяц или год</span>
+              </div>
+            </button>
           </div>
         </div>
       </div>
@@ -46,7 +64,9 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
 import UiIcon from '@/components/UiIcon.vue'
-import { useSettingsStore } from '@/store'
+import { api } from '@/services/axios'
+import { alertDialog } from '@/services/confirm'
+import { useAuthStore, useSettingsStore } from '@/store'
 
 import iconClose from '@/assets/svg/iconClose.svg'
 import iconArrowNext from '@/assets/svg/iconArrowNext.svg'
@@ -75,7 +95,9 @@ const emit = defineEmits<{
   'select': [SupportSite]
 }>()
 
+const auth = useAuthStore()
 const settings = useSettingsStore()
+const lavaBusy = ref(false)
 
 const supportSites = computed<readonly SupportSiteOption[]>(() => [
   {
@@ -108,6 +130,36 @@ function onSelect(site: SupportSiteOption): void {
   if (!site.enabled) return
   emit('select', { id: site.id, name: site.name, url: site.url })
   requestClose()
+}
+
+async function onLavaPay(): Promise<void> {
+  if (lavaBusy.value) return
+  if (!auth.isAuthed) {
+    void alertDialog('Войдите в аккаунт перед оплатой')
+    return
+  }
+
+  lavaBusy.value = true
+  const paymentWindow = window.open('', '_blank')
+  if (paymentWindow) paymentWindow.opener = null
+  try {
+    const { data } = await api.post<{ payment_url: string }>('/payments/lava/link')
+    const paymentUrl = String(data?.payment_url || '')
+    if (!paymentUrl) throw new Error('payment_url_missing')
+    emit('select', { id: 'lava', name: 'Lava.top', url: paymentUrl })
+    requestClose()
+    if (paymentWindow) paymentWindow.location.href = paymentUrl
+    else window.location.assign(paymentUrl)
+  } catch (e: any) {
+    if (paymentWindow) paymentWindow.close()
+    const st = Number(e?.response?.status || 0)
+    const detail = String(e?.response?.data?.detail || '')
+    if (st === 401) void alertDialog('Войдите в аккаунт перед оплатой')
+    else if (st === 503 && detail === 'lava_product_missing') void alertDialog('Оплата Lava пока не настроена')
+    else void alertDialog('Не удалось открыть оплату Lava')
+  } finally {
+    lavaBusy.value = false
+  }
 }
 
 function onKeydown(event: KeyboardEvent): void {
@@ -206,7 +258,7 @@ onBeforeUnmount(() => {
         text-align: left;
         text-decoration: none;
         outline: none;
-        transition: border-color 0.25s ease-in-out;
+        transition: border-color 0.25s ease-in-out, opacity 0.25s ease-in-out;
         &:not(:disabled):hover,
         &:not(:disabled):focus-visible,
         &:not(:disabled):active {

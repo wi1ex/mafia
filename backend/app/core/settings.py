@@ -57,6 +57,9 @@ class Settings(BaseSettings):
     SUPPORT_SERVICE_2_ENABLED: bool = True
     VERIFICATION_RESTRICTIONS: bool = True
 
+    LAVA_PRODUCT_URL: str = ""
+    LAVA_WEBHOOK_SECRET: str = ""
+
     ROOMS_LIMIT_GLOBAL: int = 10
     ROOMS_LIMIT_PER_USER: int = 3
     ROOMS_EMPTY_TTL_SECONDS: int = 30
