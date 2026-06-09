@@ -114,6 +114,7 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
         "user_limit": room.user_limit,
         "creator": room.creator,
         "creator_name": creator_name,
+        "creator_role": normalize_user_role(ident.get("role") or "user"),
         "creator_avatar_name": (profile or {}).get("avatar_name"),
         "created_at": room.created_at.isoformat(),
         "privacy": privacy,
