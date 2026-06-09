@@ -1,4 +1,6 @@
 from __future__ import annotations
+import base64
+import binascii
 import json
 import re
 from contextlib import suppress
@@ -264,10 +266,12 @@ def _extract_amount_and_currency(payload: dict[str, Any]) -> tuple[Decimal | Non
 
 def _plan_from_offer_id(offer_id: str) -> tuple[str, int, str] | None:
     offer = _clean(offer_id)
-    if offer and settings.LAVA_MONTHLY_OFFER_ID and offer == _clean(settings.LAVA_MONTHLY_OFFER_ID):
+    monthly_offer_id = _clean(settings.LAVA_MONTHLY_OFFER_ID)
+    yearly_offer_id = _clean(settings.LAVA_YEARLY_OFFER_ID)
+    if offer and monthly_offer_id and offer == monthly_offer_id:
         return LAVA_MONTH_PLAN, LAVA_MONTHS_BY_PLAN[LAVA_MONTH_PLAN], "offer_id"
 
-    if offer and settings.LAVA_YEARLY_OFFER_ID and offer == _clean(settings.LAVA_YEARLY_OFFER_ID):
+    if offer and yearly_offer_id and offer == yearly_offer_id:
         return LAVA_YEAR_PLAN, LAVA_MONTHS_BY_PLAN[LAVA_YEAR_PLAN], "offer_id"
 
     return None
@@ -361,6 +365,7 @@ def _append_tracking_params(product_url: str, *, token: str, user_id: int) -> st
             "utm_source": "mafia_site",
             "utm_medium": "subscription",
             "utm_campaign": "lava_subscription",
+            "utm_id": token,
             "utm_content": token,
             "utm_term": str(user_id),
         }
@@ -404,8 +409,8 @@ def _extract_utm_value(payload: dict[str, Any], key: str) -> str:
 def _extract_tracking_token(payload: dict[str, Any]) -> str:
     candidates = [
         _first_value(payload, "metadataToken", "metadata_token", "trackingToken", "tracking_token"),
+        _extract_utm_value(payload, "utm_id"),
         _extract_utm_value(payload, "utm_content"),
-        _extract_utm_value(payload, "utm_term"),
     ]
     for candidate in candidates:
         token = _clean(candidate)
@@ -415,8 +420,48 @@ def _extract_tracking_token(payload: dict[str, Any]) -> str:
     return ""
 
 
-def _webhook_secret() -> str:
-    return _clean(settings.LAVA_WEBHOOK_SECRET)
+def _positive_int_or_none(value: object) -> int | None:
+    try:
+        number = int(str(value or "").strip())
+    except (TypeError, ValueError):
+        return None
+
+    return number if number > 0 else None
+
+
+def _extract_tracking_user_id(payload: dict[str, Any]) -> int | None:
+    candidates = [
+        _first_value(
+            payload,
+            "metadataUserId",
+            "metadata_user_id",
+            "trackingUserId",
+            "tracking_user_id",
+            "externalUserId",
+            "external_user_id",
+            "clientUserId",
+            "client_user_id",
+            "mafiaUserId",
+            "mafia_user_id",
+        ),
+        _extract_utm_value(payload, "utm_term"),
+    ]
+    for candidate in candidates:
+        user_id = _positive_int_or_none(candidate)
+        if user_id is not None:
+            return user_id
+
+    return None
+
+
+def _expected_webhook_secrets() -> list[str]:
+    basic_user = _clean(settings.LAVA_WEBHOOK_BASIC_USER)
+    basic_password = _clean(settings.LAVA_WEBHOOK_BASIC_PASSWORD)
+    values = [_clean(settings.LAVA_WEBHOOK_SECRET)]
+    if basic_password:
+        values.append(f"{basic_user}:{basic_password}" if basic_user else basic_password)
+
+    return [value for value in values if value]
 
 
 def _bearer_token(authorization: str | None) -> str:
@@ -425,6 +470,32 @@ def _bearer_token(authorization: str | None) -> str:
         return value[7:].strip()
 
     return ""
+
+
+def _basic_credentials(authorization: str | None) -> tuple[str, str] | None:
+    value = _clean(authorization)
+    if not value.lower().startswith("basic "):
+        return None
+
+    try:
+        decoded = base64.b64decode(value[6:].strip(), validate=True).decode("utf-8")
+    except (binascii.Error, UnicodeDecodeError, ValueError):
+        return None
+
+    username, sep, password = decoded.partition(":")
+    if not sep:
+        return None
+
+    return username, password
+
+
+def _provided_basic_secrets(authorization: str | None) -> list[str]:
+    credentials = _basic_credentials(authorization)
+    if credentials is None:
+        return []
+
+    username, password = credentials
+    return [f"{username}:{password}", password]
 
 
 def _provided_webhook_secrets(request: Request, *, x_api_key: str | None, x_webhook_secret: str | None, authorization: str | None) -> list[str]:
@@ -437,24 +508,27 @@ def _provided_webhook_secrets(request: Request, *, x_api_key: str | None, x_webh
             _clean(request.query_params.get("token")),
             _clean(request.query_params.get("key")),
             _clean(request.query_params.get("secret")),
+            *_provided_basic_secrets(authorization),
         )
         if value
     ]
 
 
 def _ensure_webhook_authorized(request: Request, *, x_api_key: str | None, x_webhook_secret: str | None, authorization: str | None) -> None:
-    expected = _webhook_secret()
-    if not expected:
+    expected_values = _expected_webhook_secrets()
+    if not expected_values:
         raise HTTPException(status_code=503, detail="lava_webhook_secret_missing")
 
+    provided_values = _provided_webhook_secrets(
+        request,
+        x_api_key=x_api_key,
+        x_webhook_secret=x_webhook_secret,
+        authorization=authorization,
+    )
     if not any(
         compare_digest(provided, expected)
-        for provided in _provided_webhook_secrets(
-            request,
-            x_api_key=x_api_key,
-            x_webhook_secret=x_webhook_secret,
-            authorization=authorization,
-        )
+        for provided in provided_values
+        for expected in expected_values
     ):
         log.warning(
             "lava.webhook.unauthorized",
@@ -489,9 +563,19 @@ async def _latest_payment_by_token(session: AsyncSession, token: str) -> LavaPay
     )
 
 
-async def _find_or_create_payment_for_webhook(session: AsyncSession, *, contract_id: str, parent_contract_id: str, token: str, payload: dict[str, Any]) -> LavaPayment | None:
+async def _find_or_create_payment_for_webhook(
+    session: AsyncSession,
+    *,
+    contract_id: str,
+    parent_contract_id: str,
+    token: str,
+    user_id: int | None,
+    payload: dict[str, Any],
+) -> LavaPayment:
     payment = await _find_payment_by_contract(session, contract_id)
     if payment is not None:
+        payment.metadata_token = payment.metadata_token or token or None
+        payment.user_id = payment.user_id or user_id
         return payment
 
     parent = await _find_payment_by_contract(session, parent_contract_id)
@@ -513,10 +597,28 @@ async def _find_or_create_payment_for_webhook(session: AsyncSession, *, contract
 
     by_token = await _latest_payment_by_token(session, token)
     if by_token is None:
-        return None
+        if user_id is None:
+            log.warning(
+                "lava.webhook.no_tracking",
+                contract_id=contract_id,
+                parent_contract_id=parent_contract_id,
+                has_token=bool(token),
+            )
+        payment = LavaPayment(
+            contract_id=contract_id,
+            parent_contract_id=parent_contract_id or None,
+            user_id=user_id,
+            metadata_token=token or None,
+            status="webhook_received",
+            raw_payload=_json_dumps(payload),
+        )
+        session.add(payment)
+        await session.flush()
+        return payment
 
     if by_token.contract_id.startswith(LAVA_INTENT_CONTRACT_PREFIX):
         by_token.contract_id = contract_id
+        by_token.user_id = by_token.user_id or user_id
         by_token.status = "webhook_received"
         by_token.raw_payload = _json_dumps(payload)
         return by_token
@@ -524,7 +626,7 @@ async def _find_or_create_payment_for_webhook(session: AsyncSession, *, contract
     payment = LavaPayment(
         contract_id=contract_id,
         parent_contract_id=parent_contract_id or by_token.parent_contract_id,
-        user_id=by_token.user_id,
+        user_id=by_token.user_id or user_id,
         metadata_token=token,
         email=by_token.email,
         status="webhook_received",
@@ -634,7 +736,7 @@ async def lava_payment_link_create(ident: Identity = Depends(get_identity), sess
         metadata_token=token,
         status="link_created",
         payment_url=payment_url,
-        raw_payload=_json_dumps({"kind": "lava_product_link", "utm_content": token}),
+        raw_payload=_json_dumps({"kind": "lava_product_link", "utm_id": token, "utm_content": token}),
     )
     session.add(payment)
     await session.commit()
@@ -650,6 +752,7 @@ async def lava_payment_link_create(ident: Identity = Depends(get_identity), sess
     return LavaPaymentLinkCreateOut(payment_url=payment_url)
 
 
+@router.post("/lava/webhook/", response_model=Ok, include_in_schema=False)
 @router.post("/lava/webhook", response_model=Ok)
 @log_route("payments.lava.webhook")
 async def lava_webhook(
@@ -670,6 +773,7 @@ async def lava_webhook(
     contract_id = _extract_contract_id(payload)
     parent_contract_id = _extract_parent_contract_id(payload)
     token = _extract_tracking_token(payload)
+    tracking_user_id = _extract_tracking_user_id(payload)
     event_type = _extract_event_type(payload)
     status_value = _normalize_status(
         _top_first_value(payload, "status", "paymentStatus", "state")
@@ -682,18 +786,9 @@ async def lava_webhook(
         contract_id=contract_id,
         parent_contract_id=parent_contract_id,
         token=token,
+        user_id=tracking_user_id,
         payload=payload,
     )
-    if payment is None:
-        log.warning(
-            "lava.webhook.unknown_contract",
-            contract_id=contract_id,
-            parent_contract_id=parent_contract_id,
-            event_type=event_type,
-            has_token=bool(token),
-        )
-        return Ok()
-
     amount, currency = _extract_amount_and_currency(payload)
     product_id = _extract_product_id(payload)
     product_title = _extract_product_title(payload)
