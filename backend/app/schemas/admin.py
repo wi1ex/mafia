@@ -143,8 +143,6 @@ class PeriodStatsOut(BaseModel):
 
 class SiteStatsOut(BaseModel):
     total_users: int
-    unverified_users: int
-    tg_invites_disabled_users: int
     avatars_count: int
     avatars_bytes: int
     images_count: int

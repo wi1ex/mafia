@@ -301,18 +301,6 @@ async def site_stats(month: str | None = None, session: AsyncSession = Depends(g
         month_end = month_start
 
     total_users = int(await session.scalar(select(func.count(User.id)).where(User.deleted_at.is_(None))) or 0)
-    unverified_users = int(await session.scalar(
-        select(func.count(User.id)).where(
-            User.deleted_at.is_(None),
-            User.telegram_id.is_(None),
-        )
-    ) or 0)
-    tg_invites_disabled_users = int(await session.scalar(
-        select(func.count(User.id)).where(
-            User.deleted_at.is_(None),
-            User.tg_invites_enabled.is_(False),
-        )
-    ) or 0)
     (avatars_count, avatars_bytes), (images_count, images_bytes) = await asyncio.gather(
         get_prefix_storage_stats_async("avatars/"),
         get_prefix_storage_stats_async(CHAT_IMAGE_PREFIX),
@@ -374,8 +362,6 @@ async def site_stats(month: str | None = None, session: AsyncSession = Depends(g
 
     return SiteStatsOut(
         total_users=total_users,
-        unverified_users=unverified_users,
-        tg_invites_disabled_users=tg_invites_disabled_users,
         avatars_count=avatars_count,
         avatars_bytes=avatars_bytes,
         images_count=images_count,

@@ -145,14 +145,6 @@
                 <span class="value">{{ stats.total_users }}</span>
               </div>
               <div class="stat-card">
-                <span class="label">Не верифицировано</span>
-                <span class="value">{{ stats.unverified_users }}</span>
-              </div>
-              <div class="stat-card">
-                <span class="label">Без уведомлений</span>
-                <span class="value">{{ stats.tg_invites_disabled_users }}</span>
-              </div>
-              <div class="stat-card">
                 <span class="label">В комнатах</span>
                 <span class="value">{{ stats.active_room_users }}</span>
               </div>
@@ -1011,8 +1003,6 @@ type PeriodStats = {
 
 type SiteStats = {
   total_users: number
-  unverified_users: number
-  tg_invites_disabled_users: number
   avatars_count: number
   avatars_bytes: number
   images_count: number
@@ -1266,8 +1256,6 @@ const gameSnapshot = ref('')
 const statsMonth = ref('')
 const stats = reactive<SiteStats>({
   total_users: 0,
-  unverified_users: 0,
-  tg_invites_disabled_users: 0,
   avatars_count: 0,
   avatars_bytes: 0,
   images_count: 0,
@@ -2219,8 +2207,6 @@ async function loadStats(): Promise<void> {
     const { data } = await api.get('/admin/stats', { params })
     Object.assign(stats, {
       total_users: data?.total_users ?? 0,
-      unverified_users: data?.unverified_users ?? 0,
-      tg_invites_disabled_users: data?.tg_invites_disabled_users ?? 0,
       avatars_count: data?.avatars_count ?? 0,
       avatars_bytes: data?.avatars_bytes ?? 0,
       images_count: data?.images_count ?? 0,
