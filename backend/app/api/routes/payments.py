@@ -307,14 +307,7 @@ def _plan_from_text(text: str) -> tuple[str, int, str] | None:
     return None
 
 
-def _resolve_payment_plan(
-    payload: dict[str, Any],
-    *,
-    payment: LavaPayment,
-    offer_id: str,
-    product_title: str,
-    offer_title: str,
-) -> tuple[str, int, str] | None:
+def _resolve_payment_plan(payload: dict[str, Any], *, payment: LavaPayment, offer_id: str, product_title: str, offer_title: str) -> tuple[str, int, str] | None:
     if payment.plan in LAVA_MONTHS_BY_PLAN and int(payment.subscription_months or 0) > 0:
         return payment.plan, int(payment.subscription_months), "stored"
 
@@ -434,13 +427,7 @@ def _bearer_token(authorization: str | None) -> str:
     return ""
 
 
-def _provided_webhook_secrets(
-    request: Request,
-    *,
-    x_api_key: str | None,
-    x_webhook_secret: str | None,
-    authorization: str | None,
-) -> list[str]:
+def _provided_webhook_secrets(request: Request, *, x_api_key: str | None, x_webhook_secret: str | None, authorization: str | None) -> list[str]:
     return [
         value
         for value in (
@@ -455,13 +442,7 @@ def _provided_webhook_secrets(
     ]
 
 
-def _ensure_webhook_authorized(
-    request: Request,
-    *,
-    x_api_key: str | None,
-    x_webhook_secret: str | None,
-    authorization: str | None,
-) -> None:
+def _ensure_webhook_authorized(request: Request, *, x_api_key: str | None, x_webhook_secret: str | None, authorization: str | None) -> None:
     expected = _webhook_secret()
     if not expected:
         raise HTTPException(status_code=503, detail="lava_webhook_secret_missing")
@@ -508,14 +489,7 @@ async def _latest_payment_by_token(session: AsyncSession, token: str) -> LavaPay
     )
 
 
-async def _find_or_create_payment_for_webhook(
-    session: AsyncSession,
-    *,
-    contract_id: str,
-    parent_contract_id: str,
-    token: str,
-    payload: dict[str, Any],
-) -> LavaPayment | None:
+async def _find_or_create_payment_for_webhook(session: AsyncSession, *, contract_id: str, parent_contract_id: str, token: str, payload: dict[str, Any]) -> LavaPayment | None:
     payment = await _find_payment_by_contract(session, contract_id)
     if payment is not None:
         return payment
@@ -646,10 +620,7 @@ async def _grant_subscription_for_payment(session: AsyncSession, payment: LavaPa
 
 @router.post("/lava/link", response_model=LavaPaymentLinkCreateOut)
 @log_route("payments.lava.link")
-async def lava_payment_link_create(
-    ident: Identity = Depends(get_identity),
-    session: AsyncSession = Depends(get_session),
-) -> LavaPaymentLinkCreateOut:
+async def lava_payment_link_create(ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> LavaPaymentLinkCreateOut:
     uid = int(ident["id"])
     user = await session.get(User, uid)
     if not user or user.deleted_at is not None:
