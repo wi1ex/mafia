@@ -101,7 +101,7 @@
           <div v-if="userMenuProfileIconSrcs.length" class="profile-theme-icons" aria-hidden="true">
             <img v-for="badgeSrc in userMenuProfileIconSrcs" :key="badgeSrc" class="profile-theme-icon" :src="badgeSrc" alt="" />
           </div>
-          <span>{{ user.user?.username || '...' }}</span>
+          <span class="nickname">{{ user.user?.username || '...' }}</span>
           <img class="arrow" :src="iconArrow" alt="arrow" :style="{ transform: um_open ? 'rotate(180deg)' : 'none'}" />
         </button>
 
@@ -667,12 +667,16 @@ function openAuth(mode: 'login' | 'register') {
       position: relative;
       z-index: 2;
     }
-    span {
+    .nickname {
+      max-width: 250px;
       color: $neutral-white;
       font-family: Hauora-Regular;
       font-size: 18px;
       line-height: 20px;
       letter-spacing: -0.36px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     img {
       height: 24px;
@@ -840,11 +844,15 @@ function openAuth(mode: 'login' | 'register') {
             border-radius: 50%;
           }
           .user-menu-nickname {
-            height: 20px;
+            max-width: 261px;
             color: $neutral-black;
             font-family: Hauora-Regular;
             font-size: 18px;
+            line-height: 22px;
             letter-spacing: -0.36px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
           }
         }
         .border-line {

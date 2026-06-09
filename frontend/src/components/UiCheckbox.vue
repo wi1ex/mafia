@@ -66,7 +66,7 @@ function onChange(e: Event): void {
   color: $neutral-500;
   font-family: Hauora-Regular;
   font-size: 14px;
-  line-height: 14px;
+  line-height: 16px;
   letter-spacing: -0.28px;
   transition: color 0.25s ease-in-out;
   &__input {

@@ -1129,6 +1129,7 @@ onBeforeUnmount(() => {
               line-height: 16px;
               letter-spacing: -0.32px;
               &.ellipsis {
+                line-height: 20px;
                 white-space: nowrap;
                 overflow: hidden;
                 text-overflow: ellipsis;
