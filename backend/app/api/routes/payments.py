@@ -50,9 +50,8 @@ LAVA_INVOICE_PATH = "/api/v3/invoice"
 LAVA_BUYER_LANGUAGE = "RU"
 LAVA_REQUEST_TIMEOUT_SECONDS = 15
 LAVA_CURRENCIES = {"RUB", "USD", "EUR"}
-LAVA_BUYER_LANGUAGES = {"EN", "RU", "ES"}
-LAVA_PAYMENT_PROVIDERS = {"SMART_GLOCAL", "PAY2ME", "UNLIMIT", "PAYPAL"}
-LAVA_PAYMENT_METHODS = {"CARD", "SBP", "PAYPAL", "PIX"}
+LAVA_PAYMENT_PROVIDERS = {"SMART_GLOCAL", "PAY2ME"}
+LAVA_PAYMENT_METHODS = {"CARD", "SBP"}
 LAVA_MONTH_PLAN = "month"
 LAVA_YEAR_PLAN = "year"
 LAVA_MONTHS_BY_PLAN = {
@@ -63,7 +62,7 @@ LAVA_INTENT_CONTRACT_PREFIX = "intent:"
 LAVA_TRACKING_TOKEN_PREFIX = "lv_"
 TRACKING_TOKEN_RE = re.compile(r"^lv_[A-Za-z0-9_-]{24,96}$")
 EMAIL_RE = re.compile(r"^[^@\s]{1,64}@[^@\s]{1,190}\.[^@\s]{2,}$")
-PROMO_CODE_RE = re.compile(r"^[A-Z0-9_-]{3,36}$")
+PROMO_CODE_RE = re.compile(r"^[A-Za-z0-9_-]{3,36}$")
 FAILURE_MARKERS = ("fail", "cancel", "refund", "chargeback", "revers")
 SUCCESS_MARKERS = ("success", "paid", "complete", "completed", "succeed")
 
@@ -101,6 +100,10 @@ def _decimal_or_none(value: object) -> Decimal | None:
 
     except (InvalidOperation, ValueError, TypeError):
         return None
+
+
+def _is_zero_amount(value: Decimal | None) -> bool:
+    return value is not None and value == Decimal("0")
 
 
 def _iter_dicts(value: Any):
@@ -405,14 +408,6 @@ def _normalize_lava_currency(value: object) -> str:
     return currency
 
 
-def _normalize_buyer_language(value: object) -> str:
-    language = _clean(value, max_len=2).upper() or LAVA_BUYER_LANGUAGE
-    if language not in LAVA_BUYER_LANGUAGES:
-        raise HTTPException(status_code=422, detail="lava_buyer_language_invalid")
-
-    return language
-
-
 def _normalize_payment_provider(value: object) -> str:
     provider = _clean(value, max_len=32).upper()
     if provider and provider not in LAVA_PAYMENT_PROVIDERS:
@@ -430,7 +425,7 @@ def _normalize_payment_method(value: object) -> str:
 
 
 def _normalize_promo_code(value: object) -> str:
-    promo_code = _clean(value, max_len=36).upper()
+    promo_code = _clean(value, max_len=36)
     if promo_code and not PROMO_CODE_RE.match(promo_code):
         raise HTTPException(status_code=422, detail="lava_promo_code_invalid")
 
@@ -443,46 +438,35 @@ def _ensure_payment_method_supported(
     payment_provider: str,
     payment_method: str,
 ) -> None:
-    if not payment_provider and payment_method:
-        raise HTTPException(status_code=422, detail="lava_payment_provider_required")
-
-    if not payment_provider:
-        return
+    if not payment_provider or not payment_method:
+        raise HTTPException(status_code=422, detail="lava_payment_method_required")
 
     allowed: set[tuple[str, str, str]] = {
         ("RUB", "SMART_GLOCAL", "CARD"),
         ("RUB", "PAY2ME", "SBP"),
-        ("USD", "UNLIMIT", "CARD"),
-        ("USD", "UNLIMIT", "PIX"),
-        ("USD", "PAYPAL", ""),
-        ("USD", "PAYPAL", "PAYPAL"),
-        ("EUR", "UNLIMIT", "CARD"),
-        ("EUR", "UNLIMIT", "PIX"),
-        ("EUR", "PAYPAL", ""),
-        ("EUR", "PAYPAL", "PAYPAL"),
     }
     if (currency, payment_provider, payment_method) not in allowed:
         raise HTTPException(status_code=422, detail="lava_payment_method_unsupported")
 
 
-def _normalize_invoice_options(payload: LavaPaymentLinkCreateIn | None) -> tuple[str, str, str, str, str]:
+def _normalize_invoice_options(payload: LavaPaymentLinkCreateIn | None) -> tuple[str, str, str, str]:
     currency = _normalize_lava_currency(payload.currency if payload is not None else None)
-    buyer_language = _normalize_buyer_language(
-        payload.buyer_language if payload is not None else None
-    )
+    promo_code = _normalize_promo_code(payload.promo_code if payload is not None else None)
+    if currency != LAVA_CURRENCY:
+        return currency, "", "", promo_code
+
     payment_provider = _normalize_payment_provider(
         payload.payment_provider if payload is not None else None
     )
     payment_method = _normalize_payment_method(
         payload.payment_method if payload is not None else None
     )
-    promo_code = _normalize_promo_code(payload.promo_code if payload is not None else None)
     _ensure_payment_method_supported(
         currency=currency,
         payment_provider=payment_provider,
         payment_method=payment_method,
     )
-    return currency, buyer_language, payment_provider, payment_method, promo_code
+    return currency, payment_provider, payment_method, promo_code
 
 
 def _configured_product_id() -> str:
@@ -516,7 +500,6 @@ def _invoice_request_payload(
     email: str,
     offer_id: str,
     currency: str,
-    buyer_language: str,
     payment_provider: str,
     payment_method: str,
     promo_code: str,
@@ -527,7 +510,7 @@ def _invoice_request_payload(
         "email": email,
         "offerId": offer_id,
         "currency": currency,
-        "buyerLanguage": buyer_language,
+        "buyerLanguage": LAVA_BUYER_LANGUAGE,
         "clientUtm": _invoice_client_utm(token=token, user_id=user_id),
     }
     if payment_provider:
@@ -565,11 +548,15 @@ async def _create_lava_invoice(payload: dict[str, Any]) -> dict[str, Any]:
         raise HTTPException(status_code=502, detail="lava_invoice_request_failed") from exc
 
     if response.status_code < 200 or response.status_code >= 300:
+        body = response.text[:1000]
         log.warning(
             "lava.invoice.bad_status",
             status_code=response.status_code,
-            body=response.text[:1000],
+            body=body,
         )
+        if payload.get("promoCode") and re.search(r"promo|promocode|coupon|discount|промо|скид", body, re.I):
+            raise HTTPException(status_code=422, detail="lava_promo_code_rejected")
+
         raise HTTPException(status_code=502, detail="lava_invoice_failed")
 
     try:
@@ -933,7 +920,7 @@ async def lava_payment_link_create(
 
     plan = _normalize_plan(payload.plan if payload is not None else None)
     email = _normalize_buyer_email(payload.email if payload is not None else None)
-    currency, buyer_language, payment_provider, payment_method, promo_code = (
+    requested_currency, payment_provider, payment_method, promo_code = (
         _normalize_invoice_options(payload)
     )
     offer_id, months = _configured_offer_for_plan(plan)
@@ -941,8 +928,7 @@ async def lava_payment_link_create(
     invoice_request = _invoice_request_payload(
         email=email,
         offer_id=offer_id,
-        currency=currency,
-        buyer_language=buyer_language,
+        currency=requested_currency,
         payment_provider=payment_provider,
         payment_method=payment_method,
         promo_code=promo_code,
@@ -956,7 +942,8 @@ async def lava_payment_link_create(
         log.warning("lava.invoice.contract_id_missing", response=_json_dumps(invoice)[:1000])
         raise HTTPException(status_code=502, detail="lava_contract_id_missing")
 
-    if not payment_url:
+    amount, invoice_currency = _extract_amount_and_currency(invoice)
+    if not payment_url and not _is_zero_amount(amount):
         log.warning(
             "lava.invoice.payment_url_missing",
             contract_id=contract_id,
@@ -964,7 +951,6 @@ async def lava_payment_link_create(
         )
         raise HTTPException(status_code=502, detail="lava_payment_url_missing")
 
-    amount, currency = _extract_amount_and_currency(invoice)
     payment = LavaPayment(
         contract_id=contract_id,
         user_id=uid,
@@ -974,7 +960,7 @@ async def lava_payment_link_create(
         offer_id=offer_id,
         plan=plan,
         amount=amount,
-        currency=currency or LAVA_CURRENCY,
+        currency=invoice_currency or requested_currency,
         subscription_months=months,
         payment_url=payment_url,
         raw_payload=_json_dumps(
@@ -986,7 +972,15 @@ async def lava_payment_link_create(
         ),
     )
     session.add(payment)
-    await session.commit()
+    processed = False
+    if payment_url:
+        await session.commit()
+    else:
+        await session.flush()
+        processed = await _grant_subscription_for_payment(session, payment)
+        if not processed:
+            await session.commit()
+            raise HTTPException(status_code=502, detail="lava_free_invoice_not_processed")
 
     await log_action(
         session,
@@ -999,15 +993,21 @@ async def lava_payment_link_create(
             "offer_id": offer_id,
             "plan": plan,
             "months": months,
-            "currency": currency,
-            "buyer_language": buyer_language,
+            "currency": requested_currency,
+            "invoice_currency": invoice_currency,
+            "buyer_language": LAVA_BUYER_LANGUAGE,
             "payment_provider": payment_provider or None,
             "payment_method": payment_method or None,
             "has_promo_code": bool(promo_code),
+            "processed": processed,
         },
     )
 
-    return LavaPaymentLinkCreateOut(payment_url=payment_url, contract_id=contract_id)
+    return LavaPaymentLinkCreateOut(
+        payment_url=payment_url,
+        contract_id=contract_id,
+        processed=processed,
+    )
 
 
 @router.post("/lava/webhook/", response_model=Ok, include_in_schema=False)

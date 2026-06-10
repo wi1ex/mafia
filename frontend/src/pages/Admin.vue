@@ -47,8 +47,6 @@
               <UiSwitch class="switch-item" v-model="site.streams_can_start" label="Запуск трансляций" :disabled="savingSettings" />
               <UiSwitch class="switch-item" v-model="site.chat_open_enabled" label="Открытие чата" :disabled="savingSettings" />
               <UiSwitch class="switch-item" v-model="site.chat_messages_enabled" label="Сообщения в чат" :disabled="savingSettings" />
-              <UiSwitch class="switch-item" v-model="site.support_service_1_enabled" label="Донат 1" :disabled="savingSettings" />
-              <UiSwitch class="switch-item" v-model="site.support_service_2_enabled" label="Донат 2" :disabled="savingSettings" />
               <UiSwitch class="switch-item" v-model="site.verification_restrictions" label="Ограничения верификации" :disabled="savingSettings" />
               <div class="bulk-admin-actions">
                 <button class="btn danger width-full" :disabled="kickRoomsBusy || clearChatBusy" @click="kickAllRooms">
@@ -956,8 +954,6 @@ type SiteSettings = {
   streams_can_start: boolean
   chat_open_enabled: boolean
   chat_messages_enabled: boolean
-  support_service_1_enabled: boolean
-  support_service_2_enabled: boolean
   verification_restrictions: boolean
   admin_banner_text: string
   admin_banner_link: string
@@ -1219,8 +1215,6 @@ const site = reactive<SiteSettings>({
   streams_can_start: true,
   chat_open_enabled: true,
   chat_messages_enabled: true,
-  support_service_1_enabled: true,
-  support_service_2_enabled: true,
   verification_restrictions: true,
   admin_banner_text: '0',
   admin_banner_link: '0',
@@ -1532,8 +1526,6 @@ function snapshotSite(): string {
     streams_can_start: Boolean(site.streams_can_start),
     chat_open_enabled: Boolean(site.chat_open_enabled),
     chat_messages_enabled: Boolean(site.chat_messages_enabled),
-    support_service_1_enabled: Boolean(site.support_service_1_enabled),
-    support_service_2_enabled: Boolean(site.support_service_2_enabled),
     verification_restrictions: Boolean(site.verification_restrictions),
     admin_banner_text: normalizeAdminBannerText(site.admin_banner_text),
     admin_banner_link: normalizeAdminBannerLink(site.admin_banner_link),
@@ -2135,8 +2127,6 @@ async function saveSettings(): Promise<void> {
         streams_can_start: Boolean(site.streams_can_start),
         chat_open_enabled: Boolean(site.chat_open_enabled),
         chat_messages_enabled: Boolean(site.chat_messages_enabled),
-        support_service_1_enabled: Boolean(site.support_service_1_enabled),
-        support_service_2_enabled: Boolean(site.support_service_2_enabled),
         verification_restrictions: Boolean(site.verification_restrictions),
         admin_banner_text: normalizeAdminBannerText(site.admin_banner_text),
         admin_banner_link: normalizeAdminBannerLink(site.admin_banner_link),
@@ -2180,8 +2170,6 @@ async function saveSettings(): Promise<void> {
       streams_can_start: site.streams_can_start,
       chat_open_enabled: site.chat_open_enabled,
       chat_messages_enabled: site.chat_messages_enabled,
-      support_service_1_enabled: site.support_service_1_enabled,
-      support_service_2_enabled: site.support_service_2_enabled,
       verification_restrictions: site.verification_restrictions,
       admin_banner_text: site.admin_banner_text,
       admin_banner_link: site.admin_banner_link,

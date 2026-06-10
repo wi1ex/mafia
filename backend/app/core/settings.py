@@ -53,8 +53,6 @@ class Settings(BaseSettings):
     STREAMS_CAN_START: bool = True
     CHAT_OPEN_ENABLED: bool = True
     CHAT_MESSAGES_ENABLED: bool = True
-    SUPPORT_SERVICE_1_ENABLED: bool = True
-    SUPPORT_SERVICE_2_ENABLED: bool = True
     VERIFICATION_RESTRICTIONS: bool = True
 
     LAVA_API_KEY: str = ""

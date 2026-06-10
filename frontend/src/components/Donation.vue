@@ -91,22 +91,7 @@
               </div>
             </div>
 
-            <div class="lava-field">
-              <span>Язык страницы</span>
-              <div class="lava-segmented compact">
-                <button
-                  v-for="language in lavaLanguages"
-                  :key="language.id"
-                  type="button"
-                  :class="{ active: lavaForm.buyer_language === language.id }"
-                  @click="lavaForm.buyer_language = language.id"
-                >
-                  {{ language.label }}
-                </button>
-              </div>
-            </div>
-
-            <div class="lava-field">
+            <div v-if="lavaForm.currency === 'RUB'" class="lava-field">
               <span>Способ оплаты</span>
               <div class="lava-method-list">
                 <button
@@ -146,7 +131,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import UiIcon from '@/components/UiIcon.vue'
 import { api } from '@/services/axios'
 import { alertDialog } from '@/services/confirm'
-import { useAuthStore, useSettingsStore } from '@/store'
+import { useAuthStore } from '@/store'
 
 import iconClose from '@/assets/svg/iconClose.svg'
 import iconArrowNext from '@/assets/svg/iconArrowNext.svg'
@@ -176,17 +161,15 @@ const emit = defineEmits<{
 }>()
 
 const auth = useAuthStore()
-const settings = useSettingsStore()
 const lavaBusy = ref(false)
 const lavaFormOpen = ref(false)
 const lavaEmailStorageKey = 'lava:buyerEmail'
 const emailRe = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$/i
-const promoCodeRe = /^[A-Z0-9_-]{3,36}$/
+const promoCodeRe = /^[A-Za-z0-9_-]{3,36}$/
 
 type LavaPlan = 'month' | 'year'
 type LavaCurrency = 'RUB' | 'USD' | 'EUR'
-type LavaLanguage = 'RU' | 'EN' | 'ES'
-type LavaPaymentOptionId = 'auto' | 'card' | 'sbp' | 'paypal' | 'pix'
+type LavaPaymentOptionId = 'card' | 'sbp'
 
 type LavaPaymentOption = {
   id: LavaPaymentOptionId
@@ -203,27 +186,14 @@ const lavaPlans: readonly { id: LavaPlan; label: string }[] = [
 ]
 
 const lavaCurrencies: readonly LavaCurrency[] = ['RUB', 'USD', 'EUR']
-const lavaLanguages: readonly { id: LavaLanguage; label: string }[] = [
-  { id: 'RU', label: 'RU' },
-  { id: 'EN', label: 'EN' },
-  { id: 'ES', label: 'ES' },
-]
 
 const lavaPaymentOptions: readonly LavaPaymentOption[] = [
-  {
-    id: 'auto',
-    label: 'Авто',
-    note: 'Lava выберет доступный вариант',
-    currencies: ['RUB', 'USD', 'EUR'],
-    payment_provider: '',
-    payment_method: '',
-  },
   {
     id: 'card',
     label: 'Карта',
     note: 'Банковская карта',
-    currencies: ['RUB', 'USD', 'EUR'],
-    payment_provider: '',
+    currencies: ['RUB'],
+    payment_provider: 'SMART_GLOCAL',
     payment_method: 'CARD',
   },
   {
@@ -234,36 +204,18 @@ const lavaPaymentOptions: readonly LavaPaymentOption[] = [
     payment_provider: 'PAY2ME',
     payment_method: 'SBP',
   },
-  {
-    id: 'paypal',
-    label: 'PayPal',
-    note: 'USD или EUR',
-    currencies: ['USD', 'EUR'],
-    payment_provider: 'PAYPAL',
-    payment_method: '',
-  },
-  {
-    id: 'pix',
-    label: 'PIX',
-    note: 'Через UNLIMIT',
-    currencies: ['USD', 'EUR'],
-    payment_provider: 'UNLIMIT',
-    payment_method: 'PIX',
-  },
 ]
 
 const lavaForm = ref<{
   email: string
   plan: LavaPlan
   currency: LavaCurrency
-  buyer_language: LavaLanguage
   payment_option: LavaPaymentOptionId
   promo_code: string
 }>({
   email: '',
   plan: 'month',
   currency: 'RUB',
-  buyer_language: 'RU',
   payment_option: 'card',
   promo_code: '',
 })
@@ -280,7 +232,7 @@ const supportSites = computed<readonly SupportSiteOption[]>(() => [
     icon: iconSupportService1,
     iconAlt: 'tribute',
     note: 'Сервис поддержки в Telegram',
-    enabled: Boolean(settings.supportService1Enabled),
+    enabled: true,
   },
   {
     id: 'service_2',
@@ -289,7 +241,7 @@ const supportSites = computed<readonly SupportSiteOption[]>(() => [
     icon: iconSupportService2,
     iconAlt: 'boosty',
     note: 'Внешний сервис поддержки',
-    enabled: Boolean(settings.supportService2Enabled),
+    enabled: true,
   },
 ])
 
@@ -329,10 +281,6 @@ function selectedLavaPaymentOption(): LavaPaymentOption {
 }
 
 function paymentProviderForOption(option: LavaPaymentOption): string {
-  if (option.id === 'card') {
-    return lavaForm.value.currency === 'RUB' ? 'SMART_GLOCAL' : 'UNLIMIT'
-  }
-
   return option.payment_provider
 }
 
@@ -349,7 +297,7 @@ function normalizedLavaEmail(): string | null {
 }
 
 function normalizedPromoCode(): string | null {
-  const promoCode = lavaForm.value.promo_code.trim().toUpperCase()
+  const promoCode = lavaForm.value.promo_code.trim()
   if (promoCode && !promoCodeRe.test(promoCode)) {
     void alertDialog('Промокод должен быть от 3 до 36 символов: латиница, цифры, "-" или "_"')
     return null
@@ -372,23 +320,29 @@ async function onLavaPay(): Promise<void> {
   const promoCode = normalizedPromoCode()
   if (promoCode === null) return
 
-  const paymentOption = selectedLavaPaymentOption()
-  const paymentProvider = paymentProviderForOption(paymentOption)
+  const paymentOption = lavaForm.value.currency === 'RUB' ? selectedLavaPaymentOption() : null
+  const paymentProvider = paymentOption ? paymentProviderForOption(paymentOption) : ''
 
   lavaBusy.value = true
   const paymentWindow = window.open('', '_blank')
   if (paymentWindow) paymentWindow.opener = null
   try {
-    const { data } = await api.post<{ payment_url: string }>('/payments/lava/link', {
+    const { data } = await api.post<{ payment_url: string; processed?: boolean }>('/payments/lava/link', {
       email,
       plan: lavaForm.value.plan,
       currency: lavaForm.value.currency,
-      buyer_language: lavaForm.value.buyer_language,
       payment_provider: paymentProvider,
-      payment_method: paymentOption.payment_method,
+      payment_method: paymentOption?.payment_method || '',
       promo_code: promoCode,
     })
     const paymentUrl = String(data?.payment_url || '')
+    if (!paymentUrl && data?.processed) {
+      if (paymentWindow) paymentWindow.close()
+      requestClose()
+      void alertDialog('Подписка активирована')
+      return
+    }
+
     if (!paymentUrl) throw new Error('payment_url_missing')
     emit('select', { id: 'lava', name: 'Lava.top', url: paymentUrl })
     requestClose()
@@ -401,6 +355,7 @@ async function onLavaPay(): Promise<void> {
     if (st === 401) void alertDialog('Войдите в аккаунт перед оплатой')
     else if (st === 422 && detail === 'lava_email_invalid') void alertDialog('Введите корректный email')
     else if (st === 422 && detail === 'lava_promo_code_invalid') void alertDialog('Проверьте промокод')
+    else if (st === 422 && detail === 'lava_promo_code_rejected') void alertDialog('Lava не приняла промокод для выбранных параметров')
     else if (st === 422 && detail.startsWith('lava_payment_')) void alertDialog('Выберите другой способ оплаты')
     else if (st === 422 && detail.startsWith('lava_')) void alertDialog('Проверьте параметры оплаты')
     else if (st === 503 && detail.startsWith('lava_')) void alertDialog('Оплата Lava пока не настроена')
@@ -416,8 +371,12 @@ function onKeydown(event: KeyboardEvent): void {
 }
 
 watch(() => lavaForm.value.currency, () => {
+  if (lavaForm.value.currency !== 'RUB') return
+
   const available = availableLavaPaymentOptions.value.some((option) => option.id === lavaForm.value.payment_option)
-  if (!available) lavaForm.value.payment_option = 'auto'
+  if (!available) {
+    lavaForm.value.payment_option = availableLavaPaymentOptions.value[0]?.id || 'card'
+  }
 })
 
 watch(() => props.open, (open) => {
