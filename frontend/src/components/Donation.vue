@@ -43,14 +43,25 @@
               </div>
             </component>
 
-            <button class="site-option lava-option" type="button" :disabled="lavaBusy" @click="onLavaPay">
+            <button class="site-option lava-option" type="button" :disabled="lavaBusy" @click="onLavaPay('month')">
               <div class="site-title">
                 <span class="lava-logo">Lava</span>
                 <UiIcon class="arrow-icon" :icon="iconArrowNext" />
               </div>
               <div class="site-copy">
-                <span class="site-name">Lava.top</span>
-                <span class="site-note">Подписка на месяц или год</span>
+                <span class="site-name">Lava.top месяц</span>
+                <span class="site-note">Доступ на 1 месяц</span>
+              </div>
+            </button>
+
+            <button class="site-option lava-option" type="button" :disabled="lavaBusy" @click="onLavaPay('year')">
+              <div class="site-title">
+                <span class="lava-logo">Lava</span>
+                <UiIcon class="arrow-icon" :icon="iconArrowNext" />
+              </div>
+              <div class="site-copy">
+                <span class="site-name">Lava.top год</span>
+                <span class="site-note">Доступ на 12 месяцев</span>
               </div>
             </button>
           </div>
@@ -98,6 +109,8 @@ const emit = defineEmits<{
 const auth = useAuthStore()
 const settings = useSettingsStore()
 const lavaBusy = ref(false)
+const lavaEmailStorageKey = 'lava:buyerEmail'
+const emailRe = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$/i
 
 const supportSites = computed<readonly SupportSiteOption[]>(() => [
   {
@@ -132,18 +145,39 @@ function onSelect(site: SupportSiteOption): void {
   requestClose()
 }
 
-async function onLavaPay(): Promise<void> {
+function requestLavaEmail(): string | null {
+  const saved = localStorage.getItem(lavaEmailStorageKey) || ''
+  const raw = window.prompt('Введите email для оплаты Lava', saved)
+  if (raw === null) return null
+
+  const email = raw.trim().toLowerCase()
+  if (!emailRe.test(email)) {
+    void alertDialog('Введите корректный email')
+    return null
+  }
+
+  localStorage.setItem(lavaEmailStorageKey, email)
+  return email
+}
+
+async function onLavaPay(plan: 'month' | 'year'): Promise<void> {
   if (lavaBusy.value) return
   if (!auth.isAuthed) {
     void alertDialog('Войдите в аккаунт перед оплатой')
     return
   }
 
+  const email = requestLavaEmail()
+  if (!email) return
+
   lavaBusy.value = true
   const paymentWindow = window.open('', '_blank')
   if (paymentWindow) paymentWindow.opener = null
   try {
-    const { data } = await api.post<{ payment_url: string }>('/payments/lava/link')
+    const { data } = await api.post<{ payment_url: string }>('/payments/lava/link', {
+      email,
+      plan,
+    })
     const paymentUrl = String(data?.payment_url || '')
     if (!paymentUrl) throw new Error('payment_url_missing')
     emit('select', { id: 'lava', name: 'Lava.top', url: paymentUrl })
@@ -155,7 +189,8 @@ async function onLavaPay(): Promise<void> {
     const st = Number(e?.response?.status || 0)
     const detail = String(e?.response?.data?.detail || '')
     if (st === 401) void alertDialog('Войдите в аккаунт перед оплатой')
-    else if (st === 503 && detail === 'lava_product_missing') void alertDialog('Оплата Lava пока не настроена')
+    else if (st === 422 && detail === 'lava_email_invalid') void alertDialog('Введите корректный email')
+    else if (st === 503 && detail.startsWith('lava_')) void alertDialog('Оплата Lava пока не настроена')
     else void alertDialog('Не удалось открыть оплату Lava')
   } finally {
     lavaBusy.value = false
@@ -243,6 +278,7 @@ onBeforeUnmount(() => {
     }
     .site-list {
       display: flex;
+      flex-wrap: wrap;
       gap: 10px;
       .site-option {
         display: flex;

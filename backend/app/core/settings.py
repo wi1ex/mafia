@@ -57,7 +57,10 @@ class Settings(BaseSettings):
     SUPPORT_SERVICE_2_ENABLED: bool = True
     VERIFICATION_RESTRICTIONS: bool = True
 
+    LAVA_API_KEY: str = ""
     LAVA_PRODUCT_URL: str = ""
+    LAVA_MONTHLY_OFFER_ID: str = ""
+    LAVA_YEARLY_OFFER_ID: str = ""
     LAVA_WEBHOOK_SECRET: str = ""
 
     ROOMS_LIMIT_GLOBAL: int = 10

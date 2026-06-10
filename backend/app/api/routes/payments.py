@@ -8,7 +8,8 @@ from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from secrets import compare_digest, token_urlsafe
 from typing import Any
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+from urllib.parse import parse_qsl, urlsplit
+import httpx
 import structlog
 from fastapi import APIRouter, Body, Depends, Header, HTTPException, Request
 from sqlalchemy import select
@@ -20,7 +21,7 @@ from ...models.lava_payment import LavaPayment
 from ...models.subscription import UserSubscription
 from ...models.user import User
 from ...schemas.common import Identity, Ok
-from ...schemas.payments import LavaPaymentLinkCreateOut
+from ...schemas.payments import LavaPaymentLinkCreateIn, LavaPaymentLinkCreateOut
 from ...security.auth_tokens import get_identity
 from ...security.decorators import log_route
 from ...services.nickname_limits import (
@@ -44,6 +45,10 @@ router = APIRouter()
 log = structlog.get_logger()
 
 LAVA_CURRENCY = "RUB"
+LAVA_API_BASE_URL = "https://gate.lava.top"
+LAVA_INVOICE_PATH = "/api/v3/invoice"
+LAVA_BUYER_LANGUAGE = "RU"
+LAVA_REQUEST_TIMEOUT_SECONDS = 15
 LAVA_MONTH_PLAN = "month"
 LAVA_YEAR_PLAN = "year"
 LAVA_MONTHS_BY_PLAN = {
@@ -53,6 +58,7 @@ LAVA_MONTHS_BY_PLAN = {
 LAVA_INTENT_CONTRACT_PREFIX = "intent:"
 LAVA_TRACKING_TOKEN_PREFIX = "lv_"
 TRACKING_TOKEN_RE = re.compile(r"^lv_[A-Za-z0-9_-]{24,96}$")
+EMAIL_RE = re.compile(r"^[^@\s]{1,64}@[^@\s]{1,190}\.[^@\s]{2,}$")
 FAILURE_MARKERS = ("fail", "cancel", "refund", "chargeback", "revers")
 SUCCESS_MARKERS = ("success", "paid", "complete", "completed", "succeed")
 
@@ -341,6 +347,51 @@ def _configured_product_url() -> str:
     return product_url
 
 
+def _configured_lava_api_key() -> str:
+    api_key = _clean(settings.LAVA_API_KEY)
+    if not api_key:
+        raise HTTPException(status_code=503, detail="lava_api_key_missing")
+
+    return api_key
+
+
+def _normalize_plan(value: object) -> str:
+    plan = _clean(value).lower()
+    if plan in {"year", "annual", "annually", "12", "12m"}:
+        return LAVA_YEAR_PLAN
+
+    if plan in {"", "month", "monthly", "1", "1m"}:
+        return LAVA_MONTH_PLAN
+
+    raise HTTPException(status_code=422, detail="lava_plan_invalid")
+
+
+def _configured_offer_for_plan(plan: str) -> tuple[str, int]:
+    if plan == LAVA_YEAR_PLAN:
+        offer_id = _clean(settings.LAVA_YEARLY_OFFER_ID)
+        if not offer_id:
+            raise HTTPException(status_code=503, detail="lava_yearly_offer_missing")
+
+        return offer_id, LAVA_MONTHS_BY_PLAN[LAVA_YEAR_PLAN]
+
+    offer_id = _clean(settings.LAVA_MONTHLY_OFFER_ID)
+    if not offer_id:
+        raise HTTPException(status_code=503, detail="lava_monthly_offer_missing")
+
+    return offer_id, LAVA_MONTHS_BY_PLAN[LAVA_MONTH_PLAN]
+
+
+def _normalize_buyer_email(value: object) -> str:
+    email = _clean(value, max_len=254).lower()
+    if not email:
+        raise HTTPException(status_code=422, detail="lava_email_required")
+
+    if not EMAIL_RE.match(email):
+        raise HTTPException(status_code=422, detail="lava_email_invalid")
+
+    return email
+
+
 def _configured_product_id() -> str:
     try:
         path_parts = [part for part in urlsplit(_configured_product_url()).path.split("/") if part]
@@ -357,28 +408,75 @@ def _new_tracking_token() -> str:
     return f"{LAVA_TRACKING_TOKEN_PREFIX}{token_urlsafe(24)}"
 
 
-def _append_tracking_params(product_url: str, *, token: str, user_id: int) -> str:
-    parts = urlsplit(product_url)
-    query = dict(parse_qsl(parts.query, keep_blank_values=True))
-    query.update(
-        {
-            "utm_source": "mafia_site",
-            "utm_medium": "subscription",
-            "utm_campaign": "lava_subscription",
-            "utm_id": token,
-            "utm_content": token,
-            "utm_term": str(user_id),
-        }
-    )
-    return urlunsplit(
-        (
-            parts.scheme,
-            parts.netloc,
-            parts.path,
-            urlencode(query),
-            parts.fragment,
+def _invoice_client_utm(*, token: str, user_id: int) -> dict[str, str]:
+    return {
+        "utm_source": "mafia_site",
+        "utm_medium": "subscription",
+        "utm_campaign": "lava_subscription",
+        "utm_term": str(user_id),
+        "utm_content": token,
+    }
+
+
+def _invoice_request_payload(
+    *,
+    email: str,
+    offer_id: str,
+    token: str,
+    user_id: int,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "email": email,
+        "offerId": offer_id,
+        "currency": LAVA_CURRENCY,
+        "buyerLanguage": LAVA_BUYER_LANGUAGE,
+        "clientUtm": _invoice_client_utm(token=token, user_id=user_id),
+    }
+
+    return payload
+
+
+def _lava_invoice_url() -> str:
+    return f"{LAVA_API_BASE_URL}{LAVA_INVOICE_PATH}"
+
+
+async def _create_lava_invoice(payload: dict[str, Any]) -> dict[str, Any]:
+    url = _lava_invoice_url()
+    headers = {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-Api-Key": _configured_lava_api_key(),
+    }
+    try:
+        async with httpx.AsyncClient(timeout=LAVA_REQUEST_TIMEOUT_SECONDS) as client:
+            response = await client.post(url, json=payload, headers=headers)
+    except httpx.TimeoutException as exc:
+        log.warning("lava.invoice.timeout", url=url)
+        raise HTTPException(status_code=504, detail="lava_invoice_timeout") from exc
+
+    except httpx.HTTPError as exc:
+        log.warning("lava.invoice.request_failed", url=url, error=type(exc).__name__)
+        raise HTTPException(status_code=502, detail="lava_invoice_request_failed") from exc
+
+    if response.status_code < 200 or response.status_code >= 300:
+        log.warning(
+            "lava.invoice.bad_status",
+            status_code=response.status_code,
+            body=response.text[:1000],
         )
-    )
+        raise HTTPException(status_code=502, detail="lava_invoice_failed")
+
+    try:
+        data = response.json()
+    except ValueError as exc:
+        log.warning("lava.invoice.invalid_json", body=response.text[:1000])
+        raise HTTPException(status_code=502, detail="lava_invoice_invalid_response") from exc
+
+    if not isinstance(data, dict):
+        log.warning("lava.invoice.invalid_payload", payload_type=type(data).__name__)
+        raise HTTPException(status_code=502, detail="lava_invoice_invalid_response")
+
+    return data
 
 
 def _extract_query_value(raw_url: object, key: str) -> str:
@@ -455,13 +553,8 @@ def _extract_tracking_user_id(payload: dict[str, Any]) -> int | None:
 
 
 def _expected_webhook_secrets() -> list[str]:
-    basic_user = _clean(settings.LAVA_WEBHOOK_BASIC_USER)
-    basic_password = _clean(settings.LAVA_WEBHOOK_BASIC_PASSWORD)
-    values = [_clean(settings.LAVA_WEBHOOK_SECRET)]
-    if basic_password:
-        values.append(f"{basic_user}:{basic_password}" if basic_user else basic_password)
-
-    return [value for value in values if value]
+    secret = _clean(settings.LAVA_WEBHOOK_SECRET)
+    return [secret] if secret else []
 
 
 def _bearer_token(authorization: str | None) -> str:
@@ -722,21 +815,61 @@ async def _grant_subscription_for_payment(session: AsyncSession, payment: LavaPa
 
 @router.post("/lava/link", response_model=LavaPaymentLinkCreateOut)
 @log_route("payments.lava.link")
-async def lava_payment_link_create(ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> LavaPaymentLinkCreateOut:
+async def lava_payment_link_create(
+    payload: LavaPaymentLinkCreateIn | None = Body(default=None),
+    ident: Identity = Depends(get_identity),
+    session: AsyncSession = Depends(get_session),
+) -> LavaPaymentLinkCreateOut:
     uid = int(ident["id"])
     user = await session.get(User, uid)
     if not user or user.deleted_at is not None:
         raise HTTPException(status_code=404, detail="user_not_found")
 
+    plan = _normalize_plan(payload.plan if payload is not None else None)
+    email = _normalize_buyer_email(payload.email if payload is not None else None)
+    offer_id, months = _configured_offer_for_plan(plan)
     token = _new_tracking_token()
-    payment_url = _append_tracking_params(_configured_product_url(), token=token, user_id=uid)
+    invoice_request = _invoice_request_payload(
+        email=email,
+        offer_id=offer_id,
+        token=token,
+        user_id=uid,
+    )
+    invoice = await _create_lava_invoice(invoice_request)
+    contract_id = _clean(invoice.get("id"), max_len=128)
+    payment_url = _clean(invoice.get("paymentUrl"))
+    if not contract_id:
+        log.warning("lava.invoice.contract_id_missing", response=_json_dumps(invoice)[:1000])
+        raise HTTPException(status_code=502, detail="lava_contract_id_missing")
+
+    if not payment_url:
+        log.warning(
+            "lava.invoice.payment_url_missing",
+            contract_id=contract_id,
+            response=_json_dumps(invoice)[:1000],
+        )
+        raise HTTPException(status_code=502, detail="lava_payment_url_missing")
+
+    amount, currency = _extract_amount_and_currency(invoice)
     payment = LavaPayment(
-        contract_id=f"{LAVA_INTENT_CONTRACT_PREFIX}{token}",
+        contract_id=contract_id,
         user_id=uid,
         metadata_token=token,
-        status="link_created",
+        email=email,
+        status=_normalize_status(invoice.get("status")) or "invoice_created",
+        offer_id=offer_id,
+        plan=plan,
+        amount=amount,
+        currency=currency or LAVA_CURRENCY,
+        subscription_months=months,
         payment_url=payment_url,
-        raw_payload=_json_dumps({"kind": "lava_product_link", "utm_id": token, "utm_content": token}),
+        raw_payload=_json_dumps(
+            {
+                "kind": "lava_invoice",
+                "request": {**invoice_request, "email": email},
+                "response": invoice,
+            }
+        ),
     )
     session.add(payment)
     await session.commit()
@@ -746,10 +879,16 @@ async def lava_payment_link_create(ident: Identity = Depends(get_identity), sess
         user_id=uid,
         username=str(user.username or ident["username"] or f"user{uid}"),
         action="lava_payment_link_create",
-        details={"payment_id": payment.id, "product_id": _configured_product_id()},
+        details={
+            "payment_id": payment.id,
+            "contract_id": contract_id,
+            "offer_id": offer_id,
+            "plan": plan,
+            "months": months,
+        },
     )
 
-    return LavaPaymentLinkCreateOut(payment_url=payment_url)
+    return LavaPaymentLinkCreateOut(payment_url=payment_url, contract_id=contract_id)
 
 
 @router.post("/lava/webhook/", response_model=Ok, include_in_schema=False)
