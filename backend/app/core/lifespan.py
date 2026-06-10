@@ -84,14 +84,6 @@ async def lifespan(app) -> AsyncIterator[None]:
                 "ALTER COLUMN nickname_changes_left SET NOT NULL"
             ))
             await conn.execute(text(
-                "ALTER TABLE settings "
-                "DROP COLUMN IF EXISTS support_service_1_enabled"
-            ))
-            await conn.execute(text(
-                "ALTER TABLE settings "
-                "DROP COLUMN IF EXISTS support_service_2_enabled"
-            ))
-            await conn.execute(text(
                 "CREATE TABLE IF NOT EXISTS contact_requests ("
                 "id SERIAL PRIMARY KEY, "
                 "user_id BIGINT, "

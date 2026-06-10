@@ -355,6 +355,7 @@ async function onLavaPay(): Promise<void> {
     if (st === 401) void alertDialog('Войдите в аккаунт перед оплатой')
     else if (st === 422 && detail === 'lava_email_invalid') void alertDialog('Введите корректный email')
     else if (st === 422 && detail === 'lava_promo_code_invalid') void alertDialog('Проверьте промокод')
+    else if (st === 422 && detail === 'lava_promo_code_usage_limit_exceeded') void alertDialog('Лимит использования промокода исчерпан')
     else if (st === 422 && detail === 'lava_promo_code_rejected') void alertDialog('Lava не приняла промокод для выбранных параметров')
     else if (st === 422 && detail.startsWith('lava_payment_')) void alertDialog('Выберите другой способ оплаты')
     else if (st === 422 && detail.startsWith('lava_')) void alertDialog('Проверьте параметры оплаты')

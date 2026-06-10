@@ -63,6 +63,8 @@ LAVA_TRACKING_TOKEN_PREFIX = "lv_"
 TRACKING_TOKEN_RE = re.compile(r"^lv_[A-Za-z0-9_-]{24,96}$")
 EMAIL_RE = re.compile(r"^[^@\s]{1,64}@[^@\s]{1,190}\.[^@\s]{2,}$")
 PROMO_CODE_RE = re.compile(r"^[A-Za-z0-9_-]{3,36}$")
+LAVA_PROMO_REJECTION_RE = re.compile(r"promo|promocode|coupon|discount|промо|скид", re.I)
+LAVA_PROMO_USAGE_LIMIT_RE = re.compile(r"usage\s+limit\s+exceeded", re.I)
 FAILURE_MARKERS = ("fail", "cancel", "refund", "chargeback", "revers")
 SUCCESS_MARKERS = ("success", "paid", "complete", "completed", "succeed")
 
@@ -554,8 +556,15 @@ async def _create_lava_invoice(payload: dict[str, Any]) -> dict[str, Any]:
             status_code=response.status_code,
             body=body,
         )
-        if payload.get("promoCode") and re.search(r"promo|promocode|coupon|discount|промо|скид", body, re.I):
-            raise HTTPException(status_code=422, detail="lava_promo_code_rejected")
+        if payload.get("promoCode"):
+            if LAVA_PROMO_USAGE_LIMIT_RE.search(body):
+                raise HTTPException(
+                    status_code=422,
+                    detail="lava_promo_code_usage_limit_exceeded",
+                )
+
+            if LAVA_PROMO_REJECTION_RE.search(body):
+                raise HTTPException(status_code=422, detail="lava_promo_code_rejected")
 
         raise HTTPException(status_code=502, detail="lava_invoice_failed")
 
