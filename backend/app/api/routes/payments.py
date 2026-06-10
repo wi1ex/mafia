@@ -49,6 +49,10 @@ LAVA_API_BASE_URL = "https://gate.lava.top"
 LAVA_INVOICE_PATH = "/api/v3/invoice"
 LAVA_BUYER_LANGUAGE = "RU"
 LAVA_REQUEST_TIMEOUT_SECONDS = 15
+LAVA_CURRENCIES = {"RUB", "USD", "EUR"}
+LAVA_BUYER_LANGUAGES = {"EN", "RU", "ES"}
+LAVA_PAYMENT_PROVIDERS = {"SMART_GLOCAL", "PAY2ME", "UNLIMIT", "PAYPAL"}
+LAVA_PAYMENT_METHODS = {"CARD", "SBP", "PAYPAL", "PIX"}
 LAVA_MONTH_PLAN = "month"
 LAVA_YEAR_PLAN = "year"
 LAVA_MONTHS_BY_PLAN = {
@@ -59,6 +63,7 @@ LAVA_INTENT_CONTRACT_PREFIX = "intent:"
 LAVA_TRACKING_TOKEN_PREFIX = "lv_"
 TRACKING_TOKEN_RE = re.compile(r"^lv_[A-Za-z0-9_-]{24,96}$")
 EMAIL_RE = re.compile(r"^[^@\s]{1,64}@[^@\s]{1,190}\.[^@\s]{2,}$")
+PROMO_CODE_RE = re.compile(r"^[A-Z0-9_-]{3,36}$")
 FAILURE_MARKERS = ("fail", "cancel", "refund", "chargeback", "revers")
 SUCCESS_MARKERS = ("success", "paid", "complete", "completed", "succeed")
 
@@ -392,6 +397,94 @@ def _normalize_buyer_email(value: object) -> str:
     return email
 
 
+def _normalize_lava_currency(value: object) -> str:
+    currency = _clean(value, max_len=3).upper() or LAVA_CURRENCY
+    if currency not in LAVA_CURRENCIES:
+        raise HTTPException(status_code=422, detail="lava_currency_invalid")
+
+    return currency
+
+
+def _normalize_buyer_language(value: object) -> str:
+    language = _clean(value, max_len=2).upper() or LAVA_BUYER_LANGUAGE
+    if language not in LAVA_BUYER_LANGUAGES:
+        raise HTTPException(status_code=422, detail="lava_buyer_language_invalid")
+
+    return language
+
+
+def _normalize_payment_provider(value: object) -> str:
+    provider = _clean(value, max_len=32).upper()
+    if provider and provider not in LAVA_PAYMENT_PROVIDERS:
+        raise HTTPException(status_code=422, detail="lava_payment_provider_invalid")
+
+    return provider
+
+
+def _normalize_payment_method(value: object) -> str:
+    method = _clean(value, max_len=32).upper()
+    if method and method not in LAVA_PAYMENT_METHODS:
+        raise HTTPException(status_code=422, detail="lava_payment_method_invalid")
+
+    return method
+
+
+def _normalize_promo_code(value: object) -> str:
+    promo_code = _clean(value, max_len=36).upper()
+    if promo_code and not PROMO_CODE_RE.match(promo_code):
+        raise HTTPException(status_code=422, detail="lava_promo_code_invalid")
+
+    return promo_code
+
+
+def _ensure_payment_method_supported(
+    *,
+    currency: str,
+    payment_provider: str,
+    payment_method: str,
+) -> None:
+    if not payment_provider and payment_method:
+        raise HTTPException(status_code=422, detail="lava_payment_provider_required")
+
+    if not payment_provider:
+        return
+
+    allowed: set[tuple[str, str, str]] = {
+        ("RUB", "SMART_GLOCAL", "CARD"),
+        ("RUB", "PAY2ME", "SBP"),
+        ("USD", "UNLIMIT", "CARD"),
+        ("USD", "UNLIMIT", "PIX"),
+        ("USD", "PAYPAL", ""),
+        ("USD", "PAYPAL", "PAYPAL"),
+        ("EUR", "UNLIMIT", "CARD"),
+        ("EUR", "UNLIMIT", "PIX"),
+        ("EUR", "PAYPAL", ""),
+        ("EUR", "PAYPAL", "PAYPAL"),
+    }
+    if (currency, payment_provider, payment_method) not in allowed:
+        raise HTTPException(status_code=422, detail="lava_payment_method_unsupported")
+
+
+def _normalize_invoice_options(payload: LavaPaymentLinkCreateIn | None) -> tuple[str, str, str, str, str]:
+    currency = _normalize_lava_currency(payload.currency if payload is not None else None)
+    buyer_language = _normalize_buyer_language(
+        payload.buyer_language if payload is not None else None
+    )
+    payment_provider = _normalize_payment_provider(
+        payload.payment_provider if payload is not None else None
+    )
+    payment_method = _normalize_payment_method(
+        payload.payment_method if payload is not None else None
+    )
+    promo_code = _normalize_promo_code(payload.promo_code if payload is not None else None)
+    _ensure_payment_method_supported(
+        currency=currency,
+        payment_provider=payment_provider,
+        payment_method=payment_method,
+    )
+    return currency, buyer_language, payment_provider, payment_method, promo_code
+
+
 def _configured_product_id() -> str:
     try:
         path_parts = [part for part in urlsplit(_configured_product_url()).path.split("/") if part]
@@ -422,16 +515,29 @@ def _invoice_request_payload(
     *,
     email: str,
     offer_id: str,
+    currency: str,
+    buyer_language: str,
+    payment_provider: str,
+    payment_method: str,
+    promo_code: str,
     token: str,
     user_id: int,
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "email": email,
         "offerId": offer_id,
-        "currency": LAVA_CURRENCY,
-        "buyerLanguage": LAVA_BUYER_LANGUAGE,
+        "currency": currency,
+        "buyerLanguage": buyer_language,
         "clientUtm": _invoice_client_utm(token=token, user_id=user_id),
     }
+    if payment_provider:
+        payload["paymentProvider"] = payment_provider
+
+    if payment_method:
+        payload["paymentMethod"] = payment_method
+
+    if promo_code:
+        payload["promoCode"] = promo_code
 
     return payload
 
@@ -827,11 +933,19 @@ async def lava_payment_link_create(
 
     plan = _normalize_plan(payload.plan if payload is not None else None)
     email = _normalize_buyer_email(payload.email if payload is not None else None)
+    currency, buyer_language, payment_provider, payment_method, promo_code = (
+        _normalize_invoice_options(payload)
+    )
     offer_id, months = _configured_offer_for_plan(plan)
     token = _new_tracking_token()
     invoice_request = _invoice_request_payload(
         email=email,
         offer_id=offer_id,
+        currency=currency,
+        buyer_language=buyer_language,
+        payment_provider=payment_provider,
+        payment_method=payment_method,
+        promo_code=promo_code,
         token=token,
         user_id=uid,
     )
@@ -885,6 +999,11 @@ async def lava_payment_link_create(
             "offer_id": offer_id,
             "plan": plan,
             "months": months,
+            "currency": currency,
+            "buyer_language": buyer_language,
+            "payment_provider": payment_provider or None,
+            "payment_method": payment_method or None,
+            "has_promo_code": bool(promo_code),
         },
     )
 
