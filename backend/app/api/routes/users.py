@@ -134,6 +134,8 @@ CHAT_MENTION_LIMIT_DEFAULT = 8
 CHAT_MENTION_LIMIT_MAX = 10
 CHAT_MENTION_SEARCH_RATE_LIMIT = 100
 CHAT_MENTION_SEARCH_RATE_WINDOW_S = 10
+
+
 @router.get("/profile_info", response_model=UserOut)
 @log_route("users.profile_info")
 @rate_limited(lambda ident, **_: f"rl:profile_info:{ident['id']}", limit=10, window_s=1)
