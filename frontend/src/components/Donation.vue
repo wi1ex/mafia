@@ -20,105 +20,110 @@
             </button>
           </header>
 
-          <div v-if="!lavaFormOpen" class="site-list">
-            <component
-              :is="site.enabled ? 'a' : 'button'"
-              v-for="site in supportSites"
-              :key="site.id"
-              class="site-option"
-              :href="site.enabled ? site.url : undefined"
-              :target="site.enabled ? '_blank' : undefined"
-              :rel="site.enabled ? 'noopener noreferrer' : undefined"
-              :type="site.enabled ? undefined : 'button'"
-              :disabled="!site.enabled"
-              @click="onSelect(site)"
-            >
-              <div class="site-title">
-                <img :src="site.icon" :alt="site.iconAlt" class="site-logo" />
-                <UiIcon class="arrow-icon" :icon="iconArrowNext" />
-              </div>
-              <div class="site-copy">
-                <span class="site-name">{{ site.name }}</span>
-                <span class="site-note">{{ site.note }}</span>
-              </div>
-            </component>
-
-            <button class="site-option lava-option" type="button" :disabled="lavaBusy" @click="openLavaForm">
-              <div class="site-title">
-                <span class="lava-logo">Lava</span>
-                <UiIcon class="arrow-icon" :icon="iconArrowNext" />
-              </div>
-              <div class="site-copy">
-                <span class="site-name">Lava.top</span>
-                <span class="site-note">Подписка и промокод</span>
-              </div>
-            </button>
-          </div>
-
-          <form v-else class="lava-form" @submit.prevent="onLavaPay">
-            <label class="lava-field">
-              <span>Email</span>
-              <input v-model.trim="lavaForm.email" type="email" autocomplete="email" placeholder="mail@example.com" />
-            </label>
-
-            <div class="lava-field">
-              <span>Срок подписки</span>
-              <div class="lava-segmented">
-                <button
-                  v-for="plan in lavaPlans"
-                  :key="plan.id"
-                  type="button"
-                  :class="{ active: lavaForm.plan === plan.id }"
-                  @click="lavaForm.plan = plan.id"
-                >
-                  {{ plan.label }}
-                </button>
-              </div>
-            </div>
-
-            <div class="lava-field">
-              <span>Валюта</span>
-              <div class="lava-segmented compact">
-                <button
-                  v-for="currency in lavaCurrencies"
-                  :key="currency"
-                  type="button"
-                  :class="{ active: lavaForm.currency === currency }"
-                  @click="lavaForm.currency = currency"
-                >
-                  {{ currency }}
-                </button>
-              </div>
-            </div>
-
-            <div v-if="lavaForm.currency === 'RUB'" class="lava-field">
-              <span>Способ оплаты</span>
-              <div class="lava-method-list">
-                <button
-                  v-for="method in availableLavaPaymentOptions"
-                  :key="method.id"
-                  type="button"
-                  :class="{ active: lavaForm.payment_option === method.id }"
-                  @click="lavaForm.payment_option = method.id"
-                >
-                  <span>{{ method.label }}</span>
-                  <small>{{ method.note }}</small>
-                </button>
-              </div>
-            </div>
-
-            <label class="lava-field">
-              <span>Промокод</span>
-              <input v-model.trim="lavaForm.promo_code" type="text" inputmode="text" autocomplete="off" placeholder="PROMO2026" />
-            </label>
-
-            <div class="lava-actions">
-              <button class="lava-back" type="button" :disabled="lavaBusy" @click="closeLavaForm">Назад</button>
-              <button class="lava-submit" type="submit" :disabled="lavaBusy">
-                {{ lavaBusy ? 'Открываем оплату' : 'Перейти к оплате' }}
+          <div class="support-site-content">
+            <div class="site-list">
+              <button
+                class="site-option lava-option"
+                :class="{ active: lavaFormOpen }"
+                type="button"
+                :disabled="lavaBusy"
+                @click="openLavaForm"
+              >
+                <div class="site-title">
+                  <span class="lava-logo">Lava</span>
+                  <UiIcon class="arrow-icon" :icon="iconArrowNext" />
+                </div>
+                <div class="site-copy">
+                  <span class="site-name">Lava.top</span>
+                  <span class="site-note">Подписка и промокод</span>
+                </div>
               </button>
+
+              <a
+                class="site-option tribute-option"
+                :href="tributeSite.url"
+                target="_blank"
+                rel="noopener noreferrer"
+                @click="onTributeSelect"
+              >
+                <div class="site-title">
+                  <img :src="iconTribute" alt="tribute" class="site-logo" />
+                  <UiIcon class="arrow-icon" :icon="iconArrowNext" />
+                </div>
+                <div class="site-copy">
+                  <span class="site-name">Tribute</span>
+                  <span class="site-note">Сервис поддержки в Telegram</span>
+                </div>
+              </a>
             </div>
-          </form>
+
+            <Transition name="lava-form-expand">
+              <form v-if="lavaFormOpen" class="lava-form" @submit.prevent="onLavaPay">
+                <label class="lava-field">
+                  <span>Email</span>
+                  <input v-model.trim="lavaForm.email" type="email" autocomplete="email" placeholder="mail@example.com" />
+                </label>
+
+                <div class="lava-field">
+                  <span>Срок подписки</span>
+                  <div class="lava-segmented">
+                    <button
+                      v-for="plan in lavaPlans"
+                      :key="plan.id"
+                      type="button"
+                      :class="{ active: lavaForm.plan === plan.id }"
+                      @click="lavaForm.plan = plan.id"
+                    >
+                      {{ plan.label }}
+                    </button>
+                  </div>
+                </div>
+
+                <div class="lava-field">
+                  <span>Валюта</span>
+                  <div class="lava-segmented compact">
+                    <button
+                      v-for="currency in lavaCurrencies"
+                      :key="currency"
+                      type="button"
+                      :class="{ active: lavaForm.currency === currency }"
+                      @click="lavaForm.currency = currency"
+                    >
+                      {{ currency }}
+                    </button>
+                  </div>
+                </div>
+
+                <div v-if="lavaForm.currency === 'RUB'" class="lava-field">
+                  <span>Способ оплаты</span>
+                  <div class="lava-method-list">
+                    <button
+                      v-for="method in availableLavaPaymentOptions"
+                      :key="method.id"
+                      type="button"
+                      :class="{ active: lavaForm.payment_option === method.id }"
+                      @click="lavaForm.payment_option = method.id"
+                    >
+                      <span>{{ method.label }}</span>
+                      <small>{{ method.note }}</small>
+                    </button>
+                  </div>
+                </div>
+
+                <label class="lava-field">
+                  <span>Промокод</span>
+                  <input v-model.trim="lavaForm.promo_code" type="text" inputmode="text" autocomplete="off" placeholder="PROMO2026" />
+                </label>
+
+                <div class="lava-actions">
+                  <button class="lava-back" type="button" :disabled="lavaBusy" @click="closeLavaForm">Назад</button>
+                  <button class="lava-submit" type="submit" :disabled="lavaBusy">
+                    {{ lavaBusy ? 'Открываем оплату' : 'Перейти к оплате' }}
+                  </button>
+                </div>
+              </form>
+            </Transition>
+          </div>
         </div>
       </div>
     </Transition>
@@ -135,8 +140,7 @@ import { useAuthStore } from '@/store'
 
 import iconClose from '@/assets/svg/iconClose.svg'
 import iconArrowNext from '@/assets/svg/iconArrowNext.svg'
-import iconSupportService1 from '@/assets/images/donateTribute.png'
-import iconSupportService2 from '@/assets/images/donateBoosty.png'
+import iconTribute from '@/assets/images/donateTribute.png'
 
 const props = defineProps<{
   open: boolean
@@ -146,13 +150,6 @@ type SupportSite = {
   id: string
   name: string
   url: string
-}
-
-type SupportSiteOption = SupportSite & {
-  icon: string
-  iconAlt: string
-  note: string
-  enabled: boolean
 }
 
 const emit = defineEmits<{
@@ -199,7 +196,7 @@ const lavaPaymentOptions: readonly LavaPaymentOption[] = [
   {
     id: 'sbp',
     label: 'СБП',
-    note: 'Быстрый платеж в RUB',
+    note: 'Система быстрых платежей',
     currencies: ['RUB'],
     payment_provider: 'PAY2ME',
     payment_method: 'SBP',
@@ -224,26 +221,11 @@ const availableLavaPaymentOptions = computed(() => (
   lavaPaymentOptions.filter((option) => option.currencies.includes(lavaForm.value.currency))
 ))
 
-const supportSites = computed<readonly SupportSiteOption[]>(() => [
-  {
-    id: 'service_1',
-    name: 'Tribute',
-    url: 'https://web.tribute.tg/d/Cvc',
-    icon: iconSupportService1,
-    iconAlt: 'tribute',
-    note: 'Сервис поддержки в Telegram',
-    enabled: true,
-  },
-  {
-    id: 'service_2',
-    name: 'Boosty',
-    url: 'https://boosty.to/deceit_games',
-    icon: iconSupportService2,
-    iconAlt: 'boosty',
-    note: 'Внешний сервис поддержки',
-    enabled: true,
-  },
-])
+const tributeSite: SupportSite = {
+  id: 'tribute',
+  name: 'Tribute',
+  url: 'https://web.tribute.tg/d/Cvc',
+}
 
 const armed = ref(false)
 
@@ -252,9 +234,8 @@ function requestClose(): void {
   emit('update:open', false)
 }
 
-function onSelect(site: SupportSiteOption): void {
-  if (!site.enabled) return
-  emit('select', { id: site.id, name: site.name, url: site.url })
+function onTributeSelect(): void {
+  emit('select', tributeSite)
   requestClose()
 }
 
@@ -487,80 +468,106 @@ onBeforeUnmount(() => {
         }
       }
     }
-    .site-list {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      .site-option {
-        display: flex;
-        flex-direction: column;
-        padding: 16px;
-        gap: 40px;
-        width: 242px;
-        height: 122px;
-        border-radius: 20px;
-        border: 1px solid $neutral-white;
-        background-color: $neutral-white;
-        color: $fg;
-        text-align: left;
-        text-decoration: none;
-        outline: none;
-        transition: border-color 0.25s ease-in-out, opacity 0.25s ease-in-out;
-        &:not(:disabled):hover,
-        &:not(:disabled):focus-visible,
-        &:not(:disabled):active {
-          border-color: $green-600;
-          .site-title {
-            .arrow-icon {
-              --ui-icon-color: #{$green-600};
-            }
-          }
-        }
-        &:disabled {
-          width: 274px;
-          height: 154px;
-          filter: grayscale(100%) brightness(60%);
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-        .site-title {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          .site-logo {
-            height: 40px;
-          }
-          .arrow-icon {
-            --ui-icon-width: 20px;
-            --ui-icon-height: 20px;
-            --ui-icon-color: #{$neutral-white};
-          }
-        }
-        .site-copy {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-          .site-name {
-            color: $neutral-black;
-            font-family: Hauora-Bold;
-            font-size: 16px;
-            line-height: 18px;
-            letter-spacing: -0.32px;
-          }
-          .site-note {
-            color: $neutral-500;
-            font-family: Hauora-Regular;
-            font-size: 16px;
-            line-height: 16px;
-            letter-spacing: -0.32px;
-          }
-        }
-      }
-    }
-    .lava-form {
+    .support-site-content {
       display: flex;
       flex-direction: column;
       gap: 16px;
+      .site-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        .site-option {
+          display: flex;
+          flex-direction: column;
+          padding: 16px;
+          gap: 40px;
+          width: 242px;
+          height: 122px;
+          border-radius: 20px;
+          border: 1px solid $neutral-white;
+          background-color: $neutral-white;
+          color: $fg;
+          text-align: left;
+          text-decoration: none;
+          outline: none;
+          cursor: pointer;
+          transition: border-color 0.25s ease-in-out, opacity 0.25s ease-in-out;
+          &.active {
+            border-color: $green-600;
+            .site-title {
+              .arrow-icon {
+                --ui-icon-color: #{$green-600};
+              }
+            }
+          }
+          &:not(:disabled):hover,
+          &:not(:disabled):focus-visible,
+          &:not(:disabled):active {
+            border-color: $green-600;
+            .site-title {
+              .arrow-icon {
+                --ui-icon-color: #{$green-600};
+              }
+            }
+          }
+          &:disabled {
+            width: 274px;
+            height: 154px;
+            filter: grayscale(100%) brightness(60%);
+            opacity: 0.5;
+            cursor: not-allowed;
+          }
+          .site-title {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            .site-logo {
+              height: 40px;
+            }
+            .lava-logo {
+              display: inline-flex;
+              align-items: center;
+              height: 40px;
+              color: $green-600;
+              font-family: Hauora-Bold;
+              font-size: 22px;
+              line-height: 24px;
+              letter-spacing: 0;
+            }
+            .arrow-icon {
+              --ui-icon-width: 20px;
+              --ui-icon-height: 20px;
+              --ui-icon-color: #{$neutral-white};
+            }
+          }
+          .site-copy {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            .site-name {
+              color: $neutral-black;
+              font-family: Hauora-Bold;
+              font-size: 16px;
+              line-height: 18px;
+              letter-spacing: -0.32px;
+            }
+            .site-note {
+              color: $neutral-500;
+              font-family: Hauora-Regular;
+              font-size: 16px;
+              line-height: 16px;
+              letter-spacing: -0.32px;
+            }
+          }
+        }
+      }
+      .lava-form {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+    }
+    .lava-form {
       .lava-field {
         display: flex;
         flex-direction: column;
@@ -700,22 +707,6 @@ onBeforeUnmount(() => {
   }
 }
 
-@media (max-width: 640px) {
-  .support-site-overlay {
-    align-items: flex-start;
-    padding: 16px;
-    .support-site-modal {
-      width: 100%;
-      .lava-form {
-        .lava-method-list,
-        .lava-actions {
-          grid-template-columns: 1fr;
-        }
-      }
-    }
-  }
-}
-
 .support-site-overlay-enter-active,
 .support-site-overlay-leave-active {
   transition: opacity 0.25s ease-in-out;
@@ -724,6 +715,27 @@ onBeforeUnmount(() => {
 .support-site-overlay-enter-from,
 .support-site-overlay-leave-to {
   opacity: 0;
+}
+
+.lava-form-expand-enter-active,
+.lava-form-expand-leave-active {
+  max-height: 760px;
+  overflow: hidden;
+  transition: max-height 0.25s ease-in-out, opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
+}
+
+.lava-form-expand-enter-from,
+.lava-form-expand-leave-to {
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+.lava-form-expand-enter-to,
+.lava-form-expand-leave-from {
+  max-height: 760px;
+  opacity: 1;
+  transform: translateY(0);
 }
 
 </style>
