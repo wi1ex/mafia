@@ -236,9 +236,6 @@
           <div class="deleted-preview-body">
             <div class="deleted-preview-author">
               <img class="deleted-preview-avatar" v-minio-img="{ key: deletedPreview.author.avatar_name ? `avatars/${deletedPreview.author.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="Аватар автора" />
-              <div v-if="profileThemeIconSrcs(deletedPreview.author.theme_icon, deletedPreview.author.role).length" class="profile-theme-icons" aria-hidden="true">
-                <img v-for="badgeSrc in profileThemeIconSrcs(deletedPreview.author.theme_icon, deletedPreview.author.role)" :key="`${deletedPreview.author.id}-${badgeSrc}`" class="profile-theme-icon" :src="badgeSrc" alt="" />
-              </div>
               <span>{{ deletedPreview.author.username || (`user${deletedPreview.author.id}`) }}</span>
             </div>
 
@@ -1822,16 +1819,16 @@ onBeforeUnmount(() => {
               border-radius: 50%;
               object-fit: cover;
             }
-            .profile-theme-icon {
-              width: 20px;
-              height: 20px;
-              object-fit: contain;
-            }
             .profile-theme-icons {
               display: inline-flex;
               align-items: center;
               gap: 3px;
               flex: 0 0 auto;
+              .profile-theme-icon {
+                width: 20px;
+                height: 20px;
+                object-fit: contain;
+              }
             }
             .author-name {
               min-width: 0;
@@ -2468,17 +2465,6 @@ onBeforeUnmount(() => {
           height: 30px;
           border-radius: 50%;
           object-fit: cover;
-        }
-        .profile-theme-icon {
-          width: 30px;
-          height: 30px;
-          object-fit: contain;
-        }
-        .profile-theme-icons {
-          display: inline-flex;
-          align-items: center;
-          gap: 3px;
-          flex: 0 0 auto;
         }
         span {
           color: $fg;

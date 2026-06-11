@@ -25,7 +25,7 @@
                       <span v-if="adminFriends.length === 0" class="profile-friends-empty">Нет друзей</span>
                       <span v-else class="profile-friends-list">
                         <span v-for="friend in adminFriends" :key="friend.id" class="profile-friend-row">
-                          <img class="profile-friend-avatar" v-minio-img="{key: friendAvatarKey(friend), placeholder: defaultAvatar, lazy: false, animated: true}" alt="avatar" />
+                          <img class="profile-friend-avatar" v-minio-img="{key: friendAvatarKey(friend), placeholder: defaultAvatar, lazy: false}" alt="avatar" />
                           <span class="profile-friend-main">
                             <span class="profile-friend-name">{{ friend.username || `user${friend.id}` }}</span>
                             <span class="profile-friend-date">
