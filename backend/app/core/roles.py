@@ -98,4 +98,3 @@ def can_view_deleted_chat_message(*, actor_role: object) -> bool:
 
 def can_purge_deleted_chat_message(*, actor_role: object) -> bool:
     return normalize_user_role(actor_role) == ROLE_ADMIN
-
