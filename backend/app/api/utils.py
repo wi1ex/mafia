@@ -90,6 +90,8 @@ __all__ = [
     "build_active_users_series",
     "build_active_users_monthly_series",
     "schedule_user_game_stats_cache_invalidation",
+    "game_stats_cache_user_ids",
+    "invalidate_game_stats_cache_for_game_users",
     "calc_total_stream_seconds",
     "calc_room_stream_seconds_in_range",
     "fetch_active_rooms_stats",
@@ -263,6 +265,34 @@ def schedule_user_game_stats_cache_invalidation(log_event: str, **log_kwargs: ob
             log.warning(log_event, **log_kwargs)
 
     asyncio.create_task(_task())
+
+
+def game_stats_cache_user_ids(game: Game) -> set[int]:
+    user_ids: set[int] = set()
+    roles = getattr(game, "roles", None)
+    if isinstance(roles, dict):
+        for raw_uid in roles.keys():
+            uid = safe_int(raw_uid)
+            if uid > 0:
+                user_ids.add(uid)
+
+    head_uid = safe_int(getattr(game, "head_id", None))
+    if head_uid > 0:
+        user_ids.add(head_uid)
+
+    return user_ids
+
+
+async def invalidate_game_stats_cache_for_game_users(user_ids: set[int], log_event: str, *, game_id: int) -> None:
+    if not user_ids:
+        return
+
+    try:
+        from ..services.user_stats import invalidate_user_game_stats_cache_for_users
+
+        await invalidate_user_game_stats_cache_for_users(user_ids)
+    except Exception:
+        log.warning(log_event, game_id=game_id, users=len(user_ids))
 
 PRESIGN_ALLOWED_PREFIXES: tuple[str, ...] = ("avatars/", "chat/global/images/")
 PRESIGN_KEY_RE = re.compile(r"^[a-zA-Z0-9._/-]{3,256}$")
