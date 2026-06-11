@@ -99,16 +99,3 @@ def can_view_deleted_chat_message(*, actor_role: object) -> bool:
 def can_purge_deleted_chat_message(*, actor_role: object) -> bool:
     return normalize_user_role(actor_role) == ROLE_ADMIN
 
-
-def admin_users_role_sort_value(raw: object) -> tuple[int, str]:
-    value = str(raw or "").strip().casefold()
-    if value == ROLE_ADMIN:
-        return 0, value
-
-    if value == ROLE_MODER:
-        return 1, value
-
-    if value == ROLE_USER:
-        return 2, value
-
-    return 3, value

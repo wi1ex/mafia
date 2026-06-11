@@ -169,7 +169,7 @@
 
         <div ref="composerShellEl" class="composer-shell">
           <label class="tool-button tool-button--file" :class="{ 'tool-button--disabled': composerDisabled }">
-            <input ref="fileInputEl" type="file" accept="image/png,image/jpeg" :disabled="composerDisabled" @change="onPickImage" >
+            <input type="file" accept="image/png,image/jpeg" :disabled="composerDisabled" @change="onPickImage" >
             <img :src="iconPhoto" alt="" />
           </label>
 
@@ -351,7 +351,6 @@ const imagePreviewEl = ref<HTMLElement | null>(null)
 const composerShellEl = ref<HTMLElement | null>(null)
 const textareaEl = ref<HTMLTextAreaElement | null>(null)
 const composerMirrorEl = ref<HTMLElement | null>(null)
-const fileInputEl = ref<HTMLInputElement | null>(null)
 const composerPickerOpen = ref(false)
 const knownMentionCandidates = ref<ChatMentionCandidate[]>([])
 const mentionSuggestions = ref<ChatMentionCandidate[]>([])

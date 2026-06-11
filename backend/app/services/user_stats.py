@@ -326,20 +326,3 @@ async def get_user_game_stats_cached(session: AsyncSession, user_id: int, season
     await _write_cached_game_stats(user_id, season_no, game_stats)
     return game_stats
 
-
-async def warm_user_game_stats_cache_for_users(session: AsyncSession, user_ids: Iterable[int | str]) -> None:
-    ids = _normalize_user_ids(user_ids)
-    if not ids:
-        return
-
-    starts = get_cached_settings().season_start_game_numbers
-    current_season = max(1, len(starts))
-    seasons: list[int | None] = [None, current_season]
-
-    for uid in ids:
-        for season in seasons:
-            try:
-                game_stats = await _compute_user_game_stats(session, uid, season)
-                await _write_cached_game_stats(uid, season, game_stats)
-            except Exception:
-                log.warning("user_stats_cache.warm_failed", user_id=uid, season=season if season is not None else "all")

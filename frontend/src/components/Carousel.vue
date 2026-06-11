@@ -103,7 +103,6 @@ import imageSlide2 from '@/assets/images/carousel-image2.png'
 import imageSlide3 from '@/assets/images/carousel-image3.png'
 import imageSlide4 from '@/assets/images/carousel-image4.png'
 import imageSlide5 from '@/assets/images/carousel-image5.png'
-import iconJudge from '@/assets/svg/iconJudge.svg'
 
 const AUTOPLAY_DELAY_MS = 10000
 const SLIDE_COUNT = 5

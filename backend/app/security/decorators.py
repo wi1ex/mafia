@@ -155,31 +155,6 @@ def log_route(name: str):
     return deco
 
 
-def require_roles_deco(*roles: str):
-    def deco(fn):
-        if not asyncio.iscoroutinefunction(fn):
-            raise TypeError("require_roles_deco может оборачивать только async-функции")
-
-        sig = inspect.signature(fn)
-        need_inject = "ident" not in sig.parameters
-
-        @functools.wraps(fn)
-        async def wrap(*args, **kwargs):
-            _ensure_identity_has_roles(kwargs.get("ident"), roles)
-            return await fn(*args, **kwargs)
-
-        if need_inject:
-            params = list(sig.parameters.values()) + [inspect.Parameter("ident", kind=inspect.Parameter.KEYWORD_ONLY, default=Depends(get_identity))]
-            wrap.__signature__ = sig.replace(parameters=params)
-        else:
-            wrap.__signature__ = sig
-
-        _mark_route_guard(wrap, "require_roles_deco")
-        return wrap
-
-    return deco
-
-
 def require_roles_dep(*roles: str):
     async def dep(ident: Identity = Depends(get_identity)) -> Identity:
         return _ensure_identity_has_roles(ident, roles)

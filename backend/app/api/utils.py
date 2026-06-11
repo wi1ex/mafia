@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.clients import get_redis
 from ..core.db import SessionLocal, get_session
 from ..core.logging import log_action
-from ..core.roles import ROLE_ADMIN, ROLE_USER, admin_users_role_sort_value, normalize_user_role, room_moderation_role
+from ..core.roles import ROLE_ADMIN, ROLE_USER, normalize_user_role, room_moderation_role
 from ..core.settings import settings
 from ..models.game import Game
 from ..models.room import Room
@@ -42,7 +42,7 @@ from ..services.nickname_limits import (
 from ..services.telegram import send_text_message
 from ..schemas.common import Ok, Identity
 if TYPE_CHECKING:
-    from ..schemas.admin import SiteSettingsOut, GameSettingsOut, PublicSettingsOut, RegistrationsPoint, AdminRoomUserStat, AdminSanctionOut, AdminSanctionDurationAdjustIn, AdminGameActionFieldOut
+    from ..schemas.admin import SiteSettingsOut, GameSettingsOut, PublicSettingsOut, RegistrationsPoint, AdminRoomUserStat, AdminSanctionDurationAdjustIn, AdminGameActionFieldOut
     from ..schemas.room import GameParams
     from ..schemas.user import UserGamesHistoryOut, GameHistoryItemOut, GameHistoryHostOut, UserMiniProfileNominationStatsOut, UserStatsOut
 
@@ -97,7 +97,6 @@ __all__ = [
     "fetch_active_rooms_stats",
     "fetch_online_user_ids",
     "fetch_effective_online_user_ids",
-    "fetch_user_avatar_map",
     "fetch_user_name_avatar_maps",
     "collect_room_user_ids",
     "parse_room_game_params",
@@ -110,11 +109,8 @@ __all__ = [
     "active_room_game_number",
     "fetch_active_room_game_numbers",
     "aggregate_user_room_time_stats",
-    "aggregate_user_room_stats",
-    "aggregate_user_games_in_owned_rooms_stats",
     "build_user_mini_profile_nomination_stats_out",
     "build_user_stats_out",
-    "fetch_users_last_game_at",
     "fetch_users_last_room_id",
     "fetch_users_last_spectator_room_id",
     "normalize_users_sort",
@@ -122,7 +118,6 @@ __all__ = [
     "fetch_friends_count_for_users",
     "build_admin_mini_profile_friends",
     "fetch_sanction_counts_for_users",
-    "admin_role_sort_key",
     "admin_username_sort_key",
     "user_sort_metric",
     "moderation_user_sort_metric",
@@ -136,7 +131,6 @@ __all__ = [
     "fetch_active_sanctions_by_telegram",
     "fetch_sanctions_for_users",
     "pick_active_sanction_kind",
-    "build_admin_sanction_out",
     "sanction_status",
     "sanction_finished_at",
     "sanction_served_seconds",
@@ -672,10 +666,6 @@ def admin_username_sort_key(raw: Any) -> tuple[int, tuple[tuple[int, int, int], 
     return lead_group, tuple(chars)
 
 
-def admin_role_sort_key(role: Any) -> tuple[int, str]:
-    return admin_users_role_sort_value(role)
-
-
 async def fetch_friends_count_for_users(session: AsyncSession, ids: list[int]) -> dict[int, int]:
     friends_count: dict[int, int] = {uid: 0 for uid in ids}
     if not ids:
@@ -940,27 +930,6 @@ async def fetch_sanctions_for_users(session: AsyncSession, user_ids: Iterable[in
         out.setdefault(uid, []).append(row)
 
     return out
-
-
-def build_admin_sanction_out(row: UserSanction) -> AdminSanctionOut:
-    from ..schemas.admin import AdminSanctionOut
-
-    sid = cast(int, row.id)
-    issued_by_id = cast(int, row.issued_by_id) if row.issued_by_id is not None else None
-    revoked_by_id = cast(int, row.revoked_by_id) if row.revoked_by_id is not None else None
-    return AdminSanctionOut(
-        id=sid,
-        kind=str(row.kind),
-        reason=row.reason or None,
-        issued_at=row.issued_at,
-        issued_by_id=issued_by_id,
-        issued_by_name=row.issued_by_name,
-        duration_seconds=row.duration_seconds,
-        expires_at=row.expires_at,
-        revoked_at=row.revoked_at,
-        revoked_by_id=revoked_by_id,
-        revoked_by_name=row.revoked_by_name,
-    )
 
 
 def sanction_adjust_notification(kind: str, action: str, duration_label: str, remaining_label: str | None) -> tuple[str, str]:
@@ -4190,18 +4159,6 @@ async def emit_room_role_sync(user_id: int, *, role: str | None = None) -> None:
             )
 
 
-async def fetch_user_avatar_map(session: AsyncSession, user_ids: set[int]) -> dict[int, str | None]:
-    avatar_map: dict[int, str | None] = {}
-    if not user_ids:
-        return avatar_map
-
-    profiles = await get_user_profiles_cached(session, user_ids)
-    for uid, profile in profiles.items():
-        avatar_map[int(uid)] = profile.get("avatar_name")
-
-    return avatar_map
-
-
 async def fetch_user_name_avatar_maps(session: AsyncSession, user_ids: set[int]) -> tuple[dict[int, str | None], dict[int, str | None]]:
     name_map: dict[int, str | None] = {}
     avatar_map: dict[int, str | None] = {}
@@ -4600,59 +4557,6 @@ async def fetch_live_room_stats(r, room_ids: list[int]) -> dict[int, dict[str, A
     return out
 
 
-async def aggregate_user_room_stats(session: AsyncSession, ids: list[int]) -> tuple[dict[int, int], dict[int, int], dict[int, int], dict[int, int], dict[int, int], dict[int, int]]:
-    rooms_created, room_seconds, stream_seconds, spectator_seconds = await aggregate_user_room_time_stats(session, ids)
-    games_played: dict[int, int] = {uid: 0 for uid in ids}
-    games_hosted: dict[int, int] = {uid: 0 for uid in ids}
-
-    if not ids:
-        return rooms_created, room_seconds, stream_seconds, spectator_seconds, games_played, games_hosted
-
-    id_strs = [str(i) for i in ids]
-    scan_all = len(ids) > 200
-    id_set = set(ids)
-
-    if scan_all:
-        rows = await session.execute(select(Game.roles))
-        for roles_map in rows.scalars().all():
-            if not isinstance(roles_map, dict):
-                continue
-            for k in roles_map.keys():
-                try:
-                    uid = int(k)
-                except Exception:
-                    continue
-                if uid in id_set:
-                    games_played[uid] += 1
-    else:
-        role_filters = [Game.roles.has_key(i) for i in id_strs]
-        rows = await session.execute(select(Game.roles).where(or_(*role_filters)))
-        for roles_map in rows.scalars().all():
-            if not isinstance(roles_map, dict):
-                continue
-            for k in roles_map.keys():
-                try:
-                    uid = int(k)
-                except Exception:
-                    continue
-                if uid in id_set:
-                    games_played[uid] += 1
-
-    host_rows = await session.execute(select(Game.head_id, func.count(Game.id)).where(Game.head_id.in_(ids)).group_by(Game.head_id))
-    for head_id, cnt in host_rows.all():
-        try:
-            hid = int(head_id)
-        except Exception:
-            continue
-        if hid in games_hosted:
-            try:
-                games_hosted[hid] = int(cnt or 0)
-            except Exception:
-                continue
-
-    return rooms_created, room_seconds, stream_seconds, spectator_seconds, games_played, games_hosted
-
-
 async def _fetch_users_last_room_activity_id(session: AsyncSession, ids: list[int], *, room_column: Any, live_key: str, log_event: str) -> dict[int, int | None]:
     out: dict[int, int | None] = {uid: None for uid in ids}
     if not ids:
@@ -4718,94 +4622,6 @@ async def fetch_users_last_spectator_room_id(session: AsyncSession, ids: list[in
         live_key="spectators",
         log_event="users_last_spectator_room.live_fetch_failed",
     )
-
-
-def _season_game_id_bounds_or_raise(season: int | None) -> tuple[int | None, int | None]:
-    if season is None:
-        return None, None
-
-    try:
-        season_no = int(season)
-    except Exception as exc:
-        raise ValueError("season_invalid") from exc
-    if season_no < 1:
-        raise ValueError("season_invalid")
-
-    from ..security.parameters import get_cached_settings
-
-    starts = tuple(int(v) for v in get_cached_settings().season_start_game_numbers if int(v) > 0)
-    if not starts:
-        starts = (1,)
-    if season_no > len(starts):
-        raise ValueError("season_not_found")
-
-    start_id = int(starts[season_no - 1])
-    end_id: int | None = int(starts[season_no] - 1) if season_no < len(starts) else None
-    return start_id, end_id
-
-
-async def aggregate_user_games_in_owned_rooms_stats(session: AsyncSession, ids: list[int], season: int | None = None) -> dict[int, int]:
-    games_in_owned_rooms: dict[int, int] = {uid: 0 for uid in ids}
-    if not ids:
-        return games_in_owned_rooms
-
-    start_id, end_id = _season_game_id_bounds_or_raise(season)
-
-    games_q = select(Game.room_owner_id, func.count(Game.id)).where(Game.room_owner_id.in_(ids))
-    if start_id is not None:
-        games_q = games_q.where(Game.id >= start_id)
-    if end_id is not None and end_id > 0:
-        games_q = games_q.where(Game.id <= end_id)
-    games_q = games_q.group_by(Game.room_owner_id)
-    rows = await session.execute(games_q)
-    for owner_id, cnt in rows.all():
-        try:
-            uid = int(owner_id)
-            games_in_owned_rooms[uid] = max(0, int(cnt or 0))
-        except Exception:
-            continue
-
-    return games_in_owned_rooms
-
-
-async def fetch_users_last_game_at(session: AsyncSession, ids: list[int]) -> dict[int, datetime | None]:
-    out: dict[int, datetime | None] = {uid: None for uid in ids}
-    if not ids:
-        return out
-
-    id_set = set(ids)
-    pending = set(ids)
-    id_strs = [str(i) for i in ids]
-    scan_all = len(ids) > 200
-
-    if scan_all:
-        rows = await session.execute(select(Game.roles, Game.finished_at).order_by(Game.finished_at.desc(), Game.id.desc()))
-    else:
-        role_filters = [Game.roles.has_key(i) for i in id_strs]
-        rows = await session.execute(
-            select(Game.roles, Game.finished_at)
-            .where(or_(*role_filters))
-            .order_by(Game.finished_at.desc(), Game.id.desc())
-        )
-
-    for roles_map, finished_at in rows.all():
-        if not pending:
-            break
-        if not isinstance(roles_map, dict):
-            continue
-        if finished_at is None:
-            continue
-        for raw_uid in roles_map.keys():
-            try:
-                uid = int(raw_uid)
-            except Exception:
-                continue
-            if uid not in id_set or uid not in pending:
-                continue
-            out[uid] = finished_at
-            pending.remove(uid)
-
-    return out
 
 
 async def aggregate_user_room_time_stats(session: AsyncSession, ids: list[int], season: int | None = None) -> tuple[dict[int, int], dict[int, int], dict[int, int], dict[int, int]]:

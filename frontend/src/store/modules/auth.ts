@@ -181,11 +181,10 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function clearSession() {
-    const prev = sessionId.value
     sessionId.value = ''
     setAuthHeader('')
     stopAuthSocket()
-    clearSid(prev)
+    clearSid()
     unbindBus()
     stopSessionBus()
     foreign.value = isForeignActive()

@@ -257,7 +257,7 @@ export function setSid(sid: string): void {
   startHeartbeat()
 }
 
-export function clearSid(prevSid?: string): void {
+export function clearSid(): void {
   currentSid = ''
   writeSid('')
   const lock = readLock()

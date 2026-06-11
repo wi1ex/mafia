@@ -29,7 +29,7 @@ from ..core.roles import (
 from ..realtime.sio import sio
 from ..security.parameters import get_cached_settings
 from ..api.utils import is_user_in_active_game
-from ..services.minio import CHAT_IMAGE_PREFIX, delete_object_async, object_exists_async, validate_chat_image_object_async
+from ..services.minio import CHAT_IMAGE_PREFIX, delete_object_async, validate_chat_image_object_async
 from ..services.user_cache import get_user_profiles_cached
 
 log = structlog.get_logger()
@@ -782,18 +782,6 @@ def _alert_sort_value(raw: object) -> float:
     return value.timestamp()
 
 
-async def get_global_chat_last_seen_message_id(session: AsyncSession, *, user_id: int) -> int:
-    uid = _positive_int(user_id)
-    if uid <= 0:
-        return 0
-
-    row = await session.get(GlobalChatReadState, uid)
-    if row is None:
-        return 0
-
-    return _positive_int(row.last_seen_message_id)
-
-
 async def _ensure_global_chat_read_state(session: AsyncSession, *, user_id: int) -> GlobalChatReadState | None:
     uid = _positive_int(user_id)
     if uid <= 0:
@@ -1236,10 +1224,6 @@ async def emit_global_chat_unread_states(user_ids: Sequence[int]) -> None:
         await emit_global_chat_unread_state(uid)
 
 
-async def emit_global_chat_unread_counts(user_ids: Sequence[int]) -> None:
-    await emit_global_chat_unread_states(user_ids)
-
-
 async def emit_global_chat_permissions_updated(user_id: int) -> None:
     uid = _positive_int(user_id)
     if uid <= 0:
@@ -1334,15 +1318,6 @@ def ensure_global_chat_image_owned_by_user(user_id: int, key: str | None) -> Non
 
     if not is_global_chat_image_owned_by_user(user_id, key):
         raise ValueError("forbidden_image_owner")
-
-
-async def ensure_global_chat_image_exists(key: str | None) -> None:
-    if not key:
-        return
-
-    exists = await object_exists_async(key)
-    if not exists:
-        raise ValueError("image_not_found")
 
 
 async def serialize_global_chat_messages(session: AsyncSession, messages: Sequence[GlobalChatMessage], *, viewer_user_id: int | None, viewer_permissions: GlobalChatPermissions | None = None) -> list[dict[str, Any]]:
@@ -2107,17 +2082,6 @@ async def build_global_chat_message_payload(session: AsyncSession, *, message_id
         viewer_permissions=viewer_permissions,
     )
     return payloads[0] if payloads else None
-
-
-async def build_global_chat_reactions_payload(session: AsyncSession, *, message_id: int, viewer_user_id: int | None) -> dict[str, Any] | None:
-    payload = await build_global_chat_message_payload(session, message_id=message_id, viewer_user_id=viewer_user_id)
-    if payload is None:
-        return None
-
-    return {
-        "message_id": int(payload["id"]),
-        "reactions": payload["reactions"],
-    }
 
 
 async def is_global_chat_image_referenced(session: AsyncSession, key: str | None) -> bool:

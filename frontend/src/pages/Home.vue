@@ -22,7 +22,7 @@
         <span>Пока нет комнат...</span>
       </div>
 
-      <div v-else class="list" ref="listEl">
+      <div v-else class="list">
         <div class="list-header">
           <span>Статус</span>
           <span>Название</span>
@@ -52,7 +52,7 @@
       </div>
     </div>
 
-    <div class="right-column" ref="rightEl">
+    <div class="right-column">
       <aside class="right" :aria-live="selectedId ? 'polite' : 'off'" @pointerdown.self="selArmed = true"
              @pointerup.self="selArmed && clearSelection()" @pointerleave.self="selArmed = false" @pointercancel.self="selArmed = false">
         <Transition name="room-panel" mode="out-in">
@@ -313,8 +313,6 @@ const canAdminSpectateRoom = computed(() => {
 
 const roomsMap = reactive(new Map<number, Room>())
 const sio = ref<Socket | null>(null)
-const listEl = ref<HTMLElement | null>(null)
-const rightEl = ref<HTMLElement | null>(null)
 const suppressedAutoselect = ref(true)
 
 const selArmed = ref(false)

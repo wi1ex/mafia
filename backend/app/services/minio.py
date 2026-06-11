@@ -514,42 +514,6 @@ async def get_prefix_storage_stats_async(prefix: str) -> tuple[int, int]:
     return await asyncio.to_thread(get_prefix_storage_stats, prefix)
 
 
-def presign_put_key(key: str, *, expires_minutes: int = 15) -> tuple[str, int]:
-    minio_pub = get_minio_public()
-    try:
-        url = minio_pub.presigned_put_object(bucket_name=_bucket, object_name=key, expires=timedelta(minutes=expires_minutes))
-        return url, int(expires_minutes * 60)
-
-    except S3Error as e:
-        log.error("media.presign_put.s3_error", code=e.code, key=key)
-        raise
-
-    except Exception:
-        log.exception("media.presign_put.unexpected", key=key)
-        raise
-
-
-async def presign_put_key_async(key: str, *, expires_minutes: int = 15) -> tuple[str, int]:
-    return await asyncio.to_thread(presign_put_key, key, expires_minutes=expires_minutes)
-
-
-def object_exists(key: str) -> bool:
-    minio = get_minio_private()
-    try:
-        minio.stat_object(bucket_name=_bucket, object_name=key)
-        return True
-
-    except S3Error as e:
-        if e.code in {"NoSuchKey", "NoSuchObject"}:
-            return False
-
-        raise
-
-
-async def object_exists_async(key: str) -> bool:
-    return await asyncio.to_thread(object_exists, key)
-
-
 def delete_object(key: str) -> None:
     minio = get_minio_private()
     try:
