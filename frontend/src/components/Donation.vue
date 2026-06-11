@@ -30,12 +30,12 @@
                 @click="openLavaForm"
               >
                 <div class="site-title">
-                  <span class="lava-logo">Lava</span>
+                  <img :src="iconLavaTop" alt="tribute" class="site-logo" />
                   <UiIcon class="arrow-icon" :icon="iconArrowNext" />
                 </div>
                 <div class="site-copy">
                   <span class="site-name">Lava.top</span>
-                  <span class="site-note">Подписка и промокод</span>
+                  <span class="site-note">Оплатить подписку</span>
                 </div>
               </button>
 
@@ -52,7 +52,7 @@
                 </div>
                 <div class="site-copy">
                   <span class="site-name">Tribute</span>
-                  <span class="site-note">Сервис поддержки в Telegram</span>
+                  <span class="site-note">Отправить донат</span>
                 </div>
               </a>
             </div>
@@ -141,6 +141,7 @@ import { useAuthStore } from '@/store'
 import iconClose from '@/assets/svg/iconClose.svg'
 import iconArrowNext from '@/assets/svg/iconArrowNext.svg'
 import iconTribute from '@/assets/images/donateTribute.png'
+import iconLavaTop from '@/assets/images/donateLavaTop.png'
 
 const props = defineProps<{
   open: boolean
@@ -523,16 +524,6 @@ onBeforeUnmount(() => {
             justify-content: space-between;
             .site-logo {
               height: 40px;
-            }
-            .lava-logo {
-              display: inline-flex;
-              align-items: center;
-              height: 40px;
-              color: $green-600;
-              font-family: Hauora-Bold;
-              font-size: 22px;
-              line-height: 24px;
-              letter-spacing: 0;
             }
             .arrow-icon {
               --ui-icon-width: 20px;
