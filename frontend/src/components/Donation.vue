@@ -165,7 +165,7 @@ const lavaBusy = ref(false)
 const lavaFormOpen = ref(false)
 const lavaEmailStorageKey = 'lava:buyerEmail'
 const emailRe = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$/i
-const promoCodeRe = /^[A-Za-z0-9_-]{3,36}$/
+const promoCodeRe = /^[A-Z0-9_-]{3,36}$/
 
 type LavaPlan = 'month' | 'year'
 type LavaCurrency = 'RUB' | 'USD' | 'EUR'
@@ -299,7 +299,7 @@ function normalizedLavaEmail(): string | null {
 function normalizedPromoCode(): string | null {
   const promoCode = lavaForm.value.promo_code.trim()
   if (promoCode && !promoCodeRe.test(promoCode)) {
-    void alertDialog('Промокод должен быть от 3 до 36 символов: латиница, цифры, "-" или "_"')
+    void alertDialog('Промокод должен быть от 3 до 36 символов: заглавные латинские буквы A-Z, цифры 0-9, "-" или "_"')
     return null
   }
 
@@ -353,14 +353,39 @@ async function onLavaPay(): Promise<void> {
     const st = Number(e?.response?.status || 0)
     const detail = String(e?.response?.data?.detail || '')
     if (st === 401) void alertDialog('Войдите в аккаунт перед оплатой')
+    else if (st === 422 && detail === 'lava_email_required') void alertDialog('Введите email для отправки чека и оформления платежа')
     else if (st === 422 && detail === 'lava_email_invalid') void alertDialog('Введите корректный email')
-    else if (st === 422 && detail === 'lava_promo_code_invalid') void alertDialog('Проверьте промокод')
+    else if (st === 422 && detail === 'lava_email_rejected') void alertDialog('Сервис не принял этот email. Проверьте адрес или попробуйте другой')
+    else if (st === 422 && detail === 'lava_promo_code_invalid') void alertDialog('Промокод должен содержать только заглавные латинские буквы, цифры, "-" или "_"')
     else if (st === 422 && detail === 'lava_promo_code_usage_limit_exceeded') void alertDialog('Лимит использования промокода исчерпан')
-    else if (st === 422 && detail === 'lava_promo_code_rejected') void alertDialog('Lava не приняла промокод для выбранных параметров')
-    else if (st === 422 && detail.startsWith('lava_payment_')) void alertDialog('Выберите другой способ оплаты')
+    else if (st === 422 && detail === 'lava_promo_code_rejected') void alertDialog('Сервис не принял промокод для выбранного тарифа или валюты')
+    else if (st === 422 && detail === 'lava_currency_rejected') void alertDialog('Сервис не принял выбранную валюту. Выберите другую валюту')
+    else if (st === 422 && detail === 'lava_currency_invalid') void alertDialog('Выбрана неподдерживаемая валюта')
+    else if (st === 422 && detail === 'lava_plan_invalid') void alertDialog('Выбран неподдерживаемый тариф подписки')
+    else if (st === 422 && detail === 'lava_payment_method_rejected') void alertDialog('Сервис не принял выбранный способ оплаты. Выберите другой способ')
+    else if (st === 422 && detail === 'lava_payment_provider_invalid') void alertDialog('Выбран неподдерживаемый платежный провайдер')
+    else if (st === 422 && detail === 'lava_payment_method_invalid') void alertDialog('Выбран неподдерживаемый способ оплаты')
+    else if (st === 422 && detail === 'lava_payment_method_required') void alertDialog('Выберите способ оплаты')
+    else if (st === 422 && detail === 'lava_payment_method_unsupported') void alertDialog('Выбранный способ оплаты недоступен для этой валюты')
+    else if (st === 422 && detail === 'lava_request_rejected') void alertDialog('Сервис отклонил параметры платежа. Проверьте тариф, валюту и промокод')
+    else if (st === 429 && detail === 'lava_rate_limited') void alertDialog('Сервис временно ограничил частоту запросов. Повторите попытку позже')
+    else if (st === 503 && detail === 'lava_offer_not_found') void alertDialog('Тариф сервиса не найден. Сообщите администратору')
+    else if (st === 503 && detail === 'lava_api_unauthorized') void alertDialog('Оплата сервиса настроена неверно: API-ключ не принят')
+    else if (st === 503 && detail === 'lava_service_unavailable') void alertDialog('Сервис временно недоступен. Повторите попытку позже')
+    else if (st === 503 && detail === 'lava_product_missing') void alertDialog('Оплата сервиса не настроена: не указан продукт')
+    else if (st === 503 && detail === 'lava_api_key_missing') void alertDialog('Оплата сервиса не настроена: не указан API-ключ')
+    else if (st === 503 && detail === 'lava_monthly_offer_missing') void alertDialog('Оплата сервиса не настроена: не указан месячный тариф')
+    else if (st === 503 && detail === 'lava_yearly_offer_missing') void alertDialog('Оплата сервиса не настроена: не указан годовой тариф')
+    else if (st === 502 && detail === 'lava_contract_id_missing') void alertDialog('Сервис создал платеж без номера договора. Повторите попытку позже')
+    else if (st === 502 && detail === 'lava_payment_url_missing') void alertDialog('Сервис не вернул ссылку на оплату. Повторите попытку позже')
+    else if (st === 502 && detail === 'lava_invoice_invalid_response') void alertDialog('Сервис вернул некорректный ответ. Повторите попытку позже')
+    else if (st === 502 && detail === 'lava_invoice_request_failed') void alertDialog('Не удалось подключиться к сервису. Повторите попытку позже')
+    else if (st === 502 && detail === 'lava_invoice_failed') void alertDialog('Сервис отклонил создание платежа. Проверьте параметры или повторите попытку позже')
+    else if (st === 502 && detail === 'lava_free_invoice_not_processed') void alertDialog('Платеж без оплаты создан, но подписка не активировалась. Сообщите администратору')
+    else if (st === 504 && detail === 'lava_invoice_timeout') void alertDialog('Сервис не ответил вовремя. Повторите попытку позже')
+    else if (st === 503 && detail.startsWith('lava_')) void alertDialog('Оплата сервиса пока не настроена')
     else if (st === 422 && detail.startsWith('lava_')) void alertDialog('Проверьте параметры оплаты')
-    else if (st === 503 && detail.startsWith('lava_')) void alertDialog('Оплата Lava пока не настроена')
-    else void alertDialog('Не удалось открыть оплату Lava')
+    else void alertDialog('Не удалось открыть оплату сервиса')
   } finally {
     lavaBusy.value = false
   }

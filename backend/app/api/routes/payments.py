@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from secrets import compare_digest, token_urlsafe
 from typing import Any
-from urllib.parse import parse_qsl, urlsplit
+from urllib.parse import urlsplit
 import httpx
 import structlog
 from fastapi import APIRouter, Body, Depends, Header, HTTPException, Request
@@ -58,15 +58,21 @@ LAVA_MONTHS_BY_PLAN = {
     LAVA_MONTH_PLAN: 1,
     LAVA_YEAR_PLAN: 12,
 }
-LAVA_INTENT_CONTRACT_PREFIX = "intent:"
 LAVA_TRACKING_TOKEN_PREFIX = "lv_"
 TRACKING_TOKEN_RE = re.compile(r"^lv_[A-Za-z0-9_-]{24,96}$")
 EMAIL_RE = re.compile(r"^[^@\s]{1,64}@[^@\s]{1,190}\.[^@\s]{2,}$")
-PROMO_CODE_RE = re.compile(r"^[A-Za-z0-9_-]{3,36}$")
+PROMO_CODE_RE = re.compile(r"^[A-Z0-9_-]{3,36}$")
 LAVA_PROMO_REJECTION_RE = re.compile(r"promo|promocode|coupon|discount|промо|скид", re.I)
-LAVA_PROMO_USAGE_LIMIT_RE = re.compile(r"usage\s+limit\s+exceeded", re.I)
-FAILURE_MARKERS = ("fail", "cancel", "refund", "chargeback", "revers")
-SUCCESS_MARKERS = ("success", "paid", "complete", "completed", "succeed")
+LAVA_PROMO_USAGE_LIMIT_RE = re.compile(r"usage\s+limit|limit.*exceed|лимит|исчерпан", re.I)
+LAVA_PAYMENT_SUCCESS_EVENT = "payment.success"
+LAVA_PAYMENT_FAILED_EVENT = "payment.failed"
+LAVA_PAYMENT_FAILED_STATUSES = {"failed", "cancelled", "refunded", "chargeback"}
+LAVA_IGNORED_EVENTS = {
+    "subscription.recurring.payment.success",
+    "subscription.recurring.payment.failed",
+    "subscription.cancelled",
+}
+LAVA_LOG_ACTION = "lava_payment"
 
 
 def _clean(value: object, *, max_len: int | None = None) -> str:
@@ -75,10 +81,6 @@ def _clean(value: object, *, max_len: int | None = None) -> str:
         return text[:max_len]
 
     return text
-
-
-def _normalize_key(value: object) -> str:
-    return re.sub(r"[^a-z0-9]", "", str(value or "").lower())
 
 
 def _normalize_status(value: object) -> str:
@@ -91,6 +93,128 @@ def _json_dumps(payload: Any) -> str:
 
     except Exception:
         return "{}"
+
+
+def _log_value(value: object) -> str:
+    if value is None or value == "":
+        return "-"
+
+    if isinstance(value, datetime):
+        return value.isoformat()
+
+    text = str(value).replace("\n", " ").strip()
+    return text or "-"
+
+
+def _log_details(event: str, **fields: object) -> str:
+    parts = [f"event={event}"]
+    parts.extend(f"{key}={_log_value(value)}" for key, value in fields.items())
+    return " ".join(parts)
+
+
+async def _log_lava_event(session: AsyncSession, *, event: str, user_id: int | None, username: str | None, commit: bool = True, **fields: object) -> None:
+    await log_action(
+        session,
+        user_id=user_id,
+        username=username,
+        action=LAVA_LOG_ACTION,
+        details=_log_details(event, **fields),
+        commit=commit,
+    )
+
+
+def _user_log_username(user: User, fallback: object = None) -> str:
+    return str(user.username or fallback or f"user{user.id}")
+
+
+def _payment_log_username(payment: LavaPayment) -> str | None:
+    return f"user{payment.user_id}" if payment.user_id else None
+
+
+def _webhook_log_fields(payment: LavaPayment, *, contract_id: str, event_type: str, status_value: str, **extra: object) -> dict[str, object]:
+    return {
+        "contract_id": contract_id,
+        "lava_event": event_type,
+        "status": status_value,
+        "amount": payment.amount,
+        "currency": payment.currency,
+        "product_id": payment.product_id,
+        "product_title": payment.product_title,
+        **extra,
+    }
+
+
+def _flatten_text(value: object) -> str:
+    if value is None:
+        return ""
+
+    if isinstance(value, str):
+        return value
+
+    if isinstance(value, dict):
+        return " ".join(_flatten_text(item) for item in value.values())
+
+    if isinstance(value, list):
+        return " ".join(_flatten_text(item) for item in value)
+
+    return str(value)
+
+
+def _lava_error_text(response: httpx.Response) -> str:
+    try:
+        data = response.json()
+    except ValueError:
+        data = None
+
+    if isinstance(data, dict):
+        return _flatten_text(
+            [
+                data.get("error"),
+                data.get("message"),
+                data.get("description"),
+                data.get("details"),
+            ]
+        ).strip()
+
+    return response.text[:1000]
+
+
+def _lava_invoice_error_detail(response: httpx.Response, *, has_promo_code: bool) -> str:
+    text = _lava_error_text(response)
+    normalized = text.lower()
+
+    if has_promo_code:
+        if LAVA_PROMO_USAGE_LIMIT_RE.search(text):
+            return "lava_promo_code_usage_limit_exceeded"
+
+        if LAVA_PROMO_REJECTION_RE.search(text):
+            return "lava_promo_code_rejected"
+
+    if response.status_code in {401, 403}:
+        return "lava_api_unauthorized"
+
+    if response.status_code == 404 or "offer" in normalized and "not found" in normalized:
+        return "lava_offer_not_found"
+
+    if response.status_code == 429:
+        return "lava_rate_limited"
+
+    if response.status_code in {400, 422}:
+        if "email" in normalized:
+            return "lava_email_rejected"
+
+        if "currency" in normalized:
+            return "lava_currency_rejected"
+
+        if "payment" in normalized and ("method" in normalized or "provider" in normalized):
+            return "lava_payment_method_rejected"
+
+        return "lava_request_rejected"
+
+    if response.status_code >= 500:
+        return "lava_service_unavailable"
+
+    return "lava_invoice_failed"
 
 
 def _decimal_or_none(value: object) -> Decimal | None:
@@ -108,245 +232,71 @@ def _is_zero_amount(value: Decimal | None) -> bool:
     return value is not None and value == Decimal("0")
 
 
-def _iter_dicts(value: Any):
-    if isinstance(value, dict):
-        yield value
-
-        for nested in value.values():
-            yield from _iter_dicts(nested)
-
-    elif isinstance(value, list):
-        for item in value:
-            yield from _iter_dicts(item)
-
-
-def _first_value(payload: dict[str, Any], *keys: str) -> Any:
-    wanted = {_normalize_key(key) for key in keys}
-    for item in _iter_dicts(payload):
-        for key, value in item.items():
-            if _normalize_key(key) in wanted:
-                return value
-
-    return None
-
-
-def _top_first_value(payload: dict[str, Any], *keys: str) -> Any:
-    wanted = {_normalize_key(key) for key in keys}
-    for key, value in payload.items():
-        if _normalize_key(key) in wanted:
-            return value
-
-    return None
-
-
-def _first_dict(payload: dict[str, Any], *keys: str) -> dict[str, Any]:
-    wanted = {_normalize_key(key) for key in keys}
-    for item in _iter_dicts(payload):
-        for key, value in item.items():
-            if _normalize_key(key) in wanted and isinstance(value, dict):
-                return value
-
-    return {}
+def _payload_dict(payload: dict[str, Any], key: str) -> dict[str, Any]:
+    value = payload.get(key)
+    return value if isinstance(value, dict) else {}
 
 
 def _extract_contract_id(payload: dict[str, Any]) -> str:
-    direct = _top_first_value(
-        payload,
-        "contractId",
-        "contract_id",
-        "invoiceId",
-        "invoice_id",
-        "orderId",
-        "order_id",
-        "paymentId",
-        "payment_id",
-        "id",
-    )
-    if direct:
-        return _clean(direct, max_len=128)
-
-    for container_name in ("contract", "invoice", "order", "payment"):
-        container = _first_dict(payload, container_name)
-        if container:
-            value = (
-                container.get("contractId")
-                or container.get("invoiceId")
-                or container.get("orderId")
-                or container.get("paymentId")
-                or container.get("id")
-            )
-            if value:
-                return _clean(value, max_len=128)
-
-    return ""
-
-
-def _extract_parent_contract_id(payload: dict[str, Any]) -> str:
-    return _clean(
-        _first_value(
-            payload,
-            "parentContractId",
-            "parent_contract_id",
-            "parentInvoiceId",
-            "parent_invoice_id",
-            "subscriptionContractId",
-            "subscription_contract_id",
-        ),
-        max_len=128,
-    )
+    return _clean(payload.get("contractId") or payload.get("id"), max_len=128)
 
 
 def _extract_event_type(payload: dict[str, Any]) -> str:
-    return _clean(
-        _top_first_value(payload, "eventType", "event_type", "type", "event"),
-        max_len=128,
-    )
+    return _clean(payload.get("eventType"), max_len=128)
 
 
 def _extract_buyer_email(payload: dict[str, Any]) -> str:
-    buyer = _first_dict(payload, "buyer", "customer", "payer", "user")
-    return _clean(
-        buyer.get("email") or _first_value(payload, "buyerEmail", "customerEmail", "email"),
-        max_len=254,
-    )
+    buyer = _payload_dict(payload, "buyer")
+    return _clean(buyer.get("email"), max_len=254)
 
 
 def _extract_product(payload: dict[str, Any]) -> dict[str, Any]:
-    return _first_dict(payload, "product", "productInfo", "productData")
-
-
-def _extract_offer(payload: dict[str, Any]) -> dict[str, Any]:
-    return _first_dict(payload, "offer", "tariff", "variant", "plan", "subscriptionPlan")
+    return _payload_dict(payload, "product")
 
 
 def _extract_product_id(payload: dict[str, Any]) -> str:
     product = _extract_product(payload)
-    return _clean(
-        product.get("id")
-        or product.get("productId")
-        or _first_value(payload, "productId", "product_id"),
-        max_len=128,
-    )
+    return _clean(product.get("id"), max_len=128)
 
 
 def _extract_product_title(payload: dict[str, Any]) -> str:
     product = _extract_product(payload)
-    return _clean(
-        product.get("title")
-        or product.get("name")
-        or _first_value(payload, "productTitle", "productName"),
-        max_len=256,
-    )
-
-
-def _extract_offer_id(payload: dict[str, Any]) -> str:
-    offer = _extract_offer(payload)
-    return _clean(
-        offer.get("id")
-        or offer.get("offerId")
-        or _first_value(payload, "offerId", "offer_id", "tariffId", "tariff_id", "planId"),
-        max_len=128,
-    )
-
-
-def _extract_offer_title(payload: dict[str, Any]) -> str:
-    offer = _extract_offer(payload)
-    return _clean(
-        offer.get("title")
-        or offer.get("name")
-        or _first_value(payload, "offerTitle", "offerName", "tariffTitle", "planName"),
-        max_len=256,
-    )
+    return _clean(product.get("title"), max_len=256)
 
 
 def _extract_amount_and_currency(payload: dict[str, Any]) -> tuple[Decimal | None, str]:
-    for key in ("amountTotal", "amount_total", "price", "total", "paymentAmount"):
-        amount_obj = _first_value(payload, key)
-        if isinstance(amount_obj, dict):
-            amount = _decimal_or_none(
-                amount_obj.get("amount")
-                or amount_obj.get("value")
-                or amount_obj.get("total")
-                or amount_obj.get("price")
-            )
-            currency = _clean(amount_obj.get("currency"), max_len=3).upper()
-            if amount is not None:
-                return amount, currency or LAVA_CURRENCY
+    amount_total = payload.get("amountTotal")
+    if isinstance(amount_total, dict):
+        amount_value = amount_total.get("amount")
+        if amount_value is None:
+            amount_value = amount_total.get("value")
+        amount = _decimal_or_none(amount_value)
+        currency = _clean(amount_total.get("currency"), max_len=3).upper()
+        if amount is not None:
+            return amount, currency or LAVA_CURRENCY
 
-    amount = _decimal_or_none(
-        _first_value(payload, "amount", "sum", "totalAmount", "paidAmount", "priceAmount")
-    )
-    currency = _clean(_first_value(payload, "currency", "currencyCode"), max_len=3).upper()
+    amount = _decimal_or_none(payload.get("amount"))
+    currency = _clean(payload.get("currency"), max_len=3).upper()
     return amount, currency or LAVA_CURRENCY
 
 
-def _plan_from_offer_id(offer_id: str) -> tuple[str, int, str] | None:
-    offer = _clean(offer_id)
-    monthly_offer_id = _clean(settings.LAVA_MONTHLY_OFFER_ID)
-    yearly_offer_id = _clean(settings.LAVA_YEARLY_OFFER_ID)
-    if offer and monthly_offer_id and offer == monthly_offer_id:
-        return LAVA_MONTH_PLAN, LAVA_MONTHS_BY_PLAN[LAVA_MONTH_PLAN], "offer_id"
-
-    if offer and yearly_offer_id and offer == yearly_offer_id:
-        return LAVA_YEAR_PLAN, LAVA_MONTHS_BY_PLAN[LAVA_YEAR_PLAN], "offer_id"
-
-    return None
+def _normalized_event(value: str) -> str:
+    return _clean(value, max_len=128).lower()
 
 
-def _plan_text_candidates(payload: dict[str, Any], product_title: str, offer_title: str) -> str:
-    parts = [product_title, offer_title]
-    interesting_keys = {
-        "title",
-        "name",
-        "description",
-        "period",
-        "interval",
-        "duration",
-        "frequency",
-        "subscriptionperiod",
-        "billingperiod",
-        "recurringperiod",
-        "plantype",
-        "periodicity",
-        "recurrent",
-    }
-    for item in _iter_dicts(payload):
-        for key, value in item.items():
-            if _normalize_key(key) in interesting_keys and isinstance(value, (str, int, float)):
-                parts.append(str(value))
-    return " ".join(part for part in parts if part).lower()
+def _is_ignored_lava_event(event_type: str) -> bool:
+    return _normalized_event(event_type) in LAVA_IGNORED_EVENTS
 
 
-def _plan_from_text(text: str) -> tuple[str, int, str] | None:
-    if re.search(r"год(овая|овой|овую|а|ом)?|year|annual|12\s*(мес|month)", text, re.I):
-        return LAVA_YEAR_PLAN, LAVA_MONTHS_BY_PLAN[LAVA_YEAR_PLAN], "text"
-
-    if re.search(r"месяц|месяч|month|monthly|1\s*(мес|month)|30\s*(дн|day)", text, re.I):
-        return LAVA_MONTH_PLAN, LAVA_MONTHS_BY_PLAN[LAVA_MONTH_PLAN], "text"
-
-    return None
-
-
-def _resolve_payment_plan(payload: dict[str, Any], *, payment: LavaPayment, offer_id: str, product_title: str, offer_title: str) -> tuple[str, int, str] | None:
-    if payment.plan in LAVA_MONTHS_BY_PLAN and int(payment.subscription_months or 0) > 0:
-        return payment.plan, int(payment.subscription_months), "stored"
-
+def _is_lava_payment_failure(event_type: str, status_value: str) -> bool:
     return (
-        _plan_from_offer_id(offer_id)
-        or _plan_from_text(_plan_text_candidates(payload, product_title, offer_title))
+        _normalized_event(event_type) == LAVA_PAYMENT_FAILED_EVENT
+        or _normalize_status(status_value) in LAVA_PAYMENT_FAILED_STATUSES
     )
 
 
-def _is_failure(event_type: str, status_value: str) -> bool:
-    text = f"{event_type} {status_value}".lower()
-    return any(marker in text for marker in FAILURE_MARKERS)
-
-
-def _is_success(event_type: str, status_value: str) -> bool:
-    text = f"{event_type} {status_value}".lower()
-    return not _is_failure(event_type, status_value) and any(
-        marker in text for marker in SUCCESS_MARKERS
-    )
+def _is_lava_payment_success(event_type: str, status_value: str) -> bool:
+    return _normalized_event(event_type) == LAVA_PAYMENT_SUCCESS_EVENT
 
 
 def _configured_product_url() -> str:
@@ -434,12 +384,7 @@ def _normalize_promo_code(value: object) -> str:
     return promo_code
 
 
-def _ensure_payment_method_supported(
-    *,
-    currency: str,
-    payment_provider: str,
-    payment_method: str,
-) -> None:
+def _ensure_payment_method_supported(*, currency: str, payment_provider: str, payment_method: str) -> None:
     if not payment_provider or not payment_method:
         raise HTTPException(status_code=422, detail="lava_payment_method_required")
 
@@ -497,17 +442,7 @@ def _invoice_client_utm(*, token: str, user_id: int) -> dict[str, str]:
     }
 
 
-def _invoice_request_payload(
-    *,
-    email: str,
-    offer_id: str,
-    currency: str,
-    payment_provider: str,
-    payment_method: str,
-    promo_code: str,
-    token: str,
-    user_id: int,
-) -> dict[str, Any]:
+def _invoice_request_payload(*, email: str, offer_id: str, currency: str, payment_provider: str, payment_method: str, promo_code: str, token: str, user_id: int) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "email": email,
         "offerId": offer_id,
@@ -550,23 +485,26 @@ async def _create_lava_invoice(payload: dict[str, Any]) -> dict[str, Any]:
         raise HTTPException(status_code=502, detail="lava_invoice_request_failed") from exc
 
     if response.status_code < 200 or response.status_code >= 300:
-        body = response.text[:1000]
+        body = _lava_error_text(response)[:1000]
+        detail = _lava_invoice_error_detail(
+            response,
+            has_promo_code=bool(payload.get("promoCode")),
+        )
         log.warning(
             "lava.invoice.bad_status",
             status_code=response.status_code,
             body=body,
+            detail=detail,
         )
-        if payload.get("promoCode"):
-            if LAVA_PROMO_USAGE_LIMIT_RE.search(body):
-                raise HTTPException(
-                    status_code=422,
-                    detail="lava_promo_code_usage_limit_exceeded",
-                )
+        status_code = 422 if detail.startswith("lava_promo_") or detail.endswith("_rejected") else 502
+        if detail in {"lava_api_unauthorized", "lava_offer_not_found"}:
+            status_code = 503
+        elif detail == "lava_rate_limited":
+            status_code = 429
+        elif detail == "lava_service_unavailable":
+            status_code = 503
 
-            if LAVA_PROMO_REJECTION_RE.search(body):
-                raise HTTPException(status_code=422, detail="lava_promo_code_rejected")
-
-        raise HTTPException(status_code=502, detail="lava_invoice_failed")
+        raise HTTPException(status_code=status_code, detail=detail)
 
     try:
         data = response.json()
@@ -581,36 +519,16 @@ async def _create_lava_invoice(payload: dict[str, Any]) -> dict[str, Any]:
     return data
 
 
-def _extract_query_value(raw_url: object, key: str) -> str:
-    try:
-        query = dict(parse_qsl(urlsplit(str(raw_url)).query, keep_blank_values=True))
-    except Exception:
-        return ""
-
-    return _clean(query.get(key))
-
-
 def _extract_utm_value(payload: dict[str, Any], key: str) -> str:
-    variants = {key, key.replace("_", ""), key.replace("_", "-")}
-    value = _first_value(payload, *variants)
-    if value:
-        return _clean(value)
-
-    for item in _iter_dicts(payload):
-        for raw_key, raw_value in item.items():
-            normalized_key = _normalize_key(raw_key)
-            if normalized_key in {"url", "href", "link", "paymenturl", "pageurl", "referrer"}:
-                value = _extract_query_value(raw_value, key)
-                if value:
-                    return value
-    return ""
+    return _clean(_payload_dict(payload, "clientUtm").get(key))
 
 
 def _extract_tracking_token(payload: dict[str, Any]) -> str:
     candidates = [
-        _first_value(payload, "metadataToken", "metadata_token", "trackingToken", "tracking_token"),
-        _extract_utm_value(payload, "utm_id"),
+        payload.get("metadataToken"),
+        payload.get("trackingToken"),
         _extract_utm_value(payload, "utm_content"),
+        _extract_utm_value(payload, "utm_id"),
     ]
     for candidate in candidates:
         token = _clean(candidate)
@@ -631,19 +549,11 @@ def _positive_int_or_none(value: object) -> int | None:
 
 def _extract_tracking_user_id(payload: dict[str, Any]) -> int | None:
     candidates = [
-        _first_value(
-            payload,
-            "metadataUserId",
-            "metadata_user_id",
-            "trackingUserId",
-            "tracking_user_id",
-            "externalUserId",
-            "external_user_id",
-            "clientUserId",
-            "client_user_id",
-            "mafiaUserId",
-            "mafia_user_id",
-        ),
+        payload.get("metadataUserId"),
+        payload.get("trackingUserId"),
+        payload.get("externalUserId"),
+        payload.get("clientUserId"),
+        payload.get("mafiaUserId"),
         _extract_utm_value(payload, "utm_term"),
     ]
     for candidate in candidates:
@@ -746,87 +656,18 @@ async def _find_payment_by_contract(session: AsyncSession, contract_id: str) -> 
     )
 
 
-async def _latest_payment_by_token(session: AsyncSession, token: str) -> LavaPayment | None:
-    if not token:
-        return None
-
-    return await session.scalar(
-        select(LavaPayment)
-        .where(LavaPayment.metadata_token == token)
-        .order_by(LavaPayment.id.desc())
-        .limit(1)
-    )
-
-
-async def _find_or_create_payment_for_webhook(
-    session: AsyncSession,
-    *,
-    contract_id: str,
-    parent_contract_id: str,
-    token: str,
-    user_id: int | None,
-    payload: dict[str, Any],
-) -> LavaPayment:
+async def _find_or_create_payment_for_webhook(session: AsyncSession, *, contract_id: str, token: str, user_id: int | None, payload: dict[str, Any]) -> LavaPayment:
     payment = await _find_payment_by_contract(session, contract_id)
     if payment is not None:
         payment.metadata_token = payment.metadata_token or token or None
         payment.user_id = payment.user_id or user_id
         return payment
 
-    parent = await _find_payment_by_contract(session, parent_contract_id)
-    if parent is not None:
-        payment = LavaPayment(
-            contract_id=contract_id,
-            parent_contract_id=parent_contract_id,
-            user_id=parent.user_id,
-            metadata_token=parent.metadata_token,
-            email=parent.email,
-            status="webhook_received",
-            plan=parent.plan,
-            subscription_months=parent.subscription_months,
-            raw_payload=_json_dumps(payload),
-        )
-        session.add(payment)
-        await session.flush()
-        return payment
-
-    by_token = await _latest_payment_by_token(session, token)
-    if by_token is None:
-        if user_id is None:
-            log.warning(
-                "lava.webhook.no_tracking",
-                contract_id=contract_id,
-                parent_contract_id=parent_contract_id,
-                has_token=bool(token),
-            )
-        payment = LavaPayment(
-            contract_id=contract_id,
-            parent_contract_id=parent_contract_id or None,
-            user_id=user_id,
-            metadata_token=token or None,
-            status="webhook_received",
-            raw_payload=_json_dumps(payload),
-        )
-        session.add(payment)
-        await session.flush()
-        return payment
-
-    if by_token.contract_id.startswith(LAVA_INTENT_CONTRACT_PREFIX):
-        by_token.contract_id = contract_id
-        by_token.user_id = by_token.user_id or user_id
-        by_token.status = "webhook_received"
-        by_token.raw_payload = _json_dumps(payload)
-        return by_token
-
     payment = LavaPayment(
         contract_id=contract_id,
-        parent_contract_id=parent_contract_id or by_token.parent_contract_id,
-        user_id=by_token.user_id or user_id,
-        metadata_token=token,
-        email=by_token.email,
+        user_id=user_id,
+        metadata_token=token or None,
         status="webhook_received",
-        plan=by_token.plan,
-        subscription_months=by_token.subscription_months,
         raw_payload=_json_dumps(payload),
     )
     session.add(payment)
@@ -849,9 +690,11 @@ async def _grant_subscription_for_payment(session: AsyncSession, payment: LavaPa
         select(UserSubscription).where(UserSubscription.user_id == uid).limit(1)
     )
 
+    was_new_subscription = subscription is None
     had_active_subscription = bool(
         subscription is not None and subscription.starts_at <= now < subscription.ends_at
     )
+    grant_kind = "new" if was_new_subscription else "extended" if had_active_subscription else "renewed"
     issue_nickname_limit = False
     if subscription is None:
         subscription = UserSubscription(
@@ -896,21 +739,20 @@ async def _grant_subscription_for_payment(session: AsyncSession, payment: LavaPa
             extended=had_active_subscription,
         )
 
-    await log_action(
+    await _log_lava_event(
         session,
+        event="subscription_granted",
         user_id=uid,
         username=str(user.username or f"user{uid}"),
-        action="lava_subscription_grant",
-        details={
-            "contract_id": payment.contract_id,
-            "parent_contract_id": payment.parent_contract_id,
-            "plan": payment.plan,
-            "months": months,
-            "offer_id": payment.offer_id,
-            "amount": str(payment.amount) if payment.amount is not None else None,
-            "currency": payment.currency,
-            "ends_at": subscription.ends_at.isoformat(),
-        },
+        contract_id=payment.contract_id,
+        grant=grant_kind,
+        plan=payment.plan,
+        months=months,
+        offer_id=payment.offer_id,
+        amount=payment.amount,
+        currency=payment.currency,
+        starts_at=subscription.starts_at,
+        ends_at=subscription.ends_at,
     )
     return True
 
@@ -944,11 +786,52 @@ async def lava_payment_link_create(
         token=token,
         user_id=uid,
     )
-    invoice = await _create_lava_invoice(invoice_request)
+    log_username = _user_log_username(user, ident["username"])
+    await _log_lava_event(
+        session,
+        event="pay_clicked",
+        user_id=uid,
+        username=log_username,
+        email=email,
+        plan=plan,
+        months=months,
+        currency=requested_currency,
+        offer_id=offer_id,
+        payment_provider=payment_provider,
+        payment_method=payment_method,
+        promo_code=promo_code,
+    )
+    try:
+        invoice = await _create_lava_invoice(invoice_request)
+    except HTTPException as exc:
+        await _log_lava_event(
+            session,
+            event="payment_link_failed",
+            user_id=uid,
+            username=log_username,
+            email=email,
+            plan=plan,
+            currency=requested_currency,
+            offer_id=offer_id,
+            reason=exc.detail,
+        )
+        raise
+
     contract_id = _clean(invoice.get("id"), max_len=128)
     payment_url = _clean(invoice.get("paymentUrl"))
     if not contract_id:
         log.warning("lava.invoice.contract_id_missing", response=_json_dumps(invoice)[:1000])
+        await _log_lava_event(
+            session,
+            event="payment_link_failed",
+            user_id=uid,
+            username=log_username,
+            email=email,
+            plan=plan,
+            currency=requested_currency,
+            offer_id=offer_id,
+            reason="lava_contract_id_missing",
+        )
         raise HTTPException(status_code=502, detail="lava_contract_id_missing")
 
     amount, invoice_currency = _extract_amount_and_currency(invoice)
@@ -957,6 +840,18 @@ async def lava_payment_link_create(
             "lava.invoice.payment_url_missing",
             contract_id=contract_id,
             response=_json_dumps(invoice)[:1000],
+        )
+        await _log_lava_event(
+            session,
+            event="payment_link_failed",
+            user_id=uid,
+            username=log_username,
+            email=email,
+            plan=plan,
+            currency=requested_currency,
+            offer_id=offer_id,
+            contract_id=contract_id,
+            reason="lava_payment_url_missing",
         )
         raise HTTPException(status_code=502, detail="lava_payment_url_missing")
 
@@ -988,28 +883,39 @@ async def lava_payment_link_create(
         await session.flush()
         processed = await _grant_subscription_for_payment(session, payment)
         if not processed:
+            await _log_lava_event(
+                session,
+                event="subscription_grant_skipped",
+                user_id=uid,
+                username=log_username,
+                contract_id=contract_id,
+                plan=plan,
+                months=months,
+                reason="free_invoice_not_processed",
+                commit=False,
+            )
             await session.commit()
             raise HTTPException(status_code=502, detail="lava_free_invoice_not_processed")
 
-    await log_action(
+    await _log_lava_event(
         session,
+        event="payment_link_created",
         user_id=uid,
-        username=str(user.username or ident["username"] or f"user{uid}"),
-        action="lava_payment_link_create",
-        details={
-            "payment_id": payment.id,
-            "contract_id": contract_id,
-            "offer_id": offer_id,
-            "plan": plan,
-            "months": months,
-            "currency": requested_currency,
-            "invoice_currency": invoice_currency,
-            "buyer_language": LAVA_BUYER_LANGUAGE,
-            "payment_provider": payment_provider or None,
-            "payment_method": payment_method or None,
-            "has_promo_code": bool(promo_code),
-            "processed": processed,
-        },
+        username=log_username,
+        payment_id=payment.id,
+        contract_id=contract_id,
+        plan=plan,
+        months=months,
+        offer_id=offer_id,
+        currency=requested_currency,
+        invoice_currency=invoice_currency,
+        payment_provider=payment_provider,
+        payment_method=payment_method,
+        promo_code=promo_code,
+        amount=payment.amount,
+        payment_url_created=bool(payment_url),
+        processed=processed,
+        result="subscription_granted_without_payment_url" if processed else "payment_url_created",
     )
 
     return LavaPaymentLinkCreateOut(
@@ -1038,20 +944,16 @@ async def lava_webhook(
     )
 
     contract_id = _extract_contract_id(payload)
-    parent_contract_id = _extract_parent_contract_id(payload)
     token = _extract_tracking_token(payload)
     tracking_user_id = _extract_tracking_user_id(payload)
     event_type = _extract_event_type(payload)
-    status_value = _normalize_status(
-        _top_first_value(payload, "status", "paymentStatus", "state")
-    )
+    status_value = _normalize_status(payload.get("status"))
     if not contract_id:
         raise HTTPException(status_code=400, detail="contract_id_missing")
 
     payment = await _find_or_create_payment_for_webhook(
         session,
         contract_id=contract_id,
-        parent_contract_id=parent_contract_id,
         token=token,
         user_id=tracking_user_id,
         payload=payload,
@@ -1059,61 +961,110 @@ async def lava_webhook(
     amount, currency = _extract_amount_and_currency(payload)
     product_id = _extract_product_id(payload)
     product_title = _extract_product_title(payload)
-    offer_id = _extract_offer_id(payload)
-    offer_title = _extract_offer_title(payload)
 
-    payment.parent_contract_id = parent_contract_id or payment.parent_contract_id
     payment.metadata_token = token or payment.metadata_token
     payment.email = _extract_buyer_email(payload) or payment.email
     payment.event_type = event_type or payment.event_type
     payment.status = status_value or event_type or payment.status
     payment.product_id = product_id or payment.product_id
     payment.product_title = product_title or payment.product_title
-    payment.offer_id = offer_id or payment.offer_id
-    payment.offer_title = offer_title or payment.offer_title
-    payment.amount = amount or payment.amount
+    payment.amount = amount if amount is not None else payment.amount
     payment.currency = currency or payment.currency
     payment.raw_payload = _json_dumps(payload)
 
-    resolved_plan = _resolve_payment_plan(
-        payload,
-        payment=payment,
-        offer_id=offer_id or payment.offer_id or "",
-        product_title=product_title or payment.product_title or "",
-        offer_title=offer_title or payment.offer_title or "",
-    )
-    if resolved_plan is not None:
-        plan, months, reason = resolved_plan
-        payment.plan = plan
-        payment.subscription_months = months
-        log.info(
-            "lava.webhook.plan_resolved",
-            contract_id=contract_id,
-            plan=plan,
-            months=months,
-            reason=reason,
-        )
-
     if not _product_matches_expected(product_id):
         payment.status = "product_mismatch"
+        expected_product_id = _configured_product_id()
         log.warning(
             "lava.webhook.product_mismatch",
             contract_id=contract_id,
-            expected_product_id=_configured_product_id(),
+            expected_product_id=expected_product_id,
             actual_product_id=product_id,
+        )
+        await _log_lava_event(
+            session,
+            event="webhook_product_mismatch",
+            user_id=payment.user_id,
+            username=_payment_log_username(payment),
+            **_webhook_log_fields(
+                payment,
+                contract_id=contract_id,
+                event_type=event_type,
+                status_value=status_value,
+                expected_product_id=expected_product_id,
+            ),
+            commit=False,
         )
         await session.commit()
         return Ok()
 
-    if _is_failure(event_type, status_value):
+    if _is_ignored_lava_event(event_type):
+        await _log_lava_event(
+            session,
+            event="webhook_ignored",
+            user_id=payment.user_id,
+            username=_payment_log_username(payment),
+            **_webhook_log_fields(
+                payment,
+                contract_id=contract_id,
+                event_type=event_type,
+                status_value=status_value,
+                reason="recurring_not_supported",
+            ),
+            commit=False,
+        )
+        await session.commit()
+        return Ok()
+
+    if _is_lava_payment_failure(event_type, status_value):
+        await _log_lava_event(
+            session,
+            event="webhook_failed",
+            user_id=payment.user_id,
+            username=_payment_log_username(payment),
+            **_webhook_log_fields(
+                payment,
+                contract_id=contract_id,
+                event_type=event_type,
+                status_value=status_value,
+            ),
+            commit=False,
+        )
         await session.commit()
         return Ok()
 
     if payment.processed_at is not None:
+        await _log_lava_event(
+            session,
+            event="webhook_duplicate",
+            user_id=payment.user_id,
+            username=_payment_log_username(payment),
+            **_webhook_log_fields(
+                payment,
+                contract_id=contract_id,
+                event_type=event_type,
+                status_value=status_value,
+                processed_at=payment.processed_at,
+            ),
+            commit=False,
+        )
         await session.commit()
         return Ok()
 
-    if _is_success(event_type, status_value):
+    if _is_lava_payment_success(event_type, status_value):
+        await _log_lava_event(
+            session,
+            event="webhook_paid",
+            user_id=payment.user_id,
+            username=_payment_log_username(payment),
+            **_webhook_log_fields(
+                payment,
+                contract_id=contract_id,
+                event_type=event_type,
+                status_value=status_value,
+            ),
+            commit=False,
+        )
         granted = await _grant_subscription_for_payment(session, payment)
         if not granted:
             log.warning(
@@ -1126,8 +1077,32 @@ async def lava_webhook(
                 amount=str(payment.amount) if payment.amount is not None else None,
                 currency=payment.currency,
             )
+            await _log_lava_event(
+                session,
+                event="subscription_grant_skipped",
+                user_id=payment.user_id,
+                username=_payment_log_username(payment),
+                contract_id=contract_id,
+                plan=payment.plan,
+                months=payment.subscription_months,
+                reason="user_or_subscription_period_missing",
+                commit=False,
+            )
             await session.commit()
         return Ok()
 
+    await _log_lava_event(
+        session,
+        event="webhook_unhandled",
+        user_id=payment.user_id,
+        username=_payment_log_username(payment),
+        **_webhook_log_fields(
+            payment,
+            contract_id=contract_id,
+            event_type=event_type,
+            status_value=status_value,
+        ),
+        commit=False,
+    )
     await session.commit()
     return Ok()
