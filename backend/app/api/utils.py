@@ -1595,6 +1595,24 @@ def _is_admin_subscription_target(role: object) -> bool:
     return normalize_user_role(role) == ROLE_ADMIN
 
 
+async def _send_subscription_telegram_message(uid: int, telegram_id: int, title: str, text: str) -> None:
+    try:
+        send_result = await send_text_message(chat_id=telegram_id, text=f"{title}\n\n{text}")
+    except Exception:
+        log.warning("subscription.telegram_notify_failed", uid=uid, reason="unexpected_error", exc_info=True)
+        return
+
+    if not send_result.ok:
+        log.warning("subscription.telegram_notify_failed", uid=uid, reason=send_result.reason)
+
+
+def _schedule_subscription_telegram_message(uid: int, telegram_id: int, title: str, text: str) -> None:
+    try:
+        asyncio.create_task(_send_subscription_telegram_message(uid, telegram_id, title, text))
+    except RuntimeError:
+        log.warning("subscription.telegram_notify_failed", uid=uid, reason="event_loop_unavailable")
+
+
 async def notify_subscription_upsert(session: AsyncSession, user: User, subscription: UserSubscription, *, extended: bool) -> None:
     uid = int(user.id)
     until_text = format_subscription_until(subscription.ends_at)
@@ -1621,13 +1639,7 @@ async def notify_subscription_upsert(session: AsyncSession, user: User, subscrip
     if telegram_id <= 0 or _is_admin_subscription_target(user.role):
         return
 
-    send_result = await send_text_message(chat_id=telegram_id, text=f"{title}\n\n{text}")
-    if not send_result.ok:
-        log.warning(
-            "subscription.telegram_notify_failed",
-            uid=uid,
-            reason=send_result.reason,
-        )
+    _schedule_subscription_telegram_message(uid, telegram_id, title, text)
 
 
 async def send_sanction_finished_telegram_notice(session: AsyncSession, *, user_id: int, note: Notif, telegram_id: int | None = None) -> bool:

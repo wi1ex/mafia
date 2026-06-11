@@ -15,7 +15,6 @@ class LavaPayment(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     contract_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
-    parent_contract_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True, index=True)
     user_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, index=True)
     metadata_token: Mapped[Optional[str]] = mapped_column(String(96), nullable=True, index=True)
     email: Mapped[Optional[str]] = mapped_column(String(254), nullable=True)
@@ -24,7 +23,6 @@ class LavaPayment(Base):
     product_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
     product_title: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
     offer_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True, index=True)
-    offer_title: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
     plan: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)
     amount: Mapped[Optional[Decimal]] = mapped_column(Numeric(14, 2), nullable=True)
     currency: Mapped[Optional[str]] = mapped_column(String(3), nullable=True)

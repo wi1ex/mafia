@@ -93,6 +93,14 @@ async def lifespan(app) -> AsyncIterator[None]:
                 "created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()"
                 ")"
             ))
+            await conn.execute(text(
+                "ALTER TABLE lava_payments "
+                "DROP COLUMN IF EXISTS parent_contract_id"
+            ))
+            await conn.execute(text(
+                "ALTER TABLE lava_payments "
+                "DROP COLUMN IF EXISTS offer_title"
+            ))
             await conn.execute(text("DROP TABLE IF EXISTS update_reads"))
             await conn.execute(text("DROP TABLE IF EXISTS updates"))
             # AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA

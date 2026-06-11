@@ -92,6 +92,10 @@ async def send_text_message(*, chat_id: int, text: str) -> TelegramSendResult:
                 log.warning("telegram.send.network_failed", attempt=attempt, exc_info=True)
                 return TelegramSendResult(ok=False, reason="telegram_unavailable")
 
+            except Exception:
+                log.warning("telegram.send.failed_unexpected", attempt=attempt, exc_info=True)
+                return TelegramSendResult(ok=False, reason="telegram_unavailable")
+
             ok = bool(isinstance(data, dict) and data.get("ok") is True and resp.status_code == 200)
             if ok:
                 return TelegramSendResult(ok=True, reason=None)
