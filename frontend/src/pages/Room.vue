@@ -790,8 +790,7 @@ const ws_url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.
 const isTheater = computed(() => !!screenOwnerId.value)
 const isMyScreen = computed(() => !!localId.value && screenOwnerId.value === localId.value)
 const streamAudioKey = computed(() => screenOwnerId.value ? rtc.screenKey(screenOwnerId.value) : '')
-const SCREEN_QUALITY_HINT = 'Качество 720p и 1080p доступно для обладателей подписки'
-const SCREEN_QUALITY_DISABLED_HINT = 'Трансляции в качестве 720p и 1080p доступны пользователям, поддержавшим платформу'
+const SCREEN_QUALITY_HINT = 'Качество 720p и 1080p доступно только для обладателей подписки'
 const SCREEN_QUALITY_OPTIONS = [
   { value: 'low', label: '540p' },
   { value: 'medium', label: '720p' },
@@ -2769,7 +2768,7 @@ const toggleScreen = async () => {
         ...option,
         disabled: !hasSubscription && option.value !== 'low',
         tooltip: !hasSubscription && option.value !== 'low'
-          ? SCREEN_QUALITY_DISABLED_HINT
+          ? SCREEN_QUALITY_HINT
           : undefined,
       })),
       radioDefault: hasSubscription ? 'medium' : 'low',
