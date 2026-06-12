@@ -105,7 +105,6 @@
                       @click="lavaForm.payment_option = method.id"
                     >
                       <span>{{ method.label }}</span>
-                      <small>{{ method.note }}</small>
                     </button>
                   </div>
                 </div>
@@ -172,7 +171,6 @@ type LavaPaymentOptionId = 'card' | 'sbp'
 type LavaPaymentOption = {
   id: LavaPaymentOptionId
   label: string
-  note: string
   currencies: readonly LavaCurrency[]
   payment_provider: string
   payment_method: string
@@ -189,7 +187,6 @@ const lavaPaymentOptions: readonly LavaPaymentOption[] = [
   {
     id: 'card',
     label: 'Карта',
-    note: 'Банковская карта',
     currencies: ['RUB'],
     payment_provider: 'SMART_GLOCAL',
     payment_method: 'CARD',
@@ -197,7 +194,6 @@ const lavaPaymentOptions: readonly LavaPaymentOption[] = [
   {
     id: 'sbp',
     label: 'СБП',
-    note: 'Система быстрых платежей',
     currencies: ['RUB'],
     payment_provider: 'PAY2ME',
     payment_method: 'SBP',
@@ -638,13 +634,6 @@ onBeforeUnmount(() => {
             font-family: Hauora-Bold;
             font-size: 15px;
             line-height: 18px;
-            letter-spacing: 0;
-          }
-          small {
-            color: $neutral-500;
-            font-family: Hauora-Regular;
-            font-size: 12px;
-            line-height: 16px;
             letter-spacing: 0;
           }
           &.active {
