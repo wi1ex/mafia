@@ -698,7 +698,7 @@ const avatarByUser = reactive(new Map<string, string | null>())
 const themeColorByUser = reactive(new Map<string, string | null>())
 const themeIconByUser = reactive(new Map<string, string | null>())
 const volUi = reactive<Record<string, number>>({})
-const MIN_GAME_VOLUME = 20
+const MIN_GAME_VOLUME = 10
 const EMPTY_NUMBERS: number[] = []
 const EMPTY_STYLE = Object.freeze({}) as Readonly<Record<string, never>>
 const GAME_GRID_STYLE = Object.freeze({
@@ -2771,7 +2771,7 @@ const toggleScreen = async () => {
           ? SCREEN_QUALITY_HINT
           : undefined,
       })),
-      radioDefault: hasSubscription ? 'medium' : 'low',
+      radioDefault: hasSubscription ? 'high' : 'low',
     })
     confirmed = result.ok
     requestedScreenQuality = hasSubscription

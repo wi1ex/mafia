@@ -3196,6 +3196,11 @@ async def game_farewell_mark(sid, data):
             return err
 
         mode = "voted" if phase == "vote" else "killed"
+        if mode == "voted" and ctx.gstr("vote_lift_state") == "passed":
+            leaders = ctx.gcsv_ints("vote_leaders_order")
+            if len(leaders) > 1 and speaker_uid in leaders and target_uid in leaders:
+                return {"ok": False, "error": "farewell_co_lifted_target", "status": 409}
+
         try:
             allowed = await compute_farewell_allowed(r, rid, speaker_uid, mode=mode)
         except Exception:

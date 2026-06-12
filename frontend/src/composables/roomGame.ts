@@ -1052,6 +1052,16 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     return out
   }
 
+  function isCoLiftedFarewellTarget(targetId: string): boolean {
+    if (gamePhase.value !== 'vote') return false
+    if (voteLiftState.value !== 'passed') return false
+    if (voteResultLeaders.length <= 1) return false
+    const me = localId.value
+    if (!me || targetId === me) return false
+    if (!voteResultLeaders.includes(me)) return false
+    return voteResultLeaders.includes(targetId)
+  }
+
   function canMakeFarewellChoice(targetId: string): boolean {
     if (gameFinished.value) return false
     if (!farewellWillsEnabled.value) return false
@@ -1064,6 +1074,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (seat == null || seat === 11) return false
     if (!gameAlive.has(targetId)) return false
     if (targetId === me) return false
+    if (isCoLiftedFarewellTarget(targetId)) return false
     const limit = farewellLimitForUser(me)
     if (limit <= 0) return false
     const map = farewellWills.get(me)
@@ -2583,6 +2594,8 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
         void alertDialog('Сейчас нельзя оставлять завещание')
       } else if (st === 409 && code === 'farewell_forbidden') {
         void alertDialog('Завещание запрещено: после этих удалений игра завершится')
+      } else if (st === 409 && code === 'farewell_co_lifted_target') {
+        void alertDialog('Нельзя оставлять завещание на игрока, поднятого вместе с вами')
       } else if (st === 409 && code === 'farewell_disabled') {
         void alertDialog('Завещания отключены в этой комнате')
       } else {
