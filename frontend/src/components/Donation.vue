@@ -21,7 +21,8 @@
           </header>
 
           <div class="support-site-content">
-            <div class="site-list">
+            <Transition name="support-content-switch" mode="out-in">
+              <div v-if="!lavaFormOpen" key="site-list" class="site-list">
               <button
                 class="site-option lava-option"
                 :class="{ active: lavaFormOpen }"
@@ -30,7 +31,7 @@
                 @click="openLavaForm"
               >
                 <div class="site-title">
-                  <img :src="iconLavaTop" alt="tribute" class="site-logo" />
+                  <img :src="iconLavaTop" alt="lava.top" class="site-logo" />
                   <UiIcon class="arrow-icon" :icon="iconArrowNext" />
                 </div>
                 <div class="site-copy">
@@ -55,10 +56,9 @@
                   <span class="site-note">Отправить донат</span>
                 </div>
               </a>
-            </div>
+              </div>
 
-            <Transition name="lava-form-expand">
-              <form v-if="lavaFormOpen" class="lava-form" @submit.prevent="onLavaPay">
+              <form v-else key="lava-form" class="lava-form" @submit.prevent="onLavaPay">
                 <label class="lava-field">
                   <span>Email</span>
                   <input v-model.trim="lavaForm.email" type="email" autocomplete="email" placeholder="mail@example.com" />
@@ -708,22 +708,22 @@ onBeforeUnmount(() => {
   opacity: 0;
 }
 
-.lava-form-expand-enter-active,
-.lava-form-expand-leave-active {
+.support-content-switch-enter-active,
+.support-content-switch-leave-active {
   max-height: 760px;
   overflow: hidden;
   transition: max-height 0.25s ease-in-out, opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
 }
 
-.lava-form-expand-enter-from,
-.lava-form-expand-leave-to {
+.support-content-switch-enter-from,
+.support-content-switch-leave-to {
   max-height: 0;
   opacity: 0;
   transform: translateY(-10px);
 }
 
-.lava-form-expand-enter-to,
-.lava-form-expand-leave-from {
+.support-content-switch-enter-to,
+.support-content-switch-leave-from {
   max-height: 760px;
   opacity: 1;
   transform: translateY(0);
