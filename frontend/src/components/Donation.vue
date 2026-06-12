@@ -63,14 +63,16 @@
                   </div>
                 </div>
 
-                <div v-if="lavaForm.currency === 'RUB'" class="lava-field">
-                  <span>Способ оплаты</span>
-                  <div class="lava-method-list">
-                    <button v-for="method in availableLavaPaymentOptions" :key="method.id" type="button" :class="{ active: lavaForm.payment_option === method.id }" @click="lavaForm.payment_option = method.id">
-                      <span>{{ method.label }}</span>
-                    </button>
+                <Transition name="lava-payment-expand">
+                  <div v-if="lavaForm.currency === 'RUB'" class="lava-field lava-payment-field">
+                    <span>Способ оплаты</span>
+                    <div class="lava-method-list">
+                      <button v-for="method in availableLavaPaymentOptions" :key="method.id" type="button" :class="{ active: lavaForm.payment_option === method.id }" @click="lavaForm.payment_option = method.id">
+                        <span>{{ method.label }}</span>
+                      </button>
+                    </div>
                   </div>
-                </div>
+                </Transition>
 
                 <label class="lava-field">
                   <span>Промокод</span>
@@ -508,8 +510,11 @@ onBeforeUnmount(() => {
     .lava-form {
       display: flex;
       flex-direction: column;
-      gap: 16px;
       width: 100%;
+      > .lava-field + .lava-field,
+      > .lava-actions {
+        margin-top: 16px;
+      }
       .lava-field {
         display: flex;
         flex-direction: column;
@@ -671,6 +676,36 @@ onBeforeUnmount(() => {
   max-height: 760px;
   opacity: 1;
   transform: translateY(0);
+}
+
+.lava-payment-expand-enter-active,
+.lava-payment-expand-leave-active {
+  overflow: hidden;
+  transition: max-height 0.25s ease-in-out, margin-top 0.25s ease-in-out, opacity 0.2s ease-in-out, transform 0.25s ease-in-out;
+}
+
+.lava-payment-expand-enter-from,
+.lava-payment-expand-leave-to {
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+.lava-form > .lava-payment-field.lava-payment-expand-enter-from,
+.lava-form > .lava-payment-field.lava-payment-expand-leave-to {
+  margin-top: 0;
+}
+
+.lava-payment-expand-enter-to,
+.lava-payment-expand-leave-from {
+  max-height: 120px;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.lava-form > .lava-payment-field.lava-payment-expand-enter-to,
+.lava-form > .lava-payment-field.lava-payment-expand-leave-from {
+  margin-top: 16px;
 }
 
 </style>
