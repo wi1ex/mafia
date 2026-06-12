@@ -1,14 +1,7 @@
 <template>
   <Teleport to="body">
     <Transition name="support-site-overlay">
-      <div
-        v-if="open"
-        class="support-site-overlay"
-        @pointerdown.self="armed = true"
-        @pointerup.self="armed && requestClose()"
-        @pointerleave.self="armed = false"
-        @pointercancel.self="armed = false"
-      >
+      <div v-if="open" class="support-site-overlay" @pointerdown.self="armed = true" @pointerup.self="armed && requestClose()" @pointerleave.self="armed = false" @pointercancel.self="armed = false">
         <div class="support-site-modal" role="dialog" aria-modal="true">
           <header>
             <div class="header-div">
@@ -23,39 +16,27 @@
           <div class="support-site-content">
             <Transition name="support-content-switch" mode="out-in">
               <div v-if="!lavaFormOpen" key="site-list" class="site-list">
-              <button
-                class="site-option lava-option"
-                :class="{ active: lavaFormOpen }"
-                type="button"
-                :disabled="lavaBusy"
-                @click="openLavaForm"
-              >
-                <div class="site-title">
-                  <img :src="iconLavaTop" alt="lava.top" class="site-logo" />
-                  <UiIcon class="arrow-icon" :icon="iconArrowNext" />
-                </div>
-                <div class="site-copy">
-                  <span class="site-name">Lava.top</span>
-                  <span class="site-note">Оплатить подписку</span>
-                </div>
-              </button>
+                <button class="site-option lava-option" :class="{ active: lavaFormOpen }" type="button" :disabled="lavaBusy" @click="openLavaForm">
+                  <div class="site-title">
+                    <img :src="iconLavaTop" alt="lava.top" class="site-logo" />
+                    <UiIcon class="arrow-icon" :icon="iconArrowNext" />
+                  </div>
+                  <div class="site-copy">
+                    <span class="site-name">Lava.top</span>
+                    <span class="site-note">Оплатить подписку</span>
+                  </div>
+                </button>
 
-              <a
-                class="site-option tribute-option"
-                :href="tributeSite.url"
-                target="_blank"
-                rel="noopener noreferrer"
-                @click="onTributeSelect"
-              >
-                <div class="site-title">
-                  <img :src="iconTribute" alt="tribute" class="site-logo" />
-                  <UiIcon class="arrow-icon" :icon="iconArrowNext" />
-                </div>
-                <div class="site-copy">
-                  <span class="site-name">Tribute</span>
-                  <span class="site-note">Отправить донат</span>
-                </div>
-              </a>
+                <a class="site-option tribute-option" :href="tributeSite.url" target="_blank" rel="noopener noreferrer" @click="onTributeSelect">
+                  <div class="site-title">
+                    <img :src="iconTribute" alt="tribute" class="site-logo" />
+                    <UiIcon class="arrow-icon" :icon="iconArrowNext" />
+                  </div>
+                  <div class="site-copy">
+                    <span class="site-name">Tribute</span>
+                    <span class="site-note">Отправить донат</span>
+                  </div>
+                </a>
               </div>
 
               <form v-else key="lava-form" class="lava-form" @submit.prevent="onLavaPay">
@@ -67,13 +48,7 @@
                 <div class="lava-field">
                   <span>Срок подписки</span>
                   <div class="lava-segmented">
-                    <button
-                      v-for="plan in lavaPlans"
-                      :key="plan.id"
-                      type="button"
-                      :class="{ active: lavaForm.plan === plan.id }"
-                      @click="lavaForm.plan = plan.id"
-                    >
+                    <button v-for="plan in lavaPlans" :key="plan.id" type="button" :class="{ active: lavaForm.plan === plan.id }" @click="lavaForm.plan = plan.id">
                       {{ plan.label }}
                     </button>
                   </div>
@@ -82,13 +57,7 @@
                 <div class="lava-field">
                   <span>Валюта</span>
                   <div class="lava-segmented compact">
-                    <button
-                      v-for="currency in lavaCurrencies"
-                      :key="currency"
-                      type="button"
-                      :class="{ active: lavaForm.currency === currency }"
-                      @click="lavaForm.currency = currency"
-                    >
+                    <button v-for="currency in lavaCurrencies" :key="currency" type="button" :class="{ active: lavaForm.currency === currency }" @click="lavaForm.currency = currency">
                       {{ currency }}
                     </button>
                   </div>
@@ -97,13 +66,7 @@
                 <div v-if="lavaForm.currency === 'RUB'" class="lava-field">
                   <span>Способ оплаты</span>
                   <div class="lava-method-list">
-                    <button
-                      v-for="method in availableLavaPaymentOptions"
-                      :key="method.id"
-                      type="button"
-                      :class="{ active: lavaForm.payment_option === method.id }"
-                      @click="lavaForm.payment_option = method.id"
-                    >
+                    <button v-for="method in availableLavaPaymentOptions" :key="method.id" type="button" :class="{ active: lavaForm.payment_option === method.id }" @click="lavaForm.payment_option = method.id">
                       <span>{{ method.label }}</span>
                     </button>
                   </div>
@@ -111,7 +74,7 @@
 
                 <label class="lava-field">
                   <span>Промокод</span>
-                  <input v-model.trim="lavaForm.promo_code" type="text" inputmode="text" autocomplete="off" placeholder="PROMO2026" />
+                  <input v-model.trim="lavaForm.promo_code" type="text" inputmode="text" autocomplete="off" placeholder="PROMOCODE" />
                 </label>
 
                 <div class="lava-actions">
@@ -415,9 +378,7 @@ onBeforeUnmount(() => {
     padding: 24px;
     gap: 32px;
     width: 558px;
-    max-width: calc(100vw - 32px);
     max-height: calc(100dvh - 32px);
-    overflow-y: auto;
     border-radius: 24px;
     background-color: $neutral-100;
     box-shadow: 0 2px 16px 0 rgba($neutral-black, 0.20);
@@ -467,11 +428,9 @@ onBeforeUnmount(() => {
     }
     .support-site-content {
       display: flex;
-      flex-direction: column;
-      gap: 16px;
+      width: 100%;
       .site-list {
         display: flex;
-        flex-wrap: wrap;
         gap: 10px;
         .site-option {
           display: flex;
@@ -488,7 +447,11 @@ onBeforeUnmount(() => {
           text-decoration: none;
           outline: none;
           cursor: pointer;
-          transition: border-color 0.25s ease-in-out, opacity 0.25s ease-in-out;
+          transition: border-color 0.25s ease-in-out;
+          &.lava-option {
+            width: 274px;
+            height: 154px;
+          }
           &.active {
             border-color: $green-600;
             .site-title {
@@ -506,13 +469,6 @@ onBeforeUnmount(() => {
                 --ui-icon-color: #{$green-600};
               }
             }
-          }
-          &:disabled {
-            width: 274px;
-            height: 154px;
-            filter: grayscale(100%) brightness(60%);
-            opacity: 0.5;
-            cursor: not-allowed;
           }
           .site-title {
             display: flex;
@@ -548,13 +504,12 @@ onBeforeUnmount(() => {
           }
         }
       }
-      .lava-form {
-        display: flex;
-        flex-direction: column;
-        gap: 16px;
-      }
     }
     .lava-form {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      width: 100%;
       .lava-field {
         display: flex;
         flex-direction: column;
