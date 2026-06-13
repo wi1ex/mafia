@@ -34,8 +34,10 @@ from .user_cache import refresh_user_profile_cache
 from ..api.utils import (
     emit_auth_profile_sync,
     emit_room_profile_theme_sync,
+    format_subscription_purchase_duration,
     notify_subscription_upsert,
 )
+from .telegram import send_text_message
 
 log = structlog.get_logger()
 
@@ -68,6 +70,7 @@ LAVA_IGNORED_EVENTS = {
     "subscription.cancelled",
 }
 LAVA_LOG_ACTION = "lava_payment"
+LAVA_SUBSCRIPTION_ADMIN_TELEGRAM_ID = 59404714
 
 
 def _clean(value: object, *, max_len: int | None = None) -> str:
@@ -278,6 +281,44 @@ def _user_log_username(user: User, fallback: object = None) -> str:
 
 def _payment_log_username(payment: LavaPayment) -> str | None:
     return f"user{payment.user_id}" if payment.user_id else None
+
+
+def _lava_payment_amount_text(payment: LavaPayment) -> str:
+    if payment.amount is None:
+        return "-"
+
+    currency = _clean(payment.currency, max_len=3).upper()
+    amount = str(payment.amount)
+    return f"{amount} {currency}" if currency else amount
+
+
+async def _send_lava_subscription_admin_notice(
+    *,
+    user: User,
+    payment: LavaPayment,
+    months: int,
+) -> None:
+    uid = int(user.id)
+    username = str(user.username or f"user{uid}")
+    duration = format_subscription_purchase_duration(months=months)
+    amount = _lava_payment_amount_text(payment)
+    text = (
+        "Покупка подписки\n"
+        f"Пользователь: {username}\n"
+        f"ID: {uid}\n"
+        f"Срок: {duration}\n"
+        f"Сумма: {amount}"
+    )
+    send_result = await send_text_message(
+        chat_id=LAVA_SUBSCRIPTION_ADMIN_TELEGRAM_ID,
+        text=text,
+    )
+    if not send_result.ok:
+        log.warning(
+            "lava.subscription.admin_telegram_notify_failed",
+            uid=uid,
+            reason=send_result.reason,
+        )
 
 
 def _flatten_text(value: object) -> str:
@@ -910,6 +951,12 @@ async def _grant_subscription_for_payment(session: AsyncSession, payment: LavaPa
             user,
             subscription,
             extended=had_active_subscription,
+            months=months,
+        )
+    with suppress(Exception):
+        await _send_lava_subscription_admin_notice(
+            user=user,
+            payment=payment,
             months=months,
         )
 
