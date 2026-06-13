@@ -2335,7 +2335,7 @@ async def create_update_notification(payload: AdminUpdateNotificationIn, ident: 
         user_id=int(ident["id"]),
         username=ident["username"],
         action="admin_update_notification",
-        details=f"Обновление отправлено users={len(notes)} title={title}",
+        details=f"Обновление отправлено title={title}",
         commit=False,
     )
     await session.commit()

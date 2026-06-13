@@ -122,7 +122,24 @@
             <div class="block updates-notice-block">
               <div class="field-stack">
                 <UiInput id="update-notice-title" v-model.trim="updateNoticeForm.title" type="text" autocomplete="off" :disabled="updateNoticeSaving" label="Название" />
-                <UiInput id="update-notice-text" v-model.trim="updateNoticeForm.text" as="textarea" rows="7" :disabled="updateNoticeSaving" label="Текст" class="update-notice-textarea" />
+                <UiInput id="update-notice-text" v-model="updateNoticeForm.text" as="textarea" rows="7" :disabled="updateNoticeSaving" label="Текст" class="update-notice-textarea" />
+              </div>
+              <div v-if="updateNoticeForm.title.trim() || updateNoticeTextPreview" class="update-notice-preview">
+                <div v-if="updateNoticeForm.title.trim()" class="update-notice-preview-title">{{ updateNoticeForm.title.trim() }}</div>
+                <div v-if="updateNoticePreviewBlocks.length" class="update-notice-preview-text">
+                  <template v-for="(block, blockIndex) in updateNoticePreviewBlocks" :key="`${block.type}-${blockIndex}`">
+                    <p v-if="block.type === 'paragraph'" class="notification-text-paragraph">
+                      <template v-for="(line, lineIndex) in block.lines" :key="`${blockIndex}-${lineIndex}`">
+                        {{ line }}<br v-if="lineIndex < block.lines.length - 1" />
+                      </template>
+                    </p>
+                    <ul v-else class="notification-text-list">
+                      <li v-for="(item, itemIndex) in block.items" :key="`${blockIndex}-${itemIndex}`">
+                        {{ item }}
+                      </li>
+                    </ul>
+                  </template>
+                </div>
               </div>
               <div class="form-actions">
                 <button class="btn confirm width-full" :disabled="updateNoticeSaving || !canSendUpdateNotice" @click="sendUpdateNotice">
@@ -945,6 +962,7 @@ import iconDelete from '@/assets/svg/delete.svg'
 import iconSave from '@/assets/svg/save.svg'
 import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
 import { getProfileThemeBadgeSources } from '@/constants/profileIcons'
+import { normalizeNotificationText, parseNotificationText } from '@/services/notificationText'
 
 type SiteSettings = {
   registration_enabled: boolean
@@ -1696,8 +1714,10 @@ const activeUsersByDayTicks = computed(() => buildChartTicks(activeUsersByDayMax
 const registrationMonthlyTicks = computed(() => buildChartTicks(registrationsMonthlyMax.value))
 const gamesMonthlyTicks = computed(() => buildChartTicks(gamesMonthlyMax.value))
 const activeUsersMonthlyTicks = computed(() => buildChartTicks(activeUsersMonthlyMax.value))
+const updateNoticeTextPreview = computed(() => normalizeNotificationText(updateNoticeForm.text).trim())
+const updateNoticePreviewBlocks = computed(() => parseNotificationText(updateNoticeTextPreview.value))
 const canSendUpdateNotice = computed(() => {
-  return Boolean(updateNoticeForm.title.trim() && updateNoticeForm.text.trim())
+  return Boolean(updateNoticeForm.title.trim() && updateNoticeTextPreview.value)
 })
 
 function formatMinutes(value: number): string {
@@ -2581,15 +2601,16 @@ async function removeSubscription(row: SubscriptionRow): Promise<void> {
 async function sendUpdateNotice(): Promise<void> {
   if (updateNoticeSaving.value || !canSendUpdateNotice.value) return
   updateNoticeSaving.value = true
+  const title = updateNoticeForm.title.trim()
+  const text = updateNoticeTextPreview.value
   try {
-    const { data } = await api.post('/admin/update-notification', {
-      title: updateNoticeForm.title.trim(),
-      text: updateNoticeForm.text.trim(),
+    await api.post('/admin/update-notification', {
+      title,
+      text,
     })
     updateNoticeForm.title = ''
     updateNoticeForm.text = ''
-    const count = Number.isFinite(data?.sent_count) ? Number(data.sent_count) : 0
-    void alertDialog(`Уведомление отправлено: ${count}`)
+    void alertDialog('Уведомление отправлено')
   } catch {
     void alertDialog('Не удалось отправить уведомление')
   } finally {
@@ -3527,6 +3548,40 @@ onMounted(() => {
     }
     :deep(.update-notice-textarea textarea) {
       min-height: 200px;
+    }
+    .update-notice-preview {
+      margin-top: 15px;
+      padding-top: 15px;
+      border-top: 1px solid rgba($grey, 0.35);
+      color: $fg;
+    }
+    .update-notice-preview-title {
+      margin-bottom: 10px;
+      font-size: 18px;
+      font-family: Manrope-SemiBold;
+      line-height: 1.25;
+      overflow-wrap: anywhere;
+    }
+    .update-notice-preview-text {
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      .notification-text-paragraph,
+      .notification-text-list {
+        margin: 0;
+      }
+      .notification-text-paragraph + .notification-text-paragraph,
+      .notification-text-paragraph + .notification-text-list,
+      .notification-text-list + .notification-text-paragraph,
+      .notification-text-list + .notification-text-list {
+        margin-top: 8px;
+      }
+      .notification-text-list {
+        padding-left: 20px;
+        li + li {
+          margin-top: 4px;
+        }
+      }
     }
     .sanctions-table .rule-cell,
     .sanctions-table .description-cell {

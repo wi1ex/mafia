@@ -15,7 +15,20 @@
             <span>{{ it.title }}</span>
             <time>{{ formatLocalDateTime(it.date, NOTIF_DATE_OPTIONS) }}</time>
           </div>
-          <p v-if="it.text" class="text">{{ it.text }}</p>
+          <div v-if="it.text" class="text">
+            <template v-for="(block, blockIndex) in parseNotificationText(it.text)" :key="`${it.id}-${block.type}-${blockIndex}`">
+              <p v-if="block.type === 'paragraph'" class="notification-text-paragraph">
+                <template v-for="(line, lineIndex) in block.lines" :key="`${it.id}-${blockIndex}-${lineIndex}`">
+                  {{ line }}<br v-if="lineIndex < block.lines.length - 1" />
+                </template>
+              </p>
+              <ul v-else class="notification-text-list">
+                <li v-for="(item, itemIndex) in block.items" :key="`${it.id}-${blockIndex}-${itemIndex}`">
+                  {{ item }}
+                </li>
+              </ul>
+            </template>
+          </div>
         </article>
         <button v-if="notif.hasMore" class="load-more" type="button" :disabled="notif.loadingInitial || notif.loadingMore" @click="onLoadMore">
           {{ notif.loadingMore ? 'Загружаем...' : 'Загрузить ещё' }}
@@ -30,6 +43,7 @@
 import { ref, watch, nextTick, onBeforeUnmount } from 'vue'
 import { useNotifStore } from '@/store'
 import { formatLocalDateTime } from '@/services/datetime'
+import { parseNotificationText } from '@/services/notificationText'
 
 import iconClose from '@/assets/svg/close.svg'
 
@@ -285,7 +299,25 @@ onBeforeUnmount(() => {
         margin: 0;
         width: 100%;
         color: $fg;
-        line-height: 1.25;
+        line-height: 1.35;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        .notification-text-paragraph,
+        .notification-text-list {
+          margin: 0;
+        }
+        .notification-text-paragraph + .notification-text-paragraph,
+        .notification-text-paragraph + .notification-text-list,
+        .notification-text-list + .notification-text-paragraph,
+        .notification-text-list + .notification-text-list {
+          margin-top: 8px;
+        }
+        .notification-text-list {
+          padding-left: 20px;
+          li + li {
+            margin-top: 4px;
+          }
+        }
       }
     }
     .item.just-read {
