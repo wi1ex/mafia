@@ -910,6 +910,7 @@ async def _grant_subscription_for_payment(session: AsyncSession, payment: LavaPa
             user,
             subscription,
             extended=had_active_subscription,
+            months=months,
         )
 
     return True

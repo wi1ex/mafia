@@ -1587,7 +1587,40 @@ def _subscription_expiring_soon_notice_window(now: datetime) -> tuple[datetime, 
 
 def format_subscription_until(ends_at: datetime) -> str:
     local_dt = ends_at.astimezone() if ends_at.tzinfo is not None else ends_at
-    return local_dt.strftime("%d.%m.%Y в %H:%M")
+    return local_dt.strftime("%d.%m.%Y")
+
+
+def _ru_plural(value: int, one: str, few: str, many: str) -> str:
+    number = abs(int(value))
+    if 11 <= number % 100 <= 14:
+        return many
+
+    last_digit = number % 10
+    if last_digit == 1:
+        return one
+
+    if 2 <= last_digit <= 4:
+        return few
+
+    return many
+
+
+def format_subscription_purchase_duration(*, months: int = 0, days: int = 0) -> str:
+    parts: list[str] = []
+    months_value = max(0, int(months or 0))
+    days_value = max(0, int(days or 0))
+    if months_value:
+        parts.append(
+            f"{months_value} "
+            f"{_ru_plural(months_value, 'месяц', 'месяца', 'месяцев')}"
+        )
+    if days_value:
+        parts.append(
+            f"{days_value} "
+            f"{_ru_plural(days_value, 'день', 'дня', 'дней')}"
+        )
+
+    return " ".join(parts) or "выбранный срок"
 
 
 def _is_admin_subscription_target(role: object) -> bool:
@@ -1612,14 +1645,24 @@ def _schedule_subscription_telegram_message(uid: int, telegram_id: int, title: s
         log.warning("subscription.telegram_notify_failed", uid=uid, reason="event_loop_unavailable")
 
 
-async def notify_subscription_upsert(session: AsyncSession, user: User, subscription: UserSubscription, *, extended: bool) -> None:
+async def notify_subscription_upsert(
+    session: AsyncSession,
+    user: User,
+    subscription: UserSubscription,
+    *,
+    extended: bool,
+    months: int = 0,
+    days: int = 0,
+) -> None:
     uid = int(user.id)
     until_text = format_subscription_until(subscription.ends_at)
-    title = "Благодарим за поддержку платформы!"
+    duration_text = format_subscription_purchase_duration(months=months, days=days)
+    action_text = "продлена" if extended else "активирована"
+    title = "Подписка"
     text = (
-        f"Ваша подписка продлена до {until_text}."
-        if extended
-        else f"Ваша подписка активирована до {until_text}."
+        f"Покупка подписки на {duration_text} успешно завершена. "
+        f"Подписка {action_text} до {until_text}. "
+        "Благодарим за поддержку платформы!"
     )
 
     note = Notif(user_id=uid, title=title, text=text)

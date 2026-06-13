@@ -1457,12 +1457,19 @@ async def subscriptions_upsert(payload: AdminSubscriptionCreateIn, ident: Identi
         from ...services.global_chat import emit_global_chat_profile_theme_sync
         await emit_global_chat_profile_theme_sync(uid, theme_state.color, theme_state.icon)
     try:
-        await notify_subscription_upsert(session, user, subscription, extended=had_subscription)
+        await notify_subscription_upsert(
+            session,
+            user,
+            subscription,
+            extended=had_active_subscription,
+            months=months,
+            days=days,
+        )
     except Exception as exc:
         log.warning(
             "admin.subscription.notify_failed",
             uid=uid,
-            extended=had_subscription,
+            extended=had_active_subscription,
             err=type(exc).__name__,
         )
 
