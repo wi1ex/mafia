@@ -525,6 +525,7 @@ function openContactModal() {
 
 function onSupportSiteSelect(site: { id: string; name: string; url: string }) {
   if (!auth.isAuthed) return
+  if (site.id === 'lava') return
   void api.post('/users/support_link_click', {
     source: 'home_right_extra_primary',
     site_id: site.id,

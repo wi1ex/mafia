@@ -782,6 +782,7 @@ function openSupportModal() {
 }
 
 function onSupportSiteSelect(site: { id: string; name: string; url: string }) {
+  if (site.id === 'lava') return
   void api.post('/users/support_link_click', {
     source: 'profile_theme',
     site_id: site.id,

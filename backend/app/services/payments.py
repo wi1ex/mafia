@@ -101,10 +101,164 @@ def _log_value(value: object) -> str:
     return text or "-"
 
 
+LAVA_LOG_FIELD_ORDER = (
+    "event",
+    "email",
+    "plan",
+    "currency",
+    "payment_method",
+    "promo_code",
+    "reason",
+    "amount",
+    "result",
+    "status",
+)
+LAVA_LOG_FIELD_LABELS = {
+    "event": "Событие",
+    "email": "Email",
+    "plan": "Тариф",
+    "currency": "Валюта",
+    "payment_method": "Способ оплаты",
+    "promo_code": "Промокод",
+    "reason": "Причина",
+    "amount": "Сумма",
+    "result": "Результат",
+    "status": "Статус",
+}
+LAVA_LOG_EVENT_LABELS = {
+    "payment_link": "выдача ссылки на оплату",
+    "payment_result": "результат оплаты",
+}
+LAVA_LOG_PLAN_LABELS = {
+    LAVA_MONTH_PLAN: "1 месяц",
+    LAVA_YEAR_PLAN: "12 месяцев",
+}
+LAVA_LOG_PAYMENT_METHOD_LABELS = {
+    "CARD": "карта",
+    "SBP": "СБП",
+}
+LAVA_LOG_REASON_LABELS = {
+    "lava_invoice_timeout": "сервис Lava не ответил вовремя",
+    "lava_invoice_request_failed": "не удалось подключиться к Lava",
+    "lava_api_unauthorized": "API-ключ Lava не принят",
+    "lava_offer_not_found": "тариф Lava не найден",
+    "lava_rate_limited": "Lava ограничила частоту запросов",
+    "lava_email_rejected": "Lava не приняла email",
+    "lava_currency_rejected": "Lava не приняла валюту",
+    "lava_payment_method_rejected": "Lava не приняла способ оплаты",
+    "lava_request_rejected": "Lava отклонила параметры платежа",
+    "lava_service_unavailable": "Lava временно недоступна",
+    "lava_invoice_invalid_response": "Lava вернула некорректный ответ",
+    "lava_contract_id_missing": "Lava не вернула номер договора",
+    "lava_payment_url_missing": "Lava не вернула ссылку на оплату",
+    "lava_free_invoice_not_processed": (
+        "нулевой счет создан, но подписка не активировалась"
+    ),
+    "lava_plan_invalid": "выбран неподдерживаемый тариф",
+    "lava_yearly_offer_missing": "не настроен годовой тариф Lava",
+    "lava_monthly_offer_missing": "не настроен месячный тариф Lava",
+    "lava_email_required": "email не указан",
+    "lava_email_invalid": "email некорректен",
+    "lava_currency_invalid": "выбрана неподдерживаемая валюта",
+    "lava_payment_provider_invalid": (
+        "выбран неподдерживаемый платежный провайдер"
+    ),
+    "lava_payment_method_invalid": (
+        "выбран неподдерживаемый способ оплаты"
+    ),
+    "lava_promo_code_invalid": "промокод некорректен",
+    "lava_promo_code_usage_limit_exceeded": (
+        "лимит использования промокода исчерпан"
+    ),
+    "lava_promo_code_rejected": "Lava не приняла промокод",
+    "lava_payment_method_required": "способ оплаты не выбран",
+    "lava_payment_method_unsupported": (
+        "способ оплаты недоступен для выбранной валюты"
+    ),
+    "free_invoice_not_processed": (
+        "нулевой счет создан, но подписка не активировалась"
+    ),
+    "user_or_subscription_period_missing": (
+        "не найден пользователь или период подписки"
+    ),
+    "product_mismatch": (
+        "продукт в уведомлении Lava не совпал с настройками"
+    ),
+    "payment_failed": "платеж не прошел",
+    "unhandled_webhook": "уведомление Lava не обработано",
+}
+LAVA_LOG_RESULT_LABELS = {
+    "payment_url_created": "ссылка на оплату выдана",
+    "payment_link_failed": "ошибка выдачи ссылки на оплату",
+    "subscription_granted_without_payment_url": (
+        "продукт сразу оплачен, подписка выдана"
+    ),
+    "subscription_granted": "платеж прошел, подписка выдана",
+    "subscription_not_granted": (
+        "платеж прошел, но подписка не выдана"
+    ),
+    "payment_failed": "платеж не прошел",
+    "product_mismatch": (
+        "платеж не засчитан из-за другого продукта"
+    ),
+    "unhandled_webhook": "результат платежа не обработан",
+}
+LAVA_LOG_STATUS_LABELS = {
+    "success": "успешно",
+    "failed": "ошибка",
+    "pending": "ожидает оплаты",
+    "paid": "оплачен",
+    "processed": "обработан",
+    "not_granted": "подписка не выдана",
+    "product_mismatch": "другой продукт",
+    "unhandled": "не обработан",
+    "cancelled": "отменен",
+    "refunded": "возврат",
+    "chargeback": "чарджбек",
+}
+
+
+def _localized_lava_log_value(field: str, value: object) -> str:
+    raw = _log_value(value)
+    if raw == "-":
+        return raw
+
+    if field == "event":
+        return LAVA_LOG_EVENT_LABELS.get(raw, raw)
+
+    if field == "plan":
+        return LAVA_LOG_PLAN_LABELS.get(raw, raw)
+
+    if field == "payment_method":
+        return LAVA_LOG_PAYMENT_METHOD_LABELS.get(raw.upper(), raw)
+
+    if field == "reason":
+        return LAVA_LOG_REASON_LABELS.get(raw, raw)
+
+    if field == "result":
+        return LAVA_LOG_RESULT_LABELS.get(raw, raw)
+
+    if field == "status":
+        return LAVA_LOG_STATUS_LABELS.get(raw.lower(), raw)
+
+    return raw
+
+
 def _log_details(event: str, **fields: object) -> str:
-    parts = [f"event={event}"]
-    parts.extend(f"{key}={_log_value(value)}" for key, value in fields.items())
-    return " ".join(parts)
+    allowed_fields = {"event": event}
+    allowed_fields.update(
+        {key: value for key, value in fields.items() if key in LAVA_LOG_FIELD_ORDER}
+    )
+    parts = []
+    for key in LAVA_LOG_FIELD_ORDER:
+        if key not in allowed_fields:
+            continue
+
+        label = LAVA_LOG_FIELD_LABELS[key]
+        value = _localized_lava_log_value(key, allowed_fields[key])
+        parts.append(f"{label}: {value}")
+
+    return "; ".join(parts)
 
 
 async def _log_lava_event(session: AsyncSession, *, event: str, user_id: int | None, username: str | None, commit: bool = True, **fields: object) -> None:
@@ -124,19 +278,6 @@ def _user_log_username(user: User, fallback: object = None) -> str:
 
 def _payment_log_username(payment: LavaPayment) -> str | None:
     return f"user{payment.user_id}" if payment.user_id else None
-
-
-def _webhook_log_fields(payment: LavaPayment, *, contract_id: str, event_type: str, status_value: str, **extra: object) -> dict[str, object]:
-    return {
-        "contract_id": contract_id,
-        "lava_event": event_type,
-        "status": status_value,
-        "amount": payment.amount,
-        "currency": payment.currency,
-        "product_id": payment.product_id,
-        "product_title": payment.product_title,
-        **extra,
-    }
 
 
 def _flatten_text(value: object) -> str:
@@ -273,6 +414,45 @@ def _extract_amount_and_currency(payload: dict[str, Any]) -> tuple[Decimal | Non
     amount = _decimal_or_none(payload.get("amount"))
     currency = _clean(payload.get("currency"), max_len=3).upper()
     return amount, currency or LAVA_CURRENCY
+
+
+def _extract_payment_method_from_payload(payload: dict[str, Any]) -> str:
+    payment = _payload_dict(payload, "payment")
+    candidates = [
+        payload.get("paymentMethod"),
+        payload.get("payment_method"),
+        payment.get("paymentMethod"),
+        payment.get("payment_method"),
+        payment.get("method"),
+    ]
+    for candidate in candidates:
+        method = _clean(candidate, max_len=32).upper()
+        if method:
+            return method
+
+    return ""
+
+
+def _extract_payment_method_for_log(payment: LavaPayment, webhook_payload: dict[str, Any]) -> str:
+    method = _extract_payment_method_from_payload(webhook_payload)
+    if method:
+        return method
+
+    try:
+        stored_payload = json.loads(payment.raw_payload or "{}")
+    except (TypeError, ValueError):
+        stored_payload = {}
+
+    if not isinstance(stored_payload, dict):
+        return ""
+
+    request_payload = stored_payload.get("request")
+    if isinstance(request_payload, dict):
+        method = _clean(request_payload.get("paymentMethod"), max_len=32).upper()
+        if method:
+            return method
+
+    return _extract_payment_method_from_payload(stored_payload)
 
 
 def _normalized_event(value: str) -> str:
@@ -685,11 +865,9 @@ async def _grant_subscription_for_payment(session: AsyncSession, payment: LavaPa
         select(UserSubscription).where(UserSubscription.user_id == uid).limit(1)
     )
 
-    was_new_subscription = subscription is None
     had_active_subscription = bool(
         subscription is not None and subscription.starts_at <= now < subscription.ends_at
     )
-    grant_kind = "new" if was_new_subscription else "extended" if had_active_subscription else "renewed"
     issue_nickname_limit = False
     if subscription is None:
         subscription = UserSubscription(
@@ -734,21 +912,6 @@ async def _grant_subscription_for_payment(session: AsyncSession, payment: LavaPa
             extended=had_active_subscription,
         )
 
-    await _log_lava_event(
-        session,
-        event="subscription_granted",
-        user_id=uid,
-        username=str(user.username or f"user{uid}"),
-        contract_id=payment.contract_id,
-        grant=grant_kind,
-        plan=payment.plan,
-        months=months,
-        offer_id=payment.offer_id,
-        amount=payment.amount,
-        currency=payment.currency,
-        starts_at=subscription.starts_at,
-        ends_at=subscription.ends_at,
-    )
     return True
 
 
@@ -764,12 +927,42 @@ async def create_lava_payment_link(
     if not user or user.deleted_at is not None:
         raise HTTPException(status_code=404, detail="user_not_found")
 
-    plan = _normalize_plan(payload.plan if payload is not None else None)
-    email = _normalize_buyer_email(payload.email if payload is not None else None)
-    requested_currency, payment_provider, payment_method, promo_code = (
-        _normalize_invoice_options(payload)
+    log_username = _user_log_username(user, username)
+    raw_email = _clean(payload.email if payload is not None else None, max_len=254).lower()
+    raw_plan = _clean(payload.plan if payload is not None else None).lower() or LAVA_MONTH_PLAN
+    raw_currency = (
+        _clean(payload.currency if payload is not None else None, max_len=3).upper()
+        or LAVA_CURRENCY
     )
-    offer_id, months = _configured_offer_for_plan(plan)
+    raw_payment_method = _clean(
+        payload.payment_method if payload is not None else None,
+        max_len=32,
+    ).upper()
+    raw_promo_code = _clean(payload.promo_code if payload is not None else None, max_len=36)
+    try:
+        plan = _normalize_plan(payload.plan if payload is not None else None)
+        email = _normalize_buyer_email(payload.email if payload is not None else None)
+        requested_currency, payment_provider, payment_method, promo_code = (
+            _normalize_invoice_options(payload)
+        )
+        offer_id, months = _configured_offer_for_plan(plan)
+    except HTTPException as exc:
+        await _log_lava_event(
+            session,
+            event="payment_link",
+            user_id=uid,
+            username=log_username,
+            email=raw_email,
+            plan=raw_plan,
+            currency=raw_currency,
+            payment_method=raw_payment_method,
+            promo_code=raw_promo_code,
+            reason=exc.detail,
+            result="payment_link_failed",
+            status="failed",
+        )
+        raise
+
     token = _new_tracking_token()
     invoice_request = _invoice_request_payload(
         email=email,
@@ -781,34 +974,22 @@ async def create_lava_payment_link(
         token=token,
         user_id=uid,
     )
-    log_username = _user_log_username(user, username)
-    await _log_lava_event(
-        session,
-        event="pay_clicked",
-        user_id=uid,
-        username=log_username,
-        email=email,
-        plan=plan,
-        months=months,
-        currency=requested_currency,
-        offer_id=offer_id,
-        payment_provider=payment_provider,
-        payment_method=payment_method,
-        promo_code=promo_code,
-    )
     try:
         invoice = await _create_lava_invoice(invoice_request)
     except HTTPException as exc:
         await _log_lava_event(
             session,
-            event="payment_link_failed",
+            event="payment_link",
             user_id=uid,
             username=log_username,
             email=email,
             plan=plan,
             currency=requested_currency,
-            offer_id=offer_id,
+            payment_method=payment_method,
+            promo_code=promo_code,
             reason=exc.detail,
+            result="payment_link_failed",
+            status="failed",
         )
         raise
 
@@ -821,14 +1002,17 @@ async def create_lava_payment_link(
         )
         await _log_lava_event(
             session,
-            event="payment_link_failed",
+            event="payment_link",
             user_id=uid,
             username=log_username,
             email=email,
             plan=plan,
             currency=requested_currency,
-            offer_id=offer_id,
+            payment_method=payment_method,
+            promo_code=promo_code,
             reason="lava_contract_id_missing",
+            result="payment_link_failed",
+            status="failed",
         )
         raise HTTPException(status_code=502, detail="lava_contract_id_missing")
 
@@ -841,15 +1025,18 @@ async def create_lava_payment_link(
         )
         await _log_lava_event(
             session,
-            event="payment_link_failed",
+            event="payment_link",
             user_id=uid,
             username=log_username,
             email=email,
             plan=plan,
             currency=requested_currency,
-            offer_id=offer_id,
-            contract_id=contract_id,
+            payment_method=payment_method,
+            promo_code=promo_code,
             reason="lava_payment_url_missing",
+            amount=amount,
+            result="payment_link_failed",
+            status="failed",
         )
         raise HTTPException(status_code=502, detail="lava_payment_url_missing")
 
@@ -883,13 +1070,18 @@ async def create_lava_payment_link(
         if not processed:
             await _log_lava_event(
                 session,
-                event="subscription_grant_skipped",
+                event="payment_link",
                 user_id=uid,
                 username=log_username,
-                contract_id=contract_id,
+                email=email,
                 plan=plan,
-                months=months,
+                currency=requested_currency,
+                payment_method=payment_method,
+                promo_code=promo_code,
                 reason="free_invoice_not_processed",
+                amount=payment.amount,
+                result="payment_link_failed",
+                status="failed",
                 commit=False,
             )
             await session.commit()
@@ -897,27 +1089,21 @@ async def create_lava_payment_link(
 
     await _log_lava_event(
         session,
-        event="payment_link_created",
+        event="payment_link",
         user_id=uid,
         username=log_username,
-        payment_id=payment.id,
-        contract_id=contract_id,
+        email=email,
         plan=plan,
-        months=months,
-        offer_id=offer_id,
         currency=requested_currency,
-        invoice_currency=invoice_currency,
-        payment_provider=payment_provider,
         payment_method=payment_method,
         promo_code=promo_code,
         amount=payment.amount,
-        payment_url_created=bool(payment_url),
-        processed=processed,
         result=(
             "subscription_granted_without_payment_url"
             if processed
             else "payment_url_created"
         ),
+        status="paid" if processed else "success",
     )
 
     return LavaPaymentLinkCreateOut(
@@ -958,6 +1144,7 @@ async def process_lava_webhook(
         user_id=tracking_user_id,
         payload=payload,
     )
+    payment_method = _extract_payment_method_for_log(payment, payload)
     amount, currency = _extract_amount_and_currency(payload)
     product_id = _extract_product_id(payload)
     product_title = _extract_product_title(payload)
@@ -983,88 +1170,50 @@ async def process_lava_webhook(
         )
         await _log_lava_event(
             session,
-            event="webhook_product_mismatch",
+            event="payment_result",
             user_id=payment.user_id,
             username=_payment_log_username(payment),
-            **_webhook_log_fields(
-                payment,
-                contract_id=contract_id,
-                event_type=event_type,
-                status_value=status_value,
-                expected_product_id=expected_product_id,
-            ),
+            email=payment.email,
+            plan=payment.plan,
+            currency=payment.currency,
+            payment_method=payment_method,
+            reason="product_mismatch",
+            amount=payment.amount,
+            result="product_mismatch",
+            status="product_mismatch",
             commit=False,
         )
         await session.commit()
         return
 
     if _is_ignored_lava_event(event_type):
-        await _log_lava_event(
-            session,
-            event="webhook_ignored",
-            user_id=payment.user_id,
-            username=_payment_log_username(payment),
-            **_webhook_log_fields(
-                payment,
-                contract_id=contract_id,
-                event_type=event_type,
-                status_value=status_value,
-                reason="recurring_not_supported",
-            ),
-            commit=False,
-        )
         await session.commit()
         return
 
     if _is_lava_payment_failure(event_type, status_value):
         await _log_lava_event(
             session,
-            event="webhook_failed",
+            event="payment_result",
             user_id=payment.user_id,
             username=_payment_log_username(payment),
-            **_webhook_log_fields(
-                payment,
-                contract_id=contract_id,
-                event_type=event_type,
-                status_value=status_value,
-            ),
+            email=payment.email,
+            plan=payment.plan,
+            currency=payment.currency,
+            payment_method=payment_method,
+            reason="payment_failed",
+            amount=payment.amount,
+            result="payment_failed",
+            status=status_value or "failed",
             commit=False,
         )
         await session.commit()
         return
 
     if payment.processed_at is not None:
-        await _log_lava_event(
-            session,
-            event="webhook_duplicate",
-            user_id=payment.user_id,
-            username=_payment_log_username(payment),
-            **_webhook_log_fields(
-                payment,
-                contract_id=contract_id,
-                event_type=event_type,
-                status_value=status_value,
-                processed_at=payment.processed_at,
-            ),
-            commit=False,
-        )
         await session.commit()
         return
 
     if _is_lava_payment_success(event_type, status_value):
-        await _log_lava_event(
-            session,
-            event="webhook_paid",
-            user_id=payment.user_id,
-            username=_payment_log_username(payment),
-            **_webhook_log_fields(
-                payment,
-                contract_id=contract_id,
-                event_type=event_type,
-                status_value=status_value,
-            ),
-            commit=False,
-        )
         granted = await _grant_subscription_for_payment(session, payment)
         if not granted:
             log.warning(
@@ -1079,29 +1228,49 @@ async def process_lava_webhook(
             )
             await _log_lava_event(
                 session,
-                event="subscription_grant_skipped",
+                event="payment_result",
                 user_id=payment.user_id,
                 username=_payment_log_username(payment),
-                contract_id=contract_id,
+                email=payment.email,
                 plan=payment.plan,
-                months=payment.subscription_months,
+                currency=payment.currency,
+                payment_method=payment_method,
                 reason="user_or_subscription_period_missing",
+                amount=payment.amount,
+                result="subscription_not_granted",
+                status="not_granted",
                 commit=False,
             )
             await session.commit()
+        else:
+            await _log_lava_event(
+                session,
+                event="payment_result",
+                user_id=payment.user_id,
+                username=_payment_log_username(payment),
+                email=payment.email,
+                plan=payment.plan,
+                currency=payment.currency,
+                payment_method=payment_method,
+                amount=payment.amount,
+                result="subscription_granted",
+                status="processed",
+            )
         return
 
     await _log_lava_event(
         session,
-        event="webhook_unhandled",
+        event="payment_result",
         user_id=payment.user_id,
         username=_payment_log_username(payment),
-        **_webhook_log_fields(
-            payment,
-            contract_id=contract_id,
-            event_type=event_type,
-            status_value=status_value,
-        ),
+        email=payment.email,
+        plan=payment.plan,
+        currency=payment.currency,
+        payment_method=payment_method,
+        reason="unhandled_webhook",
+        amount=payment.amount,
+        result="unhandled_webhook",
+        status=status_value or "unhandled",
         commit=False,
     )
     await session.commit()
