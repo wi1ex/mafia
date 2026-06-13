@@ -125,21 +125,26 @@
                 <UiInput id="update-notice-text" v-model="updateNoticeForm.text" as="textarea" rows="7" :disabled="updateNoticeSaving" label="Текст" class="update-notice-textarea" />
               </div>
               <div v-if="updateNoticeForm.title.trim() || updateNoticeTextPreview" class="update-notice-preview">
-                <div v-if="updateNoticeForm.title.trim()" class="update-notice-preview-title">{{ updateNoticeForm.title.trim() }}</div>
-                <div v-if="updateNoticePreviewBlocks.length" class="update-notice-preview-text">
-                  <template v-for="(block, blockIndex) in updateNoticePreviewBlocks" :key="`${block.type}-${blockIndex}`">
-                    <p v-if="block.type === 'paragraph'" class="notification-text-paragraph">
-                      <template v-for="(line, lineIndex) in block.lines" :key="`${blockIndex}-${lineIndex}`">
-                        {{ line }}<br v-if="lineIndex < block.lines.length - 1" />
-                      </template>
-                    </p>
-                    <ul v-else class="notification-text-list">
-                      <li v-for="(item, itemIndex) in block.items" :key="`${blockIndex}-${itemIndex}`">
-                        {{ item }}
-                      </li>
-                    </ul>
-                  </template>
-                </div>
+                <article class="update-notice-preview-item">
+                  <div class="update-notice-preview-header">
+                    <span>{{ updateNoticePreviewTitle }}</span>
+                    <time>{{ updateNoticePreviewDate }}</time>
+                  </div>
+                  <div v-if="updateNoticePreviewBlocks.length" class="update-notice-preview-text">
+                    <template v-for="(block, blockIndex) in updateNoticePreviewBlocks" :key="`${block.type}-${blockIndex}`">
+                      <p v-if="block.type === 'paragraph'" class="notification-text-paragraph">
+                        <template v-for="(line, lineIndex) in block.lines" :key="`${blockIndex}-${lineIndex}`">
+                          {{ line }}<br v-if="lineIndex < block.lines.length - 1" />
+                        </template>
+                      </p>
+                      <ul v-else class="notification-text-list">
+                        <li v-for="(item, itemIndex) in block.items" :key="`${blockIndex}-${itemIndex}`">
+                          {{ item }}
+                        </li>
+                      </ul>
+                    </template>
+                  </div>
+                </article>
               </div>
               <div class="form-actions">
                 <button class="btn confirm width-full" :disabled="updateNoticeSaving || !canSendUpdateNotice" @click="sendUpdateNotice">
@@ -964,6 +969,14 @@ import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
 import { getProfileThemeBadgeSources } from '@/constants/profileIcons'
 import { normalizeNotificationText, parseNotificationText } from '@/services/notificationText'
 
+const UPDATE_NOTICE_PREVIEW_DATE_OPTIONS: Intl.DateTimeFormatOptions = {
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+}
+
 type SiteSettings = {
   registration_enabled: boolean
   rooms_can_create: boolean
@@ -1714,6 +1727,8 @@ const activeUsersByDayTicks = computed(() => buildChartTicks(activeUsersByDayMax
 const registrationMonthlyTicks = computed(() => buildChartTicks(registrationsMonthlyMax.value))
 const gamesMonthlyTicks = computed(() => buildChartTicks(gamesMonthlyMax.value))
 const activeUsersMonthlyTicks = computed(() => buildChartTicks(activeUsersMonthlyMax.value))
+const updateNoticePreviewTitle = computed(() => updateNoticeForm.title.trim() || 'Уведомление')
+const updateNoticePreviewDate = computed(() => formatLocalDateTime(new Date(), UPDATE_NOTICE_PREVIEW_DATE_OPTIONS))
 const updateNoticeTextPreview = computed(() => normalizeNotificationText(updateNoticeForm.text).trim())
 const updateNoticePreviewBlocks = computed(() => parseNotificationText(updateNoticeTextPreview.value))
 const canSendUpdateNotice = computed(() => {
@@ -3550,19 +3565,49 @@ onMounted(() => {
       min-height: 200px;
     }
     .update-notice-preview {
+      display: flex;
+      flex-direction: column;
       margin-top: 15px;
-      padding-top: 15px;
-      border-top: 1px solid rgba($grey, 0.35);
+      width: 400px;
+      max-width: 100%;
+      padding: 10px;
+      box-sizing: border-box;
+      border-radius: 5px;
+      background-color: $graphite;
+      box-shadow: 3px 3px 5px rgba($black, 0.25);
       color: $fg;
     }
-    .update-notice-preview-title {
-      margin-bottom: 10px;
-      font-size: 18px;
-      font-family: Manrope-SemiBold;
-      line-height: 1.25;
-      overflow-wrap: anywhere;
+    .update-notice-preview-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 10px;
+      gap: 15px;
+      border-radius: 5px;
+      background-color: $lead;
+      box-shadow: 0 3px 5px rgba($black, 0.25);
+    }
+    .update-notice-preview-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      width: 100%;
+      span {
+        margin: 0;
+        max-width: 240px;
+        font-size: 18px;
+        font-weight: bold;
+      }
+      time {
+        margin-top: 3px;
+        color: $grey;
+        font-size: 12px;
+      }
     }
     .update-notice-preview-text {
+      margin: 0;
+      width: 100%;
+      color: $fg;
       line-height: 1.35;
       overflow-wrap: anywhere;
       word-break: break-word;

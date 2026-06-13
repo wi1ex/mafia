@@ -97,7 +97,7 @@ function onInput(e: Event) {
     width: calc(100% - 64px);
     height: 16px;
     padding: 20px 32px 19px;
-    border-radius: 999px;
+    border-radius: 32px;
     border: 1px solid var(--ui-input-border);
     background-color: transparent;
     color: var(--ui-input-text);
