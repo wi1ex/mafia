@@ -1,9 +1,9 @@
 <template>
   <Teleport to="body">
     <Transition name="overlay">
-      <div v-if="open" class="overlay" :style="{ zIndex }" @pointerdown.self="armed = true"
-           @pointerup.self="armed && requestClose()" @pointerleave.self="armed = false" @pointercancel.self="armed = false">
-        <div class="modal" role="dialog" aria-modal="true" :aria-label="title">
+      <div v-if="open" class="overlay" :style="{ zIndex }" @pointerdown.stop.self="armed = true"
+           @pointerup.stop.self="armed && requestClose()" @pointerleave.stop.self="armed = false" @pointercancel.stop.self="armed = false" @click.stop>
+        <div class="modal" role="dialog" aria-modal="true" :aria-label="title" @pointerdown.stop @pointerup.stop @click.stop>
           <header>
             <div class="heading">
               <span>{{ title }}</span>

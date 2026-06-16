@@ -180,7 +180,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { api } from '@/services/axios'
-import { alertDialog, confirmDialog } from '@/services/confirm'
+import { alertDialog, confirmDialog, useConfirmState } from '@/services/confirm'
 import { isMiniProfilePrivilegedViewer, normalizeMiniProfileRole } from '@/services/miniProfile'
 import { DEFAULT_SANCTION_REASON, SANCTION_REASONS } from '@/constants/sanctionReasons'
 import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
@@ -349,6 +349,7 @@ const emit = defineEmits<{
 const friends = useFriendsStore()
 const settingsStore = useSettingsStore()
 const userStore = useUserStore()
+const confirmState = useConfirmState()
 const loading = ref(false)
 const loadError = ref('')
 const profile = ref<MiniProfileResponse | null>(null)
@@ -978,6 +979,7 @@ function inferInitialFriendStatus(): FriendStatus {
 }
 
 function close() {
+  if (staffSanctionModalOpen.value || staffSubscriptionModalOpen.value || confirmState.open) return
   closeAvatarLightbox()
   emit('update:open', false)
 }
@@ -1125,6 +1127,10 @@ async function toggleStaffRole(): Promise<void> {
     text: `${isModer ? 'Снять' : 'Выдать'} права модератора пользователю ${userLabel}?`,
     confirmText: isModer ? 'Снять' : 'Выдать',
     cancelText: 'Отмена',
+    ...(isModer ? {} : {
+      checkboxLabel: 'Подтверждаю',
+      checkboxRequired: true,
+    }),
   })
   if (!ok) return
   staffRoleBusy.value = true
@@ -1156,6 +1162,10 @@ async function toggleStaffAccount(): Promise<void> {
       : `Удаление аккаунта ${userLabel} произойдет навсегда без возможности восстановления.`,
     confirmText: isDeleted ? 'Восстановить' : 'Удалить',
     cancelText: 'Отмена',
+    ...(isDeleted ? {} : {
+      checkboxLabel: 'Подтверждаю',
+      checkboxRequired: true,
+    }),
   })
   if (!ok) return
   staffAccountBusy.value = true
