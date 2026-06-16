@@ -1,6 +1,6 @@
 <template>
   <div class="toasts" @transitionend="onTransEnd">
-    <div v-for="t in items" :key="t.key" class="toast" :data-key="t.key" :class="{ closing: t._closing }">
+    <div v-for="t in items" :key="t.key" class="toast" :data-key="t.key" :class="[toastToneClass(t), { closing: t._closing }]">
       <header>
         <span>{{ t.title }}</span>
         <button @click="closeManual(t)">
@@ -142,6 +142,29 @@ function onApproved(e: any) {
   }
 }
 
+function toastToneClass(t: ToastItem): string {
+  const title = String(t.title || '')
+  const text = String(t.text || '')
+
+  if (title === 'Заявка в друзья от' || title === 'Заявка в комнату от' || t.kind === 'app') return 'tone-blue'
+  if (title === 'Заявка в друзья принята' || title === 'Доступ разрешен' || title === 'Приглашение в комнату от') return 'tone-green'
+  if (title === 'Доступ к комнате отозван' || title === 'Обратная связь') return 'tone-neutral'
+  if (title === 'Таймаут') return 'tone-orange'
+  if (title === 'Бан' || title === 'Аватар' || title === 'Никнейм') return 'tone-red'
+  if (title === 'Отстранение от игр') return 'tone-yellow'
+  if (title === 'Подписка') {
+    if (text.includes('истекла')) return 'tone-red'
+    if (text.includes('истекает')) return 'tone-orange'
+    return 'tone-green'
+  }
+  if (title === 'Роль') {
+    if (text.includes('выдана')) return 'tone-green'
+    return 'tone-neutral'
+  }
+
+  return 'tone-neutral'
+}
+
 onMounted(() => {
   window.addEventListener('toast', (e: any) => {
     const d = e?.detail || {}
@@ -187,10 +210,14 @@ onBeforeUnmount(() => {
   z-index: 2000;
   pointer-events: none;
   .toast {
+    --toast-border-color: #{$neutral-500};
+
     display: flex;
     flex-direction: column;
+    box-sizing: border-box;
     width: 400px;
     pointer-events: auto;
+    border: 1px solid var(--toast-border-color);
     border-radius: 5px;
     background-color: $dark;
     opacity: 1;
@@ -201,6 +228,24 @@ onBeforeUnmount(() => {
       opacity: 0;
       transform: translateY(30px);
       pointer-events: none;
+    }
+    &.tone-yellow {
+      --toast-border-color: #{$yellow-500};
+    }
+    &.tone-orange {
+      --toast-border-color: #{$orange-500};
+    }
+    &.tone-red {
+      --toast-border-color: #{$red-500};
+    }
+    &.tone-green {
+      --toast-border-color: #{$green-500};
+    }
+    &.tone-neutral {
+      --toast-border-color: #{$neutral-500};
+    }
+    &.tone-blue {
+      --toast-border-color: #{$blue-500};
     }
     header {
       display: flex;
