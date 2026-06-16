@@ -76,10 +76,6 @@
                     <span class="th-sort-mark" aria-hidden="true">▼</span>
                   </button>
                 </th>
-                <th>Аватар</th>
-                <th>Никнейм</th>
-                <th>Отстранить</th>
-                <th>Таймаут</th>
               </tr>
             </thead>
             <tbody>
@@ -98,29 +94,9 @@
                 <td>{{ row.suspends_count }}</td>
                 <td>{{ row.timeouts_count }}</td>
                 <td>{{ row.bans_count }}</td>
-                <td>
-                  <button class="btn" :class="row.avatar_name ? 'danger' : 'dark'" :disabled="!canModerateUser(row) || !row.avatar_name || usersAvatarBusy[row.id]" @click="deleteUserAvatar(row)">
-                    <img class="btn-img" :src="iconClose" alt="" />
-                  </button>
-                </td>
-                <td>
-                  <button class="btn" :class="isNicknameDefault(row) ? 'dark' : 'danger'" :disabled="!canModerateUser(row) || isNicknameDefault(row) || usersNicknameBusy[row.id]" @click="resetUserNickname(row)">
-                    <img class="btn-img" :src="iconClose" alt="" />
-                  </button>
-                </td>
-                <td>
-                  <button class="btn" :class="row.suspend_active ? 'dark' : 'danger'" :disabled="!canModerateUser(row) || isSanctionBusy(row.id, 'suspend')" @click="toggleSuspend(row)">
-                    <img class="btn-img" :src="row.suspend_active ? iconClose : iconJudge" alt="" />
-                  </button>
-                </td>
-                <td>
-                  <button class="btn" :class="row.timeout_active ? 'dark' : 'danger'" :disabled="!canModerateUser(row) || isSanctionBusy(row.id, 'timeout')" @click="toggleTimeout(row)">
-                    <img class="btn-img" :src="row.timeout_active ? iconClose : iconJudge" alt="" />
-                  </button>
-                </td>
               </tr>
               <tr v-if="users.length === 0">
-                <td colspan="11" class="muted">Нет данных</td>
+                <td colspan="7" class="muted">Нет данных</td>
               </tr>
             </tbody>
           </table>
@@ -273,16 +249,6 @@
     </div>
 
     <Sanction
-      v-model:open="sanctionModalOpen"
-      :title="sanctionTitle"
-      :saving="sanctionSaving"
-      :can-save="sanctionCanSave"
-      :show-duration="true"
-      :form="sanctionForm"
-      :reasons="sanctionReasons"
-      @save="saveSanction"
-    />
-    <Sanction
       :open="sanctionAdjustModalOpen"
       :title="sanctionAdjustTitle"
       :saving="sanctionAdjustSaving"
@@ -313,9 +279,9 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { api } from '@/services/axios'
-import { alertDialog, confirmDialog } from '@/services/confirm'
+import { alertDialog } from '@/services/confirm'
 import { formatLocalDateTime } from '@/services/datetime'
-import { DEFAULT_SANCTION_REASON, SANCTION_REASONS } from '@/constants/sanctionReasons'
+import { SANCTION_REASONS } from '@/constants/sanctionReasons'
 import { canOpenMiniProfileTarget, normalizeMiniProfileUserId } from '@/services/miniProfile'
 import { useUserStore } from '@/store'
 
@@ -324,8 +290,6 @@ import Sanction from '@/components/Sanction.vue'
 import UiInput from '@/components/UiInput.vue'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
-import iconClose from '@/assets/svg/close.svg'
-import iconJudge from '@/assets/svg/judge.svg'
 
 type TabKey = 'users' | 'sanctions' | 'contact_requests'
 type SanctionListStatus = 'active' | 'expired_auto' | 'revoked'
@@ -362,10 +326,6 @@ type UserRow = {
   registered_at: string
   last_room_id?: number | null
   last_spectator_room_id?: number | null
-  timeout_active: boolean
-  timeout_until?: string | null
-  suspend_active: boolean
-  suspend_until?: string | null
   timeouts_count: number
   bans_count: number
   suspends_count: number
@@ -416,9 +376,6 @@ const usersPage = ref(1)
 const usersLimit = ref(20)
 const usersUser = ref('')
 const usersSortBy = ref<UsersSortBy>('registered_at')
-const usersSanctionBusy = reactive<Record<string, boolean>>({})
-const usersAvatarBusy = reactive<Record<number, boolean>>({})
-const usersNicknameBusy = reactive<Record<number, boolean>>({})
 const sanctions = ref<SanctionsRow[]>([])
 const sanctionsLoading = ref(false)
 const sanctionsTotal = ref(0)
@@ -437,10 +394,6 @@ let sanctionsUserTimer: number | undefined
 let contactRequestsUserTimer: number | undefined
 
 const sanctionReasons = SANCTION_REASONS
-const sanctionModalOpen = ref(false)
-const sanctionSaving = ref(false)
-const sanctionKind = ref<'timeout' | 'suspend'>('suspend')
-const sanctionTarget = ref<UserRow | null>(null)
 const SANCTION_DURATION_LIMITS = {
   months: 240,
   days: 31,
@@ -456,13 +409,6 @@ const userMiniProfileHistoryUrl = computed(() => {
   const target = userMiniProfileTarget.value
   return target ? `/moderation/users/${target.id}/games/history` : null
 })
-const sanctionForm = reactive({
-  months: 0,
-  days: 0,
-  hours: 0,
-  reason: DEFAULT_SANCTION_REASON,
-  description: '',
-})
 function isSanctionDurationPartValid(value: number, max: number): boolean {
   const parsed = Number(value)
   return Number.isInteger(parsed) && parsed >= 0 && parsed <= max
@@ -471,24 +417,6 @@ function isSanctionDurationPartValid(value: number, max: number): boolean {
 const usersPages = computed(() => Math.max(1, Math.ceil(usersTotal.value / usersLimit.value)))
 const sanctionsPages = computed(() => Math.max(1, Math.ceil(sanctionsTotal.value / sanctionsLimit.value)))
 const contactRequestsPages = computed(() => Math.max(1, Math.ceil(contactRequestsTotal.value / contactRequestsLimit.value)))
-const sanctionDurationValid = computed(() => (
-  isSanctionDurationPartValid(sanctionForm.months, SANCTION_DURATION_LIMITS.months)
-  && isSanctionDurationPartValid(sanctionForm.days, SANCTION_DURATION_LIMITS.days)
-  && isSanctionDurationPartValid(sanctionForm.hours, SANCTION_DURATION_LIMITS.hours)
-))
-const sanctionTotalSeconds = computed(() => {
-  const months = Math.max(0, Number(sanctionForm.months) || 0)
-  const days = Math.max(0, Number(sanctionForm.days) || 0)
-  const hours = Math.max(0, Number(sanctionForm.hours) || 0)
-  const totalMinutes = (months * 30 * 24 * 60) + (days * 24 * 60) + (hours * 60)
-  return totalMinutes * 60
-})
-const sanctionCanSave = computed(() => Boolean(sanctionForm.reason) && Boolean(sanctionForm.description.trim()) && sanctionDurationValid.value && sanctionTotalSeconds.value > 0)
-const sanctionTitle = computed(() => {
-  const target = sanctionTarget.value
-  const label = target?.username || (target ? `user${target.id}` : 'пользователю')
-  return sanctionKind.value === 'timeout' ? `Таймаут: ${label}` : `Отстранение от игр: ${label}`
-})
 const sanctionAdjustModalOpen = ref(false)
 const sanctionAdjustSaving = ref(false)
 const sanctionAdjustMode = ref<SanctionAdjustMode>('increase')
@@ -596,14 +524,6 @@ function sanctionStatusClass(status: SanctionListStatus): string {
   return 'status-revoked'
 }
 
-function isSanctionBusy(userId: number, kind: 'timeout' | 'suspend'): boolean {
-  return Boolean(usersSanctionBusy[`${userId}:${kind}`])
-}
-
-function setSanctionBusy(userId: number, kind: 'timeout' | 'suspend', value: boolean): void {
-  usersSanctionBusy[`${userId}:${kind}`] = value
-}
-
 function getPositiveUserId(value: unknown): number {
   const id = Number(value ?? 0)
   return Number.isFinite(id) && id > 0 ? Math.trunc(id) : 0
@@ -633,15 +553,6 @@ function canOpenModerationUserMiniProfile(row: UserRow): boolean {
     id: row.id,
     role: row.role,
   })
-}
-
-function canModerateUser(row: UserRow): boolean {
-  return String(row.role || '') === 'user'
-}
-
-function isNicknameDefault(row: UserRow | null | undefined): boolean {
-  if (!row) return false
-  return String(row.username || '') === `user_${row.id}`
 }
 
 function canOpenSanctionUserMiniProfile(row: SanctionsRow): boolean {
@@ -708,21 +619,6 @@ function onUserMiniProfileStaffActionComplete(): void {
   refreshActiveTab(activeTab.value)
 }
 
-function resetSanctionForm(): void {
-  sanctionForm.months = 0
-  sanctionForm.days = 0
-  sanctionForm.hours = 0
-  sanctionForm.reason = DEFAULT_SANCTION_REASON
-  sanctionForm.description = ''
-}
-
-function openSanction(row: UserRow, kind: 'timeout' | 'suspend'): void {
-  sanctionTarget.value = row
-  sanctionKind.value = kind
-  resetSanctionForm()
-  sanctionModalOpen.value = true
-}
-
 async function loadUsers(): Promise<void> {
   if (usersLoading.value) return
   usersLoading.value = true
@@ -741,8 +637,6 @@ async function loadUsers(): Promise<void> {
       role: String(item?.role || ''),
       last_room_id: Number.isFinite(item?.last_room_id) ? item.last_room_id : null,
       last_spectator_room_id: Number.isFinite(item?.last_spectator_room_id) ? item.last_spectator_room_id : null,
-      timeout_until: item?.timeout_until ?? null,
-      suspend_until: item?.suspend_until ?? null,
     }))
     usersTotal.value = Number.isFinite(data?.total) ? data.total : 0
   } catch {
@@ -808,38 +702,6 @@ async function loadContactRequests(): Promise<void> {
   }
 }
 
-async function saveSanction(): Promise<void> {
-  const target = sanctionTarget.value
-  if (!target || sanctionSaving.value || !sanctionCanSave.value) return
-  sanctionSaving.value = true
-  const kind = sanctionKind.value
-  try {
-    await api.post(`/moderation/users/${target.id}/${kind}`, {
-      months: sanctionForm.months,
-      days: sanctionForm.days,
-      hours: sanctionForm.hours,
-      reason: sanctionForm.reason,
-      description: sanctionForm.description.trim(),
-    })
-    sanctionModalOpen.value = false
-    void alertDialog(kind === 'timeout' ? 'Таймаут выдан' : 'Отстранение от игр выдано')
-    await loadUsers()
-    if (activeTab.value === 'sanctions') await loadSanctions()
-  } catch (e: any) {
-    const st = e?.response?.status
-    const d = e?.response?.data?.detail
-    if (st === 409 && d === 'sanction_active') {
-      void alertDialog('Санкция уже активна')
-    } else if (st === 422 && d === 'duration_required') {
-      void alertDialog('Укажите срок санкции')
-    } else {
-      void alertDialog(kind === 'timeout' ? 'Не удалось выдать таймаут' : 'Не удалось выдать отстранение от игр')
-    }
-  } finally {
-    sanctionSaving.value = false
-  }
-}
-
 function resetSanctionAdjustForm(): void {
   sanctionAdjustForm.months = 0
   sanctionAdjustForm.days = 0
@@ -900,108 +762,6 @@ async function saveSanctionAdjust(): Promise<void> {
     sanctionsAdjusting[busyKey] = false
     sanctionAdjustSaving.value = false
   }
-}
-
-async function deleteUserAvatar(row: UserRow): Promise<void> {
-  if (!canModerateUser(row) || !row.avatar_name || usersAvatarBusy[row.id]) return
-  const userLabel = row.username ? `${row.username}` : `#${row.id}`
-  const ok = await confirmDialog({
-    title: 'Удалить аватар',
-    text: `Удалить аватар у ${userLabel}?`,
-    confirmText: 'Удалить',
-    cancelText: 'Отмена',
-  })
-  if (!ok) return
-  usersAvatarBusy[row.id] = true
-  try {
-    await api.post(`/moderation/users/${row.id}/avatar_delete`)
-    row.avatar_name = null
-    void alertDialog('Аватар удален')
-  } catch (e: any) {
-    const st = e?.response?.status
-    const d = e?.response?.data?.detail
-    if (st === 403 && d === 'forbidden') void alertDialog('Нельзя удалить аватар этого пользователя')
-    else void alertDialog('Не удалось удалить аватар')
-  } finally {
-    usersAvatarBusy[row.id] = false
-  }
-}
-
-async function resetUserNickname(row: UserRow): Promise<void> {
-  if (!canModerateUser(row) || isNicknameDefault(row) || usersNicknameBusy[row.id]) return
-  const userLabel = row.username ? `${row.username}` : `#${row.id}`
-  const ok = await confirmDialog({
-    title: 'Сбросить никнейм',
-    text: `Сбросить никнейм ${userLabel} на user_${row.id}?`,
-    confirmText: 'Сбросить',
-    cancelText: 'Отмена',
-  })
-  if (!ok) return
-  usersNicknameBusy[row.id] = true
-  try {
-    const { data } = await api.post(`/moderation/users/${row.id}/nickname_reset`)
-    row.username = data?.username || `user_${row.id}`
-    void alertDialog('Никнейм сброшен')
-  } catch (e: any) {
-    if (e?.response?.status === 409 && e?.response?.data?.detail === 'username_taken') {
-      void alertDialog('Не удалось сбросить никнейм: имя уже занято')
-    } else if (e?.response?.status === 403 && e?.response?.data?.detail === 'forbidden') {
-      void alertDialog('Нельзя сбросить никнейм этого пользователя')
-    } else {
-      void alertDialog('Не удалось сбросить никнейм')
-    }
-  } finally {
-    usersNicknameBusy[row.id] = false
-  }
-}
-
-async function revokeSanction(row: UserRow, kind: 'timeout' | 'suspend'): Promise<void> {
-  if (isSanctionBusy(row.id, kind)) return
-  const userLabel = row.username ? `${row.username}` : `#${row.id}`
-  const title = kind === 'timeout' ? 'Снять таймаут' : 'Снять отстранение от игр'
-  const text = kind === 'timeout'
-    ? `Снять таймаут у ${userLabel}?`
-    : `Снять отстранение от игр у ${userLabel}?`
-  const ok = await confirmDialog({
-    title,
-    text,
-    confirmText: 'Снять',
-    cancelText: 'Отмена',
-  })
-  if (!ok) return
-  setSanctionBusy(row.id, kind, true)
-  try {
-    await api.delete(`/moderation/users/${row.id}/${kind}`)
-    void alertDialog(kind === 'timeout' ? 'Таймаут снят' : 'Отстранение от игр снято')
-    await loadUsers()
-    if (activeTab.value === 'sanctions') await loadSanctions()
-  } catch (e: any) {
-    const st = e?.response?.status
-    const d = e?.response?.data?.detail
-    if (st === 404 && d === 'sanction_not_found') {
-      void alertDialog('Санкция не найдена')
-    } else {
-      void alertDialog(kind === 'timeout' ? 'Не удалось снять таймаут' : 'Не удалось снять отстранение от игр')
-    }
-  } finally {
-    setSanctionBusy(row.id, kind, false)
-  }
-}
-
-async function toggleSuspend(row: UserRow): Promise<void> {
-  if (row.suspend_active) {
-    await revokeSanction(row, 'suspend')
-    return
-  }
-  openSanction(row, 'suspend')
-}
-
-async function toggleTimeout(row: UserRow): Promise<void> {
-  if (row.timeout_active) {
-    await revokeSanction(row, 'timeout')
-    return
-  }
-  openSanction(row, 'timeout')
 }
 
 function nextUsers(): void {
@@ -1190,10 +950,6 @@ onBeforeUnmount(() => {
     &:disabled {
       opacity: 0.5;
       cursor: not-allowed;
-    }
-    .btn-img {
-      width: 20px;
-      height: 20px;
     }
   }
   .loading {

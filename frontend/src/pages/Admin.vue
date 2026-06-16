@@ -596,14 +596,6 @@
                       <span class="th-sort-mark" aria-hidden="true">▼</span>
                     </button>
                   </th>
-                  <th>Подписка</th>
-                  <th>Модерка</th>
-                  <th>Аккаунт</th>
-                  <th>Аватар</th>
-                  <th>Никнейм</th>
-                  <th>Отстранить</th>
-                  <th>Таймаут</th>
-                  <th>Бан</th>
                 </tr>
               </thead>
               <tbody>
@@ -625,49 +617,9 @@
                   <td>{{ row.suspends_count }}</td>
                   <td>{{ row.timeouts_count }}</td>
                   <td>{{ row.bans_count }}</td>
-                  <td>
-                    <button v-if="subscriptionsReady" class="btn confirm" :disabled="isSubscriptionGrantLocked(row) || userHasActiveSubscription(row.id)" @click="openGrantSubscription(row)">
-                      Выдать
-                    </button>
-                  </td>
-                  <td>
-                    <button class="btn" :class="row.role === 'moder' ? 'dark' : 'danger'" :disabled="isDeletedUserActionsLocked(row) || usersRoleBusy[row.id] || row.role === 'admin'" @click="toggleUserRole(row)">
-                      <img class="btn-img" :src="row.role === 'moder' ? iconClose : iconJudge" alt="" />
-                    </button>
-                  </td>
-                  <td>
-                    <button class="btn" :class="row.deleted_at ? 'dark' : 'danger'" :disabled="isUserActionsLocked(row) || usersDeleteBusy[row.id]" @click="toggleDeleteAccount(row)">
-                      <img class="btn-img" :src="row.deleted_at ? iconClose : iconJudge" alt="" />
-                    </button>
-                  </td>
-                  <td>
-                    <button class="btn" :class="row.avatar_name ? 'danger' : 'dark'" :disabled="isDeletedUserActionsLocked(row) || !row.avatar_name || usersAvatarBusy[row.id]" @click="deleteUserAvatar(row)">
-                      <img class="btn-img" :src="iconClose" alt="" />
-                    </button>
-                  </td>
-                  <td>
-                    <button class="btn" :class="isNicknameDefault(row) ? 'dark' : 'danger'" :disabled="isDeletedUserActionsLocked(row) || isNicknameDefault(row) || usersNicknameBusy[row.id]" @click="resetUserNickname(row)">
-                      <img class="btn-img" :src="iconClose" alt="" />
-                    </button>
-                  </td>
-                  <td>
-                    <button class="btn" :class="row.suspend_active ? 'dark' : 'danger'" :disabled="isDeletedUserActionsLocked(row) || isSanctionBusy(row.id, 'suspend')" @click="toggleSuspend(row)">
-                      <img class="btn-img" :src="row.suspend_active ? iconClose : iconJudge" alt="" />
-                    </button>
-                  </td>
-                  <td>
-                    <button class="btn" :class="row.timeout_active ? 'dark' : 'danger'" :disabled="isDeletedUserActionsLocked(row) || isSanctionBusy(row.id, 'timeout')" @click="toggleTimeout(row)">
-                      <img class="btn-img" :src="row.timeout_active ? iconClose : iconJudge" alt="" />
-                    </button>
-                  </td>
-                  <td>
-                    <button class="btn" :class="row.ban_active ? 'dark' : 'danger'" :disabled="isDeletedUserActionsLocked(row) || isSanctionBusy(row.id, 'ban')" @click="toggleBan(row)">
-                      <img class="btn-img" :src="row.ban_active ? iconClose : iconJudge" alt="" />
-                    </button>
-                  </td>
                 </tr>
                 <tr v-if="users.length === 0">
-                  <td colspan="17" class="muted">Нет данных</td>
+                  <td colspan="9" class="muted">Нет данных</td>
                 </tr>
               </tbody>
             </table>
@@ -894,16 +846,6 @@
     </Transition>
 
     <Sanction
-      v-model:open="sanctionModalOpen"
-      :title="sanctionTitle"
-      :saving="sanctionSaving"
-      :can-save="sanctionCanSave"
-      :show-duration="sanctionKind !== 'ban'"
-      :form="sanctionForm"
-      :reasons="sanctionReasons"
-      @save="saveSanction"
-    />
-    <Sanction
       :open="sanctionAdjustModalOpen"
       :title="sanctionAdjustTitle"
       :saving="sanctionAdjustSaving"
@@ -950,7 +892,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { api } from '@/services/axios'
 import { alertDialog, confirmDialog } from '@/services/confirm'
 import { formatLocalDateTime } from '@/services/datetime'
-import { DEFAULT_SANCTION_REASON, SANCTION_REASONS } from '@/constants/sanctionReasons'
+import { SANCTION_REASONS } from '@/constants/sanctionReasons'
 import { canOpenMiniProfileTarget, normalizeMiniProfileUserId } from '@/services/miniProfile'
 import { useSettingsStore, useUserStore } from '@/store'
 
@@ -961,8 +903,6 @@ import UiSwitch from '@/components/UiSwitch.vue'
 import UiInput from '@/components/UiInput.vue'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
-import iconClose from '@/assets/svg/close.svg'
-import iconJudge from '@/assets/svg/judge.svg'
 import iconDelete from '@/assets/svg/delete.svg'
 import iconSave from '@/assets/svg/save.svg'
 import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
@@ -1126,16 +1066,10 @@ type UserRow = {
   username?: string | null
   avatar_name?: string | null
   role: string
-  protected_user: boolean
   registered_at: string
   last_room_id?: number | null
   last_spectator_room_id?: number | null
   deleted_at?: string | null
-  timeout_active: boolean
-  timeout_until?: string | null
-  ban_active: boolean
-  suspend_active: boolean
-  suspend_until?: string | null
   timeouts_count: number
   bans_count: number
   suspends_count: number
@@ -1337,17 +1271,11 @@ const contactRequestsPage = ref(1)
 const contactRequestsLimit = ref(20)
 const contactRequestsUser = ref('')
 const contactRequestsDeleting = reactive<Record<number, boolean>>({})
-const usersRoleBusy = reactive<Record<number, boolean>>({})
-const usersDeleteBusy = reactive<Record<number, boolean>>({})
-const usersAvatarBusy = reactive<Record<number, boolean>>({})
-const usersNicknameBusy = reactive<Record<number, boolean>>({})
-const usersSanctionBusy = reactive<Record<string, boolean>>({})
 const sanctionsDeleting = reactive<Record<number, boolean>>({})
 const sanctionsAdjusting = reactive<Record<string, boolean>>({})
 const subscriptions = ref<SubscriptionRow[]>([])
-const subscriptionsReady = ref(false)
 const subscriptionModalOpen = ref(false)
-const subscriptionModalMode = ref<'grant' | 'extend' | 'reduce'>('grant')
+const subscriptionModalMode = ref<'extend' | 'reduce'>('extend')
 const subscriptionTarget = ref<SubscriptionTarget | null>(null)
 const subscriptionSaving = ref(false)
 const subscriptionRemoving = reactive<Record<number, boolean>>({})
@@ -1367,10 +1295,6 @@ const userMiniProfileHistoryUrl = computed(() => {
 })
 const updateNoticeSaving = ref(false)
 const updateNoticeForm = reactive({ title: '', text: '' })
-const sanctionModalOpen = ref(false)
-const sanctionSaving = ref(false)
-const sanctionKind = ref<'timeout' | 'ban' | 'suspend'>('timeout')
-const sanctionTarget = ref<UserRow | null>(null)
 const sanctionReasons = SANCTION_REASONS
 const SANCTION_DURATION_LIMITS = {
   months: 240,
@@ -1378,39 +1302,10 @@ const SANCTION_DURATION_LIMITS = {
   hours: 23,
 } as const
 
-const sanctionForm = reactive({
-  months: 0,
-  days: 0,
-  hours: 0,
-  reason: DEFAULT_SANCTION_REASON,
-  description: '',
-})
 function isSanctionDurationPartValid(value: number, max: number): boolean {
   const parsed = Number(value)
   return Number.isInteger(parsed) && parsed >= 0 && parsed <= max
 }
-const sanctionDurationValid = computed(() => (
-  isSanctionDurationPartValid(sanctionForm.months, SANCTION_DURATION_LIMITS.months)
-  && isSanctionDurationPartValid(sanctionForm.days, SANCTION_DURATION_LIMITS.days)
-  && isSanctionDurationPartValid(sanctionForm.hours, SANCTION_DURATION_LIMITS.hours)
-))
-const sanctionTotalSeconds = computed(() => {
-  const months = Math.max(0, Number(sanctionForm.months) || 0)
-  const days = Math.max(0, Number(sanctionForm.days) || 0)
-  const hours = Math.max(0, Number(sanctionForm.hours) || 0)
-  const totalMinutes = (months * 30 * 24 * 60) + (days * 24 * 60) + (hours * 60)
-  return totalMinutes * 60
-})
-const sanctionCanSave = computed(() => {
-  if (!sanctionForm.reason || !sanctionForm.description.trim()) return false
-  if (sanctionKind.value === 'ban') return true
-  return sanctionDurationValid.value && sanctionTotalSeconds.value > 0
-})
-const sanctionTitle = computed(() => {
-  if (sanctionKind.value === 'timeout') return 'Выдать таймаут'
-  if (sanctionKind.value === 'ban') return 'Выдать бан'
-  return 'Выдать отстранение'
-})
 const sanctionAdjustModalOpen = ref(false)
 const sanctionAdjustSaving = ref(false)
 const sanctionAdjustMode = ref<SanctionAdjustMode>('increase')
@@ -1801,33 +1696,6 @@ function sanctionStatusClass(status: SanctionListStatus): string {
   return 'status-revoked'
 }
 
-function isSanctionBusy(userId: number, kind: 'timeout' | 'ban' | 'suspend'): boolean {
-  return Boolean(usersSanctionBusy[`${userId}:${kind}`])
-}
-
-function isUserActionsLocked(row: UserRow | null | undefined): boolean {
-  if (!row) return false
-  return Boolean(row.protected_user)
-}
-
-function isDeletedUser(row: UserRow | null | undefined): boolean {
-  if (!row) return false
-  return Boolean(row.deleted_at)
-}
-
-function isSubscriptionGrantLocked(row: UserRow | null | undefined): boolean {
-  return isDeletedUser(row)
-}
-
-function isDeletedUserActionsLocked(row: UserRow | null | undefined): boolean {
-  return isUserActionsLocked(row) || isDeletedUser(row)
-}
-
-function isNicknameDefault(row: UserRow | null | undefined): boolean {
-  if (!row) return false
-  return String(row.username || '') === `user_${row.id}`
-}
-
 function openUserMiniProfile(row: UserMiniProfileTarget): void {
   userMiniProfileTarget.value = row
   userMiniProfileOpen.value = true
@@ -2044,14 +1912,6 @@ function subscriptionThemeIconSrcs(icon: string | null | undefined, role?: strin
   return getProfileThemeBadgeSources(icon, role)
 }
 
-function userSubscriptionEntry(userId: number): SubscriptionRow | null {
-  return subscriptionsByUserId.value.get(userId) ?? null
-}
-
-function userHasActiveSubscription(userId: number): boolean {
-  return Boolean(userSubscriptionEntry(userId)?.is_active)
-}
-
 function resetSubscriptionForm(): void {
   subscriptionForm.months = 0
   subscriptionForm.days = 0
@@ -2071,19 +1931,6 @@ function closeSubscriptionModal(): void {
 function onSubscriptionModalOpenUpdate(open: boolean): void {
   if (open) return
   closeSubscriptionModal()
-}
-
-function openGrantSubscription(row: UserRow): void {
-  if (isSubscriptionGrantLocked(row)) return
-  if (userHasActiveSubscription(row.id)) return
-  subscriptionModalMode.value = 'grant'
-  subscriptionTarget.value = {
-    user_id: row.id,
-    username: row.username ?? null,
-    avatar_name: row.avatar_name ?? null,
-  }
-  resetSubscriptionForm()
-  subscriptionModalOpen.value = true
 }
 
 function openExtendSubscription(row: SubscriptionRow): void {
@@ -2346,7 +2193,6 @@ async function loadUsers(): Promise<void> {
     users.value = items.map((item: any) => ({
       ...item,
       tg_id: item?.tg_id ?? null,
-      protected_user: Boolean(item?.protected_user),
       last_room_id: Number.isFinite(item?.last_room_id) ? item.last_room_id : null,
       last_spectator_room_id: Number.isFinite(item?.last_spectator_room_id) ? item.last_spectator_room_id : null,
     }))
@@ -2540,7 +2386,6 @@ async function loadSubscriptions(): Promise<void> {
     subscriptions.value = []
     void alertDialog('Не удалось загрузить подписки')
   } finally {
-    subscriptionsReady.value = true
     subscriptionsLoading.value = false
   }
 }
@@ -2549,7 +2394,6 @@ async function saveSubscription(): Promise<void> {
   if (subscriptionSaving.value || !subscriptionCanSave.value || !subscriptionTarget.value) return
   subscriptionSaving.value = true
   const selectedEntry = selectedSubscriptionEntry.value
-  const hadAnySubscription = Boolean(selectedEntry)
   const hadActiveSubscription = Boolean(selectedEntry?.is_active)
   const mode = subscriptionModalMode.value
   const userId = subscriptionTarget.value.user_id
@@ -2568,10 +2412,9 @@ async function saveSubscription(): Promise<void> {
     }
     await loadSubscriptions()
     clearSubscriptionModalState()
-    let message = 'Подписка выдана'
+    let message = 'Подписка продлена'
     if (mode === 'reduce') message = 'Срок подписки уменьшен'
-    else if (hadActiveSubscription) message = 'Подписка продлена'
-    else if (hadAnySubscription) message = 'Подписка активирована'
+    else if (!hadActiveSubscription && selectedEntry) message = 'Подписка активирована'
     void alertDialog(message)
   } catch (e: any) {
     const st = e?.response?.status
@@ -2737,227 +2580,6 @@ function prevContactRequests(): void {
   void loadContactRequests()
 }
 
-async function toggleUserRole(row: UserRow): Promise<void> {
-  if (isDeletedUserActionsLocked(row)) return
-  if (String(row.role || 'user') === 'admin') return
-  if (usersRoleBusy[row.id]) return
-  const isModer = row.role === 'moder'
-  const targetRole = isModer ? 'user' : 'moder'
-  const userLabel = row.username ? `пользователю ${row.username}` : `пользователю #${row.id}`
-  const ok = await confirmDialog({
-    title: isModer ? 'Снять MODER' : 'Выдать MODER',
-    text: `${isModer ? 'Снять' : 'Выдать'} права модератора ${userLabel}?`,
-    confirmText: isModer ? 'Снять' : 'Выдать',
-    cancelText: 'Отмена',
-  })
-  if (!ok) return
-  usersRoleBusy[row.id] = true
-  try {
-    const { data } = await api.patch(`/admin/users/${row.id}/role`, { role: targetRole })
-    row.role = data?.role || targetRole
-  } catch {
-    void alertDialog('Не удалось обновить роль пользователя')
-  } finally {
-    usersRoleBusy[row.id] = false
-  }
-}
-
-async function toggleDeleteAccount(row: UserRow): Promise<void> {
-  if (isUserActionsLocked(row)) return
-  if (usersDeleteBusy[row.id]) return
-  const isDeleted = Boolean(row.deleted_at)
-  const userLabel = row.username ? `${row.username}` : `#${row.id}`
-  const ok = await confirmDialog({
-    title: isDeleted ? 'Восстановить аккаунт' : 'Удалить аккаунт',
-    text: isDeleted
-      ? `Восстановить доступ для ${userLabel}?`
-      : `Удаление аккаунта ${userLabel} произойдет навсегда без возможности восстановления.`,
-    confirmText: isDeleted ? 'Восстановить' : 'Удалить',
-    cancelText: 'Отмена',
-  })
-  if (!ok) return
-  usersDeleteBusy[row.id] = true
-  try {
-    const url = isDeleted ? `/admin/users/${row.id}/restore` : `/admin/users/${row.id}/delete`
-    await api.post(url)
-    await loadUsers()
-  } catch {
-    void alertDialog(isDeleted ? 'Не удалось восстановить аккаунт' : 'Не удалось удалить аккаунт')
-  } finally {
-    usersDeleteBusy[row.id] = false
-  }
-}
-
-async function deleteUserAvatar(row: UserRow): Promise<void> {
-  if (isDeletedUserActionsLocked(row)) return
-  if (!row.avatar_name) return
-  if (usersAvatarBusy[row.id]) return
-  const userLabel = row.username ? `${row.username}` : `#${row.id}`
-  const ok = await confirmDialog({
-    title: 'Удалить аватар',
-    text: `Удалить аватар у ${userLabel}?`,
-    confirmText: 'Удалить',
-    cancelText: 'Отмена',
-  })
-  if (!ok) return
-  usersAvatarBusy[row.id] = true
-  try {
-    await api.post(`/admin/users/${row.id}/avatar_delete`)
-    row.avatar_name = null
-    void alertDialog('Аватар удален')
-  } catch {
-    void alertDialog('Не удалось удалить аватар')
-  } finally {
-    usersAvatarBusy[row.id] = false
-  }
-}
-
-async function resetUserNickname(row: UserRow): Promise<void> {
-  if (isDeletedUserActionsLocked(row)) return
-  if (isNicknameDefault(row)) return
-  if (usersNicknameBusy[row.id]) return
-  const userLabel = row.username ? `${row.username}` : `#${row.id}`
-  const ok = await confirmDialog({
-    title: 'Сбросить никнейм',
-    text: `Сбросить никнейм ${userLabel} на user_${row.id}?`,
-    confirmText: 'Сбросить',
-    cancelText: 'Отмена',
-  })
-  if (!ok) return
-  usersNicknameBusy[row.id] = true
-  try {
-    const { data } = await api.post(`/admin/users/${row.id}/nickname_reset`)
-    row.username = data?.username || `user_${row.id}`
-    void alertDialog('Никнейм сброшен')
-  } catch (e: any) {
-    if (e?.response?.status === 409 && e?.response?.data?.detail === 'username_taken') {
-      void alertDialog('Не удалось сбросить никнейм: имя уже занято')
-    } else {
-      void alertDialog('Не удалось сбросить никнейм')
-    }
-  } finally {
-    usersNicknameBusy[row.id] = false
-  }
-}
-
-function resetSanctionForm(): void {
-  sanctionForm.months = 0
-  sanctionForm.days = 0
-  sanctionForm.hours = 0
-  sanctionForm.reason = DEFAULT_SANCTION_REASON
-  sanctionForm.description = ''
-}
-
-function openSanction(row: UserRow, kind: 'timeout' | 'ban' | 'suspend'): void {
-  if (isDeletedUserActionsLocked(row)) return
-  sanctionTarget.value = row
-  sanctionKind.value = kind
-  resetSanctionForm()
-  sanctionModalOpen.value = true
-}
-
-function setSanctionBusy(userId: number, kind: 'timeout' | 'ban' | 'suspend', value: boolean): void {
-  usersSanctionBusy[`${userId}:${kind}`] = value
-}
-
-async function saveSanction(): Promise<void> {
-  const target = sanctionTarget.value
-  if (!target || isDeletedUserActionsLocked(target) || sanctionSaving.value || !sanctionCanSave.value) return
-  sanctionSaving.value = true
-  const kind = sanctionKind.value
-  const url = kind === 'ban'
-    ? `/admin/users/${target.id}/ban`
-    : kind === 'timeout'
-      ? `/admin/users/${target.id}/timeout`
-      : `/admin/users/${target.id}/suspend`
-  const payload = kind === 'ban'
-    ? { reason: sanctionForm.reason, description: sanctionForm.description.trim() }
-    : {
-      months: sanctionForm.months,
-      days: sanctionForm.days,
-      hours: sanctionForm.hours,
-      reason: sanctionForm.reason,
-      description: sanctionForm.description.trim(),
-    }
-  try {
-    await api.post(url, payload)
-    sanctionModalOpen.value = false
-    void alertDialog(kind === 'timeout' ? 'Таймаут выдан' : kind === 'ban' ? 'Бан выдан' : 'Отстранение выдано')
-    await loadUsers()
-  } catch (e: any) {
-    const st = e?.response?.status
-    const d = e?.response?.data?.detail
-    if (st === 409 && d === 'sanction_active') {
-      void alertDialog('Санкция уже активна')
-    } else if (st === 422 && d === 'duration_required') {
-      void alertDialog('Укажите срок санкции')
-    } else {
-      void alertDialog('Не удалось применить санкцию')
-    }
-  } finally {
-    sanctionSaving.value = false
-  }
-}
-
-async function revokeSanction(row: UserRow, kind: 'timeout' | 'ban' | 'suspend'): Promise<void> {
-  if (isDeletedUserActionsLocked(row)) return
-  if (isSanctionBusy(row.id, kind)) return
-  const userLabel = row.username ? `${row.username}` : `#${row.id}`
-  const title = kind === 'ban' ? 'Разбанить' : kind === 'timeout' ? 'Снять таймаут' : 'Снять отстранение'
-  const text = kind === 'ban'
-    ? `Разбанить ${userLabel}?`
-    : kind === 'timeout'
-      ? `Снять таймаут у ${userLabel}?`
-      : `Снять отстранение у ${userLabel}?`
-  const ok = await confirmDialog({
-    title,
-    text,
-    confirmText: title,
-    cancelText: 'Отмена',
-  })
-  if (!ok) return
-  setSanctionBusy(row.id, kind, true)
-  try {
-    await api.delete(`/admin/users/${row.id}/${kind}`)
-    void alertDialog(kind === 'ban' ? 'Бан снят' : kind === 'timeout' ? 'Таймаут снят' : 'Отстранение снято')
-    await loadUsers()
-  } catch (e: any) {
-    const st = e?.response?.status
-    const d = e?.response?.data?.detail
-    if (st === 404 && d === 'sanction_not_found') {
-      void alertDialog('Санкция не найдена')
-    } else {
-      void alertDialog('Не удалось снять санкцию')
-    }
-  } finally {
-    setSanctionBusy(row.id, kind, false)
-  }
-}
-
-async function toggleTimeout(row: UserRow): Promise<void> {
-  if (row.timeout_active) {
-    await revokeSanction(row, 'timeout')
-  } else {
-    openSanction(row, 'timeout')
-  }
-}
-
-async function toggleSuspend(row: UserRow): Promise<void> {
-  if (row.suspend_active) {
-    await revokeSanction(row, 'suspend')
-  } else {
-    openSanction(row, 'suspend')
-  }
-}
-
-async function toggleBan(row: UserRow): Promise<void> {
-  if (row.ban_active) {
-    await revokeSanction(row, 'ban')
-    return
-  }
-  openSanction(row, 'ban')
-}
-
 function refreshActiveTab(tab: typeof activeTab.value): void {
   if (tab === 'settings') {
     void loadSettings()
@@ -2978,7 +2600,6 @@ function refreshActiveTab(tab: typeof activeTab.value): void {
   }
   if (tab === 'users') {
     void loadUsers()
-    void loadSubscriptions()
     return
   }
   if (tab === 'sanctions') {
@@ -3006,7 +2627,7 @@ watch(activeTab, (tab) => {
   if (tab !== 'users' && userMiniProfileOpen.value) {
     closeUserMiniProfile()
   }
-  if (tab !== 'users' && tab !== 'subscriptions' && subscriptionModalOpen.value) {
+  if (tab !== 'subscriptions' && subscriptionModalOpen.value) {
     closeSubscriptionModal()
   }
   refreshActiveTab(tab)

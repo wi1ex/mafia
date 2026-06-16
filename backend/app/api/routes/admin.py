@@ -151,7 +151,6 @@ from ..utils import (
     compute_duration_seconds,
     gc_empty_room_and_emit,
     fetch_active_sanction,
-    fetch_active_sanctions_for_users,
     is_sanction_active,
     sanction_status,
     sanction_finished_at,
@@ -175,7 +174,6 @@ from ..utils import (
     delete_user_avatar,
     broadcast_creator_rooms,
     force_leave_user_from_rooms,
-    is_protected_admin,
     ensure_admin_target_allowed,
     ensure_admin_target_not_deleted,
     emit_rooms_upsert,
@@ -1172,31 +1170,20 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
 
     ids = [int(u.id) for u in users]
     sanction_counts = await fetch_sanction_counts_for_users(session, ids)
-    active_sanctions = await fetch_active_sanctions_for_users(session, ids)
     items: list[AdminUserOut] = []
     for u in users:
         uid = int(u.id)
         user_counts = sanction_counts.get(uid, {})
-        user_active_sanctions = active_sanctions.get(uid, {})
-        active_timeout = user_active_sanctions.get(SANCTION_TIMEOUT)
-        active_ban = user_active_sanctions.get(SANCTION_BAN)
-        active_suspend = user_active_sanctions.get(SANCTION_SUSPEND)
         items.append(AdminUserOut(
             id=uid,
             tg_id=u.telegram_id,
             username=u.username,
             avatar_name=u.avatar_name,
             role=u.role,
-            protected_user=is_protected_admin(uid),
             registered_at=u.registered_at,
             last_room_id=last_room_id.get(uid),
             last_spectator_room_id=last_spectator_room_id.get(uid),
             deleted_at=u.deleted_at,
-            timeout_active=active_timeout is not None,
-            timeout_until=active_timeout.expires_at if active_timeout else None,
-            ban_active=active_ban is not None,
-            suspend_active=active_suspend is not None,
-            suspend_until=active_suspend.expires_at if active_suspend else None,
             timeouts_count=int(user_counts.get(SANCTION_TIMEOUT, 0) or 0),
             bans_count=int(user_counts.get(SANCTION_BAN, 0) or 0),
             suspends_count=int(user_counts.get(SANCTION_SUSPEND, 0) or 0),

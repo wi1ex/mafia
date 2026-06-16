@@ -50,7 +50,6 @@ from ..utils import (
     emit_notify,
     emit_sanctions_update,
     fetch_active_sanction,
-    fetch_active_sanctions_for_users,
     fetch_sanction_counts_for_users,
     fetch_users_last_room_id,
     fetch_users_last_spectator_room_id,
@@ -158,14 +157,10 @@ async def moderation_users_list(page: int = 1, limit: int = 20, username: str | 
 
     ids = [int(u.id) for u in users]
     sanction_counts = await fetch_sanction_counts_for_users(session, ids)
-    active_sanctions = await fetch_active_sanctions_for_users(session, ids)
     items: list[ModerationUserOut] = []
     for user in users:
         uid = int(user.id)
         user_counts = sanction_counts.get(uid, {})
-        user_active_sanctions = active_sanctions.get(uid, {})
-        active_timeout = user_active_sanctions.get(SANCTION_TIMEOUT)
-        active_suspend = user_active_sanctions.get(SANCTION_SUSPEND)
         items.append(
             ModerationUserOut(
                 id=uid,
@@ -175,10 +170,6 @@ async def moderation_users_list(page: int = 1, limit: int = 20, username: str | 
                 registered_at=user.registered_at,
                 last_room_id=last_room_id.get(uid),
                 last_spectator_room_id=last_spectator_room_id.get(uid),
-                timeout_active=active_timeout is not None,
-                timeout_until=active_timeout.expires_at if active_timeout else None,
-                suspend_active=active_suspend is not None,
-                suspend_until=active_suspend.expires_at if active_suspend else None,
                 timeouts_count=int(user_counts.get(SANCTION_TIMEOUT, 0) or 0),
                 bans_count=int(user_counts.get(SANCTION_BAN, 0) or 0),
                 suspends_count=int(user_counts.get(SANCTION_SUSPEND, 0) or 0),

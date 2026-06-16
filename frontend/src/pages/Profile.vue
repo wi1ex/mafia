@@ -903,7 +903,7 @@ function formatSanctionFinishedAt(item: SanctionItem): string {
 
 function formatSanctionCompletionReason(item: SanctionItem): string {
   if (item.completion_reason === 'expired') return 'Истекла'
-  if (item.completion_reason === 'revoked_staff') return 'Досрочное снятие администрацией'
+  if (item.completion_reason === 'revoked_staff') return 'Досрочное снятие'
   if (item.completion_reason === 'hosted_game') return 'Проведение игры'
   return '-'
 }

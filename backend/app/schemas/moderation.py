@@ -12,10 +12,6 @@ class ModerationUserOut(BaseModel):
     registered_at: datetime
     last_room_id: Optional[int] = None
     last_spectator_room_id: Optional[int] = None
-    timeout_active: bool
-    timeout_until: Optional[datetime] = None
-    suspend_active: bool
-    suspend_until: Optional[datetime] = None
     timeouts_count: int
     bans_count: int
     suspends_count: int

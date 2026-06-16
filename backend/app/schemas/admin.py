@@ -340,16 +340,10 @@ class AdminUserOut(BaseModel):
     username: Optional[str] = None
     avatar_name: Optional[str] = None
     role: str
-    protected_user: bool = False
     registered_at: datetime
     last_room_id: Optional[int] = None
     last_spectator_room_id: Optional[int] = None
     deleted_at: Optional[datetime] = None
-    timeout_active: bool
-    timeout_until: Optional[datetime] = None
-    ban_active: bool
-    suspend_active: bool
-    suspend_until: Optional[datetime] = None
     timeouts_count: int
     bans_count: int
     suspends_count: int
