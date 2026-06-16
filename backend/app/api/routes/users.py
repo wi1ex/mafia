@@ -407,7 +407,7 @@ async def contact_request(request: Request, payload: ContactRequestIn, ident: Id
         notes = [
             Notif(
                 user_id=int(staff_id),
-                title="Новое обращение",
+                title="Обратная связь",
                 text=f"Поступило обращение от {author_label}",
             )
             for staff_id in staff_ids.all()

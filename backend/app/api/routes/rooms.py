@@ -528,7 +528,7 @@ async def approve(room_id: int, user_id: int, ident: Identity = Depends(get_iden
         return Ok()
 
     title_room = (params.get("title") or "").strip()
-    toast_title = "Заявка одобрена"
+    toast_title = "Доступ разрешен"
     toast_text = f"Вход в «{title_room}» разрешен"
 
     with suppress(Exception):

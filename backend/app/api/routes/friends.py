@@ -422,7 +422,7 @@ async def send_friend_request(user_id: int, ident: Identity = Depends(get_identi
     await db.commit()
     await db.refresh(link)
 
-    title = "Заявка в друзья"
+    title = "Заявка в друзья от"
     text = f"Пользователь {ident['username']} отправил вам заявку в друзья."
 
     actions = [

@@ -838,15 +838,15 @@ def sanction_adjust_notification(kind: str, action: str, duration_label: str, re
 
     if kind_value == SANCTION_TIMEOUT:
         if action_value == "increase":
-            return "Таймаут продлен", f"Срок вашего таймаута увеличен на {duration_label}.{remaining_suffix}"
+            return "Таймаут", f"Срок вашего таймаута увеличен на {duration_label}.{remaining_suffix}"
 
-        return "Срок таймаута уменьшен", f"Срок вашего таймаута уменьшен на {duration_label}.{remaining_suffix}"
+        return "Таймаут", f"Срок вашего таймаута уменьшен на {duration_label}.{remaining_suffix}"
 
     if kind_value == SANCTION_SUSPEND:
         if action_value == "increase":
-            return "Отстранение продлено", f"Срок вашего отстранения от игр увеличен на {duration_label}.{remaining_suffix}"
+            return "Отстранение от игр", f"Срок вашего отстранения от игр увеличен на {duration_label}.{remaining_suffix}"
 
-        return "Срок отстранения уменьшен", f"Срок вашего отстранения от игр уменьшен на {duration_label}.{remaining_suffix}"
+        return "Отстранение от игр", f"Срок вашего отстранения от игр уменьшен на {duration_label}.{remaining_suffix}"
 
     if action_value == "increase":
         return "Срок санкции увеличен", f"Срок вашей санкции увеличен на {duration_label}.{remaining_suffix}"
@@ -1099,7 +1099,7 @@ def sanction_actor_display(name: str | None, user_id: int | None, *, auto_fallba
     return "авто" if auto_fallback else "-"
 
 
-async def revoke_active_suspend(session: AsyncSession, sanction: UserSanction, *, revoked_by_id: int | None, revoked_by_name: str | None, note_text: str, note_title: str = "Ограничение снято", chat_notice_source: str = "admin",) -> Notif:
+async def revoke_active_suspend(session: AsyncSession, sanction: UserSanction, *, revoked_by_id: int | None, revoked_by_name: str | None, note_text: str, note_title: str = "Отстранение от игр", chat_notice_source: str = "admin",) -> Notif:
     now = datetime.now(timezone.utc)
     uid = cast(int, sanction.user_id)
     remaining_duration_label = None
@@ -1898,10 +1898,10 @@ async def notify_expiring_profile_subscriptions() -> int:
 
 def _expired_sanction_note(kind: str) -> tuple[str, str] | None:
     if kind == SANCTION_TIMEOUT:
-        return "Таймаут завершен", "Срок вашего таймаута истек. Доступ к комнатам восстановлен."
+        return "Таймаут", "Срок вашего таймаута истек. Доступ к комнатам восстановлен."
 
     if kind == SANCTION_SUSPEND:
-        return "Отстранение от игр снято", "Срок отстранения от игр истек."
+        return "Отстранение от игр", "Срок отстранения от игр истек."
 
     return None
 
@@ -3896,9 +3896,9 @@ async def raise_missing_outgoing_request_error(db: AsyncSession, uid: int, targe
 def build_avatar_reset_notice(user_id: int) -> Notif:
     return Notif(
         user_id=int(user_id),
-        title="Аватар сброшен",
+        title="Аватар",
         text=(
-            "Ваш аватар был сброшен администрацией платформы."
+            "Ваш аватар был сброшен администрацией платформы. Пункт правил: 4.5.1."
         ),
     )
 
@@ -3907,11 +3907,11 @@ def build_nickname_reset_notice(user_id: int, new_username: str) -> Notif:
     username = str(new_username or "").strip() or f"user_{int(user_id)}"
     return Notif(
         user_id=int(user_id),
-        title="Никнейм сброшен",
+        title="Никнейм",
         text=(
             "Ваш никнейм был сброшен администрацией платформы. "
-            f"Новый никнейм: {username}. "
-            "Последующая авторизация будет доступна только с текущим никнеймом."
+            "Пункт правил: 4.5.1. "
+            f"Ваш новый никнейм (логин): {username}."
         ),
     )
 
