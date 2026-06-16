@@ -200,7 +200,7 @@
         <img class="background-image-7" :src="imageSlide7" alt="" aria-hidden="true" />
         <div class="right-extra-content">
           <div class="right-extra-copy-connect">
-            <span>Связаться с командой deceit.games</span>
+            <span>Связаться с администрацией</span>
           </div>
           <button type="button" class="right-extra-btn" @click="openContactModal">
             <UiIcon class="btn-icon" :icon="iconArrowNext" />

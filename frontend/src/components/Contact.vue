@@ -5,7 +5,7 @@
         <form @submit.prevent="submit">
           <div class="contact-drawer-panel" role="dialog" aria-modal="true" aria-labelledby="contact-request-title">
             <header>
-              <span id="contact-request-title" class="header-title">Связаться с командой deceit.games</span>
+              <span id="contact-request-title" class="header-title">Связаться с администрацией</span>
               <button type="button" aria-label="Закрыть" @click="requestClose">
                 <UiIcon class="close-icon" :icon="iconClose" />
               </button>
