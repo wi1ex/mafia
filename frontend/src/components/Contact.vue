@@ -337,9 +337,14 @@ onBeforeUnmount(() => {
       }
       .contact-email-block {
         display: flex;
-        flex-direction: column;
+        align-items: center;
+        margin-top: -8px;
         margin-left: 12px;
+        padding: 0;
         gap: 12px;
+        border: none;
+        background: none;
+        cursor: pointer;
         .contact-email-img-1 {
           --ui-icon-width: 24px;
           --ui-icon-height: 24px;
