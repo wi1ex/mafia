@@ -9,6 +9,8 @@ interface ImportMeta {
   readonly env: ImportMetaEnv
 }
 
+type NonSharedUint8Array = Uint8Array<ArrayBuffer>
+
 declare module '*.vue' {
   import type { DefineComponent } from 'vue'
   const component: DefineComponent<{}, {}, any>

@@ -54,9 +54,27 @@ def room_moderation_role(room_role: object, base_role: object | None = None) -> 
     return ROLE_USER
 
 
+def room_action_role(room_role: object, base_role: object | None = None) -> str:
+    base_value = normalize_user_role(base_role)
+    if base_value == ROLE_ADMIN:
+        return ROLE_ADMIN
+
+    room_value = normalize_room_role(room_role)
+    if room_value == ROOM_ROLE_HOST:
+        return ROOM_ROLE_HOST
+
+    if base_value == ROLE_MODER:
+        return ROLE_MODER
+
+    if room_value == ROOM_ROLE_HEAD:
+        return ROOM_ROLE_HEAD
+
+    return ROLE_USER
+
+
 def can_room_moderate(*, actor_room_role: object, target_room_role: object, actor_base_role: object | None = None, target_base_role: object | None = None) -> bool:
-    actor_role = room_moderation_role(actor_room_role, actor_base_role)
-    target_role = room_moderation_role(target_room_role, target_base_role)
+    actor_role = room_action_role(actor_room_role, actor_base_role)
+    target_role = room_action_role(target_room_role, target_base_role)
 
     if actor_role == target_role:
         return False

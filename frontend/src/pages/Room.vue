@@ -1830,7 +1830,21 @@ function rol(id: string): string { return rolesByUser.get(id) || 'user' }
 function moderationRol(id: string): string { return moderationRolesByUser.get(id) || rol(id) }
 function profileRol(id: string): string { return profileRolesByUser.get(id) || rol(id) }
 const myRole = computed(() => rol(localId.value))
-const myModerationRole = computed(() => moderationRol(localId.value))
+
+function normRole(value: string): string {
+  return String(value || '').trim().toLowerCase()
+}
+
+function actionRol(id: string): string {
+  const roomRole = normRole(rol(id))
+  const moderationRole = normRole(moderationRol(id))
+  const profileRole = normRole(profileRol(id))
+  if (moderationRole === 'admin' || profileRole === 'admin') return 'admin'
+  if (roomRole === 'host') return 'host'
+  if (moderationRole === 'moder' || profileRole === 'moder') return 'moder'
+  if (roomRole === 'head') return 'head'
+  return 'user'
+}
 
 function onNominate(targetId: string) {
   game.nominateTarget(targetId, sendAck)
@@ -1935,8 +1949,8 @@ async function toggleReady() {
 function canModerate(targetId: string): boolean {
   if (targetId === localId.value) return false
   if (gamePhase.value !== 'idle') return false
-  const me = myModerationRole.value
-  const trg = moderationRol(targetId)
+  const me = actionRol(localId.value)
+  const trg = actionRol(targetId)
   if (me === trg) return false
   if (me === 'admin') return trg !== 'admin'
   if (me === 'host') return trg === 'moder' || trg === 'user'
