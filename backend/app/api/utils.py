@@ -98,7 +98,6 @@ __all__ = [
     "fetch_effective_online_user_ids",
     "fetch_user_name_avatar_maps",
     "collect_room_user_ids",
-    "parse_room_game_params",
     "build_room_user_stats",
     "sum_room_stream_seconds",
     "fetch_live_room_stats",
@@ -4143,29 +4142,6 @@ def collect_room_user_ids(rooms: Sequence[Room]) -> set[int]:
                     continue
 
     return user_ids
-
-
-def parse_room_game_params(game: dict | None) -> dict[str, Any]:
-    game = game or {}
-    game_mode = str(game.get("mode") or "normal")
-    game_format = str(game.get("format") or "hosted")
-    nominate_mode = str(game.get("nominate_mode") or "players")
-    if nominate_mode not in ("players", "head"):
-        nominate_mode = "players"
-    spectators_limit = normalize_spectators_limit(game.get("spectators_limit"))
-
-    return {
-        "mode": game_mode,
-        "format": game_format,
-        "spectators_limit": spectators_limit,
-        "nominate_mode": nominate_mode,
-        "break_at_zero": raw_bool(game.get("break_at_zero"), True),
-        "lift_at_zero": raw_bool(game.get("lift_at_zero"), True),
-        "lift_3x": raw_bool(game.get("lift_3x"), True),
-        "wink_knock": raw_bool(game.get("wink_knock"), True),
-        "farewell_wills": raw_bool(game.get("farewell_wills"), True),
-        "music": raw_bool(game.get("music"), True),
-    }
 
 
 def build_room_user_stats(raw_map: dict | None, name_map: dict[int, str | None], avatar_map: dict[int, str | None]) -> list[AdminRoomUserStat]:

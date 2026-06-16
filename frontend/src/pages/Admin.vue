@@ -426,7 +426,6 @@
                   <th>Приватность</th>
                   <th>Анонимность</th>
                   <th>Лимит</th>
-                  <th>Параметры игры</th>
                   <th>Создана</th>
                   <th>Удалена</th>
                   <th>Посетители</th>
@@ -450,7 +449,6 @@
                   <td>{{ formatRoomPrivacy(row.privacy) }}</td>
                   <td>{{ formatRoomAnonymity(row.anonymity) }}</td>
                   <td>{{ row.user_limit }}</td>
-                  <td>{{ formatRoomGame(row) }}</td>
                   <td>{{ formatLocalDateTime(row.created_at) }}</td>
                   <td>{{ row.deleted_at ? formatLocalDateTime(row.deleted_at) : '-' }}</td>
                   <td>
@@ -522,7 +520,7 @@
                   </td>
                 </tr>
                 <tr v-if="rooms.length === 0">
-                  <td colspan="13" class="muted">Нет данных</td>
+                  <td colspan="12" class="muted">Нет данных</td>
                 </tr>
               </tbody>
             </table>
@@ -1005,16 +1003,6 @@ type RoomRow = {
   anonymity: 'visible' | 'hidden'
   created_at: string
   deleted_at?: string | null
-  game_mode: string
-  game_format: string
-  spectators_limit: number
-  nominate_mode: string
-  break_at_zero: boolean
-  lift_at_zero: boolean
-  lift_3x: boolean
-  wink_knock: boolean
-  farewell_wills: boolean
-  music: boolean
   visitors_count: number
   visitors: RoomUserStat[]
   spectators_count: number
@@ -1824,20 +1812,6 @@ function onUserMiniProfileStaffActionComplete(): void {
   }
 }
 
-function formatRoomGame(row: RoomRow): string {
-  const mode = row.game_mode === 'rating' ? 'Рейтинг' : 'Обычный'
-  const format = row.game_format === 'nohost' ? 'Без ведущего' : 'С ведущим'
-  const spectators = Number.isFinite(row.spectators_limit) ? row.spectators_limit : 0
-  const nominate = row.nominate_mode === 'head' ? 'От ведущего' : 'От игроков'
-  const winkKnock = row.wink_knock ? 'Вкл' : 'Откл'
-  const farewellWills = row.farewell_wills ? 'Вкл' : 'Откл'
-  const music = row.music ? 'Вкл' : 'Откл'
-  const breakAtZero = row.break_at_zero ? 'Вкл' : 'Выкл'
-  const liftAtZero = row.lift_at_zero ? 'Вкл' : 'Выкл'
-  const lift3x = row.lift_3x ? 'Вкл' : 'Выкл'
-  return `Режим: ${mode}, Формат: ${format}, Зрители: ${spectators}, Выставления: ${nominate}, Подмигивать/Стучать: ${winkKnock}, Завещания: ${farewellWills}, Музыка: ${music}, Слом в нуле: ${breakAtZero}, Подъём в нуле: ${liftAtZero}, Подъём 3х: ${lift3x}`
-}
-
 function formatRoomAnonymity(value: string | null | undefined): string {
   return value === 'hidden' ? 'Скрытая' : 'Видимая'
 }
@@ -2108,13 +2082,6 @@ async function loadRooms(): Promise<void> {
       ...item,
       creator_avatar_name: item?.creator_avatar_name ?? null,
       anonymity: item?.anonymity === 'hidden' ? 'hidden' : 'visible',
-      nominate_mode: String(item?.nominate_mode || ''),
-      break_at_zero: Boolean(item?.break_at_zero),
-      lift_at_zero: Boolean(item?.lift_at_zero),
-      lift_3x: Boolean(item?.lift_3x),
-      wink_knock: Boolean(item?.wink_knock),
-      farewell_wills: Boolean(item?.farewell_wills),
-      music: Boolean(item?.music),
       visitors: normalizeRoomUsers(item?.visitors),
       spectators: normalizeRoomUsers(item?.spectators),
       games: normalizeRoomGames(item?.games),

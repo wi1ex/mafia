@@ -126,7 +126,6 @@ from ..utils import (
     fetch_effective_online_user_ids,
     fetch_user_name_avatar_maps,
     collect_room_user_ids,
-    parse_room_game_params,
     build_room_user_stats,
     close_room_as_staff,
     sum_room_stream_seconds,
@@ -567,7 +566,6 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
             "created_at",
             "privacy",
             "anonymity",
-            "game",
         )
         for key in required:
             if key not in stats:
@@ -647,7 +645,6 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
                     created_at = room.created_at
             else:
                 created_at = room.created_at
-            game_params = parse_room_game_params(cast(dict | None, stats.get("game")) or room.game)
         else:
             anonymity = "hidden" if str(room.anonymity or "visible") == "hidden" else "visible"
             creator = int(room.creator)
@@ -657,7 +654,6 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
             user_limit = room.user_limit
             privacy = room.privacy
             created_at = room.created_at
-            game_params = parse_room_game_params(room.game)
         visitors_items = build_room_user_stats(visitors_map, name_map, avatar_map)
         spectators_items = build_room_user_stats(spectators_map, name_map, avatar_map)
         stream_items = build_room_user_stats(stream_map, name_map, avatar_map)
@@ -688,16 +684,6 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
                 anonymity=anonymity,
                 created_at=created_at,
                 deleted_at=room.deleted_at,
-                game_mode=game_params["mode"],
-                game_format=game_params["format"],
-                spectators_limit=game_params["spectators_limit"],
-                nominate_mode=game_params["nominate_mode"],
-                break_at_zero=game_params["break_at_zero"],
-                lift_at_zero=game_params["lift_at_zero"],
-                lift_3x=game_params["lift_3x"],
-                wink_knock=game_params["wink_knock"],
-                farewell_wills=game_params["farewell_wills"],
-                music=game_params["music"],
                 visitors_count=visitors_count,
                 visitors=visitors_items,
                 spectators_count=spectators_count,
