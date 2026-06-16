@@ -62,11 +62,11 @@
                 </template>
               </UiInput>
 
-              <span class="contact-body-title">Текст обращения</span>
+              <span class="contact-body-title">Вы также можете написать нам на email:</span>
               <div class="contact-email-block">
                 <UiIcon class="contact-email-img-1" :icon="iconMail" />
                 <button class="contact-email-btn" type="button" aria-label="Скопировать email" @click="copyContactEmailText">
-                  <span ref="contactEmailTextEl" class="contact-email-text">Вы также можете написать нам на email:</span>
+                  <span ref="contactEmailTextEl" class="contact-email-text">support@deceit.games</span>
                   <UiIcon v-if="!emailCopied" class="contact-email-img-2" :icon="iconCopy" />
                   <UiIcon v-else class="contact-email-img-3" :icon="iconCheckMark" />
                 </button>
