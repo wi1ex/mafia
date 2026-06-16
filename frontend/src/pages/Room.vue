@@ -119,7 +119,7 @@
             <img :src="volumeIconForStream(streamAudioKey)" alt="vol" />
             <UiSlider
               class="volume-slider"
-            :model-value="streamVol"
+              :model-value="streamVol"
               :min="0"
               :max="200"
               :step="10"
@@ -465,8 +465,9 @@
         </div>
       </Transition>
 
-      <div v-if="mediaGateVisible" class="reconnect-overlay media-gate" @click.stop.prevent="onMediaGateClick"
-           @touchstart.stop.prevent="onMediaGateClick" @pointerdown.stop.prevent="onMediaGateClick">Нажмите чтобы продолжить…</div>
+      <div v-if="mediaGateVisible" class="reconnect-overlay media-gate" @click.stop.prevent="onMediaGateClick" @touchstart.stop.prevent="onMediaGateClick" @pointerdown.stop.prevent="onMediaGateClick">
+        Нажмите чтобы продолжить…
+      </div>
     </template>
     <div class="role-preload" aria-hidden="true">
       <img v-for="src in ROLE_CARD_IMAGES" :key="src" :src="src" alt="" loading="eager" />

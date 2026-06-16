@@ -3351,7 +3351,7 @@ onMounted(() => {
         color: $grey;
       }
       .tooltip-empty {
-        font-size: 12px;
+        font-size: 18px;
         color: $grey;
       }
       &:hover .tooltip-body,
