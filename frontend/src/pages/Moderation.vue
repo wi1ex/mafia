@@ -34,48 +34,13 @@
           <table class="table">
             <thead>
               <tr>
-                <th>
-                  <button class="th-sort" type="button" :class="{ active: usersSortBy === 'username' }" @click="setUsersSort('username')">
-                    Никнейм
-                    <span class="th-sort-mark" aria-hidden="true">▼</span>
-                  </button>
-                </th>
-                <th>
-                  <button class="th-sort" type="button" :class="{ active: usersSortBy === 'registered_at' }" @click="setUsersSort('registered_at')">
-                    Регистрация
-                    <span class="th-sort-mark" aria-hidden="true">▼</span>
-                  </button>
-                </th>
-                <th>
-                  <button class="th-sort" type="button" :class="{ active: usersSortBy === 'last_room_id' }" @click="setUsersSort('last_room_id')">
-                    Последнее общение
-                    <span class="th-sort-mark" aria-hidden="true">▼</span>
-                  </button>
-                </th>
-                <th>
-                  <button class="th-sort" type="button" :class="{ active: usersSortBy === 'last_spectator_room_id' }" @click="setUsersSort('last_spectator_room_id')">
-                    Последний зритель
-                    <span class="th-sort-mark" aria-hidden="true">▼</span>
-                  </button>
-                </th>
-                <th>
-                  <button class="th-sort" type="button" :class="{ active: usersSortBy === 'suspends_count' }" @click="setUsersSort('suspends_count')">
-                    Отстранения
-                    <span class="th-sort-mark" aria-hidden="true">▼</span>
-                  </button>
-                </th>
-                <th>
-                  <button class="th-sort" type="button" :class="{ active: usersSortBy === 'timeouts_count' }" @click="setUsersSort('timeouts_count')">
-                    Таймауты
-                    <span class="th-sort-mark" aria-hidden="true">▼</span>
-                  </button>
-                </th>
-                <th>
-                  <button class="th-sort" type="button" :class="{ active: usersSortBy === 'bans_count' }" @click="setUsersSort('bans_count')">
-                    Баны
-                    <span class="th-sort-mark" aria-hidden="true">▼</span>
-                  </button>
-                </th>
+                <th>Никнейм</th>
+                <th>Регистрация</th>
+                <th>Последнее общение</th>
+                <th>Последний зритель</th>
+                <th>Отстранения</th>
+                <th>Таймауты</th>
+                <th>Баны</th>
               </tr>
             </thead>
             <tbody>
@@ -352,15 +317,6 @@ type UserMiniProfileTarget = {
   deleted_at?: string | null
 }
 
-type UsersSortBy =
-  | 'username'
-  | 'registered_at'
-  | 'last_room_id'
-  | 'last_spectator_room_id'
-  | 'timeouts_count'
-  | 'bans_count'
-  | 'suspends_count'
-
 const PAGE_LIMIT_OPTIONS = [
   { value: 20, label: '20' },
   { value: 100, label: '100' },
@@ -375,7 +331,6 @@ const usersTotal = ref(0)
 const usersPage = ref(1)
 const usersLimit = ref(20)
 const usersUser = ref('')
-const usersSortBy = ref<UsersSortBy>('registered_at')
 const sanctions = ref<SanctionsRow[]>([])
 const sanctionsLoading = ref(false)
 const sanctionsTotal = ref(0)
@@ -471,11 +426,6 @@ function setSanctionsLimit(event: Event): void {
 
 function setContactRequestsLimit(event: Event): void {
   contactRequestsLimit.value = normalizePageLimit(selectValue(event))
-}
-
-function setUsersSort(sortBy: UsersSortBy): void {
-  if (usersSortBy.value === sortBy) return
-  usersSortBy.value = sortBy
 }
 
 function formatRoomIdLabel(value?: number | null): string {
@@ -626,7 +576,6 @@ async function loadUsers(): Promise<void> {
     const params: Record<string, unknown> = {
       page: usersPage.value,
       limit: usersLimit.value,
-      sort_by: usersSortBy.value,
     }
     if (usersUser.value) params.username = usersUser.value
     const { data } = await api.get('/moderation/users', { params })
@@ -816,7 +765,7 @@ watch(activeTab, (tab) => {
   refreshActiveTab(tab)
 })
 
-watch([usersLimit, usersSortBy], () => {
+watch(usersLimit, () => {
   usersPage.value = 1
   if (activeTab.value !== 'users') return
   void loadUsers()
@@ -984,27 +933,6 @@ onBeforeUnmount(() => {
       padding: 10px;
       border-bottom: 1px solid $lead;
       font-size: 14px;
-    }
-    .th-sort {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      padding: 0;
-      border: none;
-      background: transparent;
-      color: inherit;
-      font: inherit;
-      cursor: pointer;
-    }
-    .th-sort-mark {
-      opacity: 0.5;
-      font-size: 10px;
-    }
-    .th-sort.active {
-      color: $fg;
-    }
-    .th-sort.active .th-sort-mark {
-      opacity: 1;
     }
     .user-cell {
       display: inline-flex;

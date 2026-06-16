@@ -35,7 +35,6 @@ from ..utils import (
     SANCTION_BAN,
     SANCTION_TIMEOUT,
     SANCTION_SUSPEND,
-    admin_username_sort_key,
     adjust_active_sanction_duration,
     broadcast_creator_rooms,
     build_avatar_reset_notice,
@@ -57,9 +56,7 @@ from ..utils import (
     format_duration_parts,
     format_duration_seconds_compact,
     get_moderation_target_user,
-    moderation_user_sort_metric,
     normalize_pagination,
-    normalize_moderation_users_sort,
     send_sanction_finished_telegram_notice,
     revoke_active_suspend,
     sanction_actor_display,
@@ -76,9 +73,8 @@ router = APIRouter(dependencies=MODERATION_GUARD)
 
 @router.get("/users", response_model=ModerationUsersOut, dependencies=MODERATION_GUARD)
 @log_route("moderation.users.list")
-async def moderation_users_list(page: int = 1, limit: int = 20, username: str | None = None, sort_by: str | None = None, session: AsyncSession = Depends(get_session)) -> ModerationUsersOut:
+async def moderation_users_list(page: int = 1, limit: int = 20, username: str | None = None, session: AsyncSession = Depends(get_session)) -> ModerationUsersOut:
     limit, page, offset = normalize_pagination(page, limit)
-    sort_key = normalize_moderation_users_sort(sort_by)
 
     filters = [User.deleted_at.is_(None)]
     if username:
@@ -88,74 +84,18 @@ async def moderation_users_list(page: int = 1, limit: int = 20, username: str | 
 
         filters.append(User.id.in_(user_ids))
 
-    users: list[User]
-
-    if sort_key == "registered_at":
-        total = int(await session.scalar(select(func.count(User.id)).where(*filters)) or 0)
-        rows = await session.execute(
-            select(User).where(*filters).order_by(User.registered_at.desc(), User.id.desc()).offset(offset).limit(limit)
-        )
-        users = list(rows.scalars().all())
-        ids = [int(u.id) for u in users]
-        last_room_id = await fetch_users_last_room_id(session, ids)
-        last_spectator_room_id = await fetch_users_last_spectator_room_id(session, ids)
-    else:
-        rows = await session.execute(select(User).where(*filters))
-        all_users = list(rows.scalars().all())
-        total = len(all_users)
-        all_ids = [int(u.id) for u in all_users]
-
-        if sort_key == "last_room_id":
-            all_last_room_id = await fetch_users_last_room_id(session, all_ids)
-        else:
-            all_last_room_id = {}
-        if sort_key == "last_spectator_room_id":
-            all_last_spectator_room_id = await fetch_users_last_spectator_room_id(session, all_ids)
-        else:
-            all_last_spectator_room_id = {}
-
-        if sort_key in {"timeouts_count", "bans_count", "suspends_count"}:
-            all_sanction_counts = await fetch_sanction_counts_for_users(session, all_ids)
-        else:
-            all_sanction_counts = {}
-
-        if sort_key == "username":
-            users_sorted = sorted(
-                all_users,
-                key=lambda u: (
-                    admin_username_sort_key(u.username),
-                    -int(u.registered_at.timestamp()),
-                    -int(u.id),
-                ),
-            )
-        else:
-            users_sorted = sorted(
-                all_users,
-                key=lambda u: (
-                    moderation_user_sort_metric(
-                        sort_by=sort_key,
-                        uid=int(u.id),
-                        sanction_counts=all_sanction_counts,
-                        last_room_id=all_last_room_id,
-                        last_spectator_room_id=all_last_spectator_room_id,
-                    ),
-                    u.registered_at,
-                    int(u.id),
-                ),
-                reverse=True,
-            )
-        users = users_sorted[offset:offset + limit]
-        ids = [int(u.id) for u in users]
-        if sort_key == "last_room_id":
-            last_room_id = {uid: all_last_room_id.get(uid) for uid in ids}
-        else:
-            last_room_id = await fetch_users_last_room_id(session, ids)
-        if sort_key == "last_spectator_room_id":
-            last_spectator_room_id = {uid: all_last_spectator_room_id.get(uid) for uid in ids}
-        else:
-            last_spectator_room_id = await fetch_users_last_spectator_room_id(session, ids)
-
+    total = int(await session.scalar(select(func.count(User.id)).where(*filters)) or 0)
+    rows = await session.execute(
+        select(User)
+        .where(*filters)
+        .order_by(User.registered_at.desc(), User.id.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    users = list(rows.scalars().all())
     ids = [int(u.id) for u in users]
+    last_room_id = await fetch_users_last_room_id(session, ids)
+    last_spectator_room_id = await fetch_users_last_spectator_room_id(session, ids)
     sanction_counts = await fetch_sanction_counts_for_users(session, ids)
     items: list[ModerationUserOut] = []
     for user in users:

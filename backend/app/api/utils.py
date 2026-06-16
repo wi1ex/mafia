@@ -52,7 +52,6 @@ __all__ = [
     "SANCTION_SUSPEND",
     "HOSTED_GAME_SUSPEND_REDUCTION_SECONDS",
     "fetch_suspend_hosted_workoff_seconds",
-    "USERS_SORT_DEFAULT",
     "TIMED_KINDS",
     "serialize_game_for_redis",
     "game_from_redis_to_model",
@@ -113,14 +112,9 @@ __all__ = [
     "build_user_stats_out",
     "fetch_users_last_room_id",
     "fetch_users_last_spectator_room_id",
-    "normalize_users_sort",
-    "normalize_moderation_users_sort",
     "fetch_friends_count_for_users",
     "build_admin_mini_profile_friends",
     "fetch_sanction_counts_for_users",
-    "admin_username_sort_key",
-    "user_sort_metric",
-    "moderation_user_sort_metric",
     "compute_duration_seconds",
     "elapsed_seconds_since",
     "is_sanction_active",
@@ -236,6 +230,30 @@ __all__ = [
 
 log = structlog.get_logger()
 
+PRESIGN_ALLOWED_PREFIXES: tuple[str, ...] = ("avatars/", "chat/global/images/")
+PRESIGN_KEY_RE = re.compile(r"^[a-zA-Z0-9._/-]{3,256}$")
+BOT_USERNAME_RE = re.compile(r"^[a-zA-Zа-яА-ЯёЁ0-9._\-()]{2,20}$")
+CHAT_MENTION_QUERY_RE = re.compile(r"^[a-zA-Zа-яА-ЯёЁ0-9._\-()]{1,20}$")
+PWD_CTRL_RE = re.compile(r"[\x00-\x1F\x7F]")
+PWD_WS_RE = re.compile(r"\s")
+TITLE_CTRL_RE = re.compile(r"[\x00-\x1F\x7F]")
+TITLE_BIDI_RE = re.compile(r"[\u200B-\u200F\u202A-\u202E\u2066-\u2069]")
+TITLE_WS_RE = re.compile(r"\s+")
+SANCTION_TIMEOUT = "timeout"
+SANCTION_BAN = "ban"
+SANCTION_SUSPEND = "suspend"
+HOSTED_GAME_SUSPEND_REDUCTION_SECONDS = 4 * 60 * 60
+HOSTED_GAME_SUSPEND_LEGACY_REDUCTION_SECONDS = 6 * 60 * 60
+HOSTED_GAME_SUSPEND_REDUCTION_CHANGED_AT = datetime(2026, 5, 1, tzinfo=timezone.utc)
+MSK_TZ = timezone(timedelta(hours=3))
+SUSPEND_HOSTED_WORKOFF_LOOKAHEAD = timedelta(minutes=5)
+EXPIRED_SANCTION_CHAT_NOTICE_TTL_S = 60 * 60 * 24 * 365
+EXPIRED_SUBSCRIPTION_SYNC_TTL_S = 14 * 24 * 60 * 60
+SUBSCRIPTION_EXPIRING_SOON_NOTICE_BEFORE = timedelta(days=3)
+SUBSCRIPTION_EXPIRING_SOON_NOTICE_TTL_S = 14 * 24 * 60 * 60
+AUTO_DELETE_UNVERIFIED_ACCOUNT_LOCK_TTL_S = 60 * 60
+TIMED_KINDS = {SANCTION_TIMEOUT, SANCTION_SUSPEND}
+
 
 def normalize_spectators_limit(value: Any) -> int:
     if value is None:
@@ -287,54 +305,6 @@ async def invalidate_game_stats_cache_for_game_users(user_ids: set[int], log_eve
         await invalidate_user_game_stats_cache_for_users(user_ids)
     except Exception:
         log.warning(log_event, game_id=game_id, users=len(user_ids))
-
-PRESIGN_ALLOWED_PREFIXES: tuple[str, ...] = ("avatars/", "chat/global/images/")
-PRESIGN_KEY_RE = re.compile(r"^[a-zA-Z0-9._/-]{3,256}$")
-BOT_USERNAME_RE = re.compile(r"^[a-zA-Zа-яА-ЯёЁ0-9._\-()]{2,20}$")
-CHAT_MENTION_QUERY_RE = re.compile(r"^[a-zA-Zа-яА-ЯёЁ0-9._\-()]{1,20}$")
-PWD_CTRL_RE = re.compile(r"[\x00-\x1F\x7F]")
-PWD_WS_RE = re.compile(r"\s")
-TITLE_CTRL_RE = re.compile(r"[\x00-\x1F\x7F]")
-TITLE_BIDI_RE = re.compile(r"[\u200B-\u200F\u202A-\u202E\u2066-\u2069]")
-TITLE_WS_RE = re.compile(r"\s+")
-
-SANCTION_TIMEOUT = "timeout"
-SANCTION_BAN = "ban"
-SANCTION_SUSPEND = "suspend"
-HOSTED_GAME_SUSPEND_REDUCTION_SECONDS = 4 * 60 * 60
-HOSTED_GAME_SUSPEND_LEGACY_REDUCTION_SECONDS = 6 * 60 * 60
-HOSTED_GAME_SUSPEND_REDUCTION_CHANGED_AT = datetime(2026, 5, 1, tzinfo=timezone.utc)
-MSK_TZ = timezone(timedelta(hours=3))
-SUSPEND_HOSTED_WORKOFF_LOOKAHEAD = timedelta(minutes=5)
-EXPIRED_SANCTION_CHAT_NOTICE_TTL_S = 60 * 60 * 24 * 365
-EXPIRED_SUBSCRIPTION_SYNC_TTL_S = 14 * 24 * 60 * 60
-SUBSCRIPTION_EXPIRING_SOON_NOTICE_BEFORE = timedelta(days=3)
-SUBSCRIPTION_EXPIRING_SOON_NOTICE_TTL_S = 14 * 24 * 60 * 60
-AUTO_DELETE_UNVERIFIED_ACCOUNT_LOCK_TTL_S = 60 * 60
-USERS_SORT_DEFAULT = "registered_at"
-USERS_SORT_ALLOWED = {
-    USERS_SORT_DEFAULT,
-    "username",
-    "last_room_id",
-    "last_spectator_room_id",
-    "timeouts_count",
-    "bans_count",
-    "suspends_count",
-}
-MODERATION_USERS_SORT_ALLOWED = {
-    USERS_SORT_DEFAULT,
-    "username",
-    "last_room_id",
-    "last_spectator_room_id",
-    "timeouts_count",
-    "bans_count",
-    "suspends_count",
-}
-TIMED_KINDS = {SANCTION_TIMEOUT, SANCTION_SUSPEND}
-_RU_ALPHA = "абвгдеёжзийклмнопрстуфхцчшщъыьэюя"
-_EN_ALPHA = "abcdefghijklmnopqrstuvwxyz"
-_RU_ALPHA_ORDER = {ch: idx for idx, ch in enumerate(_RU_ALPHA)}
-_EN_ALPHA_ORDER = {ch: idx for idx, ch in enumerate(_EN_ALPHA)}
 
 
 def sanitize_username_for_schema(v: Any) -> str:
@@ -625,47 +595,6 @@ def build_app_settings_snapshot_from_row(row: Any, *, default_starts: Sequence[i
     )
 
 
-def normalize_users_sort(sort_by: str | None) -> str:
-    value = (sort_by or "").strip().lower()
-    if value in USERS_SORT_ALLOWED:
-        return value
-
-    return USERS_SORT_DEFAULT
-
-
-def normalize_moderation_users_sort(sort_by: str | None) -> str:
-    value = normalize_users_sort(sort_by)
-    if value in MODERATION_USERS_SORT_ALLOWED:
-        return value
-
-    return USERS_SORT_DEFAULT
-
-
-def admin_username_sort_key(raw: Any) -> tuple[int, tuple[tuple[int, int, int], ...]]:
-    text = sanitize_username_for_schema(raw).casefold()
-    if not text:
-        return 3, tuple()
-
-    lead_group = 3
-    chars: list[tuple[int, int, int]] = []
-    for ch in text:
-        if ch in _RU_ALPHA_ORDER:
-            group = 0
-            order = _RU_ALPHA_ORDER[ch]
-        elif ch in _EN_ALPHA_ORDER:
-            group = 1
-            order = _EN_ALPHA_ORDER[ch]
-        else:
-            group = 2
-            order = ord(ch)
-
-        if lead_group == 3:
-            lead_group = group
-        chars.append((group, order, ord(ch)))
-
-    return lead_group, tuple(chars)
-
-
 async def fetch_friends_count_for_users(session: AsyncSession, ids: list[int]) -> dict[int, int]:
     friends_count: dict[int, int] = {uid: 0 for uid in ids}
     if not ids:
@@ -764,35 +693,6 @@ async def fetch_sanction_counts_for_users(session: AsyncSession, ids: list[int])
             out[uid][kind_key] = 0
 
     return out
-
-
-def user_sort_metric(*, sort_by: str, uid: int, sanction_counts: dict[int, dict[str, int]], last_room_id: dict[int, int | None], last_spectator_room_id: dict[int, int | None]) -> int:
-    if sort_by == "last_room_id":
-        return int(last_room_id.get(uid) or 0)
-
-    if sort_by == "last_spectator_room_id":
-        return int(last_spectator_room_id.get(uid) or 0)
-
-    if sort_by == "timeouts_count":
-        return (sanction_counts.get(uid) or {}).get(SANCTION_TIMEOUT, 0)
-
-    if sort_by == "bans_count":
-        return (sanction_counts.get(uid) or {}).get(SANCTION_BAN, 0)
-
-    if sort_by == "suspends_count":
-        return (sanction_counts.get(uid) or {}).get(SANCTION_SUSPEND, 0)
-
-    return 0
-
-
-def moderation_user_sort_metric(*, sort_by: str, uid: int, sanction_counts: dict[int, dict[str, int]], last_room_id: dict[int, int | None], last_spectator_room_id: dict[int, int | None]) -> int:
-    return user_sort_metric(
-        sort_by=sort_by,
-        uid=uid,
-        sanction_counts=sanction_counts,
-        last_room_id=last_room_id,
-        last_spectator_room_id=last_spectator_room_id,
-    )
 
 
 def compute_duration_seconds(months: int, days: int, hours: int, minutes: int) -> int:
