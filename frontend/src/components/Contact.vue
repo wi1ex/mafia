@@ -65,10 +65,10 @@
               <span class="contact-body-title">Текст обращения</span>
               <div class="contact-email-block">
                 <UiIcon class="contact-email-img-1" :icon="iconMail" />
-                <button class="contact-email-btn">
-                  <span class="contact-email-text">Вы также можете написать нам на email:</span>
-                  <UiIcon class="contact-email-img-2" :icon="iconCopy" />
-                  <UiIcon class="contact-email-img-3" :icon="iconCheckMark" />
+                <button class="contact-email-btn" type="button" aria-label="Скопировать email" @click="copyContactEmailText">
+                  <span ref="contactEmailTextEl" class="contact-email-text">Вы также можете написать нам на email:</span>
+                  <UiIcon v-if="!emailCopied" class="contact-email-img-2" :icon="iconCopy" />
+                  <UiIcon v-else class="contact-email-img-3" :icon="iconCheckMark" />
                 </button>
               </div>
             </div>
@@ -133,6 +133,8 @@ const submitAttempted = ref(false)
 const topic = ref('')
 const messageText = ref('')
 const replyContact = ref('')
+const emailCopied = ref(false)
+const contactEmailTextEl = ref<HTMLElement | null>(null)
 
 let prevOverflow = ''
 
@@ -175,7 +177,42 @@ function resetForm(): void {
   topic.value = ''
   messageText.value = ''
   replyContact.value = ''
+  emailCopied.value = false
   submitAttempted.value = false
+}
+
+function copyTextFallback(text: string): boolean {
+  const textarea = document.createElement('textarea')
+  textarea.value = text
+  textarea.setAttribute('readonly', '')
+  textarea.style.position = 'fixed'
+  textarea.style.left = '-9999px'
+  textarea.style.top = '-9999px'
+  document.body.appendChild(textarea)
+  textarea.select()
+
+  try {
+    return document.execCommand('copy')
+  } finally {
+    textarea.remove()
+  }
+}
+
+async function copyContactEmailText(): Promise<void> {
+  const text = normalizeInlineText(contactEmailTextEl.value?.textContent || '')
+  if (!text) return
+
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text)
+      emailCopied.value = true
+      return
+    }
+
+    emailCopied.value = copyTextFallback(text)
+  } catch {
+    emailCopied.value = copyTextFallback(text)
+  }
 }
 
 async function submit(): Promise<void> {
@@ -211,6 +248,7 @@ function onKeydown(event: KeyboardEvent): void {
 
 watch(() => props.open, (open) => {
   armed.value = false
+  emailCopied.value = false
   if (open) {
     prevOverflow = document.documentElement.style.overflow
     document.documentElement.style.overflow = 'hidden'
@@ -305,7 +343,7 @@ onBeforeUnmount(() => {
         .contact-email-img-1 {
           --ui-icon-width: 24px;
           --ui-icon-height: 24px;
-          --ui-icon-color: #{$neutral-black};
+          --ui-icon-color: #{$blue-600};
         }
         .contact-email-btn {
           display: flex;
@@ -317,11 +355,7 @@ onBeforeUnmount(() => {
             line-height: 16px;
             letter-spacing: -0.32px;
           }
-          .contact-email-img-2 {
-            --ui-icon-width: 16px;
-            --ui-icon-height: 16px;
-            --ui-icon-color: #{$blue-600};
-          }
+          .contact-email-img-2,
           .contact-email-img-3 {
             --ui-icon-width: 16px;
             --ui-icon-height: 16px;
@@ -330,7 +364,7 @@ onBeforeUnmount(() => {
           &:hover,
           &:focus-visible,
           &:active {
-            .contact-email-img-3 {
+            .contact-email-img-2 {
               --ui-icon-color: #{$green-600};
             }
           }
