@@ -1127,10 +1127,8 @@ async function toggleStaffRole(): Promise<void> {
     text: `${isModer ? 'Снять' : 'Выдать'} права модератора пользователю ${userLabel}?`,
     confirmText: isModer ? 'Снять' : 'Выдать',
     cancelText: 'Отмена',
-    ...(isModer ? {} : {
-      checkboxLabel: 'Подтверждаю',
-      checkboxRequired: true,
-    }),
+    checkboxLabel: 'Подтверждаю',
+    checkboxRequired: true,
   })
   if (!ok) return
   staffRoleBusy.value = true
@@ -1158,14 +1156,12 @@ async function toggleStaffAccount(): Promise<void> {
   const ok = await confirmDialog({
     title: isDeleted ? 'Восстановить аккаунт' : 'Удалить аккаунт',
     text: isDeleted
-      ? `Восстановить доступ для ${userLabel}?`
-      : `Удаление аккаунта ${userLabel} произойдет навсегда без возможности восстановления.`,
+      ? `Восстановить аккаунт пользователя ${userLabel}?`
+      : `Удалить аккаунт пользователя ${userLabel}?`,
     confirmText: isDeleted ? 'Восстановить' : 'Удалить',
     cancelText: 'Отмена',
-    ...(isDeleted ? {} : {
-      checkboxLabel: 'Подтверждаю',
-      checkboxRequired: true,
-    }),
+    checkboxLabel: 'Подтверждаю',
+    checkboxRequired: true,
   })
   if (!ok) return
   staffAccountBusy.value = true
