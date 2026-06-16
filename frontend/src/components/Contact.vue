@@ -61,6 +61,16 @@
                   <span>{{ messageText.length }}/{{ TEXT_MAX }}</span>
                 </template>
               </UiInput>
+
+              <span class="contact-body-title">Текст обращения</span>
+              <div class="contact-email-block">
+                <UiIcon class="contact-email-img-1" :icon="iconMail" />
+                <button class="contact-email-btn">
+                  <span class="contact-email-text">Вы также можете написать нам на email:</span>
+                  <UiIcon class="contact-email-img-2" :icon="iconCopy" />
+                  <UiIcon class="contact-email-img-3" :icon="iconCheckMark" />
+                </button>
+              </div>
             </div>
 
             <div class="contact-actions">
@@ -86,6 +96,10 @@ import UiDropdown from '@/components/UiDropdown.vue'
 import UiInput from '@/components/UiInput.vue'
 
 import iconClose from '@/assets/svg/iconClose.svg'
+import iconTelegram from '@/assets/svg/iconTelegram.svg'
+import iconMail from '@/assets/svg/iconMail.svg'
+import iconCopy from '@/assets/svg/iconCopy.svg'
+import iconCheckMark from '@/assets/svg/iconCheckMark.svg'
 
 const props = defineProps<{
   open: boolean
@@ -282,6 +296,45 @@ onBeforeUnmount(() => {
       }
       .contact-body-input {
         margin-bottom: 8px;
+      }
+      .contact-email-block {
+        display: flex;
+        flex-direction: column;
+        margin-left: 12px;
+        gap: 12px;
+        .contact-email-img-1 {
+          --ui-icon-width: 24px;
+          --ui-icon-height: 24px;
+          --ui-icon-color: #{$neutral-black};
+        }
+        .contact-email-btn {
+          display: flex;
+          gap: 4px;
+          .contact-email-text {
+            color: $neutral-900;
+            font-family: Hauora-Regular;
+            font-size: 16px;
+            line-height: 16px;
+            letter-spacing: -0.32px;
+          }
+          .contact-email-img-2 {
+            --ui-icon-width: 16px;
+            --ui-icon-height: 16px;
+            --ui-icon-color: #{$blue-600};
+          }
+          .contact-email-img-3 {
+            --ui-icon-width: 16px;
+            --ui-icon-height: 16px;
+            --ui-icon-color: #{$neutral-black};
+          }
+          &:hover,
+          &:focus-visible,
+          &:active {
+            .contact-email-img-3 {
+              --ui-icon-color: #{$green-600};
+            }
+          }
+        }
       }
     }
     :deep(.contact-textarea textarea) {
