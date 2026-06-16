@@ -43,6 +43,10 @@ const routerViewKey = computed(() => {
 })
 
 watchEffect(() => {
+  document.body.classList.toggle('room-touch-manipulation', isRoom.value)
+})
+
+watchEffect(() => {
   if (route.meta?.requiresAuth && !auth.isAuthed) {
     router.replace({ name: 'home' }).catch(() => {})
   }
@@ -140,6 +144,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  document.body.classList.remove('room-touch-manipulation')
   if (onSanctionsUpdate) window.removeEventListener('auth-sanctions_update', onSanctionsUpdate)
   if (onUserGameParticipationChanged) window.removeEventListener('auth-user_game_participation_changed', onUserGameParticipationChanged)
   if (onProfileSync) window.removeEventListener('auth-profile_sync', onProfileSync)

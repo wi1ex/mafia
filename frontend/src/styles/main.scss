@@ -11,6 +11,11 @@ body {
   user-select: none;
 }
 
+body.room-touch-manipulation,
+body.room-touch-manipulation #app {
+  touch-action: manipulation;
+}
+
 #app{
   display: flex;
   flex-direction: column;
