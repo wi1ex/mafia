@@ -1790,16 +1790,22 @@ async def sync_expired_profile_subscriptions() -> int:
                     created = await _create_subscription_site_notice_once(
                         session,
                         uid,
-                        title="Подписка истекла",
-                        text=f"Нам очень жаль, но Ваша подписка истекла.",
+                        title="Подписка",
+                        text=(
+                            "Нам очень жаль, но Ваша подписка истекла. "
+                            "Оформить подписку можно на главной странице или в Личном кабинете."
+                        ),
                         no_toast=False,
                     )
                     if created is not None:
                         await _send_subscription_telegram_notice(
                             session,
                             user_id=uid,
-                            title="Подписка истекла",
-                            text=f"Нам очень жаль, но Ваша подписка истекла.",
+                            title="Подписка",
+                            text=(
+                                "Нам очень жаль, но Ваша подписка истекла. "
+                                "Оформить подписку можно на главной странице или в Личном кабинете."
+                            ),
                         )
                 synced += 1
             except Exception as exc:
@@ -1862,8 +1868,8 @@ async def notify_expiring_profile_subscriptions() -> int:
             if not claimed:
                 continue
 
-            title = "Подписка скоро истечет"
-            text = f"Ваша подписка истечет {format_subscription_until(ends_at)}."
+            title = "Подписка"
+            text = f"Срок Вашей подписки истекает {format_subscription_until(ends_at)}. Успейте продлить!"
             try:
                 created = await _create_subscription_site_notice_once(
                     session,
