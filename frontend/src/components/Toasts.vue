@@ -2,6 +2,7 @@
   <div class="toasts" @transitionend="onTransEnd">
     <div v-for="t in items" :key="t.key" class="toast" :data-key="t.key" :class="[toastToneClass(t), { closing: t._closing }]">
       <header>
+        <UiIcon class="toast-icon" :icon="toastIconVariant(t) === 'success' ? iconCheckCircle : toastIconVariant(t) === 'neutral' ? iconInfo : iconDanger" />
         <span>{{ t.title }}</span>
         <button @click="closeManual(t)">
           <img :src="iconClose" alt="close" />
@@ -29,8 +30,13 @@ import { useNotifStore, inferFriendApiAction, resolveFriendsApiError } from '@/s
 import { api } from '@/services/axios'
 import { alertDialog } from '@/services/confirm'
 
-import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
-import iconClose from '@/assets/svg/close.svg'
+import UiIcon from '@/components/UiIcon.vue'
+
+import defaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
+import iconClose from '@/assets/svg/iconClose.svg'
+import iconCheckCircle from '@/assets/svg/iconCheckCircle.svg'
+import iconInfo from '@/assets/svg/iconInfo.svg'
+import iconDanger from '@/assets/svg/iconDanger.svg'
 
 const router = useRouter()
 const notif = useNotifStore()
@@ -73,6 +79,8 @@ type ToastItem = {
   read?: boolean
   id?: number
 }
+type ToastToneClass = 'tone-yellow' | 'tone-orange' | 'tone-red' | 'tone-green' | 'tone-blue'
+type ToastIconVariant = 'success' | 'neutral' | 'attention'
 
 const items = ref<ToastItem[]>([])
 
@@ -142,13 +150,13 @@ function onApproved(e: any) {
   }
 }
 
-function toastToneClass(t: ToastItem): string {
+function toastToneClass(t: ToastItem): ToastToneClass {
   const title = String(t.title || '')
   const text = String(t.text || '')
 
   if (title === 'Заявка в друзья от' || title === 'Заявка в комнату от' || t.kind === 'app') return 'tone-blue'
   if (title === 'Заявка в друзья принята' || title === 'Доступ разрешен' || title === 'Приглашение в комнату от') return 'tone-green'
-  if (title === 'Доступ к комнате отозван' || title === 'Обратная связь') return 'tone-neutral'
+  if (title === 'Доступ к комнате отозван' || title === 'Обратная связь') return 'tone-blue'
   if (title === 'Таймаут') return 'tone-orange'
   if (title === 'Бан' || title === 'Аватар' || title === 'Никнейм') return 'tone-red'
   if (title === 'Отстранение от игр') return 'tone-yellow'
@@ -159,10 +167,17 @@ function toastToneClass(t: ToastItem): string {
   }
   if (title === 'Роль') {
     if (text.includes('выдана')) return 'tone-green'
-    return 'tone-neutral'
+    return 'tone-blue'
   }
 
-  return 'tone-neutral'
+  return 'tone-blue'
+}
+
+function toastIconVariant(t: ToastItem): ToastIconVariant {
+  const tone = toastToneClass(t)
+  if (tone === 'tone-green') return 'success'
+  if (tone === 'tone-blue') return 'neutral'
+  return 'attention'
 }
 
 onMounted(() => {
@@ -210,8 +225,7 @@ onBeforeUnmount(() => {
   z-index: 2000;
   pointer-events: none;
   .toast {
-    --toast-border-color: #{$neutral-500};
-
+    --toast-border-color: #{$blue-500};
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
@@ -241,9 +255,6 @@ onBeforeUnmount(() => {
     &.tone-green {
       --toast-border-color: #{$green-500};
     }
-    &.tone-neutral {
-      --toast-border-color: #{$neutral-500};
-    }
     &.tone-blue {
       --toast-border-color: #{$blue-500};
     }
@@ -255,6 +266,11 @@ onBeforeUnmount(() => {
       border-radius: 5px;
       background-color: $graphite;
       box-shadow: 0 3px 5px rgba($black, 0.25);
+      .toast-icon {
+        --ui-icon-width: 24px;
+        --ui-icon-height: 24px;
+        --ui-icon-color: var(--toast-border-color);
+      }
       span {
         font-size: 18px;
         font-weight: bold;
