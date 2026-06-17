@@ -1,5 +1,5 @@
 <template>
-  <div class="switch" :style="switchStyle">
+  <div class="switch" :class="`switch--${switchTheme}`" :style="switchStyle">
     <span class="switch-label">
       <slot name="label">{{ label }}</slot>
     </span>
@@ -41,6 +41,7 @@ import UiTooltip from '@/components/UiTooltip.vue'
 const TOGGLE_GUARD_MS = 500
 type TooltipTarget = 'off' | 'on'
 type TooltipPlacement = 'top-right' | 'top-center' | 'top-left' | 'bottom-right' | 'bottom-center' | 'bottom-left'
+type SwitchTheme = 'light' | 'dark'
 
 const props = defineProps<{
   modelValue: boolean
@@ -56,6 +57,7 @@ const props = defineProps<{
   tooltipTarget?: TooltipTarget
   tooltipAriaLabel?: string
   tooltipBubbleWidth?: number | string
+  theme?: SwitchTheme
 }>()
 
 const emit = defineEmits<{
@@ -72,6 +74,7 @@ const tooltipPlacement = computed<TooltipPlacement>(() => {
 })
 const tooltipAriaLabel = computed(() => props.tooltipAriaLabel || 'Подсказка')
 const widthPx = computed(() => `${Number.isFinite(props.width) && props.width ? props.width : 274}px`)
+const switchTheme = computed<SwitchTheme>(() => props.theme === 'dark' ? 'dark' : 'light')
 const switchStyle = computed<Record<string, string>>(() => ({ '--switch-width': widthPx.value }))
 
 const switchLocked = ref(false)
@@ -115,6 +118,13 @@ onBeforeUnmount(() => {
   --switch-width: 274px;
   --switch-knob: calc((var(--switch-width) - 8px) / 2);
   --switch-translate: calc(var(--switch-knob) + 0px);
+  --switch-slider-color: #{$neutral-white};
+  &.switch--dark {
+    --switch-slider-color: #{$soft-purple-900};
+  }
+  &.switch--light {
+    --switch-slider-color: #{$neutral-white};
+  }
   .switch-label {
     display: inline-flex;
     align-items: center;
@@ -143,8 +153,8 @@ onBeforeUnmount(() => {
       inset: 0;
       cursor: pointer;
       border-radius: 999px;
-      border: 4px solid $soft-purple-900;
-      background-color: $soft-purple-900;
+      border: 4px solid var(--switch-slider-color);
+      background-color: var(--switch-slider-color);
       .slider-option {
         display: inline-flex;
         align-items: center;

@@ -252,7 +252,7 @@ function formatPct(raw: unknown): string {
 }
 
 function formatFarewellSuccess(percentRaw: unknown, correctRaw: unknown, totalRaw: unknown): string {
-  return `${formatPct(percentRaw)} (${formatInt(correctRaw)}/${formatInt(totalRaw)})`
+  return `${formatPct(percentRaw)} (${formatInt(correctRaw)} из ${formatInt(totalRaw)})`
 }
 
 function timesWord(raw: unknown): string {
