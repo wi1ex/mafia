@@ -74,7 +74,7 @@ const tooltipPlacement = computed<TooltipPlacement>(() => {
 })
 const tooltipAriaLabel = computed(() => props.tooltipAriaLabel || 'Подсказка')
 const widthPx = computed(() => `${Number.isFinite(props.width) && props.width ? props.width : 274}px`)
-const switchTheme = computed<SwitchTheme>(() => props.theme === 'dark' ? 'dark' : 'light')
+const switchTheme = computed<SwitchTheme>(() => props.theme === 'light' ? 'light' : 'dark')
 const switchStyle = computed<Record<string, string>>(() => ({ '--switch-width': widthPx.value }))
 
 const switchLocked = ref(false)

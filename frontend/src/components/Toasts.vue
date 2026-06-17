@@ -378,6 +378,7 @@ onBeforeUnmount(() => {
               &:not(:disabled):hover,
               &:not(:disabled):focus-visible,
               &:not(:disabled):active {
+                background-color: $neutral-white;
                 color: $green-600;
               }
             }
