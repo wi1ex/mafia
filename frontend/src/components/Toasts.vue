@@ -11,8 +11,8 @@
         </header>
 
         <div class="user">
-          <img v-if="t.user" v-minio-img="{ key: t.user.avatar_name ? `avatars/${t.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
           <div class="meta">
+            <img v-if="t.user" v-minio-img="{ key: t.user.avatar_name ? `avatars/${t.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
             <span v-if="t.user">{{ t.user.username || ('user' + t.user.id) }}</span>
             <p v-if="t.text">{{ t.text }}</p>
           </div>
@@ -34,7 +34,7 @@ import { alertDialog } from '@/services/confirm'
 
 import UiIcon from '@/components/UiIcon.vue'
 
-import defaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
+import defaultAvatar from '@/assets/svg/iconDefaultAvatarBlack.svg'
 import iconClose from '@/assets/svg/iconClose.svg'
 import iconCheckCircle from '@/assets/svg/iconCheckCircle.svg'
 import iconInfo from '@/assets/svg/iconInfo.svg'
@@ -48,7 +48,7 @@ type RouteAction = {
   kind: 'route'
   label: string
   to: string
-  style?: 'primary' | 'danger' | 'neutral'
+  style?: 'primary' | 'neutral'
 }
 type ApiAction = {
   kind: 'api'
@@ -56,7 +56,7 @@ type ApiAction = {
   url: string
   method?: 'get'|'post'|'delete'|'put'
   body?: any
-  style?: 'primary' | 'danger' | 'neutral'
+  style?: 'primary' | 'neutral'
 }
 type ToastAction = RouteAction | ApiAction
 type ToastUser = {
@@ -270,7 +270,7 @@ onBeforeUnmount(() => {
     .toast-div {
       display: flex;
       flex-direction: column;
-      width: 100%;
+      width: 386px;
       gap: 16px;
       header {
         display: flex;
@@ -315,70 +315,70 @@ onBeforeUnmount(() => {
         gap: 16px;
         .meta {
           display: flex;
-          flex-direction: column;
+          align-items: center;
           gap: 8px;
-          flex: 1;
           min-width: 0;
-        }
-        img {
-          width: 24px;
-          height: 24px;
-          border-radius: 50%;
-        }
-        span {
-          color: $neutral-900;
-          font-family: Hauora-Regular;
-          font-size: 16px;
-          line-height: 16px;
-          letter-spacing: -0.32px;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-        p {
-          margin: 0;
-          color: $neutral-500;
-          font-family: Hauora-Regular;
-          font-size: 16px;
-          line-height: 22px;
-          letter-spacing: -0.32px;
+          img {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+          }
+          span {
+            color: $neutral-900;
+            font-family: Hauora-Regular;
+            font-size: 16px;
+            line-height: 16px;
+            letter-spacing: -0.32px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+          p {
+            margin: 0;
+            color: $neutral-500;
+            font-family: Hauora-Regular;
+            font-size: 16px;
+            line-height: 22px;
+            letter-spacing: -0.32px;
+          }
         }
         .actions {
           display: flex;
-          gap: 5px;
+          align-items: center;
+          gap: 4px;
           .action {
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 10px;
-            height: 30px;
+            padding: 0 16px;
+            height: 32px;
             border: none;
-            border-radius: 5px;
-            background-color: rgba($green, 0.75);
-            color: $bg;
-            font-size: 14px;
-            font-family: Manrope-Medium;
-            line-height: 1;
+            border-radius: 16px;
+            background-color: $green-500;
+            color: $neutral-900;
+            font-family: Hauora-Regular;
+            font-size: 16px;
+            line-height: 16px;
+            letter-spacing: -0.32px;
             cursor: pointer;
-            transition: background-color 0.25s ease-in-out;
-            &:hover:enabled {
-              background-color: $green;
+            transition: background-color 0.25s ease-in-out, color 0.25s ease-in-out;
+            &:not(:disabled):hover,
+            &:not(:disabled):focus-visible,
+            &:not(:disabled):active {
+              background-color: $green-300;
+              color: $neutral-black;
             }
             &:disabled {
-              opacity: 0.5;
-              cursor: default;
-            }
-            &.danger {
-              background-color: rgba($red, 0.75);
-              &:hover:enabled {
-                background-color: $red;
-              }
+              background-color: $neutral-200;
+              color: $neutral-400;
             }
             &.neutral {
-              background-color: rgba($lead, 0.75);
-              color: $fg;
-              &:hover:enabled {
-                background-color: $lead;
+              background-color: $neutral-white;
+              color: $neutral-black;
+              &:not(:disabled):hover,
+              &:not(:disabled):focus-visible,
+              &:not(:disabled):active {
+                color: $green-600;
               }
             }
           }

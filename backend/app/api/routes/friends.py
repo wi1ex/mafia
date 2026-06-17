@@ -427,7 +427,7 @@ async def send_friend_request(user_id: int, ident: Identity = Depends(get_identi
 
     actions = [
         {"kind": "api", "label": "Принять", "url": f"/friends/requests/{uid}/accept", "method": "post", "style": "primary"},
-        {"kind": "api", "label": "Отклонить", "url": f"/friends/requests/{uid}/decline", "method": "post", "style": "danger"},
+        {"kind": "api", "label": "Отклонить", "url": f"/friends/requests/{uid}/decline", "method": "post", "style": "neutral"},
     ]
     with suppress(Exception):
         await sio.emit(
