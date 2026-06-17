@@ -14,7 +14,11 @@
           <div class="meta">
             <img v-if="t.user" v-minio-img="{ key: t.user.avatar_name ? `avatars/${t.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
             <span v-if="t.user">{{ t.user.username || ('user' + t.user.id) }}</span>
-            <p v-if="t.text">{{ t.text }}</p>
+            <div v-if="t.sanctionText" class="sanction-text">
+              <p class="sanction-text__lead">{{ t.sanctionText.lead }}</p>
+              <p class="sanction-text__details">{{ t.sanctionText.details }}</p>
+            </div>
+            <p v-else-if="t.text">{{ t.text }}</p>
           </div>
           <div v-if="t.actions && t.actions.length" class="actions">
             <button v-for="a in t.actions" :key="a.label" :class="['action', a.style]" :disabled="t._actionBusy" @click="runAction(t, a)">{{ a.label }}</button>
@@ -64,6 +68,10 @@ type ToastUser = {
   username?: string
   avatar_name?: string|null
 }
+type ToastSanctionText = {
+  lead: string
+  details: string
+}
 
 type ToastItem = {
   key: number
@@ -80,6 +88,7 @@ type ToastItem = {
   _closing?: boolean
   read?: boolean
   id?: number
+  sanctionText?: ToastSanctionText
 }
 type ToastToneClass = 'tone-yellow' | 'tone-orange' | 'tone-red' | 'tone-green' | 'tone-blue'
 type ToastIconVariant = 'success' | 'neutral' | 'attention'
@@ -182,23 +191,40 @@ function toastIconVariant(t: ToastItem): ToastIconVariant {
   return 'attention'
 }
 
+function splitSanctionToastText(kind: string | undefined, text: string | undefined): ToastSanctionText | undefined {
+  if (kind !== 'sanction' || !text) return undefined
+
+  const marker = '. Пункт правил:'
+  const markerIndex = text.indexOf(marker)
+  if (markerIndex <= 0) return undefined
+
+  const lead = text.slice(0, markerIndex).trim()
+  const details = text.slice(markerIndex + 2).trim()
+  if (!lead || !details) return undefined
+
+  return { lead, details }
+}
+
 onMounted(() => {
   window.addEventListener('toast', (e: any) => {
     const d = e?.detail || {}
     const key = Date.now() + Math.random()
     const actions = Array.isArray(d.actions) ? d.actions : (d.action ? [d.action] : undefined)
+    const kind = d.kind || 'info'
+    const text = d.text ? String(d.text) : undefined
     const t: ToastItem = {
       key,
       id: d.id,
       title: d.title ?? 'Уведомление',
-      text: d.text ? String(d.text) : undefined,
+      text,
       date: d.date ? Number(new Date(d.date)) : Date.now(),
-      kind: d.kind || 'info',
+      kind,
       action: d.action,
       actions,
       ttl: TOAST_TTL_MS,
       user: d.user,
       room_id: Number.isFinite(d.room_id) ? Number(d.room_id) : undefined,
+      sanctionText: splitSanctionToastText(kind, text),
     }
     items.value.push(t)
     window.setTimeout(() => {
@@ -333,13 +359,24 @@ onBeforeUnmount(() => {
             overflow: hidden;
             text-overflow: ellipsis;
           }
-          p {
-            margin: 0;
-            color: $neutral-500;
-            font-family: Hauora-Regular;
-            font-size: 16px;
-            line-height: 22px;
-            letter-spacing: -0.32px;
+          .sanction-text {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            min-width: 0;
+            p {
+              margin: 0;
+              font-family: Hauora-Regular;
+              font-size: 16px;
+              line-height: 22px;
+              letter-spacing: -0.32px;
+            }
+            .sanction-text__lead {
+              color: $neutral-900;
+            }
+            .sanction-text__details {
+              color: $neutral-500;
+            }
           }
         }
         .actions {
