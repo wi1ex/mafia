@@ -1,4 +1,5 @@
 from __future__ import annotations
+import asyncio
 import base64
 import binascii
 import json
@@ -292,6 +293,43 @@ def _lava_payment_amount_text(payment: LavaPayment) -> str:
     return f"{amount} {currency}" if currency else amount
 
 
+async def _send_lava_subscription_admin_telegram_message(*, uid: int, chat_id: int, text: str) -> None:
+    try:
+        send_result = await send_text_message(
+            chat_id=chat_id,
+            text=text,
+        )
+    except Exception:
+        log.warning(
+            "lava.subscription.admin_telegram_notify_failed",
+            uid=uid,
+            reason="unexpected_error",
+            exc_info=True,
+        )
+        return
+
+    if not send_result.ok:
+        log.warning(
+            "lava.subscription.admin_telegram_notify_failed",
+            uid=uid,
+            reason=send_result.reason,
+        )
+
+
+def _schedule_lava_subscription_admin_telegram_message(*, uid: int, chat_id: int, text: str) -> None:
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        log.warning(
+            "lava.subscription.admin_telegram_notify_failed",
+            uid=uid,
+            reason="event_loop_unavailable",
+        )
+        return
+
+    loop.create_task(_send_lava_subscription_admin_telegram_message(uid=uid, chat_id=chat_id, text=text))
+
+
 async def _send_lava_subscription_admin_notice(
     *,
     user: User,
@@ -309,16 +347,11 @@ async def _send_lava_subscription_admin_notice(
         f"Срок: {duration}\n"
         f"Сумма: {amount}"
     )
-    send_result = await send_text_message(
+    _schedule_lava_subscription_admin_telegram_message(
+        uid=uid,
         chat_id=LAVA_SUBSCRIPTION_ADMIN_TELEGRAM_ID,
         text=text,
     )
-    if not send_result.ok:
-        log.warning(
-            "lava.subscription.admin_telegram_notify_failed",
-            uid=uid,
-            reason=send_result.reason,
-        )
 
 
 def _flatten_text(value: object) -> str:

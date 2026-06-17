@@ -121,7 +121,7 @@
               <UiSwitch
                 class="profile-switch"
                 :model-value="tgInvitesEnabled"
-                label="Уведомления о приглашениях в TG"
+                label="Уведомления в TG о приглашениях в комнату"
                 off-label="Запретить"
                 on-label="Разрешить"
                 :width="200"

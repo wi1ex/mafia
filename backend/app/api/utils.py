@@ -1526,22 +1526,52 @@ def _is_admin_subscription_target(role: object) -> bool:
     return normalize_user_role(role) == ROLE_ADMIN
 
 
-async def _send_subscription_telegram_message(uid: int, telegram_id: int, title: str, text: str) -> None:
+async def _send_user_telegram_notice(uid: int, telegram_id: int | None, title: str, text: str, *, log_event: str) -> bool:
+    if uid <= 0:
+        return False
+
     try:
-        send_result = await send_text_message(chat_id=telegram_id, text=f"{title}\n\n{text}")
+        tg_id = int(telegram_id or 0)
+        if tg_id <= 0:
+            async with SessionLocal() as session:
+                user = await session.get(User, uid)
+                if not user or user.deleted_at is not None:
+                    return False
+
+                tg_id = int(user.telegram_id or 0)
+                if tg_id <= 0:
+                    return False
+
+        send_result = await send_text_message(chat_id=tg_id, text=f"{title}\n\n{text}")
     except Exception:
-        log.warning("subscription.telegram_notify_failed", uid=uid, reason="unexpected_error", exc_info=True)
-        return
+        log.warning(log_event, uid=uid, reason="unexpected_error", exc_info=True)
+        return False
 
     if not send_result.ok:
-        log.warning("subscription.telegram_notify_failed", uid=uid, reason=send_result.reason)
+        log.warning(log_event, uid=uid, reason=send_result.reason)
+        return False
+
+    return True
+
+
+def _schedule_user_telegram_notice(uid: int, telegram_id: int | None, title: str, text: str, *, log_event: str) -> None:
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        log.warning(log_event, uid=uid, reason="event_loop_unavailable")
+        return
+
+    loop.create_task(_send_user_telegram_notice(uid, telegram_id, title, text, log_event=log_event))
 
 
 def _schedule_subscription_telegram_message(uid: int, telegram_id: int, title: str, text: str) -> None:
-    try:
-        asyncio.create_task(_send_subscription_telegram_message(uid, telegram_id, title, text))
-    except RuntimeError:
-        log.warning("subscription.telegram_notify_failed", uid=uid, reason="event_loop_unavailable")
+    _schedule_user_telegram_notice(
+        uid,
+        telegram_id,
+        title,
+        text,
+        log_event="subscription.telegram_notify_failed",
+    )
 
 
 async def notify_subscription_upsert(
@@ -1588,38 +1618,13 @@ async def send_sanction_finished_telegram_notice(session: AsyncSession, *, user_
     if uid <= 0:
         return False
 
-    tg_id = int(telegram_id or 0)
-    if tg_id <= 0:
-        user = await session.get(User, uid)
-        if not user or user.deleted_at is not None:
-            return False
-
-        tg_id = int(user.telegram_id or 0)
-        if tg_id <= 0:
-            return False
-
-    try:
-        send_result = await send_text_message(
-            chat_id=tg_id,
-            text=f"{note.title}\n\n{note.text}",
-        )
-    except Exception:
-        log.warning(
-            "sanction_finished.telegram_notify_failed",
-            uid=uid,
-            reason="unexpected_error",
-            exc_info=True,
-        )
-        return False
-
-    if not send_result.ok:
-        log.warning(
-            "sanction_finished.telegram_notify_failed",
-            uid=uid,
-            reason=send_result.reason,
-        )
-        return False
-
+    _schedule_user_telegram_notice(
+        uid,
+        telegram_id,
+        str(note.title or ""),
+        str(note.text or ""),
+        log_event="sanction_finished.telegram_notify_failed",
+    )
     return True
 
 
@@ -1628,24 +1633,13 @@ async def _send_subscription_telegram_notice(session: AsyncSession, *, user_id: 
     if uid <= 0:
         return False
 
-    user = await session.get(User, uid)
-    if not user or user.deleted_at is not None:
-        return False
-
-    telegram_id = int(user.telegram_id or 0)
-    if telegram_id <= 0:
-        return False
-
-    try:
-        send_result = await send_text_message(chat_id=telegram_id, text=f"{title}\n\n{text}")
-    except Exception:
-        log.warning("subscription.telegram_notify_failed", uid=uid, reason="unexpected_error", exc_info=True)
-        return False
-
-    if not send_result.ok:
-        log.warning("subscription.telegram_notify_failed", uid=uid, reason=send_result.reason)
-        return False
-
+    _schedule_user_telegram_notice(
+        uid,
+        None,
+        title,
+        text,
+        log_event="subscription.telegram_notify_failed",
+    )
     return True
 
 
@@ -3924,22 +3918,13 @@ async def emit_nickname_reset_notice(user_id: int, note: Notif, *, telegram_id: 
     if tg_id <= 0:
         return
 
-    try:
-        send_result = await send_text_message(
-            chat_id=tg_id,
-            text=f"{note.title}\n\n{note.text}",
-        )
-    except Exception:
-        log.warning(
-            "nickname_reset.telegram_notify_failed",
-            uid=uid,
-            reason="unexpected_error",
-            exc_info=True,
-        )
-        return
-
-    if not send_result.ok:
-        log.warning("nickname_reset.telegram_notify_failed", uid=uid, reason=send_result.reason)
+    _schedule_user_telegram_notice(
+        uid,
+        tg_id,
+        str(note.title or ""),
+        str(note.text or ""),
+        log_event="nickname_reset.telegram_notify_failed",
+    )
 
 
 async def emit_notify(user_id: int, note: Notif, *, kind: str, no_toast: bool = False, extra: dict | None = None) -> None:
