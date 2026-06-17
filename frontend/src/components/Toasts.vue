@@ -359,20 +359,25 @@ onBeforeUnmount(() => {
             overflow: hidden;
             text-overflow: ellipsis;
           }
+          p {
+            margin: 0;
+            color: $neutral-500;
+            font-family: Hauora-Regular;
+            font-size: 16px;
+            line-height: 22px;
+            letter-spacing: -0.32px;
+          }
           .sanction-text {
             display: flex;
             flex-direction: column;
-            gap: 4px;
+            gap: 12px;
             min-width: 0;
-            p {
-              margin: 0;
-              font-family: Hauora-Regular;
-              font-size: 16px;
-              line-height: 22px;
-              letter-spacing: -0.32px;
-            }
             .sanction-text__lead {
               color: $neutral-900;
+              font-family: Hauora-Bold;
+              font-size: 16px;
+              line-height: 18px;
+              letter-spacing: -0.32px;
             }
             .sanction-text__details {
               color: $neutral-500;

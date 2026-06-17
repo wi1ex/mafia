@@ -502,7 +502,7 @@ async def moderation_apply_user_suspend(user_id: int, payload: AdminSanctionTime
         title="Отстранение от игр",
         text=(
             f"Доступ к играм ограничен на {duration_label}. "
-            f"Пункт правил: {reason}. "
+            f"Пункт правил: {reason} "
             "Проводите игры: после каждой игры срок отстранения будет уменьшаться на 4 часа."
         ),
     )
