@@ -351,7 +351,11 @@ onBeforeUnmount(() => {
         }
         .contact-email-btn {
           display: flex;
+          align-items: center;
+          padding: 0;
           gap: 4px;
+          border: none;
+          background: none;
           .contact-email-text {
             color: $neutral-900;
             font-family: Hauora-Regular;

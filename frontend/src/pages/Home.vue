@@ -176,15 +176,6 @@
       </aside>
       <div class="right-extra right-extra--primary">
         <img class="background-image-6" :src="imageSlide6" alt="" aria-hidden="true" />
-        <div class="right-extra-tooltip">
-          <UiTooltip
-            text="Поддержите развитие платформы и получите бонусы:
-            кастомизация профиля (GIF-аватары, выбор цвета и иконки профиля),
-            создание скрытых комнаты и игр без зрителей, трансляции в высоком качестве,
-            увеличенный лимит на изменение никнейма и обнуление его истории."
-            placement="top-left"
-          />
-        </div>
         <div class="right-extra-content">
           <div class="right-extra-copy-support">
             <span>Поддержи проект и получи</span>
@@ -234,7 +225,6 @@ import RoomModal from '@/components/RoomModal.vue'
 import MiniProfile from '@/components/MiniProfile.vue'
 import Donation from '@/components/Donation.vue'
 import Contact from '@/components/Contact.vue'
-import UiTooltip from '@/components/UiTooltip.vue'
 import UiIcon from '@/components/UiIcon.vue'
 
 import iconDefaultAvatarBlack from '@/assets/svg/iconDefaultAvatarBlack.svg'
@@ -1529,12 +1519,6 @@ onBeforeUnmount(() => {
       flex: 1 1 auto;
       padding: 24px;
       border-radius: 24px;
-      .right-extra-tooltip {
-        display: flex;
-        position: absolute;
-        top: 24px;
-        right: 24px;
-      }
       .right-extra-content {
         display: flex;
         flex-direction: column;
