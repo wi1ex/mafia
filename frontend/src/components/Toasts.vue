@@ -1,22 +1,24 @@
 <template>
   <div class="toasts" @transitionend="onTransEnd">
     <div v-for="t in items" :key="t.key" class="toast" :data-key="t.key" :class="[toastToneClass(t), { closing: t._closing }]">
-      <header>
-        <UiIcon class="toast-icon" :icon="toastIconVariant(t) === 'success' ? iconCheckCircle : toastIconVariant(t) === 'neutral' ? iconInfo : iconDanger" />
-        <span>{{ t.title }}</span>
-        <button @click="closeManual(t)">
-          <img :src="iconClose" alt="close" />
-        </button>
-      </header>
+      <UiIcon class="toast-icon" :icon="toastIconVariant(t) === 'success' ? iconCheckCircle : toastIconVariant(t) === 'neutral' ? iconInfo : iconDanger" />
+      <div class="toast-div">
+        <header>
+          <span>{{ t.title }}</span>
+          <button @click="closeManual(t)">
+            <img :src="iconClose" alt="close" />
+          </button>
+        </header>
 
-      <div class="user">
-        <img v-if="t.user" v-minio-img="{ key: t.user.avatar_name ? `avatars/${t.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
-        <div class="meta">
-          <span v-if="t.user">{{ t.user.username || ('user' + t.user.id) }}</span>
-          <p v-if="t.text">{{ t.text }}</p>
-        </div>
-        <div v-if="t.actions && t.actions.length" class="actions">
-          <button v-for="a in t.actions" :key="a.label" :class="['action', a.style]" :disabled="t._actionBusy" @click="runAction(t, a)">{{ a.label }}</button>
+        <div class="user">
+          <img v-if="t.user" v-minio-img="{ key: t.user.avatar_name ? `avatars/${t.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+          <div class="meta">
+            <span v-if="t.user">{{ t.user.username || ('user' + t.user.id) }}</span>
+            <p v-if="t.text">{{ t.text }}</p>
+          </div>
+          <div v-if="t.actions && t.actions.length" class="actions">
+            <button v-for="a in t.actions" :key="a.label" :class="['action', a.style]" :disabled="t._actionBusy" @click="runAction(t, a)">{{ a.label }}</button>
+          </div>
         </div>
       </div>
     </div>
@@ -220,8 +222,8 @@ onBeforeUnmount(() => {
   position: fixed;
   flex-direction: column;
   left: 10px;
-  bottom: 10px;
-  gap: 10px;
+  bottom: 40px;
+  gap: 40px;
   z-index: 2000;
   pointer-events: none;
   .toast {
@@ -229,11 +231,14 @@ onBeforeUnmount(() => {
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
-    width: 400px;
+    padding: 16px;
+    gap: 8px;
+    width: 450px;
     pointer-events: auto;
-    border: 1px solid var(--toast-border-color);
-    border-radius: 5px;
-    background-color: $dark;
+    border-left: 4px solid var(--toast-border-color);
+    border-radius: 24px;
+    background-color: $neutral-100;
+    box-shadow: 0 2px 16px 0 rgba($neutral-black, 0.20);
     opacity: 1;
     transform: translateY(0);
     transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
@@ -258,103 +263,108 @@ onBeforeUnmount(() => {
     &.tone-blue {
       --toast-border-color: #{$blue-500};
     }
-    header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 5px 10px;
-      border-radius: 5px;
-      background-color: $graphite;
-      box-shadow: 0 3px 5px rgba($black, 0.25);
-      .toast-icon {
-        --ui-icon-width: 24px;
-        --ui-icon-height: 24px;
-        --ui-icon-color: var(--toast-border-color);
-      }
-      span {
-        font-size: 18px;
-        font-weight: bold;
-      }
-      button {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 0;
-        width: 25px;
-        height: 30px;
-        border: none;
-        background: none;
-        cursor: pointer;
-        img {
-          width: 25px;
-          height: 25px;
-        }
-      }
+    .toast-icon {
+      --ui-icon-width: 24px;
+      --ui-icon-height: 24px;
+      --ui-icon-color: var(--toast-border-color);
     }
-    .user {
+    .toast-div {
       display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 15px 10px;
-      gap: 5px;
-      border-radius: 5px;
-      .meta {
+      flex-direction: column;
+      width: 100%;
+      gap: 16px;
+      header {
         display: flex;
-        flex-direction: column;
-        gap: 5px;
-        flex: 1;
-        min-width: 0;
-      }
-      img {
-        width: 30px;
-        height: 30px;
-        border-radius: 50%;
-      }
-      span {
-        height: 18px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      p {
-        margin: 0;
-      }
-      .actions {
-        display: flex;
-        gap: 5px;
-        .action {
+        justify-content: space-between;
+        align-items: center;
+        padding: 5px 10px;
+        span {
+          font-size: 18px;
+          font-weight: bold;
+          color: black;
+        }
+        button {
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 10px;
+          padding: 0;
+          width: 25px;
           height: 30px;
           border: none;
-          border-radius: 5px;
-          background-color: rgba($green, 0.75);
-          color: $bg;
-          font-size: 14px;
-          font-family: Manrope-Medium;
-          line-height: 1;
+          background: none;
           cursor: pointer;
-          transition: background-color 0.25s ease-in-out;
-          &:hover:enabled {
-            background-color: $green;
+          img {
+            width: 25px;
+            height: 25px;
           }
-          &:disabled {
-            opacity: 0.5;
-            cursor: default;
-          }
-          &.danger {
-            background-color: rgba($red, 0.75);
+        }
+      }
+      .user {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 15px 10px;
+        gap: 5px;
+        border-radius: 5px;
+        .meta {
+          display: flex;
+          flex-direction: column;
+          gap: 5px;
+          flex: 1;
+          min-width: 0;
+        }
+        img {
+          width: 30px;
+          height: 30px;
+          border-radius: 50%;
+        }
+        span {
+          height: 18px;
+          color: black;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        p {
+          margin: 0;
+        }
+        .actions {
+          display: flex;
+          gap: 5px;
+          .action {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
+            height: 30px;
+            border: none;
+            border-radius: 5px;
+            background-color: rgba($green, 0.75);
+            color: $bg;
+            font-size: 14px;
+            font-family: Manrope-Medium;
+            line-height: 1;
+            cursor: pointer;
+            transition: background-color 0.25s ease-in-out;
             &:hover:enabled {
-              background-color: $red;
+              background-color: $green;
             }
-          }
-          &.neutral {
-            background-color: rgba($lead, 0.75);
-            color: $fg;
-            &:hover:enabled {
-              background-color: $lead;
+            &:disabled {
+              opacity: 0.5;
+              cursor: default;
+            }
+            &.danger {
+              background-color: rgba($red, 0.75);
+              &:hover:enabled {
+                background-color: $red;
+              }
+            }
+            &.neutral {
+              background-color: rgba($lead, 0.75);
+              color: $fg;
+              &:hover:enabled {
+                background-color: $lead;
+              }
             }
           }
         }

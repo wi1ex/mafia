@@ -738,14 +738,15 @@ const staffActionItems = computed<StaffActionItem[]>(() => {
   }
 
   if (isModerViewer.value) {
-    const moderationLocked = !staffModerationTargetAllowed.value
+    if (!staffModerationTargetAllowed.value) return []
+
     return [
       {
         key: 'avatar',
         label: 'Удалить аватар',
         icon: iconClose,
         buttonClass: avatarName.value ? 'danger' : 'dark',
-        disabled: moderationLocked || avatarDisabled,
+        disabled: avatarDisabled,
         ariaLabel: `Удалить аватар ${displayName.value}`,
       },
       {
@@ -753,7 +754,7 @@ const staffActionItems = computed<StaffActionItem[]>(() => {
         label: 'Сбросить никнейм',
         icon: iconClose,
         buttonClass: targetNicknameDefault.value ? 'dark' : 'danger',
-        disabled: moderationLocked || nicknameDisabled,
+        disabled: nicknameDisabled,
         ariaLabel: `Сбросить никнейм ${displayName.value}`,
       },
       {
@@ -761,7 +762,7 @@ const staffActionItems = computed<StaffActionItem[]>(() => {
         label: 'Отстранить от игр',
         icon: targetSuspendActive.value ? iconClose : iconJudge,
         buttonClass: targetSuspendActive.value ? 'dark' : 'danger',
-        disabled: moderationLocked || suspendDisabled,
+        disabled: suspendDisabled,
         ariaLabel: targetSuspendActive.value ? `Снять отстранение ${displayName.value}` : `Выдать отстранение ${displayName.value}`,
       },
       {
@@ -769,7 +770,7 @@ const staffActionItems = computed<StaffActionItem[]>(() => {
         label: 'Выдать таймаут',
         icon: targetTimeoutActive.value ? iconClose : iconJudge,
         buttonClass: targetTimeoutActive.value ? 'dark' : 'danger',
-        disabled: moderationLocked || timeoutDisabled,
+        disabled: timeoutDisabled,
         ariaLabel: targetTimeoutActive.value ? `Снять таймаут ${displayName.value}` : `Выдать таймаут ${displayName.value}`,
       },
     ]
