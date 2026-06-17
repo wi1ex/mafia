@@ -249,7 +249,7 @@ onBeforeUnmount(() => {
   flex-direction: column;
   left: 40px;
   bottom: 40px;
-  gap: 40px;
+  gap: 10px;
   z-index: 2000;
   pointer-events: none;
   .toast {

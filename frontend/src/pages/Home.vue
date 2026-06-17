@@ -178,7 +178,7 @@
         <img class="background-image-6" :src="imageSlide6" alt="" aria-hidden="true" />
         <div class="right-extra-content">
           <div class="right-extra-copy-support">
-            <span>Поддержи проект и получи</span>
+            <span>Оформи подписку и получи</span>
             <span class="right-extra-copy-accent">бонусы!</span>
           </div>
           <button type="button" class="right-extra-btn" @click="openSupportModal">
@@ -191,7 +191,7 @@
         <img class="background-image-7" :src="imageSlide7" alt="" aria-hidden="true" />
         <div class="right-extra-content">
           <div class="right-extra-copy-connect">
-            <span>Связаться с администрацией</span>
+            <span>Связаться с администрацией платформы</span>
           </div>
           <button type="button" class="right-extra-btn" @click="openContactModal">
             <UiIcon class="btn-icon" :icon="iconArrowNext" />
@@ -1528,7 +1528,7 @@ onBeforeUnmount(() => {
         max-width: calc(100% - 48px);
         z-index: 1;
         .right-extra-copy-support {
-          width: 216px;
+          width: 220px;
           color: $neutral-white;
           font-family: Involve-Medium;
           font-size: 24px;

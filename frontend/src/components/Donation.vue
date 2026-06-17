@@ -5,8 +5,8 @@
         <div class="support-site-modal" role="dialog" aria-modal="true">
           <header>
             <div class="header-div">
-              <span class="header-title">{{ lavaFormOpen ? 'Оплата Lava' : 'Выбери удобный способ поддержки' }}</span>
-              <span class="header-text">{{ lavaFormOpen ? 'Настрой параметры платежа перед переходом на страницу оплаты.' : 'Помоги развитию проекта и получи дополнительные возможности внутри платформы.' }}</span>
+              <span class="header-title">{{ lavaFormOpen ? 'Оплатить подписку' : 'Выбери свой план подписки или просто поддержи проект' }}</span>
+              <span class="header-text" v-if="lavaFormOpen">Настрой параметры платежа перед переходом на страницу оплаты</span>
             </div>
             <button type="button" aria-label="Закрыть" @click="requestClose">
               <UiIcon class="close-icon" :icon="iconClose" />
@@ -16,27 +16,15 @@
           <div class="support-site-content">
             <Transition name="support-content-switch" mode="out-in">
               <div v-if="!lavaFormOpen" key="site-list" class="site-list">
-                <button class="site-option lava-option" :class="{ active: lavaFormOpen }" type="button" :disabled="lavaBusy" @click="openLavaForm">
-                  <div class="site-title">
-                    <img :src="iconLavaTop" alt="lava.top" class="site-logo" />
-                    <UiIcon class="arrow-icon" :icon="iconArrowNext" />
-                  </div>
-                  <div class="site-copy">
-                    <span class="site-name">Lava.top</span>
-                    <span class="site-note">Оплатить подписку</span>
-                  </div>
-                </button>
-
-                <a class="site-option tribute-option" :href="tributeSite.url" target="_blank" rel="noopener noreferrer" @click="onTributeSelect">
-                  <div class="site-title">
-                    <img :src="iconTribute" alt="tribute" class="site-logo" />
-                    <UiIcon class="arrow-icon" :icon="iconArrowNext" />
-                  </div>
-                  <div class="site-copy">
-                    <span class="site-name">Tribute</span>
-                    <span class="site-note">Отправить донат</span>
-                  </div>
+                <a class="site-option" :href="tributeSite.url" target="_blank" rel="noopener noreferrer" @click="onTributeSelect">
+                  <img :src="iconTribute" alt="tribute" class="site-logo" />
+                  <span class="site-note">Поддержать проект</span>
                 </a>
+
+                <button class="site-option btn-option" type="button" :disabled="lavaBusy" @click="openLavaForm">
+                  <img :src="iconLavaTop" alt="lava.top" class="site-logo" />
+                  <span class="site-note">Оформить подписку</span>
+                </button>
               </div>
 
               <form v-else key="lava-form" class="lava-form" @submit.prevent="onLavaPay">
@@ -450,59 +438,24 @@ onBeforeUnmount(() => {
           outline: none;
           cursor: pointer;
           transition: border-color 0.25s ease-in-out;
-          &.lava-option {
+          &.btn-option {
             width: 274px;
             height: 154px;
-          }
-          &.active {
-            border-color: $green-600;
-            .site-title {
-              .arrow-icon {
-                --ui-icon-color: #{$green-600};
-              }
-            }
           }
           &:not(:disabled):hover,
           &:not(:disabled):focus-visible,
           &:not(:disabled):active {
             border-color: $green-600;
-            .site-title {
-              .arrow-icon {
-                --ui-icon-color: #{$green-600};
-              }
-            }
           }
-          .site-title {
-            display: flex;
-            align-items: flex-start;
-            justify-content: space-between;
-            .site-logo {
-              height: 40px;
-            }
-            .arrow-icon {
-              --ui-icon-width: 20px;
-              --ui-icon-height: 20px;
-              --ui-icon-color: #{$neutral-white};
-            }
+          .site-logo {
+            height: 40px;
           }
-          .site-copy {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            .site-name {
-              color: $neutral-black;
-              font-family: Hauora-Bold;
-              font-size: 16px;
-              line-height: 18px;
-              letter-spacing: -0.32px;
-            }
-            .site-note {
-              color: $neutral-500;
-              font-family: Hauora-Regular;
-              font-size: 16px;
-              line-height: 16px;
-              letter-spacing: -0.32px;
-            }
+          .site-note {
+            color: $neutral-500;
+            font-family: Hauora-Regular;
+            font-size: 16px;
+            line-height: 16px;
+            letter-spacing: -0.32px;
           }
         }
       }
