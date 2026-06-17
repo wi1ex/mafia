@@ -689,8 +689,7 @@ function openAuth(mode: 'login' | 'register') {
     .profile-theme-icons {
       display: inline-flex;
       align-items: center;
-      gap: 8px;
-      flex: 0 0 auto;
+      margin-left: -8px;
       .profile-theme-icon {
         width: 24px;
         height: 24px;

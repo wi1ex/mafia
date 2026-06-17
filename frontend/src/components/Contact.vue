@@ -96,7 +96,6 @@ import UiDropdown from '@/components/UiDropdown.vue'
 import UiInput from '@/components/UiInput.vue'
 
 import iconClose from '@/assets/svg/iconClose.svg'
-import iconTelegram from '@/assets/svg/iconTelegram.svg'
 import iconMail from '@/assets/svg/iconMail.svg'
 import iconCopy from '@/assets/svg/iconCopy.svg'
 import iconCheckMark from '@/assets/svg/iconCheckMark.svg'
