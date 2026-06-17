@@ -6,7 +6,7 @@
         <header>
           <span>{{ t.title }}</span>
           <button @click="closeManual(t)">
-            <img :src="iconClose" alt="close" />
+            <UiIcon class="btn-icon" :icon="iconClose" />
           </button>
         </header>
 
@@ -221,7 +221,7 @@ onBeforeUnmount(() => {
   display: flex;
   position: fixed;
   flex-direction: column;
-  left: 10px;
+  left: 40px;
   bottom: 40px;
   gap: 40px;
   z-index: 2000;
@@ -229,7 +229,6 @@ onBeforeUnmount(() => {
   .toast {
     --toast-border-color: #{$blue-500};
     display: flex;
-    flex-direction: column;
     box-sizing: border-box;
     padding: 16px;
     gap: 8px;
@@ -277,25 +276,35 @@ onBeforeUnmount(() => {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 5px 10px;
+        gap: 16px;
         span {
-          font-size: 18px;
-          font-weight: bold;
-          color: black;
+          color: $neutral-black;
+          font-family: Involve-Medium;
+          font-size: 24px;
+          line-height: 26px;
+          letter-spacing: -0.48px;
         }
         button {
           display: flex;
           align-items: center;
           justify-content: center;
           padding: 0;
-          width: 25px;
-          height: 30px;
+          width: 24px;
+          height: 24px;
           border: none;
           background: none;
           cursor: pointer;
-          img {
-            width: 25px;
-            height: 25px;
+          .btn-icon {
+            --ui-icon-width: 24px;
+            --ui-icon-height: 24px;
+            --ui-icon-color: #{$neutral-black};
+          }
+          &:not(:disabled):hover,
+          &:not(:disabled):focus-visible,
+          &:not(:disabled):active {
+            .btn-icon {
+              --ui-icon-color: #{$green-600};
+            }
           }
         }
       }
@@ -303,30 +312,36 @@ onBeforeUnmount(() => {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 15px 10px;
-        gap: 5px;
-        border-radius: 5px;
+        gap: 16px;
         .meta {
           display: flex;
           flex-direction: column;
-          gap: 5px;
+          gap: 8px;
           flex: 1;
           min-width: 0;
         }
         img {
-          width: 30px;
-          height: 30px;
+          width: 24px;
+          height: 24px;
           border-radius: 50%;
         }
         span {
-          height: 18px;
-          color: black;
+          color: $neutral-900;
+          font-family: Hauora-Regular;
+          font-size: 16px;
+          line-height: 16px;
+          letter-spacing: -0.32px;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
         }
         p {
           margin: 0;
+          color: $neutral-500;
+          font-family: Hauora-Regular;
+          font-size: 16px;
+          line-height: 22px;
+          letter-spacing: -0.32px;
         }
         .actions {
           display: flex;
