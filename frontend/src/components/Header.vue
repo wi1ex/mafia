@@ -635,7 +635,6 @@ function openAuth(mode: 'login' | 'register') {
     align-items: center;
     justify-content: center;
     padding: 20px 16px;
-    gap: 8px;
     border: none;
     border-radius: 16px;
     background: var(--user-theme-bg, linear-gradient(261deg, $soft-purple-900 0%, $soft-purple-700 100%));
@@ -668,6 +667,7 @@ function openAuth(mode: 'login' | 'register') {
       z-index: 2;
     }
     .nickname {
+      margin-left: 8px;
       max-width: 250px;
       color: $neutral-white;
       font-family: Hauora-Regular;
@@ -689,7 +689,6 @@ function openAuth(mode: 'login' | 'register') {
     .profile-theme-icons {
       display: inline-flex;
       align-items: center;
-      margin-left: -8px;
       .profile-theme-icon {
         width: 24px;
         height: 24px;
@@ -698,7 +697,6 @@ function openAuth(mode: 'login' | 'register') {
       }
     }
     .arrow {
-      margin-left: -8px;
       width: 20px;
       height: 20px;
       border-radius: 0;

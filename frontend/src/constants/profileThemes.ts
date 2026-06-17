@@ -1,38 +1,32 @@
 export const PROFILE_THEME_DEFAULT = 'terracotta' as const
 
 const PROFILE_THEME_GRADIENT = {
-  topGlowAlpha: '50',
-  topGlowFade: '200%',
-  cornerGlowAlpha: '1a',
-  cornerGlowFade: '200%',
-  angle: '170deg',
-  surfaceColor: '#0f0f0f',
-  hoverSurfaceColor: '#151515',
-  hoverTopGlowAlpha: '50',
+  angle: '180deg',
+  hoverOverlay: 'linear-gradient(180deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.10) 100%)',
 } as const
 
 const PROFILE_THEME_PRESETS = [
-  { key: 'mulberry', title: 'Тутовый', accent: '#c82888' },
-  { key: 'rose', title: 'Розовый', accent: '#be2b4d' },
-  { key: 'garnet', title: 'Гранатовый', accent: '#bb1717' },
-  { key: 'ruby', title: 'Рубиновый', accent: '#c9472a' },
-  { key: 'terracotta', title: 'Терракотовый', accent: '#dc6728' },
-  { key: 'copper', title: 'Медный', accent: '#d68a27' },
-  { key: 'gold', title: 'Золотой', accent: '#ceaa25' },
-  { key: 'amber', title: 'Янтарный', accent: '#b4c422' },
-  { key: 'moss', title: 'Моховой', accent: '#71af26' },
-  { key: 'olive', title: 'Оливковый', accent: '#38a028' },
-  { key: 'mint', title: 'Мятный', accent: '#2fa169' },
-  { key: 'emerald', title: 'Изумрудный', accent: '#28a08e' },
-  { key: 'teal', title: 'Бирюзовый', accent: '#2b8184' },
-  { key: 'lagoon', title: 'Лагунный', accent: '#289ab4' },
-  { key: 'sky', title: 'Небесный', accent: '#2669b5' },
-  { key: 'cobalt', title: 'Кобальтовый', accent: '#2647b5' },
-  { key: 'azure', title: 'Лазурный', accent: '#223193' },
-  { key: 'midnight', title: 'Полуночный', accent: '#4521a1' },
-  { key: 'violet', title: 'Фиолетовый', accent: '#8828c8' },
-  { key: 'plum', title: 'Сливовый', accent: '#741e88' },
-  { key: 'onyx', title: 'Ониксовый', accent: '#787878', adminOnly: true },
+  { key: 'mulberry', title: 'Тутовый', color1: '#C72787', color2: '#51133B' },
+  { key: 'rose', title: 'Розовый', color1: '#BD2B4D', color2: '#4C1424' },
+  { key: 'garnet', title: 'Гранатовый', color1: '#BB1717', color2: '#4B0C0F' },
+  { key: 'ruby', title: 'Рубиновый', color1: '#C8472A', color2: '#511F17' },
+  { key: 'terracotta', title: 'Терракотовый', color1: '#DC6728', color2: '#653118' },
+  { key: 'copper', title: 'Медный', color1: '#D58926', color2: '#624017' },
+  { key: 'gold', title: 'Золотой', color1: '#CDAA25', color2: '#5F4E16' },
+  { key: 'amber', title: 'Янтарный', color1: '#B4C422', color2: '#4A4F14' },
+  { key: 'moss', title: 'Моховой', color1: '#71A82E', color2: '#334A19' },
+  { key: 'olive', title: 'Оливковый', color1: '#38A028', color2: '#1A4116' },
+  { key: 'mint', title: 'Мятный', color1: '#2FA169', color2: '#153B2C' },
+  { key: 'emerald', title: 'Изумрудный', color1: '#2B8083', color2: '#153539' },
+  { key: 'teal', title: 'Бирюзовый', color1: '#2F9C8C', color2: '#194844' },
+  { key: 'lagoon', title: 'Лагунный', color1: '#289AB3', color2: '#143F4C' },
+  { key: 'sky', title: 'Небесный', color1: '#2669B5', color2: '#132C4C' },
+  { key: 'cobalt', title: 'Кобальтовый', color1: '#2647B4', color2: '#121E4B' },
+  { key: 'azure', title: 'Лазурный', color1: '#223192', color2: '#141B4C' },
+  { key: 'midnight', title: 'Полуночный', color1: '#4420A0', color2: '#1F1044' },
+  { key: 'violet', title: 'Фиолетовый', color1: '#8828C8', color2: '#381353' },
+  { key: 'plum', title: 'Сливовый', color1: '#702782', color2: '#34143E' },
+  { key: 'onyx', title: 'Ониксовый', color1: '#707173', color2: '#2F2F32', adminOnly: true },
 ] as const
 
 type ProfileThemePreset = typeof PROFILE_THEME_PRESETS[number]
@@ -40,7 +34,8 @@ export type ProfileThemeColor = ProfileThemePreset['key']
 type ProfileThemePresetBase = {
   key: ProfileThemeColor
   title: string
-  accent: string
+  color1: string
+  color2: string
   adminOnly?: boolean
 }
 export type ProfileThemeOption = ProfileThemePresetBase & { bg: string; hover: string }
@@ -54,24 +49,18 @@ function normalizeHexColor(value: string): string {
   return `#${r}${r}${g}${g}${b}${b}`.toLowerCase()
 }
 
-function withAlpha(color: string, alphaHex: string): string {
-  const normalized = normalizeHexColor(color)
-  return /^#[0-9a-f]{6}$/i.test(normalized) ? `${normalized}${alphaHex}` : normalized
+function buildProfileThemeGradient(color1: string, color2: string): string {
+  return `linear-gradient(${PROFILE_THEME_GRADIENT.angle}, ${normalizeHexColor(color1)} 0%, ${normalizeHexColor(color2)} 100%)`
 }
 
-function buildProfileThemeGradient(accent: string, glowAlpha: string, surfaceColor: string): string {
-  const normalizedAccent = normalizeHexColor(accent)
-  return [
-    `radial-gradient(circle at top, ${withAlpha(normalizedAccent, glowAlpha)}, #0000 ${PROFILE_THEME_GRADIENT.topGlowFade})`,
-    `radial-gradient(circle at 100% 100%, ${withAlpha('#ffffff', PROFILE_THEME_GRADIENT.cornerGlowAlpha)}, #0000 ${PROFILE_THEME_GRADIENT.cornerGlowFade})`,
-    `linear-gradient(${PROFILE_THEME_GRADIENT.angle}, ${normalizedAccent}, ${surfaceColor})`,
-  ].join(', ')
+function buildProfileThemeHoverGradient(color1: string, color2: string): string {
+  return `${PROFILE_THEME_GRADIENT.hoverOverlay}, ${buildProfileThemeGradient(color1, color2)}`
 }
 
 export const PROFILE_THEME_OPTIONS: readonly ProfileThemeOption[] = PROFILE_THEME_PRESETS.map((item) => ({
   ...item,
-  bg: buildProfileThemeGradient(item.accent, PROFILE_THEME_GRADIENT.topGlowAlpha, PROFILE_THEME_GRADIENT.surfaceColor),
-  hover: buildProfileThemeGradient(item.accent, PROFILE_THEME_GRADIENT.hoverTopGlowAlpha, PROFILE_THEME_GRADIENT.hoverSurfaceColor),
+  bg: buildProfileThemeGradient(item.color1, item.color2),
+  hover: buildProfileThemeHoverGradient(item.color1, item.color2),
 }))
 
 const PROFILE_THEME_MAP = PROFILE_THEME_OPTIONS.reduce<Record<ProfileThemeColor, ProfileThemeOption>>((acc, item) => {
