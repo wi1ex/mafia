@@ -64,7 +64,7 @@
                     class="lava-input"
                     type="email"
                     autocomplete="email"
-                    label="Email"
+                    label="Введите email"
                     placeholder="mail@example.com"
                     mode="light"
                   />
@@ -105,7 +105,7 @@
                     type="text"
                     inputmode="text"
                     autocomplete="off"
-                    label="Промокод"
+                    label="Введите промокод"
                     placeholder="PROMOCODE"
                     mode="light"
                   />
@@ -641,10 +641,8 @@ onBeforeUnmount(() => {
           .lava-form {
             display: flex;
             flex-direction: column;
-            width: 100%;
-            > * + * {
-              margin-top: 16px;
-            }
+            margin-top: 62px;
+            gap: 24px;
             .lava-input {
               --ui-input-label-bg: #{$neutral-100};
             }
@@ -776,7 +774,7 @@ onBeforeUnmount(() => {
 .lava-payment-expand-enter-active,
 .lava-payment-expand-leave-active {
   overflow: hidden;
-  transition: max-height 0.25s ease-in-out, margin-top 0.25s ease-in-out, opacity 0.2s ease-in-out, transform 0.25s ease-in-out;
+  transition: max-height 0.25s ease-in-out, opacity 0.2s ease-in-out, transform 0.25s ease-in-out;
 }
 .lava-payment-expand-enter-from,
 .lava-payment-expand-leave-to {
@@ -784,19 +782,11 @@ onBeforeUnmount(() => {
   opacity: 0;
   transform: translateY(-10px);
 }
-.lava-form > .lava-payment-field.lava-payment-expand-enter-from,
-.lava-form > .lava-payment-field.lava-payment-expand-leave-to {
-  margin-top: 0;
-}
 .lava-payment-expand-enter-to,
 .lava-payment-expand-leave-from {
   max-height: 120px;
   opacity: 1;
   transform: translateY(0);
-}
-.lava-form > .lava-payment-field.lava-payment-expand-enter-to,
-.lava-form > .lava-payment-field.lava-payment-expand-leave-from {
-  margin-top: 16px;
 }
 
 </style>

@@ -72,7 +72,7 @@ function onInput(e: Event) {
 .ui-input {
   display: block;
   position: relative;
-  width: 100%;
+  width: calc(100% - 2px);
   --ui-input-border: #{$green-200};
   --ui-input-text: #{$neutral-300};
   --ui-input-hover-border: #{$green-500};
