@@ -19,6 +19,7 @@
         </span>
         <span class="slider-option" :class="{ 'slider-option--with-tooltip': showTooltipFor('on') }">
           <span>{{ onLabel }}</span>
+          <span v-if="onBadge" class="slider-option-badge">{{ onBadge }}</span>
           <UiTooltip
             v-if="showTooltipFor('on')"
             :text="props.tooltip"
@@ -59,6 +60,7 @@ const props = defineProps<{
   tooltipBubbleWidth?: number | string
   theme?: SwitchTheme
   withoutText?: boolean
+  onBadge?: string
 }>()
 
 const emit = defineEmits<{
@@ -78,6 +80,7 @@ const widthPx = computed(() => `${Number.isFinite(props.width) && props.width ? 
 const switchTheme = computed<SwitchTheme>(() => props.theme === 'light' ? 'light' : 'dark')
 const switchStyle = computed<Record<string, string>>(() => ({ '--switch-width': widthPx.value }))
 const withoutText = computed(() => Boolean(props.withoutText))
+const onBadge = computed(() => props.onBadge?.trim() || '')
 
 const switchLocked = ref(false)
 const isDisabled = computed(() => Boolean(props.disabled) || switchLocked.value)
@@ -176,6 +179,22 @@ onBeforeUnmount(() => {
         letter-spacing: -0.36px;
         transition: color 0.25s ease-in-out;
         z-index: 1;
+        .slider-option-badge {
+          position: absolute;
+          top: -12px;
+          left: 50%;
+          transform: translateX(16px);
+          padding: 2px 6px;
+          border-radius: 999px;
+          background-color: $red-500;
+          color: $neutral-white;
+          font-family: Hauora-Bold;
+          font-size: 12px;
+          line-height: 14px;
+          letter-spacing: 0;
+          white-space: nowrap;
+          pointer-events: none;
+        }
       }
       .slider-option--with-tooltip {
         z-index: 2;

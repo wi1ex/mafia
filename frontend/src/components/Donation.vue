@@ -27,6 +27,7 @@
                   label="Подписка"
                   off-label="Месяц"
                   on-label="Год"
+                  on-badge="-15%"
                   :width="472"
                   theme="light"
                   without-text
