@@ -45,12 +45,12 @@
                 </div>
                 <div class="site-list">
                   <a class="site-option" :href="tributeSite.url" target="_blank" rel="noopener noreferrer" @click="onTributeSelect">
-                    <img :src="iconTribute" alt="tribute" class="site-logo" />
+                    <UiIcon class="site-logo" :icon="iconTribute" />
                     <span class="site-note">Поддержать проект</span>
                   </a>
 
                   <button class="site-option btn-option" type="button" :disabled="lavaBusy" @click="openLavaForm">
-                    <img :src="iconLavaTop" alt="lava.top" class="site-logo" />
+                    <UiIcon class="site-logo" :icon="iconLavaTop" />
                     <span class="site-note">Оформить подписку</span>
                   </button>
                 </div>
@@ -572,42 +572,46 @@ onBeforeUnmount(() => {
           }
           .site-list {
             display: flex;
+            justify-self: center;
             gap: 10px;
-            width: 100%;
             .site-option {
               display: flex;
-              flex-direction: column;
-              padding: 16px;
-              gap: 40px;
-              width: 242px;
-              height: 122px;
-              border-radius: 20px;
-              border: 1px solid $neutral-white;
+              padding: 0 16px;
+              gap: 8px;
+              width: 197px;
+              height: 64px;
+              border-radius: 999px;
+              border: none;
               background-color: $neutral-white;
-              color: $fg;
-              text-align: left;
               text-decoration: none;
               outline: none;
               cursor: pointer;
-              transition: border-color 0.25s ease-in-out;
+              transition: background-color 0.25s ease-in-out, color 0.25s ease-in-out;
+              .site-logo {
+                --ui-icon-width: 24px;
+                --ui-icon-height: 24px;
+                --ui-icon-color: #{$neutral-black};
+              }
+              .site-note {
+                color: $neutral-black;
+                font-family: Hauora-Regular;
+                font-size: 18px;
+                line-height: 20px;
+                letter-spacing: -0.36px;
+              }
               &.btn-option {
-                width: 274px;
-                height: 154px;
+                width: 229px;
+                background-color: $green-500;
               }
               &:not(:disabled):hover,
               &:not(:disabled):focus-visible,
               &:not(:disabled):active {
-                border-color: $green-600;
-              }
-              .site-logo {
-                height: 40px;
-              }
-              .site-note {
-                color: $neutral-500;
-                font-family: Hauora-Regular;
-                font-size: 16px;
-                line-height: 16px;
-                letter-spacing: -0.32px;
+                .site-note {
+                  color: $green-600;
+                }
+                &.btn-option {
+                  background-color: $green-300;
+                }
               }
             }
           }

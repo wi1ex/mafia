@@ -181,18 +181,17 @@ onBeforeUnmount(() => {
         z-index: 1;
         .slider-option-badge {
           position: absolute;
-          top: -12px;
+          top: -2px;
           left: 50%;
-          transform: translateX(16px);
-          padding: 2px 6px;
+          transform: translateX(18px);
+          padding: 2px 5px;
           border-radius: 999px;
           background-color: $red-500;
           color: $neutral-white;
-          font-family: Hauora-Bold;
+          font-family: Hauora-Regular;
           font-size: 12px;
           line-height: 14px;
-          letter-spacing: 0;
-          white-space: nowrap;
+          letter-spacing: -0.36px;
           pointer-events: none;
         }
       }
