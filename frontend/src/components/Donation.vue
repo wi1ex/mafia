@@ -12,7 +12,7 @@
                 <span class="header-title">Выбери свой план подписки или просто поддержи проект</span>
               </div>
               <div class="header-div" :aria-hidden="lavaFormOpen ? 'false' : 'true'">
-                <span class="header-title">Оплатить подписку</span>
+                <span class="header-title">Оформление подписки</span>
                 <span class="header-text">Настрой параметры платежа перед переходом на страницу оплаты</span>
               </div>
             </div>
@@ -58,10 +58,16 @@
 
               <div class="support-site-slide" :inert="lavaFormOpen ? undefined : true" :aria-hidden="lavaFormOpen ? 'false' : 'true'">
                 <form class="lava-form" @submit.prevent="onLavaPay">
-                  <label class="lava-field">
-                    <span>Email</span>
-                    <input v-model.trim="lavaForm.email" type="email" autocomplete="email" placeholder="mail@example.com" />
-                  </label>
+                  <UiInput
+                    id="lava-email"
+                    v-model.trim="lavaForm.email"
+                    class="lava-input"
+                    type="email"
+                    autocomplete="email"
+                    label="Email"
+                    placeholder="mail@example.com"
+                    mode="light"
+                  />
 
                   <div class="lava-field">
                     <span>Срок подписки</span>
@@ -92,16 +98,21 @@
                     </div>
                   </Transition>
 
-                  <label class="lava-field">
-                    <span>Промокод</span>
-                    <input v-model.trim="lavaForm.promo_code" type="text" inputmode="text" autocomplete="off" placeholder="PROMOCODE" />
-                  </label>
+                  <UiInput
+                    id="lava-promo-code"
+                    v-model.trim="lavaForm.promo_code"
+                    class="lava-input"
+                    type="text"
+                    inputmode="text"
+                    autocomplete="off"
+                    label="Промокод"
+                    placeholder="PROMOCODE"
+                    mode="light"
+                  />
 
                   <div class="lava-actions">
                     <button class="lava-back" type="button" :disabled="lavaBusy" @click="closeLavaForm">Назад</button>
-                    <button class="lava-submit" type="submit" :disabled="lavaBusy">
-                      {{ lavaBusy ? 'Открываем оплату' : 'Перейти к оплате' }}
-                    </button>
+                    <button class="lava-submit" type="submit" :disabled="lavaBusy">К оплате</button>
                   </div>
                 </form>
               </div>
@@ -117,6 +128,7 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
 import UiIcon from '@/components/UiIcon.vue'
+import UiInput from '@/components/UiInput.vue'
 import UiSwitch from '@/components/UiSwitch.vue'
 import { api } from '@/services/axios'
 import { alertDialog } from '@/services/confirm'
@@ -630,9 +642,11 @@ onBeforeUnmount(() => {
             display: flex;
             flex-direction: column;
             width: 100%;
-            > .lava-field + .lava-field,
-            > .lava-actions {
+            > * + * {
               margin-top: 16px;
+            }
+            .lava-input {
+              --ui-input-label-bg: #{$neutral-100};
             }
             .lava-field {
               display: flex;
@@ -643,24 +657,6 @@ onBeforeUnmount(() => {
               font-size: 14px;
               line-height: 18px;
               letter-spacing: 0;
-              input {
-                width: 100%;
-                height: 42px;
-                padding: 0 12px;
-                border: 1px solid $neutral-white;
-                border-radius: 10px;
-                background-color: $neutral-white;
-                color: $neutral-black;
-                font-family: Hauora-Regular;
-                font-size: 16px;
-                line-height: 20px;
-                letter-spacing: 0;
-                outline: none;
-                transition: border-color 0.25s ease-in-out;
-                &:focus {
-                  border-color: $green-600;
-                }
-              }
             }
             .lava-segmented {
               display: grid;
