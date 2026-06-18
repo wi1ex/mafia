@@ -160,6 +160,11 @@ import iconCheckCircle from '@/assets/svg/iconCheckCircle.svg'
 import iconTribute from '@/assets/svg/donateTribute.svg'
 import iconLavaTop from '@/assets/svg/donateLavaTop.svg'
 import iconArrowDown from '@/assets/svg/iconArrowDown.svg'
+import iconRouble from '@/assets/svg/iconRouble.svg'
+import iconDollar from '@/assets/svg/iconDollar.svg'
+import iconEuro from '@/assets/svg/iconEuro.svg'
+import iconCard from '@/assets/svg/iconCard.svg'
+import iconSBP from '@/assets/svg/iconSBP.svg'
 
 const props = defineProps<{
   open: boolean
@@ -196,8 +201,8 @@ type LavaPaymentOption = {
 }
 
 const lavaPlans: readonly { id: LavaPlan; label: string }[] = [
-  { id: 'month', label: '1 месяц' },
-  { id: 'year', label: '12 месяцев' },
+  { id: 'month', label: 'Месяц' },
+  { id: 'year', label: 'Год' },
 ]
 
 const lavaPlanPrices: Record<LavaPlan, { amount: string; period: string }> = {
@@ -548,7 +553,7 @@ onBeforeUnmount(() => {
             display: flex;
             position: relative;
             flex-direction: column;
-            margin-bottom: 40px;
+            margin-bottom: 36px;
             padding: 24px;
             gap: 40px;
             border-radius: 24px;
