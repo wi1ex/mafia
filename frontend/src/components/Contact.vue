@@ -74,10 +74,8 @@
             </div>
 
             <div class="contact-actions">
-              <button type="button" class="cancel" :disabled="busy" @click="requestClose">Отмена</button>
-              <button type="submit" class="submit" :disabled="busy || !canSubmit">
-                {{ busy ? 'Отправка...' : 'Отправить' }}
-              </button>
+              <UiButton class="cancel" variant="white" text="Отмена" :disabled="busy" @click="requestClose" />
+              <UiButton class="submit" type="submit" :text="busy ? 'Отправка...' : 'Отправить'" :disabled="busy || !canSubmit" />
             </div>
           </div>
         </form>
@@ -94,6 +92,7 @@ import { alertDialog } from '@/services/confirm'
 import UiIcon from '@/components/UiIcon.vue'
 import UiDropdown from '@/components/UiDropdown.vue'
 import UiInput from '@/components/UiInput.vue'
+import UiButton from '@/components/UiButton.vue'
 
 import iconClose from '@/assets/svg/iconClose.svg'
 import iconMail from '@/assets/svg/iconMail.svg'
@@ -388,46 +387,11 @@ onBeforeUnmount(() => {
       display: flex;
       flex: 0 0 auto;
       gap: 10px;
-      button {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 0 16px;
-        height: 64px;
-        border-radius: 999px;
-        border: none;
-        font-family: Hauora-Regular;
-        font-size: 18px;
-        line-height: 20px;
-        letter-spacing: -0.36px;
-        cursor: pointer;
-        transition: background-color 0.25s ease-in-out, color 0.25s ease-in-out;
-        &:disabled {
-          cursor: not-allowed;
-        }
-      }
       .cancel {
         flex: 1 1 0;
-        background-color: $neutral-white;
-        color: $neutral-black;
-        &:not(:disabled):hover,
-        &:not(:disabled):focus-visible {
-          color: $green-600;
-        }
       }
       .submit {
         flex: 1 1 0;
-        background-color: $green-500;
-        color: $neutral-900;
-        &:not(:disabled):hover,
-        &:not(:disabled):focus-visible {
-          background-color: $green-300;
-          color: $neutral-black;
-        }
-        &:disabled {
-          background-color: $neutral-200;
-          color: $neutral-400;
-        }
       }
     }
   }

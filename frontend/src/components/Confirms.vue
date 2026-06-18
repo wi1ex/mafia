@@ -41,8 +41,8 @@
           </div>
         </div>
         <div class="actions">
-          <button v-if="isConfirm" @click.stop="onClose">{{ state.cancelText }}</button>
-          <button class="confirm" :disabled="confirmDisabled" @click.stop="onConfirm">{{ state.confirmText }}</button>
+          <UiButton v-if="isConfirm" variant="white" size="middle" :text="state.cancelText" @click.stop="onClose" />
+          <UiButton class="confirm" size="middle" :text="state.confirmText" :disabled="confirmDisabled" @click.stop="onConfirm" />
         </div>
       </div>
     </div>
@@ -56,6 +56,7 @@ import iconClose from '@/assets/svg/iconClose.svg'
 import UiIcon from '@/components/UiIcon.vue'
 import UiCheckbox from '@/components/UiCheckbox.vue'
 import UiTooltip from '@/components/UiTooltip.vue'
+import UiButton from '@/components/UiButton.vue'
 
 const state = useConfirmState()
 const isConfirm = computed(() => state.mode === 'confirm')
@@ -174,41 +175,6 @@ onBeforeUnmount(() => {
     .actions {
       display: flex;
       gap: 10px;
-      button {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 0 16px;
-        height: 40px;
-        border-radius: 12px;
-        border: none;
-        background-color: $neutral-white;
-        color: $neutral-black;
-        font-family: Hauora-Regular;
-        font-size: 16px;
-        line-height: 16px;
-        letter-spacing: -0.32px;
-        cursor: pointer;
-        transition: opacity 0.25s ease-in-out, background-color 0.25s ease-in-out, color 0.25s ease-in-out;
-        &:not(:disabled):hover,
-        &:not(:disabled):focus-visible {
-          color: $green-600;
-        }
-        &.confirm {
-          background-color: $green-500;
-          color: $neutral-900;
-          &:not(:disabled):hover,
-          &:not(:disabled):focus-visible {
-            background-color: $green-300;
-            color: $neutral-black;
-          }
-          &:disabled {
-            background-color: $neutral-200;
-            color: $neutral-400;
-            cursor: not-allowed;
-          }
-        }
-      }
     }
   }
 }

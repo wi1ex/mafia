@@ -44,15 +44,24 @@
                   </ul>
                 </div>
                 <div class="site-list">
-                  <a class="site-option" :href="tributeSite.url" target="_blank" rel="noopener noreferrer" @click="onTributeSelect">
-                    <UiIcon class="site-logo" :icon="iconTribute" />
-                    <span class="site-note">Поддержать проект</span>
-                  </a>
+                  <UiButton
+                    class="site-option"
+                    variant="white"
+                    text="Поддержать проект"
+                    :icon="iconTribute"
+                    :href="tributeSite.url"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    @click="onTributeSelect"
+                  />
 
-                  <button class="site-option btn-option" type="button" :disabled="lavaBusy" @click="openLavaForm">
-                    <UiIcon class="site-logo" :icon="iconLavaTop" />
-                    <span class="site-note">Оформить подписку</span>
-                  </button>
+                  <UiButton
+                    class="site-option btn-option"
+                    text="Оформить подписку"
+                    :icon="iconLavaTop"
+                    :disabled="lavaBusy"
+                    @click="openLavaForm"
+                  />
                 </div>
               </div>
 
@@ -130,6 +139,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import UiIcon from '@/components/UiIcon.vue'
 import UiInput from '@/components/UiInput.vue'
 import UiSwitch from '@/components/UiSwitch.vue'
+import UiButton from '@/components/UiButton.vue'
 import { api } from '@/services/axios'
 import { alertDialog } from '@/services/confirm'
 import { useAuthStore } from '@/store'
@@ -586,55 +596,9 @@ onBeforeUnmount(() => {
             justify-self: center;
             gap: 10px;
             .site-option {
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              padding: 0 16px;
-              gap: 8px;
               width: 200px;
-              height: 64px;
-              border-radius: 999px;
-              border: none;
-              background-color: $neutral-white;
-              text-decoration: none;
-              outline: none;
-              cursor: pointer;
-              transition: background-color 0.25s ease-in-out;
-              .site-logo {
-                --ui-icon-width: 24px;
-                --ui-icon-height: 24px;
-                --ui-icon-color: #{$neutral-black};
-              }
-              .site-note {
-                color: $neutral-black;
-                font-family: Hauora-Regular;
-                font-size: 18px;
-                line-height: 20px;
-                letter-spacing: -0.36px;
-                transition: color 0.25s ease-in-out;
-              }
               &.btn-option {
                 width: 232px;
-                background-color: $green-500;
-              }
-              &:not(:disabled):hover,
-              &:not(:disabled):focus-visible,
-              &:not(:disabled):active {
-                .site-logo {
-                  --ui-icon-color: #{$green-600};
-                }
-                .site-note {
-                  color: $green-600;
-                }
-                &.btn-option {
-                  background-color: $green-300;
-                  .site-logo {
-                    --ui-icon-color: #{$neutral-black};
-                  }
-                  .site-note {
-                    color: $neutral-black;
-                  }
-                }
               }
             }
           }

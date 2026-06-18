@@ -66,9 +66,7 @@
             />
           </div>
           <div class="slide-bottom">
-            <button type="button" class="slide-btn" :disabled="installButtonDisabled" @click="openInstall">
-              {{ installButtonLabel }}
-            </button>
+            <UiButton class="slide-btn" size="small" :text="installButtonLabel" :disabled="installButtonDisabled" @click="openInstall" />
           </div>
         </div>
       </article>
@@ -95,6 +93,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { requestPwaInstall, usePwaInstallState } from '@/services/pwa'
 
 import UiTooltip from '@/components/UiTooltip.vue'
+import UiButton from '@/components/UiButton.vue'
 
 import iconArrowDown from '@/assets/svg/iconArrowDown.svg'
 
@@ -303,29 +302,6 @@ onBeforeUnmount(() => {
       }
       .slide-bottom {
         display: flex;
-        .slide-btn {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 0 16px;
-          height: 32px;
-          border: none;
-          border-radius: 12px;
-          background-color: $green-500;
-          cursor: pointer;
-          color: $neutral-900;
-          font-family: Hauora-Regular;
-          font-size: 16px;
-          line-height: 6px;
-          letter-spacing: -0.32px;
-          transition: background-color 0.25s ease-in-out;
-          &:hover,
-          &:focus-visible,
-          &:active {
-            background-color: $green-300;
-            color: $neutral-black;
-          }
-        }
       }
     }
     &.slide-three {

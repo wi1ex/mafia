@@ -72,9 +72,7 @@
         />
       </div>
 
-      <button class="create-room" :disabled="busy || !ok" @click="create">
-        <span>Создать комнату</span>
-      </button>
+      <UiButton class="create-room" text="Создать комнату" :disabled="busy || !ok" @click="create" />
     </div>
   </div>
 </template>
@@ -94,6 +92,7 @@ import { useUserStore, useSettingsStore } from '@/store'
 import UiSlider from '@/components/UiSlider.vue'
 import UiInput from '@/components/UiInput.vue'
 import UiSwitch from '@/components/UiSwitch.vue'
+import UiButton from '@/components/UiButton.vue'
 
 import iconClose from '@/assets/svg/close.svg'
 import UiIcon from '@/components/UiIcon.vue'
@@ -462,42 +461,6 @@ onBeforeUnmount(() => {
             transform-origin: center;
             z-index: -1;
           }
-        }
-      }
-    }
-    .create-room {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0 16px;
-      gap: 8px;
-      height: 64px;
-      border: none;
-      border-radius: 999px;
-      background-color: $green-500;
-      cursor: pointer;
-      transition: background-color 0.25s ease-in-out;
-      span {
-        color: $neutral-900;
-        font-family: Hauora-Regular;
-        font-size: 18px;
-        line-height: 20px;
-        letter-spacing: -0.36px;
-        transition: color 0.25s ease-in-out;
-      }
-      &:disabled {
-        background-color: $neutral-800;
-        cursor: not-allowed;
-        span {
-          color: $neutral-500;
-        }
-      }
-      &:not(:disabled):hover,
-      &:not(:disabled):focus-visible,
-      &:not(:disabled):active {
-        background-color: $green-300;
-        span {
-          color: $neutral-black;
         }
       }
     }

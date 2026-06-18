@@ -21,7 +21,16 @@
             <p v-else-if="t.text">{{ t.text }}</p>
           </div>
           <div v-if="t.actions && t.actions.length" class="actions">
-            <button v-for="a in t.actions" :key="a.label" :class="['action', a.style]" :disabled="t._actionBusy" @click="runAction(t, a)">{{ a.label }}</button>
+            <UiButton
+              v-for="a in t.actions"
+              :key="a.label"
+              class="action"
+              :variant="a.style === 'neutral' ? 'white' : 'green'"
+              size="small"
+              :text="a.label"
+              :disabled="t._actionBusy"
+              @click="runAction(t, a)"
+            />
           </div>
         </div>
       </div>
@@ -37,6 +46,7 @@ import { api } from '@/services/axios'
 import { alertDialog } from '@/services/confirm'
 
 import UiIcon from '@/components/UiIcon.vue'
+import UiButton from '@/components/UiButton.vue'
 
 import defaultAvatar from '@/assets/svg/iconDefaultAvatarBlack.svg'
 import iconClose from '@/assets/svg/iconClose.svg'
@@ -388,43 +398,6 @@ onBeforeUnmount(() => {
           display: flex;
           align-items: center;
           gap: 4px;
-          .action {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0 16px;
-            height: 32px;
-            border: none;
-            border-radius: 16px;
-            background-color: $green-500;
-            color: $neutral-900;
-            font-family: Hauora-Regular;
-            font-size: 16px;
-            line-height: 16px;
-            letter-spacing: -0.32px;
-            cursor: pointer;
-            transition: background-color 0.25s ease-in-out, color 0.25s ease-in-out;
-            &:not(:disabled):hover,
-            &:not(:disabled):focus-visible,
-            &:not(:disabled):active {
-              background-color: $green-300;
-              color: $neutral-black;
-            }
-            &:disabled {
-              background-color: $neutral-200;
-              color: $neutral-400;
-            }
-            &.neutral {
-              background-color: $neutral-white;
-              color: $neutral-black;
-              &:not(:disabled):hover,
-              &:not(:disabled):focus-visible,
-              &:not(:disabled):active {
-                background-color: $neutral-white;
-                color: $green-600;
-              }
-            }
-          }
         }
       }
     }

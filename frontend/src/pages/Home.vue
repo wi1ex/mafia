@@ -3,10 +3,14 @@
     <div class="left" :class="{ 'left--top-banner': topBannerActive }">
       <header>
         <span class="left-title">Список комнат</span>
-        <button @click="onOpenCreate" :disabled="!settings.roomsCanCreate || !auth.isAuthed || userStore.roomRestricted || verificationRestricted">
-          <span>Создать комнату</span>
-          <UiIcon class="create-icon" :icon="iconAddPlus" />
-        </button>
+        <UiButton
+          class="create-room-button"
+          text="Создать комнату"
+          :icon="iconAddPlus"
+          icon-position="right"
+          :disabled="!settings.roomsCanCreate || !auth.isAuthed || userStore.roomRestricted || verificationRestricted"
+          @click="onOpenCreate"
+        />
       </header>
 
       <Transition name="overlay">
@@ -158,15 +162,15 @@
             </div>
 
             <div class="ri-actions">
-              <button v-if="ctaState==='enter'" :disabled="entering" @click="onEnter" class="ri-action">Войти в комнату</button>
-              <button v-else-if="ctaState==='full'" disabled class="ri-action">Комната заполнена</button>
-              <button v-else-if="ctaState==='apply'" :disabled="applying" @click="onApply" class="ri-action">Подать заявку</button>
-              <button v-else-if="ctaState==='pending'" disabled class="ri-action">Заявка отправлена</button>
-              <button v-else-if="ctaState==='watch'" :disabled="entering" @click="onEnter" class="ri-action">Смотреть</button>
-              <button v-else-if="ctaState==='spectators_full'" disabled class="ri-action">Лимит зрителей</button>
-              <button v-else-if="ctaState==='in_game'" disabled class="ri-action">Идёт игра</button>
-              <button v-else-if="ctaState==='blocked'" disabled class="ri-action">{{ blockedLabel }}</button>
-              <button v-else disabled class="ri-action">Авторизуйтесь, чтобы войти</button>
+              <UiButton v-if="ctaState==='enter'" class="ri-action" size="middle" text="Войти в комнату" :disabled="entering" @click="onEnter" />
+              <UiButton v-else-if="ctaState==='full'" class="ri-action" size="middle" text="Комната заполнена" disabled />
+              <UiButton v-else-if="ctaState==='apply'" class="ri-action" size="middle" text="Подать заявку" :disabled="applying" @click="onApply" />
+              <UiButton v-else-if="ctaState==='pending'" class="ri-action" size="middle" text="Заявка отправлена" disabled />
+              <UiButton v-else-if="ctaState==='watch'" class="ri-action" size="middle" text="Смотреть" :disabled="entering" @click="onEnter" />
+              <UiButton v-else-if="ctaState==='spectators_full'" class="ri-action" size="middle" text="Лимит зрителей" disabled />
+              <UiButton v-else-if="ctaState==='in_game'" class="ri-action" size="middle" text="Идёт игра" disabled />
+              <UiButton v-else-if="ctaState==='blocked'" class="ri-action" size="middle" :text="blockedLabel" disabled />
+              <UiButton v-else class="ri-action" size="middle" text="Авторизуйтесь, чтобы войти" disabled />
             </div>
           </div>
 
@@ -226,6 +230,7 @@ import MiniProfile from '@/components/MiniProfile.vue'
 import Donation from '@/components/Donation.vue'
 import Contact from '@/components/Contact.vue'
 import UiIcon from '@/components/UiIcon.vue'
+import UiButton from '@/components/UiButton.vue'
 
 import iconDefaultAvatarBlack from '@/assets/svg/iconDefaultAvatarBlack.svg'
 import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
@@ -946,53 +951,6 @@ onBeforeUnmount(() => {
         line-height: 26px;
         letter-spacing: -0.48px;
       }
-      button {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 0 16px;
-        gap: 8px;
-        height: 64px;
-        border: none;
-        border-radius: 999px;
-        background-color: $green-500;
-        cursor: pointer;
-        transition: background-color 0.25s ease-in-out;
-        span {
-          color: $neutral-900;
-          font-family: Hauora-Regular;
-          font-size: 18px;
-          line-height: 20px;
-          letter-spacing: -0.36px;
-          transition: color 0.25s ease-in-out;
-        }
-        .create-icon {
-          --ui-icon-width: 24px;
-          --ui-icon-height: 24px;
-          --ui-icon-color: #{$neutral-900};
-        }
-        &:disabled {
-          background-color: $neutral-800;
-          cursor: not-allowed;
-          span {
-            color: $neutral-500;
-          }
-          .create-icon {
-            --ui-icon-color: #{$neutral-500};
-          }
-        }
-        &:not(:disabled):hover,
-        &:not(:disabled):focus-visible,
-        &:not(:disabled):active {
-          background-color: $green-300;
-          span {
-            color: $neutral-black;
-          }
-          .create-icon {
-            --ui-icon-color: #{$neutral-black};
-          }
-        }
-      }
     }
     .muted-rooms {
       display: flex;
@@ -1483,32 +1441,7 @@ onBeforeUnmount(() => {
         .ri-actions {
           display: inline-grid;
           .ri-action {
-            display: flex;
-            align-items: center;
-            justify-content: center;
             margin-top: 8px;
-            padding: 0 16px;
-            height: 40px;
-            border: none;
-            border-radius: 12px;
-            background-color: $green-500;
-            color: $neutral-900;
-            font-size: 16px;
-            font-family: Hauora-Regular;
-            line-height: 16px;
-            letter-spacing: -0.32px;
-            cursor: pointer;
-            transition: color 0.25s ease-in-out, background-color 0.25s ease-in-out;
-            &:disabled {
-              background-color: $neutral-800;
-              color: $neutral-500;
-              cursor: not-allowed;
-            }
-            &:not(:disabled):hover,
-            &:not(:disabled):focus-visible,
-            &:not(:disabled):active {
-              background-color: $green-300;
-            }
           }
         }
       }
