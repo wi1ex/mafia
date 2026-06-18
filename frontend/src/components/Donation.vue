@@ -608,6 +608,9 @@ onBeforeUnmount(() => {
               &:not(:disabled):hover,
               &:not(:disabled):focus-visible,
               &:not(:disabled):active {
+                .site-logo {
+                  --ui-icon-color: #{$green-600};
+                }
                 .site-note {
                   color: $green-600;
                 }
