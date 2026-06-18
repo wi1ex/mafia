@@ -23,6 +23,7 @@
               <div class="support-site-slide" :inert="lavaFormOpen ? true : undefined" :aria-hidden="lavaFormOpen ? 'true' : 'false'">
                 <UiSwitch
                   v-model="subscribeYearSelected"
+                  class="subscribe-switch"
                   label="Подписка"
                   off-label="Месяц"
                   on-label="Год"
@@ -32,6 +33,7 @@
                   aria-label="Выбор срока подписки"
                 />
                 <div class="subscribe">
+                  <img class="background-image" :src="imageSlide6" alt="" aria-hidden="true" />
                   <span class="subscribe-price-value">{{ selectedSubscribePrice.price }}</span>
                   <ul class="subscribe-benefits">
                     <li v-for="benefit in subscriptionBenefits" :key="benefit">
@@ -119,8 +121,9 @@ import { api } from '@/services/axios'
 import { alertDialog } from '@/services/confirm'
 import { useAuthStore } from '@/store'
 
-import iconCheckCircle from '@/assets/svg/iconCheckCircle.svg'
+import imageSlide6 from '@/assets/images/carousel-image6.png'
 import iconClose from '@/assets/svg/iconClose.svg'
+import iconCheckCircle from '@/assets/svg/iconCheckCircle.svg'
 import iconTribute from '@/assets/svg/donateTribute.svg'
 import iconLavaTop from '@/assets/svg/donateLavaTop.svg'
 
@@ -486,24 +489,16 @@ onBeforeUnmount(() => {
     }
     .support-site-content {
       display: flex;
-      flex: 1 1 auto;
-      min-height: 0;
-      width: 100%;
       overflow: hidden;
       .support-site-track {
         display: flex;
         flex: 0 0 200%;
-        width: 200%;
-        height: 100%;
-        min-width: 0;
         transition: transform 0.35s cubic-bezier(0.25, 1, 0.5, 1);
         &.is-lava {
           transform: translateX(-50%);
         }
         .support-site-slide {
           flex: 0 0 50%;
-          min-width: 0;
-          height: 100%;
           overflow-y: auto;
           scrollbar-width: none;
           &[inert] {
@@ -512,12 +507,26 @@ onBeforeUnmount(() => {
           &::-webkit-scrollbar {
             display: none;
           }
+          .subscribe-switch {
+            margin: 16px 0;
+          }
           .subscribe {
             display: flex;
             flex-direction: column;
-            gap: 16px;
             margin-bottom: 24px;
-            width: 100%;
+            padding: 16px;
+            gap: 16px;
+            border-radius: 20px;
+            background-color: $neutral-white;
+            .background-image {
+              position: absolute;
+              left: 0;
+              top: 0;
+              width: 100%;
+              height: 100%;
+              border-radius: inherit;
+              object-fit: cover;
+            }
             .subscribe-price-value {
               color: $neutral-black;
               font-family: Involve-Medium;
