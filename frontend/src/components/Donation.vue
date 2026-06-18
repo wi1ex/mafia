@@ -70,7 +70,7 @@
                   />
 
                   <div class="lava-field">
-                    <span>Срок подписки</span>
+                    <span class="lava-text">Срок подписки</span>
                     <div class="lava-segmented">
                       <button v-for="plan in lavaPlans" :key="plan.id" type="button" :class="{ active: lavaForm.plan === plan.id }" @click="lavaForm.plan = plan.id">
                         {{ plan.label }}
@@ -79,8 +79,8 @@
                   </div>
 
                   <div class="lava-field">
-                    <span>Валюта</span>
-                    <div class="lava-segmented compact">
+                    <span class="lava-text">Валюта</span>
+                    <div class="lava-segmented">
                       <button v-for="currency in lavaCurrencies" :key="currency" type="button" :class="{ active: lavaForm.currency === currency }" @click="lavaForm.currency = currency">
                         {{ currency }}
                       </button>
@@ -88,9 +88,9 @@
                   </div>
 
                   <Transition name="lava-payment-expand">
-                    <div v-if="lavaForm.currency === 'RUB'" class="lava-field lava-payment-field">
-                      <span>Способ оплаты</span>
-                      <div class="lava-method-list">
+                    <div v-if="lavaForm.currency === 'RUB'" class="lava-field">
+                      <span class="lava-text">Способ оплаты</span>
+                      <div class="lava-segmented">
                         <button v-for="method in availableLavaPaymentOptions" :key="method.id" type="button" :class="{ active: lavaForm.payment_option === method.id }" @click="lavaForm.payment_option = method.id">
                           <span>{{ method.label }}</span>
                         </button>
@@ -648,74 +648,40 @@ onBeforeUnmount(() => {
             }
             .lava-field {
               display: flex;
-              flex-direction: column;
-              gap: 8px;
-              color: $neutral-black;
-              font-family: Hauora-Regular;
-              font-size: 14px;
-              line-height: 18px;
-              letter-spacing: 0;
-            }
-            .lava-segmented {
-              display: grid;
-              grid-template-columns: repeat(2, minmax(0, 1fr));
-              gap: 8px;
-              &.compact {
-                grid-template-columns: repeat(3, minmax(0, 1fr));
-              }
-              button {
-                height: 40px;
-                border: 1px solid $neutral-white;
-                border-radius: 10px;
-                background-color: $neutral-white;
+              align-items: center;
+              justify-content: space-between;
+              gap: 40px;
+              .lava-text {
                 color: $neutral-black;
-                font-family: Hauora-Bold;
-                font-size: 15px;
+                font-family: Hauora-Regular;
+                font-size: 14px;
                 line-height: 18px;
                 letter-spacing: 0;
-                cursor: pointer;
-                transition: border-color 0.25s ease-in-out, background-color 0.25s ease-in-out;
-                &.active {
-                  border-color: $green-600;
-                  background-color: rgba($green-500, 0.12);
-                }
-                &:hover,
-                &:focus-visible {
-                  border-color: $green-600;
-                }
               }
-            }
-            .lava-method-list {
-              display: grid;
-              grid-template-columns: repeat(2, minmax(0, 1fr));
-              gap: 8px;
-              button {
+              .lava-segmented {
                 display: flex;
-                flex-direction: column;
-                align-items: flex-start;
-                justify-content: center;
-                min-height: 58px;
-                padding: 10px 12px;
-                border: 1px solid $neutral-white;
-                border-radius: 10px;
-                background-color: $neutral-white;
-                color: $neutral-black;
-                text-align: left;
-                cursor: pointer;
-                transition: border-color 0.25s ease-in-out, background-color 0.25s ease-in-out;
-                span {
+                align-items: center;
+                gap: 10px;
+                button {
+                  height: 40px;
+                  border: 1px solid $neutral-white;
+                  border-radius: 10px;
+                  background-color: $neutral-white;
+                  color: $neutral-black;
                   font-family: Hauora-Bold;
                   font-size: 15px;
                   line-height: 18px;
                   letter-spacing: 0;
-                }
-                &.active {
-                  border-color: $green-600;
-                  background-color: rgba($green-500, 0.12);
-                }
-                &:hover,
-                &:focus-visible {
-                  border-color: $green-600;
+                  cursor: pointer;
+                  transition: border-color 0.25s ease-in-out, background-color 0.25s ease-in-out;
+                  &.active {
+                    border-color: $green-600;
+                    background-color: rgba($green-500, 0.12);
+                  }
+                  &:hover,
+                  &:focus-visible {
+                    border-color: $green-600;
+                  }
                 }
               }
             }
