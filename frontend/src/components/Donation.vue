@@ -120,6 +120,8 @@
                     <UiButton
                       class="lava-back"
                       variant="white"
+                      :icon="iconArrowDown"
+                      icon-position="left"
                       text="Назад"
                       :disabled="lavaBusy"
                       @click="closeLavaForm"
@@ -157,6 +159,7 @@ import iconClose from '@/assets/svg/iconClose.svg'
 import iconCheckCircle from '@/assets/svg/iconCheckCircle.svg'
 import iconTribute from '@/assets/svg/donateTribute.svg'
 import iconLavaTop from '@/assets/svg/donateLavaTop.svg'
+import iconArrowDown from '@/assets/svg/iconArrowDown.svg'
 
 const props = defineProps<{
   open: boolean
@@ -620,34 +623,42 @@ onBeforeUnmount(() => {
               gap: 40px;
               .lava-text {
                 color: $neutral-black;
-                font-family: Hauora-Regular;
-                font-size: 14px;
+                font-family: Hauora-Bold;
+                font-size: 16px;
                 line-height: 18px;
-                letter-spacing: 0;
+                letter-spacing: -0.32px;
               }
               .lava-segmented {
                 display: flex;
                 align-items: center;
                 gap: 10px;
                 button {
-                  height: 40px;
-                  border: 1px solid $neutral-white;
-                  border-radius: 10px;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  padding: 0 16px;
+                  gap: 4px;
+                  width: 129px;
+                  height: 48px;
+                  border: none;
+                  border-radius: 999px;
                   background-color: $neutral-white;
-                  color: $neutral-black;
-                  font-family: Hauora-Bold;
-                  font-size: 15px;
-                  line-height: 18px;
-                  letter-spacing: 0;
+                  color: $neutral-400;
+                  font-family: Hauora-Regular;
+                  font-size: 18px;
+                  line-height: 20px;
+                  letter-spacing: -0.36px;
                   cursor: pointer;
-                  transition: border-color 0.25s ease-in-out, background-color 0.25s ease-in-out;
+                  transition: color 0.25s ease-in-out, background-color 0.25s ease-in-out;
                   &.active {
-                    border-color: $green-600;
-                    background-color: rgba($green-500, 0.12);
+                    color: $neutral-white;
+                    background: linear-gradient(261deg, $soft-purple-800 0%, $green-700 100%);
                   }
                   &:hover,
-                  &:focus-visible {
-                    border-color: $green-600;
+                  &:focus-visible,
+                  &:active {
+                    background-color: $neutral-white;
+                    color: $neutral-black;
                   }
                 }
               }
@@ -657,6 +668,9 @@ onBeforeUnmount(() => {
               justify-content: center;
               margin-top: 62px;
               gap: 10px;
+              :deep(.lava-back .ui-button__icon) {
+                transform: rotate(-90deg);
+              }
             }
           }
         }
