@@ -1,11 +1,11 @@
 <template>
-  <a v-if="href" v-bind="$attrs" class="ui-button" :class="buttonClasses" :href="disabled ? undefined : href" :target="target"
+  <a v-if="href" v-bind="$attrs" class="ui-button" :class="buttonClasses" :style="buttonStyle" :href="disabled ? undefined : href" :target="target"
      :rel="rel" :aria-disabled="disabled ? 'true' : undefined" :tabindex="disabled ? -1 : undefined" @click.capture="onAnchorClick">
     <UiIcon v-if="showLeftIcon" class="ui-button__icon" :icon="icon" :label="iconLabel" />
     <span v-if="hasText" class="ui-button__text"><slot>{{ text }}</slot></span>
     <UiIcon v-if="showRightIcon" class="ui-button__icon" :icon="icon" :label="iconLabel" />
   </a>
-  <button v-else v-bind="$attrs" class="ui-button" :class="buttonClasses" :type="type" :disabled="disabled">
+  <button v-else v-bind="$attrs" class="ui-button" :class="buttonClasses" :style="buttonStyle" :type="type" :disabled="disabled">
     <UiIcon v-if="showLeftIcon" class="ui-button__icon" :icon="icon" :label="iconLabel" />
     <span v-if="hasText" class="ui-button__text"><slot>{{ text }}</slot></span>
     <UiIcon v-if="showRightIcon" class="ui-button__icon" :icon="icon" :label="iconLabel" />
@@ -32,6 +32,7 @@ const props = withDefaults(defineProps<{
   icon?: string
   iconPosition?: IconPosition
   iconLabel?: string
+  width?: number | string
   disabled?: boolean
   type?: ButtonType
   href?: string
@@ -44,6 +45,7 @@ const props = withDefaults(defineProps<{
   icon: '',
   iconPosition: 'left',
   iconLabel: '',
+  width: undefined,
   disabled: false,
   type: 'button',
   target: undefined,
@@ -65,6 +67,19 @@ const buttonClasses = computed(() => [
   },
 ])
 
+const buttonStyle = computed<Record<string, string>>(() => {
+  if (props.width === undefined) return {} as Record<string, string>
+  return {
+    width: normalizeSize(props.width),
+  }
+})
+
+function normalizeSize(value: number | string): string {
+  if (typeof value === 'number') return `${value}px`
+  const trimmed = value.trim()
+  return /^\d+(\.\d+)?$/.test(trimmed) ? `${trimmed}px` : trimmed
+}
+
 function onAnchorClick(event: MouseEvent) {
   if (!props.disabled) return
   event.preventDefault()
@@ -80,6 +95,7 @@ function onAnchorClick(event: MouseEvent) {
   justify-content: center;
   gap: var(--ui-button-gap, 8px);
   min-width: 0;
+  width: min-content;
   height: var(--ui-button-height);
   padding: 0 var(--ui-button-padding-x, 16px);
   border: none;

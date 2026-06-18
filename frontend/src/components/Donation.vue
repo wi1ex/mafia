@@ -45,7 +45,6 @@
                 </div>
                 <div class="site-list">
                   <UiButton
-                    class="site-option"
                     variant="white"
                     text="Поддержать проект"
                     :icon="iconTribute"
@@ -54,9 +53,7 @@
                     rel="noopener noreferrer"
                     @click="onTributeSelect"
                   />
-
                   <UiButton
-                    class="site-option btn-option"
                     text="Оформить подписку"
                     :icon="iconLavaTop"
                     :disabled="lavaBusy"
@@ -120,8 +117,8 @@
                   />
 
                   <div class="lava-actions">
-                    <UiButton class="lava-back" variant="white" size="middle" text="Назад" :disabled="lavaBusy" @click="closeLavaForm" />
-                    <UiButton class="lava-submit" type="submit" size="middle" text="К оплате" :disabled="lavaBusy" />
+                    <UiButton class="lava-back" variant="white" size="middle" width="100%" text="Назад" :disabled="lavaBusy" @click="closeLavaForm" />
+                    <UiButton class="lava-submit" type="submit" size="middle" width="100%" text="К оплате" :disabled="lavaBusy" />
                   </div>
                 </form>
               </div>
@@ -595,12 +592,6 @@ onBeforeUnmount(() => {
             display: flex;
             justify-self: center;
             gap: 10px;
-            .site-option {
-              width: 200px;
-              &.btn-option {
-                width: 232px;
-              }
-            }
           }
           .lava-form {
             display: flex;
