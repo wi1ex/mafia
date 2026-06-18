@@ -30,6 +30,7 @@
                     on-label="Год"
                     :width="220"
                     theme="light"
+                    without-text
                     aria-label="Выбор срока подписки"
                   />
                   <div class="subscribe-price">

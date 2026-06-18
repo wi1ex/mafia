@@ -1,6 +1,6 @@
 <template>
-  <div class="switch" :class="`switch--${switchTheme}`" :style="switchStyle">
-    <span class="switch-label">
+  <div class="switch" :class="[`switch--${switchTheme}`, { 'switch--without-text': withoutText }]" :style="switchStyle">
+    <span v-if="!withoutText" class="switch-label">
       <slot name="label">{{ label }}</slot>
     </span>
     <label>
@@ -58,6 +58,7 @@ const props = defineProps<{
   tooltipAriaLabel?: string
   tooltipBubbleWidth?: number | string
   theme?: SwitchTheme
+  withoutText?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -76,6 +77,7 @@ const tooltipAriaLabel = computed(() => props.tooltipAriaLabel || 'Подска�
 const widthPx = computed(() => `${Number.isFinite(props.width) && props.width ? props.width : 274}px`)
 const switchTheme = computed<SwitchTheme>(() => props.theme === 'light' ? 'light' : 'dark')
 const switchStyle = computed<Record<string, string>>(() => ({ '--switch-width': widthPx.value }))
+const withoutText = computed(() => Boolean(props.withoutText))
 
 const switchLocked = ref(false)
 const isDisabled = computed(() => Boolean(props.disabled) || switchLocked.value)
@@ -124,6 +126,10 @@ onBeforeUnmount(() => {
   }
   &.switch--light {
     --switch-slider-color: #{$neutral-white};
+  }
+  &.switch--without-text {
+    justify-content: flex-start;
+    width: fit-content;
   }
   .switch-label {
     display: inline-flex;
