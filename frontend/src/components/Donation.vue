@@ -120,8 +120,8 @@
                   />
 
                   <div class="lava-actions">
-                    <button class="lava-back" type="button" :disabled="lavaBusy" @click="closeLavaForm">Назад</button>
-                    <button class="lava-submit" type="submit" :disabled="lavaBusy">К оплате</button>
+                    <UiButton class="lava-back" variant="white" size="middle" text="Назад" :disabled="lavaBusy" @click="closeLavaForm" />
+                    <UiButton class="lava-submit" type="submit" size="middle" text="К оплате" :disabled="lavaBusy" />
                   </div>
                 </form>
               </div>
@@ -654,37 +654,6 @@ onBeforeUnmount(() => {
               grid-template-columns: 1fr 1.4fr;
               gap: 10px;
               margin-top: 4px;
-              button {
-                height: 42px;
-                border: none;
-                border-radius: 10px;
-                font-family: Hauora-Bold;
-                font-size: 15px;
-                line-height: 18px;
-                letter-spacing: 0;
-                cursor: pointer;
-                transition: opacity 0.25s ease-in-out, background-color 0.25s ease-in-out;
-                &:disabled {
-                  opacity: 0.55;
-                  cursor: not-allowed;
-                }
-              }
-              .lava-back {
-                background-color: $neutral-white;
-                color: $neutral-black;
-                &:not(:disabled):hover,
-                &:not(:disabled):focus-visible {
-                  background-color: rgba($neutral-black, 0.06);
-                }
-              }
-              .lava-submit {
-                background-color: $green-600;
-                color: $neutral-white;
-                &:not(:disabled):hover,
-                &:not(:disabled):focus-visible {
-                  background-color: $green-700;
-                }
-              }
             }
           }
         }
