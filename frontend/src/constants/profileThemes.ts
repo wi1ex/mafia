@@ -2,7 +2,6 @@ export const PROFILE_THEME_DEFAULT = 'terracotta' as const
 
 const PROFILE_THEME_GRADIENT = {
   angle: '180deg',
-  hoverOverlay: 'linear-gradient(180deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.10) 100%)',
 } as const
 
 const PROFILE_THEME_PRESETS = [
@@ -54,7 +53,7 @@ function buildProfileThemeGradient(color1: string, color2: string): string {
 }
 
 function buildProfileThemeHoverGradient(color1: string, color2: string): string {
-  return `${PROFILE_THEME_GRADIENT.hoverOverlay}, ${buildProfileThemeGradient(color1, color2)}`
+  return buildProfileThemeGradient(color2, color1)
 }
 
 export const PROFILE_THEME_OPTIONS: readonly ProfileThemeOption[] = PROFILE_THEME_PRESETS.map((item) => ({

@@ -96,7 +96,7 @@
       </div>
 
       <div class="user-menu" ref="userMenuEl">
-        <button class="profile-btn profile-dropdown-trigger" :class="{ 'has-profile-theme': hasUserMenuProfileTheme }" type="button" :style="userMenuButtonStyle" @click.stop="onToggleUserMenu" :aria-expanded="um_open" aria-haspopup="true">
+        <button class="profile-btn profile-dropdown-trigger" type="button" :style="userMenuButtonStyle" @click.stop="onToggleUserMenu" :aria-expanded="um_open" aria-haspopup="true">
           <img v-minio-img="{ key: user.user?.avatar_name ? `avatars/${user.user.avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false }" alt="Аватар" class="avatar" />
           <div v-if="userMenuProfileIconSrcs.length" class="profile-theme-icons" aria-hidden="true">
             <img v-for="badgeSrc in userMenuProfileIconSrcs" :key="badgeSrc" class="profile-theme-icon" :src="badgeSrc" alt="" />
@@ -186,7 +186,6 @@ const authMode = ref<'login' | 'register'>('login')
 const botName = (import.meta.env.VITE_TG_BOT_NAME as string || '').trim()
 const botLink = botName ? `https://t.me/${botName}` : 'https://t.me'
 const userMenuButtonStyle = computed(() => buildProfileThemeStyle(user.activeProfileThemeColor))
-const hasUserMenuProfileTheme = computed(() => Boolean(user.activeProfileThemeColor))
 const userMenuProfileIconSrcs = computed(() => getProfileThemeBadgeSources(user.activeProfileThemeIcon, user.user?.role))
 const selfMiniProfileOpen = ref(false)
 const selfMiniProfileUserId = computed(() => {
@@ -791,31 +790,6 @@ function openAuth(mode: 'login' | 'register') {
     .user-menu {
       position: relative;
       margin-left: 8px;
-      > .profile-btn.has-profile-theme {
-        position: relative;
-        overflow: hidden;
-        isolation: isolate;
-        &::before {
-          content: '';
-          position: absolute;
-          inset: 0;
-          border-radius: inherit;
-          background:
-            radial-gradient(circle at top, rgba($neutral-white, 0.1) 0%, rgba($neutral-white, 0) 50%),
-            rgba($neutral-white, 0.05);
-          opacity: 0;
-          pointer-events: none;
-          transition: opacity 0.25s ease-in-out;
-          z-index: 1;
-        }
-        &:hover::before,
-        &:focus-visible::before {
-          opacity: 1;
-        }
-        &.profile-dropdown-trigger[aria-expanded='true']::before {
-          opacity: 1;
-        }
-      }
       .user-menu-dropdown {
         display: flex;
         position: absolute;
