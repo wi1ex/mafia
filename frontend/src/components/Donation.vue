@@ -616,6 +616,9 @@ onBeforeUnmount(() => {
                 }
                 &.btn-option {
                   background-color: $green-300;
+                  .site-logo {
+                    --ui-icon-color: #{$neutral-black};
+                  }
                   .site-note {
                     color: $neutral-black;
                   }
