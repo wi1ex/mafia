@@ -34,7 +34,7 @@
                 />
                 <div class="subscribe">
                   <img class="background-image" :src="imageSlide6" alt="" aria-hidden="true" />
-                  <span class="subscribe-price-value">{{ selectedSubscribePrice.price }}</span>
+                  <span class="subscribe-price-value">Оформи подписку всего за <span class="subscribe-price-amount">{{ selectedSubscribePrice.amount }}</span><span class="subscribe-price-period">{{ selectedSubscribePrice.period }}</span></span>
                   <ul class="subscribe-benefits">
                     <li v-for="benefit in subscriptionBenefits" :key="benefit">
                       <UiIcon class="subscribe-benefit-icon" :icon="iconCheckCircle" />
@@ -166,9 +166,9 @@ const lavaPlans: readonly { id: LavaPlan; label: string }[] = [
   { id: 'year', label: '12 месяцев' },
 ]
 
-const lavaPlanPrices: Record<LavaPlan, { price: string }> = {
-  month: { price: '490 ₽/мес' },
-  year: { price: '4990 ₽/год' },
+const lavaPlanPrices: Record<LavaPlan, { amount: string; period: string }> = {
+  month: { amount: '490 ₽', period: '/мес' },
+  year: { amount: '4990 ₽', period: '/год' },
 }
 
 const subscriptionBenefits: readonly string[] = [
@@ -533,6 +533,12 @@ onBeforeUnmount(() => {
               font-size: 32px;
               line-height: 34px;
               letter-spacing: -0.64px;
+              .subscribe-price-amount {
+                color: $green-600;
+              }
+              .subscribe-price-period {
+                color: $neutral-500;
+              }
             }
             .subscribe-benefits {
               display: flex;
