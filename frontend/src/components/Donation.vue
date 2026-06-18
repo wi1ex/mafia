@@ -419,15 +419,19 @@ onBeforeUnmount(() => {
   z-index: 1000;
   .support-site-modal {
     display: flex;
+    position: relative;
     flex-direction: column;
     padding: 24px;
-    width: 618px;
-    height: 644px;
+    width: 594px;
+    height: 620px;
     border-radius: 24px;
     background-color: $neutral-100;
     box-shadow: 0 2px 16px 0 rgba($neutral-black, 0.20);
     overflow: hidden;
     .btn-close {
+      position: absolute;
+      top: 24px;
+      right: 24px;
       padding: 0;
       width: 24px;
       height: 24px;
@@ -454,10 +458,13 @@ onBeforeUnmount(() => {
       justify-content: space-between;
       gap: 16px;
       margin-bottom: 32px;
+      overflow: hidden;
       .header-track {
         display: flex;
+        flex: 0 0 200%;
         width: 200%;
         height: 100%;
+        min-width: 0;
         transition: transform 0.35s cubic-bezier(0.25, 1, 0.5, 1);
         &.is-lava {
           transform: translateX(-50%);
@@ -494,14 +501,18 @@ onBeforeUnmount(() => {
       overflow: hidden;
       .support-site-track {
         display: flex;
+        flex: 0 0 200%;
         width: 200%;
         height: 100%;
+        min-width: 0;
         transition: transform 0.35s cubic-bezier(0.25, 1, 0.5, 1);
         &.is-lava {
           transform: translateX(-50%);
         }
         .support-site-slide {
-          width: 100%;
+          flex: 0 0 50%;
+          min-width: 0;
+          height: 100%;
           overflow-y: auto;
           scrollbar-width: none;
           &[inert] {
