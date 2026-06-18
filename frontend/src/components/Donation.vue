@@ -3,26 +3,46 @@
     <Transition name="support-site-overlay">
       <div v-if="open" class="support-site-overlay" @pointerdown.self="armed = true" @pointerup.self="armed && requestClose()" @pointerleave.self="armed = false" @pointercancel.self="armed = false">
         <div class="support-site-modal" role="dialog" aria-modal="true">
+          <button class="btn-close" type="button" aria-label="Закрыть" @click="requestClose">
+            <UiIcon class="close-icon" :icon="iconClose" />
+          </button>
           <header>
-            <div class="header-viewport">
-              <div class="header-track" :class="{ 'is-lava': lavaFormOpen }">
-                <div class="header-div" :aria-hidden="lavaFormOpen ? 'true' : 'false'">
-                  <span class="header-title">Выбери свой план подписки или просто поддержи проект</span>
-                </div>
-                <div class="header-div" :aria-hidden="lavaFormOpen ? 'false' : 'true'">
-                  <span class="header-title">Оплатить подписку</span>
-                  <span class="header-text">Настрой параметры платежа перед переходом на страницу оплаты</span>
-                </div>
+            <div class="header-track" :class="{ 'is-lava': lavaFormOpen }">
+              <div class="header-div" :aria-hidden="lavaFormOpen ? 'true' : 'false'">
+                <span class="header-title">Выбери свой план подписки или просто поддержи проект</span>
+              </div>
+              <div class="header-div" :aria-hidden="lavaFormOpen ? 'false' : 'true'">
+                <span class="header-title">Оплатить подписку</span>
+                <span class="header-text">Настрой параметры платежа перед переходом на страницу оплаты</span>
               </div>
             </div>
-            <button type="button" aria-label="Закрыть" @click="requestClose">
-              <UiIcon class="close-icon" :icon="iconClose" />
-            </button>
           </header>
 
           <div class="support-site-content">
             <div class="support-site-track" :class="{ 'is-lava': lavaFormOpen }">
               <div class="support-site-slide" :inert="lavaFormOpen ? true : undefined" :aria-hidden="lavaFormOpen ? 'true' : 'false'">
+                <div class="subscribe">
+                  <UiSwitch
+                    v-model="subscribeYearSelected"
+                    class="subscribe-switch"
+                    label="Подписка"
+                    off-label="Месяц"
+                    on-label="Год"
+                    :width="220"
+                    theme="light"
+                    aria-label="Выбор срока подписки"
+                  />
+                  <div class="subscribe-price">
+                    <span class="subscribe-price-label">Стоимость</span>
+                    <span class="subscribe-price-value">{{ selectedSubscribePrice.price }}</span>
+                  </div>
+                  <ul class="subscribe-benefits">
+                    <li v-for="benefit in subscriptionBenefits" :key="benefit">
+                      <UiIcon class="subscribe-benefit-icon" :icon="iconCheckCircle" />
+                      <span>{{ benefit }}</span>
+                    </li>
+                  </ul>
+                </div>
                 <div class="site-list">
                   <a class="site-option" :href="tributeSite.url" target="_blank" rel="noopener noreferrer" @click="onTributeSelect">
                     <img :src="iconTribute" alt="tribute" class="site-logo" />
@@ -97,10 +117,12 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
 import UiIcon from '@/components/UiIcon.vue'
+import UiSwitch from '@/components/UiSwitch.vue'
 import { api } from '@/services/axios'
 import { alertDialog } from '@/services/confirm'
 import { useAuthStore } from '@/store'
 
+import iconCheckCircle from '@/assets/svg/iconCheckCircle.svg'
 import iconClose from '@/assets/svg/iconClose.svg'
 import iconTribute from '@/assets/svg/donateTribute.svg'
 import iconLavaTop from '@/assets/svg/donateLavaTop.svg'
@@ -144,6 +166,22 @@ const lavaPlans: readonly { id: LavaPlan; label: string }[] = [
   { id: 'year', label: '12 месяцев' },
 ]
 
+const lavaPlanPrices: Record<LavaPlan, { price: string }> = {
+  month: { price: '490 ₽/мес' },
+  year: { price: '4990 ₽/год' },
+}
+
+const subscriptionBenefits: readonly string[] = [
+  'GIF-аватары',
+  'выбор цвета профиля',
+  'выбор иконки профиля',
+  'создание скрытых комнат',
+  'отключение зрителей в игре',
+  'трансляции в высоком качестве',
+  'увеличенный лимит на изменение никнейма',
+  'обнуление истории своих никнеймов',
+]
+
 const lavaCurrencies: readonly LavaCurrency[] = ['RUB', 'USD', 'EUR']
 
 const lavaPaymentOptions: readonly LavaPaymentOption[] = [
@@ -180,6 +218,13 @@ const lavaForm = ref<{
 const availableLavaPaymentOptions = computed(() => (
   lavaPaymentOptions.filter((option) => option.currencies.includes(lavaForm.value.currency))
 ))
+const subscribeYearSelected = computed({
+  get: () => lavaForm.value.plan === 'year',
+  set: (yearSelected: boolean) => {
+    lavaForm.value.plan = yearSelected ? 'year' : 'month'
+  },
+})
+const selectedSubscribePrice = computed(() => lavaPlanPrices[lavaForm.value.plan])
 
 const tributeSite: SupportSite = {
   id: 'tribute',
@@ -376,13 +421,32 @@ onBeforeUnmount(() => {
     display: flex;
     flex-direction: column;
     padding: 24px;
-    width: min(558px, calc(100vw - 32px));
-    height: min(620px, calc(100dvh - 32px));
-    max-height: calc(100dvh - 32px);
-    overflow: hidden;
+    width: 618px;
+    height: 644px;
     border-radius: 24px;
     background-color: $neutral-100;
     box-shadow: 0 2px 16px 0 rgba($neutral-black, 0.20);
+    overflow: hidden;
+    .btn-close {
+      padding: 0;
+      width: 24px;
+      height: 24px;
+      border: none;
+      background: none;
+      cursor: pointer;
+      .close-icon {
+        --ui-icon-width: 24px;
+        --ui-icon-height: 24px;
+        --ui-icon-color: #{$neutral-black};
+      }
+      &:hover,
+      &:focus-visible,
+      &:active {
+        .close-icon {
+          --ui-icon-color: #{$green-500};
+        }
+      }
+    }
     header {
       display: flex;
       flex: 0 0 56px;
@@ -390,12 +454,6 @@ onBeforeUnmount(() => {
       justify-content: space-between;
       gap: 16px;
       margin-bottom: 32px;
-      .header-viewport {
-        flex: 1 1 auto;
-        min-width: 0;
-        height: 56px;
-        overflow: hidden;
-      }
       .header-track {
         display: flex;
         width: 200%;
@@ -427,27 +485,6 @@ onBeforeUnmount(() => {
           letter-spacing: -0.32px;
         }
       }
-      button {
-        flex: 0 0 24px;
-        padding: 0;
-        width: 24px;
-        height: 24px;
-        border: none;
-        background: none;
-        cursor: pointer;
-        .close-icon {
-          --ui-icon-width: 24px;
-          --ui-icon-height: 24px;
-          --ui-icon-color: #{$neutral-black};
-        }
-        &:hover,
-        &:focus-visible,
-        &:active {
-          .close-icon {
-            --ui-icon-color: #{$green-500};
-          }
-        }
-      }
     }
     .support-site-content {
       display: flex;
@@ -464,9 +501,7 @@ onBeforeUnmount(() => {
           transform: translateX(-50%);
         }
         .support-site-slide {
-          flex: 0 0 50%;
-          min-width: 0;
-          height: 100%;
+          width: 100%;
           overflow-y: auto;
           scrollbar-width: none;
           &[inert] {
@@ -474,6 +509,68 @@ onBeforeUnmount(() => {
           }
           &::-webkit-scrollbar {
             display: none;
+          }
+          .subscribe {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            margin-bottom: 24px;
+            width: 100%;
+            .subscribe-switch {
+              width: 100%;
+            }
+            .subscribe-price {
+              display: flex;
+              flex-direction: column;
+              gap: 6px;
+              padding: 16px;
+              border-radius: 20px;
+              background-color: $neutral-white;
+              .subscribe-price-label {
+                color: $neutral-500;
+                font-family: Hauora-Regular;
+                font-size: 14px;
+                line-height: 18px;
+                letter-spacing: -0.28px;
+              }
+              .subscribe-price-value {
+                color: $neutral-black;
+                font-family: Involve-Medium;
+                font-size: 32px;
+                line-height: 34px;
+                letter-spacing: -0.64px;
+              }
+            }
+            .subscribe-benefits {
+              display: flex;
+              flex-direction: column;
+              gap: 8px;
+              margin: 0;
+              padding: 16px;
+              border-radius: 20px;
+              background-color: $neutral-white;
+              list-style: none;
+              li {
+                display: flex;
+                align-items: flex-start;
+                gap: 8px;
+                color: $neutral-black;
+                font-family: Hauora-Regular;
+                font-size: 16px;
+                line-height: 20px;
+                letter-spacing: -0.32px;
+                .subscribe-benefit-icon {
+                  flex: 0 0 auto;
+                  margin-top: 1px;
+                  --ui-icon-width: 18px;
+                  --ui-icon-height: 18px;
+                  --ui-icon-color: #{$green-600};
+                }
+                span {
+                  min-width: 0;
+                }
+              }
+            }
           }
           .site-list {
             display: flex;
