@@ -80,6 +80,7 @@
                     <div class="lava-segmented">
                       <button v-for="plan in lavaPlans" :key="plan.id" type="button" :class="{ active: lavaForm.plan === plan.id }" @click="lavaForm.plan = plan.id">
                         <span>{{ plan.label }}</span>
+                        <span v-if="plan.id === 'year'" class="lava-segmented-badge">-15%</span>
                       </button>
                     </div>
                   </div>
@@ -690,6 +691,21 @@ onBeforeUnmount(() => {
                     --ui-icon-width: 24px;
                     --ui-icon-height: 24px;
                     --ui-icon-color: currentColor;
+                  }
+                  .lava-segmented-badge {
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    flex: 0 0 auto;
+                    padding: 2px 5px;
+                    border-radius: 999px;
+                    background-color: $red-500;
+                    color: $neutral-white;
+                    font-family: Hauora-Regular;
+                    font-size: 12px;
+                    line-height: 14px;
+                    letter-spacing: -0.36px;
+                    pointer-events: none;
                   }
                   &.active {
                     color: $neutral-white;
