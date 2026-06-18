@@ -512,12 +512,12 @@ onBeforeUnmount(() => {
           }
           .subscribe {
             display: flex;
+            position: relative;
             flex-direction: column;
-            margin-bottom: 24px;
-            padding: 16px;
-            gap: 16px;
-            border-radius: 20px;
-            background-color: $neutral-white;
+            margin-bottom: 40px;
+            padding: 24px;
+            gap: 40px;
+            border-radius: 24px;
             .background-image {
               position: absolute;
               left: 0;
@@ -528,13 +528,15 @@ onBeforeUnmount(() => {
               object-fit: cover;
             }
             .subscribe-price-value {
-              color: $neutral-black;
+              max-width: 250px;
+              color: $neutral-white;
               font-family: Involve-Medium;
-              font-size: 32px;
-              line-height: 34px;
-              letter-spacing: -0.64px;
+              font-size: 24px;
+              line-height: 26px;
+              letter-spacing: -0.48px;
+              z-index: 1;
               .subscribe-price-amount {
-                color: $green-600;
+                color: $green-500;
               }
               .subscribe-price-period {
                 color: $neutral-500;
@@ -543,30 +545,26 @@ onBeforeUnmount(() => {
             .subscribe-benefits {
               display: flex;
               flex-direction: column;
-              gap: 8px;
+              gap: 4px;
               margin: 0;
-              padding: 16px;
-              border-radius: 20px;
-              background-color: $neutral-white;
+              padding: 0;
               list-style: none;
+              z-index: 1;
               li {
                 display: flex;
-                align-items: flex-start;
-                gap: 8px;
-                color: $neutral-black;
-                font-family: Hauora-Regular;
-                font-size: 16px;
-                line-height: 20px;
-                letter-spacing: -0.32px;
+                align-items: center;
+                gap: 4px;
                 .subscribe-benefit-icon {
-                  flex: 0 0 auto;
-                  margin-top: 2px;
                   --ui-icon-width: 20px;
                   --ui-icon-height: 20px;
                   --ui-icon-color: #{$neutral-white};
                 }
                 span {
-                  min-width: 0;
+                  color: $neutral-white;
+                  font-family: Hauora-Regular;
+                  font-size: 16px;
+                  line-height: 16px;
+                  letter-spacing: -0.32px;
                 }
               }
             }

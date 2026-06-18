@@ -199,9 +199,6 @@ onBeforeUnmount(() => {
     input:checked + .slider .slider-option:last-child {
       color: $neutral-white;
     }
-    input:disabled + .slider {
-      cursor: not-allowed;
-    }
   }
 }
 
