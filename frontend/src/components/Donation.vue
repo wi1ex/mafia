@@ -79,7 +79,7 @@
                     <span class="lava-text">Срок подписки</span>
                     <div class="lava-segmented">
                       <button v-for="plan in lavaPlans" :key="plan.id" type="button" :class="{ active: lavaForm.plan === plan.id }" @click="lavaForm.plan = plan.id">
-                        {{ plan.label }}
+                        <span>{{ plan.label }}</span>
                       </button>
                     </div>
                   </div>
@@ -88,7 +88,7 @@
                     <span class="lava-text">Валюта</span>
                     <div class="lava-segmented">
                       <button v-for="currency in lavaCurrencies" :key="currency" type="button" :class="{ active: lavaForm.currency === currency }" @click="lavaForm.currency = currency">
-                        {{ currency }}
+                        <span>{{ currency }}</span>
                       </button>
                     </div>
                   </div>
@@ -129,7 +129,7 @@
                     <UiButton
                       class="lava-submit"
                       type="submit"
-                      text="К оплате"
+                      text="Перейти к оплате"
                       :disabled="lavaBusy"
                     />
                   </div>
@@ -634,6 +634,7 @@ onBeforeUnmount(() => {
                 gap: 10px;
                 button {
                   display: flex;
+                  position: relative;
                   align-items: center;
                   justify-content: center;
                   padding: 0 16px;
@@ -648,16 +649,32 @@ onBeforeUnmount(() => {
                   font-size: 18px;
                   line-height: 20px;
                   letter-spacing: -0.36px;
+                  overflow: hidden;
                   cursor: pointer;
-                  transition: color 0.25s ease-in-out, background-color 0.25s ease-in-out;
+                  transition: color 0.25s ease-in-out;
+                  &::before {
+                    content: "";
+                    position: absolute;
+                    inset: 0;
+                    border-radius: inherit;
+                    background: linear-gradient(261deg, $soft-purple-800 0%, $green-700 100%);
+                    opacity: 0;
+                    pointer-events: none;
+                    transition: opacity 0.25s ease-in-out;
+                  }
+                  span {
+                    position: relative;
+                    z-index: 1;
+                  }
                   &.active {
                     color: $neutral-white;
-                    background: linear-gradient(261deg, $soft-purple-800 0%, $green-700 100%);
+                    &::before {
+                      opacity: 1;
+                    }
                   }
-                  &:hover,
-                  &:focus-visible,
-                  &:active {
-                    background-color: $neutral-white;
+                  &:not(.active):hover,
+                  &:not(.active):focus-visible,
+                  &:not(.active):active {
                     color: $neutral-black;
                   }
                 }
@@ -666,10 +683,10 @@ onBeforeUnmount(() => {
             .lava-actions {
               display: flex;
               justify-content: center;
-              margin-top: 62px;
+              margin-top: 36px;
               gap: 10px;
               :deep(.lava-back .ui-button__icon) {
-                transform: rotate(-90deg);
+                transform: rotate(90deg);
               }
             }
           }
