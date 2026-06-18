@@ -41,8 +41,20 @@
           </div>
         </div>
         <div class="actions">
-          <UiButton v-if="isConfirm" variant="white" size="middle" :text="state.cancelText" @click.stop="onClose" />
-          <UiButton class="confirm" size="middle" :text="state.confirmText" :disabled="confirmDisabled" @click.stop="onConfirm" />
+          <UiButton
+            v-if="isConfirm"
+            variant="white"
+            size="middle"
+            :text="state.cancelText"
+            @click.stop="onClose"
+          />
+          <UiButton
+            class="confirm"
+            size="middle"
+            :text="state.confirmText"
+            :disabled="confirmDisabled"
+            @click.stop="onConfirm"
+          />
         </div>
       </div>
     </div>

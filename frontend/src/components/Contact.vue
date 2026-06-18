@@ -74,8 +74,19 @@
             </div>
 
             <div class="contact-actions">
-              <UiButton class="cancel" variant="white" text="Отмена" :disabled="busy" @click="requestClose" />
-              <UiButton class="submit" type="submit" :text="busy ? 'Отправка...' : 'Отправить'" :disabled="busy || !canSubmit" />
+              <UiButton
+                class="cancel"
+                variant="white"
+                text="Отмена"
+                :disabled="busy"
+                @click="requestClose"
+              />
+              <UiButton
+                class="submit"
+                type="submit"
+                :text="busy ? 'Отправка...' : 'Отправить'"
+                :disabled="busy || !canSubmit"
+              />
             </div>
           </div>
         </form>

@@ -66,7 +66,13 @@
             />
           </div>
           <div class="slide-bottom">
-            <UiButton class="slide-btn" size="small" :text="installButtonLabel" :disabled="installButtonDisabled" @click="openInstall" />
+            <UiButton
+              class="slide-btn"
+              size="small"
+              :text="installButtonLabel"
+              :disabled="installButtonDisabled"
+              @click="openInstall"
+            />
           </div>
         </div>
       </article>

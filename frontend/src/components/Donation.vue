@@ -117,8 +117,19 @@
                   />
 
                   <div class="lava-actions">
-                    <UiButton class="lava-back" variant="white" size="middle" width="100%" text="Назад" :disabled="lavaBusy" @click="closeLavaForm" />
-                    <UiButton class="lava-submit" type="submit" size="middle" width="100%" text="К оплате" :disabled="lavaBusy" />
+                    <UiButton
+                      class="lava-back"
+                      variant="white"
+                      text="Назад"
+                      :disabled="lavaBusy"
+                      @click="closeLavaForm"
+                    />
+                    <UiButton
+                      class="lava-submit"
+                      type="submit"
+                      text="К оплате"
+                      :disabled="lavaBusy"
+                    />
                   </div>
                 </form>
               </div>
@@ -488,6 +499,7 @@ onBeforeUnmount(() => {
         flex: 0 0 50%;
         flex-direction: column;
         align-items: center;
+        gap: 8px;
         .header-title {
           max-width: 350px;
           text-align: center;
@@ -641,10 +653,10 @@ onBeforeUnmount(() => {
               }
             }
             .lava-actions {
-              display: grid;
-              grid-template-columns: 1fr 1.4fr;
+              display: flex;
+              justify-content: center;
+              margin-top: 62px;
               gap: 10px;
-              margin-top: 4px;
             }
           }
         }

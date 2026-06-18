@@ -72,7 +72,13 @@
         />
       </div>
 
-      <UiButton class="create-room" width="100%" text="Создать комнату" :disabled="busy || !ok" @click="create" />
+      <UiButton
+        class="create-room"
+        width="100%"
+        text="Создать комнату"
+        :disabled="busy || !ok"
+        @click="create"
+      />
     </div>
   </div>
 </template>
