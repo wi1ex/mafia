@@ -92,8 +92,8 @@ import { useAuthStore } from '@/store'
 
 import iconClose from '@/assets/svg/iconClose.svg'
 import iconArrowNext from '@/assets/svg/iconArrowNext.svg'
-import iconTribute from '@/assets/images/donateTribute.png'
-import iconLavaTop from '@/assets/images/donateLavaTop.png'
+import iconTribute from '@/assets/svg/donateTribute.svg'
+import iconLavaTop from '@/assets/svg/donateLavaTop.svg'
 
 const props = defineProps<{
   open: boolean
