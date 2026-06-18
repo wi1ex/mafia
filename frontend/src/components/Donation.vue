@@ -432,6 +432,7 @@ onBeforeUnmount(() => {
       position: absolute;
       top: 24px;
       right: 24px;
+      z-index: 1;
       padding: 0;
       width: 24px;
       height: 24px;
@@ -453,18 +454,10 @@ onBeforeUnmount(() => {
     }
     header {
       display: flex;
-      flex: 0 0 56px;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 16px;
-      margin-bottom: 32px;
       overflow: hidden;
       .header-track {
         display: flex;
         flex: 0 0 200%;
-        width: 200%;
-        height: 100%;
-        min-width: 0;
         transition: transform 0.35s cubic-bezier(0.25, 1, 0.5, 1);
         &.is-lava {
           transform: translateX(-50%);
@@ -474,10 +467,11 @@ onBeforeUnmount(() => {
         display: flex;
         flex: 0 0 50%;
         flex-direction: column;
-        gap: 8px;
-        min-width: 0;
-        padding-right: 12px;
+        align-items: center;
+        margin-bottom: 10px;
         .header-title {
+          max-width: 350px;
+          text-align: center;
           color: $neutral-black;
           font-family: Involve-Medium;
           font-size: 24px;
@@ -572,10 +566,10 @@ onBeforeUnmount(() => {
                 letter-spacing: -0.32px;
                 .subscribe-benefit-icon {
                   flex: 0 0 auto;
-                  margin-top: 1px;
-                  --ui-icon-width: 18px;
-                  --ui-icon-height: 18px;
-                  --ui-icon-color: #{$green-600};
+                  margin-top: 2px;
+                  --ui-icon-width: 20px;
+                  --ui-icon-height: 20px;
+                  --ui-icon-color: #{$neutral-white};
                 }
                 span {
                   min-width: 0;
