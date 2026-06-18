@@ -88,6 +88,7 @@
                     <span class="lava-text">Валюта</span>
                     <div class="lava-segmented">
                       <button v-for="currency in lavaCurrencies" :key="currency" type="button" :class="{ active: lavaForm.currency === currency }" @click="lavaForm.currency = currency">
+                        <UiIcon class="lava-segmented-icon" :icon="lavaCurrencyIcons[currency]" />
                         <span>{{ currency }}</span>
                       </button>
                     </div>
@@ -98,6 +99,7 @@
                       <span class="lava-text">Способ оплаты</span>
                       <div class="lava-segmented">
                         <button v-for="method in availableLavaPaymentOptions" :key="method.id" type="button" :class="{ active: lavaForm.payment_option === method.id }" @click="lavaForm.payment_option = method.id">
+                          <UiIcon class="lava-segmented-icon" :icon="lavaPaymentOptionIcons[method.id]" />
                           <span>{{ method.label }}</span>
                         </button>
                       </div>
@@ -198,6 +200,17 @@ type LavaPaymentOption = {
   currencies: readonly LavaCurrency[]
   payment_provider: string
   payment_method: string
+}
+
+const lavaCurrencyIcons: Record<LavaCurrency, string> = {
+  RUB: iconRouble,
+  USD: iconDollar,
+  EUR: iconEuro,
+}
+
+const lavaPaymentOptionIcons: Record<LavaPaymentOptionId, string> = {
+  card: iconCard,
+  sbp: iconSBP,
 }
 
 const lavaPlans: readonly { id: LavaPlan; label: string }[] = [
@@ -670,6 +683,13 @@ onBeforeUnmount(() => {
                   span {
                     position: relative;
                     z-index: 1;
+                  }
+                  .lava-segmented-icon {
+                    position: relative;
+                    z-index: 1;
+                    --ui-icon-width: 24px;
+                    --ui-icon-height: 24px;
+                    --ui-icon-color: currentColor;
                   }
                   &.active {
                     color: $neutral-white;
