@@ -60,7 +60,7 @@ const tooltipPlacement = computed<TooltipPlacement>(() => {
   flex: 0 0 auto;
   width: var(--ui-tooltip-icon-size);
   height: var(--ui-tooltip-icon-size);
-  cursor: help;
+  cursor: default;
   outline: none;
   .tooltip-img {
     --ui-icon-width: var(--ui-tooltip-icon-size);

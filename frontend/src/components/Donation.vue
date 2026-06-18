@@ -21,22 +21,18 @@
           <div class="support-site-content">
             <div class="support-site-track" :class="{ 'is-lava': lavaFormOpen }">
               <div class="support-site-slide" :inert="lavaFormOpen ? true : undefined" :aria-hidden="lavaFormOpen ? 'true' : 'false'">
+                <UiSwitch
+                  v-model="subscribeYearSelected"
+                  label="Подписка"
+                  off-label="Месяц"
+                  on-label="Год"
+                  :width="472"
+                  theme="light"
+                  without-text
+                  aria-label="Выбор срока подписки"
+                />
                 <div class="subscribe">
-                  <UiSwitch
-                    v-model="subscribeYearSelected"
-                    class="subscribe-switch"
-                    label="Подписка"
-                    off-label="Месяц"
-                    on-label="Год"
-                    :width="220"
-                    theme="light"
-                    without-text
-                    aria-label="Выбор срока подписки"
-                  />
-                  <div class="subscribe-price">
-                    <span class="subscribe-price-label">Стоимость</span>
-                    <span class="subscribe-price-value">{{ selectedSubscribePrice.price }}</span>
-                  </div>
+                  <span class="subscribe-price-value">{{ selectedSubscribePrice.price }}</span>
                   <ul class="subscribe-benefits">
                     <li v-for="benefit in subscriptionBenefits" :key="benefit">
                       <UiIcon class="subscribe-benefit-icon" :icon="iconCheckCircle" />
@@ -522,30 +518,12 @@ onBeforeUnmount(() => {
             gap: 16px;
             margin-bottom: 24px;
             width: 100%;
-            .subscribe-switch {
-              width: 100%;
-            }
-            .subscribe-price {
-              display: flex;
-              flex-direction: column;
-              gap: 6px;
-              padding: 16px;
-              border-radius: 20px;
-              background-color: $neutral-white;
-              .subscribe-price-label {
-                color: $neutral-500;
-                font-family: Hauora-Regular;
-                font-size: 14px;
-                line-height: 18px;
-                letter-spacing: -0.28px;
-              }
-              .subscribe-price-value {
-                color: $neutral-black;
-                font-family: Involve-Medium;
-                font-size: 32px;
-                line-height: 34px;
-                letter-spacing: -0.64px;
-              }
+            .subscribe-price-value {
+              color: $neutral-black;
+              font-family: Involve-Medium;
+              font-size: 32px;
+              line-height: 34px;
+              letter-spacing: -0.64px;
             }
             .subscribe-benefits {
               display: flex;
