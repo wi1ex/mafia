@@ -423,8 +423,8 @@ onBeforeUnmount(() => {
     position: relative;
     flex-direction: column;
     padding: 24px;
-    width: 594px;
-    height: 620px;
+    width: 570px;
+    height: 596px;
     border-radius: 24px;
     background-color: $neutral-100;
     box-shadow: 0 2px 16px 0 rgba($neutral-black, 0.20);
@@ -469,7 +469,6 @@ onBeforeUnmount(() => {
         flex: 0 0 50%;
         flex-direction: column;
         align-items: center;
-        margin-bottom: 10px;
         .header-title {
           max-width: 350px;
           text-align: center;
@@ -509,7 +508,7 @@ onBeforeUnmount(() => {
             display: none;
           }
           .subscribe-switch {
-            margin: 16px 0;
+            margin: 40px 0 16px;
           }
           .subscribe {
             display: flex;
@@ -576,9 +575,11 @@ onBeforeUnmount(() => {
             gap: 10px;
             .site-option {
               display: flex;
+              align-items: center;
+              justify-content: center;
               padding: 0 16px;
               gap: 8px;
-              width: 197px;
+              width: 200px;
               height: 64px;
               border-radius: 999px;
               border: none;
@@ -586,7 +587,7 @@ onBeforeUnmount(() => {
               text-decoration: none;
               outline: none;
               cursor: pointer;
-              transition: background-color 0.25s ease-in-out, color 0.25s ease-in-out;
+              transition: background-color 0.25s ease-in-out;
               .site-logo {
                 --ui-icon-width: 24px;
                 --ui-icon-height: 24px;
@@ -598,9 +599,10 @@ onBeforeUnmount(() => {
                 font-size: 18px;
                 line-height: 20px;
                 letter-spacing: -0.36px;
+                transition: color 0.25s ease-in-out;
               }
               &.btn-option {
-                width: 229px;
+                width: 232px;
                 background-color: $green-500;
               }
               &:not(:disabled):hover,
@@ -611,6 +613,9 @@ onBeforeUnmount(() => {
                 }
                 &.btn-option {
                   background-color: $green-300;
+                  .site-note {
+                    color: $neutral-black;
+                  }
                 }
               }
             }
