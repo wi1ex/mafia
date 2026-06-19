@@ -3,7 +3,7 @@
     <div v-if="open" class="auth-overlay" role="dialog" aria-modal="true" @pointerdown.self="armed = true"
          @pointerup.self="armed && close()" @pointerleave.self="armed = false" @pointercancel.self="armed = false">
       <div class="auth-logo">
-
+        <video class="auth-logo-video" :src="authLogoVideo" autoplay loop muted playsinline preload="auto" aria-hidden="true" />
       </div>
       <div class="auth-modal">
         <header>
@@ -70,12 +70,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useAuthStore, useSettingsStore } from '@/store'
 
 import UiInput from '@/components/UiInput.vue'
 import UiCheckbox from '@/components/UiCheckbox.vue'
 
+import authLogoVideo from '@/assets/video/auth-logo.mp4'
 import iconClose from '@/assets/svg/close.svg'
 
 const props = defineProps<{ open: boolean; mode?: 'login' | 'register' }>()
@@ -86,6 +87,7 @@ const settings = useSettingsStore()
 
 const botName = (import.meta.env.VITE_TG_BOT_NAME as string || '').trim()
 const botLink = botName ? `https://t.me/${botName}` : 'https://t.me'
+const AUTH_LOGO_VIDEO_PRELOAD_ID = 'auth-logo-video-preload'
 
 const canRegister = computed(() => Boolean(settings.registrationEnabled))
 const activeTab = ref<'login' | 'register'>(props.mode ?? 'login')
@@ -147,6 +149,18 @@ function hasPasswordWhitespace(value: string) {
   return PASSWORD_SPACE_RE.test(value)
 }
 
+function preloadAuthLogoVideo() {
+  if (document.getElementById(AUTH_LOGO_VIDEO_PRELOAD_ID)) return
+
+  const link = document.createElement('link')
+  link.id = AUTH_LOGO_VIDEO_PRELOAD_ID
+  link.rel = 'preload'
+  link.as = 'video'
+  link.type = 'video/mp4'
+  link.href = authLogoVideo
+  document.head.appendChild(link)
+}
+
 function close() {
   emit('update:open', false)
   armed.value = false
@@ -186,6 +200,10 @@ watch(() => props.mode, (mode) => {
 watch(() => props.open, (open) => {
   if (open && props.mode) activeTab.value = props.mode
 })
+
+onMounted(() => {
+  window.setTimeout(preloadAuthLogoVideo, 500)
+})
 </script>
 
 <style scoped lang="scss">
@@ -198,6 +216,23 @@ watch(() => props.open, (open) => {
   background-color: $black;
   backdrop-filter: blur(5px);
   z-index: 1000;
+  gap: 20px;
+  padding: 20px;
+  .auth-logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 220px;
+    aspect-ratio: 1;
+    overflow: hidden;
+    .auth-logo-video {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+  }
   .auth-modal {
     display: flex;
     flex-direction: column;
