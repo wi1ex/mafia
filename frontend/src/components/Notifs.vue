@@ -35,7 +35,10 @@
             </template>
           </div>
         </article>
-        <p v-if="notif.items.length === 0" class="empty">Нет уведомлений</p>
+        <div v-if="notif.items.length === 0" class="empty">
+          <img :src="iconNoNotifs" alt="nonotifs" />
+          <span>Уведомлений пока нет...</span>
+        </div>
       </div>
     </div>
   </Transition>
@@ -47,9 +50,11 @@ import { useNotifStore } from '@/store'
 import { formatLocalDateTime } from '@/services/datetime'
 import { parseNotificationText } from '@/services/notificationText'
 
-import iconClose from '@/assets/svg/iconClose.svg'
 import UiIcon from '@/components/UiIcon.vue'
+
+import iconClose from '@/assets/svg/iconClose.svg'
 import iconNotifBell from '@/assets/svg/iconNotifBell.svg'
+import iconNoNotifs from '@/assets/svg/iconNoNotifs.svg'
 
 const NOTIF_TIME_OPTIONS: Intl.DateTimeFormatOptions = {
   hour: '2-digit',
@@ -408,9 +413,24 @@ onBeforeUnmount(() => {
       transition: background-color 1s ease-in-out;
     }
     .empty {
-      color: $grey;
-      text-align: center;
-      margin: 55px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      height: 100%;
+      img {
+        width: 95px;
+        height: 100px;
+      }
+      span {
+        color: $neutral-500;
+        font-family: Hauora-Regular;
+        font-size: 14px;
+        line-height: 14px;
+        letter-spacing: -0.28px;
+      }
     }
   }
 }
