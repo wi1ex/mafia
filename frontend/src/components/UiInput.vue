@@ -103,7 +103,7 @@ function onInput(e: Event) {
     color: var(--ui-input-text);
     font-family: Hauora-Regular;
     font-size: 16px;
-    line-height: 16px;
+    line-height: 20px;
     letter-spacing: -0.32px;
     outline: none;
     transition: border-color 0.25s ease-in-out, color 0.25s ease-in-out;

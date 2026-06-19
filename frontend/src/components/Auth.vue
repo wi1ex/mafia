@@ -81,7 +81,10 @@
                 </div>
               </div>
               <div v-else key="login" class="auth-field-expand">
-                <button class="btn-ghost" type="button" @click="openBot">Забыли пароль? Восстановить</button>
+                <div class="forgot-password">
+                  <span>Забыли пароль?</span>
+                  <button class="btn-ghost" type="button" @click="openBot">Восстановить</button>
+                </div>
               </div>
             </Transition>
             <UiButton
@@ -369,7 +372,6 @@ onMounted(() => {
         gap: 16px;
         .auth-field-expand {
           display: grid;
-          justify-content: flex-end;
           > * {
             min-height: 0;
             overflow: hidden;
@@ -380,21 +382,33 @@ onMounted(() => {
           flex-direction: column;
           gap: 16px;
         }
+        .forgot-password {
+          display: flex;
+          justify-self: flex-end;
+          align-items: center;
+          gap: 4px;
+          color: $neutral-300;
+          font-family: Hauora-Regular;
+          font-size: 14px;
+          line-height: 18px;
+          letter-spacing: -0.28px;
+        }
         .auth-switch {
           margin-bottom: 16px;
         }
         .btn-ghost {
-          align-self: flex-end;
           padding: 0;
           border: none;
           background: none;
-          color: $neutral-300;
-          font-family: Hauora-Regular;
-          font-size: 14px;
-          line-height: 14px;
-          letter-spacing: -0.28px;
+          color: inherit;
+          font: inherit;
+          letter-spacing: inherit;
+          text-decoration-line: underline;
+          text-decoration-color: currentColor;
+          text-decoration-thickness: 1px;
+          text-underline-offset: 3px;
           cursor: pointer;
-          transition: color 0.25s ease-in-out;
+          transition: color 0.25s ease-in-out, text-decoration-color 0.25s ease-in-out;
           &:hover {
             color: $neutral-white;
           }
