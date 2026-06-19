@@ -62,6 +62,8 @@ const NOTIF_DATE_OPTIONS: Intl.DateTimeFormatOptions = {
   day: '2-digit',
 }
 const LOAD_MORE_SCROLL_OFFSET = 24
+const VISIBLE_NOTIF_RATIO = 0.5
+const VISIBLE_NOTIF_MAX_PX = 32
 
 const props = defineProps<{
   open: boolean
@@ -80,13 +82,19 @@ let ro: ResizeObserver | null = null
 let onScroll: ((e: Event) => void) | null = null
 let onDocDown: ((e: Event) => void) | null = null
 
+function isEnoughOfItemVisible(itemHeight: number, visibleHeight: number): boolean {
+  if (visibleHeight <= 0) return false
+  const requiredVisibleHeight = Math.min(itemHeight * VISIBLE_NOTIF_RATIO, VISIBLE_NOTIF_MAX_PX)
+  return visibleHeight >= requiredVisibleHeight
+}
+
 function attachObserver() {
   if (!list.value) return
   try { obs?.disconnect() } catch {}
   obs = new IntersectionObserver((entries) => {
     const ids: number[] = []
     for (const e of entries) {
-      if (!e.isIntersecting || e.intersectionRatio < 0.5) continue
+      if (!e.isIntersecting || !isEnoughOfItemVisible(e.boundingClientRect.height, e.intersectionRect.height)) continue
       const id = Number((e.target as HTMLElement).dataset.id)
       const it = notif.items.find(x => x.id === id)
       if (it && !it.read) ids.push(id)
@@ -95,7 +103,7 @@ function attachObserver() {
       void notif.markReadVisible(ids)
       flashJustRead(ids)
     }
-  }, { root: list.value, threshold: 0.5 })
+  }, { root: list.value, threshold: 0 })
   queueMicrotask(() => list.value?.querySelectorAll('.item').forEach(el => obs?.observe(el)))
 }
 
@@ -106,8 +114,7 @@ function markVisibleNow() {
   list.value.querySelectorAll<HTMLElement>('.item').forEach(el => {
     const r = el.getBoundingClientRect()
     const visible = Math.max(0, Math.min(box.bottom, r.bottom) - Math.max(box.top, r.top))
-    const ratio = visible / Math.max(1, r.height)
-    if (ratio >= 0.5) {
+    if (isEnoughOfItemVisible(r.height, visible)) {
       const id = Number(el.dataset.id)
       const it = notif.items.find(x => x.id === id)
       if (it && !it.read) ids.push(id)
