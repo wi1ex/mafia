@@ -67,6 +67,7 @@ function onChange(e: Event): void {
   flex-wrap: wrap;
   gap: 8px;
   min-width: 0;
+  width: fit-content;
   font-family: Hauora-Regular;
   font-size: 14px;
   line-height: 16px;

@@ -76,7 +76,7 @@
                     </template>
                   </UiInput>
                   <UiCheckbox v-model="reg.acceptRules" theme="light">
-                    <span>С <router-link to="/rules" target="_blank">правилами</router-link> ознакомлен и согласен</span>
+                    <span>С <router-link to="/rules" target="_blank">правилами платформы</router-link> ознакомлен и согласен</span>
                   </UiCheckbox>
                 </div>
               </div>
@@ -372,6 +372,7 @@ onMounted(() => {
         gap: 16px;
         .auth-field-expand {
           display: grid;
+          margin-top: -16px;
           > * {
             min-height: 0;
             overflow: hidden;
@@ -380,12 +381,14 @@ onMounted(() => {
         .auth-register-fields {
           display: flex;
           flex-direction: column;
+          padding-top: 16px;
           gap: 16px;
         }
         .forgot-password {
           display: flex;
           justify-self: flex-end;
           align-items: center;
+          margin-top: 16px;
           gap: 4px;
           color: $neutral-300;
           font-family: Hauora-Regular;
