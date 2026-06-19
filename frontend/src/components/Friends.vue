@@ -444,7 +444,7 @@ onBeforeUnmount(() => {
   right: 0;
   top: 72px;
   padding: 16px;
-  width: 448px;
+  width: 472px;
   min-height: 408px;
   max-height: 608px;
   border-radius: 24px;
@@ -463,7 +463,7 @@ onBeforeUnmount(() => {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0 8px 16px;
+    padding: 0 12px 16px;
     .title {
       color: $neutral-black;
       font-family: Hauora-Bold;
@@ -517,7 +517,7 @@ onBeforeUnmount(() => {
     }
     .section-title {
       margin-bottom: 4px;
-      padding: 0 8px;
+      padding: 0 12px;
       color: $neutral-500;
       font-family: Hauora-Regular;
       font-size: 16px;
@@ -529,6 +529,8 @@ onBeforeUnmount(() => {
       display: grid;
       grid-template-columns: 1fr auto auto;
       align-items: center;
+      margin-left: 8px;
+      margin-right: 8px;
       margin-bottom: 8px;
       padding: 16px;
       gap: 16px;
