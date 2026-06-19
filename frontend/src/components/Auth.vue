@@ -11,7 +11,7 @@
         </button>
 
         <div class="auth-body">
-          <span class="title">Добро пожаловать на платформу deceit.games!</span>
+          <span class="title">Добро пожаловать<br />на платформу deceit.games!</span>
 
           <UiSwitch
             v-if="canRegister"
@@ -75,7 +75,7 @@
                       <span id="auth-reg-password-confirm-hint">{{ reg.passwordConfirm.length }}/{{ PASSWORD_MAX }}</span>
                     </template>
                   </UiInput>
-                  <UiCheckbox v-model="reg.acceptRules">
+                  <UiCheckbox v-model="reg.acceptRules" theme="light">
                     <span>С <router-link to="/rules" target="_blank">правилами</router-link> ознакомлен и согласен</span>
                   </UiCheckbox>
                 </div>

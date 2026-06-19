@@ -1,5 +1,5 @@
 <template>
-  <div class="ui-checkbox">
+  <div class="ui-checkbox" :class="`ui-checkbox--${checkboxTheme}`">
     <input
       class="ui-checkbox__input"
       :class="{ 'ui-checkbox__input--radio': radioStyle }"
@@ -22,6 +22,7 @@
 import { computed } from 'vue'
 
 let checkboxUid = 0
+type CheckboxTheme = 'dark' | 'light'
 
 const props = withDefaults(defineProps<{
   modelValue: boolean
@@ -33,6 +34,7 @@ const props = withDefaults(defineProps<{
   inputType?: 'checkbox' | 'radio'
   radioStyle?: boolean
   disabled?: boolean
+  theme?: CheckboxTheme
 }>(), {
   id: '',
   name: '',
@@ -42,6 +44,7 @@ const props = withDefaults(defineProps<{
   inputType: 'checkbox',
   radioStyle: false,
   disabled: false,
+  theme: 'dark',
 })
 
 const emit = defineEmits<{
@@ -50,6 +53,7 @@ const emit = defineEmits<{
 
 const fallbackId = `ui-checkbox-${++checkboxUid}`
 const checkboxId = computed(() => props.id || fallbackId)
+const checkboxTheme = computed<CheckboxTheme>(() => props.theme === 'light' ? 'light' : 'dark')
 
 function onChange(e: Event): void {
   emit('update:modelValue', Boolean((e.target as HTMLInputElement).checked))
@@ -63,18 +67,30 @@ function onChange(e: Event): void {
   flex-wrap: wrap;
   gap: 8px;
   min-width: 0;
-  color: $neutral-500;
   font-family: Hauora-Regular;
   font-size: 14px;
   line-height: 16px;
   letter-spacing: -0.28px;
   transition: color 0.25s ease-in-out;
+  --ui-checkbox-color: #{$neutral-500};
+  --ui-checkbox-hover-color: #{$neutral-black};
+  --ui-checkbox-checked-color: #{$neutral-black};
+  --ui-checkbox-border-color: #{$neutral-700};
+  --ui-checkbox-hover-border-color: #{$neutral-black};
+  &--light {
+    --ui-checkbox-color: #{$neutral-300};
+    --ui-checkbox-hover-color: #{$neutral-white};
+    --ui-checkbox-checked-color: #{$neutral-white};
+    --ui-checkbox-border-color: #{$neutral-300};
+    --ui-checkbox-hover-border-color: #{$neutral-white};
+  }
+  color: var(--ui-checkbox-color);
   &__input {
     flex: 0 0 auto;
     width: 20px;
     height: 20px;
     margin: 0;
-    border: 1px solid $neutral-700;
+    border: 1px solid var(--ui-checkbox-border-color);
     border-radius: 4px;
     background-color: transparent;
     cursor: pointer;
@@ -133,12 +149,12 @@ function onChange(e: Event): void {
     }
   }
   &:has(.ui-checkbox__input:checked) {
-    color: $neutral-black;
+    color: var(--ui-checkbox-checked-color);
   }
   &:has(.ui-checkbox__input:not(:checked):not(:disabled)):hover {
-    color: $neutral-black;
+    color: var(--ui-checkbox-hover-color);
     .ui-checkbox__input {
-      border-color: $neutral-black;
+      border-color: var(--ui-checkbox-hover-border-color);
     }
   }
   &:has(.ui-checkbox__input:disabled) {
