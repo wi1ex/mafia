@@ -14,7 +14,7 @@
           <span class="title">Вход в аккаунт</span>
 
           <div v-if="canRegister" class="tabs" role="tablist">
-            <button class="tab" :class="{ active: activeTab === 'login' }" type="button" role="tab" @click="activeTab = 'login'">Авторизация</button>
+            <button class="tab" :class="{ active: activeTab === 'login' }" type="button" role="tab" @click="activeTab = 'login'">Вход</button>
             <button class="tab" :class="{ active: activeTab === 'register' }" type="button" role="tab" @click="activeTab = 'register'">Регистрация</button>
           </div>
 
@@ -77,8 +77,7 @@ import UiInput from '@/components/UiInput.vue'
 import UiCheckbox from '@/components/UiCheckbox.vue'
 
 import authLogoVideo from '@/assets/video/auth-logo.mp4'
-import iconClose from '@/assets/svg/close.svg'
-import iconArrowDown from '@/assets/svg/iconArrowDown.svg'
+import iconClose from '@/assets/svg/iconClose.svg'
 
 const props = defineProps<{ open: boolean; mode?: 'login' | 'register' }>()
 const emit = defineEmits<{ (e: 'update:open', value: boolean): void }>()
@@ -235,8 +234,9 @@ onMounted(() => {
     justify-content: center;
     width: 50%;
     overflow: hidden;
-    .close-btn {
+    .btn-close {
       display: flex;
+      position: absolute;
       align-items: center;
       justify-content: center;
       top: 0;
@@ -248,7 +248,6 @@ onMounted(() => {
       border-radius: 12px;
       background: linear-gradient(261deg, $soft-purple-800 0%, $green-700 100%);
       cursor: pointer;
-      position: relative;
       overflow: hidden;
       isolation: isolate;
       &::after {
