@@ -2,6 +2,9 @@
   <Transition name="auth-modal">
     <div v-if="open" class="auth-overlay" role="dialog" aria-modal="true" @pointerdown.self="armed = true"
          @pointerup.self="armed && close()" @pointerleave.self="armed = false" @pointercancel.self="armed = false">
+      <div class="auth-logo">
+
+      </div>
       <div class="auth-modal">
         <header>
           <span>Вход в аккаунт</span>
@@ -192,7 +195,7 @@ watch(() => props.open, (open) => {
   align-items: center;
   justify-content: center;
   inset: 0;
-  background-color: rgba($black, 0.25);
+  background-color: $black;
   backdrop-filter: blur(5px);
   z-index: 1000;
   .auth-modal {
@@ -201,8 +204,6 @@ watch(() => props.open, (open) => {
     width: 400px;
     border-radius: 5px;
     background-color: $dark;
-    transform: translateY(0);
-    transition: transform 0.25s ease-in-out;
     header {
       display: flex;
       justify-content: space-between;
@@ -329,10 +330,6 @@ watch(() => props.open, (open) => {
 .auth-modal-enter-from,
 .auth-modal-leave-to {
   opacity: 0;
-}
-.auth-modal-enter-from .auth-modal,
-.auth-modal-leave-to .auth-modal {
-  transform: translateY(-30px);
 }
 
 </style>

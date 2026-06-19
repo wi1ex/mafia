@@ -54,7 +54,7 @@
     </div>
 
     <button v-if="!auth.isAuthed && !auth.foreignActive" class="profile-no-btn" type="button" @click="openAuth('login')">
-      <span>Вход/Регистрация</span>
+      <span>Вход / Регистрация</span>
     </button>
     <div v-else-if="!auth.isAuthed && auth.foreignActive" class="profile-no-btn">
       <span>Вы авторизованы в другой вкладке</span>
