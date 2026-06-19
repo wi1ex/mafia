@@ -11,7 +11,7 @@
       <div class="list">
         <template v-for="section in sections" :key="section.kind">
           <div v-if="section.items.length > 0" class="section-title">
-            <span>{{ section.title }}{{ section.items.length }}</span>
+            <span>{{ section.title }} {{ section.items.length }}</span>
           </div>
           <article v-for="f in section.items" :key="`${f.kind}-${f.id}`" class="item" :class="{ 'has-theme-color': hasFriendThemeColor(f) }" :style="friendNickStyle(f)">
             <button v-if="canOpenMiniProfile(f)" class="left profile-trigger" type="button" @click="openMiniProfile(f)">
@@ -36,27 +36,27 @@
                 </div>
                 <div v-if="shouldShowInviteButton(f)" class="invite-select">
                   <button type="button" class="icon-btn invite-btn" :disabled="isInviteDisabled(f) || Boolean(inviteBusy[f.id])" :title="inviteDisabledReason(f)" @click="invite(f)" aria-label="Пригласить в комнату">
-                    <img :src="inviteIcon(f)" alt="" />
+                    <UiIcon class="invite-icon" :icon="inviteIcon(f)" />
                   </button>
                 </div>
               </template>
             </div>
             <div v-if="f.kind === 'incoming'" class="actions">
               <button class="icon-btn accept" :disabled="isActionBusy(f.id)" @click="accept(f.id)" aria-label="Принять заявку">
-                <img :src="iconAccept" alt="" />
+                <UiIcon class="active-icon" :icon="iconAccept" />
               </button>
               <button class="icon-btn danger" :disabled="isActionBusy(f.id)" @click="decline(f.id)" aria-label="Отклонить заявку">
-                <img :src="iconClose" alt="" />
+                <UiIcon class="active-icon" :icon="iconClose" />
               </button>
             </div>
             <div v-else-if="f.kind === 'outgoing'" class="actions">
               <button class="icon-btn danger" :disabled="isActionBusy(f.id)" @click="cancelOutgoing(f.id, f.username)" aria-label="Отменить заявку">
-                <img :src="iconClose" alt="" />
+                <UiIcon class="active-icon" :icon="iconClose" />
               </button>
             </div>
             <div v-else-if="isAccepted(f)" class="actions">
               <button class="icon-btn danger" :disabled="isActionBusy(f.id)" @click="remove(f.id)" aria-label="Удалить из друзей">
-                <img :src="iconRemove" alt="" />
+                <UiIcon class="active-icon" :icon="iconRemove" />
               </button>
             </div>
           </article>
@@ -96,10 +96,10 @@ import MiniProfile from '@/components/MiniProfile.vue'
 import UiIcon from '@/components/UiIcon.vue'
 
 import iconClose from '@/assets/svg/iconClose.svg'
-import iconAccept from '@/assets/svg/readyBlack.svg'
-import iconRemove from '@/assets/svg/delete.svg'
-import iconInviteOnline from '@/assets/svg/notifBell.svg'
-import iconInviteOffline from '@/assets/svg/telegram.svg'
+import iconAccept from '@/assets/svg/iconCheckMark.svg'
+import iconRemove from '@/assets/svg/iconDelete.svg'
+import iconInviteOnline from '@/assets/svg/iconNotifBell.svg'
+import iconInviteOffline from '@/assets/svg/iconTelegram.svg'
 import iconDefaultAvatarBlack from '@/assets/svg/iconDefaultAvatarBlack.svg'
 import iconNoFriendsNotifs from '@/assets/svg/iconNoFriendsNotifs.svg'
 
@@ -598,21 +598,27 @@ onBeforeUnmount(() => {
             padding: 0;
             width: 28px;
             height: 28px;
-            border: none;
-            border-radius: 5px;
-            background-color: $dark;
+            border-radius: 8px;
+            border: 1px solid $neutral-black;
+            background-color: $soft-purple-100;
             cursor: pointer;
-            transition: background-color 0.25s ease-in-out;
-            &:hover:enabled {
-              background-color: $graphite;
+            transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out;
+            .invite-icon {
+              --ui-icon-width: 24px;
+              --ui-icon-height: 24px;
+              --ui-icon-color: #{$neutral-black};
             }
             &:disabled {
-              opacity: 0.5;
-              cursor: not-allowed;
+              background-color: $neutral-200;
+              border-color: $neutral-200;
+              .action-icon {
+                --ui-icon-color: #{$neutral-400};
+              }
             }
-            img {
-              width: 16px;
-              height: 16px;
+            &:not(:disabled):hover,
+            &:not(:disabled):focus-visible,
+            &:not(:disabled):active {
+              border-color: $neutral-black;
             }
           }
         }
@@ -629,31 +635,45 @@ onBeforeUnmount(() => {
           padding: 0;
           width: 28px;
           height: 28px;
-          border: none;
-          border-radius: 5px;
+          border-radius: 8px;
+          border: 1px solid $neutral-black;
           cursor: pointer;
-          transition: background-color 0.25s ease-in-out;
-          &:disabled {
-            opacity: 0.5;
-            cursor: default;
+          transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out;
+          .action-icon {
+            --ui-icon-width: 24px;
+            --ui-icon-height: 24px;
+            --ui-icon-color: #{$neutral-black};
           }
-          img {
-            width: 16px;
-            height: 16px;
+          &:disabled {
+            background-color: $neutral-200;
+            border-color: $neutral-200;
+            .action-icon {
+              --ui-icon-color: #{$neutral-400};
+            }
           }
         }
         .accept {
-          background-color: rgba($green, 0.75);
-          color: $bg;
-          &:hover {
-            background-color: $green;
+          background-color: $green-100;
+          border-color: $green-100;
+          .action-icon {
+            --ui-icon-color: #{$green-600};
+          }
+          &:not(:disabled):hover,
+          &:not(:disabled):focus-visible,
+          &:not(:disabled):active {
+            border-color: $green-600;
           }
         }
         .danger {
-          background-color: rgba($red, 0.75);
-          color: $fg;
-          &:hover {
-            background-color: $red;
+          background-color: $red-100;
+          border-color: $red-100;
+          .action-icon {
+            --ui-icon-color: #{$red-600};
+          }
+          &:not(:disabled):hover,
+          &:not(:disabled):focus-visible,
+          &:not(:disabled):active {
+            border-color: $red-600;
           }
         }
       }
