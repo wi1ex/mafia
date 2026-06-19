@@ -15,14 +15,14 @@
           </div>
           <article v-for="f in section.items" :key="`${f.kind}-${f.id}`" class="item" :class="{ 'has-theme-color': hasFriendThemeColor(f) }" :style="friendNickStyle(f)">
             <button v-if="canOpenMiniProfile(f)" class="left profile-trigger" type="button" @click="openMiniProfile(f)">
-              <img v-minio-img="{ key: f.avatar_name ? `avatars/${f.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="avatar" />
+              <img v-minio-img="{ key: f.avatar_name ? `avatars/${f.avatar_name}` : '', placeholder: iconDefaultAvatarBlack, lazy: false, animated: true }" alt="avatar" />
               <div v-if="friendThemeIconSrcs(f).length" class="profile-theme-icons" aria-hidden="true">
                 <img v-for="badgeSrc in friendThemeIconSrcs(f)" :key="`${f.id}-${badgeSrc}`" class="profile-theme-icon" :src="badgeSrc" alt="" />
               </div>
               <span class="nick">{{ f.username || ('user' + f.id) }}</span>
             </button>
             <div v-else class="left profile-trigger">
-              <img v-minio-img="{ key: f.avatar_name ? `avatars/${f.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="avatar" />
+              <img v-minio-img="{ key: f.avatar_name ? `avatars/${f.avatar_name}` : '', placeholder: iconDefaultAvatarBlack, lazy: false, animated: true }" alt="avatar" />
               <div v-if="friendThemeIconSrcs(f).length" class="profile-theme-icons" aria-hidden="true">
                 <img v-for="badgeSrc in friendThemeIconSrcs(f)" :key="`${f.id}-${badgeSrc}`" class="profile-theme-icon" :src="badgeSrc" alt="" />
               </div>
@@ -100,7 +100,7 @@ import iconAccept from '@/assets/svg/readyBlack.svg'
 import iconRemove from '@/assets/svg/delete.svg'
 import iconInviteOnline from '@/assets/svg/notifBell.svg'
 import iconInviteOffline from '@/assets/svg/telegram.svg'
-import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
+import iconDefaultAvatarBlack from '@/assets/svg/iconDefaultAvatarBlack.svg'
 import iconNoFriendsNotifs from '@/assets/svg/iconNoFriendsNotifs.svg'
 
 const props = defineProps<{
@@ -507,10 +507,9 @@ onBeforeUnmount(() => {
       align-items: center;
       margin-bottom: 8px;
       padding: 16px;
-      gap: 8px;
+      gap: 16px;
       border-radius: 20px;
       background-color: $neutral-white;
-      box-shadow: 0 3px 5px rgba($black, 0.25);
       &:has(+ .item) {
         margin-bottom: 0;
       }
@@ -524,9 +523,10 @@ onBeforeUnmount(() => {
       .left {
         display: flex;
         align-items: center;
-        min-width: 0;
         padding: 0;
-        gap: 3px;
+        gap: 8px;
+        min-width: 0;
+        width: fit-content;
         border: none;
         background: none;
         cursor: default;
@@ -534,25 +534,26 @@ onBeforeUnmount(() => {
           cursor: pointer;
         }
         img {
-          width: 24px;
-          height: 24px;
+          width: 28px;
+          height: 28px;
           border-radius: 50%;
-        }
-        .profile-theme-icon {
-          border-radius: 0;
-          object-fit: contain;
         }
         .profile-theme-icons {
           display: inline-flex;
           align-items: center;
-          gap: 3px;
-          flex: 0 0 auto;
+          margin-left: -8px;
+          .profile-theme-icon {
+            border-radius: 0;
+            object-fit: contain;
+          }
         }
         .nick {
+          max-width: 162px;
           color: $neutral-black;
+          font-family: Hauora-Regular;
           font-size: 16px;
-          line-height: 1.5;
-          font-family: Manrope-Medium;
+          line-height: 20px;
+          letter-spacing: -0.32px;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
