@@ -14,8 +14,11 @@
       <div class="list" ref="list">
         <article class="item" v-for="it in notif.items" :key="it.id" :data-id="it.id">
           <div class="item-header">
-            <span>{{ it.title }}</span>
-            <time>{{ formatLocalDateTime(it.date, NOTIF_DATE_OPTIONS) }}</time>
+            <div class="item-title">
+              <UiIcon class="bell-icon" :icon="iconNotifBell" />
+              <span class="bell-title">{{ it.title }}</span>
+            </div>
+            <time class="bell-time">{{ formatLocalDateTime(it.date, NOTIF_DATE_OPTIONS) }}</time>
           </div>
           <div v-if="it.text" class="text">
             <template v-for="(block, blockIndex) in parseNotificationText(it.text)" :key="`${it.id}-${block.type}-${blockIndex}`">
@@ -49,6 +52,7 @@ import { parseNotificationText } from '@/services/notificationText'
 
 import iconClose from '@/assets/svg/iconClose.svg'
 import UiIcon from '@/components/UiIcon.vue'
+import iconNotifBell from '@/assets/svg/iconNotifBell.svg'
 
 const NOTIF_DATE_OPTIONS: Intl.DateTimeFormatOptions = {
   year: 'numeric',
@@ -307,13 +311,21 @@ onBeforeUnmount(() => {
         align-items: flex-start;
         justify-content: space-between;
         width: 100%;
-        span {
-          margin: 0;
-          max-width: 240px;
-          font-size: 18px;
-          font-weight: bold;
+        .item-title {
+          display: flex;
+          .bell-icon {
+            --ui-icon-width: 20px;
+            --ui-icon-height: 20px;
+            --ui-icon-color: #{$neutral-400};
+          }
+          .bell-title {
+            margin: 0;
+            max-width: 240px;
+            font-size: 18px;
+            font-weight: bold;
+          }
         }
-        time {
+        .bell-time {
           margin-top: 3px;
           color: $grey;
           font-size: 12px;
@@ -344,12 +356,12 @@ onBeforeUnmount(() => {
         }
       }
     }
-    .item.just-read {
-      background-color: rgba($red, 0.25);
+    .item.just-read .bell-icon {
+      --ui-icon-color: #{$red-600};
     }
-    .item.just-read.fade-just-read {
-      background-color: $lead;
-      transition: background-color 1s ease-in-out;
+
+    .item.just-read.fade-just-read .bell-icon {
+      --ui-icon-color: #{$neutral-400};
     }
     .load-more {
       margin-top: 5px;
