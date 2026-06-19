@@ -420,19 +420,17 @@ onMounted(() => {
 .auth-field-expand-enter-active,
 .auth-field-expand-leave-active {
   overflow: hidden;
-  transition: grid-template-rows 0.25s ease-in-out, opacity 0.2s ease-in-out, transform 0.25s ease-in-out;
+  transition: grid-template-rows 0.25s ease-in-out, opacity 0.25s ease-in-out;
 }
 .auth-field-expand-enter-from,
 .auth-field-expand-leave-to {
   grid-template-rows: 0fr;
   opacity: 0;
-  transform: translateY(-10px);
 }
 .auth-field-expand-enter-to,
 .auth-field-expand-leave-from {
   grid-template-rows: 1fr;
   opacity: 1;
-  transform: translateY(0);
 }
 
 </style>
