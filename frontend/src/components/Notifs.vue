@@ -293,22 +293,17 @@ onBeforeUnmount(() => {
   .list {
     display: flex;
     flex-direction: column;
-    padding: 10px;
-    gap: 10px;
+    gap: 16px;
     overflow-y: auto;
     scrollbar-width: none;
     .item {
       display: flex;
       flex-direction: column;
-      align-items: center;
-      padding: 10px;
-      gap: 15px;
-      border-radius: 5px;
-      background-color: $lead;
-      box-shadow: 0 3px 5px rgba($black, 0.25);
+      padding: 16px 8px;
+      gap: 8px;
       .item-header {
         display: flex;
-        align-items: flex-start;
+        align-items: center;
         justify-content: space-between;
         width: 100%;
         .item-title {
@@ -319,23 +314,30 @@ onBeforeUnmount(() => {
             --ui-icon-color: #{$neutral-400};
           }
           .bell-title {
-            margin: 0;
             max-width: 240px;
-            font-size: 18px;
-            font-weight: bold;
+            color: $neutral-black;
+            font-family: Hauora-Bold;
+            font-size: 16px;
+            line-height: 18px;
+            letter-spacing: -0.32px;
           }
         }
         .bell-time {
-          margin-top: 3px;
-          color: $grey;
-          font-size: 12px;
+          color: $neutral-500;
+          font-family: Hauora-Regular;
+          font-size: 14px;
+          line-height: 14px;
+          letter-spacing: -0.28px;
         }
       }
       .text {
-        margin: 0;
+        margin-left: 28px;
         width: 100%;
-        color: $fg;
-        line-height: 1.35;
+        color: $neutral-900;
+        font-family: Hauora-Regular;
+        font-size: 16px;
+        line-height: 22px;
+        letter-spacing: -0.32px;
         overflow-wrap: anywhere;
         word-break: break-word;
         .notification-text-paragraph,
@@ -356,12 +358,13 @@ onBeforeUnmount(() => {
         }
       }
     }
-    .item.just-read .bell-icon {
+    .item.just-read .item-header .item-title .bell-icon {
       --ui-icon-color: #{$red-600};
     }
 
-    .item.just-read.fade-just-read .bell-icon {
+    .item.just-read.fade-just-read .item-header .item-title .bell-icon {
       --ui-icon-color: #{$neutral-400};
+      transition: background-color 1s ease-in-out;
     }
     .load-more {
       margin-top: 5px;
