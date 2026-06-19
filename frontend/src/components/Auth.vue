@@ -11,7 +11,7 @@
         </button>
 
         <div class="auth-body">
-          <span class="title">Вход в аккаунт</span>
+          <span class="title">Добро пожаловать на платформу deceit.games!</span>
 
           <UiSwitch
             v-if="canRegister"
@@ -38,10 +38,13 @@
                 <span id="auth-login-password-hint">{{ login.password.length }}/{{ PASSWORD_MAX }}</span>
               </template>
             </UiInput>
-            <button class="btn confirm" type="submit" :disabled="loginBusy || auth.loginCooldownActive || !canLogin">
-              {{ loginBusy ? '...' : 'Войти в аккаунт' }}
-            </button>
             <button class="btn ghost" type="button" @click="openBot">Сбросить пароль</button>
+            <UiButton
+              type="submit"
+              size="middle"
+              :text="loginBusy ? '...' : 'Войти в аккаунт'"
+              :disabled="loginBusy || auth.loginCooldownActive || !canLogin"
+            />
           </form>
 
           <form v-else class="form" @submit.prevent="submitRegister">
@@ -66,9 +69,12 @@
             <UiCheckbox v-model="reg.acceptRules">
               <span>С <router-link to="/rules" target="_blank">правилами</router-link> ознакомлен и согласен</span>
             </UiCheckbox>
-            <button class="btn confirm" type="submit" :disabled="regBusy || auth.registerCooldownActive || !canRegisterSubmit">
-              {{ regBusy ? '...' : 'Зарегистрироваться' }}
-            </button>
+            <UiButton
+              type="submit"
+              size="middle"
+              :text="regBusy ? '...' : 'Зарегистрироваться'"
+              :disabled="regBusy || auth.registerCooldownActive || !canRegisterSubmit"
+            />
           </form>
         </div>
       </div>
@@ -83,6 +89,7 @@ import { useAuthStore, useSettingsStore } from '@/store'
 import UiInput from '@/components/UiInput.vue'
 import UiCheckbox from '@/components/UiCheckbox.vue'
 import UiSwitch from '@/components/UiSwitch.vue'
+import UiButton from '@/components/UiButton.vue'
 
 import authLogoVideo from '@/assets/video/auth-logo.mp4'
 import iconClose from '@/assets/svg/iconClose.svg'
@@ -315,26 +322,6 @@ onMounted(() => {
         border-right: 3px solid $lead;
         border-bottom: 3px solid $lead;
         border-radius: 0 0 5px 5px;
-      }
-      .btn.confirm {
-        padding: 0;
-        height: 40px;
-        border: none;
-        border-radius: 5px;
-        background-color: $fg;
-        color: $bg;
-        font-size: 18px;
-        font-family: Manrope-Medium;
-        line-height: 1;
-        cursor: pointer;
-        transition: opacity 0.25s ease-in-out, background-color 0.25s ease-in-out;
-        &:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-        &:hover {
-          background-color: $white;
-        }
       }
       .btn.ghost {
         padding: 0;
