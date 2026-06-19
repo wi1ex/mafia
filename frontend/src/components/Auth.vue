@@ -111,6 +111,8 @@ import UiButton from '@/components/UiButton.vue'
 
 import authLogoVideo from '@/assets/video/auth-logo.mp4'
 import iconClose from '@/assets/svg/iconClose.svg'
+import iconVisOn from '@/assets/svg/iconVisOn.svg'
+import iconVisOff from '@/assets/svg/iconVisOff.svg'
 
 const props = defineProps<{ open: boolean; mode?: 'login' | 'register' }>()
 const emit = defineEmits<{ (e: 'update:open', value: boolean): void }>()
