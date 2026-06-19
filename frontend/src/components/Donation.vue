@@ -3,7 +3,7 @@
     <Transition name="support-site-overlay">
       <div v-if="open" class="support-site-overlay" @pointerdown.self="armed = true" @pointerup.self="armed && requestClose()" @pointerleave.self="armed = false" @pointercancel.self="armed = false">
         <div class="support-site-modal" role="dialog" aria-modal="true">
-          <button class="btn-close" type="button" aria-label="Закрыть" @click="requestClose">
+          <button class="close-btn" type="button" aria-label="Закрыть" @click="requestClose">
             <UiIcon class="close-icon" :icon="iconClose" />
           </button>
           <header>
@@ -481,7 +481,7 @@ onBeforeUnmount(() => {
     background-color: $neutral-100;
     box-shadow: 0 2px 16px 0 rgba($neutral-black, 0.20);
     overflow: hidden;
-    .btn-close {
+    .close-btn {
       position: absolute;
       top: 24px;
       right: 24px;

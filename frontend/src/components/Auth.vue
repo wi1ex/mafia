@@ -414,7 +414,9 @@ onMounted(() => {
           text-underline-offset: 3px;
           cursor: pointer;
           transition: color 0.25s ease-in-out, text-decoration-color 0.25s ease-in-out;
-          &:hover {
+          &:hover,
+          &:focus-visible,
+          &:active {
             color: $neutral-white;
           }
         }

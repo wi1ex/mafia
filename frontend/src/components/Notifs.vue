@@ -2,11 +2,13 @@
   <Transition name="panel" @after-leave="onAfterLeave">
     <div v-show="open" class="panel" ref="root" @click.stop>
       <header>
-        <span>Уведомления</span>
-        <button v-if="notif.unread > 0" class="markall" @click="notif.markAll()">Отметить всё прочитанным</button>
-        <button @click="$emit('update:open', false)" aria-label="Закрыть">
-          <img :src="iconClose" alt="close" />
-        </button>
+        <span class="title">Уведомления</span>
+        <div class="buttons">
+          <button v-if="notif.unread > 0" class="markall" @click="notif.markAll()">Прочитать все</button>
+          <button class="close-btn" type="button" aria-label="Закрыть" @click="$emit('update:open', false)">
+            <UiIcon class="close-icon" :icon="iconClose" />
+          </button>
+        </div>
       </header>
 
       <div class="list" ref="list">
@@ -45,7 +47,8 @@ import { useNotifStore } from '@/store'
 import { formatLocalDateTime } from '@/services/datetime'
 import { parseNotificationText } from '@/services/notificationText'
 
-import iconClose from '@/assets/svg/close.svg'
+import iconClose from '@/assets/svg/iconClose.svg'
+import UiIcon from '@/components/UiIcon.vue'
 
 const NOTIF_DATE_OPTIONS: Intl.DateTimeFormatOptions = {
   year: 'numeric',
@@ -215,51 +218,72 @@ onBeforeUnmount(() => {
   position: absolute;
   flex-direction: column;
   right: 0;
-  top: 50px;
-  width: 400px;
-  min-height: 200px;
-  max-height: 600px;
-  border-radius: 5px;
-  background-color: $graphite;
-  box-shadow: 3px 3px 5px rgba($black, 0.25);
+  top: 72px;
+  padding: 16px;
+  width: 448px;
+  min-height: 408px;
+  max-height: 608px;
+  border-radius: 24px;
+  background-color: $neutral-100;
+  box-shadow: 0 0 16px 0 rgba($neutral-black, 0.16);
   z-index: 100;
   header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 5px 10px;
-    border-radius: 5px;
-    background-color: $lead;
-    box-shadow: 0 3px 5px rgba($black, 0.25);
-    span {
+    padding: 0 8px 16px;
+    .title {
+      color: $neutral-black;
+      font-family: Hauora-Bold;
       font-size: 18px;
-      font-weight: bold;
+      line-height: 20px;
+      letter-spacing: -0.36px;
     }
-    button {
+    .buttons {
       display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0;
-      width: 25px;
-      height: 30px;
-      border: none;
-      background: none;
-      cursor: pointer;
-      img {
-        width: 25px;
-        height: 25px;
+      gap: 24px;
+      .markall {
+        padding: 0;
+        border: none;
+        background: none;
+        color: $neutral-700;
+        font-family: Hauora-Regular;
+        font-size: 14px;
+        line-height: 14px;
+        letter-spacing: -0.28px;
+        text-decoration-line: underline;
+        text-decoration-color: $neutral-700;
+        text-decoration-thickness: 1px;
+        text-underline-offset: 3px;
+        cursor: pointer;
+        transition: color 0.25s ease-in-out, text-decoration-color 0.25s ease-in-out;
+        &:hover,
+        &:focus-visible,
+        &:active {
+          color: $neutral-black;
+          text-decoration-color: $neutral-black;
+        }
       }
-    }
-    .markall {
-      padding: 0 10px;
-      width: fit-content;
-      height: 25px;
-      border-radius: 5px;
-      background-color: $fg;
-      color: $bg;
-      font-size: 12px;
-      font-family: Manrope-Medium;
-      line-height: 1;
+      .close-btn {
+        padding: 0;
+        width: 24px;
+        height: 24px;
+        border: none;
+        background: none;
+        cursor: pointer;
+        .close-icon {
+          --ui-icon-width: 24px;
+          --ui-icon-height: 24px;
+          --ui-icon-color: #{$neutral-black};
+        }
+        &:hover,
+        &:focus-visible,
+        &:active {
+          .close-icon {
+            --ui-icon-color: #{$green-500};
+          }
+        }
+      }
     }
   }
   .list {
