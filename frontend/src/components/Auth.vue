@@ -57,30 +57,34 @@
               </template>
             </UiInput>
             <Transition name="auth-field-expand">
-              <div v-if="isRegisterMode" class="auth-register-fields">
-                <UiInput
-                  id="auth-reg-password-confirm"
-                  v-model="reg.passwordConfirm"
-                  type="password"
-                  autocomplete="new-password"
-                  minlength="8"
-                  maxlength="32"
-                  label="Повторите пароль"
-                  :invalid="regPasswordConfirmInvalid"
-                  :aria-invalid="regPasswordConfirmInvalid"
-                  aria-describedby="auth-reg-password-confirm-hint"
-                >
-                  <template #meta>
-                    <span id="auth-reg-password-confirm-hint">{{ reg.passwordConfirm.length }}/{{ PASSWORD_MAX }}</span>
-                  </template>
-                </UiInput>
-                <UiCheckbox v-model="reg.acceptRules">
-                  <span>С <router-link to="/rules" target="_blank">правилами</router-link> ознакомлен и согласен</span>
-                </UiCheckbox>
+              <div v-if="isRegisterMode" class="auth-field-expand">
+                <div class="auth-register-fields">
+                  <UiInput
+                    id="auth-reg-password-confirm"
+                    v-model="reg.passwordConfirm"
+                    type="password"
+                    autocomplete="new-password"
+                    minlength="8"
+                    maxlength="32"
+                    label="Повторите пароль"
+                    :invalid="regPasswordConfirmInvalid"
+                    :aria-invalid="regPasswordConfirmInvalid"
+                    aria-describedby="auth-reg-password-confirm-hint"
+                  >
+                    <template #meta>
+                      <span id="auth-reg-password-confirm-hint">{{ reg.passwordConfirm.length }}/{{ PASSWORD_MAX }}</span>
+                    </template>
+                  </UiInput>
+                  <UiCheckbox v-model="reg.acceptRules">
+                    <span>С <router-link to="/rules" target="_blank">правилами</router-link> ознакомлен и согласен</span>
+                  </UiCheckbox>
+                </div>
               </div>
             </Transition>
             <Transition name="auth-field-expand">
-              <button v-if="!isRegisterMode" class="btn-ghost" type="button" @click="openBot">Забыли пароль? Восстановить</button>
+              <div v-if="!isRegisterMode" class="auth-field-expand">
+                <button class="btn-ghost" type="button" @click="openBot">Забыли пароль? Восстановить</button>
+              </div>
             </Transition>
             <UiButton
               class="auth-btn"
@@ -365,6 +369,13 @@ onMounted(() => {
         display: flex;
         flex-direction: column;
         gap: 16px;
+        .auth-field-expand {
+          display: grid;
+          > * {
+            min-height: 0;
+            overflow: hidden;
+          }
+        }
         .auth-register-fields {
           display: flex;
           flex-direction: column;
@@ -409,17 +420,17 @@ onMounted(() => {
 .auth-field-expand-enter-active,
 .auth-field-expand-leave-active {
   overflow: hidden;
-  transition: max-height 0.25s ease-in-out, opacity 0.2s ease-in-out, transform 0.25s ease-in-out;
+  transition: grid-template-rows 0.25s ease-in-out, opacity 0.2s ease-in-out, transform 0.25s ease-in-out;
 }
 .auth-field-expand-enter-from,
 .auth-field-expand-leave-to {
-  max-height: 0;
+  grid-template-rows: 0fr;
   opacity: 0;
   transform: translateY(-10px);
 }
 .auth-field-expand-enter-to,
 .auth-field-expand-leave-from {
-  max-height: 180px;
+  grid-template-rows: 1fr;
   opacity: 1;
   transform: translateY(0);
 }
