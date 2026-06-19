@@ -599,13 +599,13 @@ onBeforeUnmount(() => {
             width: 28px;
             height: 28px;
             border-radius: 8px;
-            border: 1px solid $neutral-black;
+            border: 1px solid transparent;
             background-color: $soft-purple-100;
             cursor: pointer;
             transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out;
             .invite-icon {
-              --ui-icon-width: 24px;
-              --ui-icon-height: 24px;
+              --ui-icon-width: 20px;
+              --ui-icon-height: 20px;
               --ui-icon-color: #{$neutral-black};
             }
             &:disabled {
@@ -636,7 +636,7 @@ onBeforeUnmount(() => {
           width: 28px;
           height: 28px;
           border-radius: 8px;
-          border: 1px solid $neutral-black;
+          border: 1px solid transparent;
           cursor: pointer;
           transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out;
           .action-icon {
@@ -651,29 +651,29 @@ onBeforeUnmount(() => {
               --ui-icon-color: #{$neutral-400};
             }
           }
-        }
-        .accept {
-          background-color: $green-100;
-          border-color: $green-100;
-          .action-icon {
-            --ui-icon-color: #{$green-600};
+          &.accept {
+            background-color: $green-100;
+            border-color: $green-100;
+            .action-icon {
+              --ui-icon-color: #{$green-600};
+            }
+            &:not(:disabled):hover,
+            &:not(:disabled):focus-visible,
+            &:not(:disabled):active {
+              border-color: $green-600;
+            }
           }
-          &:not(:disabled):hover,
-          &:not(:disabled):focus-visible,
-          &:not(:disabled):active {
-            border-color: $green-600;
-          }
-        }
-        .danger {
-          background-color: $red-100;
-          border-color: $red-100;
-          .action-icon {
-            --ui-icon-color: #{$red-600};
-          }
-          &:not(:disabled):hover,
-          &:not(:disabled):focus-visible,
-          &:not(:disabled):active {
-            border-color: $red-600;
+          &.danger {
+            background-color: $red-100;
+            border-color: $red-100;
+            .action-icon {
+              --ui-icon-color: #{$red-600};
+            }
+            &:not(:disabled):hover,
+            &:not(:disabled):focus-visible,
+            &:not(:disabled):active {
+              border-color: $red-600;
+            }
           }
         }
       }
