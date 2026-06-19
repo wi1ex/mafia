@@ -18,7 +18,7 @@
               <UiIcon class="bell-icon" :icon="iconNotifBell" />
               <span class="bell-title">{{ it.title }}</span>
             </div>
-            <time class="bell-time">{{ formatLocalDateTime(it.date, NOTIF_DATE_OPTIONS) }}</time>
+            <time class="bell-time">{{ formatNotifTimestamp(it.date) }}</time>
           </div>
           <div v-if="it.text" class="text">
             <template v-for="(block, blockIndex) in parseNotificationText(it.text)" :key="`${it.id}-${block.type}-${blockIndex}`">
@@ -54,12 +54,15 @@ import iconClose from '@/assets/svg/iconClose.svg'
 import UiIcon from '@/components/UiIcon.vue'
 import iconNotifBell from '@/assets/svg/iconNotifBell.svg'
 
+const NOTIF_TIME_OPTIONS: Intl.DateTimeFormatOptions = {
+  hour: '2-digit',
+  minute: '2-digit',
+}
+
 const NOTIF_DATE_OPTIONS: Intl.DateTimeFormatOptions = {
   year: 'numeric',
   month: '2-digit',
   day: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
 }
 
 const props = defineProps<{
@@ -154,6 +157,22 @@ function unbindDoc() {
 }
 
 function emitClose() { emit('update:open', false) }
+
+function isLocalToday(dt: Date): boolean {
+  const now = new Date()
+  return (
+    dt.getFullYear() === now.getFullYear()
+    && dt.getMonth() === now.getMonth()
+    && dt.getDate() === now.getDate()
+  )
+}
+
+function formatNotifTimestamp(value?: string | number | Date | null): string {
+  if (!value) return '-'
+  const dt = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(dt.getTime())) return '-'
+  return formatLocalDateTime(dt, isLocalToday(dt) ? NOTIF_TIME_OPTIONS : NOTIF_DATE_OPTIONS)
+}
 
 async function onLoadMore() {
   if (notif.loadingInitial || notif.loadingMore || !notif.hasMore) return
@@ -293,7 +312,6 @@ onBeforeUnmount(() => {
   .list {
     display: flex;
     flex-direction: column;
-    gap: 16px;
     overflow-y: auto;
     scrollbar-width: none;
     .item {
@@ -303,18 +321,20 @@ onBeforeUnmount(() => {
       gap: 8px;
       .item-header {
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         justify-content: space-between;
+        gap: 16px;
         width: 100%;
         .item-title {
           display: flex;
+          gap: 8px;
           .bell-icon {
             --ui-icon-width: 20px;
             --ui-icon-height: 20px;
             --ui-icon-color: #{$neutral-400};
           }
           .bell-title {
-            max-width: 240px;
+            max-width: 280px;
             color: $neutral-black;
             font-family: Hauora-Bold;
             font-size: 16px;
@@ -332,7 +352,7 @@ onBeforeUnmount(() => {
       }
       .text {
         margin-left: 28px;
-        width: 100%;
+        width: calc(100% - 28px);
         color: $neutral-900;
         font-family: Hauora-Regular;
         font-size: 16px;
