@@ -339,7 +339,31 @@ onBeforeUnmount(() => {
     flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
-    scrollbar-width: none;
+    overflow-x: hidden;
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+    scrollbar-color: $neutral-100 transparent;
+    &::-webkit-scrollbar {
+      width: 6px;
+    }
+    &::-webkit-scrollbar-button {
+      display: none;
+      width: 0;
+      height: 0;
+    }
+    &::-webkit-scrollbar-track {
+      border-radius: 999px;
+      background-color: transparent;
+    }
+    &::-webkit-scrollbar-thumb {
+      border: 2px solid transparent;
+      border-radius: 999px;
+      background-color: $neutral-100;
+      background-clip: content-box;
+    }
+    &::-webkit-scrollbar-thumb:hover {
+      background-color: $neutral-100;
+    }
     .item {
       display: flex;
       flex-direction: column;
