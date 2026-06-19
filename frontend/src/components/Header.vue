@@ -636,7 +636,8 @@ function openAuth(mode: 'login' | 'register') {
     padding: 20px 16px;
     border: none;
     border-radius: 16px;
-    background: var(--user-theme-bg, linear-gradient(261deg, $soft-purple-900 0%, $soft-purple-700 100%));
+    background: var(--user-theme-bg, $soft-purple-900);
+    //background: var(--user-theme-bg, linear-gradient(261deg, $soft-purple-900 0%, $soft-purple-700 100%));
     text-decoration: none;
     cursor: pointer;
     position: relative;
@@ -647,7 +648,8 @@ function openAuth(mode: 'login' | 'register') {
       position: absolute;
       inset: 0;
       border-radius: inherit;
-      background: var(--user-theme-bg-hover, linear-gradient(261deg, $soft-purple-700 0%, $soft-purple-900 100%));
+      background: var(--user-theme-bg-hover, $soft-purple-800);
+      //background: var(--user-theme-bg-hover, linear-gradient(261deg, $soft-purple-700 0%, $soft-purple-900 100%));
       opacity: 0;
       pointer-events: none;
       transition: opacity 0.25s ease-in-out;

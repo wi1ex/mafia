@@ -54,7 +54,7 @@
               <span class="text-center">{{ r.occupancy }}/{{ r.user_limit }}</span>
             </li>
           </ul>
-          <UiScrollbar :target="roomsList" theme="dark" :inset-bottom="8" />
+          <UiScrollbar :target="roomsList" theme="dark" :inset-bottom="24" />
         </div>
       </div>
     </div>
@@ -1010,7 +1010,7 @@ onBeforeUnmount(() => {
         box-sizing: border-box;
         height: 100%;
         margin: 0;
-        padding: 0 9px 10px 0;
+        padding: 0 30px 24px 0;
         gap: 10px;
         list-style: none;
         overflow-y: auto;
