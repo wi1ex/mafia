@@ -43,20 +43,20 @@
             </div>
             <div v-if="f.kind === 'incoming'" class="actions">
               <button class="icon-btn accept" :disabled="isActionBusy(f.id)" @click="accept(f.id)" aria-label="Принять заявку">
-                <UiIcon class="active-icon" :icon="iconAccept" />
+                <UiIcon class="action-icon" :icon="iconAccept" />
               </button>
               <button class="icon-btn danger" :disabled="isActionBusy(f.id)" @click="decline(f.id)" aria-label="Отклонить заявку">
-                <UiIcon class="active-icon" :icon="iconClose" />
+                <UiIcon class="action-icon" :icon="iconClose" />
               </button>
             </div>
             <div v-else-if="f.kind === 'outgoing'" class="actions">
               <button class="icon-btn danger" :disabled="isActionBusy(f.id)" @click="cancelOutgoing(f.id, f.username)" aria-label="Отменить заявку">
-                <UiIcon class="active-icon" :icon="iconClose" />
+                <UiIcon class="action-icon" :icon="iconClose" />
               </button>
             </div>
             <div v-else-if="isAccepted(f)" class="actions">
               <button class="icon-btn danger" :disabled="isActionBusy(f.id)" @click="remove(f.id)" aria-label="Удалить из друзей">
-                <UiIcon class="active-icon" :icon="iconRemove" />
+                <UiIcon class="action-icon" :icon="iconRemove" />
               </button>
             </div>
           </article>
@@ -138,7 +138,9 @@ const friendNickStyle = (friend: { theme_color?: string | null }) => {
   const option = getProfileThemeOption(friend.theme_color)
   return option ? { '--friend-nick-theme': option.bg } : {}
 }
-const friendThemeIconSrcs = (friend: { theme_icon?: string | null; role?: string | null }) => getProfileThemeBadgeSources(friend.theme_icon, friend.role)
+const friendThemeIconSrcs = (friend: { theme_icon?: string | null; role?: string | null }) => (
+  getProfileThemeBadgeSources(friend.theme_icon, friend.role, { roleBadgeVariant: 'black' })
+)
 const sections = computed(() => [
   { kind: 'incoming', title: 'Входящие заявки —', items: friends.list.filter(f => f.kind === 'incoming') },
   { kind: 'online', title: 'В сети —', items: friends.list.filter(f => f.kind === 'online') },
@@ -611,7 +613,7 @@ onBeforeUnmount(() => {
             &:disabled {
               background-color: $neutral-200;
               border-color: $neutral-200;
-              .action-icon {
+              .invite-icon {
                 --ui-icon-color: #{$neutral-400};
               }
             }

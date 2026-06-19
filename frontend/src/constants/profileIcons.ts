@@ -1,5 +1,7 @@
 import adminProfileThemeIconSrc from '@/assets/svg/icons/sub_admin_icon.svg'
+import adminProfileThemeIconBlackSrc from '@/assets/svg/icons/sub_admin_icon_black.svg'
 import moderProfileThemeIconSrc from '@/assets/svg/icons/sub_moder_icon.svg'
+import moderProfileThemeIconBlackSrc from '@/assets/svg/icons/sub_moder_icon_black.svg'
 
 const PROFILE_THEME_ICON_ASSET_MODULES = import.meta.glob('@/assets/svg/icons/sub_icon*.svg', { eager: true, query: '?url', import: 'default' })
 
@@ -125,13 +127,16 @@ export function isAdminProfileThemeRole(role: unknown): boolean {
 export interface ProfileThemeBadgeOptions {
   hideAdminBadge?: boolean
   hideModeratorBadge?: boolean
+  roleBadgeVariant?: 'default' | 'black'
 }
 
 export function getProfileThemeBadgeSources(value: unknown, role?: unknown, options: ProfileThemeBadgeOptions = {}): string[] {
   const badges: string[] = []
   const themeIconSrc = getProfileThemeIconSrc(value)
+  const adminBadgeSrc = options.roleBadgeVariant === 'black' ? adminProfileThemeIconBlackSrc : adminProfileThemeIconSrc
+  const moderatorBadgeSrc = options.roleBadgeVariant === 'black' ? moderProfileThemeIconBlackSrc : moderProfileThemeIconSrc
   if (themeIconSrc) badges.push(themeIconSrc)
-  if (!options.hideAdminBadge && isAdminProfileThemeRole(role) && adminProfileThemeIconSrc) badges.push(adminProfileThemeIconSrc)
-  if (!options.hideModeratorBadge && isModeratorProfileThemeRole(role) && moderProfileThemeIconSrc) badges.push(moderProfileThemeIconSrc)
+  if (!options.hideAdminBadge && isAdminProfileThemeRole(role) && adminBadgeSrc) badges.push(adminBadgeSrc)
+  if (!options.hideModeratorBadge && isModeratorProfileThemeRole(role) && moderatorBadgeSrc) badges.push(moderatorBadgeSrc)
   return badges
 }
