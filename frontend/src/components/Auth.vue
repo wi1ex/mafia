@@ -38,10 +38,10 @@
                 <span id="auth-login-password-hint">{{ login.password.length }}/{{ PASSWORD_MAX }}</span>
               </template>
             </UiInput>
-            <button class="btn ghost" type="button" @click="openBot">Сбросить пароль</button>
+            <button class="btn-ghost" type="button" @click="openBot">Забыли пароль? Восстановить</button>
             <UiButton
+              class="auth-btn"
               type="submit"
-              size="middle"
               :text="loginBusy ? '...' : 'Войти в аккаунт'"
               :disabled="loginBusy || auth.loginCooldownActive || !canLogin"
             />
@@ -70,8 +70,8 @@
               <span>С <router-link to="/rules" target="_blank">правилами</router-link> ознакомлен и согласен</span>
             </UiCheckbox>
             <UiButton
+              class="auth-btn"
               type="submit"
-              size="middle"
               :text="regBusy ? '...' : 'Зарегистрироваться'"
               :disabled="regBusy || auth.registerCooldownActive || !canRegisterSubmit"
             />
@@ -299,48 +299,42 @@ onMounted(() => {
     .auth-body {
       display: flex;
       flex-direction: column;
-      gap: 0;
-      padding: 10px 10px 0;
-      background-color: $dark;
-      color: $fg;
+      gap: 40px;
+      width: 450px;
       .title {
-        font-size: 18px;
-        font-weight: bold;
-      }
-      .auth-switch {
-        margin: 20px 0 10px;
+        text-align: center;
+        color: $neutral-white;
+        font-family: Involve-Medium;
+        font-size: 32px;
+        line-height: 36px;
+        letter-spacing: -0.64px;
       }
       .form {
         display: flex;
         flex-direction: column;
-        margin-bottom: 10px;
-        padding: 10px;
-        gap: 15px;
-        height: 266px;
-        border-top: 3px solid $lead;
-        border-left: 3px solid $lead;
-        border-right: 3px solid $lead;
-        border-bottom: 3px solid $lead;
-        border-radius: 0 0 5px 5px;
-      }
-      .btn.ghost {
-        padding: 0;
-        height: 40px;
-        border: none;
-        border-radius: 5px;
-        background-color: $lead;
-        color: $fg;
-        font-size: 16px;
-        font-family: Manrope-Medium;
-        line-height: 1;
-        cursor: pointer;
-        transition: opacity 0.25s ease-in-out, background-color 0.25s ease-in-out;
-        &:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
+        gap: 16px;
+        .auth-switch {
+          margin-bottom: 16px;
         }
-        &:hover {
-          background-color: $grey;
+        .btn-ghost {
+          align-self: flex-end;
+          padding: 0;
+          border: none;
+          background: none;
+          color: $neutral-300;
+          font-family: Hauora-Regular;
+          font-size: 14px;
+          line-height: 14px;
+          letter-spacing: -0.28px;
+          cursor: pointer;
+          transition: color 0.25s ease-in-out;
+          &:hover {
+            color: $neutral-white;
+          }
+        }
+        .auth-btn {
+          align-self: center;
+          margin-top: 16px;
         }
       }
     }
