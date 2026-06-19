@@ -35,9 +35,6 @@
             </template>
           </div>
         </article>
-        <button v-if="notif.hasMore" class="load-more" type="button" :disabled="notif.loadingInitial || notif.loadingMore" @click="onLoadMore">
-          {{ notif.loadingMore ? 'Загружаем...' : 'Загрузить ещё' }}
-        </button>
         <p v-if="notif.items.length === 0" class="empty">Нет уведомлений</p>
       </div>
     </div>
@@ -64,6 +61,7 @@ const NOTIF_DATE_OPTIONS: Intl.DateTimeFormatOptions = {
   month: '2-digit',
   day: '2-digit',
 }
+const LOAD_MORE_SCROLL_OFFSET = 24
 
 const props = defineProps<{
   open: boolean
@@ -121,9 +119,18 @@ function markVisibleNow() {
   }
 }
 
+function maybeLoadMore() {
+  if (!list.value || notif.loadingInitial || notif.loadingMore || !notif.hasMore) return
+  const remaining = list.value.scrollHeight - list.value.scrollTop - list.value.clientHeight
+  if (remaining <= LOAD_MORE_SCROLL_OFFSET) void onLoadMore()
+}
+
 function bindScroll() {
   if (!list.value || onScroll) return
-  onScroll = () => markVisibleNow()
+  onScroll = () => {
+    markVisibleNow()
+    maybeLoadMore()
+  }
   list.value.addEventListener('scroll', onScroll, { passive: true })
 }
 function unbindScroll() {
@@ -132,7 +139,10 @@ function unbindScroll() {
 }
 function bindResize() {
   if (ro || !list.value) return
-  ro = new ResizeObserver(() => markVisibleNow())
+  ro = new ResizeObserver(() => {
+    markVisibleNow()
+    maybeLoadMore()
+  })
   ro.observe(list.value)
 }
 function unbindResize() {
@@ -208,6 +218,7 @@ watch(() => notif.items.length, async () => {
   await nextTick()
   attachObserver()
   markVisibleNow()
+  maybeLoadMore()
 })
 
 watch(() => props.open, async v => {
@@ -219,6 +230,7 @@ watch(() => props.open, async v => {
     markVisibleNow()
     bindScroll()
     bindResize()
+    maybeLoadMore()
   } else {
     try { obs?.disconnect() } catch {}
     unbindScroll()
@@ -312,6 +324,8 @@ onBeforeUnmount(() => {
   .list {
     display: flex;
     flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
     overflow-y: auto;
     scrollbar-width: none;
     .item {
@@ -385,27 +399,6 @@ onBeforeUnmount(() => {
     .item.just-read.fade-just-read .item-header .item-title .bell-icon {
       --ui-icon-color: #{$neutral-400};
       transition: background-color 1s ease-in-out;
-    }
-    .load-more {
-      margin-top: 5px;
-      padding: 10px;
-      width: 100%;
-      border: none;
-      border-radius: 5px;
-      background-color: $lead;
-      color: $fg;
-      font-size: 14px;
-      font-family: Manrope-Medium;
-      line-height: 1;
-      cursor: pointer;
-      transition: background-color 0.25s ease-in-out, opacity 0.25s ease-in-out;
-      &:hover:enabled {
-        background-color: $dark;
-      }
-      &:disabled {
-        opacity: 0.5;
-        cursor: default;
-      }
     }
     .empty {
       color: $grey;
