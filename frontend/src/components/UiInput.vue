@@ -129,7 +129,7 @@ watch(() => [props.id, props.type, props.passwordToggle], () => {
     color: var(--ui-input-text);
     font-family: Hauora-Regular;
     font-size: 16px;
-    line-height: 18px;
+    line-height: 20px;
     letter-spacing: -0.32px;
     outline: none;
     transition: border-color 0.25s ease-in-out, color 0.25s ease-in-out;
@@ -168,7 +168,7 @@ watch(() => [props.id, props.type, props.passwordToggle], () => {
     pointer-events: none;
     font-family: Hauora-Regular;
     font-size: 16px;
-    line-height: 18px;
+    line-height: 20px;
     letter-spacing: -0.32px;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -196,7 +196,7 @@ watch(() => [props.id, props.type, props.passwordToggle], () => {
     display: flex;
     position: absolute;
     top: 50%;
-    right: 24px;
+    right: 32px;
     align-items: center;
     justify-content: center;
     width: 24px;
