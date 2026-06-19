@@ -696,8 +696,8 @@ onBeforeUnmount(() => {
                     display: inline-flex;
                     align-items: center;
                     justify-content: center;
-                    margin-right: -21px;
-                    margin-bottom: 7px;
+                    margin-right: -36px;
+                    margin-bottom: 8px;
                     padding: 2px 5px;
                     border-radius: 999px;
                     background-color: $red-500;

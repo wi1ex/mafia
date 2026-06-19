@@ -161,7 +161,7 @@ watch(() => [props.id, props.type, props.passwordToggle], () => {
     left: 29px;
     max-width: calc(100% - 64px);
     padding: 0;
-    overflow: hidden;
+    border-radius: 6px;
     background-color: transparent;
     color: var(--ui-input-text);
     transform: translateY(-50%);
@@ -172,6 +172,7 @@ watch(() => [props.id, props.type, props.passwordToggle], () => {
     letter-spacing: -0.32px;
     text-overflow: ellipsis;
     white-space: nowrap;
+    overflow: hidden;
     transition: top 0.25s ease-in-out, padding 0.25s ease-in-out, background-color 0.25s ease-in-out,
       color 0.25s ease-in-out, transform 0.25s ease-in-out, font-size 0.25s ease-in-out,
       line-height 0.25s ease-in-out, letter-spacing 0.25s ease-in-out;
@@ -181,6 +182,7 @@ watch(() => [props.id, props.type, props.passwordToggle], () => {
     top: -7px;
     right: 29px;
     padding: 0 4px;
+    border-radius: 6px;
     background-color: var(--ui-input-resolved-label-bg);
     pointer-events: none;
     color: var(--ui-input-meta);
