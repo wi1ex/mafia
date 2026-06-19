@@ -6,13 +6,13 @@
         <video class="auth-logo-video" :src="authLogoVideo" autoplay loop muted playsinline preload="auto" aria-hidden="true" />
       </div>
       <div class="auth-modal">
-        <header>
-          <span>Вход в аккаунт</span>
-          <button @click="close" aria-label="Закрыть">
-            <img :src="iconClose" alt="close" />
-          </button>
-        </header>
+        <button type="button" class="btn-close" aria-label="Закрыть" @click="close">
+          <img :src="iconClose" class="btn-icon" alt="close" aria-hidden="true" />
+        </button>
+
         <div class="auth-body">
+          <span class="title">Вход в аккаунт</span>
+
           <div v-if="canRegister" class="tabs" role="tablist">
             <button class="tab" :class="{ active: activeTab === 'login' }" type="button" role="tab" @click="activeTab = 'login'">Авторизация</button>
             <button class="tab" :class="{ active: activeTab === 'register' }" type="button" role="tab" @click="activeTab = 'register'">Регистрация</button>
@@ -78,6 +78,7 @@ import UiCheckbox from '@/components/UiCheckbox.vue'
 
 import authLogoVideo from '@/assets/video/auth-logo.mp4'
 import iconClose from '@/assets/svg/close.svg'
+import iconArrowDown from '@/assets/svg/iconArrowDown.svg'
 
 const props = defineProps<{ open: boolean; mode?: 'login' | 'register' }>()
 const emit = defineEmits<{ (e: 'update:open', value: boolean): void }>()
@@ -228,35 +229,51 @@ onMounted(() => {
   }
   .auth-modal {
     display: flex;
+    position: relative;
     flex-direction: column;
+    align-items: center;
+    justify-content: center;
     width: 50%;
     overflow: hidden;
-    header {
+    .close-btn {
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      padding: 5px 10px;
-      border-radius: 5px;
-      background-color: $graphite;
-      box-shadow: 0 3px 5px rgba($black, 0.25);
-      span {
-        font-size: 18px;
-        font-weight: bold;
+      justify-content: center;
+      top: 0;
+      right: 0;
+      padding: 0;
+      width: 40px;
+      height: 40px;
+      border: none;
+      border-radius: 12px;
+      background: linear-gradient(261deg, $soft-purple-800 0%, $green-700 100%);
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      isolation: isolate;
+      &::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        background: linear-gradient(261deg, $green-700 0%, $soft-purple-800 100%);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.25s ease-in-out;
+        z-index: 0;
       }
-      button {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 0;
-        width: 25px;
-        height: 30px;
-        border: none;
-        background: none;
-        cursor: pointer;
-        img {
-          width: 25px;
-          height: 25px;
+      &:hover,
+      &:focus-visible,
+      &:active {
+        &::after {
+          opacity: 1;
         }
+      }
+      .btn-icon {
+        position: relative;
+        z-index: 2;
+        width: 24px;
+        height: 24px;
       }
     }
     .auth-body {
@@ -266,6 +283,10 @@ onMounted(() => {
       padding: 10px 10px 0;
       background-color: $dark;
       color: $fg;
+      .title {
+        font-size: 18px;
+        font-weight: bold;
+      }
       .tabs {
         display: flex;
         align-items: flex-end;

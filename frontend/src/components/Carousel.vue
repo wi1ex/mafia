@@ -339,7 +339,7 @@ onBeforeUnmount(() => {
       height: 40px;
       border: none;
       border-radius: 12px;
-      background: linear-gradient(261deg, $green-700 0%, $soft-purple-800 100%);
+      background: linear-gradient(261deg, $soft-purple-800 0%, $green-700 100%);
       cursor: pointer;
       position: relative;
       overflow: hidden;
@@ -349,7 +349,7 @@ onBeforeUnmount(() => {
         position: absolute;
         inset: 0;
         border-radius: inherit;
-        background: linear-gradient(261deg, $soft-purple-800 0%, $green-700 100%);
+        background: linear-gradient(261deg, $green-700 0%, $soft-purple-800 100%);
         opacity: 0;
         pointer-events: none;
         transition: opacity 0.25s ease-in-out;
