@@ -1,9 +1,9 @@
 <template>
-  <div class="ui-input" :class="[rootClass, modeClass, labelModeClass, { invalid }]" :style="rootStyle">
+  <div class="ui-input" :class="[rootClass, modeClass, labelModeClass, { invalid, 'ui-input--with-action': showPasswordToggle }]" :style="rootStyle">
     <component
       :is="controlTag"
       :id="id"
-      :type="controlTag === 'input' ? type : undefined"
+      :type="resolvedType"
       :value="modelValue ?? ''"
       :placeholder="resolvedPlaceholder"
       v-bind="inputAttrs"
@@ -13,11 +13,20 @@
     <span v-if="$slots.meta || meta" class="meta">
       <slot name="meta">{{ meta }}</slot>
     </span>
+    <button v-if="showPasswordToggle" class="password-toggle" type="button" @click="togglePasswordVisibility"
+            :aria-label="passwordVisible ? 'Скрыть пароль' : 'Показать пароль'" @pointerdown.prevent>
+      <UiIcon class="password-toggle__icon" :icon="passwordVisible ? iconVisOn : iconVisOff" />
+    </button>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, useAttrs, type StyleValue } from 'vue'
+import { computed, ref, useAttrs, watch, type StyleValue } from 'vue'
+
+import UiIcon from '@/components/UiIcon.vue'
+
+import iconVisOn from '@/assets/svg/iconVisOn.svg'
+import iconVisOff from '@/assets/svg/iconVisOff.svg'
 
 defineOptions({ inheritAttrs: false })
 
@@ -33,6 +42,7 @@ const props = withDefaults(defineProps<{
   meta?: string
   mode?: 'light' | 'dark'
   labelMode?: 'floating' | 'placeholder'
+  passwordToggle?: boolean
 }>(), {
   modelValue: '',
   type: 'text',
@@ -40,6 +50,7 @@ const props = withDefaults(defineProps<{
   invalid: false,
   mode: 'dark',
   labelMode: 'floating',
+  passwordToggle: false,
 })
 
 const emit = defineEmits<{ (e: 'update:modelValue', value: string | number): void }>()
@@ -55,6 +66,13 @@ const controlTag = computed(() => props.as)
 const modeClass = computed(() => `ui-input--${props.mode}`)
 const labelModeClass = computed(() => `ui-input--${props.labelMode}-label`)
 const resolvedPlaceholder = computed(() => props.placeholder ?? (props.labelMode === 'placeholder' ? props.label : ' '))
+const showPasswordToggle = computed(() => props.passwordToggle && controlTag.value === 'input' && props.type === 'password')
+const passwordVisible = ref(false)
+const resolvedType = computed(() => {
+  if (controlTag.value !== 'input') return undefined
+  if (!showPasswordToggle.value) return props.type
+  return passwordVisible.value ? 'text' : 'password'
+})
 
 function onInput(e: Event) {
   const target = e.target as HTMLInputElement | HTMLTextAreaElement
@@ -66,6 +84,14 @@ function onInput(e: Event) {
   }
   emit('update:modelValue', value as string | number)
 }
+
+function togglePasswordVisibility() {
+  passwordVisible.value = !passwordVisible.value
+}
+
+watch(() => [props.id, props.type, props.passwordToggle], () => {
+  passwordVisible.value = false
+})
 </script>
 
 <style scoped lang="scss">
@@ -107,6 +133,12 @@ function onInput(e: Event) {
     letter-spacing: -0.32px;
     outline: none;
     transition: border-color 0.25s ease-in-out, color 0.25s ease-in-out;
+  }
+  &.ui-input--with-action {
+    input {
+      width: calc(100% - 104px);
+      padding-right: 72px;
+    }
   }
   &:hover:not(.invalid) input:not(:disabled),
   &:hover:not(.invalid) textarea:not(:disabled),
@@ -159,6 +191,37 @@ function onInput(e: Event) {
     opacity: 0;
     visibility: hidden;
     transition: opacity 0.25s ease-in-out, visibility 0.25s ease-in-out, color 0.25s ease-in-out;
+  }
+  .password-toggle {
+    display: flex;
+    position: absolute;
+    top: 50%;
+    right: 24px;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: $neutral-300;
+    transform: translateY(-50%);
+    cursor: pointer;
+    transition: color 0.25s ease-in-out;
+    .password-toggle__icon {
+      --ui-icon-width: 24px;
+      --ui-icon-height: 24px;
+      --ui-icon-color: currentColor;
+    }
+    &:hover,
+    &:focus-visible {
+      color: $neutral-white;
+    }
+    &:focus-visible {
+      outline: 1px solid currentColor;
+      outline-offset: 2px;
+      border-radius: 50%;
+    }
   }
   &:hover:not(.invalid) input:placeholder-shown + label,
   &:hover:not(.invalid) textarea:placeholder-shown + label {
