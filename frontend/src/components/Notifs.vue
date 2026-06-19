@@ -338,18 +338,22 @@ onBeforeUnmount(() => {
     flex-direction: column;
     flex: 1 1 auto;
     min-height: 0;
+    margin-right: -8px;
+    padding-right: 8px;
     overflow-y: auto;
     overflow-x: hidden;
-    scrollbar-gutter: stable;
     scrollbar-width: thin;
     scrollbar-color: $neutral-500 $neutral-white;
     &::-webkit-scrollbar {
       width: 6px;
     }
-    &::-webkit-scrollbar-button {
+    &::-webkit-scrollbar-button,
+    &::-webkit-scrollbar-button:single-button,
+    &::-webkit-scrollbar-corner {
       display: none;
       width: 0;
       height: 0;
+      background: transparent;
     }
     &::-webkit-scrollbar-track {
       border-radius: 999px;
