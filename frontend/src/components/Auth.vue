@@ -210,35 +210,27 @@ onMounted(() => {
 .auth-overlay {
   position: fixed;
   display: flex;
-  align-items: center;
-  justify-content: center;
   inset: 0;
-  background-color: $black;
-  backdrop-filter: blur(5px);
+  padding: 40px;
+  background-color: $neutral-black;
   z-index: 1000;
-  gap: 20px;
-  padding: 20px;
   .auth-logo {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    flex: 0 0 auto;
-    width: 220px;
-    aspect-ratio: 1;
+    width: 50%;
+    border-radius: 24px;
     overflow: hidden;
     .auth-logo-video {
       display: block;
       width: 100%;
       height: 100%;
-      object-fit: contain;
+      object-fit: cover;
     }
   }
   .auth-modal {
     display: flex;
     flex-direction: column;
-    width: 400px;
-    border-radius: 5px;
-    background-color: $dark;
+    width: 50%;
+    overflow: hidden;
     header {
       display: flex;
       justify-content: space-between;
