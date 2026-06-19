@@ -11,34 +11,37 @@
         </div>
       </header>
 
-      <div class="list" ref="list">
-        <article class="item" v-for="it in notif.items" :key="it.id" :data-id="it.id">
-          <div class="item-header">
-            <div class="item-title">
-              <UiIcon class="bell-icon" :icon="iconNotifBell" />
-              <span class="bell-title">{{ it.title }}</span>
+      <div class="list-shell">
+        <div class="list" ref="list">
+          <article class="item" v-for="it in notif.items" :key="it.id" :data-id="it.id">
+            <div class="item-header">
+              <div class="item-title">
+                <UiIcon class="bell-icon" :icon="iconNotifBell" />
+                <span class="bell-title">{{ it.title }}</span>
+              </div>
+              <time class="bell-time">{{ formatNotifTimestamp(it.date) }}</time>
             </div>
-            <time class="bell-time">{{ formatNotifTimestamp(it.date) }}</time>
+            <div v-if="it.text" class="text">
+              <template v-for="(block, blockIndex) in parseNotificationText(it.text)" :key="`${it.id}-${block.type}-${blockIndex}`">
+                <p v-if="block.type === 'paragraph'" class="notification-text-paragraph">
+                  <template v-for="(line, lineIndex) in block.lines" :key="`${it.id}-${blockIndex}-${lineIndex}`">
+                    {{ line }}<br v-if="lineIndex < block.lines.length - 1" />
+                  </template>
+                </p>
+                <ul v-else class="notification-text-list">
+                  <li v-for="(item, itemIndex) in block.items" :key="`${it.id}-${blockIndex}-${itemIndex}`">
+                    {{ item }}
+                  </li>
+                </ul>
+              </template>
+            </div>
+          </article>
+          <div v-if="notif.items.length === 0" class="empty">
+            <img :src="iconNoNotifs" alt="nonotifs" />
+            <span>Уведомлений пока нет...</span>
           </div>
-          <div v-if="it.text" class="text">
-            <template v-for="(block, blockIndex) in parseNotificationText(it.text)" :key="`${it.id}-${block.type}-${blockIndex}`">
-              <p v-if="block.type === 'paragraph'" class="notification-text-paragraph">
-                <template v-for="(line, lineIndex) in block.lines" :key="`${it.id}-${blockIndex}-${lineIndex}`">
-                  {{ line }}<br v-if="lineIndex < block.lines.length - 1" />
-                </template>
-              </p>
-              <ul v-else class="notification-text-list">
-                <li v-for="(item, itemIndex) in block.items" :key="`${it.id}-${blockIndex}-${itemIndex}`">
-                  {{ item }}
-                </li>
-              </ul>
-            </template>
-          </div>
-        </article>
-        <div v-if="notif.items.length === 0" class="empty">
-          <img :src="iconNoNotifs" alt="nonotifs" />
-          <span>Уведомлений пока нет...</span>
         </div>
+        <UiScrollbar :target="list" :active="open" />
       </div>
     </div>
   </Transition>
@@ -51,6 +54,7 @@ import { formatLocalDateTime } from '@/services/datetime'
 import { parseNotificationText } from '@/services/notificationText'
 
 import UiIcon from '@/components/UiIcon.vue'
+import UiScrollbar from '@/components/UiScrollbar.vue'
 
 import iconClose from '@/assets/svg/iconClose.svg'
 import iconNotifBell from '@/assets/svg/iconNotifBell.svg'
@@ -333,40 +337,27 @@ onBeforeUnmount(() => {
       }
     }
   }
+  .list-shell {
+    display: flex;
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
   .list {
     display: flex;
     flex-direction: column;
     flex: 1 1 auto;
+    box-sizing: border-box;
+    width: 100%;
     min-height: 0;
-    margin-right: -8px;
-    padding-right: 8px;
     overflow-y: auto;
     overflow-x: hidden;
-    scrollbar-width: thin;
-    scrollbar-color: $neutral-500 $neutral-white;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
     &::-webkit-scrollbar {
-      width: 6px;
-    }
-    &::-webkit-scrollbar-button,
-    &::-webkit-scrollbar-button:single-button,
-    &::-webkit-scrollbar-corner {
       display: none;
       width: 0;
       height: 0;
-      background: transparent;
-    }
-    &::-webkit-scrollbar-track {
-      border-radius: 999px;
-      background-color: $neutral-white;
-    }
-    &::-webkit-scrollbar-thumb {
-      border: 2px solid $neutral-white;
-      border-radius: 999px;
-      background-color: $neutral-500;
-      background-clip: content-box;
-    }
-    &::-webkit-scrollbar-thumb:hover {
-      background-color: $neutral-500;
     }
     .item {
       display: flex;
