@@ -362,7 +362,7 @@ onBeforeUnmount(() => {
     .item {
       display: flex;
       flex-direction: column;
-      padding: 16px 8px;
+      padding: 16px;
       gap: 8px;
       .item-header {
         display: flex;

@@ -11,8 +11,7 @@
       <div class="list">
         <template v-for="section in sections" :key="section.kind">
           <div v-if="section.items.length > 0" class="section-title">
-            <span>{{ section.title }}</span>
-            <span class="count">{{ section.items.length }}</span>
+            <span>{{ section.title }}{{ section.items.length }}</span>
           </div>
           <article v-for="f in section.items" :key="`${f.kind}-${f.id}`" class="item" :style="friendItemStyle(f)">
             <button v-if="canOpenMiniProfile(f)" class="left profile-trigger" type="button" @click="openMiniProfile(f)">
@@ -485,39 +484,32 @@ onBeforeUnmount(() => {
   .list {
     display: flex;
     flex-direction: column;
-    padding: 10px;
-    gap: 10px;
+    gap: 8px;
     overflow-y: auto;
     scrollbar-width: none;
     .section-title {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      font-size: 14px;
-      font-family: Manrope-Medium;
-      color: $ashy;
+      margin-bottom: 4px;
+      padding: 0 8px;
+      color: $neutral-500;
+      font-family: Hauora-Regular;
+      font-size: 16px;
+      line-height: 16px;
+      letter-spacing: -0.32px;
       text-transform: uppercase;
-      letter-spacing: 1px;
-      .count {
-        padding: 0 10px;
-        height: 16px;
-        border-radius: 999px;
-        background-color: $lead;
-        text-align: center;
-        color: $fg;
-        font-size: 12px;
-        line-height: 16px;
-      }
     }
     .item {
       display: grid;
       grid-template-columns: 1fr auto auto;
       align-items: center;
-      padding: 5px;
-      gap: 5px;
-      border-radius: 5px;
+      margin-bottom: 8px;
+      padding: 16px;
+      gap: 8px;
+      border-radius: 20px;
       background-color: var(--user-theme-bg, $lead);
       box-shadow: 0 3px 5px rgba($black, 0.25);
+      &:has(+ .item) {
+        margin-bottom: 0;
+      }
       .left {
         display: flex;
         align-items: center;
