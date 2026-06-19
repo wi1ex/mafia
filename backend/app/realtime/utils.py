@@ -3167,6 +3167,25 @@ async def compute_day_opening_and_closing(r, rid: int, last_opening_uid: int | N
     return opening, closing, alive_order
 
 
+def _day_opening_exclude_ids(raw_gstate: Mapping[str, Any]) -> set[int]:
+    pre_pending = to_bool01(raw_gstate.get("day_prelude_pending"))
+    pre_active = to_bool01(raw_gstate.get("day_prelude_active"))
+    pre_done = to_bool01(raw_gstate.get("day_prelude_done"))
+    night_kill_ok = to_bool01(raw_gstate.get("night_kill_ok"))
+
+    if pre_done or not (pre_pending or pre_active or night_kill_ok):
+        return set()
+
+    exclude: set[int] = set()
+    pre_uid = GameActionContext.as_int(raw_gstate.get("day_prelude_uid"), 0)
+    night_uid = GameActionContext.as_int(raw_gstate.get("night_kill_uid"), 0)
+    if pre_uid > 0:
+        exclude.add(pre_uid)
+    if night_uid > 0:
+        exclude.add(night_uid)
+    return exclude
+
+
 async def recompute_day_opening_and_closing_from_state(r, rid: int, raw_gstate: Mapping[str, Any]) -> tuple[int, int]:
     try:
         opening_uid = int(raw_gstate.get("day_opening_uid") or 0)
@@ -3187,12 +3206,19 @@ async def recompute_day_opening_and_closing_from_state(r, rid: int, raw_gstate: 
     if not seat_order:
         return opening_uid, closing_uid
 
+    exclude_set = _day_opening_exclude_ids(raw_gstate)
+
     if opening_uid not in seat_order:
         try:
             last_opening_uid = int(raw_gstate.get("day_last_opening_uid") or 0)
         except Exception:
             last_opening_uid = 0
-        opening_uid, closing_uid, _ = await compute_day_opening_and_closing(r, rid, last_opening_uid)
+        opening_uid, closing_uid, _ = await compute_day_opening_and_closing(
+            r,
+            rid,
+            last_opening_uid,
+            exclude_set,
+        )
         if opening_uid and closing_uid:
             try:
                 await r.hset(
@@ -3210,7 +3236,43 @@ async def recompute_day_opening_and_closing_from_state(r, rid: int, raw_gstate: 
         alive_set = await get_effective_alive_set(r, rid, seat_order)
     except Exception:
         alive_set = set()
+    if exclude_set:
+        alive_set.difference_update(exclude_set)
     if not alive_set:
+        return opening_uid, closing_uid
+
+    current_uid = GameActionContext.as_int(raw_gstate.get("day_current_uid"), 0)
+    pre_active = to_bool01(raw_gstate.get("day_prelude_active"))
+    pre_uid = GameActionContext.as_int(raw_gstate.get("day_prelude_uid"), 0)
+    speeches_done = to_bool01(raw_gstate.get("day_speeches_done"))
+    regular_speeches_not_started = (
+        not speeches_done
+        and (current_uid <= 0 or (pre_active and 0 < pre_uid == current_uid))
+    )
+    if opening_uid not in alive_set and regular_speeches_not_started:
+        try:
+            last_opening_uid = int(raw_gstate.get("day_last_opening_uid") or 0)
+        except Exception:
+            last_opening_uid = 0
+        new_opening_uid, new_closing_uid, _ = await compute_day_opening_and_closing(
+            r,
+            rid,
+            last_opening_uid,
+            exclude_set,
+        )
+        opening_uid = new_opening_uid
+        closing_uid = new_closing_uid
+        if opening_uid and closing_uid:
+            try:
+                await r.hset(
+                    f"room:{rid}:game_state",
+                    mapping={
+                        "day_opening_uid": str(opening_uid),
+                        "day_closing_uid": str(closing_uid),
+                    },
+                )
+            except Exception:
+                log.exception("day_opening_closing.recompute_failed", rid=rid)
         return opening_uid, closing_uid
 
     idx_open = seat_order.index(opening_uid)
