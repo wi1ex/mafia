@@ -1010,7 +1010,7 @@ onBeforeUnmount(() => {
         box-sizing: border-box;
         height: 100%;
         margin: 0;
-        padding: 0 30px 24px 0;
+        padding: 0 18px 24px 0;
         gap: 10px;
         list-style: none;
         overflow-y: auto;

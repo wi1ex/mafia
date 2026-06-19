@@ -2,71 +2,70 @@
   <Transition name="friends-panel">
     <div v-show="open" :class="['friends-panel', { 'room-mode': isRoomMode }]" :data-open="open ? 1 : 0" ref="root" @click.stop>
       <header>
-        <span>Список друзей — {{ friendsTotal }}</span>
-        <button @click="$emit('update:open', false)" aria-label="Закрыть">
-          <img :src="iconClose" alt="close" />
+        <span class="title">Список друзей — {{ friendsTotal }}</span>
+        <button class="close-btn" type="button" aria-label="Закрыть" @click="$emit('update:open', false)">
+          <UiIcon class="close-icon" :icon="iconClose" />
         </button>
       </header>
 
       <div class="list">
-        <template v-if="friends.list.length === 0">
-          <p class="empty">Список пуст</p>
-        </template>
-        <template v-else>
-          <template v-for="section in sections" :key="section.kind">
-            <div v-if="section.items.length > 0" class="section-title">
-              <span>{{ section.title }}</span>
-              <span class="count">{{ section.items.length }}</span>
+        <template v-for="section in sections" :key="section.kind">
+          <div v-if="section.items.length > 0" class="section-title">
+            <span>{{ section.title }}</span>
+            <span class="count">{{ section.items.length }}</span>
+          </div>
+          <article v-for="f in section.items" :key="`${f.kind}-${f.id}`" class="item" :style="friendItemStyle(f)">
+            <button v-if="canOpenMiniProfile(f)" class="left profile-trigger" type="button" @click="openMiniProfile(f)">
+              <img v-minio-img="{ key: f.avatar_name ? `avatars/${f.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="avatar" />
+              <div v-if="friendThemeIconSrcs(f).length" class="profile-theme-icons" aria-hidden="true">
+                <img v-for="badgeSrc in friendThemeIconSrcs(f)" :key="`${f.id}-${badgeSrc}`" class="profile-theme-icon" :src="badgeSrc" alt="" />
+              </div>
+              <span class="nick">{{ f.username || ('user' + f.id) }}</span>
+            </button>
+            <div v-else class="left profile-trigger">
+              <img v-minio-img="{ key: f.avatar_name ? `avatars/${f.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="avatar" />
+              <div v-if="friendThemeIconSrcs(f).length" class="profile-theme-icons" aria-hidden="true">
+                <img v-for="badgeSrc in friendThemeIconSrcs(f)" :key="`${f.id}-${badgeSrc}`" class="profile-theme-icon" :src="badgeSrc" alt="" />
+              </div>
+              <span class="nick">{{ f.username || ('user' + f.id) }}</span>
             </div>
-            <article v-for="f in section.items" :key="`${f.kind}-${f.id}`" class="item" :style="friendItemStyle(f)">
-              <button v-if="canOpenMiniProfile(f)" class="left profile-trigger" type="button" @click="openMiniProfile(f)">
-                <img v-minio-img="{ key: f.avatar_name ? `avatars/${f.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="avatar" />
-                <div v-if="friendThemeIconSrcs(f).length" class="profile-theme-icons" aria-hidden="true">
-                  <img v-for="badgeSrc in friendThemeIconSrcs(f)" :key="`${f.id}-${badgeSrc}`" class="profile-theme-icon" :src="badgeSrc" alt="" />
+            <div class="info">
+              <template v-if="isAccepted(f)">
+                <div v-if="f.room_id" class="room-info">
+                  <span class="room">{{ f.room_title || ('Комната #' + f.room_id) }}</span>
+                  <span class="game" :class="{ active: f.room_in_game }">{{ f.room_in_game ? 'Игра' : 'Лобби' }}</span>
                 </div>
-                <span class="nick">{{ f.username || ('user' + f.id) }}</span>
+                <div v-if="shouldShowInviteButton(f)" class="invite-select">
+                  <button type="button" class="icon-btn invite-btn" :disabled="isInviteDisabled(f) || Boolean(inviteBusy[f.id])" :title="inviteDisabledReason(f)" @click="invite(f)" aria-label="Пригласить в комнату">
+                    <img :src="inviteIcon(f)" alt="" />
+                  </button>
+                </div>
+              </template>
+            </div>
+            <div v-if="f.kind === 'incoming'" class="actions">
+              <button class="icon-btn accept" :disabled="isActionBusy(f.id)" @click="accept(f.id)" aria-label="Принять заявку">
+                <img :src="iconAccept" alt="" />
               </button>
-              <div v-else class="left profile-trigger">
-                <img v-minio-img="{ key: f.avatar_name ? `avatars/${f.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="avatar" />
-                <div v-if="friendThemeIconSrcs(f).length" class="profile-theme-icons" aria-hidden="true">
-                  <img v-for="badgeSrc in friendThemeIconSrcs(f)" :key="`${f.id}-${badgeSrc}`" class="profile-theme-icon" :src="badgeSrc" alt="" />
-                </div>
-                <span class="nick">{{ f.username || ('user' + f.id) }}</span>
-              </div>
-              <div class="info">
-                <template v-if="isAccepted(f)">
-                  <div v-if="f.room_id" class="room-info">
-                    <span class="room">{{ f.room_title || ('Комната #' + f.room_id) }}</span>
-                    <span class="game" :class="{ active: f.room_in_game }">{{ f.room_in_game ? 'Игра' : 'Лобби' }}</span>
-                  </div>
-                  <div v-if="shouldShowInviteButton(f)" class="invite-select">
-                    <button type="button" class="icon-btn invite-btn" :disabled="isInviteDisabled(f) || Boolean(inviteBusy[f.id])" :title="inviteDisabledReason(f)" @click="invite(f)" aria-label="Пригласить в комнату">
-                      <img :src="inviteIcon(f)" alt="" />
-                    </button>
-                  </div>
-                </template>
-              </div>
-              <div v-if="f.kind === 'incoming'" class="actions">
-                <button class="icon-btn accept" :disabled="isActionBusy(f.id)" @click="accept(f.id)" aria-label="Принять заявку">
-                  <img :src="iconAccept" alt="" />
-                </button>
-                <button class="icon-btn danger" :disabled="isActionBusy(f.id)" @click="decline(f.id)" aria-label="Отклонить заявку">
-                  <img :src="iconClose" alt="" />
-                </button>
-              </div>
-              <div v-else-if="f.kind === 'outgoing'" class="actions">
-                <button class="icon-btn danger" :disabled="isActionBusy(f.id)" @click="cancelOutgoing(f.id, f.username)" aria-label="Отменить заявку">
-                  <img :src="iconClose" alt="" />
-                </button>
-              </div>
-              <div v-else-if="isAccepted(f)" class="actions">
-                <button class="icon-btn danger" :disabled="isActionBusy(f.id)" @click="remove(f.id)" aria-label="Удалить из друзей">
-                  <img :src="iconRemove" alt="" />
-                </button>
-              </div>
-            </article>
-          </template>
+              <button class="icon-btn danger" :disabled="isActionBusy(f.id)" @click="decline(f.id)" aria-label="Отклонить заявку">
+                <img :src="iconClose" alt="" />
+              </button>
+            </div>
+            <div v-else-if="f.kind === 'outgoing'" class="actions">
+              <button class="icon-btn danger" :disabled="isActionBusy(f.id)" @click="cancelOutgoing(f.id, f.username)" aria-label="Отменить заявку">
+                <img :src="iconClose" alt="" />
+              </button>
+            </div>
+            <div v-else-if="isAccepted(f)" class="actions">
+              <button class="icon-btn danger" :disabled="isActionBusy(f.id)" @click="remove(f.id)" aria-label="Удалить из друзей">
+                <img :src="iconRemove" alt="" />
+              </button>
+            </div>
+          </article>
         </template>
+        <div v-if="friends.list.length === 0" class="empty">
+          <img :src="iconNoFriendsNotifs" alt="nofriends" />
+          <span>Список друзей пока пуст...</span>
+        </div>
       </div>
     </div>
   </Transition>
@@ -95,13 +94,15 @@ import {
 } from '@/store'
 import { alertDialog, confirmDialog, useConfirmState } from '@/services/confirm'
 import MiniProfile from '@/components/MiniProfile.vue'
+import UiIcon from '@/components/UiIcon.vue'
 
-import iconClose from '@/assets/svg/close.svg'
+import iconClose from '@/assets/svg/iconClose.svg'
 import iconAccept from '@/assets/svg/readyBlack.svg'
 import iconRemove from '@/assets/svg/delete.svg'
 import iconInviteOnline from '@/assets/svg/notifBell.svg'
 import iconInviteOffline from '@/assets/svg/telegram.svg'
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
+import iconNoFriendsNotifs from '@/assets/svg/iconNoFriendsNotifs.svg'
 
 const props = defineProps<{
   open: boolean
@@ -431,47 +432,53 @@ onBeforeUnmount(() => {
   position: absolute;
   flex-direction: column;
   right: 0;
-  top: 50px;
-  width: 400px;
-  min-height: 200px;
-  max-height: 600px;
-  border-radius: 5px;
-  background-color: $graphite;
-  box-shadow: 3px 3px 5px rgba($black, 0.25);
+  top: 72px;
+  padding: 16px;
+  width: 448px;
+  min-height: 408px;
+  max-height: 608px;
+  border-radius: 24px;
+  background-color: $neutral-100;
+  box-shadow: 0 0 16px 0 rgba($neutral-black, 0.16);
   z-index: 100;
   &[data-open="0"] {
     pointer-events: none;
   }
   &.room-mode {
     top: auto;
-    bottom: 50px;
+    bottom: 58px;
     z-index: 25;
   }
   header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 5px 10px;
-    border-radius: 5px;
-    background-color: $lead;
-    box-shadow: 0 3px 5px rgba($black, 0.25);
-    span {
+    padding: 0 8px 16px;
+    .title {
+      color: $neutral-black;
+      font-family: Hauora-Bold;
       font-size: 18px;
-      font-weight: bold;
+      line-height: 20px;
+      letter-spacing: -0.36px;
     }
-    button {
-      display: flex;
-      align-items: center;
-      justify-content: center;
+    .close-btn {
       padding: 0;
-      width: 25px;
-      height: 30px;
+      width: 24px;
+      height: 24px;
       border: none;
       background: none;
       cursor: pointer;
-      img {
-        width: 25px;
-        height: 25px;
+      .close-icon {
+        --ui-icon-width: 24px;
+        --ui-icon-height: 24px;
+        --ui-icon-color: #{$neutral-black};
+      }
+      &:hover,
+      &:focus-visible,
+      &:active {
+        .close-icon {
+          --ui-icon-color: #{$green-500};
+        }
       }
     }
   }
@@ -638,9 +645,23 @@ onBeforeUnmount(() => {
       }
     }
     .empty {
-      color: $grey;
-      text-align: center;
-      margin: 55px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      height: 368px;
+      img {
+        width: 95px;
+        height: 100px;
+      }
+      span {
+        color: $neutral-500;
+        font-family: Hauora-Regular;
+        font-size: 14px;
+        line-height: 14px;
+        letter-spacing: -0.28px;
+      }
     }
   }
 }
