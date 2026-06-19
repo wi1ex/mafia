@@ -13,7 +13,7 @@
           <div v-if="section.items.length > 0" class="section-title">
             <span>{{ section.title }}{{ section.items.length }}</span>
           </div>
-          <article v-for="f in section.items" :key="`${f.kind}-${f.id}`" class="item" :style="friendItemStyle(f)">
+          <article v-for="f in section.items" :key="`${f.kind}-${f.id}`" class="item" :class="{ 'has-theme-color': hasFriendThemeColor(f) }" :style="friendNickStyle(f)">
             <button v-if="canOpenMiniProfile(f)" class="left profile-trigger" type="button" @click="openMiniProfile(f)">
               <img v-minio-img="{ key: f.avatar_name ? `avatars/${f.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="avatar" />
               <div v-if="friendThemeIconSrcs(f).length" class="profile-theme-icons" aria-hidden="true">
@@ -81,7 +81,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
+import { getProfileThemeOption } from '@/constants/profileThemes'
 import { getProfileThemeBadgeSources } from '@/constants/profileIcons'
 import { canOpenMiniProfileTarget, normalizeMiniProfileUserId } from '@/services/miniProfile'
 import {
@@ -133,7 +133,11 @@ const canInvite = (f: { kind?: string; room_id?: number | null; in_current_room?
   return Number(f.room_id || 0) !== inviteRoomId.value
 }
 const shouldShowInviteButton = (f: { kind?: string; room_id?: number | null; in_current_room?: boolean | null }) => canInvite(f)
-const friendItemStyle = (friend: { theme_color?: string | null }) => buildProfileThemeBgStyle(friend.theme_color)
+const hasFriendThemeColor = (friend: { theme_color?: string | null }) => Boolean(getProfileThemeOption(friend.theme_color))
+const friendNickStyle = (friend: { theme_color?: string | null }) => {
+  const option = getProfileThemeOption(friend.theme_color)
+  return option ? { '--friend-nick-theme': option.bg } : {}
+}
 const friendThemeIconSrcs = (friend: { theme_icon?: string | null; role?: string | null }) => getProfileThemeBadgeSources(friend.theme_icon, friend.role)
 const sections = computed(() => [
   { kind: 'incoming', title: 'Входящие заявки —', items: friends.list.filter(f => f.kind === 'incoming') },
@@ -505,10 +509,17 @@ onBeforeUnmount(() => {
       padding: 16px;
       gap: 8px;
       border-radius: 20px;
-      background-color: var(--user-theme-bg, $lead);
+      background-color: $neutral-white;
       box-shadow: 0 3px 5px rgba($black, 0.25);
       &:has(+ .item) {
         margin-bottom: 0;
+      }
+      &.has-theme-color .nick {
+        background: var(--friend-nick-theme);
+        background-clip: text;
+        color: transparent;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
       }
       .left {
         display: flex;
@@ -538,7 +549,7 @@ onBeforeUnmount(() => {
           flex: 0 0 auto;
         }
         .nick {
-          color: $fg;
+          color: $neutral-black;
           font-size: 16px;
           line-height: 1.5;
           font-family: Manrope-Medium;
