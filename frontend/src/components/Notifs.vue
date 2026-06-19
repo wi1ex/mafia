@@ -365,6 +365,8 @@ onBeforeUnmount(() => {
       margin: 0 8px;
       padding: 16px;
       gap: 8px;
+      border-radius: 20px;
+      transition: background-color 0.25s ease-in-out;
       &:hover,
       &:focus-visible,
       &:active {
