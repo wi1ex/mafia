@@ -7,7 +7,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 
-const DEFAULT_MIN_THUMB_HEIGHT = 32
+const DEFAULT_MIN_THUMB_HEIGHT = 60
 
 const props = withDefaults(defineProps<{
   target?: HTMLElement | null
@@ -178,7 +178,7 @@ onBeforeUnmount(() => {
 .scrollbar {
   position: absolute;
   top: 0;
-  right: 0;
+  right: -8px;
   bottom: 0;
   z-index: 1;
   width: 6px;
@@ -193,7 +193,6 @@ onBeforeUnmount(() => {
   left: 0;
   box-sizing: border-box;
   width: 100%;
-  border: 2px solid $neutral-white;
   border-radius: 999px;
   background-color: $neutral-500;
   background-clip: content-box;
