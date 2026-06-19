@@ -289,14 +289,12 @@ export const useAuthStore = defineStore('auth', () => {
       void alertDialog(`Попробуйте снова через ${formatRetryAfter(retryIn)}.`)
       return
     }
+    let data: { access_token?: string; sid?: string } | null = null
     try {
       const headers = isPwaMode() ? { 'X-PWA': '1' } : undefined
-      const { data } = await api.post('/auth/register', payload, headers ? { headers } : undefined)
+      const res = await api.post('/auth/register', payload, headers ? { headers } : undefined)
+      data = res.data
       clearCooldown('register')
-      await applySession(data)
-      const userStore = useUserStore()
-      await userStore.fetchMe()
-      onAuthorizedUserResolved(userStore.user?.id)
     } catch (e: any) {
       const st = e?.response?.status
       const detail = e?.response?.data?.detail
@@ -319,7 +317,23 @@ export const useAuthStore = defineStore('auth', () => {
       } else {
         void alertDialog('Не удалось зарегистрироваться')
       }
+      return
     }
+
+    await applySession(data || {})
+    const userStore = useUserStore()
+    try {
+      await userStore.fetchMe()
+    } catch {
+      try {
+        await new Promise<void>((resolve) => window.setTimeout(resolve, 300))
+        await userStore.fetchMe()
+      } catch {
+        void alertDialog('Ошибка загрузки профиля')
+        return
+      }
+    }
+    onAuthorizedUserResolved(userStore.user?.id)
   }
 
   async function logout(): Promise<void> {
