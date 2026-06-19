@@ -342,7 +342,7 @@ onBeforeUnmount(() => {
     overflow-x: hidden;
     scrollbar-gutter: stable;
     scrollbar-width: thin;
-    scrollbar-color: $neutral-100 transparent;
+    scrollbar-color: $neutral-500 $neutral-white;
     &::-webkit-scrollbar {
       width: 6px;
     }
@@ -353,16 +353,16 @@ onBeforeUnmount(() => {
     }
     &::-webkit-scrollbar-track {
       border-radius: 999px;
-      background-color: transparent;
+      background-color: $neutral-white;
     }
     &::-webkit-scrollbar-thumb {
-      border: 2px solid transparent;
+      border: 2px solid $neutral-white;
       border-radius: 999px;
-      background-color: $neutral-100;
+      background-color: $neutral-500;
       background-clip: content-box;
     }
     &::-webkit-scrollbar-thumb:hover {
-      background-color: $neutral-100;
+      background-color: $neutral-500;
     }
     .item {
       display: flex;
