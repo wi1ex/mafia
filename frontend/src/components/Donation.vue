@@ -696,16 +696,14 @@ onBeforeUnmount(() => {
                     display: inline-flex;
                     align-items: center;
                     justify-content: center;
-                    margin-right: -36px;
-                    margin-bottom: 8px;
-                    padding: 2px 5px;
+                    padding: 3px 5px;
                     border-radius: 999px;
                     background-color: $red-500;
                     color: $neutral-white;
                     font-family: Hauora-Regular;
-                    font-size: 12px;
+                    font-size: 14px;
                     line-height: 14px;
-                    letter-spacing: -0.36px;
+                    letter-spacing: -0.28px;
                     pointer-events: none;
                   }
                   &.active {
