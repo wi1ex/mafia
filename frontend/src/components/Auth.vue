@@ -13,10 +13,17 @@
         <div class="auth-body">
           <span class="title">Вход в аккаунт</span>
 
-          <div v-if="canRegister" class="tabs" role="tablist">
-            <button class="tab" :class="{ active: activeTab === 'login' }" type="button" role="tab" @click="activeTab = 'login'">Вход</button>
-            <button class="tab" :class="{ active: activeTab === 'register' }" type="button" role="tab" @click="activeTab = 'register'">Регистрация</button>
-          </div>
+          <UiSwitch
+            v-if="canRegister"
+            v-model="registrationMode"
+            class="auth-switch"
+            off-label="Вход"
+            on-label="Регистрация"
+            aria-label="Вход / Регистрация"
+            :width="450"
+            theme="dark"
+            without-text
+          />
 
           <form v-if="activeTab === 'login'" class="form" @submit.prevent="submitLogin">
             <UiInput id="auth-login-username" v-model.trim="login.username" maxlength="20" autocomplete="username" label="Никнейм"
@@ -32,7 +39,7 @@
               </template>
             </UiInput>
             <button class="btn confirm" type="submit" :disabled="loginBusy || auth.loginCooldownActive || !canLogin">
-              {{ loginBusy ? '...' : 'Войти' }}
+              {{ loginBusy ? '...' : 'Войти в аккаунт' }}
             </button>
             <button class="btn ghost" type="button" @click="openBot">Сбросить пароль</button>
           </form>
@@ -75,6 +82,7 @@ import { useAuthStore, useSettingsStore } from '@/store'
 
 import UiInput from '@/components/UiInput.vue'
 import UiCheckbox from '@/components/UiCheckbox.vue'
+import UiSwitch from '@/components/UiSwitch.vue'
 
 import authLogoVideo from '@/assets/video/auth-logo.mp4'
 import iconClose from '@/assets/svg/iconClose.svg'
@@ -91,6 +99,12 @@ const AUTH_LOGO_VIDEO_PRELOAD_ID = 'auth-logo-video-preload'
 
 const canRegister = computed(() => Boolean(settings.registrationEnabled))
 const activeTab = ref<'login' | 'register'>(props.mode ?? 'login')
+const registrationMode = computed({
+  get: () => activeTab.value === 'register',
+  set: (value: boolean) => {
+    activeTab.value = value && canRegister.value ? 'register' : 'login'
+  },
+})
 const armed = ref(false)
 const loginBusy = ref(false)
 const regBusy = ref(false)
@@ -286,32 +300,8 @@ onMounted(() => {
         font-size: 18px;
         font-weight: bold;
       }
-      .tabs {
-        display: flex;
-        align-items: flex-end;
-        width: 100%;
-        height: 40px;
-        .tab {
-          width: 50%;
-          height: 30px;
-          border: none;
-          border-radius: 5px 5px 0 0;
-          background-color: $graphite;
-          color: $fg;
-          font-size: 16px;
-          font-family: Manrope-Medium;
-          line-height: 1;
-          cursor: pointer;
-          transition: height 0.25s ease-in-out, background-color 0.25s ease-in-out;
-          &.active {
-            height: 40px;
-            background-color: $lead;
-          }
-          &:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-          }
-        }
+      .auth-switch {
+        margin: 20px 0 10px;
       }
       .form {
         display: flex;
