@@ -56,8 +56,8 @@
                 <span :id="authPasswordHintId">{{ authPassword.length }}/{{ PASSWORD_MAX }}</span>
               </template>
             </UiInput>
-            <Transition name="auth-field-expand">
-              <div v-if="isRegisterMode" class="auth-field-expand">
+            <Transition name="auth-field-expand" mode="out-in">
+              <div v-if="isRegisterMode" key="register" class="auth-field-expand">
                 <div class="auth-register-fields">
                   <UiInput
                     id="auth-reg-password-confirm"
@@ -80,9 +80,7 @@
                   </UiCheckbox>
                 </div>
               </div>
-            </Transition>
-            <Transition name="auth-field-expand">
-              <div v-if="!isRegisterMode" class="auth-field-expand">
+              <div v-else key="login" class="auth-field-expand">
                 <button class="btn-ghost" type="button" @click="openBot">Забыли пароль? Восстановить</button>
               </div>
             </Transition>
@@ -371,6 +369,7 @@ onMounted(() => {
         gap: 16px;
         .auth-field-expand {
           display: grid;
+          justify-content: flex-end;
           > * {
             min-height: 0;
             overflow: hidden;
