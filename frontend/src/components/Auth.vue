@@ -25,55 +25,68 @@
             without-text
           />
 
-          <form v-if="activeTab === 'login'" class="form" @submit.prevent="submitLogin">
-            <UiInput id="auth-login-username" v-model.trim="login.username" maxlength="20" autocomplete="username" label="Никнейм"
-              :invalid="loginUsernameInvalid" :aria-invalid="loginUsernameInvalid" aria-describedby="auth-login-username-hint">
+          <form class="form" @submit.prevent="submitActiveAuth">
+            <UiInput
+              :id="authUsernameId"
+              v-model.trim="authUsername"
+              maxlength="20"
+              autocomplete="username"
+              label="Никнейм"
+              :invalid="authUsernameInvalid"
+              :aria-invalid="authUsernameInvalid"
+              :aria-describedby="authUsernameHintId"
+            >
               <template #meta>
-                <span id="auth-login-username-hint">{{ login.username.length }}/{{ USERNAME_MAX }}</span>
+                <span :id="authUsernameHintId">{{ authUsername.length }}/{{ USERNAME_MAX }}</span>
               </template>
             </UiInput>
-            <UiInput id="auth-login-password" v-model="login.password" type="password" autocomplete="current-password" minlength="8" maxlength="32" label="Пароль"
-              :invalid="loginPasswordInvalid" :aria-invalid="loginPasswordInvalid" aria-describedby="auth-login-password-hint">
+            <UiInput
+              :id="authPasswordId"
+              v-model="authPassword"
+              type="password"
+              :autocomplete="authPasswordAutocomplete"
+              minlength="8"
+              maxlength="32"
+              label="Пароль"
+              :invalid="authPasswordInvalid"
+              :aria-invalid="authPasswordInvalid"
+              :aria-describedby="authPasswordHintId"
+            >
               <template #meta>
-                <span id="auth-login-password-hint">{{ login.password.length }}/{{ PASSWORD_MAX }}</span>
+                <span :id="authPasswordHintId">{{ authPassword.length }}/{{ PASSWORD_MAX }}</span>
               </template>
             </UiInput>
-            <button class="btn-ghost" type="button" @click="openBot">Забыли пароль? Восстановить</button>
+            <Transition name="auth-field-expand">
+              <div v-if="isRegisterMode" class="auth-register-fields">
+                <UiInput
+                  id="auth-reg-password-confirm"
+                  v-model="reg.passwordConfirm"
+                  type="password"
+                  autocomplete="new-password"
+                  minlength="8"
+                  maxlength="32"
+                  label="Повторите пароль"
+                  :invalid="regPasswordConfirmInvalid"
+                  :aria-invalid="regPasswordConfirmInvalid"
+                  aria-describedby="auth-reg-password-confirm-hint"
+                >
+                  <template #meta>
+                    <span id="auth-reg-password-confirm-hint">{{ reg.passwordConfirm.length }}/{{ PASSWORD_MAX }}</span>
+                  </template>
+                </UiInput>
+                <UiCheckbox v-model="reg.acceptRules">
+                  <span>С <router-link to="/rules" target="_blank">правилами</router-link> ознакомлен и согласен</span>
+                </UiCheckbox>
+              </div>
+            </Transition>
+            <Transition name="auth-field-expand">
+              <button v-if="!isRegisterMode" class="btn-ghost" type="button" @click="openBot">Забыли пароль? Восстановить</button>
+            </Transition>
             <UiButton
               class="auth-btn"
               type="submit"
-              :text="loginBusy ? '...' : 'Войти в аккаунт'"
-              :disabled="loginBusy || auth.loginCooldownActive || !canLogin"
-            />
-          </form>
-
-          <form v-else class="form" @submit.prevent="submitRegister">
-            <UiInput id="auth-reg-username" v-model.trim="reg.username" maxlength="20" autocomplete="username" label="Никнейм"
-              :invalid="regUsernameInvalid" :aria-invalid="regUsernameInvalid" aria-describedby="auth-reg-username-hint">
-              <template #meta>
-                <span id="auth-reg-username-hint">{{ reg.username.length }}/{{ USERNAME_MAX }}</span>
-              </template>
-            </UiInput>
-            <UiInput id="auth-reg-password" v-model="reg.password" type="password" autocomplete="new-password" minlength="8" maxlength="32" label="Пароль"
-              :invalid="regPasswordInvalid" :aria-invalid="regPasswordInvalid" aria-describedby="auth-reg-password-hint">
-              <template #meta>
-                <span id="auth-reg-password-hint">{{ reg.password.length }}/{{ PASSWORD_MAX }}</span>
-              </template>
-            </UiInput>
-            <UiInput id="auth-reg-password-confirm" v-model="reg.passwordConfirm" type="password" autocomplete="new-password" minlength="8" maxlength="32" label="Повторите пароль"
-              :invalid="regPasswordConfirmInvalid" :aria-invalid="regPasswordConfirmInvalid" aria-describedby="auth-reg-password-confirm-hint">
-              <template #meta>
-                <span id="auth-reg-password-confirm-hint">{{ reg.passwordConfirm.length }}/{{ PASSWORD_MAX }}</span>
-              </template>
-            </UiInput>
-            <UiCheckbox v-model="reg.acceptRules">
-              <span>С <router-link to="/rules" target="_blank">правилами</router-link> ознакомлен и согласен</span>
-            </UiCheckbox>
-            <UiButton
-              class="auth-btn"
-              type="submit"
-              :text="regBusy ? '...' : 'Зарегистрироваться'"
-              :disabled="regBusy || auth.registerCooldownActive || !canRegisterSubmit"
+              :text="authSubmitText"
+              :disabled="authSubmitDisabled"
             />
           </form>
         </div>
@@ -106,8 +119,9 @@ const AUTH_LOGO_VIDEO_PRELOAD_ID = 'auth-logo-video-preload'
 
 const canRegister = computed(() => Boolean(settings.registrationEnabled))
 const activeTab = ref<'login' | 'register'>(props.mode ?? 'login')
+const isRegisterMode = computed(() => activeTab.value === 'register')
 const registrationMode = computed({
-  get: () => activeTab.value === 'register',
+  get: () => isRegisterMode.value,
   set: (value: boolean) => {
     activeTab.value = value && canRegister.value ? 'register' : 'login'
   },
@@ -118,6 +132,26 @@ const regBusy = ref(false)
 
 const login = reactive({ username: '', password: '' })
 const reg = reactive({ username: '', password: '', passwordConfirm: '', acceptRules: false })
+
+const authUsername = computed({
+  get: () => isRegisterMode.value ? reg.username : login.username,
+  set: (value: string) => {
+    if (isRegisterMode.value) reg.username = value
+    else login.username = value
+  },
+})
+const authPassword = computed({
+  get: () => isRegisterMode.value ? reg.password : login.password,
+  set: (value: string) => {
+    if (isRegisterMode.value) reg.password = value
+    else login.password = value
+  },
+})
+const authUsernameId = computed(() => isRegisterMode.value ? 'auth-reg-username' : 'auth-login-username')
+const authUsernameHintId = computed(() => `${authUsernameId.value}-hint`)
+const authPasswordId = computed(() => isRegisterMode.value ? 'auth-reg-password' : 'auth-login-password')
+const authPasswordHintId = computed(() => `${authPasswordId.value}-hint`)
+const authPasswordAutocomplete = computed(() => isRegisterMode.value ? 'new-password' : 'current-password')
 
 const USERNAME_MIN = 2
 const USERNAME_MAX = 20
@@ -165,6 +199,16 @@ const regPasswordConfirmInvalid = computed(() => {
   if (len < PASSWORD_MIN) return true
   return reg.password !== reg.passwordConfirm
 })
+const authUsernameInvalid = computed(() => isRegisterMode.value ? regUsernameInvalid.value : loginUsernameInvalid.value)
+const authPasswordInvalid = computed(() => isRegisterMode.value ? regPasswordInvalid.value : loginPasswordInvalid.value)
+const authSubmitText = computed(() => {
+  if (isRegisterMode.value) return regBusy.value ? '...' : 'Зарегистрироваться'
+  return loginBusy.value ? '...' : 'Войти в аккаунт'
+})
+const authSubmitDisabled = computed(() => {
+  if (isRegisterMode.value) return regBusy.value || auth.registerCooldownActive || !canRegisterSubmit.value
+  return loginBusy.value || auth.loginCooldownActive || !canLogin.value
+})
 
 function hasPasswordWhitespace(value: string) {
   return PASSWORD_SPACE_RE.test(value)
@@ -199,6 +243,14 @@ async function submitLogin() {
     await auth.signInWithPassword({ username: login.username.trim(), password: login.password })
     if (auth.isAuthed) close()
   } finally { loginBusy.value = false }
+}
+
+async function submitActiveAuth() {
+  if (isRegisterMode.value) {
+    await submitRegister()
+    return
+  }
+  await submitLogin()
 }
 
 async function submitRegister() {
@@ -313,6 +365,11 @@ onMounted(() => {
         display: flex;
         flex-direction: column;
         gap: 16px;
+        .auth-register-fields {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
         .auth-switch {
           margin-bottom: 16px;
         }
@@ -348,6 +405,23 @@ onMounted(() => {
 .auth-modal-enter-from,
 .auth-modal-leave-to {
   opacity: 0;
+}
+.auth-field-expand-enter-active,
+.auth-field-expand-leave-active {
+  overflow: hidden;
+  transition: max-height 0.25s ease-in-out, opacity 0.2s ease-in-out, transform 0.25s ease-in-out;
+}
+.auth-field-expand-enter-from,
+.auth-field-expand-leave-to {
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-10px);
+}
+.auth-field-expand-enter-to,
+.auth-field-expand-leave-from {
+  max-height: 180px;
+  opacity: 1;
+  transform: translateY(0);
 }
 
 </style>
