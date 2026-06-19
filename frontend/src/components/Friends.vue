@@ -548,7 +548,7 @@ onBeforeUnmount(() => {
           }
         }
         .nick {
-          max-width: 162px;
+          max-width: 182px;
           color: $neutral-black;
           font-family: Hauora-Regular;
           font-size: 16px;
@@ -561,23 +561,31 @@ onBeforeUnmount(() => {
       }
       .info {
         display: flex;
-        gap: 5px;
+        align-items: center;
+        gap: 16px;
         .room-info {
           display: flex;
           flex-direction: column;
-          align-items: flex-end;
+          width: 112px;
           .room {
-            max-width: 120px;
+            max-width: 112px;
+            color: $neutral-500;
+            font-family: Hauora-Regular;
             font-size: 12px;
+            line-height: 14px;
+            letter-spacing: -0.24px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
           }
           .game {
+            color: $neutral-black;
+            font-family: Hauora-Regular;
             font-size: 12px;
-            color: $ashy;
+            line-height: 14px;
+            letter-spacing: -0.24px;
             &.active {
-              color: $green;
+              color: $green-700;
             }
           }
         }
@@ -588,8 +596,8 @@ onBeforeUnmount(() => {
             align-items: center;
             justify-content: center;
             padding: 0;
-            width: 25px;
-            height: 25px;
+            width: 28px;
+            height: 28px;
             border: none;
             border-radius: 5px;
             background-color: $dark;
@@ -611,14 +619,16 @@ onBeforeUnmount(() => {
       }
       .actions {
         display: flex;
-        gap: 5px;
+        align-items: center;
+        margin-left: -12px;
+        gap: 4px;
         button {
           display: flex;
           align-items: center;
           justify-content: center;
           padding: 0;
-          width: 25px;
-          height: 25px;
+          width: 28px;
+          height: 28px;
           border: none;
           border-radius: 5px;
           cursor: pointer;

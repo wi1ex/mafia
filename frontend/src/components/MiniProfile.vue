@@ -1124,7 +1124,7 @@ async function toggleStaffRole(): Promise<void> {
   const targetRole = isModer ? 'user' : 'moder'
   const userLabel = currentTargetLabel()
   const ok = await confirmDialog({
-    title: isModer ? 'Снять MODER' : 'Выдать MODER',
+    title: isModer ? 'Снять модерку' : 'Выдать модерку',
     text: `${isModer ? 'Снять' : 'Выдать'} права модератора пользователю ${userLabel}?`,
     confirmText: isModer ? 'Снять' : 'Выдать',
     cancelText: 'Отмена',
