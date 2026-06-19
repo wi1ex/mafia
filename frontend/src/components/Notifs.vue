@@ -41,7 +41,7 @@
             <span>Уведомлений пока нет...</span>
           </div>
         </div>
-        <UiScrollbar :target="list" :active="open" />
+        <UiScrollbar :target="list" :active="open" theme="light" :inset-bottom="8" />
       </div>
     </div>
   </Transition>

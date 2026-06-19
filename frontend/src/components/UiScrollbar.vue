@@ -1,5 +1,12 @@
 <template>
-  <div v-show="visible" class="scrollbar" aria-hidden="true" @pointerdown="onTrackPointerDown">
+  <div
+    ref="track"
+    class="scrollbar"
+    :class="[themeClass, { 'scrollbar--visible': visible }]"
+    :style="scrollbarStyle"
+    aria-hidden="true"
+    @pointerdown="onTrackPointerDown"
+  >
     <div class="thumb" :style="thumbStyle" @pointerdown.stop="onThumbPointerDown"></div>
   </div>
 </template>
@@ -8,19 +15,27 @@
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 
 const DEFAULT_MIN_THUMB_HEIGHT = 60
+type ScrollbarInset = number | string
 
 const props = withDefaults(defineProps<{
   target?: HTMLElement | null
   active?: boolean
+  theme?: 'light' | 'dark'
   minThumbHeight?: number
+  insetTop?: ScrollbarInset
+  insetBottom?: ScrollbarInset
 }>(), {
   active: true,
+  theme: 'light',
   minThumbHeight: DEFAULT_MIN_THUMB_HEIGHT,
+  insetTop: 0,
+  insetBottom: 0,
 })
 
 const visible = ref(false)
 const thumbTop = ref(0)
 const thumbHeight = ref(0)
+const track = ref<HTMLElement | null>(null)
 
 let targetEl: HTMLElement | null = null
 let ro: ResizeObserver | null = null
@@ -34,6 +49,15 @@ const thumbStyle = computed(() => ({
   height: `${thumbHeight.value}px`,
   transform: `translateY(${thumbTop.value}px)`,
 }))
+const themeClass = computed(() => `scrollbar--${props.theme}`)
+const scrollbarStyle = computed(() => ({
+  top: toCssSize(props.insetTop),
+  bottom: toCssSize(props.insetBottom),
+}))
+
+function toCssSize(value: ScrollbarInset): string {
+  return typeof value === 'number' ? `${value}px` : value
+}
 
 function reset() {
   visible.value = false
@@ -48,16 +72,17 @@ function update() {
   }
 
   const { clientHeight, scrollHeight, scrollTop } = targetEl
-  if (clientHeight <= 0 || scrollHeight <= clientHeight + 1) {
+  const trackHeight = track.value?.clientHeight ?? 0
+  if (clientHeight <= 0 || trackHeight <= 0 || scrollHeight <= clientHeight + 1) {
     reset()
     return
   }
 
   const nextThumbHeight = Math.min(
-    clientHeight,
-    Math.max(props.minThumbHeight, (clientHeight / scrollHeight) * clientHeight),
+    trackHeight,
+    Math.max(props.minThumbHeight, (clientHeight / scrollHeight) * trackHeight),
   )
-  const maxThumbTop = clientHeight - nextThumbHeight
+  const maxThumbTop = trackHeight - nextThumbHeight
   const maxScrollTop = scrollHeight - clientHeight
 
   visible.value = true
@@ -167,6 +192,7 @@ watch(() => props.active, (active) => {
   if (!active) cleanupThumbDrag()
   scheduleUpdate()
 }, { flush: 'post' })
+watch(() => [props.insetTop, props.insetBottom], scheduleUpdate, { flush: 'post' })
 
 onBeforeUnmount(() => {
   cleanupTarget()
@@ -185,7 +211,20 @@ onBeforeUnmount(() => {
   border-radius: 999px;
   background-color: $neutral-white;
   cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
   touch-action: none;
+  &--visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  &--dark {
+    right: 0;
+    background-color: $neutral-500;
+    .thumb {
+      background-color: $neutral-white;
+    }
+  }
 }
 .thumb {
   position: absolute;

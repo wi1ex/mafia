@@ -34,25 +34,28 @@
           <span class="text-center">Лимит</span>
         </div>
 
-        <ul class="list-body">
-          <li class="item" v-for="r in sortedRooms" :key="r.id" :class="{ active: r.id === selectedId || r.id === pendingRoomId }" tabindex="0" @click="selectRoom(r.id)" >
-            <div class="cell">
-              <div class="status-room" :class="roomStatusClass(r)">
-                <img :src="iconDot" alt="dot" class="dot-img" />
-                <span class="item-text">{{ roomStatusLabel(r)}}</span>
+        <div class="list-body-shell">
+          <ul class="list-body" ref="roomsList">
+            <li class="item" v-for="r in sortedRooms" :key="r.id" :class="{ active: r.id === selectedId || r.id === pendingRoomId }" tabindex="0" @click="selectRoom(r.id)" >
+              <div class="cell">
+                <div class="status-room" :class="roomStatusClass(r)">
+                  <img :src="iconDot" alt="dot" class="dot-img" />
+                  <span class="item-text">{{ roomStatusLabel(r)}}</span>
+                </div>
               </div>
-            </div>
-            <div class="cell">
-              <img :src="r.privacy === 'private' ? iconLockClose : iconLockOpen" alt="lock" />
-              <span class="item-text ellipsis margin">{{ r.title }}</span>
-            </div>
-            <div class="cell">
-              <img class="user-avatar" v-minio-img="{key: r.creator_avatar_name ? `avatars/${r.creator_avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false}" alt="avatar" />
-              <span class="item-text ellipsis">{{ r.creator_name }}</span>
-            </div>
-            <span class="text-center">{{ r.occupancy }}/{{ r.user_limit }}</span>
-          </li>
-        </ul>
+              <div class="cell">
+                <img :src="r.privacy === 'private' ? iconLockClose : iconLockOpen" alt="lock" />
+                <span class="item-text ellipsis margin">{{ r.title }}</span>
+              </div>
+              <div class="cell">
+                <img class="user-avatar" v-minio-img="{key: r.creator_avatar_name ? `avatars/${r.creator_avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false}" alt="avatar" />
+                <span class="item-text ellipsis">{{ r.creator_name }}</span>
+              </div>
+              <span class="text-center">{{ r.occupancy }}/{{ r.user_limit }}</span>
+            </li>
+          </ul>
+          <UiScrollbar :target="roomsList" theme="dark" :inset-bottom="8" />
+        </div>
       </div>
     </div>
 
@@ -231,6 +234,7 @@ import Donation from '@/components/Donation.vue'
 import Contact from '@/components/Contact.vue'
 import UiIcon from '@/components/UiIcon.vue'
 import UiButton from '@/components/UiButton.vue'
+import UiScrollbar from '@/components/UiScrollbar.vue'
 
 import iconDefaultAvatarBlack from '@/assets/svg/iconDefaultAvatarBlack.svg'
 import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
@@ -307,6 +311,7 @@ const canAdminSpectateRoom = computed(() => {
 })
 
 const roomsMap = reactive(new Map<number, Room>())
+const roomsList = ref<HTMLElement | null>(null)
 const sio = ref<Socket | null>(null)
 const suppressedAutoselect = ref(true)
 
@@ -993,38 +998,29 @@ onBeforeUnmount(() => {
           letter-spacing: -0.32px;
         }
       }
+      .list-body-shell {
+        position: relative;
+        flex: 1 1 auto;
+        min-height: 0;
+        margin-right: -18px;
+      }
       .list-body {
         display: flex;
         flex-direction: column;
-        margin: 0 -18px 0 0;
+        box-sizing: border-box;
+        height: 100%;
+        margin: 0;
         padding: 0 9px 10px 0;
         gap: 10px;
         list-style: none;
         overflow-y: auto;
         overflow-x: hidden;
-        scrollbar-gutter: stable;
-        scrollbar-width: thin;
-        scrollbar-color: $neutral-100 transparent;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
         &::-webkit-scrollbar {
-          width: 6px;
-        }
-        &::-webkit-scrollbar-button {
           display: none;
           width: 0;
           height: 0;
-        }
-        &::-webkit-scrollbar-track {
-          border-radius: 999px;
-          background-color: transparent;
-        }
-        &::-webkit-scrollbar-thumb {
-          border: 2px solid transparent;
-          border-radius: 999px;
-          background-color: $neutral-100;
-          background-clip: content-box;
-        }
-        &::-webkit-scrollbar-thumb:hover {
-          background-color: $neutral-100;
         }
         .item {
           display: grid;
