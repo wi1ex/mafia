@@ -36,7 +36,7 @@
                     <span class="game" :class="{ active: f.room_in_game }">{{ f.room_in_game ? 'Игра' : 'Лобби' }}</span>
                   </div>
                   <div v-if="shouldShowInviteButton(f)" class="invite-select">
-                    <button type="button" class="icon-btn invite-btn" :disabled="isInviteDisabled(f) || Boolean(inviteBusy[f.id])" :title="inviteDisabledReason(f)" @click="invite(f)" aria-label="Пригласить в комнату">
+                    <button type="button" class="icon-btn invite-btn" :disabled="isInviteDisabled(f) || Boolean(inviteBusy[f.id])" @click="invite(f)" aria-label="Пригласить в комнату">
                       <UiIcon class="invite-icon" :icon="inviteIcon(f)" />
                     </button>
                   </div>
@@ -185,14 +185,6 @@ function isInviteDisabled(friend: { id: number; kind?: string; telegram_verified
   if (uid <= 0) return true
   if (inviteBlockedReason(friend)) return true
   return isAlreadyInvited(friend)
-}
-
-function inviteDisabledReason(friend: { id: number; kind?: string; telegram_verified?: boolean; tg_invites_enabled?: boolean; tg_invite_cooldown_active?: boolean | null; ban_active?: boolean | null; timeout_active?: boolean | null; room_invited?: boolean | null; in_active_game_as_alive_player?: boolean | null; in_active_game_as_host?: boolean | null }): string {
-  if (inviteBusy[Number(friend.id || 0)]) return 'Отправка приглашения'
-  const blockedReason = inviteBlockedReason(friend)
-  if (blockedReason) return blockedReason
-  if (isAlreadyInvited(friend)) return 'Пользователь уже приглашен в эту комнату'
-  return ''
 }
 
 function inviteIcon(friend: { kind?: string }): string {

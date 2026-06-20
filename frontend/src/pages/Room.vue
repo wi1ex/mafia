@@ -112,7 +112,7 @@
       <div v-else class="theater">
         <div class="stage">
           <video :ref="(el) => stableScreenRef(screenOwnerId)(el as HTMLVideoElement | null)" playsinline autoplay muted />
-          <div v-if="screenOwnerId" class="screen-quality" :class="`screen-quality-${screenQuality}`" :title="SCREEN_QUALITY_HINT" :aria-label="`${screenQualityLabel}: ${SCREEN_QUALITY_HINT}`">
+          <div v-if="screenOwnerId" class="screen-quality" :class="`screen-quality-${screenQuality}`" :aria-label="`${screenQualityLabel}: ${SCREEN_QUALITY_HINT}`">
             {{ screenQualityLabel }}
           </div>
           <div v-if="screenOwnerId !== localId && streamAudioKey" class="volume" @click.stop>

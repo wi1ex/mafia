@@ -7,7 +7,7 @@
           <header class="profile-top">
             <div class="profile-identity">
               <button class="profile-avatar-trigger" type="button" :disabled="!hasAvatar" aria-label="Open avatar" @click="openAvatarLightbox">
-                <img ref="avatarImageEl" class="profile-avatar" v-minio-img="{ key: avatarKey, placeholder: defaultAvatar, lazy: false, animated: true }" alt="avatar" />
+                <img ref="avatarImageEl" class="profile-avatar" v-minio-img="{ key: avatarKey, placeholder: iconDefaultAvatar, lazy: false, animated: true }" alt="avatar" />
               </button>
               <div class="profile-icon-name">
                 <div class="profile-title">
@@ -25,7 +25,7 @@
                       <span v-if="adminFriends.length === 0" class="profile-friends-empty">Нет друзей</span>
                       <span v-else class="profile-friends-list">
                         <span v-for="friend in adminFriends" :key="friend.id" class="profile-friend-row">
-                          <img class="profile-friend-avatar" v-minio-img="{key: friendAvatarKey(friend), placeholder: defaultAvatar, lazy: false}" alt="avatar" />
+                          <img class="profile-friend-avatar" v-minio-img="{key: friendAvatarKey(friend), placeholder: iconDefaultAvatar, lazy: false}" alt="avatar" />
                           <span class="profile-friend-main">
                             <span class="profile-friend-name">{{ friend.username || `user${friend.id}` }}</span>
                             <span class="profile-friend-date">
@@ -36,6 +36,29 @@
                       </span>
                     </span>
                   </span>
+
+                  <span v-if="activeSanction" class="profile-tooltip-wrap sanction-tooltip-wrap" tabindex="0">
+                    <img class="profile-meta-icon" :src="iconJudgeHummer" alt="" />
+                    <span class="profile-tooltip sanction-tooltip" role="tooltip">
+                      <strong>{{ activeSanctionKindLabel }}</strong>
+                      <span>{{ activeSanctionExpiryLabel }}</span>
+                    </span>
+                  </span>
+
+                  <span v-if="targetUserId > 0" class="profile-tooltip-wrap profile-history-tooltip-wrap" tabindex="0" @mouseenter="loadNicknameHistory" @focusin="loadNicknameHistory">
+                    <img class="profile-meta-icon" :src="iconTimeHistory" alt="" />
+                    <span class="profile-tooltip nickname-history-tooltip" role="tooltip">
+                      <span v-if="nicknameHistoryLoading" class="nickname-history-state">Загрузка...</span>
+                      <span v-else-if="nicknameHistoryError" class="nickname-history-state danger">{{ nicknameHistoryError }}</span>
+                      <span v-else class="nickname-history-list">
+                        <span v-for="(nickname, index) in nicknameHistoryItems" :key="`${nickname}-${index}`" :class="{ current: index === 0 }">
+                          {{ nickname }}
+                        </span>
+                        <span v-if="!nicknameHistoryItems.length" class="nickname-history-state">-</span>
+                      </span>
+                    </span>
+                  </span>
+
                   <span v-for="nomination in profileNominations" :key="nomination.key" class="profile-tooltip-wrap profile-nomination-tooltip-wrap" :class="`level-${nomination.level}`"
                         tabindex="0" :aria-label="`${nomination.label}: ${nomination.valueLabel}, ${nomination.levelLabel}`">
                     <span class="profile-nomination-icon-shell">
@@ -58,33 +81,12 @@
                       </span>
                     </span>
                   </span>
-
-                  <span v-if="activeSanction" class="profile-tooltip-wrap sanction-tooltip-wrap" tabindex="0">
-                    <img class="profile-meta-icon" :src="iconJudge" alt="" />
-                    <span class="profile-tooltip sanction-tooltip" role="tooltip">
-                      <strong>{{ activeSanctionKindLabel }}</strong>
-                      <span>{{ activeSanctionExpiryLabel }}</span>
-                    </span>
-                  </span>
-                  <span v-if="targetUserId > 0" class="profile-tooltip-wrap profile-history-tooltip-wrap" tabindex="0" @mouseenter="loadNicknameHistory" @focusin="loadNicknameHistory">
-                    <img class="profile-meta-icon" :src="iconTimeHistory" alt="" />
-                    <span class="profile-tooltip nickname-history-tooltip" role="tooltip">
-                      <span v-if="nicknameHistoryLoading" class="nickname-history-state">Загрузка...</span>
-                      <span v-else-if="nicknameHistoryError" class="nickname-history-state danger">{{ nicknameHistoryError }}</span>
-                      <span v-else class="nickname-history-list">
-                        <span v-for="(nickname, index) in nicknameHistoryItems" :key="`${nickname}-${index}`" :class="{ current: index === 0 }">
-                          {{ nickname }}
-                        </span>
-                        <span v-if="!nicknameHistoryItems.length" class="nickname-history-state">-</span>
-                      </span>
-                    </span>
-                  </span>
                 </div>
               </div>
             </div>
             <div class="profile-side-tools">
-              <button class="close-button" type="button" aria-label="Закрыть" @click="close">
-                <img :src="iconClose" alt="" />
+              <button class="close-btn" type="button" aria-label="Закрыть" @click="close">
+                <UiIcon class="close-icon" :icon="iconClose" />
               </button>
             </div>
           </header>
@@ -198,20 +200,22 @@ import ProfileStats from '@/components/ProfileStats.vue'
 import ProfileHistory from '@/components/ProfileHistory.vue'
 import Sanction from '@/components/Sanction.vue'
 import Subscription from '@/components/Subscription.vue'
+import UiIcon from '@/components/UiIcon.vue'
 
-import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
-import iconClose from '@/assets/svg/close.svg'
-import iconAddFriends from '@/assets/svg/addFriends.svg'
-import iconInFriends from '@/assets/svg/inFriends.svg'
-import iconRecieveFriends from '@/assets/svg/recieveFriends.svg'
-import iconSendFriends from '@/assets/svg/sendFriends.svg'
-import iconJudge from '@/assets/svg/judge.svg'
-import iconTimeHistory from '@/assets/svg/timeHistory.svg'
-import nominationGames from '@/assets/svg/nominationGames.svg'
-import nominationHead from '@/assets/svg/nominationHead.svg'
-import nominationRoom from '@/assets/svg/nominationRoom.svg'
-import nominationStream from '@/assets/svg/nominationStream.svg'
-import nominationSpectator from '@/assets/svg/nominationSpectator.svg'
+import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
+import iconClose from '@/assets/svg/iconClose.svg'
+import iconAddFriends from '@/assets/svg/iconAddFriends.svg'
+import iconInFriends from '@/assets/svg/iconInFriends.svg'
+import iconRecieveFriends from '@/assets/svg/iconRecieveFriends.svg'
+import iconSendFriends from '@/assets/svg/iconRecieveFriends.svg'
+import iconRemoveFriends from '@/assets/svg/iconRemoveFriends.svg'
+import iconJudgeHummer from '@/assets/svg/iconJudgeHummer.svg'
+import iconTimeHistory from '@/assets/svg/iconTimeHistory.svg'
+import nominationGames from '@/assets/svg/iconPS5.svg'
+import nominationHead from '@/assets/svg/iconPlay.svg'
+import nominationRoom from '@/assets/svg/iconSpeak.svg'
+import nominationStream from '@/assets/svg/iconScreenOn.svg'
+import nominationSpectator from '@/assets/svg/iconVisOn.svg'
 
 type FriendActionKind = 'add' | 'remove' | 'incoming' | 'outgoing'
 type MiniProfileSanctionKind = 'timeout' | 'ban' | 'suspend'
@@ -681,7 +685,7 @@ const staffActionItems = computed<StaffActionItem[]>(() => {
       {
         key: 'role',
         label: 'Модерка',
-        icon: targetRoleNormalized.value === 'moder' ? iconClose : iconJudge,
+        icon: targetRoleNormalized.value === 'moder' ? iconClose : iconJudgeHummer,
         buttonClass: targetRoleNormalized.value === 'moder' ? 'dark' : 'danger',
         disabled: staffAdminDeletedUserActionsLocked.value || staffRoleBusy.value || targetRoleNormalized.value === 'admin',
         ariaLabel: targetRoleNormalized.value === 'moder' ? `Снять модерку ${displayName.value}` : `Выдать модерку ${displayName.value}`,
@@ -689,7 +693,7 @@ const staffActionItems = computed<StaffActionItem[]>(() => {
       {
         key: 'account',
         label: 'Аккаунт',
-        icon: targetDeleted.value ? iconClose : iconJudge,
+        icon: targetDeleted.value ? iconClose : iconJudgeHummer,
         buttonClass: targetDeleted.value ? 'dark' : 'danger',
         disabled: staffAdminUserActionsLocked.value || staffAccountBusy.value,
         ariaLabel: targetDeleted.value ? `Восстановить аккаунт ${displayName.value}` : `Удалить аккаунт ${displayName.value}`,
@@ -713,7 +717,7 @@ const staffActionItems = computed<StaffActionItem[]>(() => {
       {
         key: 'suspend',
         label: 'Отстран.',
-        icon: targetSuspendActive.value ? iconClose : iconJudge,
+        icon: targetSuspendActive.value ? iconClose : iconJudgeHummer,
         buttonClass: targetSuspendActive.value ? 'dark' : 'danger',
         disabled: staffAdminDeletedUserActionsLocked.value || suspendDisabled,
         ariaLabel: targetSuspendActive.value ? `Снять отстранение ${displayName.value}` : `Выдать отстранение ${displayName.value}`,
@@ -721,7 +725,7 @@ const staffActionItems = computed<StaffActionItem[]>(() => {
       {
         key: 'timeout',
         label: 'Таймаут',
-        icon: targetTimeoutActive.value ? iconClose : iconJudge,
+        icon: targetTimeoutActive.value ? iconClose : iconJudgeHummer,
         buttonClass: targetTimeoutActive.value ? 'dark' : 'danger',
         disabled: staffAdminDeletedUserActionsLocked.value || timeoutDisabled,
         ariaLabel: targetTimeoutActive.value ? `Снять таймаут ${displayName.value}` : `Выдать таймаут ${displayName.value}`,
@@ -729,7 +733,7 @@ const staffActionItems = computed<StaffActionItem[]>(() => {
       {
         key: 'ban',
         label: 'Бан',
-        icon: targetBanActive.value ? iconClose : iconJudge,
+        icon: targetBanActive.value ? iconClose : iconJudgeHummer,
         buttonClass: targetBanActive.value ? 'dark' : 'danger',
         disabled: staffAdminDeletedUserActionsLocked.value || isStaffSanctionBusy('ban'),
         ariaLabel: targetBanActive.value ? `Снять бан ${displayName.value}` : `Выдать бан ${displayName.value}`,
@@ -760,7 +764,7 @@ const staffActionItems = computed<StaffActionItem[]>(() => {
       {
         key: 'suspend',
         label: 'Отстранить от игр',
-        icon: targetSuspendActive.value ? iconClose : iconJudge,
+        icon: targetSuspendActive.value ? iconClose : iconJudgeHummer,
         buttonClass: targetSuspendActive.value ? 'dark' : 'danger',
         disabled: suspendDisabled,
         ariaLabel: targetSuspendActive.value ? `Снять отстранение ${displayName.value}` : `Выдать отстранение ${displayName.value}`,
@@ -768,7 +772,7 @@ const staffActionItems = computed<StaffActionItem[]>(() => {
       {
         key: 'timeout',
         label: 'Выдать таймаут',
-        icon: targetTimeoutActive.value ? iconClose : iconJudge,
+        icon: targetTimeoutActive.value ? iconClose : iconJudgeHummer,
         buttonClass: targetTimeoutActive.value ? 'dark' : 'danger',
         disabled: timeoutDisabled,
         ariaLabel: targetTimeoutActive.value ? `Снять таймаут ${displayName.value}` : `Выдать таймаут ${displayName.value}`,
@@ -1596,25 +1600,23 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   inset: 0;
-  background-color: rgba($black, 0.5);
-  backdrop-filter: blur(5px);
+  background-color: rgba($neutral-black, 0.20);
+  backdrop-filter: blur(12px);
   z-index: 1500;
   .user-mini-profile-panel {
     display: flex;
     flex-direction: column;
-    padding: 20px;
-    gap: 20px;
-    width: 500px;
-    height: min-content;
-    border-radius: 10px;
-    background-color: var(--user-theme-bg, $dark);
+    padding: 24px;
+    gap: 24px;
+    width: 558px;
+    border-radius: 24px;
+    background-color: var(--user-theme-bg, $neutral-black);
     overflow-y: auto;
     scrollbar-width: none;
     transition: width 0.25s ease-in-out, height 0.25s ease-in-out;
     &.stats-mode {
-      gap: 20px;
-      width: min(1250px, calc(100vw - 80px));
-      height: calc(100dvh - 80px);
+      width: min(1350px, calc(100vw - 96px));
+      height: calc(100dvh - 96px);
     }
     .profile-top {
       display: flex;
@@ -1623,12 +1625,10 @@ onBeforeUnmount(() => {
       .profile-identity {
         display: flex;
         align-items: flex-start;
-        min-width: 0;
-        gap: 10px;
+        gap: 16px;
         .profile-avatar-trigger {
           display: flex;
           position: relative;
-          flex: 0 0 auto;
           align-items: center;
           justify-content: center;
           padding: 0;
@@ -1640,8 +1640,8 @@ onBeforeUnmount(() => {
             cursor: default;
           }
           .profile-avatar {
-            width: 120px;
-            height: 120px;
+            width: 128px;
+            height: 128px;
             border-radius: 50%;
             object-fit: cover;
           }
@@ -1649,33 +1649,29 @@ onBeforeUnmount(() => {
         .profile-icon-name {
           display: flex;
           flex-direction: column;
-          min-width: 0;
-          padding: 5px 10px 10px;
-          gap: 5px;
-          border-radius: 10px;
-          background-color: rgba($graphite, 0.5);
-          box-shadow: 3px 3px 5px rgba($black, 0.25);
+          gap: 8px;
           .profile-title {
             display: flex;
-            min-width: 0;
+            align-items: flex-end;
             height: 30px;
-            gap: 5px;
+            gap: 8px;
             .profile-theme-icons {
               display: inline-flex;
-              flex: 0 0 auto;
               align-items: center;
-              gap: 5px;
+              height: 30px;
               .profile-theme-icon {
-                width: 24px;
-                height: 24px;
+                width: 28px;
+                height: 28px;
                 object-fit: contain;
               }
             }
             .profile-name {
-              max-width: 280px;
-              font-size: 22px;
-              line-height: 1.3;
-              font-family: Manrope-SemiBold;
+              max-width: 314px;
+              color: $neutral-white;
+              font-family: Involve-Medium;
+              font-size: 24px;
+              line-height: 26px;
+              letter-spacing: -0.48px;
               white-space: nowrap;
               overflow: hidden;
               text-overflow: ellipsis;
@@ -1684,11 +1680,10 @@ onBeforeUnmount(() => {
           .profile-meta {
             display: flex;
             align-items: center;
-            gap: 5px;
+            gap: 4px;
             .profile-tooltip-wrap {
               display: inline-flex;
               position: relative;
-              flex: 0 0 auto;
               align-items: center;
               justify-content: center;
               outline: none;
@@ -1723,7 +1718,7 @@ onBeforeUnmount(() => {
                 top: calc(100% + 10px);
                 left: 50%;
                 flex-direction: column;
-                padding: 10px;
+                padding: 16px;
                 border-radius: 5px;
                 background-color: $graphite;
                 box-shadow: 3px 3px 5px rgba($black, 0.25);
@@ -1733,10 +1728,7 @@ onBeforeUnmount(() => {
                 visibility: hidden;
                 pointer-events: none;
                 transform: translateX(-50%) translateY(5px);
-                transition:
-                  opacity 0.25s ease-in-out,
-                  visibility 0.25s ease-in-out,
-                  transform 0.25s ease-in-out;
+                transition: opacity 0.25s ease-in-out, visibility 0.25s ease-in-out, transform 0.25s ease-in-out;
                 z-index: 3;
               }
             }
@@ -1754,13 +1746,14 @@ onBeforeUnmount(() => {
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
-                padding: 5px 10px;
-                border-radius: 5px;
-                background-color: rgba($graphite, 0.5);
-                color: $fg;
-                font-size: 14px;
-                line-height: 1;
-                font-family: Manrope-SemiBold;
+                padding: 8px;
+                border-radius: 8px;
+                background-color: $soft-purple-900;
+                color: $neutral-100;
+                font-family: Hauora-Regular;
+                font-size: 16px;
+                line-height: 16px;
+                letter-spacing: -0.32px;
               }
               .profile-friends-tooltip {
                 left: 0;
@@ -1815,31 +1808,31 @@ onBeforeUnmount(() => {
               &.level-1 {
                 .profile-nomination-icon-shell,
                 .nomination-level-badge {
-                  background: linear-gradient(135deg, rgba($bg, 0.5) 0%, rgba($graphite, 0.5) 100%);
+                  background-color: $soft-purple-900;
                 }
               }
               &.level-2 {
                 .profile-nomination-icon-shell,
                 .nomination-level-badge {
-                  background: linear-gradient(135deg, rgba(200, 75, 0, 0.5) 0%, rgba(225, 150, 75, 0.5) 100%);
+                  background-color: rgba(184, 118, 87, 1);
                 }
               }
               &.level-3 {
                 .profile-nomination-icon-shell,
                 .nomination-level-badge {
-                  background: linear-gradient(135deg, rgba(125, 125, 125, 0.5) 0%, rgba(200, 200, 200, 0.5) 100%);
+                  background-color: rgba(114, 133, 143, 1);
                 }
               }
               &.level-4 {
                 .profile-nomination-icon-shell,
                 .nomination-level-badge {
-                  background: linear-gradient(135deg, rgba(200, 150, 25, 0.5) 0%, rgba(255, 255, 50, 0.5) 100%);
+                  background-color: rgba(224, 176, 40, 1);
                 }
               }
               &.level-5 {
                 .profile-nomination-icon-shell,
                 .nomination-level-badge {
-                  background: linear-gradient(135deg, rgba(0, 255, 200, 0.5) 0%, rgba(150, 100, 255, 0.5) 100%);
+                  background: linear-gradient(261deg, $soft-purple-800 0%, $green-700 100%);
                 }
               }
               .profile-nomination-icon-shell {
@@ -1983,29 +1976,26 @@ onBeforeUnmount(() => {
       }
       .profile-side-tools {
         display: flex;
-        flex: 0 0 auto;
         flex-direction: column;
         align-items: flex-end;
-        .close-button {
-          display: flex;
-          flex: 0 0 auto;
-          align-items: center;
-          justify-content: center;
+        .close-btn {
           padding: 0;
-          width: 30px;
-          height: 30px;
+          width: 24px;
+          height: 24px;
           border: none;
-          border-radius: 5px;
-          background-color: $graphite;
-          box-shadow: 3px 3px 5px rgba($black, 0.25);
+          background: none;
           cursor: pointer;
-          transition: background-color 0.25s ease-in-out;
-          &:hover {
-            background-color: $lead;
+          .close-icon {
+            --ui-icon-width: 24px;
+            --ui-icon-height: 24px;
+            --ui-icon-color: #{$neutral-white};
           }
-          img {
-            width: 20px;
-            height: 20px;
+          &:hover,
+          &:focus-visible,
+          &:active {
+            .close-icon {
+              --ui-icon-color: #{$green-500};
+            }
           }
         }
       }

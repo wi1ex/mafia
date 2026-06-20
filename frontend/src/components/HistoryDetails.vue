@@ -14,7 +14,7 @@
 
         <div v-if="slot.leave_day && slot.leave_reason" class="slot-leave">
           <span>{{ leaveMomentLabel(slot.leave_day, slot.leave_reason) }}</span>
-          <img class="leave-reason-icon" :src="leaveReasonIcon(slot.leave_reason)" :alt="leaveReasonAlt(slot.leave_reason)" :title="leaveReasonAlt(slot.leave_reason)" />
+          <img class="leave-reason-icon" :src="leaveReasonIcon(slot.leave_reason)" :alt="leaveReasonAlt(slot.leave_reason)" />
           <span v-if="slot.leave_reason === 'foul' && slot.leave_ppk" class="ppk-mark">ППК</span>
           <span v-if="slot.leave_reason === 'vote' && slot.voted_by_slots.length > 0" class="vote-values">
             <template v-for="voterSlot in slot.voted_by_slots" :key="`${slot.slot}-vote-${voterSlot}`">
