@@ -1786,10 +1786,11 @@ onBeforeUnmount(() => {
                       gap: 2px;
                       .profile-friend-name {
                         max-width: 168px;
+                        height: 18px;
                         color: $neutral-black;
                         font-family: Hauora-Regular;
-                        font-size: 14px;
-                        line-height: 18px;
+                        font-size: 16px;
+                        line-height: 16px;
                         letter-spacing: -0.32px;
                         overflow: hidden;
                         text-overflow: ellipsis;
@@ -1987,11 +1988,12 @@ onBeforeUnmount(() => {
                     height: 0;
                   }
                   .nickname-history-nick {
-                    max-width: 168px;
+                    max-width: 208px;
+                    min-height: 16px;
                     color: $neutral-500;
                     font-family: Hauora-Regular;
                     font-size: 16px;
-                    line-height: 16px;
+                    line-height: 12px;
                     letter-spacing: -0.32px;
                     overflow: hidden;
                     text-overflow: ellipsis;
@@ -2008,11 +2010,10 @@ onBeforeUnmount(() => {
               position: relative;
               align-items: center;
               justify-content: center;
-              min-width: 32px;
+              width: 32px;
               height: 32px;
               border-radius: 8px;
               background-color: $soft-purple-900;
-              outline: none;
               &:hover {
                 &::after {
                   opacity: 1;
