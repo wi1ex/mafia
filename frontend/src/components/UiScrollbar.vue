@@ -24,12 +24,14 @@ const props = withDefaults(defineProps<{
   minThumbHeight?: number
   insetTop?: ScrollbarInset
   insetBottom?: ScrollbarInset
+  right?: ScrollbarInset | null
 }>(), {
   active: true,
   theme: 'light',
   minThumbHeight: DEFAULT_MIN_THUMB_HEIGHT,
   insetTop: 0,
   insetBottom: 0,
+  right: null,
 })
 
 const visible = ref(false)
@@ -50,10 +52,16 @@ const thumbStyle = computed(() => ({
   transform: `translateY(${thumbTop.value}px)`,
 }))
 const themeClass = computed(() => `scrollbar--${props.theme}`)
-const scrollbarStyle = computed(() => ({
-  top: toCssSize(props.insetTop),
-  bottom: toCssSize(props.insetBottom),
-}))
+const scrollbarStyle = computed<Record<string, string>>(() => {
+  const style: Record<string, string> = {
+    top: toCssSize(props.insetTop),
+    bottom: toCssSize(props.insetBottom),
+  }
+  if (props.right !== null && props.right !== undefined && props.right !== '') {
+    style.right = toCssSize(props.right)
+  }
+  return style
+})
 
 function toCssSize(value: ScrollbarInset): string {
   return typeof value === 'number' ? `${value}px` : value

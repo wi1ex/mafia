@@ -31,7 +31,7 @@
                             </div>
                           </div>
                         </div>
-                        <UiScrollbar :target="profileFriendsList" :active="showAdminFriendsTooltip" theme="light" :inset-top="16" :inset-bottom="16" />
+                        <UiScrollbar :target="profileFriendsList" :active="showAdminFriendsTooltip" theme="light" :inset-top="16" :inset-bottom="16" right="6px" />
                       </template>
                     </div>
                   </div>
@@ -1733,7 +1733,7 @@ onBeforeUnmount(() => {
                 flex-direction: column;
                 top: calc(100% + 6px);
                 left: 0;
-                padding: 16px;
+                padding: 16px 28px 16px 16px;
                 border-radius: 24px;
                 background-color: $neutral-white;
                 box-shadow: 0 2px 16px 0 rgba($neutral-black, 0.20);
@@ -1744,6 +1744,7 @@ onBeforeUnmount(() => {
                 transition: opacity 0.25s ease-in-out, visibility 0.25s ease-in-out, transform 0.25s ease-in-out;
                 z-index: 3;
                 .profile-friends-empty {
+                  width: max-content;
                   color: $neutral-black;
                   font-family: Hauora-Regular;
                   font-size: 16px;
