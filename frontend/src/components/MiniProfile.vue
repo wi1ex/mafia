@@ -1715,8 +1715,8 @@ onBeforeUnmount(() => {
       align-items: center;
       justify-content: center;
       padding: 0;
-      width: min(558px, calc(100vw - 32px));
-      height: min(558px, calc(100dvh - 32px));
+      width: min(600px, calc(100dvh - 96px));
+      height: min(600px, calc(100dvh - 96px));
       overflow: hidden;
     }
     .avatar-preview-close {
@@ -1726,17 +1726,18 @@ onBeforeUnmount(() => {
       justify-content: center;
       top: 16px;
       right: 16px;
-      width: 40px;
-      height: 40px;
+      padding: 0;
+      width: 32px;
+      height: 32px;
       border: none;
-      border-radius: 50%;
-      background-color: rgba($neutral-black, 0.55);
+      border-radius: 8px;
+      background-color: $neutral-white;
       cursor: pointer;
       z-index: 1;
       .close-icon {
         --ui-icon-width: 24px;
         --ui-icon-height: 24px;
-        --ui-icon-color: #{$neutral-white};
+        --ui-icon-color: #{$neutral-black};
       }
       &:hover,
       &:focus-visible,
@@ -1749,7 +1750,7 @@ onBeforeUnmount(() => {
     .avatar-preview-image {
       width: 100%;
       height: 100%;
-      object-fit: cover;
+      object-fit: contain;
     }
     .state {
       margin: 0;
