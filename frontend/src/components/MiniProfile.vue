@@ -72,16 +72,16 @@
                     <UiIcon class="profile-nomination-icon" :icon="nomination.icon" />
                     <div class="profile-nomination-tooltip" role="tooltip">
                       <div class="nomination-tooltip-head">
-                        <span>{{ nomination.label }}</span>
+                        <span class="nomination-level-label">{{ nomination.label }}</span>
                         <span class="nomination-level-badge">{{ nomination.levelLabel }}</span>
-                      </div>
-                      <div class="nomination-progress-caption">
-                        <span>{{ nomination.progressStartLabel }}</span>
-                        <span>{{ nomination.progressNextLabel }}</span>
                       </div>
                       <div class="nomination-progress-track">
                         <span class="nomination-progress-fill" :style="{ width: `${nomination.progressPct}%` }"></span>
                         <span class="nomination-progress-value">{{ nomination.valueLabel }}</span>
+                      </div>
+                      <div class="nomination-progress-caption">
+                        <span class="nomination-progress-caption-start-next">{{ nomination.progressStartLabel }}</span>
+                        <span class="nomination-progress-caption-start-next">{{ nomination.progressNextLabel }}</span>
                       </div>
                     </div>
                   </div>
@@ -1894,8 +1894,6 @@ onBeforeUnmount(() => {
                 border-radius: 24px;
                 background-color: $neutral-white;
                 box-shadow: 0 2px 16px 0 rgba($neutral-black, 0.20);
-                overflow-y: auto;
-                scrollbar-width: thin;
                 opacity: 0;
                 visibility: hidden;
                 pointer-events: none;
@@ -2079,6 +2077,7 @@ onBeforeUnmount(() => {
                 background-color: $soft-purple-900;
                 .nomination-level-badge {
                   background-color: $soft-purple-900;
+                  color: $neutral-white;
                 }
                 .profile-nomination-icon {
                   --ui-icon-color: #{$neutral-white};
@@ -2088,36 +2087,40 @@ onBeforeUnmount(() => {
                 background-color: rgba(184, 118, 87, 1);
                 .nomination-level-badge {
                   background-color: rgba(184, 118, 87, 1);
+                  color: rgba(255, 242, 235, 1);
                 }
                 .profile-nomination-icon {
-                  --ui-icon-color: rgba(250, 211, 190, 1);
+                  --ui-icon-color: rgba(255, 242, 235, 1);
                 }
               }
               &.level-3 {
                 background-color: rgba(114, 133, 143, 1);
                 .nomination-level-badge {
                   background-color: rgba(114, 133, 143, 1);
+                  color: rgba(230, 254, 255, 1);
                 }
                 .profile-nomination-icon {
-                  --ui-icon-color: rgba(184, 207, 221, 1);
+                  --ui-icon-color: rgba(230, 254, 255, 1);
                 }
               }
               &.level-4 {
                 background-color: rgba(224, 176, 40, 1);
                 .nomination-level-badge {
                   background-color: rgba(224, 176, 40, 1);
+                  color: rgba(255, 250, 229, 1);
                 }
                 .profile-nomination-icon {
-                  --ui-icon-color: rgba(250, 233, 190, 1);
+                  --ui-icon-color: rgba(255, 250, 229, 1);
                 }
               }
               &.level-5 {
                 background: linear-gradient(261deg, $soft-purple-800 0%, $green-700 100%);
                 .nomination-level-badge {
                   background: linear-gradient(261deg, $soft-purple-800 0%, $green-700 100%);
+                  color: $green-200;
                 }
                 .profile-nomination-icon {
-                  --ui-icon-color: #{$green-400};
+                  --ui-icon-color: #{$green-200};
                 }
               }
               .profile-nomination-icon {
@@ -2128,84 +2131,90 @@ onBeforeUnmount(() => {
               .profile-nomination-tooltip {
                 display: flex;
                 position: absolute;
+                flex-direction: column;
                 top: calc(100% + 6px);
                 left: 50%;
-                flex-direction: column;
-                gap: 10px;
                 padding: 16px;
-                border-radius: 5px;
-                background-color: $graphite;
-                box-shadow: 3px 3px 5px rgba($black, 0.25);
-                color: $fg;
-                width: 200px;
-                font-size: 12px;
-                line-height: 1.2;
+                gap: 8px;
+                width: 288px;
+                border-radius: 24px;
+                background-color: $neutral-white;
+                box-shadow: 0 2px 16px 0 rgba($neutral-black, 0.20);
                 opacity: 0;
                 visibility: hidden;
                 pointer-events: none;
                 transform: translateX(-50%) translateY(-6px);
                 transition: opacity 0.25s ease-in-out, visibility 0.25s ease-in-out, transform 0.25s ease-in-out;
                 z-index: 3;
-                .nomination-tooltip-head,
-                .nomination-progress-caption {
+                .nomination-tooltip-head {
                   display: flex;
-                  align-items: center;
+                  align-items: flex-start;
                   justify-content: space-between;
-                  gap: 10px;
-                  font-size: 14px;
-                  min-width: 0;
-                  span {
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                    white-space: nowrap;
+                  margin-bottom: 16px;
+                  .nomination-level-label {
+                    color: $neutral-black;
+                    font-family: Hauora-Bold;
+                    font-size: 18px;
+                    line-height: 20px;
+                    letter-spacing: -0.36px;
                   }
-                }
-                .nomination-level-badge {
-                  display: inline-flex;
-                  align-items: center;
-                  justify-content: center;
-                  padding: 3px 8px;
-                  border-radius: 999px;
-                  color: $fg;
-                  font-size: 12px;
-                  line-height: 1;
-                  font-family: Manrope-SemiBold;
-                  white-space: nowrap;
-                }
-                .nomination-progress-caption {
-                  margin-bottom: -5px;
-                  color: $ashy;
-                  font-size: 12px;
+                  .nomination-level-badge {
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 0 16px;
+                    height: 32px;
+                    border-radius: 8px;
+                    background-color: $soft-purple-900;
+                    color: $neutral-white;
+                    font-family: Hauora-Bold;
+                    font-size: 18px;
+                    line-height: 20px;
+                    letter-spacing: -0.36px;
+                  }
                 }
                 .nomination-progress-track {
                   display: block;
                   position: relative;
                   width: 100%;
-                  height: 24px;
-                  overflow: hidden;
+                  height: 40px;
                   border-radius: 999px;
-                  background-color: $dark;
+                  background-color: $neutral-200;
+                  overflow: hidden;
+                  .nomination-progress-fill {
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    height: 100%;
+                    border-radius: inherit;
+                    background-color: $green-500;
+                  }
+                  .nomination-progress-value {
+                    display: flex;
+                    position: absolute;
+                    align-items: center;
+                    justify-content: center;
+                    inset: 0;
+                    color: $neutral-black;
+                    font-family: Hauora-Bold;
+                    font-size: 16px;
+                    line-height: 18px;
+                    letter-spacing: -0.32px;
+                    white-space: nowrap;
+                  }
                 }
-                .nomination-progress-fill {
-                  position: absolute;
-                  top: 0;
-                  left: 0;
-                  height: 100%;
-                  border-radius: inherit;
-                  background: linear-gradient(90deg, $lead 0%, $grey 100%);
-                }
-                .nomination-progress-value {
+                .nomination-progress-caption {
                   display: flex;
-                  position: absolute;
                   align-items: center;
-                  justify-content: center;
-                  inset: 0;
-                  padding: 0 5px;
-                  color: $fg;
-                  font-size: 12px;
-                  font-family: Manrope-SemiBold;
-                  line-height: 1;
-                  white-space: nowrap;
+                  justify-content: space-between;
+                  padding: 0 8px;
+                  .nomination-progress-caption-start-next {
+                    color: $neutral-500;
+                    font-family: Hauora-Bold;
+                    font-size: 16px;
+                    line-height: 18px;
+                    letter-spacing: -0.32px;
+                  }
                 }
               }
             }
