@@ -21,15 +21,11 @@
                     <span class="profile-friends-count" aria-label="Количество друзей">Друзья: {{ friendsCount }}</span>
                     <div v-if="showAdminFriendsTooltip" class="profile-friends-tooltip" role="tooltip">
                       <span v-if="adminFriends.length === 0" class="profile-friends-empty">Нет друзей</span>
-                      <div v-else class="profile-friends-list">
-                        <div v-for="friend in adminFriends" :key="friend.id" class="profile-friend-row">
-                          <img class="profile-friend-avatar" v-minio-img="{key: friendAvatarKey(friend), placeholder: iconDefaultAvatar, lazy: false}" alt="avatar" />
-                          <div class="profile-friend-main">
-                            <span class="profile-friend-name">{{ friend.username || `user${friend.id}` }}</span>
-                            <span class="profile-friend-date">
-                              {{ formatFriendshipStartedAt(friend.friendship_started_at) }}
-                            </span>
-                          </div>
+                      <div v-else v-for="friend in adminFriends" :key="friend.id" class="profile-friend-row">
+                        <img class="profile-friend-avatar" v-minio-img="{key: friendAvatarKey(friend), placeholder: iconDefaultAvatar, lazy: false}" alt="avatar" />
+                        <div class="profile-friend-main">
+                          <span class="profile-friend-name">{{ friend.username || `user${friend.id}` }}</span>
+                          <span class="profile-friend-date">{{ formatFriendshipStartedAt(friend.friendship_started_at) }}</span>
                         </div>
                       </div>
                     </div>
@@ -52,7 +48,7 @@
                         <span v-for="(nickname, index) in nicknameHistoryItems" :key="`${nickname}-${index}`" :class="{ current: index === 0 }">
                           {{ nickname }}
                         </span>
-                        <span v-if="!nicknameHistoryItems.length" class="nickname-history-state">-</span>
+                        <span v-if="!nicknameHistoryItems.length" class="nickname-history-state">Нет данных</span>
                       </div>
                     </div>
                   </div>
@@ -63,9 +59,7 @@
                     <div class="profile-nomination-tooltip" role="tooltip">
                       <div class="nomination-tooltip-head">
                         <span>{{ nomination.label }}</span>
-                        <span class="nomination-level-badge">
-                          {{ nomination.levelLabel }}
-                        </span>
+                        <span class="nomination-level-badge">{{ nomination.levelLabel }}</span>
                       </div>
                       <div class="nomination-progress-caption">
                         <span>{{ nomination.progressStartLabel }}</span>
@@ -1682,16 +1676,13 @@ onBeforeUnmount(() => {
               position: relative;
               align-items: center;
               justify-content: center;
-              min-width: 32px;
-              height: 32px;
+              padding: 8px;
               border-radius: 8px;
               background-color: $soft-purple-900;
-              outline: none;
               &.enabled {
                 cursor: default;
               }
-              &:hover,
-              &:focus-within {
+              &:hover {
                 &::after {
                   opacity: 1;
                   pointer-events: auto;
@@ -1716,10 +1707,6 @@ onBeforeUnmount(() => {
                 z-index: 2;
               }
               .profile-friends-count {
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                padding: 8px;
                 color: $neutral-100;
                 font-family: Hauora-Regular;
                 font-size: 16px;
@@ -1750,40 +1737,39 @@ onBeforeUnmount(() => {
                 transition: opacity 0.25s ease-in-out, visibility 0.25s ease-in-out, transform 0.25s ease-in-out;
                 z-index: 3;
                 .profile-friends-empty {
-                  color: $ashy;
+                  color: $neutral-black;
+                  font-family: Hauora-Regular;
+                  font-size: 16px;
+                  line-height: 16px;
+                  letter-spacing: -0.32px;
                 }
-                .profile-friends-list {
+                .profile-friend-row {
                   display: flex;
-                  flex-direction: column;
+                  align-items: center;
                   gap: 5px;
-                  .profile-friend-row {
+                  min-width: 0;
+                  .profile-friend-avatar {
+                    flex: 0 0 auto;
+                    width: 30px;
+                    height: 30px;
+                    border-radius: 50%;
+                    object-fit: cover;
+                  }
+                  .profile-friend-main {
                     display: flex;
-                    align-items: center;
-                    gap: 5px;
+                    flex-direction: column;
                     min-width: 0;
-                    .profile-friend-avatar {
-                      flex: 0 0 auto;
-                      width: 30px;
-                      height: 30px;
-                      border-radius: 50%;
-                      object-fit: cover;
+                    gap: 1px;
+                    .profile-friend-name {
+                      color: $fg;
+                      font-family: Manrope-SemiBold;
+                      overflow: hidden;
+                      text-overflow: ellipsis;
+                      white-space: nowrap;
                     }
-                    .profile-friend-main {
-                      display: flex;
-                      flex-direction: column;
-                      min-width: 0;
-                      gap: 1px;
-                      .profile-friend-name {
-                        color: $fg;
-                        font-family: Manrope-SemiBold;
-                        overflow: hidden;
-                        text-overflow: ellipsis;
-                        white-space: nowrap;
-                      }
-                      .profile-friend-date {
-                        color: $ashy;
-                        font-size: 12px;
-                      }
+                    .profile-friend-date {
+                      color: $ashy;
+                      font-size: 12px;
                     }
                   }
                 }
@@ -1799,8 +1785,7 @@ onBeforeUnmount(() => {
               border-radius: 8px;
               background-color: $soft-purple-900;
               outline: none;
-              &:hover,
-              &:focus-within {
+              &:hover {
                 &::after {
                   opacity: 1;
                   pointer-events: auto;
@@ -1865,8 +1850,7 @@ onBeforeUnmount(() => {
               border-radius: 8px;
               background-color: $soft-purple-900;
               outline: none;
-              &:hover,
-              &:focus-within {
+              &:hover {
                 &::after {
                   opacity: 1;
                   pointer-events: auto;
@@ -1949,8 +1933,7 @@ onBeforeUnmount(() => {
               border-radius: 8px;
               background-color: $soft-purple-900;
               outline: none;
-              &:hover,
-              &:focus-within {
+              &:hover {
                 &::after {
                   opacity: 1;
                   pointer-events: auto;
