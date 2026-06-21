@@ -1943,20 +1943,17 @@ onBeforeUnmount(() => {
               .nickname-history-tooltip {
                 display: flex;
                 position: absolute;
+                flex-direction: column;
                 top: calc(100% + 6px);
                 left: 50%;
-                flex-direction: column;
                 padding: 16px;
-                border-radius: 5px;
-                background-color: $graphite;
-                box-shadow: 3px 3px 5px rgba($black, 0.25);
-                color: $fg;
-                width: max-content;
+                width: 208px;
                 max-height: 200px;
+                border-radius: 24px;
+                background-color: $neutral-white;
+                box-shadow: 0 2px 16px 0 rgba($neutral-black, 0.20);
                 overflow-y: auto;
                 scrollbar-width: thin;
-                font-size: 14px;
-                line-height: 1.2;
                 opacity: 0;
                 visibility: hidden;
                 pointer-events: none;
