@@ -409,6 +409,11 @@ const STAFF_SANCTION_DURATION_LIMITS = {
   hours: 23,
 } as const
 const nominationIntFmt = new Intl.NumberFormat('ru-RU')
+// 11111111111111111111111111111111111111111111111111111111
+const TEMP_TEST_NOMINATION_LEVEL_PREVIEW: boolean = true
+const TEMP_TEST_NOMINATION_LEVELS: readonly NominationLevel[] = [1, 2, 3, 4, 5]
+const TEMP_TEST_NOMINATION_PROGRESS_PCT = 40
+// 22222222222222222222222222222222222222222222222222222222
 const PROFILE_NOMINATION_DEFINITIONS: readonly ProfileNominationDefinition[] = [
   {
     key: 'games-played',
@@ -542,6 +547,13 @@ const nominationStats = computed(() => (
 ))
 const profileNominations = computed<ProfileNomination[]>(() => {
   const stats = nominationStats.value
+  // 11111111111111111111111111111111111111111111111111111111
+  if (TEMP_TEST_NOMINATION_LEVEL_PREVIEW) {
+    return PROFILE_NOMINATION_DEFINITIONS.map((definition, index) => (
+      buildTempProfileNomination(definition, TEMP_TEST_NOMINATION_LEVELS[index] ?? 1)
+    ))
+  }
+  // 22222222222222222222222222222222222222222222222222222222
   if (!stats) return []
 
   return PROFILE_NOMINATION_DEFINITIONS.map((definition) => buildProfileNomination(definition, stats))
@@ -848,6 +860,31 @@ function buildProfileNomination(definition: ProfileNominationDefinition, stats: 
     icon: definition.icon,
     valueLabel: formatNominationValue(value, definition.unit),
     progressPct: nominationProgressPct(value, level, definition.levelStarts),
+    // 11111111111111111111111111111111111111111111111111111111
+    progressStartLabel: definition.startLabels[levelIndex],
+    progressNextLabel: level >= 5 ? 'макс.' : definition.nextLabels[levelIndex],
+  }
+}
+
+function buildTempProfileNomination(definition: ProfileNominationDefinition, level: NominationLevel): ProfileNomination {
+  const levelIndex = level - 1
+  const levelStarts: readonly number[] = definition.levelStarts
+  const levelStart = levelStarts[levelIndex] ?? 0
+  let value = levelStart
+  if (level < 5) {
+    const nextLevelStart = levelStarts[levelIndex + 1] ?? levelStart
+    value = Math.round(levelStart + (nextLevelStart - levelStart) * (TEMP_TEST_NOMINATION_PROGRESS_PCT / 100))
+  }
+
+  return {
+    key: definition.key,
+    label: definition.label,
+    level,
+    levelLabel: `${level} ур.`,
+    icon: definition.icon,
+    valueLabel: formatNominationValue(value, definition.unit),
+    progressPct: TEMP_TEST_NOMINATION_PROGRESS_PCT,
+    // 22222222222222222222222222222222222222222222222222222222
     progressStartLabel: definition.startLabels[levelIndex],
     progressNextLabel: level >= 5 ? 'макс.' : definition.nextLabels[levelIndex],
   }
