@@ -55,12 +55,15 @@
                     <div class="nickname-history-tooltip" role="tooltip">
                       <span v-if="nicknameHistoryLoading" class="nickname-history-state">Загрузка...</span>
                       <span v-else-if="nicknameHistoryError" class="nickname-history-state danger">{{ nicknameHistoryError }}</span>
-                      <div v-else class="nickname-history-list">
-                        <span v-for="(nickname, index) in nicknameHistoryItems" :key="`${nickname}-${index}`" :class="{ current: index === 0 }">
-                          {{ nickname }}
-                        </span>
-                        <span v-if="!nicknameHistoryItems.length" class="nickname-history-state">Нет данных</span>
-                      </div>
+                      <template v-else>
+                        <div ref="nicknameHistoryList" class="nickname-history-list">
+                          <span class="nickname-history-nick" v-for="(nickname, index) in nicknameHistoryItems" :key="`${nickname}-${index}`" :class="{ current: index === 0 }">
+                            {{ nickname }}
+                          </span>
+                          <span v-if="!nicknameHistoryItems.length" class="nickname-history-state">Нет данных</span>
+                        </div>
+                        <UiScrollbar :target="nicknameHistoryList" :active="targetUserId > 0" theme="grey" :inset-top="16" :inset-bottom="16" right="6px" :overflow-tolerance="4" />
+                      </template>
                     </div>
                   </div>
 
@@ -366,6 +369,7 @@ const friendBusy = ref(false)
 const view = ref<'profile' | 'stats' | 'history'>('profile')
 const avatarImageEl = ref<HTMLImageElement | null>(null)
 const profileFriendsList = ref<HTMLElement | null>(null)
+const nicknameHistoryList = ref<HTMLElement | null>(null)
 const avatarLightboxOpen = ref(false)
 const avatarLightboxSrc = ref('')
 const nicknameHistoryLoading = ref(false)
@@ -1948,35 +1952,53 @@ onBeforeUnmount(() => {
                 left: 50%;
                 padding: 16px;
                 width: 208px;
-                max-height: 200px;
                 border-radius: 24px;
                 background-color: $neutral-white;
                 box-shadow: 0 2px 16px 0 rgba($neutral-black, 0.20);
-                overflow-y: auto;
-                scrollbar-width: thin;
                 opacity: 0;
                 visibility: hidden;
                 pointer-events: none;
                 transform: translateX(-50%) translateY(-6px);
                 transition: opacity 0.25s ease-in-out, visibility 0.25s ease-in-out, transform 0.25s ease-in-out;
                 z-index: 3;
+                .nickname-history-state {
+                  width: max-content;
+                  color: $neutral-black;
+                  font-family: Hauora-Regular;
+                  font-size: 16px;
+                  line-height: 16px;
+                  letter-spacing: -0.32px;
+                  &.danger {
+                    color: $red-500;
+                  }
+                }
                 .nickname-history-list {
                   display: flex;
                   flex-direction: column;
-                  gap: 5px;
-                  span {
-                    color: $ashy;
-                    overflow-wrap: anywhere;
-                    &.current {
-                      color: $fg;
-                      font-family: Manrope-SemiBold;
-                    }
+                  gap: 8px;
+                  max-height: 200px;
+                  overflow-y: auto;
+                  overflow-x: hidden;
+                  scrollbar-width: none;
+                  -ms-overflow-style: none;
+                  &::-webkit-scrollbar {
+                    display: none;
+                    width: 0;
+                    height: 0;
                   }
-                }
-                .nickname-history-state {
-                  color: $ashy;
-                  &.danger {
-                    color: $red;
+                  .nickname-history-nick {
+                    max-width: 168px;
+                    color: $neutral-500;
+                    font-family: Hauora-Regular;
+                    font-size: 16px;
+                    line-height: 16px;
+                    letter-spacing: -0.32px;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                    &.current {
+                      color: $neutral-black;
+                    }
                   }
                 }
               }
