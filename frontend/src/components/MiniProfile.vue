@@ -9,7 +9,7 @@
               <button class="profile-avatar-trigger" type="button" :disabled="!hasAvatar" aria-label="Open avatar" @click="openAvatarLightbox">
                 <img ref="avatarImageEl" class="profile-avatar" v-minio-img="{ key: avatarKey, placeholder: iconDefaultAvatar, lazy: false, animated: true }" alt="avatar" />
               </button>
-              <div class="profile-icon-name">MiniProfile
+              <div class="profile-icon-name">
                 <div class="profile-title">
                   <div v-if="profileThemeIconSrcs.length" class="profile-theme-icons" aria-hidden="true">
                     <img v-for="badgeSrc in profileThemeIconSrcs" :key="badgeSrc" class="profile-theme-icon" :src="badgeSrc" alt="" />
@@ -17,68 +17,68 @@
                   <span class="profile-name">{{ displayName }}</span>
                 </div>
                 <div v-if="showProfileMeta" class="profile-meta">
-                  <span v-if="friendsCount !== null" class="profile-tooltip-wrap profile-friends-tooltip-wrap" :class="{ enabled: showAdminFriendsTooltip }" :tabindex="showAdminFriendsTooltip ? 0 : undefined">
+                  <div v-if="friendsCount !== null" class="profile-friends-tooltip-wrap" :class="{ enabled: showAdminFriendsTooltip }" :tabindex="showAdminFriendsTooltip ? 0 : undefined">
                     <span class="profile-friends-count" aria-label="Количество друзей">
                       Друзья: {{ friendsCount }}
                     </span>
-                    <span v-if="showAdminFriendsTooltip" class="profile-tooltip profile-friends-tooltip" role="tooltip">
+                    <div v-if="showAdminFriendsTooltip" class="profile-friends-tooltip" role="tooltip">
                       <span v-if="adminFriends.length === 0" class="profile-friends-empty">Нет друзей</span>
-                      <span v-else class="profile-friends-list">
-                        <span v-for="friend in adminFriends" :key="friend.id" class="profile-friend-row">
+                      <div v-else class="profile-friends-list">
+                        <div v-for="friend in adminFriends" :key="friend.id" class="profile-friend-row">
                           <img class="profile-friend-avatar" v-minio-img="{key: friendAvatarKey(friend), placeholder: iconDefaultAvatar, lazy: false}" alt="avatar" />
-                          <span class="profile-friend-main">
+                          <div class="profile-friend-main">
                             <span class="profile-friend-name">{{ friend.username || `user${friend.id}` }}</span>
                             <span class="profile-friend-date">
                               {{ formatFriendshipStartedAt(friend.friendship_started_at) }}
                             </span>
-                          </span>
-                        </span>
-                      </span>
-                    </span>
-                  </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
 
-                  <span v-if="activeSanction" class="profile-tooltip-wrap sanction-tooltip-wrap" tabindex="0">
+                  <div v-if="activeSanction" class="sanction-tooltip-wrap" tabindex="0">
                     <img class="profile-meta-icon" :src="iconJudgeHummer" alt="" />
-                    <span class="profile-tooltip sanction-tooltip" role="tooltip">
+                    <div class="sanction-tooltip" role="tooltip">
                       <strong>{{ activeSanctionKindLabel }}</strong>
                       <span>{{ activeSanctionExpiryLabel }}</span>
-                    </span>
-                  </span>
+                    </div>
+                  </div>
 
-                  <span v-if="targetUserId > 0" class="profile-tooltip-wrap profile-history-tooltip-wrap" tabindex="0" @mouseenter="loadNicknameHistory" @focusin="loadNicknameHistory">
+                  <div v-if="targetUserId > 0" class="profile-history-tooltip-wrap" tabindex="0" @mouseenter="loadNicknameHistory" @focusin="loadNicknameHistory">
                     <img class="profile-meta-icon" :src="iconTimeHistory" alt="" />
-                    <span class="profile-tooltip nickname-history-tooltip" role="tooltip">
+                    <div class="nickname-history-tooltip" role="tooltip">
                       <span v-if="nicknameHistoryLoading" class="nickname-history-state">Загрузка...</span>
                       <span v-else-if="nicknameHistoryError" class="nickname-history-state danger">{{ nicknameHistoryError }}</span>
-                      <span v-else class="nickname-history-list">
+                      <div v-else class="nickname-history-list">
                         <span v-for="(nickname, index) in nicknameHistoryItems" :key="`${nickname}-${index}`" :class="{ current: index === 0 }">
                           {{ nickname }}
                         </span>
                         <span v-if="!nicknameHistoryItems.length" class="nickname-history-state">-</span>
-                      </span>
-                    </span>
-                  </span>
+                      </div>
+                    </div>
+                  </div>
 
-                  <span v-for="nomination in profileNominations" :key="nomination.key" class="profile-tooltip-wrap profile-nomination-tooltip-wrap" :class="`level-${nomination.level}`"
+                  <div v-for="nomination in profileNominations" :key="nomination.key" class="profile-nomination-tooltip-wrap" :class="`level-${nomination.level}`"
                         tabindex="0" :aria-label="`${nomination.label}: ${nomination.valueLabel}, ${nomination.levelLabel}`">
                     <img class="profile-nomination-icon" :src="nomination.icon" alt="" />
-                    <span class="profile-tooltip profile-nomination-tooltip" role="tooltip">
-                      <span class="nomination-tooltip-head">
+                    <div class="profile-nomination-tooltip" role="tooltip">
+                      <div class="nomination-tooltip-head">
                         <strong>{{ nomination.label }}</strong>
                         <span class="nomination-level-badge">
                           {{ nomination.levelLabel }}
                         </span>
-                      </span>
-                      <span class="nomination-progress-caption">
+                      </div>
+                      <div class="nomination-progress-caption">
                         <span>{{ nomination.progressStartLabel }}</span>
                         <span>{{ nomination.progressNextLabel }}</span>
-                      </span>
-                      <span class="nomination-progress-track">
+                      </div>
+                      <div class="nomination-progress-track">
                         <span class="nomination-progress-fill" :style="{ width: `${nomination.progressPct}%` }"></span>
                         <span class="nomination-progress-value">{{ nomination.valueLabel }}</span>
-                      </span>
-                    </span>
-                  </span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1679,7 +1679,7 @@ onBeforeUnmount(() => {
             display: flex;
             align-items: center;
             gap: 4px;
-            .profile-tooltip-wrap {
+            .profile-friends-tooltip-wrap {
               display: inline-flex;
               position: relative;
               align-items: center;
@@ -1689,17 +1689,20 @@ onBeforeUnmount(() => {
               border-radius: 8px;
               background-color: $soft-purple-900;
               outline: none;
+              &.enabled {
+                cursor: default;
+              }
               &:hover,
               &:focus-within {
                 &::after {
                   opacity: 1;
                   pointer-events: auto;
                 }
-                .profile-tooltip {
+                .profile-friends-tooltip {
                   opacity: 1;
                   visibility: visible;
                   pointer-events: auto;
-                  transform: translateX(-50%) translateY(0);
+                  transform: translateX(0) translateY(0);
                 }
               }
               &::after {
@@ -1714,36 +1717,6 @@ onBeforeUnmount(() => {
                 pointer-events: none;
                 z-index: 2;
               }
-              .profile-tooltip {
-                display: flex;
-                position: absolute;
-                top: calc(100% + 10px);
-                left: 50%;
-                flex-direction: column;
-                padding: 16px;
-                border-radius: 5px;
-                background-color: $graphite;
-                box-shadow: 3px 3px 5px rgba($black, 0.25);
-                color: $fg;
-                line-height: 1.2;
-                opacity: 0;
-                visibility: hidden;
-                pointer-events: none;
-                transform: translateX(-50%) translateY(5px);
-                transition: opacity 0.25s ease-in-out, visibility 0.25s ease-in-out, transform 0.25s ease-in-out;
-                z-index: 3;
-              }
-            }
-            .profile-friends-tooltip-wrap {
-              &.enabled {
-                cursor: default;
-              }
-              &:hover,
-              &:focus-within {
-                .profile-friends-tooltip {
-                  transform: translateX(0) translateY(0);
-                }
-              }
               .profile-friends-count {
                 display: inline-flex;
                 align-items: center;
@@ -1756,14 +1729,28 @@ onBeforeUnmount(() => {
                 letter-spacing: -0.32px;
               }
               .profile-friends-tooltip {
-                left: 0;
+                display: flex;
+                position: absolute;
                 top: calc(100% + 10px);
+                left: 0;
+                flex-direction: column;
+                padding: 16px;
+                border-radius: 5px;
+                background-color: $graphite;
+                box-shadow: 3px 3px 5px rgba($black, 0.25);
+                color: $fg;
                 width: max-content;
                 max-height: 200px;
                 overflow-y: auto;
                 scrollbar-width: thin;
                 font-size: 13px;
+                line-height: 1.2;
+                opacity: 0;
+                visibility: hidden;
+                pointer-events: none;
                 transform: translateX(0) translateY(5px);
+                transition: opacity 0.25s ease-in-out, visibility 0.25s ease-in-out, transform 0.25s ease-in-out;
+                z-index: 3;
                 .profile-friends-empty {
                   color: $ashy;
                 }
@@ -1805,6 +1792,40 @@ onBeforeUnmount(() => {
               }
             }
             .profile-nomination-tooltip-wrap {
+              display: inline-flex;
+              position: relative;
+              align-items: center;
+              justify-content: center;
+              min-width: 32px;
+              height: 32px;
+              border-radius: 8px;
+              background-color: $soft-purple-900;
+              outline: none;
+              &:hover,
+              &:focus-within {
+                &::after {
+                  opacity: 1;
+                  pointer-events: auto;
+                }
+                .profile-nomination-tooltip {
+                  opacity: 1;
+                  visibility: visible;
+                  pointer-events: auto;
+                  transform: translateX(-50%) translateY(0);
+                }
+              }
+              &::after {
+                content: '';
+                position: absolute;
+                top: 100%;
+                left: 50%;
+                width: max(100%, 100px);
+                height: 10px;
+                transform: translateX(-50%);
+                opacity: 0;
+                pointer-events: none;
+                z-index: 2;
+              }
               &.level-1 {
                 .nomination-level-badge {
                   background-color: $soft-purple-900;
@@ -1836,10 +1857,26 @@ onBeforeUnmount(() => {
                 object-fit: contain;
               }
               .profile-nomination-tooltip {
+                display: flex;
+                position: absolute;
                 top: calc(100% + 10px);
+                left: 50%;
+                flex-direction: column;
                 gap: 10px;
+                padding: 16px;
+                border-radius: 5px;
+                background-color: $graphite;
+                box-shadow: 3px 3px 5px rgba($black, 0.25);
+                color: $fg;
                 width: 200px;
                 font-size: 12px;
+                line-height: 1.2;
+                opacity: 0;
+                visibility: hidden;
+                pointer-events: none;
+                transform: translateX(-50%) translateY(5px);
+                transition: opacity 0.25s ease-in-out, visibility 0.25s ease-in-out, transform 0.25s ease-in-out;
+                z-index: 3;
                 .nomination-tooltip-head,
                 .nomination-progress-caption {
                   display: flex;
@@ -1909,15 +1946,65 @@ onBeforeUnmount(() => {
               }
             }
             .sanction-tooltip-wrap {
+              display: inline-flex;
+              position: relative;
+              align-items: center;
+              justify-content: center;
+              min-width: 32px;
+              height: 32px;
+              border-radius: 8px;
+              background-color: $soft-purple-900;
+              outline: none;
+              &:hover,
+              &:focus-within {
+                &::after {
+                  opacity: 1;
+                  pointer-events: auto;
+                }
+                .sanction-tooltip {
+                  opacity: 1;
+                  visibility: visible;
+                  pointer-events: auto;
+                  transform: translateX(-50%) translateY(0);
+                }
+              }
+              &::after {
+                content: '';
+                position: absolute;
+                top: 100%;
+                left: 50%;
+                width: max(100%, 100px);
+                height: 10px;
+                transform: translateX(-50%);
+                opacity: 0;
+                pointer-events: none;
+                z-index: 2;
+              }
               .profile-meta-icon {
                 width: 20px;
                 height: 20px;
                 object-fit: contain;
               }
               .sanction-tooltip {
+                display: flex;
+                position: absolute;
                 top: calc(100% + 10px);
+                left: 50%;
+                flex-direction: column;
+                padding: 16px;
+                border-radius: 5px;
+                background-color: $graphite;
+                box-shadow: 3px 3px 5px rgba($black, 0.25);
+                color: $fg;
                 width: max-content;
                 font-size: 12px;
+                line-height: 1.2;
+                opacity: 0;
+                visibility: hidden;
+                pointer-events: none;
+                transform: translateX(-50%) translateY(5px);
+                transition: opacity 0.25s ease-in-out, visibility 0.25s ease-in-out, transform 0.25s ease-in-out;
+                z-index: 3;
                 strong {
                   font-family: Manrope-SemiBold;
                   font-weight: normal;
@@ -1925,18 +2012,68 @@ onBeforeUnmount(() => {
               }
             }
             .profile-history-tooltip-wrap {
+              display: inline-flex;
+              position: relative;
+              align-items: center;
+              justify-content: center;
+              min-width: 32px;
+              height: 32px;
+              border-radius: 8px;
+              background-color: $soft-purple-900;
+              outline: none;
+              &:hover,
+              &:focus-within {
+                &::after {
+                  opacity: 1;
+                  pointer-events: auto;
+                }
+                .nickname-history-tooltip {
+                  opacity: 1;
+                  visibility: visible;
+                  pointer-events: auto;
+                  transform: translateX(-50%) translateY(0);
+                }
+              }
+              &::after {
+                content: '';
+                position: absolute;
+                top: 100%;
+                left: 50%;
+                width: max(100%, 100px);
+                height: 10px;
+                transform: translateX(-50%);
+                opacity: 0;
+                pointer-events: none;
+                z-index: 2;
+              }
               .profile-meta-icon {
                 width: 20px;
                 height: 20px;
                 object-fit: contain;
               }
               .nickname-history-tooltip {
+                display: flex;
+                position: absolute;
                 top: calc(100% + 10px);
+                left: 50%;
+                flex-direction: column;
+                padding: 16px;
+                border-radius: 5px;
+                background-color: $graphite;
+                box-shadow: 3px 3px 5px rgba($black, 0.25);
+                color: $fg;
                 width: max-content;
                 max-height: 200px;
                 overflow-y: auto;
                 scrollbar-width: thin;
                 font-size: 14px;
+                line-height: 1.2;
+                opacity: 0;
+                visibility: hidden;
+                pointer-events: none;
+                transform: translateX(-50%) translateY(5px);
+                transition: opacity 0.25s ease-in-out, visibility 0.25s ease-in-out, transform 0.25s ease-in-out;
+                z-index: 3;
                 .nickname-history-list {
                   display: flex;
                   flex-direction: column;
