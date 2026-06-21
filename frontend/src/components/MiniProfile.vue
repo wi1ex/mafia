@@ -2076,26 +2076,31 @@ onBeforeUnmount(() => {
                 z-index: 2;
               }
               &.level-1 {
+                background-color: $soft-purple-900;
                 .nomination-level-badge {
                   background-color: $soft-purple-900;
                 }
               }
               &.level-2 {
+                background-color: rgba(184, 118, 87, 1);
                 .nomination-level-badge {
                   background-color: rgba(184, 118, 87, 1);
                 }
               }
               &.level-3 {
+                background-color: rgba(114, 133, 143, 1);
                 .nomination-level-badge {
                   background-color: rgba(114, 133, 143, 1);
                 }
               }
               &.level-4 {
+                background-color: rgba(224, 176, 40, 1);
                 .nomination-level-badge {
                   background-color: rgba(224, 176, 40, 1);
                 }
               }
               &.level-5 {
+                background: linear-gradient(261deg, $soft-purple-800 0%, $green-700 100%);
                 .nomination-level-badge {
                   background: linear-gradient(261deg, $soft-purple-800 0%, $green-700 100%);
                 }
