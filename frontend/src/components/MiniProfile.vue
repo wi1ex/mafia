@@ -69,7 +69,7 @@
 
                   <div v-for="nomination in profileNominations" :key="nomination.key" class="profile-nomination-tooltip-wrap" :class="`level-${nomination.level}`"
                         tabindex="0" :aria-label="`${nomination.label}: ${nomination.valueLabel}, ${nomination.levelLabel}`">
-                    <img class="profile-nomination-icon" :src="nomination.icon" alt="" />
+                    <UiIcon class="profile-nomination-icon" :icon="nomination.icon" />
                     <div class="profile-nomination-tooltip" role="tooltip">
                       <div class="nomination-tooltip-head">
                         <span>{{ nomination.label }}</span>
@@ -2080,11 +2080,17 @@ onBeforeUnmount(() => {
                 .nomination-level-badge {
                   background-color: $soft-purple-900;
                 }
+                .profile-nomination-icon {
+                  --ui-icon-color: #{$neutral-white};
+                }
               }
               &.level-2 {
                 background-color: rgba(184, 118, 87, 1);
                 .nomination-level-badge {
                   background-color: rgba(184, 118, 87, 1);
+                }
+                .profile-nomination-icon {
+                  --ui-icon-color: rgba(250, 211, 190, 1);
                 }
               }
               &.level-3 {
@@ -2092,11 +2098,17 @@ onBeforeUnmount(() => {
                 .nomination-level-badge {
                   background-color: rgba(114, 133, 143, 1);
                 }
+                .profile-nomination-icon {
+                  --ui-icon-color: rgba(184, 207, 221, 1);
+                }
               }
               &.level-4 {
                 background-color: rgba(224, 176, 40, 1);
                 .nomination-level-badge {
                   background-color: rgba(224, 176, 40, 1);
+                }
+                .profile-nomination-icon {
+                  --ui-icon-color: rgba(250, 233, 190, 1);
                 }
               }
               &.level-5 {
@@ -2104,11 +2116,14 @@ onBeforeUnmount(() => {
                 .nomination-level-badge {
                   background: linear-gradient(261deg, $soft-purple-800 0%, $green-700 100%);
                 }
+                .profile-nomination-icon {
+                  --ui-icon-color: #{$green-400};
+                }
               }
               .profile-nomination-icon {
-                width: 20px;
-                height: 20px;
-                object-fit: contain;
+                --ui-icon-width: 20px;
+                --ui-icon-height: 20px;
+                --ui-icon-color: #{$neutral-white};
               }
               .profile-nomination-tooltip {
                 display: flex;
