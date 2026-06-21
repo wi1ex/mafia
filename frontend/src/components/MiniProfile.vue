@@ -31,7 +31,7 @@
                             </div>
                           </div>
                         </div>
-                        <UiScrollbar :target="profileFriendsList" :active="showAdminFriendsTooltip" theme="light" :inset-top="16" :inset-bottom="16" right="6px" />
+                        <UiScrollbar :target="profileFriendsList" :active="showAdminFriendsTooltip" theme="light" :inset-top="16" :inset-bottom="16" right="6px" :overflow-tolerance="4" />
                       </template>
                     </div>
                   </div>

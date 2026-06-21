@@ -22,6 +22,7 @@ const props = withDefaults(defineProps<{
   active?: boolean
   theme?: 'light' | 'dark'
   minThumbHeight?: number
+  overflowTolerance?: number
   insetTop?: ScrollbarInset
   insetBottom?: ScrollbarInset
   right?: ScrollbarInset | null
@@ -29,6 +30,7 @@ const props = withDefaults(defineProps<{
   active: true,
   theme: 'light',
   minThumbHeight: DEFAULT_MIN_THUMB_HEIGHT,
+  overflowTolerance: 1,
   insetTop: 0,
   insetBottom: 0,
   right: null,
@@ -57,7 +59,7 @@ const scrollbarStyle = computed<Record<string, string>>(() => {
     top: toCssSize(props.insetTop),
     bottom: toCssSize(props.insetBottom),
   }
-  if (props.right !== null && props.right !== undefined && props.right !== '') {
+  if (props.right !== null && props.right !== '') {
     style.right = toCssSize(props.right)
   }
   return style
@@ -81,7 +83,7 @@ function update() {
 
   const { clientHeight, scrollHeight, scrollTop } = targetEl
   const trackHeight = track.value?.clientHeight ?? 0
-  if (clientHeight <= 0 || trackHeight <= 0 || scrollHeight <= clientHeight + 1) {
+  if (clientHeight <= 0 || trackHeight <= 0 || scrollHeight <= clientHeight + props.overflowTolerance) {
     reset()
     return
   }
@@ -200,7 +202,7 @@ watch(() => props.active, (active) => {
   if (!active) cleanupThumbDrag()
   scheduleUpdate()
 }, { flush: 'post' })
-watch(() => [props.insetTop, props.insetBottom], scheduleUpdate, { flush: 'post' })
+watch(() => [props.insetTop, props.insetBottom, props.overflowTolerance], scheduleUpdate, { flush: 'post' })
 
 onBeforeUnmount(() => {
   cleanupTarget()
