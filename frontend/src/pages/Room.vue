@@ -2211,7 +2211,9 @@ socket.value?.on('connect', async () => {
   socket.value.on('force_leave', async (p:any) => {
     const reason = String(p?.reason || '')
     try { await onLeave() } catch {}
-    if (reason === 'admin_kick_all') {
+    if (reason === 'admin_spectator_game_start') {
+      return
+    } else if (reason === 'admin_kick_all') {
       void alertDialog('Упс, кажется пришло обновление! Перезагрузка серверов займет ~5 минут')
     } else if (reason === 'room_kick') {
       void alertDialog('Вас выгнали из комнаты')

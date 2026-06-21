@@ -140,6 +140,75 @@ BG_DISCONNECT_DELAY_SECONDS = BG_STATE_TTL_SECONDS + 5
 ROOM_RECONNECT_GRACE_SECONDS = max(1, int(getattr(settings, "ROOM_RECONNECT_GRACE_SECONDS", 4) or 4))
 
 
+async def _remove_admin_spectator_livekit(rid: int, uid: int) -> None:
+    try:
+        await remove_livekit_participant(rid=rid, uid=uid, timeout_seconds=0.35, retry_rounds=1)
+    except Exception:
+        log.exception("sio.admin_spectator.livekit_remove_failed", rid=rid, uid=uid)
+
+
+async def _soft_leave_admin_spectators_for_game_start(rid: int) -> int:
+    try:
+        participants = tuple(sio.manager.get_participants("/room", f"room:{rid}"))
+    except Exception:
+        log.exception("sio.game_start.admin_spectator_list_failed", rid=rid)
+        return 0
+
+    if not participants:
+        return 0
+
+    payload = {"room_id": int(rid), "reason": "admin_spectator_game_start"}
+    seen_sids: set[str] = set()
+    left_count = 0
+
+    for raw_sid, _ in participants:
+        sid_i = str(raw_sid or "")
+        if not sid_i or sid_i in seen_sids:
+            continue
+        seen_sids.add(sid_i)
+
+        try:
+            sess_i = await sio.get_session(sid_i, namespace="/room")
+        except Exception:
+            log.warning("sio.game_start.admin_spectator_session_failed", rid=rid, sid=sid_i)
+            continue
+
+        if not sess_i or not sess_i.get("admin_spectator"):
+            continue
+
+        try:
+            sess_rid = int(sess_i.get("rid") or 0)
+            uid_i = int(sess_i.get("uid") or 0)
+        except Exception:
+            continue
+
+        if sess_rid != int(rid) or uid_i <= 0:
+            continue
+
+        try:
+            await sio.emit("force_leave", payload, room=sid_i, namespace="/room")
+        except Exception:
+            log.warning("sio.game_start.admin_spectator_force_leave_failed", rid=rid, uid=uid_i, sid=sid_i)
+
+        try:
+            await sio.leave_room(sid_i, f"room:{rid}", namespace="/room")
+        except Exception:
+            log.warning("sio.game_start.admin_spectator_leave_room_failed", rid=rid, uid=uid_i, sid=sid_i)
+
+        try:
+            await reset_room_session(sid_i, sess_i, uid=uid_i)
+        except Exception:
+            log.warning("sio.game_start.admin_spectator_reset_session_failed", rid=rid, uid=uid_i, sid=sid_i)
+
+        asyncio.create_task(_remove_admin_spectator_livekit(rid, uid_i))
+        left_count += 1
+
+    if left_count:
+        log.info("sio.game_start.admin_spectators_soft_left", rid=rid, count=left_count)
+
+    return left_count
+
+
 @sio.event(namespace="/room")
 async def connect(sid, environ, auth):
     vr = await validate_auth(auth)
@@ -572,6 +641,7 @@ async def leave(sid, data):
         if not rid:
             return {"ok": True, "left": False}
 
+        admin_spectator = bool(sess.get("admin_spectator"))
         cancel_disconnect_cleanup_task(rid, uid)
 
         r = get_redis()
@@ -593,8 +663,15 @@ async def leave(sid, data):
             sid=sid,
             actor_username=str(sess.get("username") or f"user{uid}"),
         )
+        if admin_spectator:
+            try:
+                await sio.leave_room(sid, f"room:{rid}", namespace="/room")
+            except Exception:
+                log.warning("sio.leave.admin_spectator_leave_room_failed", rid=rid, uid=uid)
+            asyncio.create_task(_remove_admin_spectator_livekit(rid, uid))
+
         await reset_room_session(sid, sess, uid=uid)
-        return {"ok": True, "left": bool(was_member or was_spectator)}
+        return {"ok": True, "left": bool(was_member or was_spectator or admin_spectator)}
 
     except Exception:
         log.exception("sio.leave.error", sid=sid)
@@ -1441,6 +1518,8 @@ async def game_start(sid, data) -> GameStartAck:
 
         if not confirm:
             return {"ok": True, "status": 200, "room_id": rid, "can_start": True, "min_ready": min_ready}
+
+        await _soft_leave_admin_spectators_for_game_start(rid)
 
         try:
             raw_game = await r.hgetall(f"room:{rid}:game")
