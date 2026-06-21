@@ -2,7 +2,7 @@
   <Teleport to="body">
     <Transition name="user-mini-profile-fade">
       <div v-if="canRenderOpen" class="user-mini-profile-overlay" role="presentation" @pointerdown.stop.self @click.stop.self="close">
-        <section class="user-mini-profile-panel" :class="{ 'stats-mode': view !== 'profile' }" :style="profilePanelStyle"
+        <section ref="profilePanelEl" class="user-mini-profile-panel" :class="{ 'stats-mode': view !== 'profile' }" :style="profilePanelStyle"
                  role="dialog" aria-modal="true" :aria-label="`Профиль ${displayName}`" @pointerdown.stop @click.stop>
           <header class="profile-top">
             <div class="profile-identity">
@@ -67,8 +67,8 @@
                     </div>
                   </div>
 
-                  <div v-for="nomination in profileNominations" :key="nomination.key" class="profile-nomination-tooltip-wrap" :class="`level-${nomination.level}`"
-                        tabindex="0" :aria-label="`${nomination.label}: ${nomination.valueLabel}, ${nomination.levelLabel}`">
+                  <div v-for="nomination in profileNominations" :key="nomination.key" class="profile-nomination-tooltip-wrap" :class="`level-${nomination.level}`" tabindex="0"
+                       :aria-label="`${nomination.label}: ${nomination.valueLabel}, ${nomination.levelLabel}`" @mouseenter="updateNominationTooltipOffset" @focusin="updateNominationTooltipOffset" @mouseleave="resetNominationTooltipOffset" @focusout="resetNominationTooltipOffset">
                     <UiIcon class="profile-nomination-icon" :icon="nomination.icon" />
                     <div class="profile-nomination-tooltip" role="tooltip">
                       <div class="nomination-tooltip-head">
@@ -363,6 +363,7 @@ const userStore = useUserStore()
 const confirmState = useConfirmState()
 const loading = ref(false)
 const loadError = ref('')
+const profilePanelEl = ref<HTMLElement | null>(null)
 const profile = ref<MiniProfileResponse | null>(null)
 const friendStatus = ref<FriendStatus>('none')
 const friendBusy = ref(false)
@@ -403,6 +404,7 @@ let nicknameHistorySeq = 0
 
 const MINUTES_IN_DAY = 24 * 60
 const STAFF_MODAL_Z_INDEX = 1700
+const NOMINATION_TOOLTIP_PANEL_GAP = 16
 const STAFF_SANCTION_DURATION_LIMITS = {
   months: 240,
   days: 31,
@@ -1517,6 +1519,44 @@ async function loadNicknameHistory() {
   }
 }
 
+function getNominationTooltipWrap(event: Event) {
+  return event.currentTarget instanceof HTMLElement ? event.currentTarget : null
+}
+
+function resetNominationTooltipOffset(event: Event) {
+  const wrap = getNominationTooltipWrap(event)
+  wrap?.style.removeProperty('--profile-nomination-tooltip-x-shift')
+}
+
+function updateNominationTooltipOffset(event: Event) {
+  const wrap = getNominationTooltipWrap(event)
+  const panel = profilePanelEl.value
+  const tooltip = wrap?.querySelector<HTMLElement>('.profile-nomination-tooltip') || null
+  if (!wrap || !panel || !tooltip) return
+
+  wrap.style.removeProperty('--profile-nomination-tooltip-x-shift')
+
+  const wrapRect = wrap.getBoundingClientRect()
+  const panelRect = panel.getBoundingClientRect()
+  const tooltipWidth = tooltip.offsetWidth || tooltip.getBoundingClientRect().width
+  const tooltipCenter = wrapRect.left + wrapRect.width / 2
+  const minLeft = panelRect.left + NOMINATION_TOOLTIP_PANEL_GAP
+  const maxRight = panelRect.right - NOMINATION_TOOLTIP_PANEL_GAP
+  const centeredLeft = tooltipCenter - tooltipWidth / 2
+  const centeredRight = tooltipCenter + tooltipWidth / 2
+  let shift = 0
+
+  if (centeredLeft < minLeft) {
+    shift = minLeft - centeredLeft
+  } else if (centeredRight > maxRight) {
+    shift = maxRight - centeredRight
+  }
+
+  if (shift !== 0) {
+    wrap.style.setProperty('--profile-nomination-tooltip-x-shift', `${Math.round(shift)}px`)
+  }
+}
+
 async function onFriendAction(kind: FriendActionKind) {
   const uid = targetUserId.value
   if (uid <= 0 || friendBusy.value) return
@@ -2049,7 +2089,8 @@ onBeforeUnmount(() => {
               height: 32px;
               border-radius: 8px;
               background-color: $soft-purple-900;
-              &:hover {
+              &:hover,
+              &:focus-within {
                 &::after {
                   opacity: 1;
                   pointer-events: auto;
@@ -2058,7 +2099,7 @@ onBeforeUnmount(() => {
                   opacity: 1;
                   visibility: visible;
                   pointer-events: auto;
-                  transform: translateX(-50%) translateY(0);
+                  transform: translateX(-50%) translateX(var(--profile-nomination-tooltip-x-shift, 0px)) translateY(0);
                 }
               }
               &::after {
@@ -2142,7 +2183,7 @@ onBeforeUnmount(() => {
                 opacity: 0;
                 visibility: hidden;
                 pointer-events: none;
-                transform: translateX(-50%) translateY(-6px);
+                transform: translateX(-50%) translateX(var(--profile-nomination-tooltip-x-shift, 0px)) translateY(-6px);
                 transition: opacity 0.25s ease-in-out, visibility 0.25s ease-in-out, transform 0.25s ease-in-out;
                 z-index: 3;
                 .nomination-tooltip-head {
