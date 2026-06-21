@@ -200,6 +200,7 @@ __all__ = [
     "normalize_text_moderation_blacklist",
     "normalize_admin_banner_text",
     "normalize_admin_banner_link",
+    "normalize_donation_url",
     "normalize_season_start_value",
     "build_app_settings_snapshot_defaults",
     "build_app_settings_snapshot_from_row",
@@ -497,6 +498,21 @@ def normalize_admin_banner_link(raw: object) -> str:
     return f"https://{value.lstrip('/')}"
 
 
+def normalize_donation_url(raw: object) -> str:
+    value = str(raw or "").strip()
+    if not value or value == "0":
+        return ""
+
+    lowered = value.lower()
+    if lowered.startswith("https://") or lowered.startswith("http://"):
+        return value
+
+    if "://" in value:
+        return ""
+
+    return f"https://{value.lstrip('/')}"
+
+
 def normalize_season_start_value(raw: object, *, default_starts: Sequence[int]) -> tuple[str, tuple[int, ...]]:
     starts = parse_season_starts_or_default(raw, default=default_starts)
     return season_starts_csv(starts), starts
@@ -524,6 +540,7 @@ def build_app_settings_snapshot_defaults(core_settings_obj: Any, *, default_star
         verification_restrictions=getattr(core_settings_obj, "VERIFICATION_RESTRICTIONS"),
         admin_banner_text=normalize_admin_banner_text(getattr(core_settings_obj, "ADMIN_BANNER_TEXT", "0")),
         admin_banner_link=normalize_admin_banner_link(getattr(core_settings_obj, "ADMIN_BANNER_LINK", "0")),
+        donation_url=normalize_donation_url(getattr(core_settings_obj, "DONATION_URL", "")),
         rooms_limit_global=getattr(core_settings_obj, "ROOMS_LIMIT_GLOBAL"),
         rooms_limit_per_user=getattr(core_settings_obj, "ROOMS_LIMIT_PER_USER"),
         rooms_empty_ttl_seconds=getattr(core_settings_obj, "ROOMS_EMPTY_TTL_SECONDS"),
@@ -570,6 +587,7 @@ def build_app_settings_snapshot_from_row(row: Any, *, default_starts: Sequence[i
         verification_restrictions=bool(getattr(row, "verification_restrictions")),
         admin_banner_text=normalize_admin_banner_text(getattr(row, "admin_banner_text", "0")),
         admin_banner_link=normalize_admin_banner_link(getattr(row, "admin_banner_link", "0")),
+        donation_url=normalize_donation_url(getattr(row, "donation_url", "")),
         rooms_limit_global=int(getattr(row, "rooms_limit_global")),
         rooms_limit_per_user=int(getattr(row, "rooms_limit_per_user")),
         rooms_empty_ttl_seconds=int(getattr(row, "rooms_empty_ttl_seconds")),
@@ -3147,6 +3165,7 @@ def site_settings_out(row) -> SiteSettingsOut:
         verification_restrictions=bool(row.verification_restrictions),
         admin_banner_text=normalize_admin_banner_text(getattr(row, "admin_banner_text", "0")),
         admin_banner_link=normalize_admin_banner_link(getattr(row, "admin_banner_link", "0")),
+        donation_url=normalize_donation_url(getattr(row, "donation_url", "")),
         rooms_limit_global=int(row.rooms_limit_global),
         rooms_limit_per_user=int(row.rooms_limit_per_user),
         rooms_empty_ttl_seconds=int(row.rooms_empty_ttl_seconds),
@@ -3171,6 +3190,7 @@ def public_settings_out(settings) -> "PublicSettingsOut":
         verification_restrictions=bool(settings.verification_restrictions),
         admin_banner_text=normalize_admin_banner_text(getattr(settings, "admin_banner_text", "0")),
         admin_banner_link=normalize_admin_banner_link(getattr(settings, "admin_banner_link", "0")),
+        donation_url=normalize_donation_url(getattr(settings, "donation_url", "")),
         game_min_ready_players=int(settings.game_min_ready_players),
         winks_limit=int(settings.winks_limit),
         knocks_limit=int(settings.knocks_limit),

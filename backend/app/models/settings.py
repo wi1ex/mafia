@@ -23,6 +23,7 @@ class AppSettings(Base):
     verification_restrictions: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.VERIFICATION_RESTRICTIONS))
     admin_banner_text: Mapped[str] = mapped_column(String(2048), nullable=False, server_default="0")
     admin_banner_link: Mapped[str] = mapped_column(String(2048), nullable=False, server_default="0")
+    donation_url: Mapped[str] = mapped_column(String(2048), nullable=False, server_default=settings.DONATION_URL)
     rooms_limit_global: Mapped[int] = mapped_column(Integer, nullable=False, server_default=str(settings.ROOMS_LIMIT_GLOBAL))
     rooms_limit_per_user: Mapped[int] = mapped_column(Integer, nullable=False, server_default=str(settings.ROOMS_LIMIT_PER_USER))
     rooms_empty_ttl_seconds: Mapped[int] = mapped_column(Integer, nullable=False, server_default=str(settings.ROOMS_EMPTY_TTL_SECONDS))

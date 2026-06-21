@@ -13,6 +13,7 @@ export interface PublicSettings {
   verification_restrictions: boolean
   admin_banner_text: string
   admin_banner_link: string
+  donation_url: string
   game_min_ready_players: number
   winks_limit: number
   knocks_limit: number
@@ -31,6 +32,7 @@ const PUBLIC_SETTINGS_KEYS: readonly (keyof PublicSettings)[] = [
   'verification_restrictions',
   'admin_banner_text',
   'admin_banner_link',
+  'donation_url',
   'game_min_ready_players',
   'winks_limit',
   'knocks_limit',
@@ -49,6 +51,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const verificationRestrictions = ref(true)
   const adminBannerText = ref('0')
   const adminBannerLink = ref('0')
+  const donationUrl = ref('')
   const gameMinReadyPlayers = ref(4)
   const winksLimit = ref(0)
   const knocksLimit = ref(0)
@@ -92,6 +95,7 @@ export const useSettingsStore = defineStore('settings', () => {
     verificationRestrictions.value = Boolean(data.verification_restrictions)
     adminBannerText.value = String(data.admin_banner_text || '').trim() || '0'
     adminBannerLink.value = String(data.admin_banner_link || '').trim() || '0'
+    donationUrl.value = String(data.donation_url || '').trim()
     const minReady = Number(data.game_min_ready_players)
     if (Number.isFinite(minReady) && minReady > 0) gameMinReadyPlayers.value = minReady
     const winks = Number(data.winks_limit)
@@ -149,6 +153,7 @@ export const useSettingsStore = defineStore('settings', () => {
     verificationRestrictions,
     adminBannerText,
     adminBannerLink,
+    donationUrl,
     gameMinReadyPlayers,
     winksLimit,
     knocksLimit,

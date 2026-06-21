@@ -47,11 +47,12 @@
                   <UiButton
                     variant="white"
                     text="Поддержать проект"
-                    :icon="iconTribute"
-                    :href="tributeSite.url"
+                    :icon="iconDonate"
+                    :href="donateSite.url"
+                    :disabled="!donateSite.url"
                     target="_blank"
                     rel="noopener noreferrer"
-                    @click="onTributeSelect"
+                    @click="onDonateSelect"
                   />
                   <UiButton
                     text="Оформить подписку"
@@ -155,12 +156,12 @@ import UiSwitch from '@/components/UiSwitch.vue'
 import UiButton from '@/components/UiButton.vue'
 import { api } from '@/services/axios'
 import { alertDialog } from '@/services/confirm'
-import { useAuthStore } from '@/store'
+import { useAuthStore, useSettingsStore } from '@/store'
 
 import imageSlide6 from '@/assets/images/carousel-image6.png'
 import iconClose from '@/assets/svg/iconClose.svg'
 import iconCheckCircle from '@/assets/svg/iconCheckCircle.svg'
-import iconTribute from '@/assets/svg/donateTribute.svg'
+import iconDonate from '@/assets/svg/donateTribute.svg'
 import iconLavaTop from '@/assets/svg/donateLavaTop.svg'
 import iconArrowDown from '@/assets/svg/iconArrowDown.svg'
 import iconRouble from '@/assets/svg/iconRouble.svg'
@@ -185,6 +186,7 @@ const emit = defineEmits<{
 }>()
 
 const auth = useAuthStore()
+const settings = useSettingsStore()
 const lavaBusy = ref(false)
 const lavaFormOpen = ref(false)
 const lavaEmailStorageKey = 'lava:buyerEmail'
@@ -279,11 +281,11 @@ const subscribeYearSelected = computed({
 })
 const selectedSubscribePrice = computed(() => lavaPlanPrices[lavaForm.value.plan])
 
-const tributeSite: SupportSite = {
-  id: 'tribute',
-  name: 'Tribute',
-  url: 'https://web.tribute.tg/d/Cvc',
-}
+const donateSite = computed<SupportSite>(() => ({
+  id: 'donate',
+  name: 'Donate',
+  url: String(settings.donationUrl || '').trim(),
+}))
 
 const armed = ref(false)
 
@@ -292,8 +294,9 @@ function requestClose(): void {
   emit('update:open', false)
 }
 
-function onTributeSelect(): void {
-  emit('select', tributeSite)
+function onDonateSelect(): void {
+  if (!donateSite.value.url) return
+  emit('select', donateSite.value)
   requestClose()
 }
 

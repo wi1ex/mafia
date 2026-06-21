@@ -60,6 +60,7 @@ class Settings(BaseSettings):
     LAVA_MONTHLY_OFFER_ID: str = ""
     LAVA_YEARLY_OFFER_ID: str = ""
     LAVA_WEBHOOK_SECRET: str = ""
+    DONATION_URL: str = ""
 
     ROOMS_LIMIT_GLOBAL: int = 10
     ROOMS_LIMIT_PER_USER: int = 3

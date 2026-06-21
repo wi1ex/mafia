@@ -104,6 +104,7 @@ from ..utils import (
     parse_day_range,
     normalize_admin_banner_text,
     normalize_admin_banner_link,
+    normalize_donation_url,
     parse_cached_deleted_at,
     normalize_game_result,
     site_settings_out,
@@ -214,6 +215,8 @@ async def update_settings(payload: AdminSettingsUpdateIn, session: AsyncSession 
         incoming["admin_banner_text"] = normalize_admin_banner_text(incoming.get("admin_banner_text"))
     if "admin_banner_link" in incoming:
         incoming["admin_banner_link"] = normalize_admin_banner_link(incoming.get("admin_banner_link"))
+    if "donation_url" in incoming:
+        incoming["donation_url"] = normalize_donation_url(incoming.get("donation_url"))
 
     changed = {
         key: value

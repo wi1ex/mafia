@@ -13,6 +13,7 @@ from ..api.utils import (
     normalize_season_start_value,
     normalize_text_moderation_whitelist,
     normalize_text_moderation_blacklist,
+    normalize_donation_url,
     build_app_settings_snapshot_defaults,
     build_app_settings_snapshot_from_row,
 )
@@ -30,6 +31,7 @@ class AppSettingsSnapshot:
     verification_restrictions: bool
     admin_banner_text: str
     admin_banner_link: str
+    donation_url: str
     rooms_limit_global: int
     rooms_limit_per_user: int
     rooms_empty_ttl_seconds: int
@@ -83,6 +85,7 @@ async def ensure_app_settings(session: AsyncSession) -> AppSettings:
             verification_restrictions=defaults.verification_restrictions,
             admin_banner_text=normalize_admin_banner_text(defaults.admin_banner_text),
             admin_banner_link=normalize_admin_banner_link(defaults.admin_banner_link),
+            donation_url=normalize_donation_url(defaults.donation_url),
             rooms_limit_global=defaults.rooms_limit_global,
             rooms_limit_per_user=defaults.rooms_limit_per_user,
             rooms_empty_ttl_seconds=defaults.rooms_empty_ttl_seconds,
@@ -131,6 +134,12 @@ async def ensure_app_settings(session: AsyncSession) -> AppSettings:
         current_text_moderation_blacklist = str(getattr(row, "text_moderation_blacklist", "") or "").strip()
         if current_text_moderation_blacklist != normalized_text_moderation_blacklist:
             row.text_moderation_blacklist = normalized_text_moderation_blacklist
+            changed = True
+
+        normalized_donation_url = normalize_donation_url(getattr(row, "donation_url", ""))
+        current_donation_url = str(getattr(row, "donation_url", "") or "").strip()
+        if current_donation_url != normalized_donation_url:
+            row.donation_url = normalized_donation_url
             changed = True
 
         if changed:

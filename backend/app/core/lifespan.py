@@ -93,6 +93,11 @@ async def lifespan(app) -> AsyncIterator[None]:
                 "created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()"
                 ")"
             ))
+            donation_url_default = settings.DONATION_URL.replace("'", "''")
+            await conn.execute(text(
+                "ALTER TABLE settings "
+                f"ADD COLUMN IF NOT EXISTS donation_url VARCHAR(2048) NOT NULL DEFAULT '{donation_url_default}'"
+            ))
             await conn.execute(text(
                 "ALTER TABLE lava_payments "
                 "DROP COLUMN IF EXISTS parent_contract_id"
