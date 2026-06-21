@@ -18,9 +18,7 @@
                 </div>
                 <div v-if="showProfileMeta" class="profile-meta">
                   <div v-if="friendsCount !== null" class="profile-friends-tooltip-wrap" :class="{ enabled: showAdminFriendsTooltip }" :tabindex="showAdminFriendsTooltip ? 0 : undefined">
-                    <span class="profile-friends-count" aria-label="Количество друзей">
-                      Друзья: {{ friendsCount }}
-                    </span>
+                    <span class="profile-friends-count" aria-label="Количество друзей">Друзья: {{ friendsCount }}</span>
                     <div v-if="showAdminFriendsTooltip" class="profile-friends-tooltip" role="tooltip">
                       <span v-if="adminFriends.length === 0" class="profile-friends-empty">Нет друзей</span>
                       <div v-else class="profile-friends-list">
@@ -40,7 +38,7 @@
                   <div v-if="activeSanction" class="sanction-tooltip-wrap" tabindex="0">
                     <img class="profile-meta-icon" :src="iconJudgeHummer" alt="" />
                     <div class="sanction-tooltip" role="tooltip">
-                      <strong>{{ activeSanctionKindLabel }}</strong>
+                      <span>{{ activeSanctionKindLabel }}</span>
                       <span>{{ activeSanctionExpiryLabel }}</span>
                     </div>
                   </div>
@@ -64,7 +62,7 @@
                     <img class="profile-nomination-icon" :src="nomination.icon" alt="" />
                     <div class="profile-nomination-tooltip" role="tooltip">
                       <div class="nomination-tooltip-head">
-                        <strong>{{ nomination.label }}</strong>
+                        <span>{{ nomination.label }}</span>
                         <span class="nomination-level-badge">
                           {{ nomination.levelLabel }}
                         </span>
@@ -96,15 +94,15 @@
             <div v-else class="profile-dates" aria-label="Даты профиля">
               <div class="date-row">
                 <span>Дата регистрации</span>
-                <strong>{{ registeredAtLabel }}</strong>
+                <span>{{ registeredAtLabel }}</span>
               </div>
               <div class="date-row">
                 <span>Последняя игра</span>
-                <strong>{{ lastGameAtLabel }}</strong>
+                <span>{{ lastGameAtLabel }}</span>
               </div>
               <div class="date-row">
                 <span>Последний онлайн</span>
-                <strong>{{ lastOnlineLabel }}</strong>
+                <span>{{ lastOnlineLabel }}</span>
               </div>
             </div>
 
@@ -1791,6 +1789,156 @@ onBeforeUnmount(() => {
                 }
               }
             }
+            .sanction-tooltip-wrap {
+              display: inline-flex;
+              position: relative;
+              align-items: center;
+              justify-content: center;
+              min-width: 32px;
+              height: 32px;
+              border-radius: 8px;
+              background-color: $soft-purple-900;
+              outline: none;
+              &:hover,
+              &:focus-within {
+                &::after {
+                  opacity: 1;
+                  pointer-events: auto;
+                }
+                .sanction-tooltip {
+                  opacity: 1;
+                  visibility: visible;
+                  pointer-events: auto;
+                  transform: translateX(-50%) translateY(0);
+                }
+              }
+              &::after {
+                content: '';
+                position: absolute;
+                top: 100%;
+                left: 50%;
+                width: max(100%, 100px);
+                height: 10px;
+                transform: translateX(-50%);
+                opacity: 0;
+                pointer-events: none;
+                z-index: 2;
+              }
+              .profile-meta-icon {
+                width: 20px;
+                height: 20px;
+                object-fit: contain;
+              }
+              .sanction-tooltip {
+                display: flex;
+                position: absolute;
+                top: calc(100% + 10px);
+                left: 50%;
+                flex-direction: column;
+                padding: 16px;
+                border-radius: 5px;
+                background-color: $graphite;
+                box-shadow: 3px 3px 5px rgba($black, 0.25);
+                color: $fg;
+                width: max-content;
+                font-size: 12px;
+                line-height: 1.2;
+                opacity: 0;
+                visibility: hidden;
+                pointer-events: none;
+                transform: translateX(-50%) translateY(5px);
+                transition: opacity 0.25s ease-in-out, visibility 0.25s ease-in-out, transform 0.25s ease-in-out;
+                z-index: 3;
+                span {
+                  font-family: Manrope-SemiBold;
+                  font-weight: normal;
+                }
+              }
+            }
+            .profile-history-tooltip-wrap {
+              display: inline-flex;
+              position: relative;
+              align-items: center;
+              justify-content: center;
+              min-width: 32px;
+              height: 32px;
+              border-radius: 8px;
+              background-color: $soft-purple-900;
+              outline: none;
+              &:hover,
+              &:focus-within {
+                &::after {
+                  opacity: 1;
+                  pointer-events: auto;
+                }
+                .nickname-history-tooltip {
+                  opacity: 1;
+                  visibility: visible;
+                  pointer-events: auto;
+                  transform: translateX(-50%) translateY(0);
+                }
+              }
+              &::after {
+                content: '';
+                position: absolute;
+                top: 100%;
+                left: 50%;
+                width: max(100%, 100px);
+                height: 10px;
+                transform: translateX(-50%);
+                opacity: 0;
+                pointer-events: none;
+                z-index: 2;
+              }
+              .profile-meta-icon {
+                width: 20px;
+                height: 20px;
+                object-fit: contain;
+              }
+              .nickname-history-tooltip {
+                display: flex;
+                position: absolute;
+                top: calc(100% + 10px);
+                left: 50%;
+                flex-direction: column;
+                padding: 16px;
+                border-radius: 5px;
+                background-color: $graphite;
+                box-shadow: 3px 3px 5px rgba($black, 0.25);
+                color: $fg;
+                width: max-content;
+                max-height: 200px;
+                overflow-y: auto;
+                scrollbar-width: thin;
+                font-size: 14px;
+                line-height: 1.2;
+                opacity: 0;
+                visibility: hidden;
+                pointer-events: none;
+                transform: translateX(-50%) translateY(5px);
+                transition: opacity 0.25s ease-in-out, visibility 0.25s ease-in-out, transform 0.25s ease-in-out;
+                z-index: 3;
+                .nickname-history-list {
+                  display: flex;
+                  flex-direction: column;
+                  gap: 5px;
+                  span {
+                    color: $ashy;
+                    overflow-wrap: anywhere;
+                    &.current {
+                      color: $fg;
+                      font-family: Manrope-SemiBold;
+                    }
+                  }
+                }
+                .nickname-history-state {
+                  color: $ashy;
+                  &.danger {
+                    color: $red;
+                  }
+                }
+              }
+            }
             .profile-nomination-tooltip-wrap {
               display: inline-flex;
               position: relative;
@@ -1885,15 +2033,10 @@ onBeforeUnmount(() => {
                   gap: 10px;
                   font-size: 14px;
                   min-width: 0;
-                  span,
-                  strong {
+                  span {
                     overflow: hidden;
                     text-overflow: ellipsis;
                     white-space: nowrap;
-                  }
-                  strong {
-                    font-family: Manrope-SemiBold;
-                    font-weight: normal;
                   }
                 }
                 .nomination-level-badge {
@@ -1942,156 +2085,6 @@ onBeforeUnmount(() => {
                   font-family: Manrope-SemiBold;
                   line-height: 1;
                   white-space: nowrap;
-                }
-              }
-            }
-            .sanction-tooltip-wrap {
-              display: inline-flex;
-              position: relative;
-              align-items: center;
-              justify-content: center;
-              min-width: 32px;
-              height: 32px;
-              border-radius: 8px;
-              background-color: $soft-purple-900;
-              outline: none;
-              &:hover,
-              &:focus-within {
-                &::after {
-                  opacity: 1;
-                  pointer-events: auto;
-                }
-                .sanction-tooltip {
-                  opacity: 1;
-                  visibility: visible;
-                  pointer-events: auto;
-                  transform: translateX(-50%) translateY(0);
-                }
-              }
-              &::after {
-                content: '';
-                position: absolute;
-                top: 100%;
-                left: 50%;
-                width: max(100%, 100px);
-                height: 10px;
-                transform: translateX(-50%);
-                opacity: 0;
-                pointer-events: none;
-                z-index: 2;
-              }
-              .profile-meta-icon {
-                width: 20px;
-                height: 20px;
-                object-fit: contain;
-              }
-              .sanction-tooltip {
-                display: flex;
-                position: absolute;
-                top: calc(100% + 10px);
-                left: 50%;
-                flex-direction: column;
-                padding: 16px;
-                border-radius: 5px;
-                background-color: $graphite;
-                box-shadow: 3px 3px 5px rgba($black, 0.25);
-                color: $fg;
-                width: max-content;
-                font-size: 12px;
-                line-height: 1.2;
-                opacity: 0;
-                visibility: hidden;
-                pointer-events: none;
-                transform: translateX(-50%) translateY(5px);
-                transition: opacity 0.25s ease-in-out, visibility 0.25s ease-in-out, transform 0.25s ease-in-out;
-                z-index: 3;
-                strong {
-                  font-family: Manrope-SemiBold;
-                  font-weight: normal;
-                }
-              }
-            }
-            .profile-history-tooltip-wrap {
-              display: inline-flex;
-              position: relative;
-              align-items: center;
-              justify-content: center;
-              min-width: 32px;
-              height: 32px;
-              border-radius: 8px;
-              background-color: $soft-purple-900;
-              outline: none;
-              &:hover,
-              &:focus-within {
-                &::after {
-                  opacity: 1;
-                  pointer-events: auto;
-                }
-                .nickname-history-tooltip {
-                  opacity: 1;
-                  visibility: visible;
-                  pointer-events: auto;
-                  transform: translateX(-50%) translateY(0);
-                }
-              }
-              &::after {
-                content: '';
-                position: absolute;
-                top: 100%;
-                left: 50%;
-                width: max(100%, 100px);
-                height: 10px;
-                transform: translateX(-50%);
-                opacity: 0;
-                pointer-events: none;
-                z-index: 2;
-              }
-              .profile-meta-icon {
-                width: 20px;
-                height: 20px;
-                object-fit: contain;
-              }
-              .nickname-history-tooltip {
-                display: flex;
-                position: absolute;
-                top: calc(100% + 10px);
-                left: 50%;
-                flex-direction: column;
-                padding: 16px;
-                border-radius: 5px;
-                background-color: $graphite;
-                box-shadow: 3px 3px 5px rgba($black, 0.25);
-                color: $fg;
-                width: max-content;
-                max-height: 200px;
-                overflow-y: auto;
-                scrollbar-width: thin;
-                font-size: 14px;
-                line-height: 1.2;
-                opacity: 0;
-                visibility: hidden;
-                pointer-events: none;
-                transform: translateX(-50%) translateY(5px);
-                transition: opacity 0.25s ease-in-out, visibility 0.25s ease-in-out, transform 0.25s ease-in-out;
-                z-index: 3;
-                .nickname-history-list {
-                  display: flex;
-                  flex-direction: column;
-                  gap: 5px;
-                  span {
-                    color: $ashy;
-                    overflow-wrap: anywhere;
-                    &.current {
-                      color: $fg;
-                      font-family: Manrope-SemiBold;
-                    }
-                  }
-                }
-                .nickname-history-state {
-                  color: $ashy;
-                  &.danger {
-                    color: $red;
-                  }
                 }
               }
             }
@@ -2148,13 +2141,6 @@ onBeforeUnmount(() => {
         span {
           color: $fg;
           font-size: 14px;
-        }
-        strong {
-          color: $fg;
-          text-align: right;
-          font-size: 14px;
-          font-family: Manrope-SemiBold;
-          font-weight: normal;
         }
       }
     }
