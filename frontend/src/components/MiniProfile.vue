@@ -422,8 +422,8 @@ const PROFILE_NOMINATION_DEFINITIONS: readonly ProfileNominationDefinition[] = [
     statKey: 'games_played',
     unit: 'count',
     levelStarts: [0, 50, 200, 500, 1000],
-    startLabels: ['0', '50', '200', '500', '1000'],
-    nextLabels: ['50', '200', '500', '1000'],
+    startLabels: ['0', '50 игр', '200 игр', '500 игр', '1000 игр'],
+    nextLabels: ['50 игр', '200 игр', '500 игр', '1000 игр'],
   },
   {
     key: 'games-hosted',
@@ -432,8 +432,8 @@ const PROFILE_NOMINATION_DEFINITIONS: readonly ProfileNominationDefinition[] = [
     statKey: 'games_hosted',
     unit: 'count',
     levelStarts: [0, 10, 50, 150, 300],
-    startLabels: ['0', '10', '50', '150', '300'],
-    nextLabels: ['10', '50', '150', '300'],
+    startLabels: ['0', '10 игр', '50 игр', '150 игр', '300 игр'],
+    nextLabels: ['10 игр', '50 игр', '150 игр', '300 игр'],
   },
   {
     key: 'room-time',
@@ -442,8 +442,8 @@ const PROFILE_NOMINATION_DEFINITIONS: readonly ProfileNominationDefinition[] = [
     statKey: 'room_minutes',
     unit: 'minutes',
     levelStarts: [0, 3 * MINUTES_IN_DAY, 14 * MINUTES_IN_DAY, 30 * MINUTES_IN_DAY, 60 * MINUTES_IN_DAY],
-    startLabels: ['0', '3д', '14д', '30д', '60д'],
-    nextLabels: ['3д', '14д', '30д', '60д'],
+    startLabels: ['0', '3 дня', '14 дней', '30 дней', '60 дней'],
+    nextLabels: ['3 дня', '14 дней', '30 дней', '60 дней'],
   },
   {
     key: 'stream-time',
@@ -452,8 +452,8 @@ const PROFILE_NOMINATION_DEFINITIONS: readonly ProfileNominationDefinition[] = [
     statKey: 'stream_minutes',
     unit: 'minutes',
     levelStarts: [0, Math.round(0.25 * MINUTES_IN_DAY), MINUTES_IN_DAY, 3 * MINUTES_IN_DAY, 7 * MINUTES_IN_DAY],
-    startLabels: ['0', '6ч', '1д', '3д', '7д'],
-    nextLabels: ['6ч', '1д', '3д', '7д'],
+    startLabels: ['0', '6 часов', '1 день', '3 дня', '7 дней'],
+    nextLabels: ['6 часов', '1 день', '3 дня', '7 дней'],
   },
   {
     key: 'spectator-time',
@@ -462,8 +462,8 @@ const PROFILE_NOMINATION_DEFINITIONS: readonly ProfileNominationDefinition[] = [
     statKey: 'spectator_minutes',
     unit: 'minutes',
     levelStarts: [0, MINUTES_IN_DAY, 7 * MINUTES_IN_DAY, 14 * MINUTES_IN_DAY, 30 * MINUTES_IN_DAY],
-    startLabels: ['0', '1д', '7д', '14д', '30д'],
-    nextLabels: ['1д', '7д', '14д', '30д'],
+    startLabels: ['0', '1 день', '7 дней', '14 дней', '30 дней'],
+    nextLabels: ['1 день', '7 дней', '14 дней', '30 дней'],
   },
 ]
 
@@ -2126,7 +2126,6 @@ onBeforeUnmount(() => {
               .profile-nomination-icon {
                 --ui-icon-width: 20px;
                 --ui-icon-height: 20px;
-                --ui-icon-color: #{$neutral-white};
               }
               .profile-nomination-tooltip {
                 display: flex;
@@ -2165,8 +2164,6 @@ onBeforeUnmount(() => {
                     padding: 0 16px;
                     height: 32px;
                     border-radius: 8px;
-                    background-color: $soft-purple-900;
-                    color: $neutral-white;
                     font-family: Hauora-Bold;
                     font-size: 18px;
                     line-height: 20px;
