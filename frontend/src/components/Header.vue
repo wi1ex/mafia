@@ -38,17 +38,18 @@
           <UiIcon class="page-icon" :icon="iconInfo" />
           <span class="page-text" data-nosnippet>Правила</span>
         </router-link>
-        <router-link v-if="showHistoryButton" class="page" :to="{ name: 'history' }" aria-label="История игр">
+<!--        <router-link v-if="showHistoryButton" class="page" :to="{ name: 'history' }" aria-label="История игр">-->
+        <router-link v-if="showHistoryButton && user.user?.role === 'admin'" class="page" :to="{ name: 'history' }" aria-label="История игр">
           <UiIcon class="page-icon" :icon="iconGamesHistory" />
           <span class="page-text" data-nosnippet>История игр</span>
-        </router-link>
-        <router-link v-if="user.user?.role === 'admin'" class="page" :to="{ name: 'admin' }" aria-label="Админ-панель">
-          <UiIcon class="page-icon" :icon="iconJudge" />
-          <span class="page-text" data-nosnippet>Админ-панель</span>
         </router-link>
         <router-link v-if="user.user?.role === 'moder'" class="page" :to="{ name: 'moderation' }" aria-label="Модерация">
           <UiIcon class="page-icon" :icon="iconJudge" />
           <span class="page-text" data-nosnippet>Модерация</span>
+        </router-link>
+        <router-link v-if="user.user?.role === 'admin'" class="page" :to="{ name: 'admin' }" aria-label="Админ-панель">
+          <UiIcon class="page-icon" :icon="iconJudge" />
+          <span class="page-text" data-nosnippet>Админ-панель</span>
         </router-link>
       </div>
     </div>

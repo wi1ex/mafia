@@ -5,10 +5,9 @@
         <section ref="profilePanelEl" class="user-mini-profile-panel" :class="{ 'stats-mode': view !== 'profile' && !panelStateVisible && !avatarPreviewOpen, 'state-mode': panelStateVisible, 'avatar-mode': avatarPreviewOpen }" :style="profilePanelStyle"
                  role="dialog" aria-modal="true" :aria-label="`Профиль ${displayName}`" @pointerdown.stop @click.stop>
           <template v-if="avatarPreviewOpen && avatarPreviewSrc">
-            <button class="avatar-preview-close" type="button" aria-label="Закрыть аватар" @click="closeAvatarPreview">
-              <UiIcon class="close-icon" :icon="iconClose" />
+            <button class="avatar-preview-image" type="button" aria-label="Закрыть аватар" @click="closeAvatarPreview">
+              <img class="avatar-preview-img" :src="avatarPreviewSrc" alt="" />
             </button>
-            <img class="avatar-preview-image" :src="avatarPreviewSrc" alt="avatar" />
           </template>
           <p v-else-if="loading && !profileLoadedForTarget" class="state">Загрузка...</p>
           <p v-else-if="loadError" class="state state-danger">{{ loadError }}</p>
@@ -121,12 +120,12 @@
               </div>
 
               <div v-if="showActionBlock" class="profile-actions">
-                <button v-if="showStatsButton" class="profile-action secondary" type="button" @click="view = 'stats'">
-                  Статистика пользователя
-                </button>
-                <button v-if="showGameHistoryButton" class="profile-action secondary" type="button" @click="view = 'history'">
-                  История игр
-                </button>
+<!--                <button v-if="showStatsButton" class="profile-action secondary" type="button" @click="view = 'stats'">-->
+<!--                  Статистика пользователя-->
+<!--                </button>-->
+<!--                <button v-if="showGameHistoryButton" class="profile-action secondary" type="button" @click="view = 'history'">-->
+<!--                  История игр-->
+<!--                </button>-->
                 <button v-if="showFriendAction" class="profile-action friend-action" :class="`status-${friendStatusClass}`"
                         type="button" :disabled="friendDisabled" @click="onFriendAction(friendActionKind)">
                   <img :src="friendActionIcon" alt="" />
@@ -1719,38 +1718,21 @@ onBeforeUnmount(() => {
       height: min(600px, calc(100dvh - 96px));
       overflow: hidden;
     }
-    .avatar-preview-close {
+    .avatar-preview-image {
       display: flex;
-      position: absolute;
       align-items: center;
       justify-content: center;
-      top: 16px;
-      right: 16px;
       padding: 0;
-      width: 32px;
-      height: 32px;
-      border: none;
-      border-radius: 8px;
-      background-color: $neutral-white;
-      cursor: pointer;
-      z-index: 1;
-      .close-icon {
-        --ui-icon-width: 24px;
-        --ui-icon-height: 24px;
-        --ui-icon-color: #{$neutral-black};
-      }
-      &:hover,
-      &:focus-visible,
-      &:active {
-        .close-icon {
-          --ui-icon-color: #{$green-500};
-        }
-      }
-    }
-    .avatar-preview-image {
       width: 100%;
       height: 100%;
-      object-fit: contain;
+      border: none;
+      background: transparent;
+      cursor: zoom-out;
+      .avatar-preview-img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
     }
     .state {
       margin: 0;
@@ -1796,7 +1778,6 @@ onBeforeUnmount(() => {
           gap: 8px;
           .profile-title {
             display: flex;
-            align-items: flex-end;
             height: 30px;
             gap: 8px;
             .profile-theme-icons {
