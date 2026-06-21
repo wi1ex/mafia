@@ -31,7 +31,7 @@
                             </div>
                           </div>
                         </div>
-                        <UiScrollbar :target="profileFriendsList" :active="showAdminFriendsTooltip" theme="light" :inset-top="16" :inset-bottom="16" right="6px" :overflow-tolerance="4" />
+                        <UiScrollbar :target="profileFriendsList" :active="showAdminFriendsTooltip" theme="grey" :inset-top="16" :inset-bottom="16" right="6px" :overflow-tolerance="4" />
                       </template>
                     </div>
                   </div>
@@ -1733,7 +1733,8 @@ onBeforeUnmount(() => {
                 flex-direction: column;
                 top: calc(100% + 6px);
                 left: 0;
-                padding: 16px 28px 16px 16px;
+                padding: 16px;
+                width: 208px;
                 border-radius: 24px;
                 background-color: $neutral-white;
                 box-shadow: 0 2px 16px 0 rgba($neutral-black, 0.20);
@@ -1780,7 +1781,7 @@ onBeforeUnmount(() => {
                       flex-direction: column;
                       gap: 2px;
                       .profile-friend-name {
-                        max-width: 158px;
+                        max-width: 168px;
                         color: $neutral-black;
                         font-family: Hauora-Regular;
                         font-size: 14px;
@@ -1906,11 +1907,10 @@ onBeforeUnmount(() => {
               position: relative;
               align-items: center;
               justify-content: center;
-              min-width: 32px;
+              width: 32px;
               height: 32px;
               border-radius: 8px;
               background-color: $soft-purple-900;
-              outline: none;
               &:hover {
                 &::after {
                   opacity: 1;
@@ -1943,20 +1943,14 @@ onBeforeUnmount(() => {
               .nickname-history-tooltip {
                 display: flex;
                 position: absolute;
-                top: calc(100% + 6px);
-                left: 50%;
                 flex-direction: column;
+                top: calc(100% + 6px);
+                left: 0;
                 padding: 16px;
-                border-radius: 5px;
-                background-color: $graphite;
-                box-shadow: 3px 3px 5px rgba($black, 0.25);
-                color: $fg;
-                width: max-content;
-                max-height: 200px;
-                overflow-y: auto;
-                scrollbar-width: thin;
-                font-size: 14px;
-                line-height: 1.2;
+                width: 208px;
+                border-radius: 24px;
+                background-color: $neutral-white;
+                box-shadow: 0 2px 16px 0 rgba($neutral-black, 0.20);
                 opacity: 0;
                 visibility: hidden;
                 pointer-events: none;

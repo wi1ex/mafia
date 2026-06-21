@@ -20,7 +20,7 @@ type ScrollbarInset = number | string
 const props = withDefaults(defineProps<{
   target?: HTMLElement | null
   active?: boolean
-  theme?: 'light' | 'dark'
+  theme?: 'light' | 'dark' | 'grey'
   minThumbHeight?: number
   overflowTolerance?: number
   insetTop?: ScrollbarInset
@@ -234,6 +234,9 @@ onBeforeUnmount(() => {
     .thumb {
       background-color: $neutral-white;
     }
+  }
+  &--grey {
+    background-color: $neutral-100;
   }
 }
 .thumb {
