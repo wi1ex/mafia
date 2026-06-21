@@ -22,7 +22,7 @@
                     <div v-if="showAdminFriendsTooltip" class="profile-friends-tooltip" role="tooltip">
                       <span v-if="adminFriends.length === 0" class="profile-friends-empty">Нет друзей</span>
                       <div v-else v-for="friend in adminFriends" :key="friend.id" class="profile-friend-row">
-                        <img class="profile-friend-avatar" v-minio-img="{key: friendAvatarKey(friend), placeholder: iconDefaultAvatar, lazy: false}" alt="avatar" />
+                        <img class="profile-friend-avatar" v-minio-img="{key: friendAvatarKey(friend), placeholder: iconDefaultAvatarBlack, lazy: false}" alt="avatar" />
                         <div class="profile-friend-main">
                           <span class="profile-friend-name">{{ friend.username || `user${friend.id}` }}</span>
                           <span class="profile-friend-date">{{ formatFriendshipStartedAt(friend.friendship_started_at) }}</span>
@@ -34,8 +34,14 @@
                   <div v-if="activeSanction" class="sanction-tooltip-wrap" tabindex="0">
                     <img class="profile-meta-icon" :src="iconJudgeHummer" alt="" />
                     <div class="sanction-tooltip" role="tooltip">
-                      <span>{{ activeSanctionKindLabel }}</span>
-                      <span>{{ activeSanctionExpiryLabel }}</span>
+                      <div class="sanction-tooltip-div">
+                        <UiIcon class="sanction-tooltip-icon" :icon="iconWarning" />
+                        <span class="sanction-tooltip-type">{{ activeSanctionKindLabel }}</span>
+                      </div>
+                      <div class="sanction-tooltip-expiry">
+                        <span class="sanction-tooltip-date">Истекает:</span>
+                        <span class="sanction-tooltip-time">{{ activeSanctionExpiryLabel }}</span>
+                      </div>
                     </div>
                   </div>
 
@@ -193,6 +199,8 @@ import Subscription from '@/components/Subscription.vue'
 import UiIcon from '@/components/UiIcon.vue'
 
 import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
+import iconDefaultAvatarBlack from '@/assets/svg/iconDefaultAvatarBlack.svg'
+import iconWarning from '@/assets/svg/iconWarning.svg'
 import iconClose from '@/assets/svg/iconClose.svg'
 import iconAddFriends from '@/assets/svg/iconAddFriends.svg'
 import iconInFriends from '@/assets/svg/iconInFriends.svg'
@@ -536,8 +544,7 @@ const showProfileMeta = computed(() => Boolean(activeSanction.value || targetUse
 const activeSanctionKindLabel = computed(() => sanctionKindLabel(activeSanction.value?.kind))
 const activeSanctionExpiryLabel = computed(() => {
   const expiresAt = activeSanction.value?.expires_at
-  const label = formatDateTimeMinute(expiresAt)
-  return label !== '-' ? `Истекает ${label}` : 'Бессрочно'
+  return formatDateTimeMinute(expiresAt)
 })
 const registeredAtLabel = computed(() => formatDateWithMonthName(profile.value?.registered_at))
 const lastGameAtLabel = computed(() => {
@@ -874,7 +881,7 @@ function formatDateWithMonthName(value?: string | number | Date | null): string 
 
 function formatDateTimeMinute(value?: string | number | Date | null): string {
   const dt = parseDate(value)
-  if (!dt) return '-'
+  if (!dt) return '—'
   return `${formatDateOnly(dt)} ${pad2(dt.getHours())}:${pad2(dt.getMinutes())}`
 }
 
@@ -1700,7 +1707,7 @@ onBeforeUnmount(() => {
                 top: 100%;
                 left: 50%;
                 width: max(100%, 100px);
-                height: 10px;
+                height: 6px;
                 transform: translateX(-50%);
                 opacity: 0;
                 pointer-events: none;
@@ -1716,24 +1723,21 @@ onBeforeUnmount(() => {
               .profile-friends-tooltip {
                 display: flex;
                 position: absolute;
-                top: calc(100% + 10px);
-                left: 0;
                 flex-direction: column;
+                top: calc(100% + 6px);
+                left: 0;
                 padding: 16px;
-                border-radius: 5px;
-                background-color: $graphite;
-                box-shadow: 3px 3px 5px rgba($black, 0.25);
-                color: $fg;
-                width: max-content;
+                gap: 8px;
                 max-height: 200px;
+                border-radius: 24px;
+                background-color: $neutral-white;
+                box-shadow: 0 2px 16px 0 rgba($neutral-black, 0.20);
                 overflow-y: auto;
                 scrollbar-width: thin;
-                font-size: 13px;
-                line-height: 1.2;
                 opacity: 0;
                 visibility: hidden;
                 pointer-events: none;
-                transform: translateX(0) translateY(5px);
+                transform: translateX(0) translateY(6px);
                 transition: opacity 0.25s ease-in-out, visibility 0.25s ease-in-out, transform 0.25s ease-in-out;
                 z-index: 3;
                 .profile-friends-empty {
@@ -1746,30 +1750,34 @@ onBeforeUnmount(() => {
                 .profile-friend-row {
                   display: flex;
                   align-items: center;
-                  gap: 5px;
-                  min-width: 0;
+                  gap: 8px;
                   .profile-friend-avatar {
-                    flex: 0 0 auto;
-                    width: 30px;
-                    height: 30px;
+                    width: 32px;
+                    height: 32px;
                     border-radius: 50%;
                     object-fit: cover;
                   }
                   .profile-friend-main {
                     display: flex;
                     flex-direction: column;
-                    min-width: 0;
-                    gap: 1px;
+                    gap: 2px;
                     .profile-friend-name {
-                      color: $fg;
-                      font-family: Manrope-SemiBold;
+                      max-width: 158px;
+                      color: $neutral-black;
+                      font-family: Hauora-Regular;
+                      font-size: 14px;
+                      line-height: 18px;
+                      letter-spacing: -0.32px;
                       overflow: hidden;
                       text-overflow: ellipsis;
                       white-space: nowrap;
                     }
                     .profile-friend-date {
-                      color: $ashy;
+                      color: $neutral-500;
+                      font-family: Hauora-Regular;
                       font-size: 12px;
+                      line-height: 12px;
+                      letter-spacing: -0.24px;
                     }
                   }
                 }
@@ -1780,11 +1788,10 @@ onBeforeUnmount(() => {
               position: relative;
               align-items: center;
               justify-content: center;
-              min-width: 32px;
+              width: 32px;
               height: 32px;
               border-radius: 8px;
               background-color: $soft-purple-900;
-              outline: none;
               &:hover {
                 &::after {
                   opacity: 1;
@@ -1803,7 +1810,7 @@ onBeforeUnmount(() => {
                 top: 100%;
                 left: 50%;
                 width: max(100%, 100px);
-                height: 10px;
+                height: 6px;
                 transform: translateX(-50%);
                 opacity: 0;
                 pointer-events: none;
@@ -1817,26 +1824,60 @@ onBeforeUnmount(() => {
               .sanction-tooltip {
                 display: flex;
                 position: absolute;
-                top: calc(100% + 10px);
-                left: 50%;
                 flex-direction: column;
+                top: calc(100% + 6px);
+                left: 0;
                 padding: 16px;
-                border-radius: 5px;
-                background-color: $graphite;
-                box-shadow: 3px 3px 5px rgba($black, 0.25);
-                color: $fg;
-                width: max-content;
-                font-size: 12px;
-                line-height: 1.2;
+                gap: 8px;
+                border-radius: 24px;
+                background-color: $neutral-white;
+                box-shadow: 0 2px 16px 0 rgba($neutral-black, 0.20);
+                overflow-y: auto;
+                scrollbar-width: thin;
                 opacity: 0;
                 visibility: hidden;
                 pointer-events: none;
-                transform: translateX(-50%) translateY(5px);
+                transform: translateX(0) translateY(6px);
                 transition: opacity 0.25s ease-in-out, visibility 0.25s ease-in-out, transform 0.25s ease-in-out;
                 z-index: 3;
-                span {
-                  font-family: Manrope-SemiBold;
-                  font-weight: normal;
+                .sanction-tooltip-div {
+                  display: flex;
+                  align-items: center;
+                  gap: 8px;
+                  .sanction-tooltip-icon {
+                    --ui-icon-width: 24px;
+                    --ui-icon-height: 24px;
+                    --ui-icon-color: #{$orange-600};
+                  }
+                  .sanction-tooltip-type {
+                    color: $neutral-black;
+                    font-family: Hauora-Regular;
+                    font-size: 16px;
+                    line-height: 16px;
+                    letter-spacing: -0.32px;
+                  }
+                }
+                .sanction-tooltip-expiry {
+                  display: flex;
+                  align-items: center;
+                  padding: 12px 16px;
+                  gap: 16px;
+                  border-radius: 8px;
+                  background-color: $orange-100;
+                  .sanction-tooltip-date {
+                    color: $neutral-black;
+                    font-family: Hauora-Regular;
+                    font-size: 16px;
+                    line-height: 16px;
+                    letter-spacing: -0.32px;
+                  }
+                  .sanction-tooltip-time {
+                    color: $neutral-black;
+                    font-family: Hauora-Bold;
+                    font-size: 16px;
+                    line-height: 18px;
+                    letter-spacing: -0.32px;
+                  }
                 }
               }
             }
@@ -1868,7 +1909,7 @@ onBeforeUnmount(() => {
                 top: 100%;
                 left: 50%;
                 width: max(100%, 100px);
-                height: 10px;
+                height: 6px;
                 transform: translateX(-50%);
                 opacity: 0;
                 pointer-events: none;
@@ -1882,7 +1923,7 @@ onBeforeUnmount(() => {
               .nickname-history-tooltip {
                 display: flex;
                 position: absolute;
-                top: calc(100% + 10px);
+                top: calc(100% + 6px);
                 left: 50%;
                 flex-direction: column;
                 padding: 16px;
@@ -1899,7 +1940,7 @@ onBeforeUnmount(() => {
                 opacity: 0;
                 visibility: hidden;
                 pointer-events: none;
-                transform: translateX(-50%) translateY(5px);
+                transform: translateX(-50%) translateY(6px);
                 transition: opacity 0.25s ease-in-out, visibility 0.25s ease-in-out, transform 0.25s ease-in-out;
                 z-index: 3;
                 .nickname-history-list {
@@ -1951,7 +1992,7 @@ onBeforeUnmount(() => {
                 top: 100%;
                 left: 50%;
                 width: max(100%, 100px);
-                height: 10px;
+                height: 6px;
                 transform: translateX(-50%);
                 opacity: 0;
                 pointer-events: none;
@@ -1990,7 +2031,7 @@ onBeforeUnmount(() => {
               .profile-nomination-tooltip {
                 display: flex;
                 position: absolute;
-                top: calc(100% + 10px);
+                top: calc(100% + 6px);
                 left: 50%;
                 flex-direction: column;
                 gap: 10px;
@@ -2005,7 +2046,7 @@ onBeforeUnmount(() => {
                 opacity: 0;
                 visibility: hidden;
                 pointer-events: none;
-                transform: translateX(-50%) translateY(5px);
+                transform: translateX(-50%) translateY(6px);
                 transition: opacity 0.25s ease-in-out, visibility 0.25s ease-in-out, transform 0.25s ease-in-out;
                 z-index: 3;
                 .nomination-tooltip-head,
