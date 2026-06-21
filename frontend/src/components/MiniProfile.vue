@@ -9,7 +9,7 @@
               <button class="profile-avatar-trigger" type="button" :disabled="!hasAvatar" aria-label="Open avatar" @click="openAvatarLightbox">
                 <img ref="avatarImageEl" class="profile-avatar" v-minio-img="{ key: avatarKey, placeholder: iconDefaultAvatar, lazy: false, animated: true }" alt="avatar" />
               </button>
-              <div class="profile-icon-name">
+              <div class="profile-icon-name">MiniProfile
                 <div class="profile-title">
                   <div v-if="profileThemeIconSrcs.length" class="profile-theme-icons" aria-hidden="true">
                     <img v-for="badgeSrc in profileThemeIconSrcs" :key="badgeSrc" class="profile-theme-icon" :src="badgeSrc" alt="" />
@@ -61,9 +61,7 @@
 
                   <span v-for="nomination in profileNominations" :key="nomination.key" class="profile-tooltip-wrap profile-nomination-tooltip-wrap" :class="`level-${nomination.level}`"
                         tabindex="0" :aria-label="`${nomination.label}: ${nomination.valueLabel}, ${nomination.levelLabel}`">
-                    <span class="profile-nomination-icon-shell">
-                      <img class="profile-nomination-icon" :src="nomination.icon" alt="" />
-                    </span>
+                    <img class="profile-nomination-icon" :src="nomination.icon" alt="" />
                     <span class="profile-tooltip profile-nomination-tooltip" role="tooltip">
                       <span class="nomination-tooltip-head">
                         <strong>{{ nomination.label }}</strong>
@@ -1686,6 +1684,10 @@ onBeforeUnmount(() => {
               position: relative;
               align-items: center;
               justify-content: center;
+              min-width: 32px;
+              height: 32px;
+              border-radius: 8px;
+              background-color: $soft-purple-900;
               outline: none;
               &:hover,
               &:focus-within {
@@ -1747,8 +1749,6 @@ onBeforeUnmount(() => {
                 align-items: center;
                 justify-content: center;
                 padding: 8px;
-                border-radius: 8px;
-                background-color: $soft-purple-900;
                 color: $neutral-100;
                 font-family: Hauora-Regular;
                 font-size: 16px;
@@ -1806,46 +1806,33 @@ onBeforeUnmount(() => {
             }
             .profile-nomination-tooltip-wrap {
               &.level-1 {
-                .profile-nomination-icon-shell,
                 .nomination-level-badge {
                   background-color: $soft-purple-900;
                 }
               }
               &.level-2 {
-                .profile-nomination-icon-shell,
                 .nomination-level-badge {
                   background-color: rgba(184, 118, 87, 1);
                 }
               }
               &.level-3 {
-                .profile-nomination-icon-shell,
                 .nomination-level-badge {
                   background-color: rgba(114, 133, 143, 1);
                 }
               }
               &.level-4 {
-                .profile-nomination-icon-shell,
                 .nomination-level-badge {
                   background-color: rgba(224, 176, 40, 1);
                 }
               }
               &.level-5 {
-                .profile-nomination-icon-shell,
                 .nomination-level-badge {
                   background: linear-gradient(261deg, $soft-purple-800 0%, $green-700 100%);
                 }
               }
-              .profile-nomination-icon-shell {
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                width: 24px;
-                height: 24px;
-                border-radius: 5px;
-              }
               .profile-nomination-icon {
-                width: 18px;
-                height: 18px;
+                width: 20px;
+                height: 20px;
                 object-fit: contain;
               }
               .profile-nomination-tooltip {
@@ -1923,8 +1910,8 @@ onBeforeUnmount(() => {
             }
             .sanction-tooltip-wrap {
               .profile-meta-icon {
-                width: 22px;
-                height: 22px;
+                width: 20px;
+                height: 20px;
                 object-fit: contain;
               }
               .sanction-tooltip {
@@ -1939,8 +1926,8 @@ onBeforeUnmount(() => {
             }
             .profile-history-tooltip-wrap {
               .profile-meta-icon {
-                width: 22px;
-                height: 22px;
+                width: 20px;
+                height: 20px;
                 object-fit: contain;
               }
               .nickname-history-tooltip {
