@@ -404,7 +404,7 @@ let nicknameHistorySeq = 0
 
 const MINUTES_IN_DAY = 24 * 60
 const STAFF_MODAL_Z_INDEX = 1700
-const NOMINATION_TOOLTIP_PANEL_GAP = 16
+const NOMINATION_TOOLTIP_PANEL_GAP = 24
 const STAFF_SANCTION_DURATION_LIMITS = {
   months: 240,
   days: 31,
