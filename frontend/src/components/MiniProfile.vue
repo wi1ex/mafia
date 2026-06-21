@@ -2,150 +2,151 @@
   <Teleport to="body">
     <Transition name="user-mini-profile-fade">
       <div v-if="canRenderOpen" class="user-mini-profile-overlay" role="presentation" @pointerdown.stop.self @click.stop.self="close">
-        <section ref="profilePanelEl" class="user-mini-profile-panel" :class="{ 'stats-mode': view !== 'profile' }" :style="profilePanelStyle"
+        <section ref="profilePanelEl" class="user-mini-profile-panel" :class="{ 'stats-mode': view !== 'profile' && !panelStateVisible, 'state-mode': panelStateVisible }" :style="profilePanelStyle"
                  role="dialog" aria-modal="true" :aria-label="`Профиль ${displayName}`" @pointerdown.stop @click.stop>
-          <header class="profile-top">
-            <div class="profile-identity">
-              <button class="profile-avatar-trigger" type="button" :disabled="!hasAvatar" aria-label="Open avatar" @click="openAvatarLightbox">
-                <img ref="avatarImageEl" class="profile-avatar" v-minio-img="{ key: avatarKey, placeholder: iconDefaultAvatar, lazy: false, animated: true }" alt="avatar" />
-              </button>
-              <div class="profile-icon-name">
-                <div class="profile-title">
-                  <div v-if="profileThemeIconSrcs.length" class="profile-theme-icons" aria-hidden="true">
-                    <img v-for="badgeSrc in profileThemeIconSrcs" :key="badgeSrc" class="profile-theme-icon" :src="badgeSrc" alt="" />
+          <p v-if="loading && !profileLoadedForTarget" class="state">Загрузка...</p>
+          <p v-else-if="loadError" class="state state-danger">{{ loadError }}</p>
+          <template v-else>
+            <header class="profile-top">
+              <div class="profile-identity">
+                <button class="profile-avatar-trigger" type="button" :disabled="!hasAvatar" aria-label="Open avatar" @click="openAvatarLightbox">
+                  <img ref="avatarImageEl" class="profile-avatar" v-minio-img="{ key: avatarKey, placeholder: iconDefaultAvatar, lazy: false, animated: true }" alt="avatar" />
+                </button>
+                <div class="profile-icon-name">
+                  <div class="profile-title">
+                    <div v-if="profileThemeIconSrcs.length" class="profile-theme-icons" aria-hidden="true">
+                      <img v-for="badgeSrc in profileThemeIconSrcs" :key="badgeSrc" class="profile-theme-icon" :src="badgeSrc" alt="" />
+                    </div>
+                    <span class="profile-name">{{ displayName }}</span>
                   </div>
-                  <span class="profile-name">{{ displayName }}</span>
-                </div>
-                <div v-if="showProfileMeta" class="profile-meta">
-                  <div v-if="friendsCount !== null" class="profile-friends-tooltip-wrap" :class="{ enabled: showAdminFriendsTooltip }" :tabindex="showAdminFriendsTooltip ? 0 : undefined">
-                    <span class="profile-friends-count" aria-label="Количество друзей">Друзья: {{ friendsCount }}</span>
-                    <div v-if="showAdminFriendsTooltip" class="profile-friends-tooltip" role="tooltip">
-                      <span v-if="adminFriends.length === 0" class="profile-friends-empty">Нет друзей</span>
-                      <template v-else>
-                        <div ref="profileFriendsList" class="profile-friends-list">
-                          <div v-for="friend in adminFriends" :key="friend.id" class="profile-friend-row">
-                            <img class="profile-friend-avatar" v-minio-img="{key: friendAvatarKey(friend), placeholder: iconDefaultAvatarBlack, lazy: false}" alt="avatar" />
-                            <div class="profile-friend-main">
-                              <span class="profile-friend-name">{{ friend.username || `user${friend.id}` }}</span>
-                              <span class="profile-friend-date">{{ formatFriendshipStartedAt(friend.friendship_started_at) }}</span>
+                  <div v-if="showProfileMeta" class="profile-meta">
+                    <div v-if="friendsCount !== null" class="profile-friends-tooltip-wrap" :class="{ enabled: showAdminFriendsTooltip }" :tabindex="showAdminFriendsTooltip ? 0 : undefined">
+                      <span class="profile-friends-count" aria-label="Количество друзей">Друзья: {{ friendsCount }}</span>
+                      <div v-if="showAdminFriendsTooltip" class="profile-friends-tooltip" role="tooltip">
+                        <span v-if="adminFriends.length === 0" class="profile-friends-empty">Нет друзей</span>
+                        <template v-else>
+                          <div ref="profileFriendsList" class="profile-friends-list">
+                            <div v-for="friend in adminFriends" :key="friend.id" class="profile-friend-row">
+                              <img class="profile-friend-avatar" v-minio-img="{key: friendAvatarKey(friend), placeholder: iconDefaultAvatarBlack, lazy: false}" alt="avatar" />
+                              <div class="profile-friend-main">
+                                <span class="profile-friend-name">{{ friend.username || `user${friend.id}` }}</span>
+                                <span class="profile-friend-date">{{ formatFriendshipStartedAt(friend.friendship_started_at) }}</span>
+                              </div>
                             </div>
                           </div>
+                          <UiScrollbar :target="profileFriendsList" :active="showAdminFriendsTooltip" theme="grey" :inset-top="16" :inset-bottom="16" right="6px" :overflow-tolerance="4" />
+                        </template>
+                      </div>
+                    </div>
+
+                    <div v-if="activeSanction" class="sanction-tooltip-wrap" tabindex="0">
+                      <img class="profile-meta-icon" :src="iconJudgeHummer" alt="" />
+                      <div class="sanction-tooltip" role="tooltip">
+                        <div class="sanction-tooltip-div">
+                          <UiIcon class="sanction-tooltip-icon" :icon="iconWarning" />
+                          <span class="sanction-tooltip-type">{{ activeSanctionKindLabel }}</span>
                         </div>
-                        <UiScrollbar :target="profileFriendsList" :active="showAdminFriendsTooltip" theme="grey" :inset-top="16" :inset-bottom="16" right="6px" :overflow-tolerance="4" />
-                      </template>
-                    </div>
-                  </div>
-
-                  <div v-if="activeSanction" class="sanction-tooltip-wrap" tabindex="0">
-                    <img class="profile-meta-icon" :src="iconJudgeHummer" alt="" />
-                    <div class="sanction-tooltip" role="tooltip">
-                      <div class="sanction-tooltip-div">
-                        <UiIcon class="sanction-tooltip-icon" :icon="iconWarning" />
-                        <span class="sanction-tooltip-type">{{ activeSanctionKindLabel }}</span>
-                      </div>
-                      <div class="sanction-tooltip-expiry">
-                        <span class="sanction-tooltip-date">Истекает:</span>
-                        <span class="sanction-tooltip-time">{{ activeSanctionExpiryLabel }}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div v-if="targetUserId > 0" class="profile-history-tooltip-wrap" tabindex="0" @mouseenter="loadNicknameHistory" @focusin="loadNicknameHistory">
-                    <img class="profile-meta-icon" :src="iconTimeHistory" alt="" />
-                    <div class="nickname-history-tooltip" role="tooltip">
-                      <span v-if="nicknameHistoryLoading" class="nickname-history-state">Загрузка...</span>
-                      <span v-else-if="nicknameHistoryError" class="nickname-history-state danger">{{ nicknameHistoryError }}</span>
-                      <template v-else>
-                        <div ref="nicknameHistoryList" class="nickname-history-list">
-                          <span class="nickname-history-nick" v-for="(nickname, index) in nicknameHistoryItems" :key="`${nickname}-${index}`" :class="{ current: index === 0 }">
-                            {{ nickname }}
-                          </span>
-                          <span v-if="!nicknameHistoryItems.length" class="nickname-history-state">Нет данных</span>
+                        <div class="sanction-tooltip-expiry">
+                          <span class="sanction-tooltip-date">Истекает:</span>
+                          <span class="sanction-tooltip-time">{{ activeSanctionExpiryLabel }}</span>
                         </div>
-                        <UiScrollbar :target="nicknameHistoryList" :active="targetUserId > 0" theme="grey" :inset-top="16" :inset-bottom="16" right="6px" :overflow-tolerance="4" />
-                      </template>
+                      </div>
                     </div>
-                  </div>
 
-                  <div v-for="nomination in profileNominations" :key="nomination.key" class="profile-nomination-tooltip-wrap" :class="`level-${nomination.level}`" tabindex="0"
-                       :aria-label="`${nomination.label}: ${nomination.valueLabel}, ${nomination.levelLabel}`" @mouseenter="updateNominationTooltipOffset" @focusin="updateNominationTooltipOffset" @mouseleave="resetNominationTooltipOffset" @focusout="resetNominationTooltipOffset">
-                    <UiIcon class="profile-nomination-icon" :icon="nomination.icon" />
-                    <div class="profile-nomination-tooltip" role="tooltip">
-                      <div class="nomination-tooltip-head">
-                        <span class="nomination-level-label">{{ nomination.label }}</span>
-                        <span class="nomination-level-badge">{{ nomination.levelLabel }}</span>
+                    <div v-if="targetUserId > 0" class="profile-history-tooltip-wrap" tabindex="0" @mouseenter="loadNicknameHistory" @focusin="loadNicknameHistory">
+                      <img class="profile-meta-icon" :src="iconTimeHistory" alt="" />
+                      <div class="nickname-history-tooltip" role="tooltip">
+                        <span v-if="nicknameHistoryLoading" class="nickname-history-state">Загрузка...</span>
+                        <span v-else-if="nicknameHistoryError" class="nickname-history-state danger">{{ nicknameHistoryError }}</span>
+                        <template v-else>
+                          <div ref="nicknameHistoryList" class="nickname-history-list">
+                            <span class="nickname-history-nick" v-for="(nickname, index) in nicknameHistoryItems" :key="`${nickname}-${index}`" :class="{ current: index === 0 }">
+                              {{ nickname }}
+                            </span>
+                            <span v-if="!nicknameHistoryItems.length" class="nickname-history-state">Нет данных</span>
+                          </div>
+                          <UiScrollbar :target="nicknameHistoryList" :active="targetUserId > 0" theme="grey" :inset-top="16" :inset-bottom="16" right="6px" :overflow-tolerance="4" />
+                        </template>
                       </div>
-                      <div class="nomination-progress-track">
-                        <span class="nomination-progress-fill" :style="{ width: `${nomination.progressPct}%` }"></span>
-                        <span class="nomination-progress-value">{{ nomination.valueLabel }}</span>
-                      </div>
-                      <div class="nomination-progress-caption">
-                        <span class="nomination-progress-caption-start-next">{{ nomination.progressStartLabel }}</span>
-                        <span class="nomination-progress-caption-start-next">{{ nomination.progressNextLabel }}</span>
+                    </div>
+
+                    <div v-for="nomination in profileNominations" :key="nomination.key" class="profile-nomination-tooltip-wrap" :class="`level-${nomination.level}`" tabindex="0"
+                         :aria-label="`${nomination.label}: ${nomination.valueLabel}, ${nomination.levelLabel}`" @mouseenter="updateNominationTooltipOffset" @focusin="updateNominationTooltipOffset" @mouseleave="resetNominationTooltipOffset" @focusout="resetNominationTooltipOffset">
+                      <UiIcon class="profile-nomination-icon" :icon="nomination.icon" />
+                      <div class="profile-nomination-tooltip" role="tooltip">
+                        <div class="nomination-tooltip-head">
+                          <span class="nomination-level-label">{{ nomination.label }}</span>
+                          <span class="nomination-level-badge">{{ nomination.levelLabel }}</span>
+                        </div>
+                        <div class="nomination-progress-track">
+                          <span class="nomination-progress-fill" :style="{ width: `${nomination.progressPct}%` }"></span>
+                          <span class="nomination-progress-value">{{ nomination.valueLabel }}</span>
+                        </div>
+                        <div class="nomination-progress-caption">
+                          <span class="nomination-progress-caption-start-next">{{ nomination.progressStartLabel }}</span>
+                          <span class="nomination-progress-caption-start-next">{{ nomination.progressNextLabel }}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
-            <div class="profile-side-tools">
-              <button class="close-btn" type="button" aria-label="Закрыть" @click="close">
-                <UiIcon class="close-icon" :icon="iconClose" />
-              </button>
-            </div>
-          </header>
-
-          <template v-if="view === 'profile'">
-            <p v-if="loading && !profileLoadedForTarget" class="state">Загрузка...</p>
-            <p v-else-if="loadError" class="state state-danger">{{ loadError }}</p>
-
-            <div v-else class="profile-dates" aria-label="Даты профиля">
-              <div class="date-row">
-                <span>Дата регистрации</span>
-                <span>{{ registeredAtLabel }}</span>
-              </div>
-              <div class="date-row">
-                <span>Последняя игра</span>
-                <span>{{ lastGameAtLabel }}</span>
-              </div>
-              <div class="date-row">
-                <span>Последний онлайн</span>
-                <span>{{ lastOnlineLabel }}</span>
-              </div>
-            </div>
-
-            <div v-if="showActionBlock" class="profile-actions">
-              <button v-if="showStatsButton" class="profile-action secondary" type="button" @click="view = 'stats'">
-                Статистика пользователя
-              </button>
-              <button v-if="showGameHistoryButton" class="profile-action secondary" type="button" @click="view = 'history'">
-                История игр
-              </button>
-              <button v-if="showFriendAction" class="profile-action friend-action" :class="`status-${friendStatusClass}`"
-                      type="button" :disabled="friendDisabled" @click="onFriendAction(friendActionKind)">
-                <img :src="friendActionIcon" alt="" />
-                <span>{{ friendActionLabel }}</span>
-              </button>
-            </div>
-
-            <div v-if="showStaffActionBlock" class="profile-staff-actions" aria-label="Действия с пользователем">
-              <div v-for="action in staffActionItems" :key="action.key" class="staff-action-item">
-                <button class="btn staff-action-button" :class="action.buttonClass" type="button" :disabled="action.disabled"
-                        :aria-label="action.ariaLabel" @click="onStaffAction(action.key)">
-                  <img v-if="action.icon" class="btn-img" :src="action.icon" alt="" />
-                  <span v-if="action.buttonText">{{ action.buttonText }}</span>
+              <div class="profile-side-tools">
+                <button class="close-btn" type="button" aria-label="Закрыть" @click="close">
+                  <UiIcon class="close-icon" :icon="iconClose" />
                 </button>
-                <span class="staff-action-label">{{ action.label }}</span>
               </div>
-            </div>
-          </template>
+            </header>
 
-          <template v-else>
-            <div class="stats-toolbar">
-              <button class="profile-action secondary" type="button" @click="view = 'profile'">Назад к профилю</button>
-            </div>
-            <ProfileStats v-if="view === 'stats'" :stats-url="resolvedStatsUrl" />
-            <ProfileHistory v-else :history-url="resolvedHistoryUrl" :per-page="5" />
+            <template v-if="view === 'profile'">
+              <div class="profile-dates" aria-label="Даты профиля">
+                <div class="date-row">
+                  <span class="date-title">Дата регистрации</span>
+                  <span class="date-time">{{ registeredAtLabel }}</span>
+                </div>
+                <div class="date-row">
+                  <span class="date-title">Последняя игра</span>
+                  <span class="date-time">{{ lastGameAtLabel }}</span>
+                </div>
+                <div class="date-row">
+                  <span class="date-title">Последний онлайн</span>
+                  <span class="date-time">{{ lastOnlineLabel }}</span>
+                </div>
+              </div>
+
+              <div v-if="showActionBlock" class="profile-actions">
+                <button v-if="showStatsButton" class="profile-action secondary" type="button" @click="view = 'stats'">
+                  Статистика пользователя
+                </button>
+                <button v-if="showGameHistoryButton" class="profile-action secondary" type="button" @click="view = 'history'">
+                  История игр
+                </button>
+                <button v-if="showFriendAction" class="profile-action friend-action" :class="`status-${friendStatusClass}`"
+                        type="button" :disabled="friendDisabled" @click="onFriendAction(friendActionKind)">
+                  <img :src="friendActionIcon" alt="" />
+                  <span>{{ friendActionLabel }}</span>
+                </button>
+              </div>
+
+              <div v-if="showStaffActionBlock" class="profile-staff-actions" aria-label="Действия с пользователем">
+                <div v-for="action in staffActionItems" :key="action.key" class="staff-action-item">
+                  <button class="btn staff-action-button" :class="action.buttonClass" type="button" :disabled="action.disabled"
+                          :aria-label="action.ariaLabel" @click="onStaffAction(action.key)">
+                    <img v-if="action.icon" class="btn-img" :src="action.icon" alt="" />
+                    <span v-if="action.buttonText">{{ action.buttonText }}</span>
+                  </button>
+                  <span class="staff-action-label">{{ action.label }}</span>
+                </div>
+              </div>
+            </template>
+
+            <template v-else>
+              <div class="stats-toolbar">
+                <button class="profile-action secondary" type="button" @click="view = 'profile'">Назад к профилю</button>
+              </div>
+              <ProfileStats v-if="view === 'stats'" :stats-url="resolvedStatsUrl" />
+              <ProfileHistory v-else :history-url="resolvedHistoryUrl" :per-page="5" />
+            </template>
           </template>
         </section>
       </div>
@@ -481,6 +482,7 @@ const initialProfileForTarget = computed<MiniProfileInitial | null>(() => {
   return Math.trunc(initialId) === targetUserId.value ? initial : null
 })
 const profileLoadedForTarget = computed(() => Boolean(profile.value && profile.value.id === targetUserId.value))
+const panelStateVisible = computed(() => Boolean((loading.value && !profileLoadedForTarget.value) || loadError.value))
 const viewerUserId = computed(() => Number(userStore.user?.id || 0))
 const viewerRole = computed(() => normalizeMiniProfileRole(userStore.user?.role))
 const isAdminViewer = computed(() => viewerRole.value === 'admin')
@@ -1703,6 +1705,21 @@ onBeforeUnmount(() => {
       width: min(1350px, calc(100vw - 96px));
       height: calc(100dvh - 96px);
     }
+    &.state-mode {
+      align-items: center;
+      justify-content: center;
+      min-height: 200px;
+    }
+    .state {
+      margin: 0;
+      width: 100%;
+      color: $ashy;
+      text-align: center;
+      font-size: 16px;
+      &.state-danger {
+        color: $red;
+      }
+    }
     .profile-top {
       display: flex;
       align-items: flex-start;
@@ -2285,30 +2302,30 @@ onBeforeUnmount(() => {
         }
       }
     }
-    .state {
-      margin: 0;
-      color: $ashy;
-      text-align: center;
-      font-size: 16px;
-      &.state-danger {
-        color: $red;
-      }
-    }
     .profile-dates {
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 4px;
       .date-row {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 10px;
-        border-radius: 5px;
-        background-color: rgba($graphite, 0.5);
-        box-shadow: 3px 3px 5px rgba($black, 0.25);
-        span {
-          color: $fg;
-          font-size: 14px;
+        padding: 16px;
+        border-radius: 20px;
+        background-color: $soft-purple-900;
+        .date-title {
+          color: $neutral-100;
+          font-family: Hauora-Regular;
+          font-size: 16px;
+          line-height: 16px;
+          letter-spacing: -0.32px;
+        }
+        .date-time {
+          color: $neutral-white;
+          font-family: Hauora-Bold;
+          font-size: 16px;
+          line-height: 18px;
+          letter-spacing: -0.32px;
         }
       }
     }
