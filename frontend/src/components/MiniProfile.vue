@@ -21,13 +21,18 @@
                     <span class="profile-friends-count" aria-label="Количество друзей">Друзья: {{ friendsCount }}</span>
                     <div v-if="showAdminFriendsTooltip" class="profile-friends-tooltip" role="tooltip">
                       <span v-if="adminFriends.length === 0" class="profile-friends-empty">Нет друзей</span>
-                      <div v-else v-for="friend in adminFriends" :key="friend.id" class="profile-friend-row">
-                        <img class="profile-friend-avatar" v-minio-img="{key: friendAvatarKey(friend), placeholder: iconDefaultAvatarBlack, lazy: false}" alt="avatar" />
-                        <div class="profile-friend-main">
-                          <span class="profile-friend-name">{{ friend.username || `user${friend.id}` }}</span>
-                          <span class="profile-friend-date">{{ formatFriendshipStartedAt(friend.friendship_started_at) }}</span>
+                      <template v-else>
+                        <div ref="profileFriendsList" class="profile-friends-list">
+                          <div v-for="friend in adminFriends" :key="friend.id" class="profile-friend-row">
+                            <img class="profile-friend-avatar" v-minio-img="{key: friendAvatarKey(friend), placeholder: iconDefaultAvatarBlack, lazy: false}" alt="avatar" />
+                            <div class="profile-friend-main">
+                              <span class="profile-friend-name">{{ friend.username || `user${friend.id}` }}</span>
+                              <span class="profile-friend-date">{{ formatFriendshipStartedAt(friend.friendship_started_at) }}</span>
+                            </div>
+                          </div>
                         </div>
-                      </div>
+                        <UiScrollbar :target="profileFriendsList" :active="showAdminFriendsTooltip" theme="light" :inset-top="16" :inset-bottom="16" />
+                      </template>
                     </div>
                   </div>
 
@@ -197,6 +202,7 @@ import ProfileHistory from '@/components/ProfileHistory.vue'
 import Sanction from '@/components/Sanction.vue'
 import Subscription from '@/components/Subscription.vue'
 import UiIcon from '@/components/UiIcon.vue'
+import UiScrollbar from '@/components/UiScrollbar.vue'
 
 import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
 import iconDefaultAvatarBlack from '@/assets/svg/iconDefaultAvatarBlack.svg'
@@ -359,6 +365,7 @@ const friendStatus = ref<FriendStatus>('none')
 const friendBusy = ref(false)
 const view = ref<'profile' | 'stats' | 'history'>('profile')
 const avatarImageEl = ref<HTMLImageElement | null>(null)
+const profileFriendsList = ref<HTMLElement | null>(null)
 const avatarLightboxOpen = ref(false)
 const avatarLightboxSrc = ref('')
 const nicknameHistoryLoading = ref(false)
@@ -1727,13 +1734,9 @@ onBeforeUnmount(() => {
                 top: calc(100% + 6px);
                 left: 0;
                 padding: 16px;
-                gap: 8px;
-                max-height: 200px;
                 border-radius: 24px;
                 background-color: $neutral-white;
                 box-shadow: 0 2px 16px 0 rgba($neutral-black, 0.20);
-                overflow-y: auto;
-                scrollbar-width: thin;
                 opacity: 0;
                 visibility: hidden;
                 pointer-events: none;
@@ -1747,37 +1750,52 @@ onBeforeUnmount(() => {
                   line-height: 16px;
                   letter-spacing: -0.32px;
                 }
-                .profile-friend-row {
+                .profile-friends-list {
                   display: flex;
-                  align-items: center;
+                  flex-direction: column;
                   gap: 8px;
-                  .profile-friend-avatar {
-                    width: 32px;
-                    height: 32px;
-                    border-radius: 50%;
-                    object-fit: cover;
+                  max-height: 200px;
+                  overflow-y: auto;
+                  overflow-x: hidden;
+                  scrollbar-width: none;
+                  -ms-overflow-style: none;
+                  &::-webkit-scrollbar {
+                    display: none;
+                    width: 0;
+                    height: 0;
                   }
-                  .profile-friend-main {
+                  .profile-friend-row {
                     display: flex;
-                    flex-direction: column;
-                    gap: 2px;
-                    .profile-friend-name {
-                      max-width: 158px;
-                      color: $neutral-black;
-                      font-family: Hauora-Regular;
-                      font-size: 14px;
-                      line-height: 18px;
-                      letter-spacing: -0.32px;
-                      overflow: hidden;
-                      text-overflow: ellipsis;
-                      white-space: nowrap;
+                    align-items: center;
+                    gap: 8px;
+                    .profile-friend-avatar {
+                      width: 32px;
+                      height: 32px;
+                      border-radius: 50%;
+                      object-fit: cover;
                     }
-                    .profile-friend-date {
-                      color: $neutral-500;
-                      font-family: Hauora-Regular;
-                      font-size: 12px;
-                      line-height: 12px;
-                      letter-spacing: -0.24px;
+                    .profile-friend-main {
+                      display: flex;
+                      flex-direction: column;
+                      gap: 2px;
+                      .profile-friend-name {
+                        max-width: 158px;
+                        color: $neutral-black;
+                        font-family: Hauora-Regular;
+                        font-size: 14px;
+                        line-height: 18px;
+                        letter-spacing: -0.32px;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                        white-space: nowrap;
+                      }
+                      .profile-friend-date {
+                        color: $neutral-500;
+                        font-family: Hauora-Regular;
+                        font-size: 12px;
+                        line-height: 12px;
+                        letter-spacing: -0.24px;
+                      }
                     }
                   }
                 }
@@ -1872,6 +1890,7 @@ onBeforeUnmount(() => {
                     letter-spacing: -0.32px;
                   }
                   .sanction-tooltip-time {
+                    width: max-content;
                     color: $neutral-black;
                     font-family: Hauora-Bold;
                     font-size: 16px;
