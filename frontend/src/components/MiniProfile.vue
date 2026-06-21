@@ -1705,7 +1705,7 @@ onBeforeUnmount(() => {
                   opacity: 1;
                   visibility: visible;
                   pointer-events: auto;
-                  transform: translateX(0) translateY(0);
+                  transform: translateX(-50%) translateY(0);
                 }
               }
               &::after {
@@ -1732,7 +1732,7 @@ onBeforeUnmount(() => {
                 position: absolute;
                 flex-direction: column;
                 top: calc(100% + 6px);
-                left: 0;
+                left: 50%;
                 padding: 16px;
                 width: 208px;
                 border-radius: 24px;
@@ -1741,7 +1741,7 @@ onBeforeUnmount(() => {
                 opacity: 0;
                 visibility: hidden;
                 pointer-events: none;
-                transform: translateX(0) translateY(6px);
+                transform: translateX(-50%) translateY(-6px);
                 transition: opacity 0.25s ease-in-out, visibility 0.25s ease-in-out, transform 0.25s ease-in-out;
                 z-index: 3;
                 .profile-friends-empty {
@@ -1846,7 +1846,7 @@ onBeforeUnmount(() => {
                 position: absolute;
                 flex-direction: column;
                 top: calc(100% + 6px);
-                left: 0;
+                left: 50%;
                 padding: 16px;
                 gap: 8px;
                 border-radius: 24px;
@@ -1857,7 +1857,7 @@ onBeforeUnmount(() => {
                 opacity: 0;
                 visibility: hidden;
                 pointer-events: none;
-                transform: translateX(0) translateY(6px);
+                transform: translateX(-50%) translateY(-6px);
                 transition: opacity 0.25s ease-in-out, visibility 0.25s ease-in-out, transform 0.25s ease-in-out;
                 z-index: 3;
                 .sanction-tooltip-div {
@@ -1957,7 +1957,7 @@ onBeforeUnmount(() => {
                 opacity: 0;
                 visibility: hidden;
                 pointer-events: none;
-                transform: translateX(-50%) translateY(6px);
+                transform: translateX(-50%) translateY(-6px);
                 transition: opacity 0.25s ease-in-out, visibility 0.25s ease-in-out, transform 0.25s ease-in-out;
                 z-index: 3;
                 .nickname-history-list {
@@ -2063,7 +2063,7 @@ onBeforeUnmount(() => {
                 opacity: 0;
                 visibility: hidden;
                 pointer-events: none;
-                transform: translateX(-50%) translateY(6px);
+                transform: translateX(-50%) translateY(-6px);
                 transition: opacity 0.25s ease-in-out, visibility 0.25s ease-in-out, transform 0.25s ease-in-out;
                 z-index: 3;
                 .nomination-tooltip-head,
