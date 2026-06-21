@@ -2,14 +2,20 @@
   <Teleport to="body">
     <Transition name="user-mini-profile-fade">
       <div v-if="canRenderOpen" class="user-mini-profile-overlay" role="presentation" @pointerdown.stop.self @click.stop.self="close">
-        <section ref="profilePanelEl" class="user-mini-profile-panel" :class="{ 'stats-mode': view !== 'profile' && !panelStateVisible, 'state-mode': panelStateVisible }" :style="profilePanelStyle"
+        <section ref="profilePanelEl" class="user-mini-profile-panel" :class="{ 'stats-mode': view !== 'profile' && !panelStateVisible && !avatarPreviewOpen, 'state-mode': panelStateVisible, 'avatar-mode': avatarPreviewOpen }" :style="profilePanelStyle"
                  role="dialog" aria-modal="true" :aria-label="`Профиль ${displayName}`" @pointerdown.stop @click.stop>
-          <p v-if="loading && !profileLoadedForTarget" class="state">Загрузка...</p>
+          <template v-if="avatarPreviewOpen && avatarPreviewSrc">
+            <button class="avatar-preview-close" type="button" aria-label="Закрыть аватар" @click="closeAvatarPreview">
+              <UiIcon class="close-icon" :icon="iconClose" />
+            </button>
+            <img class="avatar-preview-image" :src="avatarPreviewSrc" alt="avatar" />
+          </template>
+          <p v-else-if="loading && !profileLoadedForTarget" class="state">Загрузка...</p>
           <p v-else-if="loadError" class="state state-danger">{{ loadError }}</p>
           <template v-else>
             <header class="profile-top">
               <div class="profile-identity">
-                <button class="profile-avatar-trigger" type="button" :disabled="!hasAvatar" aria-label="Open avatar" @click="openAvatarLightbox">
+                <button class="profile-avatar-trigger" type="button" :disabled="!hasAvatar" aria-label="Открыть аватар" @click="openAvatarPreview">
                   <img ref="avatarImageEl" class="profile-avatar" v-minio-img="{ key: avatarKey, placeholder: iconDefaultAvatar, lazy: false, animated: true }" alt="avatar" />
                 </button>
                 <div class="profile-icon-name">
@@ -149,12 +155,6 @@
             </template>
           </template>
         </section>
-      </div>
-    </Transition>
-    <Transition name="avatar-lightbox-transition">
-      <div v-if="avatarLightboxOpen && avatarLightboxSrc" class="avatar-lightbox-overlay" role="dialog"
-           aria-modal="true" aria-label="Avatar preview" @pointerdown.stop @click.stop @click.self="closeAvatarLightbox">
-        <img class="avatar-lightbox-image" :src="avatarLightboxSrc" alt="avatar" />
       </div>
     </Transition>
     <Sanction
@@ -372,8 +372,8 @@ const view = ref<'profile' | 'stats' | 'history'>('profile')
 const avatarImageEl = ref<HTMLImageElement | null>(null)
 const profileFriendsList = ref<HTMLElement | null>(null)
 const nicknameHistoryList = ref<HTMLElement | null>(null)
-const avatarLightboxOpen = ref(false)
-const avatarLightboxSrc = ref('')
+const avatarPreviewOpen = ref(false)
+const avatarPreviewSrc = ref('')
 const nicknameHistoryLoading = ref(false)
 const nicknameHistoryError = ref('')
 const nicknameHistoryItems = ref<string[]>([])
@@ -1034,21 +1034,21 @@ function inferInitialFriendStatus(): FriendStatus {
 
 function close() {
   if (staffSanctionModalOpen.value || staffSubscriptionModalOpen.value || confirmState.open) return
-  closeAvatarLightbox()
+  closeAvatarPreview()
   emit('update:open', false)
 }
 
-function closeAvatarLightbox() {
-  avatarLightboxOpen.value = false
-  avatarLightboxSrc.value = ''
+function closeAvatarPreview() {
+  avatarPreviewOpen.value = false
+  avatarPreviewSrc.value = ''
 }
 
-function openAvatarLightbox() {
+function openAvatarPreview() {
   if (!hasAvatar.value) return
   const src = avatarImageEl.value?.currentSrc || avatarImageEl.value?.src || ''
   if (!src) return
-  avatarLightboxSrc.value = src
-  avatarLightboxOpen.value = true
+  avatarPreviewSrc.value = src
+  avatarPreviewOpen.value = true
 }
 
 function isStaffSanctionDurationPartValid(value: number, max: number): boolean {
@@ -1622,8 +1622,8 @@ async function onFriendAction(kind: FriendActionKind) {
 
 function onKeydown(e: KeyboardEvent) {
   if (!props.open || e.key !== 'Escape') return
-  if (avatarLightboxOpen.value) {
-    closeAvatarLightbox()
+  if (avatarPreviewOpen.value) {
+    closeAvatarPreview()
     return
   }
   close()
@@ -1646,7 +1646,7 @@ watch([() => props.open, targetUserId, viewerVerificationRestricted, deletedTarg
     loading.value = false
     loadError.value = ''
     view.value = 'profile'
-    closeAvatarLightbox()
+    closeAvatarPreview()
     resetNicknameHistory()
     resetStaffActionState()
     return
@@ -1660,7 +1660,7 @@ watch([() => props.open, targetUserId, viewerVerificationRestricted, deletedTarg
   profile.value = null
   view.value = 'profile'
   loadError.value = ''
-  closeAvatarLightbox()
+  closeAvatarPreview()
   resetNicknameHistory()
   resetStaffActionState()
   applyFriendStatus(inferInitialFriendStatus())
@@ -1709,6 +1709,47 @@ onBeforeUnmount(() => {
       align-items: center;
       justify-content: center;
       min-height: 200px;
+    }
+    &.avatar-mode {
+      position: relative;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      width: min(558px, calc(100vw - 32px));
+      height: min(558px, calc(100dvh - 32px));
+      overflow: hidden;
+    }
+    .avatar-preview-close {
+      display: flex;
+      position: absolute;
+      align-items: center;
+      justify-content: center;
+      top: 16px;
+      right: 16px;
+      width: 40px;
+      height: 40px;
+      border: none;
+      border-radius: 50%;
+      background-color: rgba($neutral-black, 0.55);
+      cursor: pointer;
+      z-index: 1;
+      .close-icon {
+        --ui-icon-width: 24px;
+        --ui-icon-height: 24px;
+        --ui-icon-color: #{$neutral-white};
+      }
+      &:hover,
+      &:focus-visible,
+      &:active {
+        .close-icon {
+          --ui-icon-color: #{$green-500};
+        }
+      }
+    }
+    .avatar-preview-image {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
     }
     .state {
       margin: 0;
@@ -2458,39 +2499,6 @@ onBeforeUnmount(() => {
     }
   }
 }
-.avatar-lightbox-overlay {
-  display: flex;
-  position: fixed;
-  align-items: center;
-  justify-content: center;
-  inset: 0;
-  overflow: hidden;
-  background:
-    radial-gradient(circle at top, rgba($white, 0.1) 0%, rgba($white, 0) 100%),
-    rgba($black, 0.25);
-  backdrop-filter: blur(15px);
-  z-index: 1600;
-  &::before {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: min(75vw, 75vh, 750px);
-    height: min(75vw, 75vh, 750px);
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba($white, 0.25) 0%, rgba($white, 0.1) 25%, rgba($white, 0) 75%);
-    transform: translate(-50%, -50%);
-    z-index: 0;
-  }
-  .avatar-lightbox-image {
-    position: relative;
-    z-index: 1;
-    width: min(75vw, 75vh, 750px);
-    height: min(75vw, 75vh, 750px);
-    object-fit: cover;
-  }
-}
-
 .user-mini-profile-fade-enter-active,
 .user-mini-profile-fade-leave-active {
   transition: opacity 0.25s ease-in-out;
@@ -2502,22 +2510,6 @@ onBeforeUnmount(() => {
 .user-mini-profile-fade-leave-to {
   opacity: 0;
   .user-mini-profile-panel {
-    transform: translateY(10px) scale(0.9);
-  }
-}
-
-.avatar-lightbox-transition-enter-active,
-.avatar-lightbox-transition-leave-active {
-  transition: opacity 0.25s ease-in-out;
-  .avatar-lightbox-image {
-    transition: transform 0.25s ease-in-out, opacity 0.25s ease-in-out;
-  }
-}
-.avatar-lightbox-transition-enter-from,
-.avatar-lightbox-transition-leave-to {
-  opacity: 0;
-  .avatar-lightbox-image {
-    opacity: 0;
     transform: translateY(10px) scale(0.9);
   }
 }
