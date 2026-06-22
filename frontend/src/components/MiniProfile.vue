@@ -1265,7 +1265,7 @@ async function deleteStaffAvatar(): Promise<void> {
   const userLabel = currentTargetLabel()
   const ok = await confirmDialog({
     title: 'Удалить аватар',
-    text: `Удалить аватар у ${userLabel}?`,
+    text: `Удалить аватар у пользователя ${userLabel}?`,
     confirmText: 'Удалить',
     cancelText: 'Отмена',
   })
@@ -1294,7 +1294,7 @@ async function resetStaffNickname(): Promise<void> {
   const userLabel = currentTargetLabel()
   const ok = await confirmDialog({
     title: 'Сбросить никнейм',
-    text: `Сбросить никнейм ${userLabel} на user_${uid}?`,
+    text: `Сбросить никнейм пользователя ${userLabel} на user_${uid}?`,
     confirmText: 'Сбросить',
     cancelText: 'Отмена',
   })
@@ -1361,12 +1361,12 @@ async function revokeStaffSanction(kind: MiniProfileSanctionKind): Promise<void>
   const uid = targetUserId.value
   if (!prefix || uid <= 0 || isStaffSanctionBusy(kind) || (kind === 'ban' && !isAdminViewer.value)) return
   const userLabel = currentTargetLabel()
-  const title = kind === 'ban' ? 'Разбанить' : kind === 'timeout' ? 'Снять таймаут' : 'Снять отстранение'
+  const title = kind === 'ban' ? 'Разбанить' : kind === 'timeout' ? 'Снять таймаут' : 'Снять отстранение от игр'
   const text = kind === 'ban'
-    ? `Разбанить ${userLabel}?`
+    ? `Разбанить пользователя ${userLabel}?`
     : kind === 'timeout'
-      ? `Снять таймаут у ${userLabel}?`
-      : `Снять отстранение у ${userLabel}?`
+      ? `Снять таймаут у пользователя ${userLabel}?`
+      : `Снять отстранение от игр у пользователя ${userLabel}?`
   const ok = await confirmDialog({
     title,
     text,
@@ -1598,8 +1598,8 @@ async function onFriendAction(kind: FriendActionKind) {
     } else if (kind === 'remove') {
       const ok = await confirmDialog({
         title: 'Удалить из друзей',
-        text: 'Вы уверены, что хотите удалить пользователя из друзей?',
-        confirmText: 'Удалить',
+        text: `Вы уверены, что хотите удалить пользователя ${displayName.value} из друзей?`,
+        confirmText: 'Подтвердить',
         cancelText: 'Отмена',
       })
       if (!ok) return
@@ -1609,9 +1609,9 @@ async function onFriendAction(kind: FriendActionKind) {
       adjustProfileFriendsCount(-1)
     } else if (kind === 'outgoing') {
       const ok = await confirmDialog({
-        title: 'Отменить заявку',
-        text: `Вы уверены, что хотите отменить заявку в друзья для пользователя ${displayName.value}?`,
-        confirmText: 'Отменить',
+        title: 'Отменить запрос',
+        text: `Вы уверены, что хотите отменить запрос в друзья пользователю ${displayName.value}?`,
+        confirmText: 'Подтвердить',
         cancelText: 'Отмена',
       })
       if (!ok) return
@@ -1621,9 +1621,9 @@ async function onFriendAction(kind: FriendActionKind) {
     } else if (kind === 'incoming') {
       const result = await confirmDialogWithAction({
         title: 'Запрос в друзья',
-        text: 'Принять запрос в друзья?',
-        confirmText: 'Принять',
-        cancelText: 'Отклонить',
+        text: `Вы уверены, что хотите принять запрос в друзья от пользователя ${displayName.value}?`,
+        confirmText: 'Подтвердить',
+        cancelText: 'Отмена',
       })
       if (result.action === 'confirm') {
         actionForError = 'accept'
