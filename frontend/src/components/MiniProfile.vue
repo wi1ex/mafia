@@ -1621,9 +1621,9 @@ async function onFriendAction(kind: FriendActionKind) {
     } else if (kind === 'incoming') {
       const result = await confirmDialogWithAction({
         title: 'Запрос в друзья',
-        text: `Вы уверены, что хотите принять запрос в друзья от пользователя ${displayName.value}?`,
-        confirmText: 'Подтвердить',
-        cancelText: 'Отмена',
+        text: `Вы принимаете запрос в друзья от пользователя ${displayName.value}?`,
+        confirmText: 'Принять',
+        cancelText: 'Отклонить',
       })
       if (result.action === 'confirm') {
         actionForError = 'accept'
