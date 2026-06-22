@@ -47,7 +47,7 @@
                   <UiButton
                     variant="white"
                     text="Поддержать проект"
-                    :icon="iconDonate"
+                    :icon="iconDonation"
                     :href="donateSite.url"
                     :disabled="!donateSite.url"
                     target="_blank"
@@ -56,7 +56,7 @@
                   />
                   <UiButton
                     text="Оформить подписку"
-                    :icon="iconLavaTop"
+                    :icon="iconCard"
                     :disabled="lavaBusy"
                     @click="openLavaForm"
                   />
@@ -161,8 +161,7 @@ import { useAuthStore, useSettingsStore } from '@/store'
 import imageSlide6 from '@/assets/images/carousel-image6.png'
 import iconClose from '@/assets/svg/iconClose.svg'
 import iconCheckCircle from '@/assets/svg/iconCheckCircle.svg'
-import iconDonate from '@/assets/svg/donateTribute.svg'
-import iconLavaTop from '@/assets/svg/donateLavaTop.svg'
+import iconDonation from '@/assets/svg/iconDonation.svg'
 import iconArrowDown from '@/assets/svg/iconArrowDown.svg'
 import iconRouble from '@/assets/svg/iconRouble.svg'
 import iconDollar from '@/assets/svg/iconDollar.svg'

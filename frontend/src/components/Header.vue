@@ -731,7 +731,7 @@ function openAuth(mode: 'login' | 'register') {
         .bell-arrow {
           --ui-icon-width: 24px;
           --ui-icon-height: 24px;
-          --ui-icon-color: #{$neutral-white};
+          --ui-icon-color: #{$neutral-100};
         }
         .bell-text {
           color: $neutral-100;
@@ -782,7 +782,7 @@ function openAuth(mode: 'login' | 'register') {
           background-color: $soft-purple-800;
           .bell-icon,
           .bell-arrow {
-            --ui-icon-color: #{$green-500};
+            --ui-icon-color: #{$neutral-white};
           }
           .bell-text {
             color: $neutral-white;

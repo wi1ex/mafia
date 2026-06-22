@@ -1694,7 +1694,7 @@ onBeforeUnmount(() => {
     flex-direction: column;
     padding: 24px;
     gap: 24px;
-    width: 558px;
+    width: 611px;
     border-radius: 24px;
     background-color: var(--user-theme-bg, $neutral-black);
     overflow-y: auto;
@@ -1707,15 +1707,15 @@ onBeforeUnmount(() => {
     &.state-mode {
       align-items: center;
       justify-content: center;
-      min-height: 200px;
+      min-height: 475px;
     }
     &.avatar-mode {
       position: relative;
       align-items: center;
       justify-content: center;
       padding: 0;
-      width: min(600px, calc(100dvh - 96px));
-      height: min(600px, calc(100dvh - 96px));
+      width: min(659px, calc(100dvh - 96px));
+      height: min(659px, calc(100dvh - 96px));
       overflow: hidden;
     }
     .avatar-preview-image {
@@ -1766,8 +1766,8 @@ onBeforeUnmount(() => {
             cursor: default;
           }
           .profile-avatar {
-            width: 128px;
-            height: 128px;
+            width: 182px;
+            height: 182px;
             border-radius: 50%;
             object-fit: cover;
           }
@@ -2155,9 +2155,9 @@ onBeforeUnmount(() => {
                 z-index: 2;
               }
               &.level-1 {
-                background-color: $soft-purple-900;
+                background-color: rgba(66, 68, 106, 1);
                 .nomination-level-badge {
-                  background-color: $soft-purple-900;
+                  background-color: rgba(66, 68, 106, 1);
                   color: $neutral-white;
                 }
                 .profile-nomination-icon {
