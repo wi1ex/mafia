@@ -556,6 +556,7 @@ async def game_history_details(game_id: int, ident: Identity = Depends(get_ident
 
     uid_to_slot = {player_uid: seat_num for seat_num, player_uid in slot_map.items()}
     leave_map: dict[int, tuple[int, str, list[int], bool]] = {}
+    pending_vote_by_target: dict[int, tuple[int, list[int]]] = {}
     best_move_map: dict[int, list[int]] = {}
     farewell_map: dict[int, list[tuple[int, str]]] = {}
     night_check_map: dict[int, list[tuple[int, str]]] = {}
@@ -564,6 +565,43 @@ async def game_history_details(game_id: int, ident: Identity = Depends(get_ident
             if not isinstance(action, dict):
                 continue
             action_type = str(action.get("type") or "").strip().lower()
+            if action_type == "vote":
+                pending_vote_by_target.clear()
+                if bool(action.get("lift")):
+                    continue
+                vote_day = safe_int(action.get("day"))
+                raw_votes = action.get("votes")
+                if vote_day <= 0 or not isinstance(raw_votes, dict):
+                    continue
+
+                max_votes = 0
+                leaders: list[tuple[int, list[int]]] = []
+                for raw_target_uid, raw_voters in raw_votes.items():
+                    target_uid = safe_int(raw_target_uid)
+                    if target_uid <= 0 or not isinstance(raw_voters, list):
+                        continue
+                    voters: list[int] = []
+                    seen_voters: set[int] = set()
+                    for raw_voter_uid in raw_voters:
+                        voter_uid = safe_int(raw_voter_uid)
+                        if voter_uid <= 0 or voter_uid in seen_voters:
+                            continue
+                        seen_voters.add(voter_uid)
+                        voters.append(voter_uid)
+                    vote_count = len(voters)
+                    if vote_count <= 0:
+                        continue
+                    if vote_count > max_votes:
+                        max_votes = vote_count
+                        leaders = [(target_uid, voters)]
+                    elif vote_count == max_votes:
+                        leaders.append((target_uid, voters))
+
+                if max_votes > 0 and len(leaders) == 1:
+                    leader_uid, leader_voters = leaders[0]
+                    pending_vote_by_target[leader_uid] = (vote_day, leader_voters)
+                continue
+
             if action_type == "death":
                 target_uid = safe_int(action.get("target_id"))
                 if target_uid <= 0:
@@ -577,8 +615,12 @@ async def game_history_details(game_id: int, ident: Identity = Depends(get_ident
                 if target_uid in leave_map:
                     continue
                 voted_by_user_ids: list[int] = []
+                if leave_reason == "foul":
+                    pending_vote = pending_vote_by_target.get(target_uid)
+                    if pending_vote and pending_vote[0] == leave_day:
+                        voted_by_user_ids = list(pending_vote[1])
                 raw_by = action.get("by")
-                if isinstance(raw_by, list):
+                if leave_reason != "foul" and isinstance(raw_by, list):
                     seen_by: set[int] = set()
                     for raw_voter_uid in raw_by:
                         voter_uid = safe_int(raw_voter_uid)
@@ -590,6 +632,7 @@ async def game_history_details(game_id: int, ident: Identity = Depends(get_ident
                 if leave_reason == "foul":
                     leave_is_ppk = bool(action.get("ppk")) or str(action.get("format") or "").strip().upper() == "PPK"
                 leave_map[target_uid] = (leave_day, leave_reason, voted_by_user_ids, leave_is_ppk)
+                pending_vote_by_target.pop(target_uid, None)
                 continue
 
             if action_type == "best_move":

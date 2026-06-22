@@ -14,9 +14,10 @@
 
         <div v-if="slot.leave_day && slot.leave_reason" class="slot-leave">
           <span>{{ leaveMomentLabel(slot.leave_day, slot.leave_reason) }}</span>
-          <img class="leave-reason-icon" :src="leaveReasonIcon(slot.leave_reason)" :alt="leaveReasonAlt(slot.leave_reason)" />
+          <img class="leave-reason-icon" :src="displayLeaveReasonIcon(slot)" :alt="displayLeaveReasonAlt(slot)" />
+          <img v-if="isVoteThenFoul(slot)" class="leave-reason-icon leave-reason-icon-extra" :src="iconLeaveFoul" alt="Удален по фолам после голосования" />
           <span v-if="slot.leave_reason === 'foul' && slot.leave_ppk" class="ppk-mark">ППК</span>
-          <span v-if="slot.leave_reason === 'vote' && slot.voted_by_slots.length > 0" class="vote-values">
+          <span v-if="showVoteValues(slot)" class="vote-values">
             <template v-for="voterSlot in slot.voted_by_slots" :key="`${slot.slot}-vote-${voterSlot}`">
               <span class="vote-chip">{{ voterSlot }}</span>
             </template>
@@ -294,6 +295,24 @@ function leaveReasonAlt(reason: LeaveReason): string {
   return 'Убит'
 }
 
+function isVoteThenFoul(slot: GameHistorySlotView): boolean {
+  return slot.leave_reason === 'foul' && slot.voted_by_slots.length > 0
+}
+
+function showVoteValues(slot: GameHistorySlotView): boolean {
+  return slot.voted_by_slots.length > 0 && (slot.leave_reason === 'vote' || isVoteThenFoul(slot))
+}
+
+function displayLeaveReasonIcon(slot: GameHistorySlotView): string {
+  if (isVoteThenFoul(slot)) return iconLeaveVote
+  return slot.leave_reason ? leaveReasonIcon(slot.leave_reason) : iconLeaveVote
+}
+
+function displayLeaveReasonAlt(slot: GameHistorySlotView): string {
+  if (isVoteThenFoul(slot)) return 'Заголосован, затем удален по фолам'
+  return slot.leave_reason ? leaveReasonAlt(slot.leave_reason) : ''
+}
+
 function leaveMomentLabel(day: number, reason: LeaveReason): string {
   const normalizedDay = Math.max(0, Math.trunc(day || 0))
   if (reason === 'night') {
@@ -541,6 +560,10 @@ function formatMetric(value: number): string {
           width: 20px;
           height: 20px;
           object-fit: contain;
+          &.leave-reason-icon-extra {
+            width: 20px;
+            height: 20px;
+          }
         }
       }
     }
