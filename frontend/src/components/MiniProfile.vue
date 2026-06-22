@@ -2492,7 +2492,7 @@ onBeforeUnmount(() => {
 .user-mini-profile-fade-leave-to {
   opacity: 0;
   .user-mini-profile-panel {
-    transform: translateY(10px) scale(0.9);
+    transform: translateY(30px);
   }
 }
 

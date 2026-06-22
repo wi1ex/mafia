@@ -158,10 +158,9 @@ watch(() => [props.id, props.type, props.passwordToggle], () => {
   label {
     position: absolute;
     top: 50%;
-    left: 29px;
+    left: 32px;
     max-width: calc(100% - 64px);
     padding: 0;
-    border-radius: 6px;
     background-color: transparent;
     color: var(--ui-input-text);
     transform: translateY(-50%);
@@ -180,7 +179,7 @@ watch(() => [props.id, props.type, props.passwordToggle], () => {
   .meta {
     position: absolute;
     top: -7px;
-    right: 29px;
+    right: 32px;
     padding: 0 4px;
     border-radius: 6px;
     background-color: var(--ui-input-resolved-label-bg);
@@ -235,6 +234,7 @@ watch(() => [props.id, props.type, props.passwordToggle], () => {
   &.invalid label {
     top: -7px;
     padding: 0 4px;
+    border-radius: 6px;
     background-color: var(--ui-input-resolved-label-bg);
     color: var(--ui-input-meta);
     transform: none;
