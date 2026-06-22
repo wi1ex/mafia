@@ -600,10 +600,10 @@ const resolvedHistoryUrl = computed(() => {
 const friendStatusClass = computed(() => (friendStatus.value === 'self' ? 'none' : friendStatus.value))
 const friendActionLabel = computed(() => {
   if (loading.value && !profileLoadedForTarget.value && friendStatus.value === 'none') return 'Загрузка...'
-  if (friendStatus.value === 'none') return 'добавить в друзья'
-  if (friendStatus.value === 'friends') return 'в друзьях'
-  if (friendStatus.value === 'outgoing') return 'запрос отправлен'
-  if (friendStatus.value === 'incoming') return 'входящий запрос'
+  if (friendStatus.value === 'none') return 'Добавить в друзья'
+  if (friendStatus.value === 'friends') return 'В друзьях'
+  if (friendStatus.value === 'outgoing') return 'Запрос отправлен'
+  if (friendStatus.value === 'incoming') return 'Входящий запрос'
   return ''
 })
 const friendActionIcon = computed(() => {
@@ -614,10 +614,10 @@ const friendActionIcon = computed(() => {
 })
 const friendActionHoverLabel = computed(() => {
   if (loading.value && !profileLoadedForTarget.value && friendStatus.value === 'none') return friendActionLabel.value
-  if (friendStatus.value === 'none') return 'отправить запрос'
-  if (friendStatus.value === 'friends') return 'удалить из друзей'
-  if (friendStatus.value === 'outgoing') return 'отменить запрос'
-  if (friendStatus.value === 'incoming') return 'принять/отклонить'
+  if (friendStatus.value === 'none') return 'Отправить запрос'
+  if (friendStatus.value === 'friends') return 'Удалить из друзей'
+  if (friendStatus.value === 'outgoing') return 'Отменить запрос'
+  if (friendStatus.value === 'incoming') return 'Принять/Отклонить'
   return friendActionLabel.value
 })
 const friendActionHoverIcon = computed(() => {
@@ -1839,7 +1839,7 @@ onBeforeUnmount(() => {
               position: relative;
               align-items: center;
               justify-content: center;
-              padding: 8px;
+              padding: 8px 12px;
               border-radius: 8px;
               background-color: $soft-purple-900;
               &.enabled {
@@ -1885,7 +1885,7 @@ onBeforeUnmount(() => {
                 padding: 16px;
                 width: 208px;
                 border-radius: 24px;
-                background-color: $neutral-white;
+                background-color: $neutral-100;
                 box-shadow: 0 2px 16px 0 rgba($neutral-black, 0.20);
                 opacity: 0;
                 visibility: hidden;
@@ -2000,7 +2000,7 @@ onBeforeUnmount(() => {
                 padding: 16px;
                 gap: 8px;
                 border-radius: 24px;
-                background-color: $neutral-white;
+                background-color: $neutral-100;
                 box-shadow: 0 2px 16px 0 rgba($neutral-black, 0.20);
                 opacity: 0;
                 visibility: hidden;
@@ -2097,7 +2097,7 @@ onBeforeUnmount(() => {
                 padding: 16px;
                 width: 208px;
                 border-radius: 24px;
-                background-color: $neutral-white;
+                background-color: $neutral-100;
                 box-shadow: 0 2px 16px 0 rgba($neutral-black, 0.20);
                 opacity: 0;
                 visibility: hidden;
@@ -2246,7 +2246,7 @@ onBeforeUnmount(() => {
                 gap: 8px;
                 width: 288px;
                 border-radius: 24px;
-                background-color: $neutral-white;
+                background-color: $neutral-100;
                 box-shadow: 0 2px 16px 0 rgba($neutral-black, 0.20);
                 opacity: 0;
                 visibility: hidden;
@@ -2384,16 +2384,18 @@ onBeforeUnmount(() => {
       display: flex;
       flex-direction: column;
       gap: 10px;
+      width: 100%;
       .profile-action {
         display: flex;
         align-items: center;
         justify-content: center;
         padding: 0 16px;
         gap: 8px;
+        width: 100%;
         height: 64px;
         border: none;
         border-radius: 999px;
-        color: $neutral-900;
+        color: $neutral-black;
         font-family: Hauora-Regular;
         font-size: 18px;
         line-height: 20px;
@@ -2403,7 +2405,7 @@ onBeforeUnmount(() => {
         .profile-action-icon {
           --ui-icon-width: 24px;
           --ui-icon-height: 24px;
-          --ui-icon-color: #{$neutral-900};
+          --ui-icon-color: #{$neutral-black};
         }
         &.friend-action {
           .friend-action-content {
@@ -2490,7 +2492,7 @@ onBeforeUnmount(() => {
         line-height: 1;
         text-decoration: none;
         cursor: pointer;
-        transition: opacity 0.25s ease-in-out, color 0.25s ease-in-out, border-radius 0.25s ease-in-out, background-color 0.25s ease-in-out;
+        transition: color 0.25s ease-in-out, background-color 0.25s ease-in-out;
         &:hover {
           background-color: $white;
         }
