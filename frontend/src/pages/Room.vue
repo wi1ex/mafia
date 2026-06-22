@@ -2208,6 +2208,14 @@ socket.value?.on('connect', async () => {
     }
   })
 
+  function roomKickAlertText(p: any): string {
+    const role = String(p?.by?.role || '').trim().toLowerCase()
+    const baseRole = String(p?.by?.base_role || '').trim().toLowerCase()
+    if (role === 'host') return 'Вы были кикнуты владельцем комнаты'
+    if (role === 'admin' || baseRole === 'admin') return 'Вы были кикнуты администратором'
+    return 'Вас кикнули из комнаты'
+  }
+
   socket.value.on('force_leave', async (p:any) => {
     const reason = String(p?.reason || '')
     try { await onLeave() } catch {}
@@ -2216,7 +2224,7 @@ socket.value?.on('connect', async () => {
     } else if (reason === 'admin_kick_all') {
       void alertDialog('Упс, кажется пришло обновление! Перезагрузка серверов займет ~5 минут')
     } else if (reason === 'room_kick') {
-      void alertDialog('Вас выгнали из комнаты')
+      void alertDialog(roomKickAlertText(p))
     } else if (reason === 'sanction_timeout') {
       void alertDialog('Вам выдан таймаут: вы кикнуты из комнаты')
     } else if (reason === 'sanction_ban') {
