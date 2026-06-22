@@ -128,14 +128,14 @@
 <!--                </button>-->
                 <button v-if="showFriendAction" class="profile-action friend-action" :class="`status-${friendStatusClass}`"
                         type="button" :disabled="friendDisabled" :aria-label="friendActionAriaLabel" @click="onFriendAction(friendActionKind)">
-                  <span class="friend-action-content friend-action-content-default" aria-hidden="true">
-                    <img :src="friendActionIcon" alt="" />
+                  <div class="friend-action-content friend-action-content-default" aria-hidden="true">
+                    <UiIcon class="profile-action-icon" :icon="friendActionIcon" />
                     <span>{{ friendActionLabel }}</span>
-                  </span>
-                  <span class="friend-action-content friend-action-content-hover" aria-hidden="true">
-                    <img :src="friendActionHoverIcon" alt="" />
+                  </div>
+                  <div class="friend-action-content friend-action-content-hover" aria-hidden="true">
+                    <UiIcon class="profile-action-icon" :icon="friendActionHoverIcon" />
                     <span>{{ friendActionHoverLabel }}</span>
-                  </span>
+                  </div>
                 </button>
               </div>
 
@@ -152,7 +152,7 @@
             </template>
 
             <template v-else>
-              <div class="stats-toolbar">
+              <div class="profile-actions">
                 <button class="profile-action secondary" type="button" @click="view = 'profile'">Назад к профилю</button>
               </div>
               <ProfileStats v-if="view === 'stats'" :stats-url="resolvedStatsUrl" />
@@ -2380,8 +2380,7 @@ onBeforeUnmount(() => {
         }
       }
     }
-    .profile-actions,
-    .stats-toolbar {
+    .profile-actions {
       display: flex;
       flex-direction: column;
       gap: 10px;
@@ -2389,30 +2388,29 @@ onBeforeUnmount(() => {
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 5px;
-        min-height: 40px;
+        padding: 0 16px;
+        gap: 8px;
+        height: 64px;
         border: none;
-        border-radius: 5px;
-        box-shadow: 3px 3px 5px rgba($black, 0.25);
-        color: $bg;
-        font-size: 16px;
-        font-family: Manrope-SemiBold;
+        border-radius: 999px;
+        color: $neutral-900;
+        font-family: Hauora-Regular;
+        font-size: 18px;
+        line-height: 20px;
+        letter-spacing: -0.36px;
         cursor: pointer;
-        transition: background-color 0.25s ease-in-out, opacity 0.25s ease-in-out;
-        &:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-        img {
-          width: 24px;
-          height: 24px;
+        transition: background-color 0.25s ease-in-out;
+        .profile-action-icon {
+          --ui-icon-width: 24px;
+          --ui-icon-height: 24px;
+          --ui-icon-color: #{$neutral-900};
         }
         &.friend-action {
           .friend-action-content {
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 5px;
+            gap: 8px;
           }
           .friend-action-content-hover {
             display: none;
@@ -2427,33 +2425,33 @@ onBeforeUnmount(() => {
           }
         }
         &.secondary {
-          background-color: $fg;
+          background-color: $neutral-100;
           &:not(:disabled):hover {
-            background-color: $white;
+            background-color: $neutral-white;
           }
         }
         &.status-none {
-          background-color: $white;
+          background-color: $neutral-white;
           &:not(:disabled):hover {
-            background-color: $green;
+            background-color: $green-500;
           }
         }
         &.status-friends {
-          background-color: $green;
+          background-color: $green-500;
           &:not(:disabled):hover {
-            background-color: $red;
+            background-color: $red-400;
           }
         }
         &.status-outgoing {
-          background-color: $yellow;
+          background-color: $yellow-500;
           &:not(:disabled):hover {
-            background-color: $red;
+            background-color: $red-400;
           }
         }
         &.status-incoming {
-          background-color: $yellow;
+          background-color: $yellow-500;
           &:not(:disabled):hover {
-            background-color: $white;
+            background-color: $neutral-white;
           }
         }
       }
