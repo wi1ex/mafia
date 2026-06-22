@@ -127,9 +127,15 @@
 <!--                  История игр-->
 <!--                </button>-->
                 <button v-if="showFriendAction" class="profile-action friend-action" :class="`status-${friendStatusClass}`"
-                        type="button" :disabled="friendDisabled" @click="onFriendAction(friendActionKind)">
-                  <img :src="friendActionIcon" alt="" />
-                  <span>{{ friendActionLabel }}</span>
+                        type="button" :disabled="friendDisabled" :aria-label="friendActionAriaLabel" @click="onFriendAction(friendActionKind)">
+                  <span class="friend-action-content friend-action-content-default" aria-hidden="true">
+                    <img :src="friendActionIcon" alt="" />
+                    <span>{{ friendActionLabel }}</span>
+                  </span>
+                  <span class="friend-action-content friend-action-content-hover" aria-hidden="true">
+                    <img :src="friendActionHoverIcon" alt="" />
+                    <span>{{ friendActionHoverLabel }}</span>
+                  </span>
                 </button>
               </div>
 
@@ -211,6 +217,7 @@ import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
 import iconDefaultAvatarBlack from '@/assets/svg/iconDefaultAvatarBlack.svg'
 import iconWarning from '@/assets/svg/iconWarning.svg'
 import iconClose from '@/assets/svg/iconClose.svg'
+import iconProfile from '@/assets/svg/iconProfile.svg'
 import iconAddFriends from '@/assets/svg/iconAddFriends.svg'
 import iconInFriends from '@/assets/svg/iconInFriends.svg'
 import iconRecieveFriends from '@/assets/svg/iconRecieveFriends.svg'
@@ -593,10 +600,10 @@ const resolvedHistoryUrl = computed(() => {
 const friendStatusClass = computed(() => (friendStatus.value === 'self' ? 'none' : friendStatus.value))
 const friendActionLabel = computed(() => {
   if (loading.value && !profileLoadedForTarget.value && friendStatus.value === 'none') return 'Загрузка...'
-  if (friendStatus.value === 'none') return 'Добавить в друзья'
-  if (friendStatus.value === 'friends') return 'В друзьях'
-  if (friendStatus.value === 'outgoing') return 'Отменить заявку'
-  if (friendStatus.value === 'incoming') return 'Входящий запрос'
+  if (friendStatus.value === 'none') return 'добавить в друзья'
+  if (friendStatus.value === 'friends') return 'в друзьях'
+  if (friendStatus.value === 'outgoing') return 'запрос отправлен'
+  if (friendStatus.value === 'incoming') return 'входящий запрос'
   return ''
 })
 const friendActionIcon = computed(() => {
@@ -605,6 +612,24 @@ const friendActionIcon = computed(() => {
   if (friendStatus.value === 'incoming') return iconRecieveFriends
   return iconAddFriends
 })
+const friendActionHoverLabel = computed(() => {
+  if (loading.value && !profileLoadedForTarget.value && friendStatus.value === 'none') return friendActionLabel.value
+  if (friendStatus.value === 'none') return 'отправить запрос'
+  if (friendStatus.value === 'friends') return 'удалить из друзей'
+  if (friendStatus.value === 'outgoing') return 'отменить запрос'
+  if (friendStatus.value === 'incoming') return 'принять/отклонить'
+  return friendActionLabel.value
+})
+const friendActionHoverIcon = computed(() => {
+  if (friendStatus.value === 'none') return iconSendFriends
+  if (friendStatus.value === 'friends') return iconRemoveFriends
+  if (friendStatus.value === 'outgoing') return iconCancelFriends
+  if (friendStatus.value === 'incoming') return iconProfile
+  return friendActionIcon.value
+})
+const friendActionAriaLabel = computed(() => (
+  friendDisabled.value ? friendActionLabel.value : friendActionHoverLabel.value
+))
 const friendActionKind = computed<FriendActionKind>(() => {
   if (friendStatus.value === 'none') return 'add'
   if (friendStatus.value === 'friends') return 'remove'
@@ -2380,6 +2405,25 @@ onBeforeUnmount(() => {
           width: 24px;
           height: 24px;
         }
+        &.friend-action {
+          .friend-action-content {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+          }
+          .friend-action-content-hover {
+            display: none;
+          }
+          &:not(:disabled):hover {
+            .friend-action-content-default {
+              display: none;
+            }
+            .friend-action-content-hover {
+              display: flex;
+            }
+          }
+        }
         &.secondary {
           background-color: $fg;
           &:not(:disabled):hover {
@@ -2387,27 +2431,27 @@ onBeforeUnmount(() => {
           }
         }
         &.status-none {
-          background-color: $fg;
-          &:not(:disabled):hover {
-            background-color: $white;
-          }
-        }
-        &.status-friends {
-          background-color: rgba($green, 0.75);
+          background-color: $white;
           &:not(:disabled):hover {
             background-color: $green;
           }
         }
-        &.status-outgoing {
-          background-color: rgba($yellow, 0.75);
+        &.status-friends {
+          background-color: $green;
           &:not(:disabled):hover {
-            background-color: $yellow;
+            background-color: $red;
+          }
+        }
+        &.status-outgoing {
+          background-color: $yellow;
+          &:not(:disabled):hover {
+            background-color: $red;
           }
         }
         &.status-incoming {
-          background-color: rgba($orange, 0.75);
+          background-color: $yellow;
           &:not(:disabled):hover {
-            background-color: $orange;
+            background-color: $white;
           }
         }
       }
