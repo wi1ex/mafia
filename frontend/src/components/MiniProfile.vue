@@ -192,7 +192,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { api } from '@/services/axios'
-import { alertDialog, confirmDialog, useConfirmState } from '@/services/confirm'
+import { alertDialog, confirmDialog, confirmDialogWithAction, useConfirmState } from '@/services/confirm'
 import { isMiniProfilePrivilegedViewer, normalizeMiniProfileRole } from '@/services/miniProfile'
 import { DEFAULT_SANCTION_REASON, SANCTION_REASONS } from '@/constants/sanctionReasons'
 import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
@@ -1619,21 +1619,23 @@ async function onFriendAction(kind: FriendActionKind) {
       await friends.cancelOutgoingRequest(uid)
       applyFriendStatus('none')
     } else if (kind === 'incoming') {
-      const ok = await confirmDialog({
+      const result = await confirmDialogWithAction({
         title: 'Запрос в друзья',
         text: 'Принять запрос в друзья?',
         confirmText: 'Принять',
         cancelText: 'Отклонить',
       })
-      if (ok) {
+      if (result.action === 'confirm') {
         actionForError = 'accept'
         await friends.acceptRequest(uid)
         applyFriendStatus('friends')
         adjustProfileFriendsCount(1)
-      } else {
+      } else if (result.action === 'cancel') {
         actionForError = 'decline'
         await friends.declineRequest(uid)
         applyFriendStatus('none')
+      } else {
+        return
       }
     }
     await refreshFriendsListIfNeeded()

@@ -1,6 +1,7 @@
 import { reactive } from 'vue'
 
 export type ConfirmMode = 'confirm' | 'alert'
+export type ConfirmAction = 'confirm' | 'cancel' | 'close'
 
 export type ConfirmRadioOption = {
   value: string
@@ -27,6 +28,7 @@ export type ConfirmPayload = {
 
 type ConfirmResult = {
   ok: boolean
+  action: ConfirmAction
   checkboxChecked: boolean
   radioValue: string
 }
@@ -69,9 +71,10 @@ const state = reactive<ConfirmState>({
 
 let resolver: ((value: ConfirmResult) => void) | null = null
 
-function currentResult(ok: boolean): ConfirmResult {
+function currentResult(ok: boolean, action: ConfirmAction = ok ? 'confirm' : 'close'): ConfirmResult {
   return {
     ok,
+    action,
     checkboxChecked: Boolean(state.checkboxChecked),
     radioValue: state.radioValue,
   }
@@ -117,6 +120,15 @@ export function confirmDialog(payload: string | ConfirmPayload): Promise<boolean
   return open('confirm', data).then(result => result.ok)
 }
 
+export async function confirmDialogWithAction(payload: string | ConfirmPayload): Promise<{ ok: boolean; action: ConfirmAction }> {
+  const data = typeof payload === 'string' ? { text: payload } : payload
+  const result = await open('confirm', data)
+  return {
+    ok: result.ok,
+    action: result.action,
+  }
+}
+
 export async function confirmDialogWithCheckbox(payload: string | ConfirmPayload): Promise<{ ok: boolean; checkboxChecked: boolean }> {
   const data = typeof payload === 'string' ? { text: payload } : payload
   const result = await open('confirm', data)
@@ -144,10 +156,10 @@ export function useConfirmState() {
   return state
 }
 
-export function resolveConfirm(result: boolean) {
+export function resolveConfirm(result: boolean, action: ConfirmAction = result ? 'confirm' : 'close') {
   if (!state.open) return
   state.open = false
   const resolve = resolver
   resolver = null
-  if (resolve) resolve(currentResult(result))
+  if (resolve) resolve(currentResult(result, action))
 }

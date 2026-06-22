@@ -46,7 +46,7 @@
             variant="white"
             size="middle"
             :text="state.cancelText"
-            @click.stop="onClose"
+            @click.stop="onCancel"
           />
           <UiButton
             class="confirm"
@@ -88,17 +88,21 @@ function onRadioChange(value: string, checked: boolean) {
 
 function onConfirm() {
   if (confirmDisabled.value) return
-  resolveConfirm(true)
+  resolveConfirm(true, 'confirm')
+}
+
+function onCancel() {
+  resolveConfirm(false, 'cancel')
 }
 
 function onClose() {
-  resolveConfirm(false)
+  resolveConfirm(false, 'close')
 }
 
 function onKeydown(e: KeyboardEvent) {
   if (!state.open) return
-  if (e.key === 'Escape') resolveConfirm(false)
-  if (e.key === 'Enter' && !confirmDisabled.value) resolveConfirm(true)
+  if (e.key === 'Escape') resolveConfirm(false, 'close')
+  if (e.key === 'Enter' && !confirmDisabled.value) resolveConfirm(true, 'confirm')
 }
 
 watch(() => state.open, (open) => {
