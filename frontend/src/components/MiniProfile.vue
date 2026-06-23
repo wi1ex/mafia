@@ -141,26 +141,30 @@
 
               <div v-if="showStaffActionBlock" class="profile-staff-actions" aria-label="Действия с пользователем">
                 <div v-for="action in staffPrimaryActionItems" :key="action.key" class="staff-action-item">
-                  <button class="staff-btn" :class="action.buttonClass" type="button" :disabled="action.disabled" :aria-label="action.ariaLabel" @click="onStaffAction(action.key)">
-                    <img v-if="action.icon" class="btn-img" :src="action.icon" alt="" />
-                    <span v-if="action.buttonText">{{ action.buttonText }}</span>
-                  </button>
+                  <UiButton
+                    class="staff-btn"
+                    :class="action.buttonClass"
+                    size="middle"
+                    :width="54"
+                    :icon="action.icon"
+                    :text="action.buttonText action.label"
+                    :disabled="action.disabled"
+                    :aria-label="action.ariaLabel"
+                    @click="onStaffAction(action.key)"
+                  />
                   <span class="staff-action-label">{{ action.label }}</span>
                 </div>
-                <div v-if="showStaffMoreAction" ref="staffMoreRoot" class="staff-action-item staff-action-more" :class="{ open: staffMoreOpen }">
-                  <button class="staff-btn staff-more-button" type="button" aria-haspopup="menu" :aria-expanded="staffMoreOpen" aria-label="Показать остальные действия" @click.stop="toggleStaffMore">
-                    <span>Еще</span>
-                  </button>
-                  <span class="staff-action-label">Остальное</span>
-                  <div v-if="staffMoreOpen" class="staff-actions-dropdown" role="menu">
-                    <button v-for="action in staffOverflowActionItems" :key="action.key" class="staff-dropdown-action" :class="action.buttonClass"
-                            type="button" role="menuitem" :disabled="action.disabled" :aria-label="action.ariaLabel" @click="onStaffOverflowAction(action.key)">
-                      <span class="staff-dropdown-action-main">
-                        <img v-if="action.icon" class="btn-dropdown-img" :src="action.icon" alt="" />
-                        <span>{{ action.label }}</span>
-                      </span>
-                    </button>
-                  </div>
+                <div v-if="showStaffMoreAction" class="staff-action-item staff-action-more">
+                  <UiDropdown
+                    class="staff-more-dropdown"
+                    :model-value="null"
+                    :options="staffOverflowDropdownOptions"
+                    placeholder="Еще"
+                    aria-label="Показать остальные действия"
+                    label-mode="placeholder"
+                    menu-placement="top"
+                    @update:model-value="onStaffDropdownSelect"
+                  />
                 </div>
               </div>
             </template>
@@ -225,6 +229,8 @@ import ProfileHistory from '@/components/ProfileHistory.vue'
 import Sanction from '@/components/Sanction.vue'
 import Subscription from '@/components/Subscription.vue'
 import UiIcon from '@/components/UiIcon.vue'
+import UiButton from '@/components/UiButton.vue'
+import UiDropdown from '@/components/UiDropdown.vue'
 import UiScrollbar from '@/components/UiScrollbar.vue'
 
 import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
@@ -399,8 +405,6 @@ const nicknameHistoryLoading = ref(false)
 const nicknameHistoryError = ref('')
 const nicknameHistoryItems = ref<string[]>([])
 const nicknameHistoryLoadedForTarget = ref(0)
-const staffMoreRoot = ref<HTMLElement | null>(null)
-const staffMoreOpen = ref(false)
 const staffRoleBusy = ref(false)
 const staffAccountBusy = ref(false)
 const staffAvatarBusy = ref(false)
@@ -856,6 +860,13 @@ const staffPrimaryActionItems = computed<StaffActionItem[]>(() => (
 const staffOverflowActionItems = computed<StaffActionItem[]>(() => (
   staffActionItems.value.filter(item => !STAFF_PRIMARY_ACTION_KEYS.includes(item.key))
 ))
+const staffOverflowDropdownOptions = computed(() => (
+  staffOverflowActionItems.value.map(action => ({
+    value: action.key,
+    label: action.label,
+    disabled: action.disabled,
+  }))
+))
 const showStaffMoreAction = computed(() => staffOverflowActionItems.value.length > 0)
 const showStaffActionBlock = computed(() => staffActionItems.value.length > 0)
 
@@ -1092,22 +1103,6 @@ function close() {
 function closeAvatarPreview() {
   avatarPreviewOpen.value = false
   avatarPreviewSrc.value = ''
-}
-
-function closeStaffMore() {
-  staffMoreOpen.value = false
-}
-
-function toggleStaffMore() {
-  if (!showStaffMoreAction.value) return
-  staffMoreOpen.value = !staffMoreOpen.value
-}
-
-function onGlobalPointerDown(e: PointerEvent) {
-  if (!staffMoreOpen.value) return
-  const target = e.target as Node | null
-  if (target && staffMoreRoot.value?.contains(target)) return
-  closeStaffMore()
 }
 
 function openAvatarPreview() {
@@ -1445,7 +1440,6 @@ async function toggleStaffSanction(kind: MiniProfileSanctionKind): Promise<void>
 
 function onStaffAction(key: StaffActionKey): void {
   if (staffActionDisabled(key)) return
-  closeStaffMore()
   if (key === 'subscription') {
     openStaffSubscription()
     return
@@ -1469,13 +1463,16 @@ function onStaffAction(key: StaffActionKey): void {
   void toggleStaffSanction(key)
 }
 
-function onStaffOverflowAction(key: StaffActionKey): void {
-  closeStaffMore()
-  onStaffAction(key)
+function isStaffActionKey(value: unknown): value is StaffActionKey {
+  return typeof value === 'string' && staffActionItems.value.some(item => item.key === value)
+}
+
+function onStaffDropdownSelect(value: string | number | null): void {
+  if (!isStaffActionKey(value)) return
+  onStaffAction(value)
 }
 
 function resetStaffActionState(): void {
-  closeStaffMore()
   staffRoleBusy.value = false
   staffAccountBusy.value = false
   staffAvatarBusy.value = false
@@ -1705,10 +1702,6 @@ async function onFriendAction(kind: FriendActionKind) {
 
 function onKeydown(e: KeyboardEvent) {
   if (!props.open || e.key !== 'Escape') return
-  if (staffMoreOpen.value) {
-    closeStaffMore()
-    return
-  }
   if (avatarPreviewOpen.value) {
     closeAvatarPreview()
     return
@@ -1755,7 +1748,6 @@ watch([() => props.open, targetUserId, viewerVerificationRestricted, deletedTarg
 }, { immediate: true })
 
 onMounted(() => {
-  window.addEventListener('pointerdown', onGlobalPointerDown, true)
   window.addEventListener('keydown', onKeydown)
   window.addEventListener('auth-friends_update', onFriendsUpdate)
 })
@@ -1763,7 +1755,6 @@ onMounted(() => {
 onBeforeUnmount(() => {
   resetNicknameHistory()
   resetStaffActionState()
-  window.removeEventListener('pointerdown', onGlobalPointerDown, true)
   window.removeEventListener('keydown', onKeydown)
   window.removeEventListener('auth-friends_update', onFriendsUpdate)
 })
@@ -2525,139 +2516,101 @@ onBeforeUnmount(() => {
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: 12px;
       .staff-action-item {
         display: flex;
         flex-direction: column;
         align-items: center;
         gap: 5px;
+        min-width: 70px;
         &.staff-action-more {
           position: relative;
         }
         .staff-btn {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 0 12px;
-          gap: 5px;
+          --ui-button-height: 40px;
+          --ui-button-radius: 5px;
+          --ui-button-padding-x: 12px;
+          --ui-button-gap: 5px;
+          --ui-button-icon-size: 20px;
+          --ui-button-font-family: Manrope-Medium;
+          --ui-button-font-size: 14px;
+          --ui-button-line-height: 1;
+          --ui-button-letter-spacing: 0;
+          --ui-button-bg: #{$fg};
+          --ui-button-color: #{$bg};
+          --ui-button-hover-bg: #{$white};
+          --ui-button-hover-color: #{$bg};
+          --ui-button-disabled-bg: #{$fg};
+          --ui-button-disabled-color: #{$bg};
           min-width: 54px;
-          height: 40px;
-          border: none;
-          border-radius: 5px;
-          background-color: $fg;
-          color: $bg;
-          font-size: 14px;
-          font-family: Manrope-Medium;
-          line-height: 1;
-          text-decoration: none;
-          cursor: pointer;
-          transition: color 0.25s ease-in-out, background-color 0.25s ease-in-out;
-          &:hover {
-            background-color: $white;
-          }
-          &.staff-more-button {
-            min-width: 70px;
-          }
           &.dark {
-            background-color: $lead;
-            color: $fg;
-            &:hover {
-              background-color: rgba($grey, 0.5);
-            }
+            --ui-button-bg: #{$lead};
+            --ui-button-color: #{$fg};
+            --ui-button-hover-bg: #{rgba($grey, 0.5)};
+            --ui-button-hover-color: #{$fg};
+            --ui-button-disabled-bg: #{$lead};
+            --ui-button-disabled-color: #{$fg};
           }
           &.confirm {
-            background-color: rgba($green, 0.75);
-            &:hover {
-              background-color: $green;
-            }
+            --ui-button-bg: #{rgba($green, 0.75)};
+            --ui-button-color: #{$bg};
+            --ui-button-hover-bg: #{$green};
+            --ui-button-hover-color: #{$bg};
+            --ui-button-disabled-bg: #{rgba($green, 0.75)};
+            --ui-button-disabled-color: #{$bg};
           }
           &.danger {
-            background-color: rgba($red, 0.75);
-            color: $fg;
-            &:hover {
-              background-color: $red;
-            }
-          }
-          &:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-          }
-          .btn-img {
-            width: 20px;
-            height: 20px;
+            --ui-button-bg: #{rgba($red, 0.75)};
+            --ui-button-color: #{$fg};
+            --ui-button-hover-bg: #{$red};
+            --ui-button-hover-color: #{$fg};
+            --ui-button-disabled-bg: #{rgba($red, 0.75)};
+            --ui-button-disabled-color: #{$fg};
           }
         }
-        .staff-action-label {
-          color: $fg;
-          text-align: center;
-          font-size: 12px;
-          line-height: 1.2;
-          overflow-wrap: anywhere;
-        }
-        .staff-actions-dropdown {
-          display: flex;
-          position: absolute;
-          flex-direction: column;
-          right: 0;
-          bottom: calc(100% + 10px);
-          padding: 8px;
-          gap: 4px;
+        .staff-more-dropdown {
           width: 206px;
-          max-height: 280px;
-          border-radius: 12px;
-          background-color: $soft-purple-900;
-          box-shadow: 0 8px 24px rgba($neutral-black, 0.32);
-          overflow-y: auto;
-          z-index: 20;
-          .staff-dropdown-action {
-            display: flex;
-            align-items: center;
-            width: 100%;
-            min-height: 38px;
-            padding: 8px 10px;
-            border: none;
+          --ui-dropdown-border: #{$fg};
+          --ui-dropdown-text: #{$bg};
+          --ui-dropdown-placeholder: #{$bg};
+          --ui-dropdown-icon: #{$bg};
+          --ui-dropdown-hover-border: #{$white};
+          --ui-dropdown-hover-text: #{$bg};
+          --ui-dropdown-hover-icon: #{$bg};
+          --ui-dropdown-menu-bg: #{$soft-purple-900};
+          --ui-dropdown-menu-border: #{$soft-purple-900};
+          --ui-dropdown-option-text: #{$neutral-300};
+          --ui-dropdown-option-hover-bg: #{rgba($neutral-white, 0.10)};
+          --ui-dropdown-option-hover-text: #{$neutral-white};
+          :deep(button) {
+            height: 40px;
+            padding: 0 12px;
+            border-radius: 5px;
+            background-color: $fg;
+            font-family: Manrope-Medium;
+            font-size: 14px;
+            line-height: 1;
+            letter-spacing: 0;
+          }
+          :deep(ul) {
+            right: 0;
+            left: auto;
+            bottom: calc(100% + 10px);
+            width: 206px;
+            max-height: 280px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba($neutral-black, 0.32);
+            overflow-y: auto;
+          }
+          :deep(.option),
+          :deep(.empty) {
+            height: 38px;
+            padding: 0 10px;
             border-radius: 8px;
-            background: transparent;
-            color: $neutral-white;
             font-family: Manrope-Medium;
             font-size: 14px;
             line-height: 16px;
-            text-align: left;
-            cursor: pointer;
-            transition: background-color 0.25s ease-in-out, color 0.25s ease-in-out;
-            .staff-dropdown-action-main {
-              display: flex;
-              align-items: center;
-              gap: 8px;
-              min-width: 0;
-              .btn-dropdown-img {
-                width: 20px;
-                height: 20px;
-              }
-            }
-            span {
-              overflow: hidden;
-              text-overflow: ellipsis;
-              white-space: nowrap;
-            }
-            &.confirm {
-              color: $green-500;
-            }
-            &.danger {
-              color: $red-400;
-            }
-            &.dark {
-              color: $neutral-300;
-            }
-            &:not(:disabled):hover,
-            &:not(:disabled):focus-visible,
-            &:not(:disabled):active {
-              background-color: rgba($neutral-white, 0.10);
-              color: $neutral-white;
-            }
-            &:disabled {
-              opacity: 0.5;
-              cursor: not-allowed;
-            }
+            letter-spacing: 0;
           }
         }
       }

@@ -8,8 +8,8 @@
     <label v-if="label" :for="resolvedId">{{ label }}</label>
     <Transition name="ui-dropdown-menu">
       <ul v-show="open" :id="listId" role="listbox" :data-open="open ? 1 : 0">
-        <li v-for="option in options" :key="optionKey(option)" class="option" :class="{ selected: isSelected(option.value) }"
-            role="option" :aria-selected="isSelected(option.value)" @click="selectOption(option)">
+        <li v-for="option in options" :key="optionKey(option)" class="option" :class="{ selected: isSelected(option.value), disabled: option.disabled }"
+            role="option" :aria-selected="isSelected(option.value)" :aria-disabled="option.disabled ? 'true' : undefined" @click="selectOption(option)">
           <span>{{ option.label }}</span>
         </li>
         <li v-if="options.length === 0" class="empty" aria-disabled="true">{{ emptyText }}</li>
@@ -32,6 +32,7 @@ type UiDropdownValue = string | number | null
 type UiDropdownOption = {
   value: UiDropdownValue
   label: string
+  disabled?: boolean
 }
 
 let uid = 0
@@ -100,6 +101,7 @@ function close(): void {
 }
 
 function selectOption(option: UiDropdownOption): void {
+  if (option.disabled) return
   emit('update:modelValue', option.value)
   close()
 }
@@ -295,6 +297,14 @@ onBeforeUnmount(() => {
       &.selected {
         background-color: var(--ui-dropdown-option-hover-bg);
         color: var(--ui-dropdown-option-hover-text);
+      }
+      &.disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        &:hover {
+          background-color: transparent;
+          color: var(--ui-dropdown-option-text);
+        }
       }
     }
     .empty {
