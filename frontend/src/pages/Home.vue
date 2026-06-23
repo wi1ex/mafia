@@ -44,7 +44,11 @@
                 </div>
               </div>
               <div class="cell">
-                <img :src="r.privacy === 'private' ? iconLockClose : iconLockOpen" alt="lock" />
+                <UiIcon
+                  :class="['lock-icon', r.privacy === 'private' ? 'lock-icon--private' : 'lock-icon--open']"
+                  :icon="r.privacy === 'private' ? iconLockClose : iconLockOpen"
+                  :label="r.privacy === 'private' ? 'Закрытая комната' : 'Открытая комната'"
+                />
                 <span class="item-text ellipsis margin">{{ r.title }}</span>
               </div>
               <div class="cell">
@@ -1107,6 +1111,16 @@ onBeforeUnmount(() => {
             img {
               width: 24px;
               height: 24px;
+            }
+            .lock-icon {
+              --ui-icon-width: 24px;
+              --ui-icon-height: 24px;
+              &--private {
+                --ui-icon-color: #{$red-500};
+              }
+              &--open {
+                --ui-icon-color: #{$green-500};
+              }
             }
             .user-avatar {
               border-radius: 50%;
