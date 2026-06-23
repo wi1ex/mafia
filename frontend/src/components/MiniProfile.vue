@@ -139,6 +139,8 @@
                 </button>
               </div>
 
+              <div class="profile-staff-line"></div>
+
               <div v-if="showStaffActionBlock" class="profile-staff-actions" aria-label="Действия с пользователем">
                 <div v-for="action in staffPrimaryActionItems" :key="action.key">
                   <UiButton
@@ -2512,6 +2514,10 @@ onBeforeUnmount(() => {
           }
         }
       }
+    }
+    .profile-staff-line {
+      width: 100%;
+      border-bottom: 1px solid $neutral-800;
     }
     .profile-staff-actions {
       display: flex;
