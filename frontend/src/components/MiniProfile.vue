@@ -2557,6 +2557,26 @@ onBeforeUnmount(() => {
           &.staff-more-button {
             min-width: 70px;
           }
+          &.dark {
+            background-color: $lead;
+            color: $fg;
+            &:hover {
+              background-color: rgba($grey, 0.5);
+            }
+          }
+          &.confirm {
+            background-color: rgba($green, 0.75);
+            &:hover {
+              background-color: $green;
+            }
+          }
+          &.danger {
+            background-color: rgba($red, 0.75);
+            color: $fg;
+            &:hover {
+              background-color: $red;
+            }
+          }
           &:disabled {
             opacity: 0.5;
             cursor: not-allowed;
