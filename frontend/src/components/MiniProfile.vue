@@ -142,8 +142,7 @@
               <div v-if="showStaffActionBlock" class="profile-staff-actions" aria-label="Действия с пользователем">
                 <div v-for="action in staffPrimaryActionItems" :key="action.key" class="staff-action-item">
                   <UiButton
-                    class="staff-btn"
-                    :class="action.buttonClass"
+                    variant="white"
                     size="middle"
                     :width="252"
                     :icon="action.icon"
@@ -153,14 +152,15 @@
                     @click="onStaffAction(action.key)"
                   />
                 </div>
-                <div v-if="showStaffMoreAction" class="staff-action-item staff-action-more">
+                <div v-if="showStaffMoreAction" class="staff-action-item">
                   <UiDropdown
-                    class="staff-more-dropdown"
                     :model-value="null"
                     :options="staffOverflowDropdownOptions"
+                    style="width: 91px"
                     placeholder="Еще"
                     aria-label="Показать остальные действия"
                     label-mode="placeholder"
+                    mode="light"
                     menu-placement="top"
                     @update:model-value="onStaffDropdownSelect"
                   />
@@ -263,7 +263,6 @@ type NominationStatKey = 'games_played' | 'games_hosted' | 'room_minutes' | 'str
 type StaffActionItem = {
   key: StaffActionKey
   label: string
-  buttonClass: string
   disabled: boolean
   ariaLabel: string
   icon?: string
@@ -687,12 +686,12 @@ const targetUsername = computed(() => {
   if (profileLoadedForTarget.value) return profile.value?.username || ''
   return initialProfileForTarget.value?.username || ''
 })
+const targetNicknameDefault = computed(() => targetUserId.value > 0 && targetUsername.value === `user_${targetUserId.value}`)
 const targetProtectedUser = computed(() => Boolean(profileLoadedForTarget.value && profile.value?.protected_user))
 const targetSubscriptionActive = computed(() => Boolean(profileLoadedForTarget.value && profile.value?.subscription_active))
 const targetTimeoutActive = computed(() => Boolean(profileLoadedForTarget.value && profile.value?.timeout_active))
 const targetBanActive = computed(() => Boolean(profileLoadedForTarget.value && profile.value?.ban_active))
 const targetSuspendActive = computed(() => Boolean(profileLoadedForTarget.value && profile.value?.suspend_active))
-const targetNicknameDefault = computed(() => targetUserId.value > 0 && targetUsername.value === `user_${targetUserId.value}`)
 const staffAdminUserActionsLocked = computed(() => targetProtectedUser.value)
 const staffAdminDeletedUserActionsLocked = computed(() => staffAdminUserActionsLocked.value || targetDeleted.value)
 const staffModerationTargetAllowed = computed(() => targetRoleNormalized.value === 'user' && !targetDeleted.value)
@@ -741,22 +740,20 @@ const staffActionItems = computed<StaffActionItem[]>(() => {
   const timeoutDisabled = isStaffSanctionBusy('timeout')
 
   if (isAdminViewer.value) {
-    if (targetDeleted.value || isSelfProfile.value || targetRoleNormalized.value === 'admin') return []
+    if (isSelfProfile.value || targetRoleNormalized.value === 'admin') return []
 
     return [
       {
         key: 'suspend',
-        label: 'Отстранить от игр',
+        label: targetSuspendActive.value ? 'Снять отстранение от игр' : 'Отстранить от игр',
         icon: iconJudgeHummer,
-        buttonClass: targetSuspendActive.value ? 'dark' : 'danger',
         disabled: staffAdminDeletedUserActionsLocked.value || suspendDisabled,
         ariaLabel: targetSuspendActive.value ? `Снять отстранение ${displayName.value}` : `Выдать отстранение ${displayName.value}`,
       },
       {
         key: 'timeout',
-        label: 'Выдать таймаут',
+        label: targetTimeoutActive.value ? 'Снять таймаут' : 'Выдать таймаут',
         icon: iconJudgeHummer,
-        buttonClass: targetTimeoutActive.value ? 'dark' : 'danger',
         disabled: staffAdminDeletedUserActionsLocked.value || timeoutDisabled,
         ariaLabel: targetTimeoutActive.value ? `Снять таймаут ${displayName.value}` : `Выдать таймаут ${displayName.value}`,
       },
@@ -764,7 +761,6 @@ const staffActionItems = computed<StaffActionItem[]>(() => {
         key: 'avatar',
         label: 'Удалить аватар',
         icon: iconDelete,
-        buttonClass: avatarName.value ? 'danger' : 'dark',
         disabled: staffAdminDeletedUserActionsLocked.value || avatarDisabled,
         ariaLabel: `Удалить аватар ${displayName.value}`,
       },
@@ -772,31 +768,27 @@ const staffActionItems = computed<StaffActionItem[]>(() => {
         key: 'nickname',
         label: 'Сбросить никнейм',
         icon: iconDelete,
-        buttonClass: targetNicknameDefault.value ? 'dark' : 'danger',
         disabled: staffAdminDeletedUserActionsLocked.value || nicknameDisabled,
         ariaLabel: `Сбросить никнейм ${displayName.value}`,
       },
       {
         key: 'ban',
-        label: 'Забанить',
+        label: targetBanActive.value ? 'Разбанить' : 'Забанить',
         icon: iconJudgeHummer,
-        buttonClass: targetBanActive.value ? 'dark' : 'danger',
         disabled: staffAdminDeletedUserActionsLocked.value || isStaffSanctionBusy('ban'),
         ariaLabel: targetBanActive.value ? `Снять бан ${displayName.value}` : `Выдать бан ${displayName.value}`,
       },
       {
         key: 'account',
-        label: 'Удалить аккаунт',
+        label: targetDeleted.value ? 'Восстановить аккаунт' : 'Удалить аккаунт',
         icon: iconJudgeHummer,
-        buttonClass: targetDeleted.value ? 'dark' : 'danger',
         disabled: staffAdminUserActionsLocked.value || staffAccountBusy.value,
         ariaLabel: targetDeleted.value ? `Восстановить аккаунт ${displayName.value}` : `Удалить аккаунт ${displayName.value}`,
       },
       {
         key: 'role',
-        label: 'Выдать модерку',
+        label: targetRoleNormalized.value === 'moder' ? 'Снять модерку' : 'Выдать модерку',
         icon: iconJudgeHummer,
-        buttonClass: targetRoleNormalized.value === 'moder' ? 'dark' : 'danger',
         disabled: staffAdminDeletedUserActionsLocked.value || staffRoleBusy.value || targetRoleNormalized.value === 'admin',
         ariaLabel: targetRoleNormalized.value === 'moder' ? `Снять модерку ${displayName.value}` : `Выдать модерку ${displayName.value}`,
       },
@@ -804,7 +796,6 @@ const staffActionItems = computed<StaffActionItem[]>(() => {
         key: 'subscription',
         label: 'Выдать подписку',
         icon: iconDonation,
-        buttonClass: 'confirm',
         disabled: staffSubscriptionSaving.value || targetDeleted.value || targetSubscriptionActive.value,
         ariaLabel: `Выдать подписку ${displayName.value}`,
       },
@@ -817,17 +808,15 @@ const staffActionItems = computed<StaffActionItem[]>(() => {
     return [
       {
         key: 'suspend',
-        label: 'Отстранить от игр',
+        label: targetSuspendActive.value ? 'Снять отстранение от игр' : 'Отстранить от игр',
         icon: iconJudgeHummer,
-        buttonClass: targetSuspendActive.value ? 'dark' : 'danger',
         disabled: suspendDisabled,
         ariaLabel: targetSuspendActive.value ? `Снять отстранение ${displayName.value}` : `Выдать отстранение ${displayName.value}`,
       },
       {
         key: 'timeout',
-        label: 'Выдать таймаут',
+        label: targetTimeoutActive.value ? 'Снять таймаут' : 'Выдать таймаут',
         icon: iconJudgeHummer,
-        buttonClass: targetTimeoutActive.value ? 'dark' : 'danger',
         disabled: timeoutDisabled,
         ariaLabel: targetTimeoutActive.value ? `Снять таймаут ${displayName.value}` : `Выдать таймаут ${displayName.value}`,
       },
@@ -835,7 +824,6 @@ const staffActionItems = computed<StaffActionItem[]>(() => {
         key: 'avatar',
         label: 'Удалить аватар',
         icon: iconDelete,
-        buttonClass: avatarName.value ? 'danger' : 'dark',
         disabled: avatarDisabled,
         ariaLabel: `Удалить аватар ${displayName.value}`,
       },
@@ -843,7 +831,6 @@ const staffActionItems = computed<StaffActionItem[]>(() => {
         key: 'nickname',
         label: 'Сбросить никнейм',
         icon: iconDelete,
-        buttonClass: targetNicknameDefault.value ? 'dark' : 'danger',
         disabled: nicknameDisabled,
         ariaLabel: `Сбросить никнейм ${displayName.value}`,
       },
@@ -2524,101 +2511,6 @@ onBeforeUnmount(() => {
         align-items: center;
         gap: 5px;
         min-width: 70px;
-        &.staff-action-more {
-          position: relative;
-        }
-        .staff-btn {
-          --ui-button-height: 40px;
-          --ui-button-radius: 5px;
-          --ui-button-padding-x: 12px;
-          --ui-button-gap: 5px;
-          --ui-button-icon-size: 20px;
-          --ui-button-font-family: Manrope-Medium;
-          --ui-button-font-size: 14px;
-          --ui-button-line-height: 1;
-          --ui-button-letter-spacing: 0;
-          --ui-button-bg: #{$fg};
-          --ui-button-color: #{$bg};
-          --ui-button-hover-bg: #{$white};
-          --ui-button-hover-color: #{$bg};
-          --ui-button-disabled-bg: #{$fg};
-          --ui-button-disabled-color: #{$bg};
-          min-width: 54px;
-          &.dark {
-            --ui-button-bg: #{$lead};
-            --ui-button-color: #{$fg};
-            --ui-button-hover-bg: #{rgba($grey, 0.5)};
-            --ui-button-hover-color: #{$fg};
-            --ui-button-disabled-bg: #{$lead};
-            --ui-button-disabled-color: #{$fg};
-          }
-          &.confirm {
-            --ui-button-bg: #{rgba($green, 0.75)};
-            --ui-button-color: #{$bg};
-            --ui-button-hover-bg: #{$green};
-            --ui-button-hover-color: #{$bg};
-            --ui-button-disabled-bg: #{rgba($green, 0.75)};
-            --ui-button-disabled-color: #{$bg};
-          }
-          &.danger {
-            --ui-button-bg: #{rgba($red, 0.75)};
-            --ui-button-color: #{$fg};
-            --ui-button-hover-bg: #{$red};
-            --ui-button-hover-color: #{$fg};
-            --ui-button-disabled-bg: #{rgba($red, 0.75)};
-            --ui-button-disabled-color: #{$fg};
-          }
-        }
-        .staff-more-dropdown {
-          width: 206px;
-          --ui-dropdown-border: #{$fg};
-          --ui-dropdown-text: #{$bg};
-          --ui-dropdown-placeholder: #{$bg};
-          --ui-dropdown-icon: #{$bg};
-          --ui-dropdown-hover-border: #{$white};
-          --ui-dropdown-hover-text: #{$bg};
-          --ui-dropdown-hover-icon: #{$bg};
-          --ui-dropdown-menu-bg: #{$soft-purple-900};
-          --ui-dropdown-menu-border: #{$soft-purple-900};
-          --ui-dropdown-option-text: #{$neutral-300};
-          --ui-dropdown-option-hover-bg: #{rgba($neutral-white, 0.10)};
-          --ui-dropdown-option-hover-text: #{$neutral-white};
-          :deep(button) {
-            height: 40px;
-            padding: 0 12px;
-            border-radius: 5px;
-            background-color: $fg;
-            font-family: Manrope-Medium;
-            font-size: 14px;
-            line-height: 1;
-            letter-spacing: 0;
-          }
-          :deep(ul) {
-            right: 0;
-            left: auto;
-            bottom: calc(100% + 10px);
-            width: 206px;
-            max-height: 280px;
-            border-radius: 12px;
-            box-shadow: 0 8px 24px rgba($neutral-black, 0.32);
-            overflow-y: auto;
-          }
-          :deep(.option),
-          :deep(.empty) {
-            height: 38px;
-            padding: 0 10px;
-            border-radius: 8px;
-            font-family: Manrope-Medium;
-            font-size: 14px;
-            line-height: 16px;
-            letter-spacing: 0;
-          }
-          :deep(.option-icon) {
-            margin-right: 4px;
-            --ui-icon-width: 24px;
-            --ui-icon-height: 24px;
-          }
-        }
       }
     }
   }
