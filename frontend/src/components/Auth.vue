@@ -7,7 +7,7 @@
       </div>
       <div class="auth-modal">
         <button type="button" class="btn-close" aria-label="Закрыть" @click="close">
-          <img :src="iconClose" class="btn-icon" alt="close" aria-hidden="true" />
+          <UiIcon class="btn-icon" :icon="iconClose" />
         </button>
 
         <div class="auth-body">
@@ -110,6 +110,7 @@ import UiInput from '@/components/UiInput.vue'
 import UiCheckbox from '@/components/UiCheckbox.vue'
 import UiSwitch from '@/components/UiSwitch.vue'
 import UiButton from '@/components/UiButton.vue'
+import UiIcon from '@/components/UiIcon.vue'
 
 import authLogoVideo from '@/assets/video/auth-logo.mp4'
 import iconClose from '@/assets/svg/iconClose.svg'
@@ -351,8 +352,9 @@ onMounted(() => {
       .btn-icon {
         position: relative;
         z-index: 2;
-        width: 24px;
-        height: 24px;
+        --ui-icon-width: 24px;
+        --ui-icon-height: 24px;
+        --ui-icon-color: #{$neutral-white};
       }
     }
     .auth-body {
