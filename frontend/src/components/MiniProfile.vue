@@ -1592,6 +1592,13 @@ async function onFriendAction(kind: FriendActionKind) {
   let actionForError: FriendApiAction = 'unknown'
   try {
     if (kind === 'add') {
+      const ok = await confirmDialog({
+        title: 'Добавить в друзья',
+        text: `Вы уверены, что хотите отправить запрос в друзья пользователю ${displayName.value}?`,
+        confirmText: 'Подтвердить',
+        cancelText: 'Отмена',
+      })
+      if (!ok) return
       actionForError = 'send'
       await friends.sendRequest(uid)
       applyFriendStatus('outgoing')
@@ -1839,7 +1846,8 @@ onBeforeUnmount(() => {
               position: relative;
               align-items: center;
               justify-content: center;
-              padding: 8px 12px;
+              padding: 0 12px;
+              height: 32px;
               border-radius: 8px;
               background-color: $soft-purple-900;
               &.enabled {

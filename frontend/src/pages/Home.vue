@@ -39,7 +39,7 @@
             <li class="item" v-for="r in sortedRooms" :key="r.id" :class="{ active: r.id === selectedId || r.id === pendingRoomId }" tabindex="0" @click="selectRoom(r.id)" >
               <div class="cell">
                 <div class="status-room" :class="roomStatusClass(r)">
-                  <img :src="iconDot" alt="dot" class="dot-img" />
+                  <UiIcon class="dot-img" :icon="iconDot" />
                   <span class="item-text">{{ roomStatusLabel(r)}}</span>
                 </div>
               </div>
@@ -1099,8 +1099,9 @@ onBeforeUnmount(() => {
                 background-color: $neutral-black;
               }
               .dot-img {
-                width: 4px;
-                height: 4px;
+                --ui-icon-width: 4px;
+                --ui-icon-height: 4px;
+                --ui-icon-color: #{$neutral-white};
               }
             }
             img {
