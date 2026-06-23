@@ -80,7 +80,7 @@
 
     <div class="carousel-controls">
       <button type="button" class="nav-btn" aria-label="Предыдущий блок" @click="goPrevious(true)">
-        <img class="nav-icon nav-icon--prev" :src="iconArrowDown" alt="" aria-hidden="true" />
+        <UiIcon class="nav-icon nav-icon--prev" :icon="iconArrowDown" />
       </button>
 
       <div class="carousel-dots">
@@ -88,7 +88,7 @@
       </div>
 
       <button type="button" class="nav-btn" aria-label="Следующий блок" @click="goNext(true)">
-        <img class="nav-icon nav-icon--next" :src="iconArrowDown" alt="" aria-hidden="true" />
+        <UiIcon class="nav-icon nav-icon--next" :icon="iconArrowDown" />
       </button>
     </div>
   </section>
@@ -100,6 +100,7 @@ import { requestPwaInstall, usePwaInstallState } from '@/services/pwa'
 
 import UiTooltip from '@/components/UiTooltip.vue'
 import UiButton from '@/components/UiButton.vue'
+import UiIcon from '@/components/UiIcon.vue'
 
 import iconArrowDown from '@/assets/svg/iconArrowDown.svg'
 
@@ -365,8 +366,9 @@ onBeforeUnmount(() => {
       .nav-icon {
         position: relative;
         z-index: 2;
-        width: 24px;
-        height: 24px;
+        --ui-icon-width: 24px;
+        --ui-icon-height: 24px;
+        --ui-icon-color: #{$neutral-white};
         &.nav-icon--prev {
           transform: rotate(90deg);
         }
