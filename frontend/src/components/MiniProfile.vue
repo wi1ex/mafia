@@ -154,6 +154,7 @@
                 </div>
                 <div v-if="showStaffMoreAction" class="staff-action-item">
                   <UiDropdown
+                    class="staff-more-dropdown"
                     :model-value="null"
                     :options="staffOverflowDropdownOptions"
                     placeholder="Еще"
@@ -2523,6 +2524,14 @@ onBeforeUnmount(() => {
         align-items: center;
         gap: 5px;
         min-width: 70px;
+        .staff-more-dropdown {
+          width: 91px;
+          :deep(ul) {
+            right: auto;
+            width: max-content;
+            min-width: 100%;
+          }
+        }
       }
     }
   }
