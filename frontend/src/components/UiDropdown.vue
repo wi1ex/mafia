@@ -1,10 +1,11 @@
 <template>
   <div ref="rootEl" class="ui-dropdown" :class="[rootClass, { open, invalid, 'ui-dropdown--selected': selectedOption, 'ui-dropdown--light': mode === 'light', 'ui-dropdown--top': menuPlacement === 'top', 'ui-dropdown--placeholder-label': labelMode === 'placeholder' }]" :style="rootStyle">
-    <button :id="resolvedId" type="button" @click="toggle" :aria-expanded="open"
-            :aria-controls="listId" :aria-label="buttonAriaLabel" aria-haspopup="listbox">
-      <span :class="{ placeholder: !selectedLabel }">{{ displayLabel }}</span>
-      <UiIcon class="dropdown-icon" :icon="iconArrow" />
-    </button>
+    <slot name="trigger" v-bind="triggerSlotProps">
+      <button class="ui-dropdown__trigger" v-bind="triggerProps">
+        <span :class="{ placeholder: !selectedLabel }">{{ displayLabel }}</span>
+        <UiIcon class="dropdown-icon" :icon="iconArrow" />
+      </button>
+    </slot>
     <label v-if="label" :for="resolvedId">{{ label }}</label>
     <Transition name="ui-dropdown-menu">
       <ul v-show="open" :id="listId" role="listbox" :data-open="open ? 1 : 0">
@@ -81,6 +82,23 @@ const selectedOption = computed(() => props.options.find((option) => isSameValue
 const selectedLabel = computed(() => selectedOption.value?.label || '')
 const displayLabel = computed(() => selectedLabel.value || props.placeholder)
 const buttonAriaLabel = computed(() => props.ariaLabel || props.label || props.placeholder)
+const triggerProps = computed<Record<string, unknown>>(() => ({
+  id: resolvedId.value,
+  type: 'button',
+  onClick: toggle,
+  'aria-expanded': open.value,
+  'aria-controls': listId.value,
+  'aria-label': buttonAriaLabel.value,
+  'aria-haspopup': 'listbox',
+}))
+const triggerSlotProps = computed(() => ({
+  open: open.value,
+  toggle,
+  close,
+  displayLabel: displayLabel.value,
+  selectedLabel: selectedLabel.value,
+  triggerProps: triggerProps.value,
+}))
 
 function isSameValue(left: UiDropdownValue, right: UiDropdownValue): boolean {
   return left === right
@@ -179,7 +197,7 @@ onBeforeUnmount(() => {
   &.ui-dropdown--selected {
     --ui-dropdown-text: var(--ui-dropdown-selected-text);
   }
-  button {
+  .ui-dropdown__trigger {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -320,7 +338,7 @@ onBeforeUnmount(() => {
     }
   }
   &.open {
-    button {
+    .ui-dropdown__trigger {
       border-color: var(--ui-dropdown-hover-border);
       color: var(--ui-dropdown-hover-text);
       span.placeholder {
@@ -333,7 +351,7 @@ onBeforeUnmount(() => {
     }
   }
   &.invalid {
-    button {
+    .ui-dropdown__trigger {
       border-color: var(--ui-dropdown-error-border);
       color: var(--ui-dropdown-error-text);
       span.placeholder {

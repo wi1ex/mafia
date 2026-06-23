@@ -156,14 +156,25 @@
                   <UiDropdown
                     :model-value="null"
                     :options="staffOverflowDropdownOptions"
-                    style="width: 91px"
                     placeholder="Еще"
                     aria-label="Показать остальные действия"
                     label-mode="placeholder"
                     mode="light"
                     menu-placement="top"
                     @update:model-value="onStaffDropdownSelect"
-                  />
+                  >
+                    <template #trigger="{ triggerProps, displayLabel }">
+                      <UiButton
+                        v-bind="triggerProps"
+                        variant="white"
+                        size="middle"
+                        :width="91"
+                        :text="displayLabel"
+                        :icon="iconEllipsis"
+                        icon-position="right"
+                      />
+                    </template>
+                  </UiDropdown>
                 </div>
               </div>
             </template>
@@ -252,6 +263,7 @@ import nominationStream from '@/assets/svg/iconScreenOn.svg'
 import nominationSpectator from '@/assets/svg/iconVisOn.svg'
 import iconDonation from '@/assets/svg/iconDonation.svg'
 import iconDelete from '@/assets/svg/iconDelete.svg'
+import iconEllipsis from '@/assets/svg/iconEllipsis.svg'
 
 type FriendActionKind = 'add' | 'remove' | 'incoming' | 'outgoing'
 type MiniProfileSanctionKind = 'timeout' | 'ban' | 'suspend'
