@@ -145,7 +145,7 @@
                     class="staff-btn"
                     :class="action.buttonClass"
                     size="middle"
-                    :width="54"
+                    :width="252"
                     :icon="action.icon"
                     :text="action.label"
                     :disabled="action.disabled"
@@ -250,10 +250,12 @@ import nominationHead from '@/assets/svg/iconPlay.svg'
 import nominationRoom from '@/assets/svg/iconSpeak.svg'
 import nominationStream from '@/assets/svg/iconScreenOn.svg'
 import nominationSpectator from '@/assets/svg/iconVisOn.svg'
+import iconDonation from '@/assets/svg/iconDonation.svg'
+import iconDelete from '@/assets/svg/iconDelete.svg'
 
 type FriendActionKind = 'add' | 'remove' | 'incoming' | 'outgoing'
 type MiniProfileSanctionKind = 'timeout' | 'ban' | 'suspend'
-type StaffActionKey = 'subscription' | 'role' | 'account' | 'avatar' | 'nickname' | 'suspend' | 'timeout' | 'ban'
+type StaffActionKey = 'suspend' | 'timeout' | 'avatar' | 'nickname' | 'ban' | 'account' | 'role' | 'subscription'
 type StaffActionScope = 'admin' | 'moderation'
 type NominationLevel = 1 | 2 | 3 | 4 | 5
 type NominationStatKey = 'games_played' | 'games_hosted' | 'room_minutes' | 'stream_minutes' | 'spectator_minutes'
@@ -743,67 +745,68 @@ const staffActionItems = computed<StaffActionItem[]>(() => {
 
     return [
       {
-        key: 'subscription',
-        label: 'Подписка',
-        buttonClass: 'confirm',
-        disabled: staffSubscriptionSaving.value || targetDeleted.value || targetSubscriptionActive.value,
-        ariaLabel: `Выдать подписку ${displayName.value}`,
-      },
-      {
-        key: 'role',
-        label: 'Модерка',
-        icon: targetRoleNormalized.value === 'moder' ? iconClose : iconJudgeHummer,
-        buttonClass: targetRoleNormalized.value === 'moder' ? 'dark' : 'danger',
-        disabled: staffAdminDeletedUserActionsLocked.value || staffRoleBusy.value || targetRoleNormalized.value === 'admin',
-        ariaLabel: targetRoleNormalized.value === 'moder' ? `Снять модерку ${displayName.value}` : `Выдать модерку ${displayName.value}`,
-      },
-      {
-        key: 'account',
-        label: 'Аккаунт',
-        icon: targetDeleted.value ? iconClose : iconJudgeHummer,
-        buttonClass: targetDeleted.value ? 'dark' : 'danger',
-        disabled: staffAdminUserActionsLocked.value || staffAccountBusy.value,
-        ariaLabel: targetDeleted.value ? `Восстановить аккаунт ${displayName.value}` : `Удалить аккаунт ${displayName.value}`,
-      },
-      {
-        key: 'avatar',
-        label: 'Аватар',
-        icon: iconClose,
-        buttonClass: avatarName.value ? 'danger' : 'dark',
-        disabled: staffAdminDeletedUserActionsLocked.value || avatarDisabled,
-        ariaLabel: `Удалить аватар ${displayName.value}`,
-      },
-      {
-        key: 'nickname',
-        label: 'Никнейм',
-        icon: iconClose,
-        buttonClass: targetNicknameDefault.value ? 'dark' : 'danger',
-        disabled: staffAdminDeletedUserActionsLocked.value || nicknameDisabled,
-        ariaLabel: `Сбросить никнейм ${displayName.value}`,
-      },
-      {
         key: 'suspend',
-        label: 'Отстран.',
-        icon: targetSuspendActive.value ? iconClose : iconJudgeHummer,
+        label: 'Отстранить от игр',
+        icon: iconJudgeHummer,
         buttonClass: targetSuspendActive.value ? 'dark' : 'danger',
         disabled: staffAdminDeletedUserActionsLocked.value || suspendDisabled,
         ariaLabel: targetSuspendActive.value ? `Снять отстранение ${displayName.value}` : `Выдать отстранение ${displayName.value}`,
       },
       {
         key: 'timeout',
-        label: 'Таймаут',
-        icon: targetTimeoutActive.value ? iconClose : iconJudgeHummer,
+        label: 'Выдать таймаут',
+        icon: iconJudgeHummer,
         buttonClass: targetTimeoutActive.value ? 'dark' : 'danger',
         disabled: staffAdminDeletedUserActionsLocked.value || timeoutDisabled,
         ariaLabel: targetTimeoutActive.value ? `Снять таймаут ${displayName.value}` : `Выдать таймаут ${displayName.value}`,
       },
       {
+        key: 'avatar',
+        label: 'Удалить аватар',
+        icon: iconDelete,
+        buttonClass: avatarName.value ? 'danger' : 'dark',
+        disabled: staffAdminDeletedUserActionsLocked.value || avatarDisabled,
+        ariaLabel: `Удалить аватар ${displayName.value}`,
+      },
+      {
+        key: 'nickname',
+        label: 'Сбросить никнейм',
+        icon: iconDelete,
+        buttonClass: targetNicknameDefault.value ? 'dark' : 'danger',
+        disabled: staffAdminDeletedUserActionsLocked.value || nicknameDisabled,
+        ariaLabel: `Сбросить никнейм ${displayName.value}`,
+      },
+      {
         key: 'ban',
-        label: 'Бан',
-        icon: targetBanActive.value ? iconClose : iconJudgeHummer,
+        label: 'Забанить',
+        icon: iconJudgeHummer,
         buttonClass: targetBanActive.value ? 'dark' : 'danger',
         disabled: staffAdminDeletedUserActionsLocked.value || isStaffSanctionBusy('ban'),
         ariaLabel: targetBanActive.value ? `Снять бан ${displayName.value}` : `Выдать бан ${displayName.value}`,
+      },
+      {
+        key: 'account',
+        label: 'Удалить аккаунт',
+        icon: iconJudgeHummer,
+        buttonClass: targetDeleted.value ? 'dark' : 'danger',
+        disabled: staffAdminUserActionsLocked.value || staffAccountBusy.value,
+        ariaLabel: targetDeleted.value ? `Восстановить аккаунт ${displayName.value}` : `Удалить аккаунт ${displayName.value}`,
+      },
+      {
+        key: 'role',
+        label: 'Выдать модерку',
+        icon: iconJudgeHummer,
+        buttonClass: targetRoleNormalized.value === 'moder' ? 'dark' : 'danger',
+        disabled: staffAdminDeletedUserActionsLocked.value || staffRoleBusy.value || targetRoleNormalized.value === 'admin',
+        ariaLabel: targetRoleNormalized.value === 'moder' ? `Снять модерку ${displayName.value}` : `Выдать модерку ${displayName.value}`,
+      },
+      {
+        key: 'subscription',
+        label: 'Выдать подписку',
+        icon: iconDonation,
+        buttonClass: 'confirm',
+        disabled: staffSubscriptionSaving.value || targetDeleted.value || targetSubscriptionActive.value,
+        ariaLabel: `Выдать подписку ${displayName.value}`,
       },
     ]
   }
@@ -813,25 +816,9 @@ const staffActionItems = computed<StaffActionItem[]>(() => {
 
     return [
       {
-        key: 'avatar',
-        label: 'Удалить аватар',
-        icon: iconClose,
-        buttonClass: avatarName.value ? 'danger' : 'dark',
-        disabled: avatarDisabled,
-        ariaLabel: `Удалить аватар ${displayName.value}`,
-      },
-      {
-        key: 'nickname',
-        label: 'Сбросить никнейм',
-        icon: iconClose,
-        buttonClass: targetNicknameDefault.value ? 'dark' : 'danger',
-        disabled: nicknameDisabled,
-        ariaLabel: `Сбросить никнейм ${displayName.value}`,
-      },
-      {
         key: 'suspend',
         label: 'Отстранить от игр',
-        icon: targetSuspendActive.value ? iconClose : iconJudgeHummer,
+        icon: iconJudgeHummer,
         buttonClass: targetSuspendActive.value ? 'dark' : 'danger',
         disabled: suspendDisabled,
         ariaLabel: targetSuspendActive.value ? `Снять отстранение ${displayName.value}` : `Выдать отстранение ${displayName.value}`,
@@ -839,10 +826,26 @@ const staffActionItems = computed<StaffActionItem[]>(() => {
       {
         key: 'timeout',
         label: 'Выдать таймаут',
-        icon: targetTimeoutActive.value ? iconClose : iconJudgeHummer,
+        icon: iconJudgeHummer,
         buttonClass: targetTimeoutActive.value ? 'dark' : 'danger',
         disabled: timeoutDisabled,
         ariaLabel: targetTimeoutActive.value ? `Снять таймаут ${displayName.value}` : `Выдать таймаут ${displayName.value}`,
+      },
+      {
+        key: 'avatar',
+        label: 'Удалить аватар',
+        icon: iconDelete,
+        buttonClass: avatarName.value ? 'danger' : 'dark',
+        disabled: avatarDisabled,
+        ariaLabel: `Удалить аватар ${displayName.value}`,
+      },
+      {
+        key: 'nickname',
+        label: 'Сбросить никнейм',
+        icon: iconDelete,
+        buttonClass: targetNicknameDefault.value ? 'dark' : 'danger',
+        disabled: nicknameDisabled,
+        ariaLabel: `Сбросить никнейм ${displayName.value}`,
       },
     ]
   }
@@ -862,6 +865,7 @@ const staffOverflowDropdownOptions = computed(() => (
     value: action.key,
     label: action.label,
     disabled: action.disabled,
+    icon: action.icon,
   }))
 ))
 const showStaffMoreAction = computed(() => staffOverflowActionItems.value.length > 0)
@@ -2608,6 +2612,11 @@ onBeforeUnmount(() => {
             font-size: 14px;
             line-height: 16px;
             letter-spacing: 0;
+          }
+          :deep(.option-icon) {
+            margin-right: 4px;
+            --ui-icon-width: 24px;
+            --ui-icon-height: 24px;
           }
         }
       }

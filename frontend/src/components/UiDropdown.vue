@@ -10,6 +10,7 @@
       <ul v-show="open" :id="listId" role="listbox" :data-open="open ? 1 : 0">
         <li v-for="option in options" :key="optionKey(option)" class="option" :class="{ selected: isSelected(option.value), disabled: option.disabled }"
             role="option" :aria-selected="isSelected(option.value)" :aria-disabled="option.disabled ? 'true' : undefined" @click="selectOption(option)">
+          <UiIcon v-if="option.icon" class="option-icon" :icon="option.icon" />
           <span>{{ option.label }}</span>
         </li>
         <li v-if="options.length === 0" class="empty" aria-disabled="true">{{ emptyText }}</li>
@@ -33,6 +34,7 @@ type UiDropdownOption = {
   value: UiDropdownValue
   label: string
   disabled?: boolean
+  icon?: string
 }
 
 let uid = 0
@@ -286,6 +288,12 @@ onBeforeUnmount(() => {
     .option {
       cursor: pointer;
       transition: background-color 0.25s ease-in-out, color 0.25s ease-in-out;
+      .option-icon {
+        margin-right: 4px;
+        --ui-icon-width: 24px;
+        --ui-icon-height: 24px;
+        --ui-icon-color: currentColor;
+      }
       span {
         display: block;
         min-width: 0;
