@@ -5,7 +5,7 @@
     <span class="verification-divider" aria-hidden="true"></span>
     <span>Пройдите верификацию через</span>
     <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">
-      <img :src="iconTelegram" alt="" />
+      <UiIcon class="telegram-icon" :icon="iconTelegram" />
       TG-бота
     </a>
   </div>
@@ -103,7 +103,7 @@
             <img v-for="badgeSrc in userMenuProfileIconSrcs" :key="badgeSrc" class="profile-theme-icon" :src="badgeSrc" alt="" />
           </div>
           <span class="nickname">{{ user.user?.username || '...' }}</span>
-          <img class="arrow" :src="iconArrow" alt="arrow" :style="{ transform: um_open ? 'rotate(180deg)' : 'none'}" />
+          <UiIcon class="arrow" :icon="iconArrow" :style="{ transform: um_open ? 'rotate(180deg)' : 'none'}" />
         </button>
 
         <Transition name="user-menu">
@@ -451,9 +451,10 @@ function openAuth(mode: 'login' | 'register') {
     text-decoration-thickness: 1.28px;
     text-underline-offset: 2.56px;
     text-underline-position: from-font;
-    img {
-      width: 24px;
-      height: 24px;
+    .telegram-icon {
+      --ui-icon-width: 24px;
+      --ui-icon-height: 24px;
+      --ui-icon-color: #{$neutral-white};
     }
   }
   .sanction-duration-unit {
@@ -699,10 +700,9 @@ function openAuth(mode: 'login' | 'register') {
       }
     }
     .arrow {
-      width: 20px;
-      height: 20px;
-      border-radius: 0;
-      object-fit: none;
+      --ui-icon-width: 20px;
+      --ui-icon-height: 20px;
+      --ui-icon-color: #{$neutral-white};
       transition: transform 0.25s ease-in-out;
     }
   }
