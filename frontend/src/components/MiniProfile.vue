@@ -65,12 +65,13 @@
                         <span v-else-if="nicknameHistoryError" class="nickname-history-state danger">{{ nicknameHistoryError }}</span>
                         <template v-else>
                           <div ref="nicknameHistoryList" class="nickname-history-list">
+                            <span class="nickname-history-title">История никнеймов</span>
                             <span class="nickname-history-nick" v-for="(nickname, index) in nicknameHistoryItems" :key="`${nickname}-${index}`" :class="{ current: index === 0 }">
                               {{ nickname }}
                             </span>
                             <span v-if="!nicknameHistoryItems.length" class="nickname-history-state">Нет данных</span>
                           </div>
-                          <UiScrollbar :target="nicknameHistoryList" :active="targetUserId > 0" theme="grey" :inset-top="16" :inset-bottom="16" right="6px" :overflow-tolerance="4" />
+                          <UiScrollbar :target="nicknameHistoryList" :active="targetUserId > 0" theme="grey" :inset-top="50" :inset-bottom="16" right="6px" :overflow-tolerance="4" />
                         </template>
                       </div>
                     </div>
@@ -1962,7 +1963,7 @@ onBeforeUnmount(() => {
                   display: flex;
                   flex-direction: column;
                   gap: 8px;
-                  max-height: 200px;
+                  max-height: 264px;
                   overflow-y: auto;
                   overflow-x: hidden;
                   scrollbar-width: none;
@@ -2177,7 +2178,7 @@ onBeforeUnmount(() => {
                   display: flex;
                   flex-direction: column;
                   gap: 8px;
-                  max-height: 200px;
+                  max-height: 264px;
                   overflow-y: auto;
                   overflow-x: hidden;
                   scrollbar-width: none;
@@ -2186,6 +2187,13 @@ onBeforeUnmount(() => {
                     display: none;
                     width: 0;
                     height: 0;
+                  }
+                  .nickname-history-title {
+                    color: $neutral-black;
+                    font-family: Hauora-Bold;
+                    font-size: 16px;
+                    line-height: 18px;
+                    letter-spacing: -0.32px;
                   }
                   .nickname-history-nick {
                     max-width: 208px;
