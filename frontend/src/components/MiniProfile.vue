@@ -147,12 +147,11 @@
                     size="middle"
                     :width="54"
                     :icon="action.icon"
-                    :text="action.buttonText action.label"
+                    :text="action.label"
                     :disabled="action.disabled"
                     :aria-label="action.ariaLabel"
                     @click="onStaffAction(action.key)"
                   />
-                  <span class="staff-action-label">{{ action.label }}</span>
                 </div>
                 <div v-if="showStaffMoreAction" class="staff-action-item staff-action-more">
                   <UiDropdown
@@ -266,7 +265,6 @@ type StaffActionItem = {
   disabled: boolean
   ariaLabel: string
   icon?: string
-  buttonText?: string
 }
 
 type MiniProfileSanction = {
@@ -747,7 +745,6 @@ const staffActionItems = computed<StaffActionItem[]>(() => {
       {
         key: 'subscription',
         label: 'Подписка',
-        buttonText: 'Выдать',
         buttonClass: 'confirm',
         disabled: staffSubscriptionSaving.value || targetDeleted.value || targetSubscriptionActive.value,
         ariaLabel: `Выдать подписку ${displayName.value}`,
