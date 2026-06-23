@@ -2518,13 +2518,9 @@ onBeforeUnmount(() => {
       align-items: center;
       justify-content: space-between;
       gap: 8px;
-      .staff-more-dropdown {
-        width: 91px;
-        :deep(ul) {
-          right: auto;
-          width: max-content;
-          min-width: 100%;
-        }
+      .staff-more-dropdown :deep(ul) {
+        left: auto;
+        bottom: calc(100% + 8px);
       }
     }
   }
