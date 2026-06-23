@@ -2403,7 +2403,7 @@ onBeforeUnmount(() => {
         height: 64px;
         border: none;
         border-radius: 999px;
-        color: $neutral-black;
+        color: $neutral-900;
         font-family: Hauora-Regular;
         font-size: 18px;
         line-height: 20px;
@@ -2413,7 +2413,7 @@ onBeforeUnmount(() => {
         .profile-action-icon {
           --ui-icon-width: 24px;
           --ui-icon-height: 24px;
-          --ui-icon-color: #{$neutral-black};
+          --ui-icon-color: #{$neutral-900};
         }
         &.friend-action {
           .friend-action-content {
@@ -2453,13 +2453,13 @@ onBeforeUnmount(() => {
           }
         }
         &.status-outgoing {
-          background-color: $yellow-500;
+          background-color: $orange-400;
           &:not(:disabled):hover {
             background-color: $red-400;
           }
         }
         &.status-incoming {
-          background-color: $yellow-500;
+          background-color: $orange-400;
           &:not(:disabled):hover {
             background-color: $neutral-white;
           }
