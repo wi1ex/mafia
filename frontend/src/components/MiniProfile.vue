@@ -2521,6 +2521,12 @@ onBeforeUnmount(() => {
       .staff-more-dropdown :deep(ul) {
         left: auto;
         bottom: calc(100% + 8px);
+        padding: 16px 8px;
+        :deep(ul li)  {
+          gap: 4px;
+          height: 40px;
+          border-radius: 12px;
+        }
       }
     }
   }
