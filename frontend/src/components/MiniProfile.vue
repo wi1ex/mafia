@@ -140,43 +140,39 @@
               </div>
 
               <div v-if="showStaffActionBlock" class="profile-staff-actions" aria-label="Действия с пользователем">
-                <div v-for="action in staffPrimaryActionItems" :key="action.key" class="staff-action-item">
-                  <UiButton
-                    variant="white"
-                    size="middle"
-                    :width="252"
-                    :icon="action.icon"
-                    :text="action.label"
-                    :disabled="action.disabled"
-                    :aria-label="action.ariaLabel"
-                    @click="onStaffAction(action.key)"
-                  />
-                </div>
-                <div v-if="showStaffMoreAction" class="staff-action-item">
-                  <UiDropdown
-                    class="staff-more-dropdown"
-                    :model-value="null"
-                    :options="staffOverflowDropdownOptions"
-                    placeholder="Еще"
-                    aria-label="Показать остальные действия"
-                    label-mode="placeholder"
-                    mode="light"
-                    menu-placement="top"
-                    @update:model-value="onStaffDropdownSelect"
-                  >
-                    <template #trigger="{ triggerProps, displayLabel }">
-                      <UiButton
-                        v-bind="triggerProps"
-                        variant="white"
-                        size="middle"
-                        :width="91"
-                        :text="displayLabel"
-                        :icon="iconEllipsis"
-                        icon-position="right"
-                      />
-                    </template>
-                  </UiDropdown>
-                </div>
+                <UiButton
+                  variant="white"
+                  size="middle"
+                  :width="252"
+                  :icon="action.icon"
+                  :text="action.label"
+                  :disabled="action.disabled"
+                  :aria-label="action.ariaLabel"
+                  @click="onStaffAction(action.key)"
+                />
+                <UiDropdown
+                  class="staff-more-dropdown"
+                  :model-value="null"
+                  :options="staffOverflowDropdownOptions"
+                  placeholder="Еще"
+                  aria-label="Показать остальные действия"
+                  label-mode="placeholder"
+                  mode="light"
+                  menu-placement="top"
+                  @update:model-value="onStaffDropdownSelect"
+                >
+                  <template #trigger="{ triggerProps, displayLabel }">
+                    <UiButton
+                      v-bind="triggerProps"
+                      variant="white"
+                      size="middle"
+                      :width="91"
+                      :text="displayLabel"
+                      :icon="iconEllipsis"
+                      icon-position="right"
+                    />
+                  </template>
+                </UiDropdown>
               </div>
             </template>
 
@@ -2517,20 +2513,13 @@ onBeforeUnmount(() => {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 12px;
-      .staff-action-item {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 5px;
-        min-width: 70px;
-        .staff-more-dropdown {
-          width: 91px;
-          :deep(ul) {
-            right: auto;
-            width: max-content;
-            min-width: 100%;
-          }
+      gap: 8px;
+      .staff-more-dropdown {
+        width: 91px;
+        :deep(ul) {
+          right: auto;
+          width: max-content;
+          min-width: 100%;
         }
       }
     }
