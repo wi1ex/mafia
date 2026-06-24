@@ -53,7 +53,7 @@
                       </div>
 
                       <div v-if="activeSanction" class="sanction-tooltip-wrap" tabindex="0">
-                        <img class="profile-meta-icon" :src="iconJudgeHummer" alt="" />
+                        <UiIcon class="profile-meta-icon" :icon="iconJudgeHummer" />
                         <div class="sanction-tooltip" role="tooltip">
                           <div class="sanction-tooltip-div">
                             <UiIcon class="sanction-tooltip-icon" :icon="iconWarning" />
@@ -67,7 +67,7 @@
                       </div>
 
                       <div v-if="targetUserId > 0" class="profile-history-tooltip-wrap" tabindex="0" @mouseenter="loadNicknameHistory" @focusin="loadNicknameHistory">
-                        <img class="profile-meta-icon" :src="iconTimeHistory" alt="" />
+                        <UiIcon class="profile-meta-icon" :icon="iconTimeHistory" />
                         <div class="nickname-history-tooltip" role="tooltip">
                           <span v-if="nicknameHistoryLoading" class="nickname-history-state">Загрузка...</span>
                           <span v-else-if="nicknameHistoryError" class="nickname-history-state danger">{{ nicknameHistoryError }}</span>
@@ -2024,7 +2024,9 @@ onBeforeUnmount(() => {
                 &.enabled {
                   cursor: default;
                 }
-                &:hover {
+                &:hover,
+                &:focus-visible,
+                &:active {
                   &::after {
                     opacity: 1;
                     pointer-events: auto;
@@ -2141,7 +2143,9 @@ onBeforeUnmount(() => {
                 height: 32px;
                 border-radius: 8px;
                 background-color: $soft-purple-900;
-                &:hover {
+                &:hover,
+                &:focus-visible,
+                &:active {
                   &::after {
                     opacity: 1;
                     pointer-events: auto;
@@ -2166,9 +2170,9 @@ onBeforeUnmount(() => {
                   z-index: 2;
                 }
                 .profile-meta-icon {
-                  width: 20px;
-                  height: 20px;
-                  object-fit: contain;
+                  --ui-icon-width: 20px;
+                  --ui-icon-height: 20px;
+                  --ui-icon-color: #{$neutral-white};
                 }
                 .sanction-tooltip {
                   display: flex;
@@ -2238,7 +2242,9 @@ onBeforeUnmount(() => {
                 height: 32px;
                 border-radius: 8px;
                 background-color: $soft-purple-900;
-                &:hover {
+                &:hover,
+                &:focus-visible,
+                &:active {
                   &::after {
                     opacity: 1;
                     pointer-events: auto;
@@ -2263,9 +2269,9 @@ onBeforeUnmount(() => {
                   z-index: 2;
                 }
                 .profile-meta-icon {
-                  width: 20px;
-                  height: 20px;
-                  object-fit: contain;
+                  --ui-icon-width: 20px;
+                  --ui-icon-height: 20px;
+                  --ui-icon-color: #{$neutral-white};
                 }
                 .nickname-history-tooltip {
                   display: flex;
@@ -2345,7 +2351,8 @@ onBeforeUnmount(() => {
                 border-radius: 8px;
                 background-color: $soft-purple-900;
                 &:hover,
-                &:focus-within {
+                &:focus-visible,
+                &:active {
                   &::after {
                     opacity: 1;
                     pointer-events: auto;
@@ -2536,7 +2543,9 @@ onBeforeUnmount(() => {
                                       width: 24px;
                                       height: 24px;
                                     }
-                                    &:hover {
+                                    &:hover,
+                                    &:focus-visible,
+                                    &:active {
                                       background-color: $soft-purple-800;
                                     }
                                     &.red-button {
@@ -2546,7 +2555,9 @@ onBeforeUnmount(() => {
                                         --ui-icon-height: 24px;
                                         --ui-icon-color: #{$neutral-900};
                                       }
-                                      &:hover {
+                                      &:hover,
+                                      &:focus-visible,
+                                      &:active {
                                         background-color: $red-200;
                                       }
                                     }
@@ -2669,7 +2680,9 @@ onBeforeUnmount(() => {
           .friend-action-content-hover {
             display: none;
           }
-          &:not(:disabled):hover {
+          &:not(:disabled):hover,
+          &:not(:disabled):focus-visible,
+          &:not(:disabled):active {
             .friend-action-content-default {
               display: none;
             }
@@ -2680,31 +2693,41 @@ onBeforeUnmount(() => {
         }
         &.secondary {
           background-color: $neutral-100;
-          &:not(:disabled):hover {
+          &:not(:disabled):hover,
+          &:not(:disabled):focus-visible,
+          &:not(:disabled):active {
             background-color: $neutral-white;
           }
         }
         &.status-none {
           background-color: $neutral-white;
-          &:not(:disabled):hover {
+          &:not(:disabled):hover,
+          &:not(:disabled):focus-visible,
+          &:not(:disabled):active {
             background-color: $green-500;
           }
         }
         &.status-friends {
           background-color: $green-500;
-          &:not(:disabled):hover {
+          &:not(:disabled):hover,
+          &:not(:disabled):focus-visible,
+          &:not(:disabled):active {
             background-color: $red-400;
           }
         }
         &.status-outgoing {
           background-color: $orange-400;
-          &:not(:disabled):hover {
+          &:not(:disabled):hover,
+          &:not(:disabled):focus-visible,
+          &:not(:disabled):active {
             background-color: $red-400;
           }
         }
         &.status-incoming {
           background-color: $orange-400;
-          &:not(:disabled):hover {
+          &:not(:disabled):hover,
+          &:not(:disabled):focus-visible,
+          &:not(:disabled):active {
             background-color: $neutral-white;
           }
         }
