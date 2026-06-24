@@ -770,7 +770,8 @@ const showProfileDataButtons = computed(() => Boolean(
 ))
 const showStatsButton = computed(() => showProfileDataButtons.value)
 const showGameHistoryButton = computed(() => showProfileDataButtons.value)
-const showActionBlock = computed(() => showStatsButton.value || showGameHistoryButton.value || showFriendAction.value)
+const showActionBlockOld = computed(() => showStatsButton.value || showGameHistoryButton.value || showFriendAction.value)
+const showActionBlock = computed(() => showFriendAction.value)
 const staffActionScope = computed<StaffActionScope | null>(() => {
   if (isAdminViewer.value) return 'admin'
   if (isModerViewer.value) return 'moderation'
