@@ -9,8 +9,14 @@
               <img class="avatar-preview-img" :src="avatarPreviewSrc" alt="" />
             </button>
           </template>
-          <p v-else-if="loading && !profileLoadedForTarget" class="state">Загрузка...</p>
-          <p v-else-if="loadError" class="state state-danger">{{ loadError }}</p>
+          <div v-else-if="loading && !profileLoadedForTarget" class="state-loading" role="status" aria-live="polite">
+            <UiLoaderIcon class="state-loading-img" />
+            <span class="state-loading-text">Загрузка...</span>
+          </div>
+          <div v-else-if="loadError" class="state-error">
+            <UiIcon class="state-error-img" :icon="iconDanger" />
+            <span class="state-error-text">{{ loadError }}</span>
+          </div>
           <template v-else>
             <header class="profile-top">
               <div class="profile-identity">
@@ -243,6 +249,7 @@ import ProfileHistory from '@/components/ProfileHistory.vue'
 import Sanction from '@/components/Sanction.vue'
 import Subscription from '@/components/Subscription.vue'
 import UiIcon from '@/components/UiIcon.vue'
+import UiLoaderIcon from '@/components/UiLoaderIcon.vue'
 import UiButton from '@/components/UiButton.vue'
 import UiDropdown from '@/components/UiDropdown.vue'
 import UiScrollbar from '@/components/UiScrollbar.vue'
@@ -268,6 +275,7 @@ import nominationSpectator from '@/assets/svg/iconVisOn.svg'
 import iconDonation from '@/assets/svg/iconDonation.svg'
 import iconDelete from '@/assets/svg/iconDelete.svg'
 import iconEllipsis from '@/assets/svg/iconEllipsis.svg'
+import iconDanger from '@/assets/svg/iconDanger.svg'
 
 type FriendActionKind = 'add' | 'remove' | 'incoming' | 'outgoing'
 type MiniProfileSanctionKind = 'timeout' | 'ban' | 'suspend'
@@ -1819,14 +1827,44 @@ onBeforeUnmount(() => {
         object-fit: contain;
       }
     }
-    .state {
-      margin: 0;
-      width: 100%;
-      color: $ashy;
-      text-align: center;
-      font-size: 16px;
-      &.state-danger {
-        color: $red;
+    .state-loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      .state-loading-img {
+        --ui-icon-width: 48px;
+        --ui-icon-height: 48px;
+        --ui-icon-color: #{$neutral-white};
+      }
+      .state-loading-text {
+        color: $neutral-100;
+        font-family: Hauora-Regular;
+        font-size: 16px;
+        line-height: 22px;
+        letter-spacing: -0.32px;
+      }
+    }
+    .state-error {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 12px;
+      gap: 8px;
+      border-radius: 16px;
+      background-color: $red-100;
+      .state-error-img {
+        --ui-icon-width: 24px;
+        --ui-icon-height: 24px;
+        --ui-icon-color: #{$red-500};
+      }
+      .state-error-text {
+        color: $red-500;
+        font-family: Hauora-Regular;
+        font-size: 16px;
+        line-height: 22px;
+        letter-spacing: -0.32px;
       }
     }
     .profile-top {
@@ -2189,6 +2227,7 @@ onBeforeUnmount(() => {
                     height: 0;
                   }
                   .nickname-history-title {
+                    margin-bottom: 8px;
                     color: $neutral-black;
                     font-family: Hauora-Bold;
                     font-size: 16px;
