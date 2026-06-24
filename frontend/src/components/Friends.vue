@@ -279,8 +279,8 @@ async function invite(friend: { id: number; username?: string | null; kind?: str
   }
   const ok = await confirmDialog({
     title: 'Приглашение в комнату',
-    text: `Вы хотите пригласить пользователя ${friend.username || ('user' + uid)} в комнату?`,
-    confirmText: 'Пригласить',
+    text: `Вы уверены, что хотите пригласить пользователя ${friend.username || ('user' + uid)} в комнату?`,
+    confirmText: 'Подтвердить',
     cancelText: 'Отмена',
   })
   if (!ok) return
@@ -328,7 +328,7 @@ async function remove(uid: number) {
   const ok = await confirmDialog({
     title: 'Удалить из друзей',
     text: 'Вы уверены, что хотите удалить пользователя из друзей?',
-    confirmText: 'Удалить',
+    confirmText: 'Подтвердить',
     cancelText: 'Отмена',
   })
   if (!ok) return
@@ -348,8 +348,8 @@ async function accept(uid: number) {
   if (isActionBusy(uid)) return
   const ok = await confirmDialog({
     title: 'Принять заявку',
-    text: 'Принять пользователя в друзья?',
-    confirmText: 'Принять',
+    text: 'Вы уверены, что хотите принять пользователя в друзья?',
+    confirmText: 'Подтвердить',
     cancelText: 'Отмена',
   })
   if (!ok) return
@@ -368,9 +368,9 @@ async function accept(uid: number) {
 async function decline(uid: number) {
   if (isActionBusy(uid)) return
   const ok = await confirmDialog({
-    title: 'Отклонить заявку',
-    text: 'Отклонить запрос в друзья?',
-    confirmText: 'Отклонить',
+    title: 'Отклонить запрос',
+    text: 'Вы уверены, что хотите отклонить запрос в друзья?',
+    confirmText: 'Подтвердить',
     cancelText: 'Отмена',
   })
   if (!ok) return
@@ -389,9 +389,9 @@ async function decline(uid: number) {
 async function cancelOutgoing(uid: number, username?: string | null) {
   if (isActionBusy(uid)) return
   const ok = await confirmDialog({
-    title: 'Отменить заявку',
-    text: `Вы уверены, что хотите отменить заявку в друзья для пользователя ${username || ('user' + uid)}?`,
-    confirmText: 'Отменить',
+    title: 'Отменить запрос',
+    text: `Вы уверены, что хотите отменить запрос в друзья для пользователя ${username || ('user' + uid)}?`,
+    confirmText: 'Подтвердить',
     cancelText: 'Отмена',
   })
   if (!ok) return

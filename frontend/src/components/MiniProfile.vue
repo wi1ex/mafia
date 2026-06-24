@@ -126,7 +126,6 @@
 
                     <div v-if="showProfileRoomVolume" class="profile-room-volume">
                       <UiIcon class="volume-img" :icon="profileRoomVolumeIcon" />
-                      <img :src="profileRoomVolumeIcon" alt="vol" />
                       <UiSlider
                         :model-value="profileRoomVolume"
                         :min="0"
@@ -1324,7 +1323,7 @@ async function toggleStaffRole(): Promise<void> {
   const userLabel = currentTargetLabel()
   const ok = await confirmDialog({
     title: isModer ? 'Снять модерку' : 'Выдать модерку',
-    text: `${isModer ? 'Снять' : 'Выдать'} права модератора пользователю ${userLabel}?`,
+    text: `Вы уверены, что хотите ${isModer ? 'снять' : 'выдать'} права модератора пользователю ${userLabel}?`,
     confirmText: isModer ? 'Снять' : 'Выдать',
     cancelText: 'Отмена',
     checkboxLabel: 'Подтверждаю',
@@ -1357,8 +1356,8 @@ async function toggleStaffAccount(): Promise<void> {
   const ok = await confirmDialog({
     title: isDeleted ? 'Восстановить аккаунт' : 'Удалить аккаунт',
     text: isDeleted
-      ? `Восстановить аккаунт пользователя ${userLabel}?`
-      : `Удалить аккаунт пользователя ${userLabel}?`,
+      ? `Вы уверены, что хотите восстановить аккаунт пользователя ${userLabel}?`
+      : `Вы уверены, что хотите удалить аккаунт пользователя ${userLabel}?`,
     confirmText: isDeleted ? 'Восстановить' : 'Удалить',
     cancelText: 'Отмена',
     checkboxLabel: 'Подтверждаю',
@@ -1388,8 +1387,8 @@ async function deleteStaffAvatar(): Promise<void> {
   const userLabel = currentTargetLabel()
   const ok = await confirmDialog({
     title: 'Удалить аватар',
-    text: `Удалить аватар у пользователя ${userLabel}?`,
-    confirmText: 'Удалить',
+    text: `Вы уверены, что хотите удалить аватар у пользователя ${userLabel}?`,
+    confirmText: 'Подтвердить',
     cancelText: 'Отмена',
   })
   if (!ok) return
@@ -1417,8 +1416,8 @@ async function resetStaffNickname(): Promise<void> {
   const userLabel = currentTargetLabel()
   const ok = await confirmDialog({
     title: 'Сбросить никнейм',
-    text: `Сбросить никнейм пользователя ${userLabel} на user_${uid}?`,
-    confirmText: 'Сбросить',
+    text: `Вы уверены, что хотите сбросить никнейм пользователя ${userLabel} на user_${uid}?`,
+    confirmText: 'Подтвердить',
     cancelText: 'Отмена',
   })
   if (!ok) return
@@ -1486,10 +1485,10 @@ async function revokeStaffSanction(kind: MiniProfileSanctionKind): Promise<void>
   const userLabel = currentTargetLabel()
   const title = kind === 'ban' ? 'Разбанить' : kind === 'timeout' ? 'Снять таймаут' : 'Снять отстранение от игр'
   const text = kind === 'ban'
-    ? `Разбанить пользователя ${userLabel}?`
+    ? `Вы уверены, что хотите разбанить пользователя ${userLabel}?`
     : kind === 'timeout'
-      ? `Снять таймаут у пользователя ${userLabel}?`
-      : `Снять отстранение от игр у пользователя ${userLabel}?`
+      ? `Вы уверены, что хотите снять таймаут у пользователя ${userLabel}?`
+      : `Вы уверены, что хотите снять отстранение от игр у пользователя ${userLabel}?`
   const ok = await confirmDialog({
     title,
     text,
@@ -2538,7 +2537,7 @@ onBeforeUnmount(() => {
                                       height: 24px;
                                     }
                                     &:hover {
-                                      background-color: $neutral-700;
+                                      background-color: $soft-purple-800;
                                     }
                                     &.red-button {
                                       background-color: $red-400;

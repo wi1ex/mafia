@@ -2198,8 +2198,8 @@ async function deleteContactRequest(row: ContactRequestRow): Promise<void> {
   if (contactRequestsDeleting[row.id]) return
   const ok = await confirmDialog({
     title: 'Удалить обращение',
-    text: `Удалить обращение #${row.id} из базы данных?`,
-    confirmText: 'Удалить',
+    text: `Вы уверены, что хотите удалить обращение #${row.id} из базы данных?`,
+    confirmText: 'Подтвердить',
     cancelText: 'Отмена',
   })
   if (!ok) return
@@ -2226,8 +2226,8 @@ async function deleteSanction(row: SanctionsRow): Promise<void> {
   const userLabel = row.username || `user${row.user_id}`
   const ok = await confirmDialog({
     title: 'Удалить санкцию',
-    text: `Удалить неактивную санкцию из истории у ${userLabel}?`,
-    confirmText: 'Удалить',
+    text: `Вы уверены, что хотите удалить неактивную санкцию из истории у ${userLabel}?`,
+    confirmText: 'Подтвердить',
     cancelText: 'Отмена',
   })
   if (!ok) return
@@ -2370,8 +2370,8 @@ async function removeSubscription(row: SubscriptionRow): Promise<void> {
   if (subscriptionRemoving[row.user_id]) return
   const ok = await confirmDialog({
     title: 'Удалить подписку',
-    text: `Удалить подписку у ${row.username || `user${row.user_id}`}?`,
-    confirmText: 'Удалить',
+    text: `Вы уверены, что хотите удалить подписку у ${row.username || `user${row.user_id}`}?`,
+    confirmText: 'Подтвердить',
     cancelText: 'Отмена',
   })
   if (!ok) return
@@ -2414,7 +2414,7 @@ async function kickAllRooms(): Promise<void> {
   if (kickRoomsBusy.value) return
   const ok = await confirmDialog({
     title: 'Кик из комнат',
-    text: 'Кикнуть всех пользователей из всех активных комнат?',
+    text: 'Вы уверены, что хотите кикнуть всех пользователей из всех активных комнат?',
     confirmText: 'Кикнуть',
     cancelText: 'Отмена',
     checkboxLabel: 'Подтверждаю',
@@ -2436,7 +2436,7 @@ async function clearGlobalChat(): Promise<void> {
   if (clearChatBusy.value) return
   const ok = await confirmDialog({
     title: 'Очистить чат',
-    text: 'Полностью очистить общий чат?',
+    text: 'Вы уверены, что хотите полностью очистить общий чат?',
     confirmText: 'Очистить',
     cancelText: 'Отмена',
     checkboxLabel: 'Подтверждаю',

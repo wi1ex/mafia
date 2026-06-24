@@ -697,8 +697,9 @@ async function clearNicknameHistory() {
 
   const ok = await confirmDialog({
     title: 'Очистить историю никнеймов',
-    text: 'Очистить историю никнеймов, оставив только текущий никнейм?',
-    confirmText: 'Очистить',
+    text: 'Вы уверены, что хотите очистить историю никнеймов, оставив только текущий никнейм?',
+    confirmText: 'Подтвердить',
+    cancelText: 'Отмена',
   })
   if (!ok) return
 
@@ -819,8 +820,8 @@ async function unlinkTelegram() {
   if (!telegramVerified.value || unlinkTgBusy.value) return
   const ok = await confirmDialog({
     title: 'Отвязать TG-аккаунт',
-    text: 'После отвязки Telegram-верификация будет снята. Продолжить?',
-    confirmText: 'Отвязать',
+    text: 'Вы уверены, что хотите отвязать Telegram-аккаунт? После отвязки верификация будет снята.',
+    confirmText: 'Подтвердить',
     cancelText: 'Отмена',
   })
   if (!ok) return
@@ -845,8 +846,8 @@ async function deleteAccount() {
   if (deleteBusy.value || isDeleteAccountForbiddenSelf.value) return
   const ok = await confirmDialog({
     title: 'Удаление аккаунта',
-    text: 'Вы уверены что хотите навсегда удалить свой аккаунт?',
-    confirmText: 'Удалить',
+    text: 'Вы уверены, что хотите навсегда удалить аккаунт?',
+    confirmText: 'Подтвердить',
     cancelText: 'Отмена',
   })
   if (!ok) return
@@ -1275,8 +1276,8 @@ async function applyCrop() {
 async function onDeleteAvatar() {
   const ok = await confirmDialog({
     title: 'Удаление аватара',
-    text: 'Вы уверены что хотите удалить аватар?',
-    confirmText: 'Удалить',
+    text: 'Вы уверены, что хотите удалить аватар?',
+    confirmText: 'Подтвердить',
     cancelText: 'Отмена',
   })
   if (!ok) return

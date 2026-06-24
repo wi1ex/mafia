@@ -2806,8 +2806,8 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     }
     const ok = await confirmDialog({
       title: 'Покинуть игру',
-      text: 'Вы уверены что хотите покинуть игру?',
-      confirmText: 'Покинуть',
+      text: 'Вы уверены, что хотите покинуть игру?',
+      confirmText: 'Подтвердить',
       cancelText: 'Отмена',
     })
     if (!ok) return
@@ -2872,9 +2872,9 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
         return
       }
       const ok = await confirmDialog({
-        title: 'Начало игры',
-        text: 'Вы уверены что хотите начать игру?',
-        confirmText: 'Начать',
+        title: 'Запуск игры',
+        text: 'Вы уверены, что хотите запустить игру?',
+        confirmText: 'Подтвердить',
         cancelText: 'Отмена',
       })
       if (!ok) return
@@ -2904,8 +2904,8 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (endingGame.value) return
     const ok = await confirmDialog({
       title: 'Завершение игры',
-      text: 'Вы уверены что хотите завершить игру?',
-      confirmText: 'Завершить',
+      text: 'Вы уверены, что хотите завершить игру?',
+      confirmText: 'Подтвердить',
       cancelText: 'Отмена',
     })
     if (!ok) return
@@ -3026,10 +3026,10 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       if (st === 409 && code === 'need_confirm_kill') {
         const confirm = await confirmDialogWithCheckbox({
           title: 'Удаление игрока',
-          text: 'Вы уверены что хотите удалить игрока?',
-          confirmText: 'Удалить',
+          text: 'Вы уверены, что хотите удалить игрока?',
+          confirmText: 'Подтвердить',
           cancelText: 'Отмена',
-          checkboxLabel: 'Объявить ППК для игрока',
+          checkboxLabel: 'Объявить игроку ППК',
         })
         if (!confirm.ok) return
         const resp2 = await sendAck('game_foul_set', { user_id: uidNum, confirm_kill: true, ppk_kill: confirm.checkboxChecked })

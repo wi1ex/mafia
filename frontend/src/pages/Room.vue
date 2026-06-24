@@ -2000,9 +2000,9 @@ async function toggleBlock(targetId: string, key: keyof BlockState) {
 async function kickUser(targetId: string) {
   if (!canModerate(targetId)) return
   const ok = await confirmDialog({
-    title: 'Удаление пользователя',
-    text: 'Вы уверены что хотите удалить пользователя?',
-    confirmText: 'Удалить',
+    title: 'Выгнать пользователя',
+    text: 'Вы уверены, что хотите выгнать пользователя?',
+    confirmText: 'Подтвердить',
     cancelText: 'Отмена',
   })
   if (!ok) return
@@ -2869,8 +2869,8 @@ const toggleHostBlur = async () => {
   const wantEnable = !hostBlurActive.value
   const ok = await confirmDialog({
     text: wantEnable
-      ? 'Вы хотите начать паузу? Игроки не смогут видеть друг друга и брать фолы. Пауза завершится автоматически через 2 минуты.'
-      : 'Вы хотите завершить паузу?',
+      ? 'Начать паузу? Игроки не смогут видеть друг друга и брать фолы. Пауза завершится автоматически через 2 минуты.'
+      : 'Завершить паузу?',
   })
   if (!ok) return
   hostBlurPending.value = true

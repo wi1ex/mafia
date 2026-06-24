@@ -1274,7 +1274,7 @@ async function onDeleteMessage(message: GlobalChatMessage): Promise<void> {
       : isChatModerator.value
         ? `Вы уверены, что хотите удалить сообщение пользователя ${authorName}?`
         : 'Вы уверены, что хотите удалить это сообщение?',
-    confirmText: 'Удалить',
+    confirmText: 'Подтвердить',
     cancelText: 'Отмена',
   })
   if (!confirmed) return
@@ -1324,8 +1324,8 @@ async function onPurgeDeletedMessage(message: GlobalChatMessage): Promise<void> 
   if (!showDeletedPurgeAction(message) || chat.isPurgeBusy(message.id)) return
   const confirmed = await confirmDialog({
     title: 'Окончательное удаление',
-    text: 'Вы уверены что хотите удалить сообщение навсегда?',
-    confirmText: 'Удалить',
+    text: 'Вы уверены, что хотите удалить сообщение навсегда?',
+    confirmText: 'Подтвердить',
     cancelText: 'Отмена',
   })
   if (!confirmed) return

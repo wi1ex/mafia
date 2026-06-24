@@ -644,8 +644,8 @@ async function onAdminKickRoom() {
   }
   const ok = await confirmDialog({
     title: 'Удалить комнату',
-    text: `Кикнуть всех из «${room.title}» и закрыть вход?`,
-    confirmText: 'Удалить',
+    text: `Вы уверены, что хотите кикнуть всех из «${room.title}» и закрыть вход?`,
+    confirmText: 'Подтвердить',
     cancelText: 'Отмена',
   })
   if (!ok) return
