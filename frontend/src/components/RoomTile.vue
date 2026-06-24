@@ -82,8 +82,8 @@
 
     <img v-if="hasVoted" class="icon-voted" :src="iconLikeGreen" alt="voted" />
 
-    <div class="user-card" :style="userCardStyle" :data-open="openPanel ? 1 : 0" :data-game="inGame ? 1 : 0" @click.stop>
-      <button class="card-head" @click.stop="$emit('toggle-panel', id)" :aria-expanded="openPanel">
+    <div class="user-card" :style="userCardStyle" @click.stop>
+      <button class="card-head" :disabled="!canOpenProfile" aria-haspopup="dialog" @click.stop="$emit('open-profile', id)">
         <img v-if="seat != null && seatIcon" class="user-slot" :src="seatIcon" alt="seat" />
         <img class="user-avatar" v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar, lazy: false }" alt="avatar" />
         <div v-if="profileThemeIconSrcs.length" class="profile-theme-icons" aria-hidden="true">
@@ -98,40 +98,6 @@
           <img v-if="showScreenStatus" :src="screenStatusIcon" alt="scr" />
         </div>
       </button>
-
-      <Transition name="card-body">
-        <div v-show="openPanel" class="card-body" :data-open="openPanel ? 1 : 0" :aria-hidden="!openPanel" @click.stop>
-          <div v-if="id !== localId" class="volume">
-            <img :src="volumeIcon" alt="vol" />
-            <UiSlider
-              class="volume-slider"
-              :model-value="vol ?? 100"
-              :min="0"
-              :max="200"
-              :step="10"
-              :disabled="volumeDisabled"
-              aria-label="Громкость пользователя"
-              @update:modelValue="$emit('vol-input', id, $event)"
-            />
-            <span>{{ vol ?? 100 }}%</span>
-          </div>
-
-          <div v-if="canOpenProfile" class="profile-row">
-            <button type="button" @click="$emit('open-profile', id)">
-              <img :src="iconProfile" alt="" />
-              <span>Профиль</span>
-            </button>
-          </div>
-
-          <div v-if="id !== localId && !inGame && canModerate(id)" class="admin-row" aria-label="Блокировки">
-            <button @click="$emit('block','mic',id)" aria-label="block mic"><img :src="micStatusIcon" alt="mic" /></button>
-            <button @click="$emit('block','cam',id)" aria-label="block cam"><img :src="camStatusIcon" alt="cam" /></button>
-            <button @click="$emit('block','speakers',id)" aria-label="block speakers"><img :src="speakersStatusIcon" alt="spk" /></button>
-            <button @click="$emit('block','screen',id)" aria-label="block screen"><img :src="screenStatusIcon" alt="scr" /></button>
-            <button class="red-button" @click="$emit('kick', id)" aria-label="kick user"><img :src="iconLeaveRoom" alt="kick" /></button>
-          </div>
-        </div>
-      </Transition>
     </div>
     <div v-if="showTimeline && timelineDurationSec > 0" class="role-timer">
       <div class="role-timer-bar" :style="{ animationDuration: timelineDurationSec + 's', animationPlayState: timelinePaused ? 'paused' : 'running' }" />
@@ -141,10 +107,8 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import UiSlider from '@/components/UiSlider.vue'
 
 import iconReadyGreen from '@/assets/svg/readyGreen.svg'
-import iconLeaveRoom from '@/assets/svg/leave.svg'
 import iconFoul from '@/assets/svg/foul.svg'
 import iconRoleCitizen from '@/assets/images/roleCitizen.png'
 import iconRoleMafia from '@/assets/images/roleMafia.png'
@@ -155,7 +119,6 @@ import iconKill from '@/assets/svg/killBlack.svg'
 import iconCloseCircle from '@/assets/svg/closeCircle.svg'
 import iconWink from '@/assets/svg/wink.svg'
 import iconKnock from '@/assets/svg/knock.svg'
-import iconProfile from '@/assets/svg/profile.svg'
 import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
 import { getProfileThemeBadgeSources } from '@/constants/profileIcons'
 
@@ -173,18 +136,13 @@ const props = withDefaults(defineProps<{
   themeColor?: string | null
   themeIcon?: string | null
   moderationRole?: string | null
-  volumeIcon: string
   videoRef: (el: HTMLVideoElement | null) => void
   hasVideoTrack: (id: string) => boolean
-  openPanelFor: string
-  speakersOn: boolean
-  vol?: number
   stateIcon: (k: IconKind, id: string) => string
   isOn: (id: string, k: IconKind) => boolean
   isBlocked: (id: string, k: IconKind) => boolean
   userName: (id: string) => string
   avatarKey: (id: string) => string
-  canModerate: (id: string) => boolean
   canOpenProfile?: boolean
   isReady: (id: string) => boolean
   isMirrored: (id: string) => boolean
@@ -296,14 +254,9 @@ const props = withDefaults(defineProps<{
   themeColor: null,
   themeIcon: null,
   moderationRole: null,
-  vol: 100,
 })
 
 defineEmits<{
-  (e: 'toggle-panel', id: string): void
-  (e: 'vol-input', id: string, v: number): void
-  (e: 'block', key: 'mic'|'cam'|'speakers'|'screen', id: string): void
-  (e: 'kick', id: string): void
   (e: 'foul', id: string): void
   (e: 'nominate', id: string): void
   (e: 'unnominate', id: string): void
@@ -343,7 +296,6 @@ const showScreenStatus = computed(() => screenBlocked.value || screenEnabled.val
 
 const isAdminUser = computed(() => String(props.moderationRole || '').trim().toLowerCase() === 'admin')
 const showHeaderStatus = computed(() => !isAdminUser.value && (!props.inGame || props.isGameHead))
-const volumeDisabled = computed(() => !props.speakersOn || speakersBlocked.value)
 const isDeadTile = computed(() => props.isDead(props.id))
 const showVideo = computed(() =>
   !props.hiddenByVisibility &&
@@ -356,7 +308,6 @@ const showVideo = computed(() =>
 const videoClass = computed(() =>
   `${props.fitContain ? 'contain' : 'cover'}${props.isMirrored(props.id) ? ' mirrored' : ''}`
 )
-const openPanel = computed(() => props.openPanelFor === props.id)
 const liftNomineesSet = computed(() => new Set(props.liftNominees || []))
 const hasRolePickTimer = computed(() => props.rolePickOwnerId === props.id && (props.rolePickRemainingMs ?? 0) > 0)
 const hasMafiaTalkTimer = computed(() => props.mafiaTalkHostId === props.id && (props.mafiaTalkRemainingMs ?? 0) > 0)
@@ -717,20 +668,11 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
     inline-size: max-content;
     max-inline-size: min(210px, calc(100% - 30px));
     block-size: 30px;
-    will-change: inline-size, block-size;
     border-radius: 5px;
     background-color: var(--user-theme-bg, rgba($dark, 0.75));
     box-shadow: 3px 3px 5px rgba($black, 0.25);
     z-index: 20;
     overflow: hidden;
-    transition: inline-size 0.25s ease-out, block-size 0.25s ease-out;
-    &[data-open="1"] {
-      inline-size: min(210px, calc(100% - 30px));
-      block-size: 138px;
-    }
-    &[data-open="1"][data-game="1"] {
-      block-size: 103px;
-    }
     .card-head {
       display: flex;
       align-items: center;
@@ -785,119 +727,6 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
         img {
           width: 16px;
           height: 16px;
-        }
-      }
-    }
-    .card-body-enter-from,
-    .card-body-leave-to {
-      opacity: 0;
-      transform: translate(-60px, -60px);
-    }
-    .card-body-enter-active,
-    .card-body-leave-active {
-      transition: transform 0.25s ease-out, opacity 0.25s ease-out;
-    }
-    .card-body {
-      display: flex;
-      flex-direction: column;
-      margin-top: 5px;
-      gap: 10px;
-      &[data-open="0"] {
-        pointer-events: none;
-      }
-      .volume {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 5px;
-        gap: 5px;
-        width: calc(100% - 10px);
-        height: 20px;
-        border-radius: 5px;
-        background-color: $graphite;
-        box-shadow: 3px 3px 5px rgba($black, 0.25);
-        -webkit-overflow-scrolling: touch;
-        img {
-          flex: 0 0 auto;
-          width: 20px;
-          height: 20px;
-        }
-        .volume-slider {
-          flex: 1 1 auto;
-          min-width: 0;
-          height: 80%;
-          --ui-slider-filled-height: 100%;
-          --ui-slider-filled-radius: 5px;
-          --ui-slider-filled-border: #{$lead};
-          --ui-slider-filled-bg: #{$graphite};
-          --ui-slider-filled-color: #{$fg};
-          --ui-slider-filled-focus: #{$lead};
-        }
-        span {
-          flex: 0 0 auto;
-          min-width: 32px;
-          text-align: center;
-          font-size: 12px;
-        }
-      }
-      .profile-row {
-        button {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 0;
-          gap: 5px;
-          width: 100%;
-          height: 25px;
-          border: none;
-          border-radius: 5px;
-          background-color: $graphite;
-          cursor: pointer;
-          transition: background-color 0.25s ease-in-out;
-          img {
-            width: 16px;
-            height: 16px;
-          }
-          span {
-            height: 20px;
-            color: $fg;
-            font-size: 14px;
-            font-family: Manrope-Medium;
-          }
-          &:hover {
-            background-color: $lead;
-          }
-        }
-      }
-      .admin-row {
-        display: flex;
-        gap: 5px;
-        button {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 0;
-          min-width: calc((100% - 20px) / 5);
-          height: 25px;
-          border: none;
-          border-radius: 5px;
-          background-color: $graphite;
-          box-shadow: 3px 3px 5px rgba($black, 0.25);
-          cursor: pointer;
-          transition: background-color 0.25s ease-in-out;
-          &:hover {
-            background-color: $lead;
-          }
-          &.red-button {
-            background-color: rgba($red, 0.75);
-            &:hover {
-              background-color: $red;
-            }
-          }
-          img {
-            width: 18px;
-            height: 18px;
-          }
         }
       }
     }

@@ -126,6 +126,31 @@
                 </div>
               </div>
 
+              <div v-if="showProfileRoomControls" class="profile-room-controls" aria-label="Управление пользователем в комнате">
+                <div v-if="showProfileRoomVolume" class="profile-room-volume">
+                  <img :src="profileRoomVolumeIcon" alt="vol" />
+                  <UiSlider
+                    class="profile-room-volume-slider"
+                    :model-value="profileRoomVolume"
+                    :min="0"
+                    :max="200"
+                    :step="10"
+                    :disabled="profileRoomVolumeDisabled"
+                    aria-label="Громкость пользователя"
+                    @update:modelValue="emit('room-volume-change', $event)"
+                  />
+                  <span>{{ profileRoomVolume }}%</span>
+                </div>
+
+                <div v-if="showProfileRoomAdminActions" class="profile-room-admin" aria-label="Блокировки">
+                  <button type="button" @click="emitProfileRoomBlock('mic')" aria-label="block mic"><img :src="profileRoomMicIcon" alt="mic" /></button>
+                  <button type="button" @click="emitProfileRoomBlock('cam')" aria-label="block cam"><img :src="profileRoomCamIcon" alt="cam" /></button>
+                  <button type="button" @click="emitProfileRoomBlock('speakers')" aria-label="block speakers"><img :src="profileRoomSpeakersIcon" alt="spk" /></button>
+                  <button type="button" @click="emitProfileRoomBlock('screen')" aria-label="block screen"><img :src="profileRoomScreenIcon" alt="scr" /></button>
+                  <button class="red-button" type="button" @click="emit('room-kick')" aria-label="kick user"><img :src="iconLeaveRoom" alt="kick" /></button>
+                </div>
+              </div>
+
               <div v-if="showActionBlock" class="profile-actions">
 <!--                <button v-if="showStatsButton" class="profile-action secondary" type="button" @click="view = 'stats'">-->
 <!--                  Статистика пользователя-->
@@ -253,6 +278,7 @@ import UiLoaderIcon from '@/components/UiLoaderIcon.vue'
 import UiButton from '@/components/UiButton.vue'
 import UiDropdown from '@/components/UiDropdown.vue'
 import UiScrollbar from '@/components/UiScrollbar.vue'
+import UiSlider from '@/components/UiSlider.vue'
 
 import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
 import iconDefaultAvatarBlack from '@/assets/svg/iconDefaultAvatarBlack.svg'
@@ -276,11 +302,13 @@ import iconDonation from '@/assets/svg/iconDonation.svg'
 import iconDelete from '@/assets/svg/iconDelete.svg'
 import iconEllipsis from '@/assets/svg/iconEllipsis.svg'
 import iconDanger from '@/assets/svg/iconDanger.svg'
+import iconLeaveRoom from '@/assets/svg/leave.svg'
 
 type FriendActionKind = 'add' | 'remove' | 'incoming' | 'outgoing'
 type MiniProfileSanctionKind = 'timeout' | 'ban' | 'suspend'
 type StaffActionKey = 'suspend' | 'timeout' | 'avatar' | 'nickname' | 'ban' | 'account' | 'role' | 'subscription'
 type StaffActionScope = 'admin' | 'moderation'
+type MiniProfileRoomControlKey = 'mic' | 'cam' | 'speakers' | 'screen'
 type NominationLevel = 1 | 2 | 3 | 4 | 5
 type NominationStatKey = 'games_played' | 'games_hosted' | 'room_minutes' | 'stream_minutes' | 'spectator_minutes'
 
@@ -333,6 +361,18 @@ type ProfileNomination = {
   progressPct: number
   progressStartLabel: string
   progressNextLabel: string
+}
+
+type MiniProfileRoomControls = {
+  showVolume?: boolean
+  volume?: number | null
+  volumeIcon?: string | null
+  volumeDisabled?: boolean
+  showAdminActions?: boolean
+  micIcon?: string | null
+  camIcon?: string | null
+  speakersIcon?: string | null
+  screenIcon?: string | null
 }
 
 type MiniProfileInitial = {
@@ -391,6 +431,7 @@ const props = withDefaults(defineProps<{
   historyUrl?: string | null
   refreshFriendsListOnAction?: boolean
   refreshFriendsRoomId?: number | null
+  roomControls?: MiniProfileRoomControls | null
 }>(), {
   userId: null,
   initialProfile: null,
@@ -400,12 +441,16 @@ const props = withDefaults(defineProps<{
   historyUrl: null,
   refreshFriendsListOnAction: false,
   refreshFriendsRoomId: null,
+  roomControls: null,
 })
 
 const emit = defineEmits<{
   'update:open': [value: boolean]
   'friend-status-change': [userId: number, status: FriendStatus]
   'staff-action-complete': [payload: { userId: number, action: StaffActionKey | 'sanction' }]
+  'room-volume-change': [value: number]
+  'room-block': [key: MiniProfileRoomControlKey]
+  'room-kick': []
 }>()
 
 const friends = useFriendsStore()
@@ -640,6 +685,20 @@ const resolvedHistoryUrl = computed(() => {
   const provided = String(props.historyUrl || '').trim()
   return provided || `/users/${targetUserId.value}/games/history`
 })
+const profileRoomControls = computed(() => props.roomControls || null)
+const showProfileRoomVolume = computed(() => Boolean(profileRoomControls.value?.showVolume))
+const showProfileRoomAdminActions = computed(() => Boolean(profileRoomControls.value?.showAdminActions))
+const showProfileRoomControls = computed(() => showProfileRoomVolume.value || showProfileRoomAdminActions.value)
+const profileRoomVolume = computed(() => {
+  const value = Number(profileRoomControls.value?.volume ?? 100)
+  return Number.isFinite(value) ? value : 100
+})
+const profileRoomVolumeIcon = computed(() => String(profileRoomControls.value?.volumeIcon || ''))
+const profileRoomVolumeDisabled = computed(() => Boolean(profileRoomControls.value?.volumeDisabled))
+const profileRoomMicIcon = computed(() => String(profileRoomControls.value?.micIcon || ''))
+const profileRoomCamIcon = computed(() => String(profileRoomControls.value?.camIcon || ''))
+const profileRoomSpeakersIcon = computed(() => String(profileRoomControls.value?.speakersIcon || ''))
+const profileRoomScreenIcon = computed(() => String(profileRoomControls.value?.screenIcon || ''))
 
 const friendStatusClass = computed(() => (friendStatus.value === 'self' ? 'none' : friendStatus.value))
 const friendActionLabel = computed(() => {
@@ -1644,6 +1703,10 @@ function updateNominationTooltipOffset(event: Event) {
   }
 }
 
+function emitProfileRoomBlock(key: MiniProfileRoomControlKey): void {
+  emit('room-block', key)
+}
+
 async function onFriendAction(kind: FriendActionKind) {
   const uid = targetUserId.value
   if (uid <= 0 || friendBusy.value) return
@@ -2486,6 +2549,70 @@ onBeforeUnmount(() => {
         }
       }
     }
+                                            .profile-room-controls {
+                                              display: flex;
+                                              flex-direction: column;
+                                              gap: 10px;
+                                              width: 100%;
+                                            }
+                                            .profile-room-volume {
+                                              display: flex;
+                                              align-items: center;
+                                              gap: 12px;
+                                              padding: 14px 16px;
+                                              border-radius: 20px;
+                                              background-color: $soft-purple-900;
+                                              -webkit-overflow-scrolling: touch;
+                                              img {
+                                                flex: 0 0 auto;
+                                                width: 24px;
+                                                height: 24px;
+                                              }
+                                              .profile-room-volume-slider {
+                                                flex: 1 1 auto;
+                                                min-width: 0;
+                                                --ui-slider-filled-height: 32px;
+                                              }
+                                              span {
+                                                flex: 0 0 auto;
+                                                min-width: 46px;
+                                                color: $neutral-white;
+                                                font-family: Hauora-Bold;
+                                                font-size: 16px;
+                                                line-height: 18px;
+                                                text-align: right;
+                                              }
+                                            }
+                                            .profile-room-admin {
+                                              display: grid;
+                                              grid-template-columns: repeat(5, minmax(0, 1fr));
+                                              gap: 10px;
+                                              button {
+                                                display: flex;
+                                                align-items: center;
+                                                justify-content: center;
+                                                padding: 0;
+                                                height: 48px;
+                                                border: none;
+                                                border-radius: 16px;
+                                                background-color: $soft-purple-900;
+                                                cursor: pointer;
+                                                transition: background-color 0.25s ease-in-out;
+                                                &:hover {
+                                                  background-color: $neutral-700;
+                                                }
+                                                &.red-button {
+                                                  background-color: rgba($red, 0.75);
+                                                  &:hover {
+                                                    background-color: $red;
+                                                  }
+                                                }
+                                                img {
+                                                  width: 22px;
+                                                  height: 22px;
+                                                }
+                                              }
+                                            }
     .profile-actions {
       display: flex;
       flex-direction: column;

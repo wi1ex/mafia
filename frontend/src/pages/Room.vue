@@ -25,7 +25,6 @@
           :has-video-track="rtc.hasCameraTrack"
           :fit-contain="fitContainInGrid"
           :default-avatar="defaultAvatar"
-          :volume-icon="volumeIconForUser(id)"
           :state-icon="stateIcon"
           :is-ready="isReady"
           :is-on="isOn"
@@ -36,10 +35,6 @@
           :theme-icon="themeIconFor(id)"
           :moderation-role="moderationRol(id)"
           :can-open-profile="canOpenMiniProfileFromTile(id)"
-          :can-moderate="canModerate"
-          :speakers-on="speakersOn"
-          :open-panel-for="openPanelFor"
-          :vol="volumeFor(id)"
           :is-mirrored="isMirrored"
           :is-game-head="game.isGameHead(id)"
           :is-head="isHead"
@@ -91,11 +86,7 @@
           :vote-enabled="game.canPressVoteButton()"
           :has-voted="(isLiftVoting ? votedUsers : votedThisRound).has(id)"
           :show-foul-control="canShowFoulButtons"
-          @toggle-panel="toggleTilePanel"
           @open-profile="openMiniProfileFromTile"
-          @vol-input="onVol"
-          @block="onTileBlock"
-          @kick="kickUser"
           @foul="onGiveFoul"
           @wink="onWink"
           @knock="openKnockModal"
@@ -145,7 +136,6 @@
             :has-video-track="rtc.hasCameraTrack"
             :fit-contain="fitContainInGrid"
             :default-avatar="defaultAvatar"
-            :volume-icon="volumeIconForUser(id)"
             :state-icon="stateIcon"
             :is-ready="isReady"
             :is-on="isOn"
@@ -156,10 +146,6 @@
             :theme-icon="themeIconFor(id)"
             :moderation-role="moderationRol(id)"
             :can-open-profile="canOpenMiniProfileFromTile(id)"
-            :can-moderate="canModerate"
-            :speakers-on="speakersOn"
-            :open-panel-for="openPanelFor"
-            :vol="volumeFor(id)"
             :is-mirrored="isMirrored"
             :is-game-head="game.isGameHead(id)"
             :is-head="isHead"
@@ -211,11 +197,7 @@
             :vote-enabled="game.canPressVoteButton()"
             :has-voted="(isLiftVoting ? votedUsers : votedThisRound).has(id)"
             :show-foul-control="canShowFoulButtons"
-            @toggle-panel="toggleTilePanel"
             @open-profile="openMiniProfileFromTile"
-            @vol-input="onVol"
-            @block="onTileBlock"
-            @kick="kickUser"
             @foul="onGiveFoul"
             @wink="onWink"
             @knock="openKnockModal"
@@ -403,6 +385,10 @@
           :user-id="miniProfileUserId"
           :initial-profile="miniProfileInitial"
           :show-stats-button="true"
+          :room-controls="miniProfileRoomControls"
+          @room-volume-change="onMiniProfileRoomVolume"
+          @room-block="onMiniProfileRoomBlock"
+          @room-kick="onMiniProfileRoomKick"
         />
 
         <RoomSetting
@@ -711,7 +697,6 @@ const SEAT_TILE_STYLE_CACHE = new Map<number, Readonly<{ gridColumn: string; gri
 const volumeSnapTimers = new Map<string, number>()
 const screenOwnerId = ref<string>('')
 const screenQuality = ref<ScreenShareQuality>('low')
-const openPanelFor = ref<string>('')
 const miniProfileOpen = ref(false)
 const miniProfileUserId = ref<number | null>(null)
 const miniProfileInitial = ref<RoomMiniProfileInitial | null>(null)
@@ -1116,12 +1101,11 @@ function stateIcon(kind: IconKind, id: string) {
   if (isBlocked(id, kind)) return STATE_ICONS[kind].blk
   return isOn(id, kind) ? STATE_ICONS[kind].on : STATE_ICONS[kind].off
 }
-function closePanels(except?: 'card'|'apps'|'settings'|'friends'|'game', opts?: { keepFriendsWhenConfirm?: boolean }) {
+function closePanels(except?: 'apps'|'settings'|'friends'|'game', opts?: { keepFriendsWhenConfirm?: boolean }) {
   const keepFriends =
     Boolean(opts?.keepFriendsWhenConfirm) &&
     confirmState.open &&
     friendsPanelOpen.value
-  if (except !== 'card') openPanelFor.value = ''
   if (except !== 'apps') openApps.value = false
   if (except !== 'settings') settingsOpen.value = false
   if (except !== 'friends' && !keepFriends) friendsPanelOpen.value = false
@@ -1154,11 +1138,6 @@ function openMiniProfileFromTile(id: string): void {
   miniProfileOpen.value = true
 }
 
-const toggleTilePanel = (id: string) => {
-  const next = openPanelFor.value === id ? '' : id
-  closePanels('card')
-  openPanelFor.value = next
-}
 function toggleSettings() {
   const next = !settingsOpen.value
   if (next && chat.open) chat.closePanel()
@@ -1680,6 +1659,61 @@ const sortedPeerIds = computed(() => {
   })
 })
 
+const miniProfileRoomUserId = computed(() => {
+  if (!miniProfileOpen.value) return ''
+  const uid = Number(miniProfileUserId.value || 0)
+  if (!Number.isFinite(uid) || uid <= 0) return ''
+  const id = String(Math.trunc(uid))
+  return sortedPeerIds.value.includes(id) ? id : ''
+})
+const showMiniProfileRoomVolume = computed(() => {
+  const id = miniProfileRoomUserId.value
+  return Boolean(id && id !== localId.value)
+})
+const miniProfileRoomVolumeDisabled = computed(() => {
+  const id = miniProfileRoomUserId.value
+  return !id || !speakersOn.value || isBlocked(id, 'speakers')
+})
+const showMiniProfileRoomAdminActions = computed(() => {
+  const id = miniProfileRoomUserId.value
+  return Boolean(id && id !== localId.value && gamePhase.value === 'idle' && canModerate(id))
+})
+const showMiniProfileRoomControls = computed(() => showMiniProfileRoomVolume.value || showMiniProfileRoomAdminActions.value)
+const miniProfileRoomControls = computed(() => {
+  const id = miniProfileRoomUserId.value
+  if (!id || !showMiniProfileRoomControls.value) return null
+
+  return {
+    showVolume: showMiniProfileRoomVolume.value,
+    volume: volumeFor(id),
+    volumeIcon: volumeIconForUser(id),
+    volumeDisabled: miniProfileRoomVolumeDisabled.value,
+    showAdminActions: showMiniProfileRoomAdminActions.value,
+    micIcon: stateIcon('mic', id),
+    camIcon: stateIcon('cam', id),
+    speakersIcon: stateIcon('speakers', id),
+    screenIcon: stateIcon('screen', id),
+  }
+})
+
+function onMiniProfileRoomVolume(v: number): void {
+  const id = miniProfileRoomUserId.value
+  if (!id || !showMiniProfileRoomVolume.value) return
+  onVol(id, v)
+}
+
+function onMiniProfileRoomBlock(key: 'mic' | 'cam' | 'speakers' | 'screen'): void {
+  const id = miniProfileRoomUserId.value
+  if (!id || !showMiniProfileRoomAdminActions.value) return
+  void toggleBlock(id, key)
+}
+
+function onMiniProfileRoomKick(): void {
+  const id = miniProfileRoomUserId.value
+  if (!id || !showMiniProfileRoomAdminActions.value) return
+  void kickUser(id)
+}
+
 watch(
   [() => route.name, roomTabTitle],
   ([name, title]) => {
@@ -1963,10 +1997,6 @@ async function toggleBlock(targetId: string, key: keyof BlockState) {
   if (!ensureOk(resp, { 403: 'Недостаточно прав', 404: 'Пользователь не в комнате' }, 'Сеть/таймаут при модерации')) return
 }
 
-function onTileBlock(key: keyof BlockState, uid: string) {
-  void toggleBlock(uid, key)
-}
-
 async function kickUser(targetId: string) {
   if (!canModerate(targetId)) return
   const ok = await confirmDialog({
@@ -2025,7 +2055,6 @@ function purgePeerUI(id: string) {
   videoRefMemo.delete(id)
   screenRefMemo.delete(id)
   offlineInGame.delete(id)
-  if (openPanelFor.value === id || openPanelFor.value === rtc.screenKey(id)) openPanelFor.value = ''
   clearVolumeSnap(id)
   clearVolumeSnap(rtc.screenKey(id))
   delete volUi[id]
@@ -2045,7 +2074,6 @@ function setScreenOwner(id: string, quality?: unknown) {
   screenQuality.value = id
     ? normalizeScreenQuality(quality, id === prev ? screenQuality.value : 'low')
     : 'low'
-  if (openPanelFor.value === rtc.screenKey(prev)) openPanelFor.value = ''
   clearScreenVolume(prev)
 }
 
@@ -2098,7 +2126,6 @@ socket.value?.on('connect', async () => {
       if (shouldDeferRoomDisconnectFailClosed()) clearRoomDisconnectFailClosedTimer()
       else armRoomDisconnectFailClosedTimer()
     }
-    openPanelFor.value = ''
   })
 
   socket.value.on('force_logout', async (p: any) => {
