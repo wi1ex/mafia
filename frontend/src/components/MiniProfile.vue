@@ -107,14 +107,25 @@
 
                   <div v-if="showProfileRoomControls" class="profile-room-controls" aria-label="Управление профилем">
                     <div v-if="showProfileRoomAdminActions" class="profile-room-admin" aria-label="Блокировки">
-                      <button type="button" @click="emitProfileRoomBlock('mic')" aria-label="block mic"><img :src="profileRoomMicIcon" alt="mic" /></button>
-                      <button type="button" @click="emitProfileRoomBlock('cam')" aria-label="block cam"><img :src="profileRoomCamIcon" alt="cam" /></button>
-                      <button type="button" @click="emitProfileRoomBlock('speakers')" aria-label="block speakers"><img :src="profileRoomSpeakersIcon" alt="spk" /></button>
-                      <button type="button" @click="emitProfileRoomBlock('screen')" aria-label="block screen"><img :src="profileRoomScreenIcon" alt="scr" /></button>
-                      <button class="red-button" type="button" @click="emit('room-kick')" aria-label="kick user"><img :src="iconLeaveRoom" alt="kick" /></button>
+                      <button class="admin-button" type="button" @click="emitProfileRoomBlock('mic')" aria-label="block mic">
+                        <img class="admin-img" :src="profileRoomMicIcon" alt="mic" />
+                      </button>
+                      <button class="admin-button" type="button" @click="emitProfileRoomBlock('cam')" aria-label="block cam">
+                        <img class="admin-img" :src="profileRoomCamIcon" alt="cam" />
+                      </button>
+                      <button class="admin-button" type="button" @click="emitProfileRoomBlock('speakers')" aria-label="block speakers">
+                        <img class="admin-img" :src="profileRoomSpeakersIcon" alt="spk" />
+                      </button>
+                      <button class="admin-button" type="button" @click="emitProfileRoomBlock('screen')" aria-label="block screen">
+                        <img class="admin-img" :src="profileRoomScreenIcon" alt="scr" />
+                      </button>
+                      <button class="admin-button red-button" type="button" @click="emit('room-kick')" aria-label="kick user">
+                        <UiIcon class="kick-img" :icon="iconLeaveRoom" />
+                      </button>
                     </div>
 
                     <div v-if="showProfileRoomVolume" class="profile-room-volume">
+                      <UiIcon class="volume-img" :icon="profileRoomVolumeIcon" />
                       <img :src="profileRoomVolumeIcon" alt="vol" />
                       <UiSlider
                         :model-value="profileRoomVolume"
@@ -2511,7 +2522,7 @@ onBeforeUnmount(() => {
                                   display: grid;
                                   grid-template-columns: repeat(5, minmax(0, 1fr));
                                   gap: 4px;
-                                  button {
+                                  .admin-button {
                                     display: flex;
                                     align-items: center;
                                     justify-content: center;
@@ -2522,18 +2533,23 @@ onBeforeUnmount(() => {
                                     background-color: $soft-purple-900;
                                     cursor: pointer;
                                     transition: background-color 0.25s ease-in-out;
+                                    .admin-img {
+                                      width: 24px;
+                                      height: 24px;
+                                    }
                                     &:hover {
                                       background-color: $neutral-700;
                                     }
                                     &.red-button {
-                                      background-color: rgba($red, 0.75);
-                                      &:hover {
-                                        background-color: $red;
+                                      background-color: $red-400;
+                                      .kick-img {
+                                        --ui-icon-width: 24px;
+                                        --ui-icon-height: 24px;
+                                        --ui-icon-color: #{$neutral-900};
                                       }
-                                    }
-                                    img {
-                                      width: 24px;
-                                      height: 24px;
+                                      &:hover {
+                                        background-color: $red-200;
+                                      }
                                     }
                                   }
                                 }
@@ -2541,16 +2557,18 @@ onBeforeUnmount(() => {
                                   display: flex;
                                   align-items: center;
                                   padding: 0 16px;
-                                  gap: 18px;
+                                  gap: 8px;
+                                  height: 40px;
                                   border-radius: 12px;
                                   background-color: $soft-purple-900;
                                   -webkit-overflow-scrolling: touch;
-                                  img {
-                                    width: 24px;
-                                    height: 24px;
+                                  .volume-img {
+                                    --ui-icon-width: 24px;
+                                    --ui-icon-height: 24px;
+                                    --ui-icon-color: #{$neutral-100};
                                   }
                                   span {
-                                    min-width: 20px;
+                                    min-width: 42px;
                                     color: $neutral-100;
                                     font-family: Hauora-Regular;
                                     font-size: 16px;

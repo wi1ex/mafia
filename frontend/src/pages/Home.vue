@@ -1458,6 +1458,7 @@ onBeforeUnmount(() => {
           display: inline-grid;
           .ri-action {
             margin-top: 8px;
+            width: 100%;
           }
         }
       }
