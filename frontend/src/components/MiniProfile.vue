@@ -23,82 +23,109 @@
                 <button class="profile-avatar-trigger" type="button" :disabled="!hasAvatar" aria-label="Открыть аватар" @click="openAvatarPreview">
                   <img ref="avatarImageEl" class="profile-avatar" v-minio-img="{ key: avatarKey, placeholder: iconDefaultAvatar, lazy: false, animated: true }" alt="avatar" />
                 </button>
-                <div class="profile-icon-name">
-                  <div class="profile-title">
-                    <div v-if="profileThemeIconSrcs.length" class="profile-theme-icons" aria-hidden="true">
-                      <img v-for="badgeSrc in profileThemeIconSrcs" :key="badgeSrc" class="profile-theme-icon" :src="badgeSrc" alt="" />
+                <div class="profile-block">
+                  <div class="profile-div">
+                    <div class="profile-title">
+                      <div v-if="profileThemeIconSrcs.length" class="profile-theme-icons" aria-hidden="true">
+                        <img v-for="badgeSrc in profileThemeIconSrcs" :key="badgeSrc" class="profile-theme-icon" :src="badgeSrc" alt="" />
+                      </div>
+                      <span class="profile-name">{{ displayName }}</span>
                     </div>
-                    <span class="profile-name">{{ displayName }}</span>
-                  </div>
-                  <div v-if="showProfileMeta" class="profile-meta">
-                    <div v-if="friendsCount !== null" class="profile-friends-tooltip-wrap" :class="{ enabled: showAdminFriendsTooltip }" :tabindex="showAdminFriendsTooltip ? 0 : undefined">
-                      <span class="profile-friends-count" aria-label="Количество друзей">Друзья: {{ friendsCount }}</span>
-                      <div v-if="showAdminFriendsTooltip" class="profile-friends-tooltip" role="tooltip">
-                        <span v-if="adminFriends.length === 0" class="profile-friends-empty">Нет друзей</span>
-                        <template v-else>
-                          <div ref="profileFriendsList" class="profile-friends-list">
-                            <div v-for="friend in adminFriends" :key="friend.id" class="profile-friend-row">
-                              <img class="profile-friend-avatar" v-minio-img="{key: friendAvatarKey(friend), placeholder: iconDefaultAvatarBlack, lazy: false}" alt="avatar" />
-                              <div class="profile-friend-main">
-                                <span class="profile-friend-name">{{ friend.username || `user${friend.id}` }}</span>
-                                <span class="profile-friend-date">{{ formatFriendshipStartedAt(friend.friendship_started_at) }}</span>
+
+                    <div v-if="showProfileMeta" class="profile-meta">
+                      <div v-if="friendsCount !== null" class="profile-friends-tooltip-wrap" :class="{ enabled: showAdminFriendsTooltip }" :tabindex="showAdminFriendsTooltip ? 0 : undefined">
+                        <span class="profile-friends-count" aria-label="Количество друзей">Друзья: {{ friendsCount }}</span>
+                        <div v-if="showAdminFriendsTooltip" class="profile-friends-tooltip" role="tooltip">
+                          <span v-if="adminFriends.length === 0" class="profile-friends-empty">Нет друзей</span>
+                          <template v-else>
+                            <div ref="profileFriendsList" class="profile-friends-list">
+                              <div v-for="friend in adminFriends" :key="friend.id" class="profile-friend-row">
+                                <img class="profile-friend-avatar" v-minio-img="{key: friendAvatarKey(friend), placeholder: iconDefaultAvatarBlack, lazy: false}" alt="avatar" />
+                                <div class="profile-friend-main">
+                                  <span class="profile-friend-name">{{ friend.username || `user${friend.id}` }}</span>
+                                  <span class="profile-friend-date">{{ formatFriendshipStartedAt(friend.friendship_started_at) }}</span>
+                                </div>
                               </div>
                             </div>
+                            <UiScrollbar :target="profileFriendsList" :active="showAdminFriendsTooltip" theme="grey" :inset-top="16" :inset-bottom="16" right="6px" :overflow-tolerance="4" />
+                          </template>
+                        </div>
+                      </div>
+
+                      <div v-if="activeSanction" class="sanction-tooltip-wrap" tabindex="0">
+                        <img class="profile-meta-icon" :src="iconJudgeHummer" alt="" />
+                        <div class="sanction-tooltip" role="tooltip">
+                          <div class="sanction-tooltip-div">
+                            <UiIcon class="sanction-tooltip-icon" :icon="iconWarning" />
+                            <span class="sanction-tooltip-type">{{ activeSanctionKindLabel }}</span>
                           </div>
-                          <UiScrollbar :target="profileFriendsList" :active="showAdminFriendsTooltip" theme="grey" :inset-top="16" :inset-bottom="16" right="6px" :overflow-tolerance="4" />
-                        </template>
-                      </div>
-                    </div>
-
-                    <div v-if="activeSanction" class="sanction-tooltip-wrap" tabindex="0">
-                      <img class="profile-meta-icon" :src="iconJudgeHummer" alt="" />
-                      <div class="sanction-tooltip" role="tooltip">
-                        <div class="sanction-tooltip-div">
-                          <UiIcon class="sanction-tooltip-icon" :icon="iconWarning" />
-                          <span class="sanction-tooltip-type">{{ activeSanctionKindLabel }}</span>
-                        </div>
-                        <div class="sanction-tooltip-expiry">
-                          <span class="sanction-tooltip-date">Истекает:</span>
-                          <span class="sanction-tooltip-time">{{ activeSanctionExpiryLabel }}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div v-if="targetUserId > 0" class="profile-history-tooltip-wrap" tabindex="0" @mouseenter="loadNicknameHistory" @focusin="loadNicknameHistory">
-                      <img class="profile-meta-icon" :src="iconTimeHistory" alt="" />
-                      <div class="nickname-history-tooltip" role="tooltip">
-                        <span v-if="nicknameHistoryLoading" class="nickname-history-state">Загрузка...</span>
-                        <span v-else-if="nicknameHistoryError" class="nickname-history-state danger">{{ nicknameHistoryError }}</span>
-                        <template v-else>
-                          <div ref="nicknameHistoryList" class="nickname-history-list">
-                            <span class="nickname-history-title">История никнеймов</span>
-                            <span class="nickname-history-nick" v-for="(nickname, index) in nicknameHistoryItems" :key="`${nickname}-${index}`" :class="{ current: index === 0 }">
-                              {{ nickname }}
-                            </span>
-                            <span v-if="!nicknameHistoryItems.length" class="nickname-history-state">Нет данных</span>
+                          <div class="sanction-tooltip-expiry">
+                            <span class="sanction-tooltip-date">Истекает:</span>
+                            <span class="sanction-tooltip-time">{{ activeSanctionExpiryLabel }}</span>
                           </div>
-                          <UiScrollbar :target="nicknameHistoryList" :active="targetUserId > 0" theme="grey" :inset-top="50" :inset-bottom="16" right="6px" :overflow-tolerance="4" />
-                        </template>
+                        </div>
+                      </div>
+
+                      <div v-if="targetUserId > 0" class="profile-history-tooltip-wrap" tabindex="0" @mouseenter="loadNicknameHistory" @focusin="loadNicknameHistory">
+                        <img class="profile-meta-icon" :src="iconTimeHistory" alt="" />
+                        <div class="nickname-history-tooltip" role="tooltip">
+                          <span v-if="nicknameHistoryLoading" class="nickname-history-state">Загрузка...</span>
+                          <span v-else-if="nicknameHistoryError" class="nickname-history-state danger">{{ nicknameHistoryError }}</span>
+                          <template v-else>
+                            <div ref="nicknameHistoryList" class="nickname-history-list">
+                              <span class="nickname-history-title">История никнеймов</span>
+                              <span class="nickname-history-nick" v-for="(nickname, index) in nicknameHistoryItems" :key="`${nickname}-${index}`" :class="{ current: index === 0 }">
+                                {{ nickname }}
+                              </span>
+                              <span v-if="!nicknameHistoryItems.length" class="nickname-history-state">Нет данных</span>
+                            </div>
+                            <UiScrollbar :target="nicknameHistoryList" :active="targetUserId > 0" theme="grey" :inset-top="50" :inset-bottom="16" right="6px" :overflow-tolerance="4" />
+                          </template>
+                        </div>
+                      </div>
+
+                      <div v-for="nomination in profileNominations" :key="nomination.key" class="profile-nomination-tooltip-wrap" :class="`level-${nomination.level}`" tabindex="0"
+                           :aria-label="`${nomination.label}: ${nomination.valueLabel}, ${nomination.levelLabel}`" @mouseenter="updateNominationTooltipOffset" @focusin="updateNominationTooltipOffset" @mouseleave="resetNominationTooltipOffset" @focusout="resetNominationTooltipOffset">
+                        <UiIcon class="profile-nomination-icon" :icon="nomination.icon" />
+                        <div class="profile-nomination-tooltip" role="tooltip">
+                          <div class="nomination-tooltip-head">
+                            <span class="nomination-level-label">{{ nomination.label }}</span>
+                            <span class="nomination-level-badge">{{ nomination.levelLabel }}</span>
+                          </div>
+                          <div class="nomination-progress-track">
+                            <span class="nomination-progress-fill" :style="{ width: `${nomination.progressPct}%` }"></span>
+                            <span class="nomination-progress-value">{{ nomination.valueLabel }}</span>
+                          </div>
+                          <div class="nomination-progress-caption">
+                            <span class="nomination-progress-caption-start-next">{{ nomination.progressStartLabel }}</span>
+                            <span class="nomination-progress-caption-start-next">{{ nomination.progressNextLabel }}</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
+                  </div>
 
-                    <div v-for="nomination in profileNominations" :key="nomination.key" class="profile-nomination-tooltip-wrap" :class="`level-${nomination.level}`" tabindex="0"
-                         :aria-label="`${nomination.label}: ${nomination.valueLabel}, ${nomination.levelLabel}`" @mouseenter="updateNominationTooltipOffset" @focusin="updateNominationTooltipOffset" @mouseleave="resetNominationTooltipOffset" @focusout="resetNominationTooltipOffset">
-                      <UiIcon class="profile-nomination-icon" :icon="nomination.icon" />
-                      <div class="profile-nomination-tooltip" role="tooltip">
-                        <div class="nomination-tooltip-head">
-                          <span class="nomination-level-label">{{ nomination.label }}</span>
-                          <span class="nomination-level-badge">{{ nomination.levelLabel }}</span>
-                        </div>
-                        <div class="nomination-progress-track">
-                          <span class="nomination-progress-fill" :style="{ width: `${nomination.progressPct}%` }"></span>
-                          <span class="nomination-progress-value">{{ nomination.valueLabel }}</span>
-                        </div>
-                        <div class="nomination-progress-caption">
-                          <span class="nomination-progress-caption-start-next">{{ nomination.progressStartLabel }}</span>
-                          <span class="nomination-progress-caption-start-next">{{ nomination.progressNextLabel }}</span>
-                        </div>
-                      </div>
+                  <div v-if="showProfileRoomControls" class="profile-room-controls" aria-label="Управление профилем">
+                    <div v-if="showProfileRoomAdminActions" class="profile-room-admin" aria-label="Блокировки">
+                      <button type="button" @click="emitProfileRoomBlock('mic')" aria-label="block mic"><img :src="profileRoomMicIcon" alt="mic" /></button>
+                      <button type="button" @click="emitProfileRoomBlock('cam')" aria-label="block cam"><img :src="profileRoomCamIcon" alt="cam" /></button>
+                      <button type="button" @click="emitProfileRoomBlock('speakers')" aria-label="block speakers"><img :src="profileRoomSpeakersIcon" alt="spk" /></button>
+                      <button type="button" @click="emitProfileRoomBlock('screen')" aria-label="block screen"><img :src="profileRoomScreenIcon" alt="scr" /></button>
+                      <button class="red-button" type="button" @click="emit('room-kick')" aria-label="kick user"><img :src="iconLeaveRoom" alt="kick" /></button>
+                    </div>
+
+                    <div v-if="showProfileRoomVolume" class="profile-room-volume">
+                      <img :src="profileRoomVolumeIcon" alt="vol" />
+                      <UiSlider
+                        :model-value="profileRoomVolume"
+                        :min="0"
+                        :max="200"
+                        :step="10"
+                        :disabled="profileRoomVolumeDisabled"
+                        aria-label="Громкость пользователя"
+                        @update:modelValue="emit('room-volume-change', $event)"
+                      />
+                      <span>{{ profileRoomVolume }}%</span>
                     </div>
                   </div>
                 </div>
@@ -126,31 +153,6 @@
                 </div>
               </div>
 
-              <div v-if="showProfileRoomControls" class="profile-room-controls" aria-label="Управление пользователем в комнате">
-                <div v-if="showProfileRoomVolume" class="profile-room-volume">
-                  <img :src="profileRoomVolumeIcon" alt="vol" />
-                  <UiSlider
-                    class="profile-room-volume-slider"
-                    :model-value="profileRoomVolume"
-                    :min="0"
-                    :max="200"
-                    :step="10"
-                    :disabled="profileRoomVolumeDisabled"
-                    aria-label="Громкость пользователя"
-                    @update:modelValue="emit('room-volume-change', $event)"
-                  />
-                  <span>{{ profileRoomVolume }}%</span>
-                </div>
-
-                <div v-if="showProfileRoomAdminActions" class="profile-room-admin" aria-label="Блокировки">
-                  <button type="button" @click="emitProfileRoomBlock('mic')" aria-label="block mic"><img :src="profileRoomMicIcon" alt="mic" /></button>
-                  <button type="button" @click="emitProfileRoomBlock('cam')" aria-label="block cam"><img :src="profileRoomCamIcon" alt="cam" /></button>
-                  <button type="button" @click="emitProfileRoomBlock('speakers')" aria-label="block speakers"><img :src="profileRoomSpeakersIcon" alt="spk" /></button>
-                  <button type="button" @click="emitProfileRoomBlock('screen')" aria-label="block screen"><img :src="profileRoomScreenIcon" alt="scr" /></button>
-                  <button class="red-button" type="button" @click="emit('room-kick')" aria-label="kick user"><img :src="iconLeaveRoom" alt="kick" /></button>
-                </div>
-              </div>
-
               <div v-if="showActionBlock" class="profile-actions">
 <!--                <button v-if="showStatsButton" class="profile-action secondary" type="button" @click="view = 'stats'">-->
 <!--                  Статистика пользователя-->
@@ -171,7 +173,7 @@
                 </button>
               </div>
 
-              <div class="profile-staff-line"></div>
+              <div v-if="showStaffActionBlock" class="profile-staff-line"></div>
 
               <div v-if="showStaffActionBlock" class="profile-staff-actions" aria-label="Действия с пользователем">
                 <div v-for="action in staffPrimaryActionItems" :key="action.key">
@@ -1960,540 +1962,604 @@ onBeforeUnmount(() => {
             object-fit: cover;
           }
         }
-        .profile-icon-name {
+        .profile-block {
           display: flex;
           flex-direction: column;
+          justify-content: space-between;
           gap: 8px;
-          .profile-title {
+          height: 182px;
+          .profile-div {
             display: flex;
-            height: 30px;
+            flex-direction: column;
             gap: 8px;
-            .profile-theme-icons {
-              display: inline-flex;
-              align-items: center;
+            .profile-title {
+              display: flex;
               height: 30px;
-              .profile-theme-icon {
-                width: 28px;
-                height: 28px;
-                object-fit: contain;
+              gap: 8px;
+              .profile-theme-icons {
+                display: inline-flex;
+                align-items: center;
+                height: 30px;
+                .profile-theme-icon {
+                  width: 28px;
+                  height: 28px;
+                  object-fit: contain;
+                }
+              }
+              .profile-name {
+                max-width: 314px;
+                color: $neutral-white;
+                font-family: Involve-Medium;
+                font-size: 24px;
+                line-height: 26px;
+                letter-spacing: -0.48px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
               }
             }
-            .profile-name {
-              max-width: 314px;
-              color: $neutral-white;
-              font-family: Involve-Medium;
-              font-size: 24px;
-              line-height: 26px;
-              letter-spacing: -0.48px;
-              white-space: nowrap;
-              overflow: hidden;
-              text-overflow: ellipsis;
-            }
-          }
-          .profile-meta {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            .profile-friends-tooltip-wrap {
-              display: inline-flex;
-              position: relative;
+            .profile-meta {
+              display: flex;
               align-items: center;
-              justify-content: center;
-              padding: 0 12px;
-              height: 32px;
-              border-radius: 8px;
-              background-color: $soft-purple-900;
-              &.enabled {
-                cursor: default;
-              }
-              &:hover {
+              gap: 4px;
+              .profile-friends-tooltip-wrap {
+                display: inline-flex;
+                position: relative;
+                align-items: center;
+                justify-content: center;
+                padding: 0 12px;
+                height: 32px;
+                border-radius: 8px;
+                background-color: $soft-purple-900;
+                &.enabled {
+                  cursor: default;
+                }
+                &:hover {
+                  &::after {
+                    opacity: 1;
+                    pointer-events: auto;
+                  }
+                  .profile-friends-tooltip {
+                    opacity: 1;
+                    visibility: visible;
+                    pointer-events: auto;
+                    transform: translateX(-50%) translateY(0);
+                  }
+                }
                 &::after {
-                  opacity: 1;
-                  pointer-events: auto;
+                  content: '';
+                  position: absolute;
+                  top: 100%;
+                  left: 50%;
+                  width: max(100%, 100px);
+                  height: 6px;
+                  transform: translateX(-50%);
+                  opacity: 0;
+                  pointer-events: none;
+                  z-index: 2;
                 }
-                .profile-friends-tooltip {
-                  opacity: 1;
-                  visibility: visible;
-                  pointer-events: auto;
-                  transform: translateX(-50%) translateY(0);
-                }
-              }
-              &::after {
-                content: '';
-                position: absolute;
-                top: 100%;
-                left: 50%;
-                width: max(100%, 100px);
-                height: 6px;
-                transform: translateX(-50%);
-                opacity: 0;
-                pointer-events: none;
-                z-index: 2;
-              }
-              .profile-friends-count {
-                color: $neutral-100;
-                font-family: Hauora-Regular;
-                font-size: 16px;
-                line-height: 16px;
-                letter-spacing: -0.32px;
-              }
-              .profile-friends-tooltip {
-                display: flex;
-                position: absolute;
-                flex-direction: column;
-                top: calc(100% + 6px);
-                left: 50%;
-                padding: 16px;
-                width: 208px;
-                border-radius: 24px;
-                background-color: $neutral-100;
-                box-shadow: 0 2px 16px 0 rgba($neutral-black, 0.20);
-                opacity: 0;
-                visibility: hidden;
-                pointer-events: none;
-                transform: translateX(-50%) translateY(-6px);
-                transition: opacity 0.25s ease-in-out, visibility 0.25s ease-in-out, transform 0.25s ease-in-out;
-                z-index: 3;
-                .profile-friends-empty {
-                  width: max-content;
-                  color: $neutral-black;
+                .profile-friends-count {
+                  color: $neutral-100;
                   font-family: Hauora-Regular;
                   font-size: 16px;
                   line-height: 16px;
                   letter-spacing: -0.32px;
                 }
-                .profile-friends-list {
+                .profile-friends-tooltip {
                   display: flex;
+                  position: absolute;
                   flex-direction: column;
-                  gap: 8px;
-                  max-height: 264px;
-                  overflow-y: auto;
-                  overflow-x: hidden;
-                  scrollbar-width: none;
-                  -ms-overflow-style: none;
-                  &::-webkit-scrollbar {
-                    display: none;
-                    width: 0;
-                    height: 0;
+                  top: calc(100% + 6px);
+                  left: 50%;
+                  padding: 16px;
+                  width: 208px;
+                  border-radius: 24px;
+                  background-color: $neutral-100;
+                  box-shadow: 0 2px 16px 0 rgba($neutral-black, 0.20);
+                  opacity: 0;
+                  visibility: hidden;
+                  pointer-events: none;
+                  transform: translateX(-50%) translateY(-6px);
+                  transition: opacity 0.25s ease-in-out, visibility 0.25s ease-in-out, transform 0.25s ease-in-out;
+                  z-index: 3;
+                  .profile-friends-empty {
+                    width: max-content;
+                    color: $neutral-black;
+                    font-family: Hauora-Regular;
+                    font-size: 16px;
+                    line-height: 16px;
+                    letter-spacing: -0.32px;
                   }
-                  .profile-friend-row {
+                  .profile-friends-list {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 8px;
+                    max-height: 264px;
+                    overflow-y: auto;
+                    overflow-x: hidden;
+                    scrollbar-width: none;
+                    -ms-overflow-style: none;
+                    &::-webkit-scrollbar {
+                      display: none;
+                      width: 0;
+                      height: 0;
+                    }
+                    .profile-friend-row {
+                      display: flex;
+                      align-items: center;
+                      gap: 8px;
+                      .profile-friend-avatar {
+                        width: 32px;
+                        height: 32px;
+                        border-radius: 50%;
+                        object-fit: cover;
+                      }
+                      .profile-friend-main {
+                        display: flex;
+                        flex-direction: column;
+                        gap: 2px;
+                        .profile-friend-name {
+                          max-width: 168px;
+                          height: 18px;
+                          color: $neutral-black;
+                          font-family: Hauora-Regular;
+                          font-size: 16px;
+                          line-height: 16px;
+                          letter-spacing: -0.32px;
+                          overflow: hidden;
+                          text-overflow: ellipsis;
+                          white-space: nowrap;
+                        }
+                        .profile-friend-date {
+                          color: $neutral-500;
+                          font-family: Hauora-Regular;
+                          font-size: 12px;
+                          line-height: 12px;
+                          letter-spacing: -0.24px;
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+              .sanction-tooltip-wrap {
+                display: inline-flex;
+                position: relative;
+                align-items: center;
+                justify-content: center;
+                width: 32px;
+                height: 32px;
+                border-radius: 8px;
+                background-color: $soft-purple-900;
+                &:hover {
+                  &::after {
+                    opacity: 1;
+                    pointer-events: auto;
+                  }
+                  .sanction-tooltip {
+                    opacity: 1;
+                    visibility: visible;
+                    pointer-events: auto;
+                    transform: translateX(-50%) translateY(0);
+                  }
+                }
+                &::after {
+                  content: '';
+                  position: absolute;
+                  top: 100%;
+                  left: 50%;
+                  width: max(100%, 100px);
+                  height: 6px;
+                  transform: translateX(-50%);
+                  opacity: 0;
+                  pointer-events: none;
+                  z-index: 2;
+                }
+                .profile-meta-icon {
+                  width: 20px;
+                  height: 20px;
+                  object-fit: contain;
+                }
+                .sanction-tooltip {
+                  display: flex;
+                  position: absolute;
+                  flex-direction: column;
+                  top: calc(100% + 6px);
+                  left: 50%;
+                  padding: 16px;
+                  gap: 8px;
+                  border-radius: 24px;
+                  background-color: $neutral-100;
+                  box-shadow: 0 2px 16px 0 rgba($neutral-black, 0.20);
+                  opacity: 0;
+                  visibility: hidden;
+                  pointer-events: none;
+                  transform: translateX(-50%) translateY(-6px);
+                  transition: opacity 0.25s ease-in-out, visibility 0.25s ease-in-out, transform 0.25s ease-in-out;
+                  z-index: 3;
+                  .sanction-tooltip-div {
                     display: flex;
                     align-items: center;
                     gap: 8px;
-                    .profile-friend-avatar {
-                      width: 32px;
-                      height: 32px;
-                      border-radius: 50%;
-                      object-fit: cover;
+                    .sanction-tooltip-icon {
+                      --ui-icon-width: 24px;
+                      --ui-icon-height: 24px;
+                      --ui-icon-color: #{$orange-600};
                     }
-                    .profile-friend-main {
-                      display: flex;
-                      flex-direction: column;
-                      gap: 2px;
-                      .profile-friend-name {
-                        max-width: 168px;
-                        height: 18px;
-                        color: $neutral-black;
-                        font-family: Hauora-Regular;
-                        font-size: 16px;
-                        line-height: 16px;
-                        letter-spacing: -0.32px;
-                        overflow: hidden;
-                        text-overflow: ellipsis;
-                        white-space: nowrap;
-                      }
-                      .profile-friend-date {
-                        color: $neutral-500;
-                        font-family: Hauora-Regular;
-                        font-size: 12px;
-                        line-height: 12px;
-                        letter-spacing: -0.24px;
-                      }
+                    .sanction-tooltip-type {
+                      color: $neutral-black;
+                      font-family: Hauora-Regular;
+                      font-size: 16px;
+                      line-height: 16px;
+                      letter-spacing: -0.32px;
                     }
                   }
+                  .sanction-tooltip-expiry {
+                    display: flex;
+                    align-items: center;
+                    padding: 12px 16px;
+                    gap: 16px;
+                    border-radius: 8px;
+                    background-color: $orange-100;
+                    .sanction-tooltip-date {
+                      color: $neutral-black;
+                      font-family: Hauora-Regular;
+                      font-size: 16px;
+                      line-height: 16px;
+                      letter-spacing: -0.32px;
+                    }
+                    .sanction-tooltip-time {
+                      width: max-content;
+                      color: $neutral-black;
+                      font-family: Hauora-Bold;
+                      font-size: 16px;
+                      line-height: 18px;
+                      letter-spacing: -0.32px;
+                    }
+                  }
                 }
               }
-            }
-            .sanction-tooltip-wrap {
-              display: inline-flex;
-              position: relative;
-              align-items: center;
-              justify-content: center;
-              width: 32px;
-              height: 32px;
-              border-radius: 8px;
-              background-color: $soft-purple-900;
-              &:hover {
+              .profile-history-tooltip-wrap {
+                display: inline-flex;
+                position: relative;
+                align-items: center;
+                justify-content: center;
+                width: 32px;
+                height: 32px;
+                border-radius: 8px;
+                background-color: $soft-purple-900;
+                &:hover {
+                  &::after {
+                    opacity: 1;
+                    pointer-events: auto;
+                  }
+                  .nickname-history-tooltip {
+                    opacity: 1;
+                    visibility: visible;
+                    pointer-events: auto;
+                    transform: translateX(-50%) translateY(0);
+                  }
+                }
                 &::after {
-                  opacity: 1;
-                  pointer-events: auto;
+                  content: '';
+                  position: absolute;
+                  top: 100%;
+                  left: 50%;
+                  width: max(100%, 100px);
+                  height: 6px;
+                  transform: translateX(-50%);
+                  opacity: 0;
+                  pointer-events: none;
+                  z-index: 2;
                 }
-                .sanction-tooltip {
-                  opacity: 1;
-                  visibility: visible;
-                  pointer-events: auto;
-                  transform: translateX(-50%) translateY(0);
-                }
-              }
-              &::after {
-                content: '';
-                position: absolute;
-                top: 100%;
-                left: 50%;
-                width: max(100%, 100px);
-                height: 6px;
-                transform: translateX(-50%);
-                opacity: 0;
-                pointer-events: none;
-                z-index: 2;
-              }
-              .profile-meta-icon {
-                width: 20px;
-                height: 20px;
-                object-fit: contain;
-              }
-              .sanction-tooltip {
-                display: flex;
-                position: absolute;
-                flex-direction: column;
-                top: calc(100% + 6px);
-                left: 50%;
-                padding: 16px;
-                gap: 8px;
-                border-radius: 24px;
-                background-color: $neutral-100;
-                box-shadow: 0 2px 16px 0 rgba($neutral-black, 0.20);
-                opacity: 0;
-                visibility: hidden;
-                pointer-events: none;
-                transform: translateX(-50%) translateY(-6px);
-                transition: opacity 0.25s ease-in-out, visibility 0.25s ease-in-out, transform 0.25s ease-in-out;
-                z-index: 3;
-                .sanction-tooltip-div {
-                  display: flex;
-                  align-items: center;
-                  gap: 8px;
-                  .sanction-tooltip-icon {
-                    --ui-icon-width: 24px;
-                    --ui-icon-height: 24px;
-                    --ui-icon-color: #{$orange-600};
-                  }
-                  .sanction-tooltip-type {
-                    color: $neutral-black;
-                    font-family: Hauora-Regular;
-                    font-size: 16px;
-                    line-height: 16px;
-                    letter-spacing: -0.32px;
-                  }
-                }
-                .sanction-tooltip-expiry {
-                  display: flex;
-                  align-items: center;
-                  padding: 12px 16px;
-                  gap: 16px;
-                  border-radius: 8px;
-                  background-color: $orange-100;
-                  .sanction-tooltip-date {
-                    color: $neutral-black;
-                    font-family: Hauora-Regular;
-                    font-size: 16px;
-                    line-height: 16px;
-                    letter-spacing: -0.32px;
-                  }
-                  .sanction-tooltip-time {
-                    width: max-content;
-                    color: $neutral-black;
-                    font-family: Hauora-Bold;
-                    font-size: 16px;
-                    line-height: 18px;
-                    letter-spacing: -0.32px;
-                  }
-                }
-              }
-            }
-            .profile-history-tooltip-wrap {
-              display: inline-flex;
-              position: relative;
-              align-items: center;
-              justify-content: center;
-              width: 32px;
-              height: 32px;
-              border-radius: 8px;
-              background-color: $soft-purple-900;
-              &:hover {
-                &::after {
-                  opacity: 1;
-                  pointer-events: auto;
+                .profile-meta-icon {
+                  width: 20px;
+                  height: 20px;
+                  object-fit: contain;
                 }
                 .nickname-history-tooltip {
-                  opacity: 1;
-                  visibility: visible;
-                  pointer-events: auto;
-                  transform: translateX(-50%) translateY(0);
-                }
-              }
-              &::after {
-                content: '';
-                position: absolute;
-                top: 100%;
-                left: 50%;
-                width: max(100%, 100px);
-                height: 6px;
-                transform: translateX(-50%);
-                opacity: 0;
-                pointer-events: none;
-                z-index: 2;
-              }
-              .profile-meta-icon {
-                width: 20px;
-                height: 20px;
-                object-fit: contain;
-              }
-              .nickname-history-tooltip {
-                display: flex;
-                position: absolute;
-                flex-direction: column;
-                top: calc(100% + 6px);
-                left: 50%;
-                padding: 16px;
-                width: 208px;
-                border-radius: 24px;
-                background-color: $neutral-100;
-                box-shadow: 0 2px 16px 0 rgba($neutral-black, 0.20);
-                opacity: 0;
-                visibility: hidden;
-                pointer-events: none;
-                transform: translateX(-50%) translateY(-6px);
-                transition: opacity 0.25s ease-in-out, visibility 0.25s ease-in-out, transform 0.25s ease-in-out;
-                z-index: 3;
-                .nickname-history-state {
-                  width: max-content;
-                  color: $neutral-black;
-                  font-family: Hauora-Regular;
-                  font-size: 16px;
-                  line-height: 16px;
-                  letter-spacing: -0.32px;
-                  &.danger {
-                    color: $red-500;
-                  }
-                }
-                .nickname-history-list {
                   display: flex;
+                  position: absolute;
                   flex-direction: column;
-                  gap: 8px;
-                  max-height: 264px;
-                  overflow-y: auto;
-                  overflow-x: hidden;
-                  scrollbar-width: none;
-                  -ms-overflow-style: none;
-                  &::-webkit-scrollbar {
-                    display: none;
-                    width: 0;
-                    height: 0;
-                  }
-                  .nickname-history-title {
-                    margin-bottom: 8px;
+                  top: calc(100% + 6px);
+                  left: 50%;
+                  padding: 16px;
+                  width: 208px;
+                  border-radius: 24px;
+                  background-color: $neutral-100;
+                  box-shadow: 0 2px 16px 0 rgba($neutral-black, 0.20);
+                  opacity: 0;
+                  visibility: hidden;
+                  pointer-events: none;
+                  transform: translateX(-50%) translateY(-6px);
+                  transition: opacity 0.25s ease-in-out, visibility 0.25s ease-in-out, transform 0.25s ease-in-out;
+                  z-index: 3;
+                  .nickname-history-state {
+                    width: max-content;
                     color: $neutral-black;
-                    font-family: Hauora-Bold;
-                    font-size: 16px;
-                    line-height: 18px;
-                    letter-spacing: -0.32px;
-                  }
-                  .nickname-history-nick {
-                    max-width: 208px;
-                    min-height: 16px;
-                    color: $neutral-500;
                     font-family: Hauora-Regular;
                     font-size: 16px;
-                    line-height: 12px;
+                    line-height: 16px;
                     letter-spacing: -0.32px;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                    white-space: nowrap;
-                    &.current {
+                    &.danger {
+                      color: $red-500;
+                    }
+                  }
+                  .nickname-history-list {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 8px;
+                    max-height: 264px;
+                    overflow-y: auto;
+                    overflow-x: hidden;
+                    scrollbar-width: none;
+                    -ms-overflow-style: none;
+                    &::-webkit-scrollbar {
+                      display: none;
+                      width: 0;
+                      height: 0;
+                    }
+                    .nickname-history-title {
+                      margin-bottom: 8px;
                       color: $neutral-black;
+                      font-family: Hauora-Bold;
+                      font-size: 16px;
+                      line-height: 18px;
+                      letter-spacing: -0.32px;
+                    }
+                    .nickname-history-nick {
+                      max-width: 208px;
+                      min-height: 16px;
+                      color: $neutral-500;
+                      font-family: Hauora-Regular;
+                      font-size: 16px;
+                      line-height: 12px;
+                      letter-spacing: -0.32px;
+                      overflow: hidden;
+                      text-overflow: ellipsis;
+                      white-space: nowrap;
+                      &.current {
+                        color: $neutral-black;
+                      }
                     }
                   }
                 }
               }
-            }
-            .profile-nomination-tooltip-wrap {
-              display: inline-flex;
-              position: relative;
-              align-items: center;
-              justify-content: center;
-              width: 32px;
-              height: 32px;
-              border-radius: 8px;
-              background-color: $soft-purple-900;
-              &:hover,
-              &:focus-within {
+              .profile-nomination-tooltip-wrap {
+                display: inline-flex;
+                position: relative;
+                align-items: center;
+                justify-content: center;
+                width: 32px;
+                height: 32px;
+                border-radius: 8px;
+                background-color: $soft-purple-900;
+                &:hover,
+                &:focus-within {
+                  &::after {
+                    opacity: 1;
+                    pointer-events: auto;
+                  }
+                  .profile-nomination-tooltip {
+                    opacity: 1;
+                    visibility: visible;
+                    pointer-events: auto;
+                    transform: translateX(-50%) translateX(var(--profile-nomination-tooltip-x-shift, 0px)) translateY(0);
+                  }
+                }
                 &::after {
-                  opacity: 1;
-                  pointer-events: auto;
+                  content: '';
+                  position: absolute;
+                  top: 100%;
+                  left: 50%;
+                  width: max(100%, 100px);
+                  height: 6px;
+                  transform: translateX(-50%);
+                  opacity: 0;
+                  pointer-events: none;
+                  z-index: 2;
+                }
+                &.level-1 {
+                  background-color: rgba(66, 68, 106, 1);
+                  .nomination-level-badge {
+                    background-color: rgba(66, 68, 106, 1);
+                    color: $neutral-white;
+                  }
+                  .profile-nomination-icon {
+                    --ui-icon-color: #{$neutral-white};
+                  }
+                }
+                &.level-2 {
+                  background-color: rgba(184, 118, 87, 1);
+                  .nomination-level-badge {
+                    background-color: rgba(184, 118, 87, 1);
+                    color: rgba(255, 242, 235, 1);
+                  }
+                  .profile-nomination-icon {
+                    --ui-icon-color: rgba(255, 242, 235, 1);
+                  }
+                }
+                &.level-3 {
+                  background-color: rgba(114, 133, 143, 1);
+                  .nomination-level-badge {
+                    background-color: rgba(114, 133, 143, 1);
+                    color: rgba(230, 254, 255, 1);
+                  }
+                  .profile-nomination-icon {
+                    --ui-icon-color: rgba(230, 254, 255, 1);
+                  }
+                }
+                &.level-4 {
+                  background-color: rgba(224, 176, 40, 1);
+                  .nomination-level-badge {
+                    background-color: rgba(224, 176, 40, 1);
+                    color: rgba(255, 250, 229, 1);
+                  }
+                  .profile-nomination-icon {
+                    --ui-icon-color: rgba(255, 250, 229, 1);
+                  }
+                }
+                &.level-5 {
+                  background: linear-gradient(261deg, $soft-purple-800 0%, $green-700 100%);
+                  .nomination-level-badge {
+                    background: linear-gradient(261deg, $soft-purple-800 0%, $green-700 100%);
+                    color: $green-200;
+                  }
+                  .profile-nomination-icon {
+                    --ui-icon-color: #{$green-200};
+                  }
+                }
+                .profile-nomination-icon {
+                  --ui-icon-width: 20px;
+                  --ui-icon-height: 20px;
                 }
                 .profile-nomination-tooltip {
-                  opacity: 1;
-                  visibility: visible;
-                  pointer-events: auto;
-                  transform: translateX(-50%) translateX(var(--profile-nomination-tooltip-x-shift, 0px)) translateY(0);
-                }
-              }
-              &::after {
-                content: '';
-                position: absolute;
-                top: 100%;
-                left: 50%;
-                width: max(100%, 100px);
-                height: 6px;
-                transform: translateX(-50%);
-                opacity: 0;
-                pointer-events: none;
-                z-index: 2;
-              }
-              &.level-1 {
-                background-color: rgba(66, 68, 106, 1);
-                .nomination-level-badge {
-                  background-color: rgba(66, 68, 106, 1);
-                  color: $neutral-white;
-                }
-                .profile-nomination-icon {
-                  --ui-icon-color: #{$neutral-white};
-                }
-              }
-              &.level-2 {
-                background-color: rgba(184, 118, 87, 1);
-                .nomination-level-badge {
-                  background-color: rgba(184, 118, 87, 1);
-                  color: rgba(255, 242, 235, 1);
-                }
-                .profile-nomination-icon {
-                  --ui-icon-color: rgba(255, 242, 235, 1);
-                }
-              }
-              &.level-3 {
-                background-color: rgba(114, 133, 143, 1);
-                .nomination-level-badge {
-                  background-color: rgba(114, 133, 143, 1);
-                  color: rgba(230, 254, 255, 1);
-                }
-                .profile-nomination-icon {
-                  --ui-icon-color: rgba(230, 254, 255, 1);
-                }
-              }
-              &.level-4 {
-                background-color: rgba(224, 176, 40, 1);
-                .nomination-level-badge {
-                  background-color: rgba(224, 176, 40, 1);
-                  color: rgba(255, 250, 229, 1);
-                }
-                .profile-nomination-icon {
-                  --ui-icon-color: rgba(255, 250, 229, 1);
-                }
-              }
-              &.level-5 {
-                background: linear-gradient(261deg, $soft-purple-800 0%, $green-700 100%);
-                .nomination-level-badge {
-                  background: linear-gradient(261deg, $soft-purple-800 0%, $green-700 100%);
-                  color: $green-200;
-                }
-                .profile-nomination-icon {
-                  --ui-icon-color: #{$green-200};
-                }
-              }
-              .profile-nomination-icon {
-                --ui-icon-width: 20px;
-                --ui-icon-height: 20px;
-              }
-              .profile-nomination-tooltip {
-                display: flex;
-                position: absolute;
-                flex-direction: column;
-                top: calc(100% + 6px);
-                left: 50%;
-                padding: 16px;
-                gap: 8px;
-                width: 288px;
-                border-radius: 24px;
-                background-color: $neutral-100;
-                box-shadow: 0 2px 16px 0 rgba($neutral-black, 0.20);
-                opacity: 0;
-                visibility: hidden;
-                pointer-events: none;
-                transform: translateX(-50%) translateX(var(--profile-nomination-tooltip-x-shift, 0px)) translateY(-6px);
-                transition: opacity 0.25s ease-in-out, visibility 0.25s ease-in-out, transform 0.25s ease-in-out;
-                z-index: 3;
-                .nomination-tooltip-head {
                   display: flex;
-                  align-items: flex-start;
-                  justify-content: space-between;
-                  margin-bottom: 16px;
-                  .nomination-level-label {
-                    color: $neutral-black;
-                    font-family: Hauora-Bold;
-                    font-size: 18px;
-                    line-height: 20px;
-                    letter-spacing: -0.36px;
-                  }
-                  .nomination-level-badge {
-                    display: inline-flex;
-                    align-items: center;
-                    justify-content: center;
-                    padding: 0 16px;
-                    height: 32px;
-                    border-radius: 8px;
-                    font-family: Hauora-Bold;
-                    font-size: 18px;
-                    line-height: 20px;
-                    letter-spacing: -0.36px;
-                  }
-                }
-                .nomination-progress-track {
-                  display: block;
-                  position: relative;
-                  width: 100%;
-                  height: 40px;
-                  border-radius: 999px;
-                  background-color: $neutral-200;
-                  overflow: hidden;
-                  .nomination-progress-fill {
-                    position: absolute;
-                    top: 0;
-                    left: 0;
-                    height: 100%;
-                    border-radius: inherit;
-                    background-color: $green-500;
-                  }
-                  .nomination-progress-value {
+                  position: absolute;
+                  flex-direction: column;
+                  top: calc(100% + 6px);
+                  left: 50%;
+                  padding: 16px;
+                  gap: 8px;
+                  width: 288px;
+                  border-radius: 24px;
+                  background-color: $neutral-100;
+                  box-shadow: 0 2px 16px 0 rgba($neutral-black, 0.20);
+                  opacity: 0;
+                  visibility: hidden;
+                  pointer-events: none;
+                  transform: translateX(-50%) translateX(var(--profile-nomination-tooltip-x-shift, 0px)) translateY(-6px);
+                  transition: opacity 0.25s ease-in-out, visibility 0.25s ease-in-out, transform 0.25s ease-in-out;
+                  z-index: 3;
+                  .nomination-tooltip-head {
                     display: flex;
-                    position: absolute;
-                    align-items: center;
-                    justify-content: center;
-                    inset: 0;
-                    color: $neutral-black;
-                    font-family: Hauora-Bold;
-                    font-size: 16px;
-                    line-height: 18px;
-                    letter-spacing: -0.32px;
-                    white-space: nowrap;
+                    align-items: flex-start;
+                    justify-content: space-between;
+                    margin-bottom: 16px;
+                    .nomination-level-label {
+                      color: $neutral-black;
+                      font-family: Hauora-Bold;
+                      font-size: 18px;
+                      line-height: 20px;
+                      letter-spacing: -0.36px;
+                    }
+                    .nomination-level-badge {
+                      display: inline-flex;
+                      align-items: center;
+                      justify-content: center;
+                      padding: 0 16px;
+                      height: 32px;
+                      border-radius: 8px;
+                      font-family: Hauora-Bold;
+                      font-size: 18px;
+                      line-height: 20px;
+                      letter-spacing: -0.36px;
+                    }
                   }
-                }
-                .nomination-progress-caption {
-                  display: flex;
-                  align-items: center;
-                  justify-content: space-between;
-                  padding: 0 8px;
-                  .nomination-progress-caption-start-next {
-                    color: $neutral-500;
-                    font-family: Hauora-Bold;
-                    font-size: 16px;
-                    line-height: 18px;
-                    letter-spacing: -0.32px;
+                  .nomination-progress-track {
+                    display: block;
+                    position: relative;
+                    width: 100%;
+                    height: 40px;
+                    border-radius: 999px;
+                    background-color: $neutral-200;
+                    overflow: hidden;
+                    .nomination-progress-fill {
+                      position: absolute;
+                      top: 0;
+                      left: 0;
+                      height: 100%;
+                      border-radius: inherit;
+                      background-color: $green-500;
+                    }
+                    .nomination-progress-value {
+                      display: flex;
+                      position: absolute;
+                      align-items: center;
+                      justify-content: center;
+                      inset: 0;
+                      color: $neutral-black;
+                      font-family: Hauora-Bold;
+                      font-size: 16px;
+                      line-height: 18px;
+                      letter-spacing: -0.32px;
+                      white-space: nowrap;
+                    }
+                  }
+                  .nomination-progress-caption {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    padding: 0 8px;
+                    .nomination-progress-caption-start-next {
+                      color: $neutral-500;
+                      font-family: Hauora-Bold;
+                      font-size: 16px;
+                      line-height: 18px;
+                      letter-spacing: -0.32px;
+                    }
                   }
                 }
               }
             }
           }
+                              .profile-room-controls {
+                                display: flex;
+                                flex-direction: column;
+                                gap: 8px;
+                                .profile-room-admin {
+                                  display: grid;
+                                  grid-template-columns: repeat(5, minmax(0, 1fr));
+                                  gap: 4px;
+                                  button {
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: center;
+                                    padding: 0 16px;
+                                    height: 40px;
+                                    border: none;
+                                    border-radius: 12px;
+                                    background-color: $soft-purple-900;
+                                    cursor: pointer;
+                                    transition: background-color 0.25s ease-in-out;
+                                    &:hover {
+                                      background-color: $neutral-700;
+                                    }
+                                    &.red-button {
+                                      background-color: rgba($red, 0.75);
+                                      &:hover {
+                                        background-color: $red;
+                                      }
+                                    }
+                                    img {
+                                      width: 24px;
+                                      height: 24px;
+                                    }
+                                  }
+                                }
+                                .profile-room-volume {
+                                  display: flex;
+                                  align-items: center;
+                                  padding: 0 16px;
+                                  gap: 18px;
+                                  border-radius: 12px;
+                                  background-color: $soft-purple-900;
+                                  -webkit-overflow-scrolling: touch;
+                                  img {
+                                    width: 24px;
+                                    height: 24px;
+                                  }
+                                  span {
+                                    min-width: 20px;
+                                    color: $neutral-100;
+                                    font-family: Hauora-Regular;
+                                    font-size: 16px;
+                                    line-height: 16px;
+                                    letter-spacing: -0.32px;
+                                    text-align: right;
+                                  }
+                                }
+                              }
         }
       }
       .profile-side-tools {
@@ -2549,70 +2615,6 @@ onBeforeUnmount(() => {
         }
       }
     }
-                                            .profile-room-controls {
-                                              display: flex;
-                                              flex-direction: column;
-                                              gap: 10px;
-                                              width: 100%;
-                                            }
-                                            .profile-room-volume {
-                                              display: flex;
-                                              align-items: center;
-                                              gap: 12px;
-                                              padding: 14px 16px;
-                                              border-radius: 20px;
-                                              background-color: $soft-purple-900;
-                                              -webkit-overflow-scrolling: touch;
-                                              img {
-                                                flex: 0 0 auto;
-                                                width: 24px;
-                                                height: 24px;
-                                              }
-                                              .profile-room-volume-slider {
-                                                flex: 1 1 auto;
-                                                min-width: 0;
-                                                --ui-slider-filled-height: 32px;
-                                              }
-                                              span {
-                                                flex: 0 0 auto;
-                                                min-width: 46px;
-                                                color: $neutral-white;
-                                                font-family: Hauora-Bold;
-                                                font-size: 16px;
-                                                line-height: 18px;
-                                                text-align: right;
-                                              }
-                                            }
-                                            .profile-room-admin {
-                                              display: grid;
-                                              grid-template-columns: repeat(5, minmax(0, 1fr));
-                                              gap: 10px;
-                                              button {
-                                                display: flex;
-                                                align-items: center;
-                                                justify-content: center;
-                                                padding: 0;
-                                                height: 48px;
-                                                border: none;
-                                                border-radius: 16px;
-                                                background-color: $soft-purple-900;
-                                                cursor: pointer;
-                                                transition: background-color 0.25s ease-in-out;
-                                                &:hover {
-                                                  background-color: $neutral-700;
-                                                }
-                                                &.red-button {
-                                                  background-color: rgba($red, 0.75);
-                                                  &:hover {
-                                                    background-color: $red;
-                                                  }
-                                                }
-                                                img {
-                                                  width: 22px;
-                                                  height: 22px;
-                                                }
-                                              }
-                                            }
     .profile-actions {
       display: flex;
       flex-direction: column;
