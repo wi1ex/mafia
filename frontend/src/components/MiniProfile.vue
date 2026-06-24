@@ -1264,6 +1264,7 @@ async function toggleStaffRole(): Promise<void> {
     const { data } = await api.patch(`/admin/users/${uid}/role`, { role: targetRole })
     patchProfile({ role: data?.role || targetRole })
     emitStaffActionComplete('role')
+    void alertDialog(isModer ? 'Роль модератора снята' : 'Роль модератора выдана')
   } catch (e: any) {
     const d = e?.response?.data?.detail
     if (d === 'protected_user') void alertDialog('Пользователь защищен от админ-действий')
@@ -1297,6 +1298,7 @@ async function toggleStaffAccount(): Promise<void> {
     await api.post(`/admin/users/${uid}/${isDeleted ? 'restore' : 'delete'}`)
     patchProfile({ deleted: !isDeleted })
     emitStaffActionComplete('account')
+    void alertDialog(isDeleted ? 'Аккаунт восстановлен' : 'Аккаунт удален')
   } catch (e: any) {
     const d = e?.response?.data?.detail
     if (d === 'protected_user') void alertDialog('Пользователь защищен от админ-действий')
