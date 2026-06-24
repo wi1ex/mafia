@@ -6,14 +6,14 @@
     xmlns="http://www.w3.org/2000/svg"
     aria-hidden="true"
   >
-    <circle cx="32" cy="8" r="6" />
-    <circle cx="49" cy="15" r="5" />
+    <circle cx="32" cy="8" r="2.6667" />
+    <circle cx="49" cy="15" r="3.3333" />
     <circle cx="56" cy="32" r="4" />
-    <circle cx="49" cy="49" r="5" />
-    <circle cx="32" cy="56" r="6" />
-    <circle cx="15" cy="49" r="5" />
-    <circle cx="8" cy="32" r="4" />
-    <circle cx="15" cy="15" r="5" />
+    <circle cx="49" cy="49" r="4.6667" />
+    <circle cx="32" cy="56" r="5.3333" />
+    <circle cx="15" cy="49" r="6" />
+    <circle cx="8" cy="32" r="6.6667" />
+    <circle cx="15" cy="15" r="7.3333" />
   </svg>
 </template>
 
