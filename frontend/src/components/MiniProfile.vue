@@ -513,18 +513,9 @@ let nicknameHistorySeq = 0
 const MINUTES_IN_DAY = 24 * 60
 const STAFF_MODAL_Z_INDEX = 1700
 const NOMINATION_TOOLTIP_PANEL_GAP = 24
-const STAFF_SANCTION_DURATION_LIMITS = {
-  months: 240,
-  days: 31,
-  hours: 23,
-} as const
+const STAFF_SANCTION_DURATION_LIMITS = { months: 240, days: 31, hours: 23 } as const
 const STAFF_PRIMARY_ACTION_KEYS: readonly StaffActionKey[] = ['suspend', 'timeout']
 const nominationIntFmt = new Intl.NumberFormat('ru-RU')
-// 11111111111111111111111111111111111111111111111111111111
-const TEMP_TEST_NOMINATION_LEVEL_PREVIEW: boolean = true
-const TEMP_TEST_NOMINATION_LEVELS: readonly NominationLevel[] = [1, 2, 3, 4, 5]
-const TEMP_TEST_NOMINATION_PROGRESS_PCT = 40
-// 22222222222222222222222222222222222222222222222222222222
 const PROFILE_NOMINATION_DEFINITIONS: readonly ProfileNominationDefinition[] = [
   {
     key: 'games-played',
@@ -609,7 +600,6 @@ const targetDeleted = computed(() => Boolean(
   (profileLoadedForTarget.value && profile.value?.deleted)
   || (!profileLoadedForTarget.value && initialTargetDeleted.value)
 ))
-
 const displayName = computed(() => {
   if (profileLoadedForTarget.value && profile.value?.username) return profile.value.username
   if (initialProfileForTarget.value?.username) return initialProfileForTarget.value.username
@@ -659,15 +649,7 @@ const nominationStats = computed(() => (
 ))
 const profileNominations = computed<ProfileNomination[]>(() => {
   const stats = nominationStats.value
-  // 11111111111111111111111111111111111111111111111111111111
-  if (TEMP_TEST_NOMINATION_LEVEL_PREVIEW) {
-    return PROFILE_NOMINATION_DEFINITIONS.map((definition, index) => (
-      buildTempProfileNomination(definition, TEMP_TEST_NOMINATION_LEVELS[index] ?? 1)
-    ))
-  }
-  // 22222222222222222222222222222222222222222222222222222222
   if (!stats) return []
-
   return PROFILE_NOMINATION_DEFINITIONS.map((definition) => buildProfileNomination(definition, stats))
 })
 const showAdminFriendsTooltip = computed(() => (
@@ -829,15 +811,12 @@ const staffSanctionTitle = computed(() => {
 })
 const staffActionItems = computed<StaffActionItem[]>(() => {
   if (!profileLoadedForTarget.value || targetUserId.value <= 0) return []
-
   const avatarDisabled = staffAvatarBusy.value || !avatarName.value
   const nicknameDisabled = staffNicknameBusy.value || targetNicknameDefault.value
   const suspendDisabled = isStaffSanctionBusy('suspend')
   const timeoutDisabled = isStaffSanctionBusy('timeout')
-
   if (isAdminViewer.value) {
     if (isSelfProfile.value || targetRoleNormalized.value === 'admin') return []
-
     return [
       {
         key: 'suspend',
@@ -897,10 +876,8 @@ const staffActionItems = computed<StaffActionItem[]>(() => {
       },
     ]
   }
-
   if (isModerViewer.value) {
     if (!staffModerationTargetAllowed.value) return []
-
     return [
       {
         key: 'suspend',
@@ -932,7 +909,6 @@ const staffActionItems = computed<StaffActionItem[]>(() => {
       },
     ]
   }
-
   return []
 })
 const staffPrimaryActionItems = computed<StaffActionItem[]>(() => (
@@ -1001,7 +977,6 @@ function buildProfileNomination(definition: ProfileNominationDefinition, stats: 
   const value = safeNonNegativeInt(stats[definition.statKey])
   const level = resolveNominationLevel(value, definition.levelStarts)
   const levelIndex = level - 1
-
   return {
     key: definition.key,
     label: definition.label,
@@ -1010,31 +985,6 @@ function buildProfileNomination(definition: ProfileNominationDefinition, stats: 
     icon: definition.icon,
     valueLabel: formatNominationValue(value, definition.unit),
     progressPct: nominationProgressPct(value, level, definition.levelStarts),
-    // 11111111111111111111111111111111111111111111111111111111
-    progressStartLabel: definition.startLabels[levelIndex],
-    progressNextLabel: level >= 5 ? 'макс.' : definition.nextLabels[levelIndex],
-  }
-}
-
-function buildTempProfileNomination(definition: ProfileNominationDefinition, level: NominationLevel): ProfileNomination {
-  const levelIndex = level - 1
-  const levelStarts: readonly number[] = definition.levelStarts
-  const levelStart = levelStarts[levelIndex] ?? 0
-  let value = levelStart
-  if (level < 5) {
-    const nextLevelStart = levelStarts[levelIndex + 1] ?? levelStart
-    value = Math.round(levelStart + (nextLevelStart - levelStart) * (TEMP_TEST_NOMINATION_PROGRESS_PCT / 100))
-  }
-
-  return {
-    key: definition.key,
-    label: definition.label,
-    level,
-    levelLabel: `${level} ур.`,
-    icon: definition.icon,
-    valueLabel: formatNominationValue(value, definition.unit),
-    progressPct: TEMP_TEST_NOMINATION_PROGRESS_PCT,
-    // 22222222222222222222222222222222222222222222222222222222
     progressStartLabel: definition.startLabels[levelIndex],
     progressNextLabel: level >= 5 ? 'макс.' : definition.nextLabels[levelIndex],
   }
@@ -1085,34 +1035,26 @@ function formatDateTimeMinute(value?: string | number | Date | null): string {
 
 function formatLastOnline(value?: string | number | Date | null, online = false): string {
   if (online) return 'Онлайн'
-
   const dt = parseDate(value)
   if (!dt) return '-'
-
   const diffMs = Date.now() - dt.getTime()
   if (diffMs < 0) return 'Только что'
-
   const totalMinutes = Math.floor(diffMs / 60000)
   const minutesInDay = 24 * 60
   const minutesInMonth = 30 * minutesInDay
-
   if (totalMinutes < 1) return 'Только что'
-
   if (totalMinutes < 60) {
     return `${totalMinutes}м назад`
   }
-
   if (totalMinutes < minutesInDay) {
     const hours = Math.floor(totalMinutes / 60)
     const minutes = totalMinutes % 60
     return `${hours}ч ${minutes}м назад`
   }
-
   if (totalMinutes < minutesInMonth) {
     const days = Math.floor(totalMinutes / minutesInDay)
     return `${days}д назад`
   }
-
   return formatDateOnly(dt)
 }
 
@@ -1589,7 +1531,6 @@ async function refreshFriendStatus() {
     applyFriendStatus('self')
     return
   }
-
   try {
     applyFriendStatus(await friends.fetchStatus(uid))
   } catch {}
@@ -1692,9 +1633,7 @@ function updateNominationTooltipOffset(event: Event) {
   const panel = profilePanelEl.value
   const tooltip = wrap?.querySelector<HTMLElement>('.profile-nomination-tooltip') || null
   if (!wrap || !panel || !tooltip) return
-
   wrap.style.removeProperty('--profile-nomination-tooltip-x-shift')
-
   const wrapRect = wrap.getBoundingClientRect()
   const panelRect = panel.getBoundingClientRect()
   const tooltipWidth = tooltip.offsetWidth || tooltip.getBoundingClientRect().width
@@ -1704,13 +1643,11 @@ function updateNominationTooltipOffset(event: Event) {
   const centeredLeft = tooltipCenter - tooltipWidth / 2
   const centeredRight = tooltipCenter + tooltipWidth / 2
   let shift = 0
-
   if (centeredLeft < minLeft) {
     shift = minLeft - centeredLeft
   } else if (centeredRight > maxRight) {
     shift = maxRight - centeredRight
   }
-
   if (shift !== 0) {
     wrap.style.setProperty('--profile-nomination-tooltip-x-shift', `${Math.round(shift)}px`)
   }
@@ -1723,7 +1660,6 @@ function emitProfileRoomBlock(key: MiniProfileRoomControlKey): void {
 async function onFriendAction(kind: FriendActionKind) {
   const uid = targetUserId.value
   if (uid <= 0 || friendBusy.value) return
-
   friendBusy.value = true
   let actionForError: FriendApiAction = 'unknown'
   try {
@@ -1821,12 +1757,10 @@ watch([() => props.open, targetUserId, viewerVerificationRestricted, deletedTarg
     resetStaffActionState()
     return
   }
-
   if (restricted || deletedBlocked) {
     emit('update:open', false)
     return
   }
-
   profile.value = null
   view.value = 'profile'
   loadError.value = ''
