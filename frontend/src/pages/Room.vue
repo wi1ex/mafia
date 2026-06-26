@@ -3719,43 +3719,36 @@ onBeforeUnmount(() => {
       position: relative;
       align-items: center;
       justify-content: center;
-      padding: 0;
-      width: 60px;
+      padding: 0 16px;
       height: 40px;
       border: none;
-      border-radius: 5px;
-      background-color: $dark;
+      border-radius: 12px;
+      background-color: $soft-purple-900;
       cursor: pointer;
       transition: background-color 0.25s ease-in-out;
-      &:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-      }
-      &:hover {
-        background-color: $graphite;
-      }
       img {
-        width: 30px;
-        height: 30px;
+        width: 24px;
+        height: 24px;
       }
       .count-total {
         display: flex;
+        position: absolute;
         align-items: center;
         justify-content: center;
-        position: absolute;
-        top: 5px;
-        right: 7px;
-        width: 17px;
-        height: 17px;
+        top: 3px;
+        right: 11px;
+        width: 14px;
+        height: 14px;
         border-radius: 50%;
-        background-color: $grey;
-        color: $white;
-        font-size: 12px;
-        font-family: Manrope-Medium;
-        line-height: 1;
+        background-color: $red-500;
+        color: $neutral-white;
+        font-family: Hauora-Medium;
+        font-size: 10px;
+        line-height: 8px;
+        letter-spacing: -0.4px;
         transition: background-color 0.25s ease-in-out;
         &.unread {
-          background-color: $red;
+          background-color: $neutral-700;
         }
       }
       .hot-btn {
@@ -3763,17 +3756,28 @@ onBeforeUnmount(() => {
         align-items: center;
         justify-content: center;
         position: absolute;
-        bottom: 0;
-        right: 0;
-        width: 16px;
-        height: 16px;
-        border-radius: 5px;
-        background-color: $fg;
-        color: $black;
+        bottom: 1.5px;
+        right: 1.5px;
+        width: 14px;
+        height: 14px;
+        border-radius: 999px;
+        background-color: $neutral-white;
+        color: $soft-purple-900;
+        font-family: Hauora-Bold;
         font-size: 12px;
-        font-weight: bold;
-        font-family: Manrope-Medium;
-        line-height: 1;
+        line-height: 12px;
+        letter-spacing: -0.24px;
+      }
+      &:not(:disabled):hover,
+      &:not(:disabled):focus-visible,
+      &:not(:disabled):active {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      &:hover,
+      &:focus-visible,
+      &:active {
+        background-color: $soft-purple-800;
       }
     }
     .controls-side {
