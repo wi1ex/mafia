@@ -932,6 +932,15 @@ async def adjust_active_sanction_duration(sanction_id: int, payload: AdminSancti
 
     with suppress(Exception):
         await emit_notify(uid, note, kind="sanction")
+    if action_value == "decrease":
+        with suppress(Exception):
+            await _send_sanction_telegram_notice(
+                session,
+                user_id=uid,
+                telegram_id=user.telegram_id,
+                note=note,
+                log_event="sanction_duration_decreased.telegram_notify_failed",
+            )
     with suppress(Exception):
         await emit_sanctions_update(session, uid)
     with suppress(Exception):
@@ -1631,7 +1640,7 @@ async def notify_subscription_upsert(
     _schedule_subscription_telegram_message(uid, telegram_id, title, text)
 
 
-async def send_sanction_finished_telegram_notice(session: AsyncSession, *, user_id: int, note: Notif, telegram_id: int | None = None) -> bool:
+async def _send_sanction_telegram_notice(session: AsyncSession, *, user_id: int, note: Notif, telegram_id: int | None = None, log_event: str) -> bool:
     uid = int(user_id or 0)
     if uid <= 0:
         return False
@@ -1641,9 +1650,19 @@ async def send_sanction_finished_telegram_notice(session: AsyncSession, *, user_
         telegram_id,
         str(note.title or ""),
         str(note.text or ""),
-        log_event="sanction_finished.telegram_notify_failed",
+        log_event=log_event,
     )
     return True
+
+
+async def send_sanction_finished_telegram_notice(session: AsyncSession, *, user_id: int, note: Notif, telegram_id: int | None = None) -> bool:
+    return await _send_sanction_telegram_notice(
+        session,
+        user_id=user_id,
+        telegram_id=telegram_id,
+        note=note,
+        log_event="sanction_finished.telegram_notify_failed",
+    )
 
 
 async def _send_subscription_telegram_notice(session: AsyncSession, *, user_id: int, title: str, text: str) -> bool:

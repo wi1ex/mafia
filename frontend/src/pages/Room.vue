@@ -309,11 +309,9 @@
 
           <button v-if="gamePhase === 'idle' && !adminSpectator && canShowStartGame && canUseReadyStart" @click="startGameUi" :disabled="startingGame" aria-label="Запустить игру">
             <img :src="iconGameStart" alt="start" />
-              <span v-if="!IS_MOBILE && hotkeysVisible" class="hot-btn">G</span>
           </button>
           <button v-if="gamePhase === 'idle' && !adminSpectator && !canShowStartGame && canUseReadyToggle" @click="toggleReady" :aria-pressed="readyOn" aria-label="Готовность">
             <img :src="readyOn ? iconReadyGreen : iconReadyWhite" alt="ready" />
-              <span v-if="!IS_MOBILE && hotkeysVisible" class="hot-btn">G</span>
           </button>
           <button v-if="!adminSpectator && (gamePhase === 'idle' || isHead)" @click="toggleMic" :disabled="pending.mic || blockedSelf.mic === 1" :aria-pressed="micOn">
             <img :src="stateIcon('mic', localId)" alt="mic" />
@@ -1399,19 +1397,6 @@ function onHotkey(e: KeyboardEvent) {
       void toggleSpeakers()
     }
     return
-  }
-  if (code === 'KeyG') {
-    if (canShowStartGame.value && canUseReadyStart.value && !startingGame.value) {
-      e.preventDefault()
-      e.stopPropagation()
-      startGameUi()
-      return
-    }
-    if (!canShowStartGame.value && canUseReadyToggle.value) {
-      e.preventDefault()
-      e.stopPropagation()
-      void toggleReady()
-    }
   }
 }
 
