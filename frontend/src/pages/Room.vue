@@ -327,7 +327,7 @@
             <img :src="stateIcon('speakers', localId)" alt="speakers" />
               <span v-if="!IS_MOBILE && hotkeysVisible" class="hot-btn">S</span>
           </button>
-          <button v-if="gamePhase === 'idle' && !adminSpectator && !IS_MOBILE && canStartStreams" @click="toggleScreen" :disabled="pendingScreen || (!!screenOwnerId && screenOwnerId !== localId) || blockedSelf.screen === 1" :aria-pressed="isMyScreen">
+          <button v-if="gamePhase === 'idle' && !adminSpectator && !IS_MOBILE" @click="toggleScreen" :disabled="pendingScreen || (!!screenOwnerId && screenOwnerId !== localId) || blockedSelf.screen === 1" :aria-pressed="isMyScreen">
             <img :src="stateIcon('screen', localId)" alt="screen" />
           </button>
           <button v-if="gamePhase !== 'idle' && isHead" @click="toggleHostBlur" :disabled="!hostBlurToggleEnabled || hostBlurPending" :aria-pressed="hostBlurActive" aria-label="Затемнить экран">
@@ -2803,7 +2803,10 @@ const toggleScreen = async () => {
   if (adminSpectator.value) return
   if (pendingScreen.value) return
   const wantEnable = !isMyScreen.value
-  if (wantEnable && !canStartStreams.value) return
+  if (wantEnable && !canStartStreams.value) {
+    void alertDialog('Запуск трансляций отключен')
+    return
+  }
   const confirmPayload = {
     title: wantEnable ? 'Запуск трансляции' : 'Остановка трансляции',
     text: wantEnable

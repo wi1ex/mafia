@@ -409,12 +409,12 @@ const topBannerActive = computed(() => {
   return verificationBanner || adminBanner || sanctionBanner
 })
 const blockedLabel = computed(() => {
-  if (selectedRoom.value?.entry_closed) return 'Вход закрыт'
-  if (!canEnterRooms.value) return 'Вход отключен'
-  if (userStore.banActive) return 'Аккаунт забанен'
-  if (userStore.timeoutActive) return 'Таймаут: вход запрещен'
-  if (verificationRestricted.value) return 'Требуется верификация'
-  return 'Вход заблокирован'
+  if (selectedRoom.value?.entry_closed) return 'Вход в комнату закрыт'
+  if (!canEnterRooms.value) return 'Вход в комнаты отключен'
+  if (userStore.banActive) return 'Вход запрещен: аккаунт забанен'
+  if (userStore.timeoutActive) return 'Вход запрещен: активный таймаут'
+  if (verificationRestricted.value) return 'Вход запрещен: нет верификации'
+  return 'Вход запрещен'
 })
 const isGameParticipant = computed(() => {
   const room = selectedRoom.value

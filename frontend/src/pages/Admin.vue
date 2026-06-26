@@ -41,13 +41,13 @@
           <div class="grid">
             <div class="block">
               <UiSwitch class="switch-item" v-model="site.registration_enabled" label="Регистрация" :disabled="savingSettings" />
+              <UiSwitch class="switch-item" v-model="site.verification_restrictions" label="Ограничения верификации" :disabled="savingSettings" />
               <UiSwitch class="switch-item" v-model="site.rooms_can_create" label="Создание комнат" :disabled="savingSettings" />
               <UiSwitch class="switch-item" v-model="site.rooms_can_enter" label="Вход в комнату" :disabled="savingSettings" />
               <UiSwitch class="switch-item" v-model="site.games_can_start" label="Запуск игр" :disabled="savingSettings" />
               <UiSwitch class="switch-item" v-model="site.streams_can_start" label="Запуск трансляций" :disabled="savingSettings" />
               <UiSwitch class="switch-item" v-model="site.chat_open_enabled" label="Открытие чата" :disabled="savingSettings" />
               <UiSwitch class="switch-item" v-model="site.chat_messages_enabled" label="Сообщения в чат" :disabled="savingSettings" />
-              <UiSwitch class="switch-item" v-model="site.verification_restrictions" label="Ограничения верификации" :disabled="savingSettings" />
               <div class="bulk-admin-actions">
                 <button class="btn danger width-full" :disabled="kickRoomsBusy || clearChatBusy" @click="kickAllRooms">
                   Кик из комнат
