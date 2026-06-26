@@ -533,9 +533,9 @@ const PROFILE_NOMINATION_DEFINITIONS: readonly ProfileNominationDefinition[] = [
     icon: nominationHead,
     statKey: 'games_hosted',
     unit: 'count',
-    levelStarts: [0, 10, 50, 150, 300],
-    startLabels: ['0', '10 игр', '50 игр', '150 игр', '300 игр'],
-    nextLabels: ['10 игр', '50 игр', '150 игр', '300 игр'],
+    levelStarts: [0, 10, 30, 100, 250],
+    startLabels: ['0', '10 игр', '30 игр', '100 игр', '250 игр'],
+    nextLabels: ['10 игр', '30 игр', '100 игр', '250 игр'],
   },
   {
     key: 'room-time',
@@ -543,9 +543,9 @@ const PROFILE_NOMINATION_DEFINITIONS: readonly ProfileNominationDefinition[] = [
     icon: nominationRoom,
     statKey: 'room_minutes',
     unit: 'minutes',
-    levelStarts: [0, 3 * MINUTES_IN_DAY, 14 * MINUTES_IN_DAY, 30 * MINUTES_IN_DAY, 60 * MINUTES_IN_DAY],
-    startLabels: ['0', '3 дня', '14 дней', '30 дней', '60 дней'],
-    nextLabels: ['3 дня', '14 дней', '30 дней', '60 дней'],
+    levelStarts: [0, 5 * MINUTES_IN_DAY, 14 * MINUTES_IN_DAY, 30 * MINUTES_IN_DAY, 60 * MINUTES_IN_DAY],
+    startLabels: ['0', '5 дней', '14 дней', '30 дней', '60 дней'],
+    nextLabels: ['5 дней', '14 дней', '30 дней', '60 дней'],
   },
   {
     key: 'stream-time',
@@ -563,9 +563,9 @@ const PROFILE_NOMINATION_DEFINITIONS: readonly ProfileNominationDefinition[] = [
     icon: nominationSpectator,
     statKey: 'spectator_minutes',
     unit: 'minutes',
-    levelStarts: [0, MINUTES_IN_DAY, 7 * MINUTES_IN_DAY, 14 * MINUTES_IN_DAY, 30 * MINUTES_IN_DAY],
-    startLabels: ['0', '1 день', '7 дней', '14 дней', '30 дней'],
-    nextLabels: ['1 день', '7 дней', '14 дней', '30 дней'],
+    levelStarts: [0, MINUTES_IN_DAY, 3 * MINUTES_IN_DAY, 10 * MINUTES_IN_DAY, 30 * MINUTES_IN_DAY],
+    startLabels: ['0', '1 день', '3 дня', '10 дней', '30 дней'],
+    nextLabels: ['1 день', '3 дня', '10 дней', '30 дней'],
   },
 ]
 
