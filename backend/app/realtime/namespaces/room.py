@@ -268,7 +268,7 @@ async def join(sid, data) -> JoinAck:
         if str(params.get("entry_closed") or "0") == "1":
             return {"ok": False, "error": "room_closed", "status": 410}
 
-        if not admin_spectator_requested and not get_cached_settings().rooms_can_enter:
+        if not admin_spectator_requested and base_role_normalized != ROLE_ADMIN and not get_cached_settings().rooms_can_enter:
             return {"ok": False, "error": "rooms_entry_disabled", "status": 403}
 
         if not admin_spectator_requested:
@@ -919,7 +919,8 @@ async def screen(sid, data) -> ScreenAck:
         want_on = bool((data or {}).get("on"))
         target = int((data or {}).get("target") or actor_uid)
 
-        if want_on and not get_cached_settings().streams_can_start:
+        actor_base_role = str(sess.get("base_role") or "user")
+        if want_on and normalize_user_role(actor_base_role) != ROLE_ADMIN and not get_cached_settings().streams_can_start:
             return {"ok": False, "error": "streams_start_disabled", "status": 403}
 
         if not await r.sismember(f"room:{rid}:members", str(target)):
@@ -1381,7 +1382,8 @@ async def game_start(sid, data) -> GameStartAck:
             return {"ok": False, "error": "not_in_room", "status": 403}
 
         app_settings = get_cached_settings()
-        if not app_settings.games_can_start:
+        actor_base_role = str(sess.get("base_role") or "user")
+        if normalize_user_role(actor_base_role) != ROLE_ADMIN and not app_settings.games_can_start:
             return {"ok": False, "error": "game_start_disabled", "status": 403}
 
         min_ready = app_settings.game_min_ready_players

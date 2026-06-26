@@ -327,7 +327,7 @@
             <img :src="stateIcon('speakers', localId)" alt="speakers" />
               <span v-if="!IS_MOBILE && hotkeysVisible" class="hot-btn">S</span>
           </button>
-          <button v-if="gamePhase === 'idle' && !adminSpectator && !IS_MOBILE && settings.streamsCanStart" @click="toggleScreen" :disabled="pendingScreen || (!!screenOwnerId && screenOwnerId !== localId) || blockedSelf.screen === 1" :aria-pressed="isMyScreen">
+          <button v-if="gamePhase === 'idle' && !adminSpectator && !IS_MOBILE && canStartStreams" @click="toggleScreen" :disabled="pendingScreen || (!!screenOwnerId && screenOwnerId !== localId) || blockedSelf.screen === 1" :aria-pressed="isMyScreen">
             <img :src="stateIcon('screen', localId)" alt="screen" />
           </button>
           <button v-if="gamePhase !== 'idle' && isHead" @click="toggleHostBlur" :disabled="!hostBlurToggleEnabled || hostBlurPending" :aria-pressed="hostBlurActive" aria-label="Затемнить экран">
@@ -720,10 +720,11 @@ const canUseVerifiedFeatures = computed(() => {
   if (!userStore.user) return false
   return !(settings.verificationRestrictions && !userStore.telegramVerified)
 })
+const isAdminUser = computed(() => String(userStore.user?.role || '').toLowerCase() === 'admin')
 const showRoomFriendsButton = computed(() => gamePhase.value === 'idle' && !adminSpectator.value && canUseVerifiedFeatures.value)
 const showGlobalChatButton = computed(() => {
   if (!canUseVerifiedFeatures.value) return false
-  if (!settings.chatOpenEnabled) return false
+  if (!settings.chatOpenEnabled && !isAdminUser.value) return false
   return !(userStore.banActive || userStore.timeoutActive || userStore.inActiveGameAsPlayer)
 })
 function onAppsCounts(p: { total?: number; unread?: number }) {
@@ -847,7 +848,7 @@ const canShowFoulButtons = computed(() =>
   ACTION_PHASES.includes(gamePhase.value as (typeof ACTION_PHASES)[number])
 )
 const isMafiaLimitRoom = computed(() => roomUserLimit.value === gameLimitMin.value)
-const isAdminUser = computed(() => String(userStore.user?.role || '').toLowerCase() === 'admin')
+const canStartStreams = computed(() => settings.streamsCanStart || isAdminUser.value)
 const canViewGameSettings = computed(() => !adminSpectator.value && isMafiaLimitRoom.value)
 const canEditGameSettings = computed(() =>
   !adminSpectator.value &&
@@ -2802,6 +2803,7 @@ const toggleScreen = async () => {
   if (adminSpectator.value) return
   if (pendingScreen.value) return
   const wantEnable = !isMyScreen.value
+  if (wantEnable && !canStartStreams.value) return
   const confirmPayload = {
     title: wantEnable ? 'Запуск трансляции' : 'Остановка трансляции',
     text: wantEnable

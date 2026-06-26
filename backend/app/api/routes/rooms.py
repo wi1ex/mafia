@@ -52,7 +52,8 @@ router = APIRouter()
 async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get_session), ident: Identity = Depends(get_identity)) -> RoomIdOut:
     uid = int(ident["id"])
     app_settings = get_cached_settings()
-    if not app_settings.rooms_can_create:
+    is_admin = normalize_user_role(ident.get("role")) == ROLE_ADMIN
+    if not app_settings.rooms_can_create and not is_admin:
         raise HTTPException(status_code=403, detail="rooms_create_disabled")
 
     await ensure_room_access_allowed(session, uid)
@@ -347,7 +348,7 @@ async def update_game(room_id: int, payload: GameParams, ident: Identity = Depen
 @log_route("rooms.access")
 @rate_limited(lambda ident, room_id, **_: f"rl:rooms:access:{ident['id']}:{room_id}", limit=10, window_s=1)
 async def access(room_id: int, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> RoomAccessOut:
-    if not get_cached_settings().rooms_can_enter:
+    if not get_cached_settings().rooms_can_enter and normalize_user_role(ident.get("role")) != ROLE_ADMIN:
         raise HTTPException(status_code=403, detail="rooms_entry_disabled")
 
     await ensure_room_access_allowed(db, int(ident["id"]))
@@ -379,7 +380,7 @@ async def access(room_id: int, ident: Identity = Depends(get_identity), db: Asyn
 @log_route("rooms.apply")
 @rate_limited(lambda ident, room_id, **_: f"rl:rooms:apply:{ident['id']}:{room_id}", limit=10, window_s=1)
 async def apply(room_id: int, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
-    if not get_cached_settings().rooms_can_enter:
+    if not get_cached_settings().rooms_can_enter and normalize_user_role(ident.get("role")) != ROLE_ADMIN:
         raise HTTPException(status_code=403, detail="rooms_entry_disabled")
 
     await ensure_room_access_allowed(db, int(ident["id"]))

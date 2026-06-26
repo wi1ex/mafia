@@ -275,12 +275,13 @@ const showFriendsButton = computed(() => {
   return canUseVerifiedFeatures.value
 })
 
+const isAdminUser = computed(() => String(user.user?.role || '').toLowerCase() === 'admin')
 const showGlobalChatButton = computed(() => {
   if (!canUseVerifiedFeatures.value) return false
   return !(user.banActive || user.timeoutActive || user.inActiveGameAsPlayer)
 })
 
-const globalChatButtonDisabled = computed(() => !settings.chatOpenEnabled)
+const globalChatButtonDisabled = computed(() => !settings.chatOpenEnabled && !isAdminUser.value)
 
 const adminBannerText = computed(() => {
   if (!settings.ready) return ''

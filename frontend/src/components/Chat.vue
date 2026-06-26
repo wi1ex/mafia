@@ -401,6 +401,7 @@ const USER_SCROLL_INTENT_WINDOW_MS = 4000
 const VISIBLE_UNREAD_TARGET_RATIO = 0.5
 const VISIBLE_UNREAD_TARGET_MAX_PX = 120
 const viewerMiniProfileRole = computed(() => normalizeMiniProfileRole(user.user?.role))
+const isAdminUser = computed(() => viewerMiniProfileRole.value === 'admin')
 const isChatModerator = computed(() => {
   return viewerMiniProfileRole.value === 'admin' || viewerMiniProfileRole.value === 'moder'
 })
@@ -415,12 +416,12 @@ const isRoomMode = computed(() => route.name === 'room')
 
 const showLauncher = computed(() => {
   if (!auth.ready || !settings.ready || !auth.isAuthed) return false
-  if (!settings.chatOpenEnabled) return false
+  if (!settings.chatOpenEnabled && !isAdminUser.value) return false
   if (!user.user) return false
   if (user.banActive || user.timeoutActive || user.inActiveGameAsPlayer) return false
   return !(settings.verificationRestrictions && !user.telegramVerified);
 })
-const canRender = computed(() => settings.chatOpenEnabled && (showLauncher.value || chat.open))
+const canRender = computed(() => (settings.chatOpenEnabled || isAdminUser.value) && (showLauncher.value || chat.open))
 const hiddenUnreadTargetMessageIds = computed(() => {
   unreadTargetVisibilityTick.value
   if (!chat.open) {

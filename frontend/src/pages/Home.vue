@@ -8,7 +8,7 @@
           text="Создать комнату"
           :icon="iconAddPlus"
           icon-position="right"
-          :disabled="!settings.roomsCanCreate || !auth.isAuthed || userStore.roomRestricted || verificationRestricted"
+          :disabled="!canCreateRooms || !auth.isAuthed || userStore.roomRestricted || verificationRestricted"
           @click="onOpenCreate"
         />
       </header>
@@ -310,6 +310,8 @@ const isAdmin = computed(() => userStore.user?.role === 'admin')
 const isModer = computed(() => userStore.user?.role === 'moder')
 const canCloseRooms = computed(() => isAdmin.value || isModer.value)
 const canBypassSpectatorsLimit = computed(() => isAdmin.value || isModer.value)
+const canCreateRooms = computed(() => settings.roomsCanCreate || isAdmin.value)
+const canEnterRooms = computed(() => settings.roomsCanEnter || isAdmin.value)
 const canAdminSpectateRoom = computed(() => {
   const room = selectedRoom.value
   return isAdmin.value && !!room && !room.in_game && !room.entry_closed
@@ -408,7 +410,7 @@ const topBannerActive = computed(() => {
 })
 const blockedLabel = computed(() => {
   if (selectedRoom.value?.entry_closed) return 'Вход закрыт'
-  if (!settings.roomsCanEnter) return 'Вход отключен'
+  if (!canEnterRooms.value) return 'Вход отключен'
   if (userStore.banActive) return 'Аккаунт забанен'
   if (userStore.timeoutActive) return 'Таймаут: вход запрещен'
   if (verificationRestricted.value) return 'Требуется верификация'
@@ -427,7 +429,7 @@ const ctaState = computed<Cta>(() => {
   const room = selectedRoom.value
   if (!room) return 'none'
   if (room?.entry_closed) return 'blocked'
-  if (room && !settings.roomsCanEnter) return 'blocked'
+  if (room && !canEnterRooms.value) return 'blocked'
   if (room && (userStore.roomRestricted || verificationRestricted.value)) return 'blocked'
   if (!auth.isAuthed) return 'login'
   if (room.in_game) {
@@ -602,7 +604,7 @@ async function onCreated(room: any) {
 }
 
 async function onOpenCreate() {
-  if (!settings.roomsCanCreate || !auth.isAuthed || userStore.roomRestricted) return
+  if (!canCreateRooms.value || !auth.isAuthed || userStore.roomRestricted) return
   if (verificationRestricted.value) return
   openCreate.value = true
 }

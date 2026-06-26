@@ -19,6 +19,7 @@ from ..models.sanction import UserSanction
 from ..models.user import User
 from ..core.db import SessionLocal
 from ..core.roles import (
+    ROLE_ADMIN,
     ROLE_MODER,
     can_moderate_chat_message,
     can_purge_deleted_chat_message,
@@ -684,9 +685,11 @@ async def resolve_global_chat_permissions(session: AsyncSession, user_id: int) -
             error="presence_unavailable",
         )
 
+    app_settings = get_cached_settings()
+    is_admin = normalize_user_role(user.role) == ROLE_ADMIN
     can_open = True
     error: str | None = None
-    if not get_cached_settings().chat_open_enabled:
+    if not app_settings.chat_open_enabled and not is_admin:
         can_open = False
         error = "chat_disabled"
     elif ban_active:
@@ -702,7 +705,7 @@ async def resolve_global_chat_permissions(session: AsyncSession, user_id: int) -
         can_open = False
         error = "not_verified"
 
-    can_send = can_open and bool(get_cached_settings().chat_messages_enabled)
+    can_send = can_open and (is_admin or bool(app_settings.chat_messages_enabled))
     can_react = can_open
     can_delete_own = can_open
 
