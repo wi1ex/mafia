@@ -3768,15 +3768,13 @@ onBeforeUnmount(() => {
         line-height: 12px;
         letter-spacing: -0.24px;
       }
-      &:not(:disabled):hover,
-      &:not(:disabled):focus-visible,
-      &:not(:disabled):active {
+      &:disabled {
         opacity: 0.5;
         cursor: not-allowed;
       }
-      &:hover,
-      &:focus-visible,
-      &:active {
+      &:not(:disabled):hover,
+      &:not(:disabled):focus-visible,
+      &:not(:disabled):active {
         background-color: $soft-purple-800;
       }
     }

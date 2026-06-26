@@ -670,7 +670,11 @@ async def leave(sid, data):
                 log.warning("sio.leave.admin_spectator_leave_room_failed", rid=rid, uid=uid)
             asyncio.create_task(_remove_admin_spectator_livekit(rid, uid))
 
-        await reset_room_session(sid, sess, uid=uid)
+        try:
+            await reset_room_session(sid, sess, uid=uid)
+        except KeyError:
+            log.warning("sio.leave.session_already_gone", sid=sid, rid=rid, uid=uid)
+
         return {"ok": True, "left": bool(was_member or was_spectator or admin_spectator)}
 
     except Exception:

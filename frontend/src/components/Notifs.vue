@@ -308,9 +308,9 @@ onBeforeUnmount(() => {
         text-underline-offset: 3px;
         cursor: pointer;
         transition: color 0.25s ease-in-out, text-decoration-color 0.25s ease-in-out;
-        &:hover,
-        &:focus-visible,
-        &:active {
+        &:not(:disabled):hover,
+        &:not(:disabled):focus-visible,
+        &:not(:disabled):active {
           color: $neutral-black;
           text-decoration-color: $neutral-black;
         }
@@ -327,9 +327,9 @@ onBeforeUnmount(() => {
           --ui-icon-height: 24px;
           --ui-icon-color: #{$neutral-black};
         }
-        &:hover,
-        &:focus-visible,
-        &:active {
+        &:not(:disabled):hover,
+        &:not(:disabled):focus-visible,
+        &:not(:disabled):active {
           .close-icon {
             --ui-icon-color: #{$green-500};
           }
@@ -367,9 +367,9 @@ onBeforeUnmount(() => {
       gap: 8px;
       border-radius: 20px;
       transition: background-color 0.25s ease-in-out;
-      &:hover,
-      &:focus-visible,
-      &:active {
+      &:not(:disabled):hover,
+      &:not(:disabled):focus-visible,
+      &:not(:disabled):active {
         background-color: $neutral-white;
       }
       .item-header {

@@ -67,9 +67,9 @@ const tooltipPlacement = computed<TooltipPlacement>(() => {
     --ui-icon-height: var(--ui-tooltip-icon-size);
     --ui-icon-color: #{$neutral-300};
   }
-  &:hover,
-  &:focus-visible,
-  &:active {
+  &:not(:disabled):hover,
+  &:not(:disabled):focus-visible,
+  &:not(:disabled):active {
     .tooltip-img {
       --ui-icon-color: #{$green-500};
     }
@@ -122,8 +122,9 @@ const tooltipPlacement = computed<TooltipPlacement>(() => {
       transform: translateY(-5px);
     }
   }
-  &:hover,
-  &:focus-visible {
+  &:not(:disabled):hover,
+  &:not(:disabled):focus-visible,
+  &:not(:disabled):active {
     .ui-tooltip__bubble {
       opacity: 1;
       transform: translateY(0);

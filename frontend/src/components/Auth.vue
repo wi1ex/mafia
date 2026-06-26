@@ -342,9 +342,9 @@ onMounted(() => {
         transition: opacity 0.25s ease-in-out;
         z-index: 0;
       }
-      &:hover,
-      &:focus-visible,
-      &:active {
+      &:not(:disabled):hover,
+      &:not(:disabled):focus-visible,
+      &:not(:disabled):active {
         &::after {
           opacity: 1;
         }
@@ -416,9 +416,9 @@ onMounted(() => {
           text-underline-offset: 3px;
           cursor: pointer;
           transition: color 0.25s ease-in-out, text-decoration-color 0.25s ease-in-out;
-          &:hover,
-          &:focus-visible,
-          &:active {
+          &:not(:disabled):hover,
+          &:not(:disabled):focus-visible,
+          &:not(:disabled):active {
             color: $neutral-white;
           }
         }

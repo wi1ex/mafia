@@ -572,9 +572,9 @@ function openAuth(mode: 'login' | 'register') {
           letter-spacing: -0.36px;
           transition: color 0.25s ease-in-out;
         }
-        &:hover,
-        &:focus-visible,
-        &:active {
+        &:not(:disabled):hover,
+        &:not(:disabled):focus-visible,
+        &:not(:disabled):active {
           background-color: $soft-purple-900;
           .page-icon {
             --ui-icon-color: #{$neutral-white};
@@ -611,10 +611,10 @@ function openAuth(mode: 'login' | 'register') {
       transition: opacity 0.25s ease-in-out;
       z-index: 0;
     }
-    &:hover,
-    &:focus-visible,
-    &:active,
-    &.profile-dropdown-trigger[aria-expanded='true'] {
+    &:not(:disabled):hover,
+    &:not(:disabled):focus-visible,
+    &:not(:disabled):active,
+    &:not(:disabled).profile-dropdown-trigger[aria-expanded='true'] {
       &::after {
         opacity: 1;
       }
@@ -657,10 +657,10 @@ function openAuth(mode: 'login' | 'register') {
       transition: opacity 0.25s ease-in-out;
       z-index: 0;
     }
-    &:hover,
-    &:focus-visible,
-    &:active,
-    &.profile-dropdown-trigger[aria-expanded='true'] {
+    &:not(:disabled):hover,
+    &:not(:disabled):focus-visible,
+    &:not(:disabled):active,
+    &:not(:disabled).profile-dropdown-trigger[aria-expanded='true'] {
       &::after {
         opacity: 1;
       }
@@ -863,9 +863,9 @@ function openAuth(mode: 'login' | 'register') {
               letter-spacing: -0.36px;
               transition: color 0.25s ease-in-out;
             }
-            &:hover,
-            &:focus-visible,
-            &:active {
+            &:not(:disabled):hover,
+            &:not(:disabled):focus-visible,
+            &:not(:disabled):active {
               background-color: $neutral-50;
               .profile-icon {
                 --ui-icon-color: #{$neutral-black};

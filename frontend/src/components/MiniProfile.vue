@@ -1959,9 +1959,9 @@ onBeforeUnmount(() => {
                 &.enabled {
                   cursor: default;
                 }
-                &:hover,
-                &:focus-visible,
-                &:active {
+                &:not(:disabled):hover,
+                &:not(:disabled):focus-visible,
+                &:not(:disabled):active {
                   &::after {
                     opacity: 1;
                     pointer-events: auto;
@@ -2078,9 +2078,9 @@ onBeforeUnmount(() => {
                 height: 32px;
                 border-radius: 8px;
                 background-color: $soft-purple-900;
-                &:hover,
-                &:focus-visible,
-                &:active {
+                &:not(:disabled):hover,
+                &:not(:disabled):focus-visible,
+                &:not(:disabled):active {
                   &::after {
                     opacity: 1;
                     pointer-events: auto;
@@ -2177,9 +2177,9 @@ onBeforeUnmount(() => {
                 height: 32px;
                 border-radius: 8px;
                 background-color: $soft-purple-900;
-                &:hover,
-                &:focus-visible,
-                &:active {
+                &:not(:disabled):hover,
+                &:not(:disabled):focus-visible,
+                &:not(:disabled):active {
                   &::after {
                     opacity: 1;
                     pointer-events: auto;
@@ -2285,9 +2285,9 @@ onBeforeUnmount(() => {
                 height: 32px;
                 border-radius: 8px;
                 background-color: $soft-purple-900;
-                &:hover,
-                &:focus-visible,
-                &:active {
+                &:not(:disabled):hover,
+                &:not(:disabled):focus-visible,
+                &:not(:disabled):active {
                   &::after {
                     opacity: 1;
                     pointer-events: auto;
@@ -2478,9 +2478,9 @@ onBeforeUnmount(() => {
                                       width: 24px;
                                       height: 24px;
                                     }
-                                    &:hover,
-                                    &:focus-visible,
-                                    &:active {
+                                    &:not(:disabled):hover,
+                                    &:not(:disabled):focus-visible,
+                                    &:not(:disabled):active {
                                       background-color: $soft-purple-800;
                                     }
                                     &.red-button {
@@ -2490,9 +2490,9 @@ onBeforeUnmount(() => {
                                         --ui-icon-height: 24px;
                                         --ui-icon-color: #{$neutral-900};
                                       }
-                                      &:hover,
-                                      &:focus-visible,
-                                      &:active {
+                                      &:not(:disabled):hover,
+                                      &:not(:disabled):focus-visible,
+                                      &:not(:disabled):active {
                                         background-color: $red-200;
                                       }
                                     }
@@ -2541,9 +2541,9 @@ onBeforeUnmount(() => {
             --ui-icon-height: 24px;
             --ui-icon-color: #{$neutral-white};
           }
-          &:hover,
-          &:focus-visible,
-          &:active {
+          &:not(:disabled):hover,
+          &:not(:disabled):focus-visible,
+          &:not(:disabled):active {
             .close-icon {
               --ui-icon-color: #{$green-500};
             }

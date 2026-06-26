@@ -1057,10 +1057,10 @@ onBeforeUnmount(() => {
             position: relative;
             z-index: 1;
           }
-          &:hover,
-          &:focus-visible,
-          &:active,
-          &.active {
+          &:not(:disabled):hover,
+          &:not(:disabled):focus-visible,
+          &:not(:disabled):active,
+          &:not(:disabled).active {
             &::after {
               opacity: 1;
             }

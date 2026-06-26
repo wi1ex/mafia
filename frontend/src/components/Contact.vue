@@ -319,9 +319,9 @@ onBeforeUnmount(() => {
           --ui-icon-height: 24px;
           --ui-icon-color: #{$neutral-black};
         }
-        &:hover,
-        &:focus-visible,
-        &:active {
+        &:not(:disabled):hover,
+        &:not(:disabled):focus-visible,
+        &:not(:disabled):active {
           .close-icon {
             --ui-icon-color: #{$green-500};
           }
@@ -379,9 +379,9 @@ onBeforeUnmount(() => {
             --ui-icon-height: 16px;
             --ui-icon-color: #{$neutral-black};
           }
-          &:hover,
-          &:focus-visible,
-          &:active {
+          &:not(:disabled):hover,
+          &:not(:disabled):focus-visible,
+          &:not(:disabled):active {
             .contact-email-img-2 {
               --ui-icon-color: #{$green-600};
             }
