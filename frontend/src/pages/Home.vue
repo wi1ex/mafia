@@ -175,9 +175,10 @@
               <UiButton v-else-if="ctaState==='pending'" class="ri-action" size="middle" text="Заявка отправлена" disabled />
               <UiButton v-else-if="ctaState==='watch'" class="ri-action" size="middle" text="Смотреть" :disabled="entering" @click="onEnter" />
               <UiButton v-else-if="ctaState==='spectators_full'" class="ri-action" size="middle" text="Лимит зрителей" disabled />
-              <UiButton v-else-if="ctaState==='in_game'" class="ri-action" size="middle" text="Идёт игра" disabled />
+              <UiButton v-else-if="ctaState==='loading'" class="ri-action" size="middle" text="Загрузка..." disabled />
+              <UiButton v-else-if="ctaState==='in_game'" class="ri-action" size="middle" text="Игра без зрителей" disabled />
               <UiButton v-else-if="ctaState==='blocked'" class="ri-action" size="middle" :text="blockedLabel" disabled />
-              <UiButton v-else class="ri-action" size="middle" text="Авторизуйтесь, чтобы войти" disabled />
+              <UiButton v-else-if="ctaState==='login'" class="ri-action" size="middle" text="Авторизуйтесь, чтобы войти" disabled />
             </div>
           </div>
 
@@ -421,24 +422,27 @@ const isGameParticipant = computed(() => {
   return members.some(m => m.id === uid && (m.role === 'head' || m.role === 'player'))
 })
 
-type Cta = 'login' | 'enter' | 'full' | 'apply' | 'pending' | 'in_game' | 'watch' | 'spectators_full' | 'blocked'
+type Cta = 'none' | 'login' | 'enter' | 'full' | 'apply' | 'pending' | 'in_game' | 'watch' | 'spectators_full' | 'blocked' | 'loading'
 const ctaState = computed<Cta>(() => {
   const room = selectedRoom.value
+  if (!room) return 'none'
   if (room?.entry_closed) return 'blocked'
   if (room && !settings.roomsCanEnter) return 'blocked'
   if (room && (userStore.roomRestricted || verificationRestricted.value)) return 'blocked'
-  if (!auth.isAuthed || !room) return 'login'
+  if (!auth.isAuthed) return 'login'
   if (room.in_game) {
     if (isGameParticipant.value) return 'enter'
     if (canBypassSpectatorsLimit.value) return 'watch'
-    const limit = info.value?.game?.spectators_limit ?? 0
+    if (!info.value?.game) return 'loading'
+    const limit = info.value.game.spectators_limit
     const count = info.value?.spectators_count ?? 0
     if (limit <= 0) return 'in_game'
     return count < limit ? 'watch' : 'spectators_full'
   }
   if (room.privacy === 'open' || access.value === 'approved') return isFull.value ? 'full' : 'enter'
   if (access.value === 'none') return 'apply'
-  return 'pending'
+  if (access.value === 'pending') return 'pending'
+  return 'none'
 })
 const hasGame = computed(() => Boolean(info.value?.game))
 const game = computed<Game>(() => info.value?.game ?? roomGameDefault)
