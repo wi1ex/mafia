@@ -115,6 +115,7 @@ __all__ = [
     "get_nominees_in_order",
     "get_alive_and_voted_ids",
     "can_act_on_user",
+    "_can_use_room_admin_actions",
     "stop_screen_for_user",
     "emit_state_changed_filtered",
     "compute_day_opening_and_closing",
@@ -1676,6 +1677,17 @@ def ensure_can_act_role(actor_role: str, target_role: str, *, actor_base_role: s
         return {"ok": False, "error": error, "status": status}
 
     return None
+
+
+async def _can_use_room_admin_actions(r, rid: int, actor_uid: int, sess: Mapping[str, Any]) -> bool:
+    if await r.sismember(f"room:{rid}:members", str(actor_uid)):
+        return True
+
+    if not bool(sess.get("admin_spectator")):
+        return False
+
+    base_role = normalize_user_role(sess.get("base_role") or sess.get("role"))
+    return base_role == ROLE_ADMIN
 
 
 async def build_game_context(sid, *, namespace="/room") -> tuple[GameActionContext | None, dict | None]:

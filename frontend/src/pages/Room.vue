@@ -1881,6 +1881,13 @@ function actionRol(id: string): string {
   return 'user'
 }
 
+function canUseRoomAdminActions(): boolean {
+  const id = localId.value
+  if (!id) return false
+  if (adminSpectator.value) return isAdminUser.value
+  return positionByUser.has(id) || rolesByUser.has(id)
+}
+
 function onNominate(targetId: string) {
   game.nominateTarget(targetId, sendAck)
 }
@@ -1984,7 +1991,8 @@ async function toggleReady() {
 function canModerate(targetId: string): boolean {
   if (targetId === localId.value) return false
   if (gamePhase.value !== 'idle') return false
-  const me = actionRol(localId.value)
+  if (!canUseRoomAdminActions()) return false
+  const me = adminSpectator.value && isAdminUser.value ? 'admin' : actionRol(localId.value)
   const trg = actionRol(targetId)
   if (me === trg) return false
   if (me === 'admin') return trg !== 'admin'

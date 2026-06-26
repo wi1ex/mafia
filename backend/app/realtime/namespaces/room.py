@@ -103,6 +103,7 @@ from ..utils import (
     process_player_death,
     require_ctx,
     ensure_can_act_role,
+    _can_use_room_admin_actions,
     get_game_deaths,
     get_farewell_wills,
     get_farewell_limits,
@@ -1018,6 +1019,12 @@ async def moderate(sid, data) -> ModerateAck:
             return {"ok": False, "error": "no_changes", "status": 400}
 
         r = get_redis()
+        if not await r.sismember(f"room:{rid}:members", str(target)):
+            return {"ok": False, "error": "user_not_in_room", "status": 404}
+
+        if not await _can_use_room_admin_actions(r, rid, actor_uid, sess):
+            return {"ok": False, "error": "forbidden", "status": 403}
+
         role_in_room = await r.hget(f"room:{rid}:user:{actor_uid}:info", "role")
         actor_room_role = str(role_in_room or sess.get("role") or "user")
         actor_base_role = str(sess.get("base_role") or actor_room_role or "user")
@@ -1103,6 +1110,9 @@ async def kick(sid, data):
         r = get_redis()
         if not await r.sismember(f"room:{rid}:members", str(target)):
             return {"ok": False, "error": "user_not_in_room", "status": 404}
+
+        if not await _can_use_room_admin_actions(r, rid, actor_uid, sess):
+            return {"ok": False, "error": "forbidden", "status": 403}
 
         role_in_room = await r.hget(f"room:{rid}:user:{actor_uid}:info", "role")
         actor_role = str(role_in_room or sess.get("role") or "user")
