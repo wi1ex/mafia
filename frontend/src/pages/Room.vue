@@ -314,19 +314,19 @@
             <UiIcon class="ready-icon" :class="{ 'ready-icon-on': readyOn }" :icon="iconReady" />
           </button>
           <button v-if="!adminSpectator && (gamePhase === 'idle' || isHead)" @click="toggleMic" :disabled="pending.mic || blockedSelf.mic === 1" :aria-pressed="micOn">
-            <img :src="stateIcon('mic', localId)" alt="mic" />
+            <UiIcon class="control-state-icon" :class="stateIconClass('mic', localId)" :icon="stateIcon('mic', localId)" label="mic" />
               <span v-if="!IS_MOBILE && hotkeysVisible" class="hot-btn">M</span>
           </button>
           <button v-if="!adminSpectator && (gamePhase === 'idle' || isHead)" @click="toggleCam" :disabled="pending.cam || blockedSelf.cam === 1" :aria-pressed="camOn">
-            <img :src="stateIcon('cam', localId)" alt="cam" />
+            <UiIcon class="control-state-icon" :class="stateIconClass('cam', localId)" :icon="stateIcon('cam', localId)" label="cam" />
               <span v-if="!IS_MOBILE && hotkeysVisible" class="hot-btn">C</span>
           </button>
           <button v-if="gamePhase === 'idle'" @click="toggleSpeakers" :disabled="pending.speakers || blockedSelf.speakers === 1" :aria-pressed="speakersOn">
-            <img :src="stateIcon('speakers', localId)" alt="speakers" />
+            <UiIcon class="control-state-icon" :class="stateIconClass('speakers', localId)" :icon="stateIcon('speakers', localId)" label="speakers" />
               <span v-if="!IS_MOBILE && hotkeysVisible" class="hot-btn">S</span>
           </button>
           <button v-if="gamePhase === 'idle' && !adminSpectator && !IS_MOBILE" @click="toggleScreen" :disabled="pendingScreen || (!!screenOwnerId && screenOwnerId !== localId) || blockedSelf.screen === 1" :aria-pressed="isMyScreen">
-            <img :src="stateIcon('screen', localId)" alt="screen" />
+            <UiIcon class="control-state-icon" :class="stateIconClass('screen', localId)" :icon="stateIcon('screen', localId)" label="screen" />
           </button>
           <button v-if="gamePhase !== 'idle' && isHead" @click="toggleHostBlur" :disabled="!hostBlurToggleEnabled || hostBlurPending" :aria-pressed="hostBlurActive" aria-label="Затемнить экран">
             <img :src="hostBlurActive ? iconBlurOn : iconBlurOff" alt="blur" />
@@ -1100,6 +1100,10 @@ function stateIcon(kind: IconKind, id: string) {
   if (isBlocked(id, kind)) return STATE_ICONS[kind].blk
   return isOn(id, kind) ? STATE_ICONS[kind].on : STATE_ICONS[kind].off
 }
+function stateIconClass(kind: IconKind, id: string) {
+  if (isBlocked(id, kind)) return 'blocked'
+  return isOn(id, kind) ? 'on' : 'off'
+}
 function closePanels(except?: 'apps'|'settings'|'friends'|'game', opts?: { keepFriendsWhenConfirm?: boolean }) {
   const keepFriends =
     Boolean(opts?.keepFriendsWhenConfirm) &&
@@ -1676,9 +1680,13 @@ const miniProfileRoomControls = computed(() => {
     volumeDisabled: miniProfileRoomVolumeDisabled.value,
     showAdminActions: showMiniProfileRoomAdminActions.value,
     micIcon: stateIcon('mic', id),
+    micIconClass: stateIconClass('mic', id),
     camIcon: stateIcon('cam', id),
+    camIconClass: stateIconClass('cam', id),
     speakersIcon: stateIcon('speakers', id),
+    speakersIconClass: stateIconClass('speakers', id),
     screenIcon: stateIcon('screen', id),
+    screenIconClass: stateIconClass('screen', id),
   }
 })
 
@@ -3737,6 +3745,20 @@ onBeforeUnmount(() => {
         --ui-icon-color: #{$neutral-100};
         &.ready-icon-on {
           --ui-icon-color: #{$green-500};
+        }
+      }
+      .control-state-icon {
+        --ui-icon-width: 24px;
+        --ui-icon-height: 24px;
+        --ui-icon-color: #{$neutral-100};
+        &.on {
+          --ui-icon-color: #{$green-500};
+        }
+        &.off {
+          --ui-icon-color: #{$neutral-100};
+        }
+        &.blocked {
+          --ui-icon-color: #{$red-500};
         }
       }
       .count-total {

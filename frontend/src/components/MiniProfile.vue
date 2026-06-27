@@ -108,16 +108,16 @@
                   <div v-if="showProfileRoomControls" class="profile-room-controls" aria-label="Управление профилем">
                     <div v-if="showProfileRoomAdminActions" class="profile-room-admin" aria-label="Блокировки">
                       <button class="admin-button" type="button" @click="emitProfileRoomBlock('mic')" aria-label="block mic">
-                        <img class="admin-img" :src="profileRoomMicIcon" alt="mic" />
+                        <UiIcon class="admin-img" :class="profileRoomMicIconClass" :icon="profileRoomMicIcon" />
                       </button>
                       <button class="admin-button" type="button" @click="emitProfileRoomBlock('cam')" aria-label="block cam">
-                        <img class="admin-img" :src="profileRoomCamIcon" alt="cam" />
+                        <UiIcon class="admin-img" :class="profileRoomCamIconClass" :icon="profileRoomCamIcon" />
                       </button>
                       <button class="admin-button" type="button" @click="emitProfileRoomBlock('speakers')" aria-label="block speakers">
-                        <img class="admin-img" :src="profileRoomSpeakersIcon" alt="spk" />
+                        <UiIcon class="admin-img" :class="profileRoomSpeakersIconClass" :icon="profileRoomSpeakersIcon" />
                       </button>
                       <button class="admin-button" type="button" @click="emitProfileRoomBlock('screen')" aria-label="block screen">
-                        <img class="admin-img" :src="profileRoomScreenIcon" alt="scr" />
+                        <UiIcon class="admin-img" :class="profileRoomScreenIconClass" :icon="profileRoomScreenIcon" />
                       </button>
                       <button class="admin-button red-button" type="button" @click="emit('room-kick')" aria-label="kick user">
                         <UiIcon class="kick-img" :icon="iconLeaveRoom" />
@@ -382,9 +382,13 @@ type MiniProfileRoomControls = {
   volumeDisabled?: boolean
   showAdminActions?: boolean
   micIcon?: string | null
+  micIconClass?: string | null
   camIcon?: string | null
+  camIconClass?: string | null
   speakersIcon?: string | null
+  speakersIconClass?: string | null
   screenIcon?: string | null
+  screenIconClass?: string | null
 }
 
 type MiniProfileInitial = {
@@ -690,9 +694,13 @@ const profileRoomVolume = computed(() => {
 const profileRoomVolumeIcon = computed(() => String(profileRoomControls.value?.volumeIcon || ''))
 const profileRoomVolumeDisabled = computed(() => Boolean(profileRoomControls.value?.volumeDisabled))
 const profileRoomMicIcon = computed(() => String(profileRoomControls.value?.micIcon || ''))
+const profileRoomMicIconClass = computed(() => String(profileRoomControls.value?.micIconClass || ''))
 const profileRoomCamIcon = computed(() => String(profileRoomControls.value?.camIcon || ''))
+const profileRoomCamIconClass = computed(() => String(profileRoomControls.value?.camIconClass || ''))
 const profileRoomSpeakersIcon = computed(() => String(profileRoomControls.value?.speakersIcon || ''))
+const profileRoomSpeakersIconClass = computed(() => String(profileRoomControls.value?.speakersIconClass || ''))
 const profileRoomScreenIcon = computed(() => String(profileRoomControls.value?.screenIcon || ''))
+const profileRoomScreenIconClass = computed(() => String(profileRoomControls.value?.screenIconClass || ''))
 
 const friendStatusClass = computed(() => (friendStatus.value === 'self' ? 'none' : friendStatus.value))
 const friendActionLabel = computed(() => {
@@ -2475,8 +2483,18 @@ onBeforeUnmount(() => {
                                     cursor: pointer;
                                     transition: background-color 0.25s ease-in-out;
                                     .admin-img {
-                                      width: 24px;
-                                      height: 24px;
+                                      --ui-icon-width: 24px;
+                                      --ui-icon-height: 24px;
+                                      --ui-icon-color: #{$neutral-100};
+                                      &.on {
+                                        --ui-icon-color: #{$green-500};
+                                      }
+                                      &.off {
+                                        --ui-icon-color: #{$neutral-100};
+                                      }
+                                      &.blocked {
+                                        --ui-icon-color: #{$red-500};
+                                      }
                                     }
                                     &:not(:disabled):hover,
                                     &:not(:disabled):focus-visible,
