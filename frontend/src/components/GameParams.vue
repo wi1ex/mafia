@@ -1,16 +1,10 @@
 <template>
   <Transition name="panel">
-    <div
-      v-show="open"
-      class="game-params-panel"
-      :data-open="open ? 1 : 0"
-      aria-label="Параметры игры"
-      @click.stop
-    >
+    <div v-show="open" class="game-params-panel" :data-open="open ? 1 : 0" aria-label="Параметры игры" @click.stop>
       <header>
-        <span>Параметры игры</span>
-        <button @click="emitClose" aria-label="Закрыть">
-          <img :src="iconClose" alt="close" />
+        <span class="title">Параметры игры</span>
+        <button class="close-btn" type="button" aria-label="Закрыть" @click="emitClose">
+          <UiIcon class="close-icon" :icon="iconClose" />
         </button>
       </header>
 
@@ -24,6 +18,7 @@
             tooltip-placement="bottom-center"
             tooltip-bubble-width="320px"
             label="Зрители:"
+            theme="light"
             off-label="Откл"
             on-label="Вкл"
             aria-label="Зрители: откл/вкл"
@@ -31,6 +26,7 @@
           <UiSwitch
             v-model="isRating"
             label="Режим:"
+            theme="light"
             off-label="Обычный"
             on-label="Рейтинг"
             aria-label="Режим: обычный/рейтинг"
@@ -39,6 +35,7 @@
           <UiSwitch
             v-model="isNoHost"
             label="Ведущий:"
+            theme="light"
             off-label="Ведущий"
             on-label="Авто"
             aria-label="Ведущий: с ведущим/авто"
@@ -47,6 +44,7 @@
           <UiSwitch
             v-model="isPlayersNomination"
             label="Выставления:"
+            theme="light"
             off-label="Ведущий"
             on-label="Игрок"
             aria-label="Выставления"
@@ -55,36 +53,42 @@
           <UiSwitch
             v-model="game.farewell_wills"
             label="Завещания:"
+            theme="light"
             aria-label="Завещания"
             :disabled="gameParamsDisabled"
           />
           <UiSwitch
             v-model="game.wink_knock"
             label="Подмигивать/Стучать:"
+            theme="light"
             aria-label="Подмигивать/Стучать"
             :disabled="gameParamsDisabled"
           />
           <UiSwitch
             v-model="game.break_at_zero"
             label="Слом в нуле:"
+            theme="light"
             aria-label="Слом в нуле"
             :disabled="gameParamsDisabled"
           />
           <UiSwitch
             v-model="game.lift_at_zero"
             label="Подъём в нуле:"
+            theme="light"
             aria-label="Подъём в нуле"
             :disabled="gameParamsDisabled"
           />
           <UiSwitch
             v-model="game.lift_3x"
             label="Подъём 3х при 9х:"
+            theme="light"
             aria-label="Подъём 3х при 9х"
             :disabled="gameParamsDisabled"
           />
           <UiSwitch
             v-model="game.music"
             label="Музыка:"
+            theme="light"
             aria-label="Музыка"
             :disabled="gameParamsDisabled"
           />
@@ -111,7 +115,10 @@ import {
   SPECTATORS_ENABLED_LIMIT,
   type RoomGameParams,
 } from '@/services/gameParams'
-import iconClose from '@/assets/svg/close.svg'
+
+import UiIcon from '@/components/UiIcon.vue'
+
+import iconClose from '@/assets/svg/iconClose.svg'
 
 const props = defineProps<{
   open: boolean
@@ -285,12 +292,13 @@ watch([canDisableSpectators, () => props.canEdit], ([allowDisable, canEdit]) => 
   position: absolute;
   flex-direction: column;
   right: 0;
-  bottom: 50px;
-  width: 400px;
-  max-height: 600px;
-  border-radius: 5px;
-  background-color: $dark;
-  box-shadow: 3px 3px 5px rgba($black, 0.25);
+  bottom: 48px;
+  padding: 16px 24px;
+  width: 462px;
+  max-height: 448px;
+  border-radius: 24px;
+  background-color: $neutral-100;
+  box-shadow: 0 0 16px 0 rgba($neutral-black, 0.16);
   z-index: 25;
   &[data-open="0"] {
     pointer-events: none;
@@ -299,42 +307,46 @@ watch([canDisableSpectators, () => props.canEdit], ([allowDisable, canEdit]) => 
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 5px 10px;
-    border-radius: 5px;
-    background-color: $graphite;
-    box-shadow: 0 3px 5px rgba($black, 0.25);
-    span {
+    padding: 0 12px 16px;
+    .title {
+      color: $neutral-black;
+      font-family: Hauora-Bold;
       font-size: 18px;
-      font-weight: bold;
+      line-height: 20px;
+      letter-spacing: -0.36px;
     }
-    button {
-      display: flex;
-      align-items: center;
-      justify-content: center;
+    .close-btn {
       padding: 0;
-      width: 25px;
-      height: 30px;
+      width: 24px;
+      height: 24px;
       border: none;
       background: none;
       cursor: pointer;
-      img {
-        width: 25px;
-        height: 25px;
+      .close-icon {
+        --ui-icon-width: 24px;
+        --ui-icon-height: 24px;
+        --ui-icon-color: #{$neutral-black};
+      }
+      &:not(:disabled):hover,
+      &:not(:disabled):focus-visible,
+      &:not(:disabled):active {
+        .close-icon {
+          --ui-icon-color: #{$green-500};
+        }
       }
     }
   }
   .modal-div {
     display: flex;
     flex-direction: column;
-    background-color: $dark;
     overflow-y: auto;
     scrollbar-width: none;
-  }
-  .params {
-    display: flex;
-    flex-direction: column;
-    padding: 10px;
-    gap: 15px;
+    .params {
+      display: flex;
+      flex-direction: column;
+      padding: 10px;
+      gap: 15px;
+    }
   }
   .save-game {
     display: flex;

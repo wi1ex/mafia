@@ -3822,7 +3822,7 @@ onBeforeUnmount(() => {
     .controls-side {
       display: flex;
       gap: 10px;
-      min-width: 270px;
+      min-width: 320px;
       &.left {
         justify-content: flex-start;
       }
