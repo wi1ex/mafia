@@ -8,101 +8,104 @@
         </button>
       </header>
 
-      <div class="modal-div">
-        <div class="params">
-          <UiSwitch
-            v-model="spectatorsEnabled"
-            :disabled="spectatorsToggleDisabled"
-            :tooltip="spectatorsToggleTooltip"
-            tooltip-target="off"
-            tooltip-placement="bottom-center"
-            tooltip-bubble-width="320px"
-            label="Зрители:"
-            theme="light"
-            size="low"
-            off-label="Откл"
-            on-label="Вкл"
-            aria-label="Зрители: откл/вкл"
-          />
-          <UiSwitch
-            v-model="isRating"
-            label="Режим:"
-            theme="light"
-            size="low"
-            off-label="Обычный"
-            on-label="Рейтинг"
-            aria-label="Режим: обычный/рейтинг"
-            :disabled="true"
-          />
-          <UiSwitch
-            v-model="isNoHost"
-            label="Ведущий:"
-            theme="light"
-            size="low"
-            off-label="Ведущий"
-            on-label="Авто"
-            aria-label="Ведущий: с ведущим/авто"
-            :disabled="true"
-          />
-          <UiSwitch
-            v-model="isPlayersNomination"
-            label="Выставления:"
-            theme="light"
-            size="low"
-            off-label="Ведущий"
-            on-label="Игрок"
-            aria-label="Выставления"
-            :disabled="gameParamsDisabled"
-          />
-          <UiSwitch
-            v-model="game.farewell_wills"
-            label="Завещания:"
-            theme="light"
-            size="low"
-            aria-label="Завещания"
-            :disabled="gameParamsDisabled"
-          />
-          <UiSwitch
-            v-model="game.wink_knock"
-            label="Подмигивать/Стучать:"
-            theme="light"
-            size="low"
-            aria-label="Подмигивать/Стучать"
-            :disabled="gameParamsDisabled"
-          />
-          <UiSwitch
-            v-model="game.break_at_zero"
-            label="Слом в нуле:"
-            theme="light"
-            size="low"
-            aria-label="Слом в нуле"
-            :disabled="gameParamsDisabled"
-          />
-          <UiSwitch
-            v-model="game.lift_at_zero"
-            label="Подъём в нуле:"
-            theme="light"
-            size="low"
-            aria-label="Подъём в нуле"
-            :disabled="gameParamsDisabled"
-          />
-          <UiSwitch
-            v-model="game.lift_3x"
-            label="Подъём 3х при 9х:"
-            theme="light"
-            size="low"
-            aria-label="Подъём 3х при 9х"
-            :disabled="gameParamsDisabled"
-          />
-          <UiSwitch
-            v-model="game.music"
-            label="Музыка:"
-            theme="light"
-            size="low"
-            aria-label="Музыка"
-            :disabled="gameParamsDisabled"
-          />
+      <div class="modal-shell">
+        <div ref="paramsScroll" class="modal-div">
+          <div class="params">
+            <UiSwitch
+              v-model="spectatorsEnabled"
+              :disabled="spectatorsToggleDisabled"
+              :tooltip="spectatorsToggleTooltip"
+              tooltip-target="off"
+              tooltip-placement="bottom-center"
+              tooltip-bubble-width="320px"
+              label="Зрители:"
+              theme="light"
+              size="low"
+              off-label="Откл"
+              on-label="Вкл"
+              aria-label="Зрители: откл/вкл"
+            />
+            <UiSwitch
+              v-model="isRating"
+              label="Режим:"
+              theme="light"
+              size="low"
+              off-label="Обычный"
+              on-label="Рейтинг"
+              aria-label="Режим: обычный/рейтинг"
+              :disabled="true"
+            />
+            <UiSwitch
+              v-model="isNoHost"
+              label="Ведущий:"
+              theme="light"
+              size="low"
+              off-label="Ведущий"
+              on-label="Авто"
+              aria-label="Ведущий: с ведущим/авто"
+              :disabled="true"
+            />
+            <UiSwitch
+              v-model="isPlayersNomination"
+              label="Выставления:"
+              theme="light"
+              size="low"
+              off-label="Ведущий"
+              on-label="Игрок"
+              aria-label="Выставления"
+              :disabled="gameParamsDisabled"
+            />
+            <UiSwitch
+              v-model="game.farewell_wills"
+              label="Завещания:"
+              theme="light"
+              size="low"
+              aria-label="Завещания"
+              :disabled="gameParamsDisabled"
+            />
+            <UiSwitch
+              v-model="game.wink_knock"
+              label="Подмигивать/Стучать:"
+              theme="light"
+              size="low"
+              aria-label="Подмигивать/Стучать"
+              :disabled="gameParamsDisabled"
+            />
+            <UiSwitch
+              v-model="game.break_at_zero"
+              label="Слом в нуле:"
+              theme="light"
+              size="low"
+              aria-label="Слом в нуле"
+              :disabled="gameParamsDisabled"
+            />
+            <UiSwitch
+              v-model="game.lift_at_zero"
+              label="Подъём в нуле:"
+              theme="light"
+              size="low"
+              aria-label="Подъём в нуле"
+              :disabled="gameParamsDisabled"
+            />
+            <UiSwitch
+              v-model="game.lift_3x"
+              label="Подъём 3х при 9х:"
+              theme="light"
+              size="low"
+              aria-label="Подъём 3х при 9х"
+              :disabled="gameParamsDisabled"
+            />
+            <UiSwitch
+              v-model="game.music"
+              label="Музыка:"
+              theme="light"
+              size="low"
+              aria-label="Музыка"
+              :disabled="gameParamsDisabled"
+            />
+          </div>
         </div>
+        <UiScrollbar :target="paramsScroll" :active="open" theme="light" :inset-top="16" :inset-bottom="16" right="6px" />
       </div>
     </div>
   </Transition>
@@ -114,6 +117,7 @@ import { api } from '@/services/axios'
 import { alertDialog } from '@/services/confirm'
 import { useUserStore } from '@/store'
 import UiSwitch from '@/components/UiSwitch.vue'
+import UiScrollbar from '@/components/UiScrollbar.vue'
 import {
   normalizeRoomGameParams,
   roomGameDefault,
@@ -141,6 +145,7 @@ const emit = defineEmits<{
 const user = useUserStore()
 const busy = ref(false)
 const loading = ref(false)
+const paramsScroll = ref<HTMLElement | null>(null)
 const game = ref<RoomGameParams>({ ...roomGameDefault })
 const initialGame = ref<RoomGameParams | null>(null)
 const isAdminUser = computed(() => String(user.user?.role || '').toLowerCase() === 'admin')
@@ -346,15 +351,27 @@ watch([canDisableSpectators, () => props.canEdit], ([allowDisable, canEdit]) => 
       }
     }
   }
-  .modal-div {
+  .modal-shell {
     display: flex;
-    flex-direction: column;
-    overflow-y: auto;
-    scrollbar-width: none;
-    .params {
+    position: relative;
+    min-height: 0;
+    .modal-div {
       display: flex;
+      flex: 1 1 auto;
       flex-direction: column;
-      gap: 8px;
+      min-height: 0;
+      overflow-y: auto;
+      scrollbar-width: none;
+      .params {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      &::-webkit-scrollbar {
+        display: none;
+        width: 0;
+        height: 0;
+      }
     }
   }
 }
