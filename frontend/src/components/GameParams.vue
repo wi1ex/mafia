@@ -105,7 +105,7 @@
             />
           </div>
         </div>
-        <UiScrollbar :target="paramsScroll" :active="open" theme="light" :inset-top="16" :inset-bottom="16" right="6px" />
+        <UiScrollbar :target="paramsScroll" :active="open" theme="light" :inset-bottom="8" right="-16px" />
       </div>
     </div>
   </Transition>
@@ -116,8 +116,6 @@ import { computed, ref, watch } from 'vue'
 import { api } from '@/services/axios'
 import { alertDialog } from '@/services/confirm'
 import { useUserStore } from '@/store'
-import UiSwitch from '@/components/UiSwitch.vue'
-import UiScrollbar from '@/components/UiScrollbar.vue'
 import {
   normalizeRoomGameParams,
   roomGameDefault,
@@ -126,6 +124,8 @@ import {
   type RoomGameParams,
 } from '@/services/gameParams'
 
+import UiSwitch from '@/components/UiSwitch.vue'
+import UiScrollbar from '@/components/UiScrollbar.vue'
 import UiIcon from '@/components/UiIcon.vue'
 
 import iconClose from '@/assets/svg/iconClose.svg'
@@ -322,7 +322,7 @@ watch([canDisableSpectators, () => props.canEdit], ([allowDisable, canEdit]) => 
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0 0 16px;
+    padding: 0 4px 16px;
     .title {
       color: $neutral-black;
       font-family: Hauora-Bold;

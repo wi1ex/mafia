@@ -3781,7 +3781,7 @@ onBeforeUnmount(() => {
         width: 14px;
         height: 14px;
         border-radius: 50%;
-        background-color: $red-500;
+        background-color: $neutral-700;
         color: $neutral-white;
         font-family: Hauora-Medium;
         font-size: 10px;
@@ -3789,7 +3789,7 @@ onBeforeUnmount(() => {
         letter-spacing: -0.4px;
         transition: background-color 0.25s ease-in-out;
         &.unread {
-          background-color: $neutral-700;
+          background-color: $red-500;
         }
       }
       .hot-btn {

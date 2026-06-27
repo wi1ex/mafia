@@ -2,14 +2,15 @@
   <Transition name="panel">
     <div v-show="open" class="apps-panel" :data-open="open ? 1 : 0" @click.stop>
       <header>
-        <span>Заявки</span>
-        <button @click="$emit('update:open', false)" aria-label="Закрыть">
-          <img :src="iconClose" alt="close" />
+        <span class="title">Заявки</span>
+        <button class="close-btn" type="button" aria-label="Закрыть" @click="$emit('update:open', false)">
+          <UiIcon class="close-icon" :icon="iconClose" />
         </button>
       </header>
+
       <ul v-if="apps.length">
         <li v-for="u in apps" :key="u.id">
-          <img v-minio-img="{ key: u.avatar_name ? `avatars/${u.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+          <img v-minio-img="{ key: u.avatar_name ? `avatars/${u.avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false }" alt="avatar" />
           <span class="username">{{ u.username || ('user' + u.id) }}</span>
           <time class="req-time">{{ formatLocalDateTime(u.requested_at, TIME_ONLY) }}</time>
           <button v-if="u.status === 'pending'" class="btn-approve" :disabled="actionBusy[u.id]" @click="approve(u.id)">Одобрить</button>
@@ -24,11 +25,13 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onBeforeUnmount, computed } from 'vue'
 import { api } from '@/services/axios'
-
-import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
-import iconClose from '@/assets/svg/close.svg'
 import { alertDialog } from '@/services/confirm'
 import { formatLocalDateTime } from '@/services/datetime'
+
+import UiIcon from '@/components/UiIcon.vue'
+
+import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatarBlack.svg'
+import iconClose from '@/assets/svg/iconClose.svg'
 
 type AppItem = {id: number; username?: string; avatar_name?: string|null; status: 'pending'|'approved'; requested_at?: string|null}
 
@@ -222,13 +225,13 @@ onBeforeUnmount(() => {
   position: absolute;
   flex-direction: column;
   right: 0;
-  bottom: 50px;
-  width: 400px;
-  min-height: 200px;
-  max-height: 600px;
-  border-radius: 5px;
-  background-color: $dark;
-  box-shadow: 3px 3px 5px rgba($black, 0.25);
+  bottom: 48px;
+  padding: 16px 24px;
+  width: 404px;
+  max-height: 400px;
+  border-radius: 24px;
+  background-color: $neutral-100;
+  box-shadow: 0 0 16px 0 rgba($neutral-black, 0.16);
   z-index: 25;
   &[data-open="0"] {
     pointer-events: none;
@@ -237,27 +240,32 @@ onBeforeUnmount(() => {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 5px 10px;
-    border-radius: 5px;
-    background-color: $graphite;
-    box-shadow: 0 3px 5px rgba($black, 0.25);
-    span {
+    padding: 0 4px 16px;
+    .title {
+      color: $neutral-black;
+      font-family: Hauora-Bold;
       font-size: 18px;
-      font-weight: bold;
+      line-height: 20px;
+      letter-spacing: -0.36px;
     }
-    button {
-      display: flex;
-      align-items: center;
-      justify-content: center;
+    .close-btn {
       padding: 0;
-      width: 25px;
-      height: 30px;
+      width: 24px;
+      height: 24px;
       border: none;
       background: none;
       cursor: pointer;
-      img {
-        width: 25px;
-        height: 25px;
+      .close-icon {
+        --ui-icon-width: 24px;
+        --ui-icon-height: 24px;
+        --ui-icon-color: #{$neutral-black};
+      }
+      &:not(:disabled):hover,
+      &:not(:disabled):focus-visible,
+      &:not(:disabled):active {
+        .close-icon {
+          --ui-icon-color: #{$green-500};
+        }
       }
     }
   }
@@ -277,8 +285,7 @@ onBeforeUnmount(() => {
       padding: 5px;
       gap: 5px;
       border-radius: 5px;
-      background-color: $graphite;
-      box-shadow: 3px 3px 5px rgba($black, 0.25);
+      background-color: $neutral-white;
       img {
         width: 24px;
         height: 24px;
