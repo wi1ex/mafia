@@ -727,5 +727,9 @@ onBeforeUnmount(() => {
   opacity: 0;
   transform: translateY(-30px);
 }
+.friends-panel-enter-from.room-mode,
+.friends-panel-leave-to.room-mode {
+  transform: translateY(30px);
+}
 
 </style>
