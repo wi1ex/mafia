@@ -24,7 +24,7 @@
           :video-ref="stableVideoRef(id)"
           :has-video-track="rtc.hasCameraTrack"
           :fit-contain="fitContainInGrid"
-          :default-avatar="defaultAvatar"
+          :default-avatar="iconDefaultAvatar"
           :state-icon="stateIcon"
           :is-ready="isReady"
           :is-on="isOn"
@@ -135,7 +135,7 @@
             :video-ref="stableVideoRef(id)"
             :has-video-track="rtc.hasCameraTrack"
             :fit-contain="fitContainInGrid"
-            :default-avatar="defaultAvatar"
+            :default-avatar="iconDefaultAvatar"
             :state-icon="stateIcon"
             :is-ready="isReady"
             :is-on="isOn"
@@ -215,7 +215,7 @@
       <div class="panel" :class="{ 'panel-high': buttonsHigh }">
         <div class="controls-side left">
           <button @click="() => void onLeave()" aria-label="Покинуть комнату">
-            <img :src="iconLeaveRoom" alt="leave" />
+            <img class="leave-room-icon" :src="iconLeaveRoom" alt="leave" />
           </button>
           <button v-if="gamePhase !== 'idle' && isHead && !gameFinished" @click="endGameUi" :disabled="endingGame" aria-label="Завершить игру">
             <img :src="iconGameStop" alt="end-game" />
@@ -494,21 +494,21 @@ import Friends from '@/components/Friends.vue'
 import MiniProfile from '@/components/MiniProfile.vue'
 import UiSlider from '@/components/UiSlider.vue'
 
-import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
+import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
 import iconVolumeMax from '@/assets/svg/iconVolumeMax.svg'
 import iconVolumeMid from '@/assets/svg/iconVolumeMid.svg'
 import iconVolumeLow from '@/assets/svg/iconVolumeLow.svg'
 import iconVolumeMute from '@/assets/svg/iconVolumeMute.svg'
 import gongAudioUrl from '@/assets/audio/gong.mp3'
 
-import iconLeaveRoom from '@/assets/svg/leave.svg'
-import iconRequestsRoom from '@/assets/svg/requestsRoom.svg'
-import iconFriends from '@/assets/svg/friends.svg'
-import iconChat from '@/assets/svg/chat.svg'
-import iconSettings from '@/assets/svg/settings.svg'
+import iconLeaveRoom from '@/assets/svg/iconLogout.svg'
+import iconRequestsRoom from '@/assets/svg/iconRequestsRoom.svg'
+import iconFriends from '@/assets/svg/iconFriends.svg'
+import iconChat from '@/assets/svg/iconChat.svg'
+import iconSettings from '@/assets/svg/iconSettings.svg'
+import iconParams from '@/assets/svg/iconParams.svg'
 import iconReadyWhite from '@/assets/svg/readyWhite.svg'
 import iconReadyGreen from '@/assets/svg/readyGreen.svg'
-import iconParams from '@/assets/svg/params.svg'
 import iconBlurOn from '@/assets/svg/blurOn.svg'
 import iconBlurOff from '@/assets/svg/blurOff.svg'
 import iconGameStart from '@/assets/svg/gameStart.svg'
@@ -3727,6 +3727,9 @@ onBeforeUnmount(() => {
       img {
         width: 24px;
         height: 24px;
+      }
+      .leave-room-icon {
+        transform: scaleY(-1);
       }
       .count-total {
         display: flex;
