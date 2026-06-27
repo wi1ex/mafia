@@ -4016,6 +4016,45 @@ async def assign_role_for_user(r, rid: int, uid: int, *, card_index: int | None)
     return True, str(role), None
 
 
+def _role_card_indexes(cards: Mapping[Any, Any] | None, taken: Mapping[Any, Any] | None) -> list[int]:
+    taken_idx = set(hash_keys_to_int_list(taken))
+    return [i for i in range(1, len(cards or {}) + 1) if i not in taken_idx]
+
+
+def _role_card_index_for_user(taken: Mapping[Any, Any] | None, uid: int) -> int | None:
+    for i, u_s in (taken or {}).items():
+        try:
+            if int(u_s) == uid:
+                return int(i)
+
+        except Exception:
+            continue
+
+    return None
+
+
+async def _emit_role_assignment_and_pick(rid: int, uid: int, role: str, *, card_idx: int | None = None, skip_reveal: bool = False) -> None:
+    payload: dict[str, Any] = {"room_id": rid, "user_id": uid, "role": role}
+    if card_idx is not None:
+        payload["card"] = card_idx
+    if skip_reveal:
+        payload["skip_reveal"] = True
+
+    await sio.emit(
+        "game_role_assigned",
+        payload,
+        room=f"user:{uid}",
+        namespace="/room",
+    )
+
+    await sio.emit(
+        "game_roles_picked",
+        {"room_id": rid, "user_id": uid},
+        room=f"room:{rid}",
+        namespace="/room",
+    )
+
+
 async def roles_timeout_job(rid: int, seq: int, deadline: int) -> None:
     delay = max(0, deadline - int(time()))
     if delay > 0:
@@ -4043,6 +4082,7 @@ async def advance_roles_turn(r, rid: int, *, auto: bool) -> None:
     phase = str(raw_state.get("phase") or "idle")
     if phase != "roles_pick":
         return
+    roles_done = str(raw_state.get("roles_done") or "0") == "1"
 
     players = await get_players_in_seat_order(r, rid)
     if not players:
@@ -4053,7 +4093,22 @@ async def advance_roles_turn(r, rid: int, *, auto: bool) -> None:
     remaining = [uid for uid in players if uid not in assigned]
 
     if not remaining:
-        await r.hset(f"room:{rid}:game_state", "roles_done", "1")
+        if roles_done:
+            return
+
+        try:
+            next_seq = int(raw_state.get("roles_turn_seq") or 0) + 1
+        except Exception:
+            next_seq = 1
+        await r.hset(
+            f"room:{rid}:game_state",
+            mapping={
+                "roles_done": "1",
+                "roles_turn_uid": "0",
+                "roles_turn_started": "0",
+                "roles_turn_seq": str(next_seq),
+            },
+        )
 
         roles_map: dict[int, str] = {}
         for uid_s, role_s in (raw_roles or {}).items():
@@ -4097,6 +4152,29 @@ async def advance_roles_turn(r, rid: int, *, auto: bool) -> None:
 
         return
 
+    if len(remaining) == 1:
+        cur_uid = remaining[0]
+        cards = await r.hgetall(f"room:{rid}:roles_cards")
+        taken = await r.hgetall(f"room:{rid}:roles_taken")
+        free_cards = _role_card_indexes(cards, taken)
+        if len(free_cards) == 1:
+            card_idx = free_cards[0]
+            ok, role, err = await assign_role_for_user(r, rid, cur_uid, card_index=card_idx)
+            if ok and role:
+                await _emit_role_assignment_and_pick(
+                    rid,
+                    cur_uid,
+                    role,
+                    card_idx=card_idx,
+                    skip_reveal=True,
+                )
+                await advance_roles_turn(r, rid, auto=False)
+                return
+
+            if err in ("already_has_role", "card_taken"):
+                await advance_roles_turn(r, rid, auto=False)
+                return
+
     now_ts = int(time())
     try:
         cur_uid = int(raw_state.get("roles_turn_uid") or 0)
@@ -4117,30 +4195,11 @@ async def advance_roles_turn(r, rid: int, *, auto: bool) -> None:
             card_idx: int | None = None
             try:
                 taken = await r.hgetall(f"room:{rid}:roles_taken")
-                for i, u_s in (taken or {}).items():
-                    try:
-                        if int(u_s) == cur_uid:
-                            card_idx = int(i)
-                            break
-                    except Exception:
-                        continue
+                card_idx = _role_card_index_for_user(taken, cur_uid)
             except Exception:
                 card_idx = None
 
-            payload: dict[str, Any] = {"room_id": rid, "user_id": cur_uid, "role": role}
-            if card_idx is not None:
-                payload["card"] = card_idx
-
-            await sio.emit("game_role_assigned",
-                           payload,
-                           room=f"user:{cur_uid}",
-                           namespace="/room")
-
-            await sio.emit("game_roles_picked",
-                           {"room_id": rid,
-                            "user_id": cur_uid},
-                           room=f"room:{rid}",
-                           namespace="/room")
+            await _emit_role_assignment_and_pick(rid, cur_uid, role, card_idx=card_idx)
             await advance_roles_turn(r, rid, auto=False)
             return
 

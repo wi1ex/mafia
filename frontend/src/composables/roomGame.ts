@@ -1583,11 +1583,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (!uid) return
     rolePick.picked.add(uid)
     const remaining = rolePick.order.filter(id => !rolePick.picked.has(id))
-    if (
-      remaining.length === 0 &&
-      rolePick.activeUserId === uid &&
-      roleOverlayMode.value !== 'pick'
-    ) {
+    if (remaining.length === 0) {
       rolePick.activeUserId = ''
       rolePick.remainingMs = 0
     }
@@ -1602,6 +1598,15 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (uid === localId.value) {
       myPrivateRoleKind.value = normalizeGameRoleKind(role)
       knownRolesVisible.value = true
+      if (p?.skip_reveal) {
+        roleOverlayMode.value = 'hidden'
+        roleOverlayCard.value = null
+        if (roleOverlayTimerId.value != null) {
+          clearTimeout(roleOverlayTimerId.value)
+          roleOverlayTimerId.value = null
+        }
+        return
+      }
       roleOverlayMode.value = 'reveal'
       roleOverlayCard.value = Number(p?.card || 0) || null
       if (roleOverlayTimerId.value != null) {
