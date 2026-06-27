@@ -19,6 +19,7 @@
             tooltip-bubble-width="320px"
             label="Зрители:"
             theme="light"
+            size="low"
             off-label="Откл"
             on-label="Вкл"
             aria-label="Зрители: откл/вкл"
@@ -27,6 +28,7 @@
             v-model="isRating"
             label="Режим:"
             theme="light"
+            size="low"
             off-label="Обычный"
             on-label="Рейтинг"
             aria-label="Режим: обычный/рейтинг"
@@ -36,6 +38,7 @@
             v-model="isNoHost"
             label="Ведущий:"
             theme="light"
+            size="low"
             off-label="Ведущий"
             on-label="Авто"
             aria-label="Ведущий: с ведущим/авто"
@@ -45,6 +48,7 @@
             v-model="isPlayersNomination"
             label="Выставления:"
             theme="light"
+            size="low"
             off-label="Ведущий"
             on-label="Игрок"
             aria-label="Выставления"
@@ -54,6 +58,7 @@
             v-model="game.farewell_wills"
             label="Завещания:"
             theme="light"
+            size="low"
             aria-label="Завещания"
             :disabled="gameParamsDisabled"
           />
@@ -61,6 +66,7 @@
             v-model="game.wink_knock"
             label="Подмигивать/Стучать:"
             theme="light"
+            size="low"
             aria-label="Подмигивать/Стучать"
             :disabled="gameParamsDisabled"
           />
@@ -68,6 +74,7 @@
             v-model="game.break_at_zero"
             label="Слом в нуле:"
             theme="light"
+            size="low"
             aria-label="Слом в нуле"
             :disabled="gameParamsDisabled"
           />
@@ -75,6 +82,7 @@
             v-model="game.lift_at_zero"
             label="Подъём в нуле:"
             theme="light"
+            size="low"
             aria-label="Подъём в нуле"
             :disabled="gameParamsDisabled"
           />
@@ -82,6 +90,7 @@
             v-model="game.lift_3x"
             label="Подъём 3х при 9х:"
             theme="light"
+            size="low"
             aria-label="Подъём 3х при 9х"
             :disabled="gameParamsDisabled"
           />
@@ -89,6 +98,7 @@
             v-model="game.music"
             label="Музыка:"
             theme="light"
+            size="low"
             aria-label="Музыка"
             :disabled="gameParamsDisabled"
           />

@@ -1,5 +1,5 @@
 <template>
-  <div class="switch" :class="[`switch--${switchTheme}`, { 'switch--without-text': withoutText }]" :style="switchStyle">
+  <div class="switch" :class="[`switch--${switchTheme}`, `switch--${switchSize}`, { 'switch--without-text': withoutText }]" :style="switchStyle">
     <span v-if="!withoutText" class="switch-label">
       <slot name="label">{{ label }}</slot>
     </span>
@@ -43,6 +43,7 @@ const TOGGLE_GUARD_MS = 500
 type TooltipTarget = 'off' | 'on'
 type TooltipPlacement = 'top-right' | 'top-center' | 'top-left' | 'bottom-right' | 'bottom-center' | 'bottom-left'
 type SwitchTheme = 'light' | 'dark'
+type SwitchSize = 'high' | 'low'
 
 const props = defineProps<{
   modelValue: boolean
@@ -59,6 +60,7 @@ const props = defineProps<{
   tooltipAriaLabel?: string
   tooltipBubbleWidth?: number | string
   theme?: SwitchTheme
+  size?: SwitchSize
   withoutText?: boolean
   onBadge?: string
 }>()
@@ -78,6 +80,7 @@ const tooltipPlacement = computed<TooltipPlacement>(() => {
 const tooltipAriaLabel = computed(() => props.tooltipAriaLabel || 'Подсказка')
 const widthPx = computed(() => `${Number.isFinite(props.width) && props.width ? props.width : 274}px`)
 const switchTheme = computed<SwitchTheme>(() => props.theme === 'light' ? 'light' : 'dark')
+const switchSize = computed<SwitchSize>(() => props.size === 'low' ? 'low' : 'high')
 const switchStyle = computed<Record<string, string>>(() => ({ '--switch-width': widthPx.value }))
 const withoutText = computed(() => Boolean(props.withoutText))
 const onBadge = computed(() => props.onBadge?.trim() || '')
@@ -121,7 +124,12 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
   --switch-width: 274px;
+  --switch-height: 56px;
+  --switch-border: 4px;
+  --switch-radius: 999px;
+  --switch-knob-radius: 999px;
   --switch-knob: calc((var(--switch-width) - 8px) / 2);
+  --switch-knob-height: calc(var(--switch-height) - (var(--switch-border) * 2));
   --switch-translate: calc(var(--switch-knob) + 0px);
   --switch-slider-color: #{$neutral-white};
   &.switch--dark {
@@ -129,6 +137,11 @@ onBeforeUnmount(() => {
   }
   &.switch--light {
     --switch-slider-color: #{$neutral-white};
+  }
+  &.switch--low {
+    --switch-height: 40px;
+    --switch-radius: 12px;
+    --switch-knob-radius: 10px;
   }
   &.switch--without-text {
     justify-self: center;
@@ -144,10 +157,14 @@ onBeforeUnmount(() => {
     line-height: 18px;
     letter-spacing: -0.32px;
   }
+  &.switch--low .switch-label {
+    color: $neutral-900;
+    font-family: Hauora-Regular;
+  }
   label {
     position: relative;
     width: var(--switch-width);
-    height: 56px;
+    height: var(--switch-height);
     input {
       position: absolute;
       opacity: 0;
@@ -161,8 +178,8 @@ onBeforeUnmount(() => {
       position: absolute;
       inset: 0;
       cursor: pointer;
-      border-radius: 999px;
-      border: 4px solid var(--switch-slider-color);
+      border-radius: var(--switch-radius);
+      border: var(--switch-border) solid var(--switch-slider-color);
       background-color: var(--switch-slider-color);
       .slider-option {
         display: inline-flex;
@@ -205,8 +222,8 @@ onBeforeUnmount(() => {
       top: 0;
       left: 0;
       width: var(--switch-knob);
-      height: 48px;
-      border-radius: 999px;
+      height: var(--switch-knob-height);
+      border-radius: var(--switch-knob-radius);
       background: linear-gradient(261deg, $soft-purple-800 0%, $green-700 100%);
       transition: transform 0.25s ease-in-out;
     }
