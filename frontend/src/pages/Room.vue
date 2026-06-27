@@ -215,13 +215,13 @@
       <div class="panel" :class="{ 'panel-high': buttonsHigh }">
         <div class="controls-side left">
           <button @click="() => void onLeave()" aria-label="Покинуть комнату">
-            <img class="leave-room-icon" :src="iconLeaveRoom" alt="leave" />
+            <UiIcon class="panel-icon panel-icon-neutral leave-room-icon" :icon="iconLeaveRoom" />
           </button>
           <button v-if="gamePhase !== 'idle' && isHead && !gameFinished" @click="endGameUi" :disabled="endingGame" aria-label="Завершить игру">
-            <img :src="iconGameStop" alt="end-game" />
+            <UiIcon class="panel-icon panel-icon-red" :icon="iconGameStop" />
           </button>
           <button v-if="canShowLeaveGameButton" @click="leaveGameUi" :aria-label="leaveGameButtonLabel">
-            <img :src="iconDeadPlayer" alt="leave-game" />
+            <UiIcon class="panel-icon panel-icon-neutral" :icon="iconDeadPlayer" />
           </button>
         </div>
 
@@ -308,7 +308,7 @@
           </button>
 
           <button v-if="gamePhase === 'idle' && !adminSpectator && canShowStartGame && canUseReadyStart" @click="startGameUi" :disabled="startingGame" aria-label="Запустить игру">
-            <img :src="iconGameStart" alt="start" />
+            <UiIcon class="panel-icon panel-icon-green" :icon="iconGameStart" />
           </button>
           <button v-if="gamePhase === 'idle' && !adminSpectator && !canShowStartGame && canUseReadyToggle" @click="toggleReady" :aria-pressed="readyOn" aria-label="Готовность">
             <UiIcon class="ready-icon" :class="{ 'ready-icon-on': readyOn }" :icon="iconReady" />
@@ -329,29 +329,29 @@
             <UiIcon class="control-state-icon" :class="stateIconClass('screen', localId)" :icon="stateIcon('screen', localId)" label="screen" />
           </button>
           <button v-if="gamePhase !== 'idle' && isHead" @click="toggleHostBlur" :disabled="!hostBlurToggleEnabled || hostBlurPending" :aria-pressed="hostBlurActive" aria-label="Затемнить экран">
-            <img :src="hostBlurActive ? iconBlurOn : iconBlurOff" alt="blur" />
+            <UiIcon class="panel-icon" :class="hostBlurActive ? 'panel-icon-green' : 'panel-icon-neutral'" :icon="hostBlurActive ? iconBlurOn : iconBlurOff" />
               <span v-if="!IS_MOBILE && hotkeysVisible" class="hot-btn">P</span>
           </button>
         </div>
 
         <div class="controls-side right">
           <button v-if="canViewGameSettings" @click.stop="openGameSettings" aria-label="Параметры игры">
-            <img :src="iconParams" alt="game-settings" />
+            <UiIcon class="panel-icon panel-icon-neutral" :icon="iconParams" />
           </button>
           <button v-if="myRole === 'host' && isPrivate && gamePhase === 'idle'" @click.stop="toggleApps" :aria-expanded="openApps" aria-label="Заявки">
-            <img :src="iconRequestsRoom" alt="requests" />
+            <UiIcon class="panel-icon panel-icon-neutral" :icon="iconRequestsRoom" />
             <span class="count-total" :class="{ unread: appsCounts.unread > 0 }">{{ appsCounts.total < 100 ? appsCounts.total : '∞' }}</span>
           </button>
           <button v-if="showRoomFriendsButton" ref="roomFriendsEl" @click.stop="toggleFriendsPanel" :aria-expanded="friendsPanelOpen" aria-label="Друзья">
-            <img :src="iconFriends" alt="friends" />
+            <UiIcon class="panel-icon panel-icon-neutral" :icon="iconFriends" />
             <span v-if="friends.incomingCount > 0" class="count-total unread">{{ friends.incomingCount < 100 ? friends.incomingCount : '∞' }}</span>
           </button>
           <button v-if="showGlobalChatButton" @click.stop="toggleGlobalChat" :aria-expanded="chat.open" aria-label="Общий чат">
-            <img :src="iconChat" alt="chat" />
+            <UiIcon class="panel-icon panel-icon-neutral" :icon="iconChat" />
             <span v-if="chat.unread > 0" class="count-total unread">{{ chat.unread < 100 ? chat.unread : '∞' }}</span>
           </button>
           <button @click.stop="toggleSettings" :aria-expanded="settingsOpen" aria-label="Настройки устройств">
-            <img :src="iconSettings" alt="settings" />
+            <UiIcon class="panel-icon panel-icon-neutral" :icon="iconSettings" />
           </button>
         </div>
 
@@ -3732,12 +3732,22 @@ onBeforeUnmount(() => {
       background-color: $soft-purple-900;
       cursor: pointer;
       transition: background-color 0.25s ease-in-out;
-      img {
-        width: 24px;
-        height: 24px;
-      }
-      .leave-room-icon {
-        transform: scaleY(-1);
+      .panel-icon {
+        --ui-icon-width: 24px;
+        --ui-icon-height: 24px;
+        --ui-icon-color: #{$neutral-100};
+        &.panel-icon-neutral {
+          --ui-icon-color: #{$neutral-100};
+        }
+        &.panel-icon-green {
+          --ui-icon-color: #{$green-500};
+        }
+        &.panel-icon-red {
+          --ui-icon-color: #{$red-500};
+        }
+        &.leave-room-icon {
+          transform: scaleY(-1);
+        }
       }
       .ready-icon {
         --ui-icon-width: 24px;
