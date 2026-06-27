@@ -266,6 +266,7 @@ function resultLabel(game: GameHistoryListItem): string {
   if (game.result === 'black') {
     if (game.has_ppk) return 'Победа мафии (ППК)'
     const count_black = Math.max(0, intOr(game.black_alive_at_finish, 0))
+    if (count_black <= 0) return 'Победа мафии'
     return `Победа мафии ${count_black}в${count_black}`
   }
   return 'Ничья'
