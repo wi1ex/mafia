@@ -104,10 +104,6 @@
           />
         </div>
       </div>
-
-      <div v-if="canEdit" class="save-game">
-        <button :disabled="busy || loading || !isDirty" @click="save">Сохранить</button>
-      </div>
     </div>
   </Transition>
 </template>
@@ -241,7 +237,7 @@ async function loadGame() {
 }
 
 async function save() {
-  if (!props.canEdit || !isDirty.value || busy.value || loading.value) return
+  if (!props.roomId || !props.canEdit || !isDirty.value || busy.value || loading.value) return
   busy.value = true
   try {
     const payload = normalizeSaveGame(game.value)
@@ -249,7 +245,6 @@ async function save() {
     saveLastGame(payload)
     applyGame(payload)
     emit('saved', payload)
-    emitClose()
   } catch (e: any) {
     const st = e?.response?.status
     const d = e?.response?.data?.detail
@@ -279,6 +274,11 @@ watch(() => props.externalGame, (next) => {
   applyGame(normalizeLoadedGame(next))
 }, { deep: true })
 
+watch(game, () => {
+  if (!props.open) return
+  void save()
+}, { deep: true })
+
 watch([canDisableSpectators, () => props.canEdit], ([allowDisable, canEdit]) => {
   const normalizedGame = normalizeRoomGameParams(game.value, {
     allowDisableSpectators: !canEdit || allowDisable,
@@ -305,7 +305,7 @@ watch([canDisableSpectators, () => props.canEdit], ([allowDisable, canEdit]) => 
   bottom: 48px;
   padding: 16px 24px;
   width: 462px;
-  max-height: 448px;
+  max-height: 400px;
   border-radius: 24px;
   background-color: $neutral-100;
   box-shadow: 0 0 16px 0 rgba($neutral-black, 0.16);
@@ -317,7 +317,7 @@ watch([canDisableSpectators, () => props.canEdit], ([allowDisable, canEdit]) => 
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0 12px 16px;
+    padding: 0 0 16px;
     .title {
       color: $neutral-black;
       font-family: Hauora-Bold;
@@ -354,35 +354,7 @@ watch([canDisableSpectators, () => props.canEdit], ([allowDisable, canEdit]) => 
     .params {
       display: flex;
       flex-direction: column;
-      padding: 10px;
-      gap: 15px;
-    }
-  }
-  .save-game {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0 0 10px;
-    button {
-      padding: 0;
-      width: calc(100% - 20px);
-      height: 40px;
-      border: none;
-      border-radius: 5px;
-      background-color: $fg;
-      color: $bg;
-      font-size: 18px;
-      font-family: Manrope-Medium;
-      line-height: 1;
-      cursor: pointer;
-      transition: opacity 0.25s ease-in-out, background-color 0.25s ease-in-out;
-      &:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-      }
-      &:hover {
-        background-color: $white;
-      }
+      gap: 8px;
     }
   }
 }
