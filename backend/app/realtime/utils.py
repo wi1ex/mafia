@@ -1,10 +1,11 @@
 from __future__ import annotations
 import asyncio
 import json
+import structlog
+from math import ceil
+from time import time
 from contextlib import suppress
 from random import shuffle, randint
-import structlog
-from time import time
 from sqlalchemy import select, func, delete, or_
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -59,6 +60,8 @@ __all__ = [
     "GameActionContext",
     "build_game_context",
     "validate_auth",
+    "remove_admin_spectator_livekit",
+    "soft_leave_admin_spectators_for_game_start",
     "emit_user_game_participation_changed",
     "mark_users_in_active_alive_game",
     "clear_users_in_active_alive_game",
@@ -66,6 +69,11 @@ __all__ = [
     "clear_users_in_active_game",
     "is_user_alive_in_active_game_room",
     "active_alive_room_conflict",
+    "SPEECH_FINISH_MIN_SECONDS",
+    "refresh_game_context",
+    "acquire_speech_action_lock",
+    "release_speech_action_lock",
+    "speech_min_duration_error",
     "to_bool01",
     "apply_state",
     "apply_bg_state_on_join",
@@ -193,10 +201,81 @@ _disconnect_cleanup_tasks: dict[tuple[int, int], asyncio.Task[None]] = {}
 _single_gc_tasks: dict[int, tuple[str, asyncio.Task[None]]] = {}
 HOST_BLUR_AUTO_OFF_SECONDS = 120
 _host_blur_auto_tasks: dict[int, asyncio.Task[None]] = {}
+SPEECH_FINISH_MIN_SECONDS = 3
+SPEECH_ACTION_LOCK_TTL_SECONDS = 5
 SCREEN_QUALITY_LOW = "low"
 SCREEN_QUALITY_MEDIUM = "medium"
 SCREEN_QUALITY_HIGH = "high"
 SCREEN_QUALITIES = {SCREEN_QUALITY_LOW, SCREEN_QUALITY_MEDIUM, SCREEN_QUALITY_HIGH}
+
+
+async def remove_admin_spectator_livekit(rid: int, uid: int) -> None:
+    try:
+        await remove_livekit_participant(rid=rid, uid=uid, timeout_seconds=0.35, retry_rounds=1)
+    except Exception:
+        log.exception("sio.admin_spectator.livekit_remove_failed", rid=rid, uid=uid)
+
+
+async def soft_leave_admin_spectators_for_game_start(rid: int) -> int:
+    try:
+        participants = tuple(sio.manager.get_participants("/room", f"room:{rid}"))
+    except Exception:
+        log.exception("sio.game_start.admin_spectator_list_failed", rid=rid)
+        return 0
+
+    if not participants:
+        return 0
+
+    payload = {"room_id": int(rid), "reason": "admin_spectator_game_start"}
+    seen_sids: set[str] = set()
+    left_count = 0
+
+    for raw_sid, _ in participants:
+        sid_i = str(raw_sid or "")
+        if not sid_i or sid_i in seen_sids:
+            continue
+        seen_sids.add(sid_i)
+
+        try:
+            sess_i = await sio.get_session(sid_i, namespace="/room")
+        except Exception:
+            log.warning("sio.game_start.admin_spectator_session_failed", rid=rid, sid=sid_i)
+            continue
+
+        if not sess_i or not sess_i.get("admin_spectator"):
+            continue
+
+        try:
+            sess_rid = int(sess_i.get("rid") or 0)
+            uid_i = int(sess_i.get("uid") or 0)
+        except Exception:
+            continue
+
+        if sess_rid != int(rid) or uid_i <= 0:
+            continue
+
+        try:
+            await sio.emit("force_leave", payload, room=sid_i, namespace="/room")
+        except Exception:
+            log.warning("sio.game_start.admin_spectator_force_leave_failed", rid=rid, uid=uid_i, sid=sid_i)
+
+        try:
+            await sio.leave_room(sid_i, f"room:{rid}", namespace="/room")
+        except Exception:
+            log.warning("sio.game_start.admin_spectator_leave_room_failed", rid=rid, uid=uid_i, sid=sid_i)
+
+        try:
+            await reset_room_session(sid_i, sess_i, uid=uid_i)
+        except Exception:
+            log.warning("sio.game_start.admin_spectator_reset_session_failed", rid=rid, uid=uid_i, sid=sid_i)
+
+        asyncio.create_task(remove_admin_spectator_livekit(rid, uid_i))
+        left_count += 1
+
+    if left_count:
+        log.info("sio.game_start.admin_spectators_soft_left", rid=rid, count=left_count)
+
+    return left_count
 
 
 def normalize_uid_set(values: object) -> set[int]:
@@ -1266,6 +1345,67 @@ class GameActionContext:
                 return {"ok": False, "error": error, "status": status}
 
         return None
+
+
+async def refresh_game_context(ctx: GameActionContext) -> tuple[GameActionContext, Mapping[str, Any]]:
+    raw_gstate = await ctx.r.hgetall(f"room:{ctx.rid}:game_state") or {}
+    fresh = GameActionContext.from_raw_state(
+        uid=ctx.uid,
+        rid=ctx.rid,
+        r=ctx.r,
+        raw_state=raw_gstate,
+    )
+    return fresh, raw_gstate
+
+
+async def acquire_speech_action_lock(r, rid: int, action: str) -> tuple[str, str] | None:
+    key = f"room:{rid}:speech_action_lock:{action}"
+    token = f"{int(time() * 1000)}:{randint(0, 2**63 - 1)}"
+    ok = await r.set(key, token, nx=True, ex=SPEECH_ACTION_LOCK_TTL_SECONDS)
+    if not ok:
+        return None
+
+    return key, token
+
+
+async def release_speech_action_lock(r, key: str, token: str) -> None:
+    try:
+        current = await r.get(key)
+        if isinstance(current, bytes):
+            current = current.decode("utf-8", errors="ignore")
+        if current is not None and str(current) == token:
+            await r.delete(key)
+    except Exception:
+        log.warning("speech_action_lock.release_failed", key=key)
+
+
+def speech_min_duration_error(ctx: GameActionContext, started_at: int, unlock_key: str) -> dict[str, Any] | None:
+    if started_at <= 0:
+        return {"ok": False, "error": "no_speech", "status": 400}
+
+    unlock_at_ms = ctx.gint(unlock_key)
+    if unlock_at_ms > 0:
+        remaining_ms = unlock_at_ms - int(time() * 1000)
+        if remaining_ms <= 0:
+            return None
+
+        return {
+            "ok": False,
+            "error": "speech_too_short",
+            "status": 409,
+            "retry_after": max(1, ceil(remaining_ms / 1000)),
+        }
+
+    elapsed = time() - float(started_at)
+    if elapsed >= SPEECH_FINISH_MIN_SECONDS:
+        return None
+
+    return {
+        "ok": False,
+        "error": "speech_too_short",
+        "status": 409,
+        "retry_after": max(1, ceil(SPEECH_FINISH_MIN_SECONDS - elapsed)),
+    }
 
 
 class GameStateView:

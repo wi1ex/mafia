@@ -2970,6 +2970,8 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       if (st === 409 && code === 'day_speeches_done') {
         void alertDialog('Речи игроков завершены')
         daySpeechesDone.value = true
+      } else if (st === 409 && (code === 'speech_action_busy' || code === 'speech_in_progress')) {
+        return
       } else if (st === 400 && code === 'bad_phase') {
         void alertDialog('Сейчас не фаза дня')
       } else if (st === 403 && code === 'forbidden') {
@@ -3010,6 +3012,8 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
         void alertDialog('Сейчас не фаза дня')
       } else if (st === 400 && code === 'no_speech') {
         void alertDialog('Сейчас никто не говорит. Попробуйте обновить страницу')
+      } else if (st === 409 && (code === 'speech_action_busy' || code === 'speech_too_short')) {
+        return
       } else if (st === 403 && code === 'forbidden') {
         void alertDialog('Завершить речь может только ведущий или текущий игрок')
       } else if (st === 400 && code === 'not_alive') {
@@ -3070,8 +3074,8 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
         void alertDialog('Только ведущий может передавать оправдательную/прощальную речь')
       } else if (st === 409 && code === 'vote_not_done') {
         void alertDialog('Сначала завершите голосование')
-      } else if (st === 409 && code === 'speech_in_progress') {
-        void alertDialog('Сейчас уже идёт речь игрока')
+      } else if (st === 409 && (code === 'speech_action_busy' || code === 'speech_in_progress')) {
+        return
       } else if (st === 409 && code === 'no_leaders') {
         void alertDialog('Нет лидеров голосования')
       } else if (st === 409 && code === 'no_more_leaders') {
