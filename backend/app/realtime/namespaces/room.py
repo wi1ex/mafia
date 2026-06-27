@@ -113,6 +113,7 @@ from ..utils import (
     store_last_votes_snapshot,
     block_vote_and_clear,
     decide_vote_blocks_on_death,
+    should_ignore_terminal_vote_fatal_foul,
     clear_game_dynamic_keys,
     room_request_cleanup_for_game_start,
     emit_room_requests_pruned_for_game_start,
@@ -1227,6 +1228,15 @@ async def game_leave(sid, data):
         was_alive = await r.sismember(f"room:{rid}:game_alive", str(uid))
         if not was_alive:
             return {"ok": False, "error": "already_dead", "status": 400}
+
+        if phase == "vote":
+            try:
+                ignore_terminal_leave = await should_ignore_terminal_vote_fatal_foul(r, rid, raw_gstate, uid)
+            except Exception:
+                log.exception("sio.game_leave.ignore_terminal_vote_leave_check_failed", rid=rid, uid=uid)
+                ignore_terminal_leave = False
+            if ignore_terminal_leave:
+                return {"ok": True, "status": 200, "room_id": rid, "user_id": uid, "killed": False, "ignored": True, "ignore_reason": "terminal_vote_result"}
 
         handled_by_predefined_farewell = False
         if phase == "day":
@@ -2638,6 +2648,15 @@ async def game_foul_set(sid, data):
 
         if foul_before >= 3 and not confirm_kill:
             return {"ok": False, "error": "need_confirm_kill", "status": 409, "fouls": foul_before}
+
+        if foul_before >= 3 and phase == "vote" and not ppk_kill:
+            try:
+                ignore_terminal_foul = await should_ignore_terminal_vote_fatal_foul(r, rid, raw_gstate, target_uid)
+            except Exception:
+                log.exception("game_foul_set.ignore_terminal_vote_foul_check_failed", rid=rid, target=target_uid)
+                ignore_terminal_foul = False
+            if ignore_terminal_foul:
+                return {"ok": True, "status": 200, "room_id": rid, "user_id": target_uid, "fouls": foul_before, "killed": False, "ignored": True, "ignore_reason": "terminal_vote_result"}
 
         try:
             foul_after = await r.hincrby(f"room:{rid}:game_fouls", str(target_uid), 1)

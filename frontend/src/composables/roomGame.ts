@@ -2828,6 +2828,10 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       }
       return
     }
+    if (isTrueLike(resp?.ignored) && resp?.ignore_reason === 'terminal_vote_result') {
+      void alertDialog('Действие отменено - исход игры уже определён')
+      return
+    }
     const id = localId.value
     if (id) gameAlive.delete(id)
   }
@@ -3019,6 +3023,11 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   async function giveFoul(targetUserId: string, sendAck: SendAckFn): Promise<void> {
     const uidNum = Number(targetUserId)
     if (!uidNum) return
+    const alertIgnoredFatalFoul = (resp: any): boolean => {
+      if (!isTrueLike(resp?.ignored) || resp?.ignore_reason !== 'terminal_vote_result') return false
+      void alertDialog('Действие отменено - исход игры уже определён')
+      return true
+    }
     const resp = await sendAck('game_foul_set', { user_id: uidNum })
     if (!resp?.ok) {
       const code = resp?.error
@@ -3035,6 +3044,8 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
         const resp2 = await sendAck('game_foul_set', { user_id: uidNum, confirm_kill: true, ppk_kill: confirm.checkboxChecked })
         if (!resp2?.ok) {
           void alertDialog('Не удалось выдать фол')
+        } else {
+          alertIgnoredFatalFoul(resp2)
         }
       } else if (st === 403 && code === 'forbidden') {
         void alertDialog('Фол может выдать только ведущий')
@@ -3045,6 +3056,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       }
       return
     }
+    alertIgnoredFatalFoul(resp)
   }
 
   async function startLeaderSpeech(sendAck: SendAckFn): Promise<void> {
