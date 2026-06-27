@@ -311,7 +311,7 @@
             <img :src="iconGameStart" alt="start" />
           </button>
           <button v-if="gamePhase === 'idle' && !adminSpectator && !canShowStartGame && canUseReadyToggle" @click="toggleReady" :aria-pressed="readyOn" aria-label="Готовность">
-            <img :src="readyOn ? iconReadyGreen : iconReadyWhite" alt="ready" />
+            <UiIcon class="ready-icon" :class="{ 'ready-icon-on': readyOn }" :icon="iconReady" />
           </button>
           <button v-if="!adminSpectator && (gamePhase === 'idle' || isHead)" @click="toggleMic" :disabled="pending.mic || blockedSelf.mic === 1" :aria-pressed="micOn">
             <img :src="stateIcon('mic', localId)" alt="mic" />
@@ -493,6 +493,7 @@ import GameParams from '@/components/GameParams.vue'
 import Friends from '@/components/Friends.vue'
 import MiniProfile from '@/components/MiniProfile.vue'
 import UiSlider from '@/components/UiSlider.vue'
+import UiIcon from '@/components/UiIcon.vue'
 
 import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
 import iconVolumeMax from '@/assets/svg/iconVolumeMax.svg'
@@ -507,8 +508,7 @@ import iconFriends from '@/assets/svg/iconFriends.svg'
 import iconChat from '@/assets/svg/iconChat.svg'
 import iconSettings from '@/assets/svg/iconSettings.svg'
 import iconParams from '@/assets/svg/iconParams.svg'
-import iconReadyWhite from '@/assets/svg/readyWhite.svg'
-import iconReadyGreen from '@/assets/svg/readyGreen.svg'
+import iconReady from '@/assets/svg/iconCheckMark.svg'
 import iconBlurOn from '@/assets/svg/blurOn.svg'
 import iconBlurOff from '@/assets/svg/blurOff.svg'
 import iconGameStart from '@/assets/svg/gameStart.svg'
@@ -3730,6 +3730,14 @@ onBeforeUnmount(() => {
       }
       .leave-room-icon {
         transform: scaleY(-1);
+      }
+      .ready-icon {
+        --ui-icon-width: 24px;
+        --ui-icon-height: 24px;
+        --ui-icon-color: #{$neutral-100};
+        &.ready-icon-on {
+          --ui-icon-color: #{$green-500};
+        }
       }
       .count-total {
         display: flex;
