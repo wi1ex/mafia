@@ -824,7 +824,7 @@
       @update:open="onSanctionAdjustModalOpenUpdate"
       @save="saveSanctionAdjust"
     />
-    <Subscription
+    <SubscriptionModal
       :open="subscriptionModalOpen && Boolean(subscriptionTarget)"
       :title="subscriptionModalTitle"
       :status-text="selectedSubscriptionStatusText"
@@ -862,7 +862,7 @@ import { canOpenMiniProfileTarget, normalizeMiniProfileUserId } from '@/services
 import { useSettingsStore, useUserStore } from '@/store'
 
 import Sanction from '@/components/Sanction.vue'
-import Subscription from '@/components/Subscription.vue'
+import SubscriptionModal from '@/components/SubscriptionModal.vue'
 import MiniProfile from '@/components/MiniProfile.vue'
 import UiSwitch from '@/components/UiSwitch.vue'
 import UiInput from '@/components/UiInput.vue'
@@ -1353,7 +1353,7 @@ function normalizeAdminBannerLink(raw: unknown): string {
   return text
 }
 
-function normalizeDonationUrl(raw: unknown): string {
+function normalizeExternalPaymentUrl(raw: unknown): string {
   const text = String(raw ?? '').trim()
   if (!text || text === '0') return ''
   const lower = text.toLowerCase()
@@ -1411,7 +1411,7 @@ function snapshotSite(): string {
     verification_restrictions: Boolean(site.verification_restrictions),
     admin_banner_text: normalizeAdminBannerText(site.admin_banner_text),
     admin_banner_link: normalizeAdminBannerLink(site.admin_banner_link),
-    donation_url: normalizeDonationUrl(site.donation_url),
+    donation_url: normalizeExternalPaymentUrl(site.donation_url),
     rooms_limit_global: normalizeInt(site.rooms_limit_global),
     rooms_limit_per_user: normalizeInt(site.rooms_limit_per_user),
     rooms_empty_ttl_seconds: normalizeInt(site.rooms_empty_ttl_seconds),
@@ -1914,7 +1914,7 @@ async function loadSettings(): Promise<void> {
     Object.assign(game, data?.game || {})
     site.admin_banner_text = normalizeAdminBannerText(site.admin_banner_text)
     site.admin_banner_link = normalizeAdminBannerLink(site.admin_banner_link)
-    site.donation_url = normalizeDonationUrl(site.donation_url)
+    site.donation_url = normalizeExternalPaymentUrl(site.donation_url)
     site.season_start_game_number = normalizeSeasonStartNumbers(site.season_start_game_number)
     site.text_moderation_whitelist = normalizeTextModerationWhitelist(site.text_moderation_whitelist)
     site.text_moderation_blacklist = normalizeTextModerationBlacklist(site.text_moderation_blacklist)
@@ -1951,7 +1951,7 @@ async function saveSettings(): Promise<void> {
         verification_restrictions: Boolean(site.verification_restrictions),
         admin_banner_text: normalizeAdminBannerText(site.admin_banner_text),
         admin_banner_link: normalizeAdminBannerLink(site.admin_banner_link),
-        donation_url: normalizeDonationUrl(site.donation_url),
+        donation_url: normalizeExternalPaymentUrl(site.donation_url),
         rooms_limit_global: normalizeInt(site.rooms_limit_global),
         rooms_limit_per_user: normalizeInt(site.rooms_limit_per_user),
         rooms_empty_ttl_seconds: normalizeInt(site.rooms_empty_ttl_seconds),
@@ -1979,7 +1979,7 @@ async function saveSettings(): Promise<void> {
     Object.assign(game, data?.game || {})
     site.admin_banner_text = normalizeAdminBannerText(site.admin_banner_text)
     site.admin_banner_link = normalizeAdminBannerLink(site.admin_banner_link)
-    site.donation_url = normalizeDonationUrl(site.donation_url)
+    site.donation_url = normalizeExternalPaymentUrl(site.donation_url)
     site.season_start_game_number = normalizeSeasonStartNumbers(site.season_start_game_number)
     site.text_moderation_whitelist = normalizeTextModerationWhitelist(site.text_moderation_whitelist)
     site.text_moderation_blacklist = normalizeTextModerationBlacklist(site.text_moderation_blacklist)

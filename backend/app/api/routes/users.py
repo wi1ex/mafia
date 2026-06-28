@@ -360,7 +360,7 @@ async def support_link_click(payload: SupportLinkClickIn | None = None, ident: I
         user_id=uid,
         username=username,
         action="support_link_click",
-        details=f"Переход по ссылке поддержки: user_id={uid} site_name={site_name}",
+        details=f"Переход по ссылке: user_id={uid} site_name={site_name}",
     )
     return Ok()
 

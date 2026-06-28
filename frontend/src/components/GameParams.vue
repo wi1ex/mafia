@@ -152,7 +152,7 @@ const isAdminUser = computed(() => String(user.user?.role || '').toLowerCase() =
 const canDisableSpectators = computed(() => Boolean(user.subscriptionActive || isAdminUser.value))
 const allowDisabledSpectatorsValue = computed(() => !props.canEdit || canDisableSpectators.value)
 const gameParamsDisabled = computed(() => busy.value || loading.value || !props.canEdit)
-const spectatorsDisabledHint = 'Отключение зрителей в игре доступно пользователям, поддержавшим платформу'
+const spectatorsDisabledHint = 'Отключение зрителей в игре доступно только при наличии подписки'
 
 const isRating = computed<boolean>({
   get: () => game.value.mode === 'rating',

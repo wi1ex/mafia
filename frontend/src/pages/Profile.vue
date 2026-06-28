@@ -107,8 +107,8 @@
                 <img class="btn-img" :src="iconSave" alt="save" />
                 {{ themeSaveBusy ? '...' : 'Сохранить' }}
               </button>
-              <button v-else type="button" class="btn support-btn" @click="openSupportModal">
-                Поддержать платформу
+              <button v-else type="button" class="btn subscription-btn" @click="openSubscriptionModal">
+                Оформить подписку
               </button>
             </div>
             <p class="hint">{{ profileThemeMessageText }}</p>
@@ -299,7 +299,7 @@
         </div>
       </div>
     </Transition>
-    <Donation v-model:open="supportModalOpen" @select="onSupportSiteSelect" />
+    <Subscription v-model:open="subscriptionModalOpen" @select="onSubscriptionPaymentSelect" />
   </section>
 </template>
 
@@ -318,7 +318,7 @@ import ProfileHistory from '@/components/ProfileHistory.vue'
 import UiSwitch from '@/components/UiSwitch.vue'
 import UiInput from '@/components/UiInput.vue'
 import UiSlider from '@/components/UiSlider.vue'
-import Donation from '@/components/Donation.vue'
+import Subscription from '@/components/Subscription.vue'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 import iconSave from '@/assets/svg/save.svg'
@@ -459,7 +459,7 @@ const sanctionsLoaded = ref(false)
 const sanctionsError = ref('')
 const tgInvitesTogglePending = ref(false)
 const themeSaveBusy = ref(false)
-const supportModalOpen = ref(false)
+const subscriptionModalOpen = ref(false)
 const telegramVerified = computed(() => userStore.telegramVerified)
 const showHistoryTab = computed(() => !(settings.verificationRestrictions && !telegramVerified.value))
 const passwordTemp = computed(() => userStore.passwordTemp)
@@ -522,7 +522,7 @@ const profileThemeDirty = computed(() => (
 ))
 const themeSaveDisabled = computed(() => themeSaveBusy.value || isBanned.value || !canEditProfileTheme.value || !profileThemeDirty.value)
 const profileThemeSaveDisabledText = computed(() => {
-  if (!canEditProfileTheme.value) return 'Выбор оформления доступен пользователям, поддержавшим платформу'
+  if (!canEditProfileTheme.value) return 'Выбор оформления доступен только при наличии подписки'
   return ''
 })
 const themePreviewStyle = computed(() => buildProfileThemeBgStyle(selectedProfileThemeColor.value))
@@ -540,7 +540,7 @@ const profileThemeMessageText = computed(() => canEditProfileTheme.value ? profi
 const nicknameHistoryAccessText = computed(() => (
   canEditProfileTheme.value
     ? profileThemeAvailabilityText.value
-    : 'Очистка истории никнеймов доступна пользователям, поддержавшим платформу'
+    : 'Очистка истории никнеймов доступна только при наличии подписки'
 ))
 const nicknameHistoryHasDeletableItems = computed(() => nicknameHistoryItems.value.length > 1)
 const nicknameHistoryClearDisabled = computed(() => (
@@ -778,11 +778,11 @@ async function saveProfileTheme() {
   }
 }
 
-function openSupportModal() {
-  supportModalOpen.value = true
+function openSubscriptionModal() {
+  subscriptionModalOpen.value = true
 }
 
-function onSupportSiteSelect(site: { id: string; name: string; url: string }) {
+function onSubscriptionPaymentSelect(site: { id: string; name: string; url: string }) {
   if (site.id === 'lava') return
   void api.post('/users/support_link_click', {
     source: 'profile_theme',
@@ -1413,7 +1413,7 @@ onBeforeUnmount(() => {
         background-color: $red;
       }
     }
-    &.support-btn {
+    &.subscription-btn {
       max-width: 240px;
       background-color: $fg;
       color: $bg;

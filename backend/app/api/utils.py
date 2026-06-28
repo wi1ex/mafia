@@ -1616,9 +1616,8 @@ async def notify_subscription_upsert(
     action_text = "продлена" if extended else "активирована"
     title = "Подписка"
     text = (
-        f"Покупка подписки на {duration_text} успешно завершена. "
-        f"Подписка {action_text} до {until_text}. "
-        "Благодарим за поддержку платформы!"
+        f"Покупка подписки на {duration_text} успешно завершена! "
+        f"Подписка {action_text} до {until_text}."
     )
 
     note = Notif(user_id=uid, title=title, text=text)

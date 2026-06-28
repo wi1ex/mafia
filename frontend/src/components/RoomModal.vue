@@ -183,7 +183,7 @@ const initialLimit = (() => {
   return Number.isFinite(value) ? clamp(value, 2, 12) : 11
 })()
 const limit = ref<number>(initialLimit)
-const hiddenRoomHint = 'Создание скрытых комнат доступно пользователям, поддержавшим платформу'
+const hiddenRoomHint = 'Создание скрытых комнат доступно только при наличии подписки'
 
 const privacy = ref<'open' | 'private'>(initialBasic.privacy === 'private' ? 'private' : 'open')
 const initialAnonymity = initialBasic.anonymity === 'hidden' && canCreateHiddenRoom.value ? 'hidden' : 'visible'

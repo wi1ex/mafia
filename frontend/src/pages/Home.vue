@@ -189,11 +189,11 @@
       <div class="right-extra right-extra--primary">
         <img class="background-image-6" :src="imageSlide6" alt="" aria-hidden="true" />
         <div class="right-extra-content">
-          <div class="right-extra-copy-support">
+          <div class="right-extra-copy-subscription">
             <span>Оформи подписку и получи</span>
             <span class="right-extra-copy-accent">бонусы!</span>
           </div>
-          <button type="button" class="right-extra-btn" @click="openSupportModal">
+          <button type="button" class="right-extra-btn" @click="openSubscriptionModal">
             <UiIcon class="btn-icon" :icon="iconArrowNext" />
           </button>
         </div>
@@ -218,7 +218,7 @@
     :initial-profile="miniProfileInitial"
     :show-stats-button="true"
   />
-  <Donation v-model:open="supportModalOpen" @select="onSupportSiteSelect" />
+  <Subscription v-model:open="subscriptionModalOpen" @select="onSubscriptionPaymentSelect" />
   <Contact v-model:open="contactModalOpen" />
 </template>
 
@@ -235,7 +235,7 @@ import { useAuthStore, useSettingsStore, useUserStore } from '@/store'
 import Carousel from '@/components/Carousel.vue'
 import RoomModal from '@/components/RoomModal.vue'
 import MiniProfile from '@/components/MiniProfile.vue'
-import Donation from '@/components/Donation.vue'
+import Subscription from '@/components/Subscription.vue'
 import Contact from '@/components/Contact.vue'
 import UiIcon from '@/components/UiIcon.vue'
 import UiButton from '@/components/UiButton.vue'
@@ -339,7 +339,7 @@ let spectatorsReqSeq = 0
 const miniProfileOpen = ref(false)
 const miniProfileUserId = ref<number | null>(null)
 const miniProfileInitial = ref<HomeMiniProfileInitial | null>(null)
-const supportModalOpen = ref(false)
+const subscriptionModalOpen = ref(false)
 const contactModalOpen = ref(false)
 
 const selectedId = ref<number | null>(null)
@@ -525,15 +525,15 @@ function openMiniProfileFromRoomInfo(user: { id: number; username?: string | nul
   miniProfileOpen.value = true
 }
 
-function openSupportModal() {
-  supportModalOpen.value = true
+function openSubscriptionModal() {
+  subscriptionModalOpen.value = true
 }
 
 function openContactModal() {
   contactModalOpen.value = true
 }
 
-function onSupportSiteSelect(site: { id: string; name: string; url: string }) {
+function onSubscriptionPaymentSelect(site: { id: string; name: string; url: string }) {
   if (!auth.isAuthed) return
   if (site.id === 'lava') return
   void api.post('/users/support_link_click', {
@@ -1483,7 +1483,7 @@ onBeforeUnmount(() => {
         gap: 16px;
         max-width: calc(100% - 48px);
         z-index: 1;
-        .right-extra-copy-support {
+        .right-extra-copy-subscription {
           width: 220px;
           color: $neutral-white;
           font-family: Involve-Medium;

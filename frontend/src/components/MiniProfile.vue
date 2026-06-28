@@ -249,7 +249,7 @@
       @update:open="onStaffSanctionModalOpenUpdate"
       @save="saveStaffSanction"
     />
-    <Subscription
+    <SubscriptionModal
       :open="staffSubscriptionModalOpen"
       title="Выдать подписку"
       save-label="Выдать"
@@ -284,7 +284,7 @@ import {
 import ProfileStats from '@/components/ProfileStats.vue'
 import ProfileHistory from '@/components/ProfileHistory.vue'
 import Sanction from '@/components/Sanction.vue'
-import Subscription from '@/components/Subscription.vue'
+import SubscriptionModal from '@/components/SubscriptionModal.vue'
 import UiIcon from '@/components/UiIcon.vue'
 import UiLoaderIcon from '@/components/UiLoaderIcon.vue'
 import UiButton from '@/components/UiButton.vue'
@@ -310,7 +310,7 @@ import nominationHead from '@/assets/svg/iconPlay.svg'
 import nominationRoom from '@/assets/svg/iconSpeak.svg'
 import nominationStream from '@/assets/svg/iconScreenOn.svg'
 import nominationSpectator from '@/assets/svg/iconVisOn.svg'
-import iconDonation from '@/assets/svg/iconDonation.svg'
+import iconSubscription from '@/assets/svg/iconPresent.svg'
 import iconDelete from '@/assets/svg/iconDelete.svg'
 import iconEllipsis from '@/assets/svg/iconEllipsis.svg'
 import iconDanger from '@/assets/svg/iconDanger.svg'
@@ -878,7 +878,7 @@ const staffActionItems = computed<StaffActionItem[]>(() => {
       {
         key: 'subscription',
         label: 'Выдать подписку',
-        icon: iconDonation,
+        icon: iconSubscription,
         disabled: staffSubscriptionSaving.value || targetDeleted.value || targetSubscriptionActive.value,
         ariaLabel: `Выдать подписку ${displayName.value}`,
       },

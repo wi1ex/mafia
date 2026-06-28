@@ -129,7 +129,7 @@ const TEXT_MAX = 2000
 const topicOptions: readonly TopicOption[] = [
   { value: 'verif_question', label: 'Верификация на платформе' },
   { value: 'technical_problem', label: 'Техническая проблема' },
-  { value: 'payment_question', label: 'Поддержка платформы' },
+  { value: 'payment_question', label: 'Подписка и оплата' },
   { value: 'player_report', label: 'Жалоба на пользователя' },
   { value: 'appeal_sanction', label: 'Апелляция по санкции' },
   { value: 'feature_suggestion', label: 'Предложение по платформе' },
