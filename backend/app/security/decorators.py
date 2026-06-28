@@ -42,6 +42,8 @@ PUBLIC_SAFE_ROUTE_LIMITS: dict[str, RateLimitRules] = {
 }
 DEFAULT_SAFE_HTTP_LIMITS: RateLimitRules = ((25, 1), (120, 60))
 DEFAULT_MUTATING_HTTP_LIMITS: RateLimitRules = ((8, 1), (30, 60))
+ROOM_GAME_UPDATE_HTTP_PATH = "/api/rooms/{room_id}/game"
+ROOM_GAME_UPDATE_HTTP_LIMITS: RateLimitRules = ((5, 1), (60, 60))
 ACTOR_AUTH_HTTP_LIMITS: RateLimitRules = ((8, 10), (20, 60))
 ACTOR_BOT_HTTP_LIMITS: RateLimitRules = ((30, 1), (120, 60))
 ACTOR_CONTENT_HTTP_LIMITS: RateLimitRules = ((120, 1), (600, 60))
@@ -260,6 +262,9 @@ def _default_http_rate_limits(method: str, path: str) -> RateLimitRules:
     if normalized_path.startswith("/api/bot"):
         return ((30, 1), (90, 60))
 
+    if method == "PATCH" and normalized_path == ROOM_GAME_UPDATE_HTTP_PATH:
+        return ROOM_GAME_UPDATE_HTTP_LIMITS
+
     if _is_privileged_route(normalized_path):
         if method in SAFE_HTTP_METHODS:
             return PRIVILEGED_SAFE_HTTP_LIMITS
@@ -283,6 +288,9 @@ def _actor_http_rate_limit(method: str, path: str) -> tuple[str, RateLimitRules]
 
     if normalized_path in CONTENT_SAFE_ROUTE_PATHS:
         return "content", ACTOR_CONTENT_HTTP_LIMITS
+
+    if method == "PATCH" and normalized_path == ROOM_GAME_UPDATE_HTTP_PATH:
+        return "room_game_update", ROOM_GAME_UPDATE_HTTP_LIMITS
 
     if method in SAFE_HTTP_METHODS:
         return "safe", ACTOR_SAFE_HTTP_LIMITS
