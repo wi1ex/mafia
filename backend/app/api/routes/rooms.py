@@ -424,6 +424,9 @@ async def apply(room_id: int, ident: Identity = Depends(get_identity), db: Async
                     "id": uid,
                     "username": (profile or {}).get("username") or ident["username"],
                     "avatar_name": (profile or {}).get("avatar_name"),
+                    "role": str((profile or {}).get("role") or "user"),
+                    "theme_color": (profile or {}).get("theme_color"),
+                    "theme_icon": (profile or {}).get("theme_icon"),
                 },
             },
             room=f"user:{creator}",
@@ -500,6 +503,8 @@ async def list_requests(room_id: int, ident: Identity = Depends(get_identity), d
             username=cast(str | None, profile.get("username")),
             avatar_name=cast(str | None, profile.get("avatar_name")),
             role=str(profile.get("role") or "user"),
+            theme_color=cast(str | None, profile.get("theme_color")),
+            theme_icon=cast(str | None, profile.get("theme_icon")),
             status=status,
             requested_at=request_times.get(uid),
         ))

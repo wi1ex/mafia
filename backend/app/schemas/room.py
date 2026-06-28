@@ -69,6 +69,8 @@ class RoomRequestOut(BaseModel):
     username: Optional[str] = None
     avatar_name: Optional[str] = None
     role: str
+    theme_color: Optional[str] = None
+    theme_icon: Optional[str] = None
     status: Literal["approved", "pending"]
     requested_at: Optional[datetime] = None
 

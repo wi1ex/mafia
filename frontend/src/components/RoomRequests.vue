@@ -9,15 +9,22 @@
       </header>
 
       <ul v-if="apps.length">
-        <li v-for="u in apps" :key="u.id">
+        <li v-for="u in apps" :key="u.id" :class="{ 'has-theme-color': hasAppThemeColor(u) }" :style="appNickStyle(u)">
           <div class="user">
-            <img class="avatar" v-minio-img="{ key: u.avatar_name ? `avatars/${u.avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false }" alt="avatar" />
+            <img class="avatar" v-minio-img="{ key: u.avatar_name ? `avatars/${u.avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false, animated: true }" alt="avatar" />
+            <div v-if="appThemeIconSrcs(u).length" class="profile-theme-icons" aria-hidden="true">
+              <img v-for="badgeSrc in appThemeIconSrcs(u)" :key="`${u.id}-${badgeSrc}`" class="profile-theme-icon" :src="badgeSrc" alt="" />
+            </div>
             <span class="username">{{ u.username || ('user' + u.id) }}</span>
           </div>
           <div class="action">
             <time class="req-time">{{ formatLocalDateTime(u.requested_at, TIME_ONLY) }}</time>
-            <button v-if="u.status === 'pending'" class="btn-approve" :disabled="actionBusy[u.id]" @click="approve(u.id)">Одобрить</button>
-            <button v-else class="btn-deny" :disabled="actionBusy[u.id]" @click="deny(u.id)">Запретить</button>
+            <button v-if="u.status === 'pending'" class="icon-btn accept" :disabled="actionBusy[u.id]" @click="approve(u.id)" aria-label="Одобрить">
+              <UiIcon class="action-icon" :icon="iconAccept" />
+            </button>
+            <button v-else class="icon-btn danger" :disabled="actionBusy[u.id]" @click="deny(u.id)" aria-label="Запретить">
+              <UiIcon class="action-icon" :icon="iconClose" />
+            </button>
           </div>
         </li>
       </ul>
@@ -28,6 +35,8 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted, onBeforeUnmount, computed } from 'vue'
+import { getProfileThemeOption } from '@/constants/profileThemes'
+import { getProfileThemeBadgeSources } from '@/constants/profileIcons'
 import { api } from '@/services/axios'
 import { alertDialog } from '@/services/confirm'
 import { formatLocalDateTime } from '@/services/datetime'
@@ -35,9 +44,10 @@ import { formatLocalDateTime } from '@/services/datetime'
 import UiIcon from '@/components/UiIcon.vue'
 
 import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatarBlack.svg'
+import iconAccept from '@/assets/svg/iconCheckMark.svg'
 import iconClose from '@/assets/svg/iconClose.svg'
 
-type AppItem = {id: number; username?: string; avatar_name?: string|null; status: 'pending'|'approved'; requested_at?: string|null}
+type AppItem = {id: number; username?: string; avatar_name?: string|null; role?: string|null; theme_color?: string|null; theme_icon?: string|null; status: 'pending'|'approved'; requested_at?: string|null}
 
 const props = defineProps<{
   open: boolean
@@ -55,6 +65,15 @@ const showEmpty = computed(() => !isLoading.value && apps.value.length === 0)
 const TIME_ONLY: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit', second: '2-digit' }
 const actionBusy = ref<Record<number, boolean>>({})
 let inFlight = false
+
+const hasAppThemeColor = (app: { theme_color?: string | null }) => Boolean(getProfileThemeOption(app.theme_color))
+const appNickStyle = (app: { theme_color?: string | null }) => {
+  const option = getProfileThemeOption(app.theme_color)
+  return option ? { '--app-nick-theme': option.bg } : {}
+}
+const appThemeIconSrcs = (app: { theme_icon?: string | null; role?: string | null }) => (
+  getProfileThemeBadgeSources(app.theme_icon, app.role, { roleBadgeVariant: 'black' })
+)
 
 function loadSeen(): Set<number> {
   try { return new Set<number>(JSON.parse(localStorage.getItem(seenKey.value) || '[]')) } catch { return new Set() }
@@ -83,6 +102,9 @@ async function load() {
       id: Number(u.id),
       username: u.username,
       avatar_name: u.avatar_name ?? null,
+      role: u.role ?? null,
+      theme_color: u.theme_color ?? null,
+      theme_icon: u.theme_icon ?? null,
       status: u.status === 'approved' ? 'approved' : 'pending',
       requested_at: u.requested_at ?? null,
     }))
@@ -140,7 +162,16 @@ function onInvite(e: any) {
   if (Number(p?.room_id) !== props.roomId) return
   const uid = Number(p?.user?.id)
   if (!Number.isFinite(uid)) return
-  const u = { id: uid, username: p.user?.username, avatar_name: p.user?.avatar_name ?? null, status: 'pending' as const, requested_at: new Date().toISOString() }
+  const u = {
+    id: uid,
+    username: p.user?.username,
+    avatar_name: p.user?.avatar_name ?? null,
+    role: p.user?.role ?? null,
+    theme_color: p.user?.theme_color ?? null,
+    theme_icon: p.user?.theme_icon ?? null,
+    status: 'pending' as const,
+    requested_at: new Date().toISOString(),
+  }
   if (!apps.value.some(x => x.id === uid)) apps.value = [u, ...apps.value]
   else apps.value = apps.value.map(x => x.id === uid ? { ...x, ...u, status: 'pending' } : x)
   if (props.open) {
@@ -283,23 +314,47 @@ onBeforeUnmount(() => {
     scrollbar-width: none;
     list-style: none;
     li {
-      display: flex;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
       align-items: center;
       padding: 0 16px;
       gap: 8px;
       border-radius: 12px;
       background-color: $neutral-white;
+      &.has-theme-color .username {
+        background: var(--app-nick-theme);
+        background-clip: text;
+        color: transparent;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
       .user {
         display: flex;
         align-items: center;
+        gap: 8px;
+        min-width: 0;
         .avatar {
           width: 24px;
           height: 24px;
           border-radius: 50%;
+          flex: 0 0 auto;
+        }
+        .profile-theme-icons {
+          display: inline-flex;
+          align-items: center;
+          margin-left: -8px;
+          flex: 0 0 auto;
+          .profile-theme-icon {
+            width: 20px;
+            height: 20px;
+            border-radius: 0;
+            object-fit: contain;
+          }
         }
         .username {
           color: black;
           flex: 1;
+          min-width: 0;
           height: 18px;
           white-space: nowrap;
           overflow: hidden;
@@ -308,6 +363,8 @@ onBeforeUnmount(() => {
       }
       .action {
         display: flex;
+        align-items: center;
+        gap: 8px;
         .req-time {
           color: black;
           font-size: 14px;
@@ -316,31 +373,48 @@ onBeforeUnmount(() => {
           display: flex;
           align-items: center;
           justify-content: center;
-          min-width: 90px;
-          height: 30px;
-          border: none;
-          border-radius: 5px;
-          font-size: 14px;
-          font-family: Manrope-Medium;
-          line-height: 1;
+          padding: 0;
+          width: 28px;
+          height: 28px;
+          border-radius: 8px;
+          border: 1px solid transparent;
           cursor: pointer;
-          transition: background-color 0.25s ease-in-out;
-          &:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
+          transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out;
+          .action-icon {
+            --ui-icon-width: 24px;
+            --ui-icon-height: 24px;
+            --ui-icon-color: #{$neutral-black};
           }
-          &.btn-approve {
-            background-color: rgba($green, 0.75);
-            color: $bg;
-            &:hover {
-              background-color: $green;
+          &:disabled {
+            background-color: $neutral-200;
+            border-color: $neutral-200;
+            cursor: not-allowed;
+            .action-icon {
+              --ui-icon-color: #{$neutral-400};
             }
           }
-          &.btn-deny {
-            background-color: rgba($red, 0.75);
-            color: $fg;
-            &:hover {
-              background-color: $red;
+          &.accept {
+            background-color: $green-100;
+            border-color: $green-100;
+            .action-icon {
+              --ui-icon-color: #{$green-600};
+            }
+            &:not(:disabled):hover,
+            &:not(:disabled):focus-visible,
+            &:not(:disabled):active {
+              border-color: $green-600;
+            }
+          }
+          &.danger {
+            background-color: $red-100;
+            border-color: $red-100;
+            .action-icon {
+              --ui-icon-color: #{$red-600};
+            }
+            &:not(:disabled):hover,
+            &:not(:disabled):focus-visible,
+            &:not(:disabled):active {
+              border-color: $red-600;
             }
           }
         }
