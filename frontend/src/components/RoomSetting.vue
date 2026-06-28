@@ -22,6 +22,7 @@
             @update:modelValue="onToggleHotkeys"
           />
         </div>
+
         <div class="switch-div">
           <UiSwitch
             :model-value="buttonsHigh"
@@ -34,6 +35,7 @@
             @update:modelValue="onToggleButtonsHigh"
           />
         </div>
+
         <div v-if="showVideoFillToggle" class="switch-div">
           <UiSwitch
             :model-value="videoFillOn"
@@ -46,6 +48,7 @@
             @update:modelValue="onToggleVideoFill"
           />
         </div>
+
         <div v-if="showMirrorToggle" class="switch-div">
           <UiSwitch
             :model-value="mirrorOn"
@@ -56,7 +59,9 @@
             @update:modelValue="onToggleMirror"
           />
         </div>
-        <div v-if="inGame && !isSpectator && canToggleKnownRoles" class="switch-div">
+
+<!--        <div v-if="inGame && !isSpectator && canToggleKnownRoles" class="switch-div">-->
+        <div class="switch-div">
           <UiSwitch
             :model-value="knownRolesVisible"
             off-label="Скрыть"
@@ -73,7 +78,8 @@
           </UiSwitch>
         </div>
 
-        <div v-if="inGame && musicEnabled" class="volume-block">
+<!--        <div v-if="inGame && musicEnabled" class="volume-block">-->
+        <div class="volume-block">
           <span class="volume-text">Громкость музыки:</span>
           <div class="volume">
             <img :src="volumeIcon" alt="vol" />
@@ -271,10 +277,7 @@ function onMicDropdownUpdate(value: DropdownValue): void {
   .change-devices {
     display: flex;
     flex-direction: column;
-    padding: 10px;
-    gap: 10px;
-    border-radius: 5px;
-    background-color: $dark;
+    gap: 8px;
     .switch-div {
       display: flex;
       flex-direction: column;
