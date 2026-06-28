@@ -3746,7 +3746,7 @@ onBeforeUnmount(() => {
           --ui-icon-color: #{$red-500};
         }
         &.leave-room-icon {
-          transform: scaleY(-1);
+          transform: scaleX(-1);
         }
       }
       .ready-icon {

@@ -150,8 +150,9 @@ const game = ref<RoomGameParams>({ ...roomGameDefault })
 const initialGame = ref<RoomGameParams | null>(null)
 const isAdminUser = computed(() => String(user.user?.role || '').toLowerCase() === 'admin')
 const canDisableSpectators = computed(() => Boolean(user.subscriptionActive || isAdminUser.value))
+const allowDisabledSpectatorsValue = computed(() => !props.canEdit || canDisableSpectators.value)
 const gameParamsDisabled = computed(() => busy.value || loading.value || !props.canEdit)
-const spectatorsDisabledHint = 'Отключение зрителей доступно пользователям, поддержавшим платформу'
+const spectatorsDisabledHint = 'Отключение зрителей в игре доступно пользователям, поддержавшим платформу'
 
 const isRating = computed<boolean>({
   get: () => game.value.mode === 'rating',
@@ -176,7 +177,7 @@ const spectatorsEnabled = computed<boolean>({
   },
 })
 
-const spectatorsToggleDisabled = computed(() => Boolean(gameParamsDisabled.value || !canDisableSpectators.value))
+const spectatorsToggleDisabled = computed(() => Boolean(gameParamsDisabled.value))
 const spectatorsToggleTooltip = computed(() => {
   if (gameParamsDisabled.value || canDisableSpectators.value) return undefined
   return spectatorsDisabledHint
@@ -184,7 +185,7 @@ const spectatorsToggleTooltip = computed(() => {
 
 function normalizeLoadedGame(raw: unknown): RoomGameParams {
   return normalizeRoomGameParams(raw, {
-    allowDisableSpectators: true,
+    allowDisableSpectators: allowDisabledSpectatorsValue.value,
   })
 }
 
@@ -284,12 +285,12 @@ watch(game, () => {
   void save()
 }, { deep: true })
 
-watch([canDisableSpectators, () => props.canEdit], ([allowDisable, canEdit]) => {
+watch(allowDisabledSpectatorsValue, (allowDisable) => {
   const normalizedGame = normalizeRoomGameParams(game.value, {
-    allowDisableSpectators: !canEdit || allowDisable,
+    allowDisableSpectators: allowDisable,
   })
   const normalizedInitial = initialGame.value
-    ? normalizeRoomGameParams(initialGame.value, { allowDisableSpectators: !canEdit || allowDisable })
+    ? normalizeRoomGameParams(initialGame.value, { allowDisableSpectators: allowDisable })
     : null
 
   if (JSON.stringify(normalizedGame) !== JSON.stringify(game.value)) {
