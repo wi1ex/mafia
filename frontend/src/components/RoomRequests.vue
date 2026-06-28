@@ -273,9 +273,8 @@ onBeforeUnmount(() => {
     display: flex;
     flex-direction: column;
     margin: 0;
-    padding: 10px;
-    gap: 10px;
-    border-radius: 5px;
+    padding: 0;
+    gap: 8px;
     overflow-y: auto;
     scrollbar-width: none;
     list-style: none;
@@ -284,7 +283,7 @@ onBeforeUnmount(() => {
       align-items: center;
       padding: 5px;
       gap: 5px;
-      border-radius: 5px;
+      border-radius: 12px;
       background-color: $neutral-white;
       img {
         width: 24px;
@@ -292,6 +291,7 @@ onBeforeUnmount(() => {
         border-radius: 50%;
       }
       .username {
+        color: black;
         flex: 1;
         height: 18px;
         white-space: nowrap;
@@ -299,6 +299,7 @@ onBeforeUnmount(() => {
         text-overflow: ellipsis;
       }
       .req-time {
+        color: black;
         font-size: 14px;
       }
       button {
