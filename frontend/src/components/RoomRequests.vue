@@ -8,27 +8,32 @@
         </button>
       </header>
 
-      <ul v-if="apps.length">
-        <li v-for="u in apps" :key="u.id" :class="{ 'has-theme-color': hasAppThemeColor(u) }" :style="appNickStyle(u)">
-          <div class="user">
-            <img class="avatar" v-minio-img="{ key: u.avatar_name ? `avatars/${u.avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false, animated: true }" alt="avatar" />
-            <div v-if="appThemeIconSrcs(u).length" class="profile-theme-icons" aria-hidden="true">
-              <img v-for="badgeSrc in appThemeIconSrcs(u)" :key="`${u.id}-${badgeSrc}`" class="profile-theme-icon" :src="badgeSrc" alt="" />
-            </div>
-            <span class="username">{{ u.username || ('user' + u.id) }}</span>
-          </div>
-          <div class="action">
-            <time class="req-time">{{ formatLocalDateTime(u.requested_at, TIME_ONLY) }}</time>
-            <button v-if="u.status === 'pending'" class="icon-btn accept" :disabled="actionBusy[u.id]" @click="approve(u.id)" aria-label="Одобрить">
-              <UiIcon class="action-icon" :icon="iconAccept" />
-            </button>
-            <button v-else class="icon-btn danger" :disabled="actionBusy[u.id]" @click="deny(u.id)" aria-label="Запретить">
-              <UiIcon class="action-icon" :icon="iconClose" />
-            </button>
-          </div>
-        </li>
-      </ul>
-      <p v-else-if="showEmpty">Нет заявок</p>
+      <div class="modal-shell">
+        <div ref="appsScroll" class="apps-scroll">
+          <ul v-if="apps.length">
+            <li v-for="u in apps" :key="u.id" :class="{ 'has-theme-color': hasAppThemeColor(u) }" :style="appNickStyle(u)">
+              <div class="user">
+                <img class="avatar" v-minio-img="{ key: u.avatar_name ? `avatars/${u.avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false, animated: true }" alt="avatar" />
+                <div v-if="appThemeIconSrcs(u).length" class="profile-theme-icons" aria-hidden="true">
+                  <img v-for="badgeSrc in appThemeIconSrcs(u)" :key="`${u.id}-${badgeSrc}`" class="profile-theme-icon" :src="badgeSrc" alt="" />
+                </div>
+                <span class="username">{{ u.username || ('user' + u.id) }}</span>
+              </div>
+              <div class="action">
+                <time class="req-time">{{ formatLocalDateTime(u.requested_at, TIME_ONLY) }}</time>
+                <button v-if="u.status === 'pending'" class="icon-btn accept" :disabled="actionBusy[u.id]" @click="approve(u.id)" aria-label="Одобрить">
+                  <UiIcon class="action-icon" :icon="iconAccept" />
+                </button>
+                <button v-else class="icon-btn danger" :disabled="actionBusy[u.id]" @click="deny(u.id)" aria-label="Запретить">
+                  <UiIcon class="action-icon" :icon="iconClose" />
+                </button>
+              </div>
+            </li>
+          </ul>
+          <p v-else-if="showEmpty">Нет заявок</p>
+        </div>
+        <UiScrollbar :target="appsScroll" :active="open" theme="light" :inset-bottom="8" right="-16px" />
+      </div>
     </div>
   </Transition>
 </template>
@@ -42,6 +47,7 @@ import { alertDialog } from '@/services/confirm'
 import { formatLocalDateTime } from '@/services/datetime'
 
 import UiIcon from '@/components/UiIcon.vue'
+import UiScrollbar from '@/components/UiScrollbar.vue'
 
 import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatarBlack.svg'
 import iconAccept from '@/assets/svg/iconCheckMark.svg'
@@ -59,6 +65,7 @@ const emit = defineEmits<{
 }>()
 
 const apps = ref<AppItem[]>([])
+const appsScroll = ref<HTMLElement | null>(null)
 const seenKey = computed(() => `room:${props.roomId}:apps_seen`)
 const isLoading = ref(false)
 const showEmpty = computed(() => !isLoading.value && apps.value.length === 0)
@@ -304,14 +311,31 @@ onBeforeUnmount(() => {
       }
     }
   }
+  .modal-shell {
+    display: flex;
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+    .apps-scroll {
+      display: flex;
+      flex: 1 1 auto;
+      flex-direction: column;
+      min-height: 0;
+      overflow-y: auto;
+      scrollbar-width: none;
+      &::-webkit-scrollbar {
+        display: none;
+        width: 0;
+        height: 0;
+      }
+    }
+  }
   ul {
     display: flex;
     flex-direction: column;
     margin: 0;
     padding: 0;
     gap: 8px;
-    overflow-y: auto;
-    scrollbar-width: none;
     list-style: none;
     li {
       display: grid;
