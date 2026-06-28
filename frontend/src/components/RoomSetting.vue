@@ -2,9 +2,9 @@
   <Transition name="panel">
     <div v-show="open" class="settings" :data-open="open ? 1 : 0" aria-label="Настройки устройств" @click.stop>
       <header>
-        <span>Настройки</span>
-        <button @click="$emit('close')" aria-label="Закрыть">
-          <img :src="iconClose" alt="close" />
+        <span class="title">Настройки</span>
+        <button class="close-btn" type="button" aria-label="Закрыть" @click="$emit('close')">
+          <UiIcon class="close-icon" :icon="iconClose" />
         </button>
       </header>
 
@@ -16,7 +16,8 @@
             off-label="Скрыть"
             on-label="Показать"
             aria-label="Подсказки для клавиш"
-            :width="160"
+            theme="light"
+            size="low"
             :disabled="hotkeysTogglePending"
             @update:modelValue="onToggleHotkeys"
           />
@@ -28,7 +29,8 @@
             off-label="Стандарт"
             on-label="Кастом"
             aria-label="Расположение кнопок"
-            :width="160"
+            theme="light"
+            size="low"
             @update:modelValue="onToggleButtonsHigh"
           />
         </div>
@@ -39,7 +41,8 @@
             off-label="Откл"
             on-label="Вкл"
             aria-label="Заполнение видео"
-            :width="160"
+            theme="light"
+            size="low"
             @update:modelValue="onToggleVideoFill"
           />
         </div>
@@ -48,7 +51,8 @@
             :model-value="mirrorOn"
             label="Зеркальность камеры:"
             aria-label="Зеркальность камеры"
-            :width="160"
+            theme="light"
+            size="low"
             @update:modelValue="onToggleMirror"
           />
         </div>
@@ -58,7 +62,8 @@
             off-label="Скрыть"
             on-label="Показать"
             aria-label="Отображение ролей"
-            :width="160"
+            theme="light"
+            size="low"
             @update:modelValue="onToggleKnownRoles"
           >
             <template #label>
@@ -120,8 +125,9 @@ import { computed } from 'vue'
 import UiDropdown from '@/components/UiDropdown.vue'
 import UiSwitch from '@/components/UiSwitch.vue'
 import UiSlider from '@/components/UiSlider.vue'
+import UiIcon from '@/components/UiIcon.vue'
 
-import iconClose from '@/assets/svg/close.svg'
+import iconClose from '@/assets/svg/iconClose.svg'
 
 type Dev = {
   deviceId: string
@@ -219,11 +225,12 @@ function onMicDropdownUpdate(value: DropdownValue): void {
   position: absolute;
   flex-direction: column;
   right: 0;
-  bottom: 50px;
-  width: 400px;
-  border-radius: 5px;
-  background-color: $dark;
-  box-shadow: 3px 3px 5px rgba($black, 0.25);
+  bottom: 48px;
+  padding: 16px 24px 24px;
+  width: 462px;
+  border-radius: 24px;
+  background-color: $neutral-100;
+  box-shadow: 0 0 16px 0 rgba($neutral-black, 0.16);
   z-index: 25;
   &[data-open="0"] {
     pointer-events: none;
@@ -232,27 +239,32 @@ function onMicDropdownUpdate(value: DropdownValue): void {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 5px 10px;
-    border-radius: 5px;
-    background-color: $graphite;
-    box-shadow: 0 3px 5px rgba($black, 0.25);
-    span {
+    padding: 0 4px 16px;
+    .title {
+      color: $neutral-black;
+      font-family: Hauora-Bold;
       font-size: 18px;
-      font-weight: bold;
+      line-height: 20px;
+      letter-spacing: -0.36px;
     }
-    button {
-      display: flex;
-      align-items: center;
-      justify-content: center;
+    .close-btn {
       padding: 0;
-      width: 25px;
-      height: 30px;
+      width: 24px;
+      height: 24px;
       border: none;
       background: none;
       cursor: pointer;
-      img {
-        width: 25px;
-        height: 25px;
+      .close-icon {
+        --ui-icon-width: 24px;
+        --ui-icon-height: 24px;
+        --ui-icon-color: #{$neutral-black};
+      }
+      &:not(:disabled):hover,
+      &:not(:disabled):focus-visible,
+      &:not(:disabled):active {
+        .close-icon {
+          --ui-icon-color: #{$green-500};
+        }
       }
     }
   }

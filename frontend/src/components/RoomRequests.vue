@@ -30,7 +30,7 @@
               </div>
             </li>
           </ul>
-          <p v-else-if="showEmpty">Нет заявок</p>
+          <div class="muted" v-else-if="showEmpty">Нет заявок</div>
         </div>
         <UiScrollbar :target="appsScroll" :active="open" theme="light" :inset-bottom="8" right="-16px" />
       </div>
@@ -268,7 +268,7 @@ onBeforeUnmount(() => {
   flex-direction: column;
   right: 0;
   bottom: 48px;
-  padding: 16px 24px;
+  padding: 16px 24px 24px;
   width: 404px;
   max-height: 400px;
   border-radius: 24px;
@@ -445,9 +445,9 @@ onBeforeUnmount(() => {
       }
     }
   }
-  p {
-    color: $grey;
-    margin: auto;
+  .muted {
+    color: $neutral-black;
+    margin: 16px auto;
   }
 }
 
