@@ -1,5 +1,5 @@
 <template>
-  <div ref="rootEl" class="ui-dropdown" :class="[rootClass, { open, invalid, 'ui-dropdown--selected': selectedOption, 'ui-dropdown--light': mode === 'light', 'ui-dropdown--top': menuPlacement === 'top', 'ui-dropdown--placeholder-label': labelMode === 'placeholder' }]" :style="rootStyle">
+  <div ref="rootEl" class="ui-dropdown" :class="[rootClass, `ui-dropdown--${dropdownSize}`, { open, invalid, 'ui-dropdown--selected': selectedOption, 'ui-dropdown--light': mode === 'light', 'ui-dropdown--top': menuPlacement === 'top', 'ui-dropdown--placeholder-label': labelMode === 'placeholder' }]" :style="rootStyle">
     <slot name="trigger" v-bind="triggerSlotProps">
       <button class="ui-dropdown__trigger" v-bind="triggerProps">
         <span :class="{ placeholder: !selectedLabel }">{{ displayLabel }}</span>
@@ -37,6 +37,7 @@ type UiDropdownOption = {
   disabled?: boolean
   icon?: string
 }
+type UiDropdownSize = 'high' | 'low'
 
 let uid = 0
 
@@ -52,6 +53,7 @@ const props = withDefaults(defineProps<{
   menuPlacement?: 'bottom' | 'top'
   ariaLabel?: string
   labelMode?: 'floating' | 'placeholder'
+  size?: UiDropdownSize
 }>(), {
   modelValue: null,
   options: () => [],
@@ -64,6 +66,7 @@ const props = withDefaults(defineProps<{
   menuPlacement: 'bottom',
   ariaLabel: '',
   labelMode: 'floating',
+  size: 'high',
 })
 
 const emit = defineEmits<{
@@ -82,6 +85,7 @@ const selectedOption = computed(() => props.options.find((option) => isSameValue
 const selectedLabel = computed(() => selectedOption.value?.label || '')
 const displayLabel = computed(() => selectedLabel.value || props.placeholder)
 const buttonAriaLabel = computed(() => props.ariaLabel || props.label || props.placeholder)
+const dropdownSize = computed<UiDropdownSize>(() => props.size === 'low' ? 'low' : 'high')
 const triggerProps = computed<Record<string, unknown>>(() => ({
   id: resolvedId.value,
   type: 'button',
@@ -175,6 +179,8 @@ onBeforeUnmount(() => {
   --ui-dropdown-option-hover-text: #{$neutral-white};
   --ui-dropdown-error-border: #{$red-500};
   --ui-dropdown-error-text: #{$neutral-white};
+  --ui-dropdown-height: 56px;
+  --ui-dropdown-radius: 999px;
   &.ui-dropdown--light {
     --ui-dropdown-border: #{$green-800};
     --ui-dropdown-text: #{$neutral-700};
@@ -194,6 +200,10 @@ onBeforeUnmount(() => {
     --ui-dropdown-error-border: #{$red-600};
     --ui-dropdown-error-text: #{$neutral-black};
   }
+  &.ui-dropdown--low {
+    --ui-dropdown-height: 40px;
+    --ui-dropdown-radius: 12px;
+  }
   &.ui-dropdown--selected {
     --ui-dropdown-text: var(--ui-dropdown-selected-text);
   }
@@ -202,10 +212,10 @@ onBeforeUnmount(() => {
     align-items: center;
     justify-content: space-between;
     width: 100%;
-    height: 56px;
+    height: var(--ui-dropdown-height);
     padding: 0 32px;
     border: 1px solid var(--ui-dropdown-border);
-    border-radius: 999px;
+    border-radius: var(--ui-dropdown-radius);
     background-color: transparent;
     color: var(--ui-dropdown-text);
     font-family: Hauora-Regular;

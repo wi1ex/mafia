@@ -104,6 +104,8 @@
             placeholder="Камера"
             empty-text="Нет устройств"
             aria-label="Список камер"
+            mode="light"
+            size="low"
             menu-placement="top"
             @update:modelValue="onCamDropdownUpdate"
           />
@@ -117,6 +119,8 @@
             placeholder="Микрофон"
             empty-text="Нет устройств"
             aria-label="Список микрофонов"
+            mode="light"
+            size="low"
             menu-placement="top"
             @update:modelValue="onMicDropdownUpdate"
           />
