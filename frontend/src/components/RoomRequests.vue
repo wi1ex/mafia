@@ -10,11 +10,15 @@
 
       <ul v-if="apps.length">
         <li v-for="u in apps" :key="u.id">
-          <img v-minio-img="{ key: u.avatar_name ? `avatars/${u.avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false }" alt="avatar" />
-          <span class="username">{{ u.username || ('user' + u.id) }}</span>
-          <time class="req-time">{{ formatLocalDateTime(u.requested_at, TIME_ONLY) }}</time>
-          <button v-if="u.status === 'pending'" class="btn-approve" :disabled="actionBusy[u.id]" @click="approve(u.id)">Одобрить</button>
-          <button v-else class="btn-deny" :disabled="actionBusy[u.id]" @click="deny(u.id)">Запретить</button>
+          <div class="user">
+            <img class="avatar" v-minio-img="{ key: u.avatar_name ? `avatars/${u.avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false }" alt="avatar" />
+            <span class="username">{{ u.username || ('user' + u.id) }}</span>
+          </div>
+          <div class="action">
+            <time class="req-time">{{ formatLocalDateTime(u.requested_at, TIME_ONLY) }}</time>
+            <button v-if="u.status === 'pending'" class="btn-approve" :disabled="actionBusy[u.id]" @click="approve(u.id)">Одобрить</button>
+            <button v-else class="btn-deny" :disabled="actionBusy[u.id]" @click="deny(u.id)">Запретить</button>
+          </div>
         </li>
       </ul>
       <p v-else-if="showEmpty">Нет заявок</p>
@@ -281,56 +285,63 @@ onBeforeUnmount(() => {
     li {
       display: flex;
       align-items: center;
-      padding: 5px;
-      gap: 5px;
+      padding: 0 16px;
+      gap: 8px;
       border-radius: 12px;
       background-color: $neutral-white;
-      img {
-        width: 24px;
-        height: 24px;
-        border-radius: 50%;
-      }
-      .username {
-        color: black;
-        flex: 1;
-        height: 18px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      .req-time {
-        color: black;
-        font-size: 14px;
-      }
-      button {
+      .user {
         display: flex;
         align-items: center;
-        justify-content: center;
-        min-width: 90px;
-        height: 30px;
-        border: none;
-        border-radius: 5px;
-        font-size: 14px;
-        font-family: Manrope-Medium;
-        line-height: 1;
-        cursor: pointer;
-        transition: background-color 0.25s ease-in-out;
-        &:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
+        .avatar {
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
         }
-        &.btn-approve {
-          background-color: rgba($green, 0.75);
-          color: $bg;
-          &:hover {
-            background-color: $green;
+        .username {
+          color: black;
+          flex: 1;
+          height: 18px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+      }
+      .action {
+        display: flex;
+        .req-time {
+          color: black;
+          font-size: 14px;
+        }
+        button {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 90px;
+          height: 30px;
+          border: none;
+          border-radius: 5px;
+          font-size: 14px;
+          font-family: Manrope-Medium;
+          line-height: 1;
+          cursor: pointer;
+          transition: background-color 0.25s ease-in-out;
+          &:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
           }
-        }
-        &.btn-deny {
-          background-color: rgba($red, 0.75);
-          color: $fg;
-          &:hover {
-            background-color: $red;
+          &.btn-approve {
+            background-color: rgba($green, 0.75);
+            color: $bg;
+            &:hover {
+              background-color: $green;
+            }
+          }
+          &.btn-deny {
+            background-color: rgba($red, 0.75);
+            color: $fg;
+            &:hover {
+              background-color: $red;
+            }
           }
         }
       }
