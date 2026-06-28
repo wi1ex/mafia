@@ -82,9 +82,8 @@
         <div class="volume-block">
           <span class="volume-text">Громкость музыки:</span>
           <div class="volume">
-            <img :src="volumeIcon" alt="vol" />
+            <UiIcon class="volume-img" :icon="volumeIcon" />
             <UiSlider
-              class="volume-slider"
               :model-value="volume"
               :min="0"
               :max="100"
@@ -313,36 +312,26 @@ function onMicDropdownUpdate(value: DropdownValue): void {
       .volume {
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        padding: 5px;
-        gap: 5px;
-        width: 150px;
-        height: 20px;
-        border-radius: 5px;
-        background-color: $graphite;
-        box-shadow: 3px 3px 5px rgba($black, 0.25);
+        padding: 0 16px;
+        gap: 8px;
+        width: 274px;
+        height: 40px;
+        border-radius: 12px;
+        background-color: $soft-purple-900;
         -webkit-overflow-scrolling: touch;
-        img {
-          flex: 0 0 auto;
-          width: 20px;
-          height: 20px;
-        }
-        .volume-slider {
-          flex: 1 1 auto;
-          min-width: 0;
-          height: 80%;
-          --ui-slider-filled-height: 100%;
-          --ui-slider-filled-radius: 5px;
-          --ui-slider-filled-border: #{$lead};
-          --ui-slider-filled-bg: #{$graphite};
-          --ui-slider-filled-color: #{$fg};
-          --ui-slider-filled-focus: #{$lead};
+        .volume-img {
+          --ui-icon-width: 24px;
+          --ui-icon-height: 24px;
+          --ui-icon-color: #{$neutral-100};
         }
         span {
-          flex: 0 0 auto;
-          min-width: 32px;
-          text-align: center;
-          font-size: 12px;
+          min-width: 42px;
+          color: $neutral-100;
+          font-family: Hauora-Regular;
+          font-size: 16px;
+          line-height: 16px;
+          letter-spacing: -0.32px;
+          text-align: right;
         }
       }
     }
