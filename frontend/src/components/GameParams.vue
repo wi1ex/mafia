@@ -176,7 +176,8 @@ const spectatorsEnabled = computed<boolean>({
   },
 })
 
-const spectatorsToggleDisabled = computed(() => Boolean(gameParamsDisabled.value))
+const spectatorsPremiumLocked = computed(() => !canDisableSpectators.value && spectatorsEnabled.value)
+const spectatorsToggleDisabled = computed(() => Boolean(gameParamsDisabled.value || spectatorsPremiumLocked.value))
 const spectatorsToggleTooltip = computed(() => {
   if (gameParamsDisabled.value || canDisableSpectators.value) return undefined
   return spectatorsDisabledHint
