@@ -318,7 +318,8 @@ onBeforeUnmount(() => {
       grid-template-columns: minmax(0, 1fr) auto;
       align-items: center;
       padding: 0 16px;
-      gap: 8px;
+      gap: 24px;
+      height: 40px;
       border-radius: 12px;
       background-color: $neutral-white;
       &.has-theme-color .username {
@@ -332,30 +333,26 @@ onBeforeUnmount(() => {
         display: flex;
         align-items: center;
         gap: 8px;
-        min-width: 0;
         .avatar {
           width: 24px;
           height: 24px;
           border-radius: 50%;
-          flex: 0 0 auto;
         }
         .profile-theme-icons {
           display: inline-flex;
           align-items: center;
           margin-left: -8px;
-          flex: 0 0 auto;
           .profile-theme-icon {
-            width: 20px;
-            height: 20px;
-            border-radius: 0;
-            object-fit: contain;
+            width: 24px;
+            height: 24px;
           }
         }
         .username {
-          color: black;
-          flex: 1;
-          min-width: 0;
-          height: 18px;
+          color: $neutral-black;
+          font-family: Hauora-Regular;
+          font-size: 16px;
+          line-height: 20px;
+          letter-spacing: -0.32px;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -364,10 +361,13 @@ onBeforeUnmount(() => {
       .action {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 24px;
         .req-time {
-          color: black;
-          font-size: 14px;
+          color: $neutral-500;
+          font-family: Hauora-Regular;
+          font-size: 16px;
+          line-height: 16px;
+          letter-spacing: -0.32px;
         }
         button {
           display: flex;

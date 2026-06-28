@@ -104,7 +104,7 @@ function onAnchorClick(event: MouseEvent) {
   color: var(--ui-button-color);
   font-family: var(--ui-button-font-family, Hauora-Regular);
   font-size: var(--ui-button-font-size, 18px);
-  line-height: var(--ui-button-line-height, 20px);
+  line-height: var(--ui-button-line-height, 22px);
   letter-spacing: var(--ui-button-letter-spacing, -0.36px);
   text-decoration: none;
   white-space: nowrap;
@@ -140,7 +140,7 @@ function onAnchorClick(event: MouseEvent) {
     --ui-button-hover-bg: #{$green-300};
     --ui-button-hover-color: #{$neutral-black};
     --ui-button-disabled-bg: #{$neutral-700};
-    --ui-button-disabled-color: #{$neutral-500};
+    --ui-button-disabled-color: #{$neutral-300};
   }
   &--white {
     --ui-button-bg: #{$neutral-white};
@@ -148,7 +148,7 @@ function onAnchorClick(event: MouseEvent) {
     --ui-button-hover-bg: #{$neutral-white};
     --ui-button-hover-color: #{$green-600};
     --ui-button-disabled-bg: #{$neutral-200};
-    --ui-button-disabled-color: #{$neutral-400};
+    --ui-button-disabled-color: #{$neutral-600};
   }
   &--big {
     --ui-button-height: 64px;
@@ -157,7 +157,7 @@ function onAnchorClick(event: MouseEvent) {
     --ui-button-icon-size: 24px;
     --ui-button-font-family: Hauora-Regular;
     --ui-button-font-size: 18px;
-    --ui-button-line-height: 20px;
+    --ui-button-line-height: 22px;
     --ui-button-letter-spacing: -0.36px;
     --ui-button-padding-x: 16px;
   }
@@ -168,7 +168,7 @@ function onAnchorClick(event: MouseEvent) {
     --ui-button-icon-size: 24px;
     --ui-button-font-family: Hauora-Regular;
     --ui-button-font-size: 16px;
-    --ui-button-line-height: 16px;
+    --ui-button-line-height: 20px;
     --ui-button-letter-spacing: -0.32px;
     --ui-button-padding-x: 16px;
   }
@@ -179,7 +179,7 @@ function onAnchorClick(event: MouseEvent) {
     --ui-button-icon-size: 24px;
     --ui-button-font-family: Hauora-Regular;
     --ui-button-font-size: 16px;
-    --ui-button-line-height: 16px;
+    --ui-button-line-height: 20px;
     --ui-button-letter-spacing: -0.32px;
     --ui-button-padding-x: 16px;
   }
