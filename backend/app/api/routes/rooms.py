@@ -290,7 +290,7 @@ async def update_game(room_id: int, payload: GameParams, ident: Identity = Depen
     spectators_limit = normalize_spectators_limit(payload.spectators_limit)
     if spectators_limit <= 0:
         theme_state = await resolve_profile_theme_state(session, actor_id)
-        if not theme_state.subscription_active and actor_role != ROLE_ADMIN:
+        if not theme_state.subscription_active:
             raise HTTPException(status_code=403, detail="subscription_required")
 
     game_dict = {
