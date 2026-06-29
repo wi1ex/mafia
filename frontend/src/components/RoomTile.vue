@@ -3,8 +3,8 @@
     <video v-show="showVideo" :ref="(el) => videoRef(el as HTMLVideoElement | null)" playsinline autoplay muted :class="videoClass" />
 
     <div class="icon-badge-ready" v-if="!inGame && isReady(id)" aria-hidden="true">
-      <img :src="iconReadyGreen" alt="ready" />
-      Готов к игре
+      <UiIcon class="ready-icon" :icon="iconReady" />
+      <span class="ready-text">Готов к игре</span>
     </div>
 
     <button v-if="showKnock" class="icon-badge button left knock" @click="$emit('knock', id)" aria-label="Постучать">
@@ -107,8 +107,12 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
+import { getProfileThemeBadgeSources } from '@/constants/profileIcons'
 
-import iconReadyGreen from '@/assets/svg/readyGreen.svg'
+import UiIcon from '@/components/UiIcon.vue'
+
+import iconReady from '@/assets/svg/iconCheckMark.svg'
 import iconFoul from '@/assets/svg/foul.svg'
 import iconRoleCitizen from '@/assets/images/roleCitizen.png'
 import iconRoleMafia from '@/assets/images/roleMafia.png'
@@ -119,8 +123,6 @@ import iconKill from '@/assets/svg/killBlack.svg'
 import iconCloseCircle from '@/assets/svg/closeCircle.svg'
 import iconWink from '@/assets/svg/wink.svg'
 import iconKnock from '@/assets/svg/knock.svg'
-import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
-import { getProfileThemeBadgeSources } from '@/constants/profileIcons'
 
 type IconKind = 'mic' | 'cam' | 'speakers' | 'visibility' | 'screen'
 
@@ -342,26 +344,26 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
   position: relative;
   min-width: 0;
   min-height: 0;
-  border-radius: 7px;
+  border-radius: 24px;
   border: 2px solid transparent;
   transition: border-color 0.25s ease-in-out;
   &.speaking {
-    border-color: $green;
+    border-color: $green-500;
   }
   &.mafia {
-    border-color: $red;
+    border-color: $red-500;
   }
   &.speaking.mafia {
-    border-color: $red;
+    border-color: $red-500;
   }
   &.best-move {
-    border-color: $orange;
+    border-color: $orange-500;
   }
   video {
     width: 100%;
     height: 100%;
-    border-radius: 5px;
-    background-color: $black;
+    border-radius: 24px;
+    background-color: black;
     &.cover {
       object-fit: cover;
     }
@@ -377,20 +379,109 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
     position: absolute;
     align-items: center;
     justify-content: center;
-    left: calc(50% - 75px);
-    bottom: 5px;
-    gap: 5px;
-    width: 150px;
-    height: 30px;
+    left: calc(50% - 67px);
+    bottom: 8px;
+    padding: 0 16px;
+    gap: 4px;
+    height: 36px;
     border: none;
-    border-radius: 5px;
-    background-color: rgba($dark, 0.75);
-    box-shadow: 3px 3px 5px rgba($black, 0.25);
-    color: rgba($green, 0.75);
+    border-radius: 12px;
+    background-color: $neutral-black;
     z-index: 3;
+    .ready-icon {
+      --ui-icon-width: 20px;
+      --ui-icon-height: 20px;
+      --ui-icon-color: #{$green-500};
+    }
+    .ready-text {
+      color: $green-500;
+      font-family: Hauora-Regular;
+      font-size: 14px;
+      line-height: 14px;
+      letter-spacing: -0.28px;
+    }
+  }
+  .ava-wrap {
+    display: flex;
+    position: absolute;
+    align-items: center;
+    justify-content: center;
+    inset: 0;
+    border-radius: 24px;
+    background-color: $soft-purple-900;
+    z-index: 1;
     img {
-      width: 20px;
+      height: 60%;
+      user-select: none;
+    }
+    .avatar {
+      aspect-ratio: 1;
+      height: 40%;
+      border-radius: 50%;
+    }
+  }
+  .user-card {
+    position: absolute;
+    left: 8px;
+    top: 8px;
+    padding: 8px;
+    border-radius: 12px;
+    background-color: var(--user-theme-bg, $neutral-black);
+    z-index: 20;
+    .card-head {
+      display: flex;
+      align-items: center;
+      flex-wrap: nowrap;
+      padding: 0;
+      gap: 4px;
       height: 20px;
+      border: none;
+      background: none;
+      cursor: pointer;
+      &:disabled {
+        cursor: default;
+      }
+      .user-slot {
+        width: 20px;
+        height: 20px;
+      }
+      .user-avatar {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        object-fit: cover;
+      }
+      .profile-theme-icons {
+        display: inline-flex;
+        align-items: center;
+        flex: 0 0 auto;
+        .profile-theme-icon {
+          width: 20px;
+          height: 20px;
+          object-fit: contain;
+        }
+      }
+      span {
+        flex: 1 1 auto;
+        min-width: 0;
+        color: $fg;
+        font-size: 14px;
+        font-family: Manrope-Medium;
+        line-height: 1.2;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .status {
+        flex: 0 0 auto;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        img {
+          width: 20px;
+          height: 20px;
+        }
+      }
     }
   }
   .icon-badge {
@@ -632,25 +723,6 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
       line-height: 1;
     }
   }
-  .ava-wrap {
-    display: flex;
-    position: absolute;
-    align-items: center;
-    justify-content: center;
-    inset: 0;
-    background-color: $black;
-    border-radius: 5px;
-    z-index: 1;
-    img {
-      height: 75%;
-      user-select: none;
-    }
-    .avatar {
-      aspect-ratio: 1;
-      height: 50%;
-      border-radius: 50%;
-    }
-  }
   .icon-voted {
     position: absolute;
     top: 50%;
@@ -659,77 +731,6 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
     transform: translate(-50%, -50%);
     z-index: 20;
     pointer-events: none;
-  }
-  .user-card {
-    position: absolute;
-    left: 5px;
-    top: 5px;
-    padding: 5px 10px;
-    inline-size: max-content;
-    max-inline-size: min(210px, calc(100% - 30px));
-    block-size: 30px;
-    border-radius: 5px;
-    background-color: var(--user-theme-bg, rgba($dark, 0.75));
-    box-shadow: 3px 3px 5px rgba($black, 0.25);
-    z-index: 20;
-    overflow: hidden;
-    .card-head {
-      display: flex;
-      align-items: center;
-      flex-wrap: nowrap;
-      padding: 0;
-      gap: 5px;
-      max-inline-size: 100%;
-      height: 30px;
-      border: none;
-      background: none;
-      cursor: pointer;
-      &:disabled {
-        cursor: default;
-      }
-      .user-slot {
-        width: 24px;
-        height: 24px;
-      }
-      .user-avatar {
-        width: 20px;
-        height: 20px;
-        border-radius: 50%;
-        object-fit: cover;
-      }
-      .profile-theme-icon {
-        width: 20px;
-        height: 20px;
-        object-fit: contain;
-      }
-      .profile-theme-icons {
-        display: inline-flex;
-        align-items: center;
-        gap: 5px;
-        flex: 0 0 auto;
-      }
-      span {
-        flex: 1 1 auto;
-        min-width: 0;
-        color: $fg;
-        font-size: 14px;
-        font-family: Manrope-Medium;
-        line-height: 1.2;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      .status {
-        flex: 0 0 auto;
-        display: flex;
-        align-items: center;
-        gap: 5px;
-        img {
-          width: 16px;
-          height: 16px;
-        }
-      }
-    }
   }
   .role-timer {
     position: absolute;

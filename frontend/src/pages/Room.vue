@@ -3624,7 +3624,7 @@ onBeforeUnmount(() => {
         width: 100%;
         height: 100%;
         object-fit: contain;
-        background-color: $neutral-black;
+        background-color: black;
       }
       .screen-quality {
         display: flex;
@@ -3660,7 +3660,7 @@ onBeforeUnmount(() => {
         left: 8px;
         padding: 0 16px;
         gap: 8px;
-        width: min(320px, calc(100% - 16px));
+        width: 208px;
         height: 40px;
         border-radius: 12px;
         background-color: $soft-purple-900;
