@@ -84,12 +84,12 @@
 
     <div class="user-card" :style="userCardStyle" @click.stop>
       <button class="card-head" :disabled="!canOpenProfile" aria-haspopup="dialog" @click.stop="$emit('open-profile', id)">
-        <img v-if="seat != null && seatIcon" class="user-slot" :src="seatIcon" alt="seat" />
+        <img v-if="seat != null && seatIcon" :src="seatIcon" alt="seat" />
         <img class="user-avatar" v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar, lazy: false }" alt="avatar" />
         <div v-if="profileThemeIconSrcs.length" class="profile-theme-icons" aria-hidden="true">
           <img v-for="badgeSrc in profileThemeIconSrcs" :key="badgeSrc" class="profile-theme-icon" :src="badgeSrc" alt="" />
         </div>
-        <span>{{ userName(id) }}</span>
+        <span class="username">{{ userName(id) }}</span>
         <div class="status" v-if="showHeaderStatus">
           <img v-if="showMicStatus" :src="micStatusIcon" alt="mic" />
           <img v-if="showCamStatus" :src="camStatusIcon" alt="cam" />
@@ -424,63 +424,52 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
     position: absolute;
     left: 8px;
     top: 8px;
-    padding: 8px;
     border-radius: 12px;
     background-color: var(--user-theme-bg, $neutral-black);
     z-index: 20;
     .card-head {
       display: flex;
       align-items: center;
-      flex-wrap: nowrap;
-      padding: 0;
+      padding: 8px;
       gap: 4px;
-      height: 20px;
+      max-width: 288px;
       border: none;
       background: none;
       cursor: pointer;
       &:disabled {
         cursor: default;
       }
-      .user-slot {
+      img {
         width: 20px;
         height: 20px;
       }
       .user-avatar {
-        width: 20px;
-        height: 20px;
         border-radius: 50%;
         object-fit: cover;
       }
       .profile-theme-icons {
         display: inline-flex;
         align-items: center;
-        flex: 0 0 auto;
+        margin-left: -4px;
         .profile-theme-icon {
-          width: 20px;
-          height: 20px;
           object-fit: contain;
         }
       }
-      span {
-        flex: 1 1 auto;
-        min-width: 0;
-        color: $fg;
+      .username {
+        color: $neutral-white;
+        font-family: Hauora-Regular;
         font-size: 14px;
-        font-family: Manrope-Medium;
-        line-height: 1.2;
+        line-height: 18px;
+        letter-spacing: -0.28px;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
       }
       .status {
-        flex: 0 0 auto;
         display: flex;
         align-items: center;
-        gap: 5px;
-        img {
-          width: 20px;
-          height: 20px;
-        }
+        margin-left: 4px;
+        gap: 4px;
       }
     }
   }

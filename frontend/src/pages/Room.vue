@@ -518,7 +518,7 @@ import iconFriends from '@/assets/svg/iconFriends.svg'
 import iconChat from '@/assets/svg/iconChat.svg'
 import iconSettings from '@/assets/svg/iconSettings.svg'
 import iconParams from '@/assets/svg/iconParams.svg'
-import iconReady from '@/assets/svg/iconCheckMark.svg'
+import iconReady from '@/assets/svg/iconReady.svg'
 import iconBlurOn from '@/assets/svg/blurOn.svg'
 import iconBlurOff from '@/assets/svg/blurOff.svg'
 import iconGameStart from '@/assets/svg/gameStart.svg'
@@ -3833,7 +3833,6 @@ onBeforeUnmount(() => {
         letter-spacing: -0.24px;
       }
       &:disabled {
-        opacity: 0.5;
         cursor: not-allowed;
       }
       &:not(:disabled):hover,
