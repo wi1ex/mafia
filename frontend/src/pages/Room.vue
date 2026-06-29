@@ -117,9 +117,8 @@
             <span class="screen-text">{{ screenQualityLabel }}</span>
           </div>
           <div v-if="screenOwnerId !== localId && streamAudioKey" class="volume" @click.stop>
-            <img :src="volumeIconForStream(streamAudioKey)" alt="vol" />
+            <UiIcon class="volume-img" :icon="volumeIconForStream(streamAudioKey)" />
             <UiSlider
-              class="volume-slider"
               :model-value="streamVol"
               :min="0"
               :max="200"
@@ -3657,39 +3656,28 @@ onBeforeUnmount(() => {
         display: flex;
         position: absolute;
         align-items: center;
-        justify-content: space-between;
-        top: 5px;
-        left: 5px;
-        padding: 5px;
-        gap: 5px;
-        width: 20%;
-        max-width: 200px;
-        height: 20px;
-        border-radius: 5px;
-        background-color: rgba($dark, 0.75);
-        box-shadow: 3px 3px 5px rgba($black, 0.25);
+        top: 8px;
+        left: 8px;
+        padding: 0 16px;
+        gap: 8px;
+        width: min(320px, calc(100% - 16px));
+        height: 40px;
+        border-radius: 12px;
+        background-color: $soft-purple-900;
         -webkit-overflow-scrolling: touch;
-        img {
-          flex: 0 0 auto;
-          width: 20px;
-          height: 20px;
-        }
-        .volume-slider {
-          flex: 1 1 auto;
-          min-width: 0;
-          height: 80%;
-          --ui-slider-filled-height: 100%;
-          --ui-slider-filled-radius: 5px;
-          --ui-slider-filled-border: #{$lead};
-          --ui-slider-filled-bg: #{$graphite};
-          --ui-slider-filled-color: #{$fg};
-          --ui-slider-filled-focus: #{$lead};
+        .volume-img {
+          --ui-icon-width: 24px;
+          --ui-icon-height: 24px;
+          --ui-icon-color: #{$neutral-100};
         }
         span {
-          flex: 0 0 auto;
-          min-width: 32px;
-          text-align: center;
-          font-size: 12px;
+          min-width: 42px;
+          color: $neutral-100;
+          font-family: Hauora-Regular;
+          font-size: 16px;
+          line-height: 16px;
+          letter-spacing: -0.32px;
+          text-align: right;
         }
       }
     }
