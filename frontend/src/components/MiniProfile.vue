@@ -2525,6 +2525,12 @@ onBeforeUnmount(() => {
                                   border-radius: 12px;
                                   background-color: $soft-purple-900;
                                   -webkit-overflow-scrolling: touch;
+                                  transition: background-color 0.25s ease-in-out;
+                                  &:not(:disabled):hover,
+                                  &:not(:disabled):focus-visible,
+                                  &:not(:disabled):active {
+                                    background-color: $soft-purple-800;
+                                  }
                                   .volume-img {
                                     --ui-icon-width: 24px;
                                     --ui-icon-height: 24px;
