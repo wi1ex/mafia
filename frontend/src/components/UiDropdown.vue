@@ -203,6 +203,17 @@ onBeforeUnmount(() => {
   &.ui-dropdown--low {
     --ui-dropdown-height: 40px;
     --ui-dropdown-radius: 12px;
+    .ui-dropdown__trigger {
+      padding: 0 24px;
+    }
+    ul {
+      border-radius: 12px;
+      .option,
+      .empty {
+        height: 40px;
+        border-radius: 12px;
+      }
+    }
   }
   &.ui-dropdown--selected {
     --ui-dropdown-text: var(--ui-dropdown-selected-text);
