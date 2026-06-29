@@ -74,6 +74,10 @@ const emit = defineEmits<{
   (e: 'change', value: boolean): void
 }>()
 
+defineSlots<{
+  label?: () => unknown
+}>()
+
 const offLabel = computed(() => props.offLabel ?? 'Откл')
 const onLabel = computed(() => props.onLabel ?? 'Вкл')
 const tooltipTarget = computed<TooltipTarget>(() => props.tooltipTarget === 'off' ? 'off' : 'on')
@@ -84,7 +88,9 @@ const tooltipPlacement = computed<TooltipPlacement>(() => {
 const tooltipAriaLabel = computed(() => props.tooltipAriaLabel || 'Подсказка')
 const switchTheme = computed<SwitchTheme>(() => props.theme === 'light' ? 'light' : 'dark')
 const switchSize = computed<SwitchSize>(() => props.size === 'low' ? 'low' : 'high')
-const widthPx = computed(() => `${Number.isFinite(props.width) && props.width ? props.width : SWITCH_WIDTH_BY_SIZE[switchSize.value]}px`,)
+const widthPx = computed(
+  () => `${Number.isFinite(props.width) && props.width ? props.width : SWITCH_WIDTH_BY_SIZE[switchSize.value]}px`,
+)
 const switchStyle = computed<Record<string, string>>(() => ({ '--switch-width': widthPx.value }))
 const withoutText = computed(() => Boolean(props.withoutText))
 const onBadge = computed(() => props.onBadge?.trim() || '')
