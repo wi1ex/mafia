@@ -55,8 +55,8 @@
           @update:modelValue="onToggleMirror"
         />
 
-<!--          v-if="inGame && !isSpectator && canToggleKnownRoles"-->
         <UiSwitch
+          v-if="inGame && !isSpectator && canToggleKnownRoles"
           :model-value="knownRolesVisible"
           off-label="Скрыть"
           on-label="Показать"
@@ -71,8 +71,7 @@
           </template>
         </UiSwitch>
 
-<!--        <div v-if="inGame && musicEnabled" class="volume-block">-->
-        <div class="volume-block">
+        <div v-if="inGame && musicEnabled" class="volume-block">
           <span class="block-title">Громкость музыки:</span>
           <div class="volume">
             <UiIcon class="volume-img" :icon="volumeIcon" />

@@ -3581,25 +3581,6 @@ onBeforeUnmount(() => {
       cursor: pointer;
     }
   }
-  .host-blur-overlay {
-    display: flex;
-    position: fixed;
-    align-items: center;
-    justify-content: center;
-    inset: 0;
-    font-size: 32px;
-    color: white;
-    z-index: 850;
-    background-color: rgba($black, 0.25);
-    backdrop-filter: blur(25px);
-    pointer-events: fill;
-  }
-  .host-blur-overlay.host-blur-overlay-head {
-    background-color: rgba($black, 0.5);
-    backdrop-filter: none !important;
-    pointer-events: none;
-    text-shadow: 0 2px 8px rgba($black, 0.7);
-  }
   .grid {
     display: grid;
     width: calc(100vw - 20px);
@@ -3702,6 +3683,29 @@ onBeforeUnmount(() => {
     justify-content: space-between;
     width: calc(100vw - 20px);
     height: 40px;
+    .controls-side {
+      display: flex;
+      gap: 10px;
+      min-width: 320px;
+      &.left {
+        justify-content: flex-start;
+      }
+      &.right {
+        justify-content: flex-end;
+      }
+    }
+    .controls {
+      display: flex;
+      gap: 10px;
+    }
+    .btn-text {
+      padding: 0 20px;
+      width: fit-content;
+      color: $fg;
+      font-size: 16px;
+      font-family: Manrope-Medium;
+      line-height: 1;
+    }
     &.panel-high {
       gap: 10px;
       justify-content: flex-start;
@@ -3818,29 +3822,6 @@ onBeforeUnmount(() => {
       &:not(:disabled):active {
         background-color: $soft-purple-800;
       }
-    }
-    .controls-side {
-      display: flex;
-      gap: 10px;
-      min-width: 320px;
-      &.left {
-        justify-content: flex-start;
-      }
-      &.right {
-        justify-content: flex-end;
-      }
-    }
-    .btn-text {
-      padding: 0 20px;
-      width: fit-content;
-      color: $fg;
-      font-size: 16px;
-      font-family: Manrope-Medium;
-      line-height: 1;
-    }
-    .controls {
-      display: flex;
-      gap: 10px;
     }
   }
   .role-overlay {
@@ -3965,6 +3946,25 @@ onBeforeUnmount(() => {
       }
     }
   }
+  .host-blur-overlay {
+    display: flex;
+    position: fixed;
+    align-items: center;
+    justify-content: center;
+    inset: 0;
+    font-size: 32px;
+    color: white;
+    z-index: 850;
+    background-color: rgba($black, 0.25);
+    backdrop-filter: blur(25px);
+    pointer-events: fill;
+  }
+  .host-blur-overlay.host-blur-overlay-head {
+    background-color: rgba($black, 0.5);
+    backdrop-filter: none !important;
+    pointer-events: none;
+    text-shadow: 0 2px 8px rgba($black, 0.7);
+  }
   .role-preload {
     position: absolute;
     inset: 0;
@@ -3988,7 +3988,6 @@ onBeforeUnmount(() => {
 .knock-modal-leave-to {
   opacity: 0;
 }
-
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.25s ease-in-out;
@@ -3999,31 +3998,27 @@ onBeforeUnmount(() => {
 }
 .host-blur-enter-active,
 .host-blur-leave-active {
-  transition: opacity 0.5s ease-in-out, backdrop-filter 0.5s ease-in-out;
+  transition: opacity 0.5s ease-in-out;
 }
 .host-blur-enter-from,
 .host-blur-leave-to {
   opacity: 0;
-  backdrop-filter: blur(0);
 }
 .host-blur-enter-to,
 .host-blur-leave-from {
   opacity: 1;
-  backdrop-filter: blur(10px);
 }
 .role-overlay-fade-enter-active,
 .role-overlay-fade-leave-active {
-  transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
+  transition: opacity 0.25s ease-in-out;
 }
 .role-overlay-fade-enter-from,
 .role-overlay-fade-leave-to {
   opacity: 0;
-  transform: scale(0.95);
 }
 .role-overlay-fade-enter-to,
 .role-overlay-fade-leave-from {
   opacity: 1;
-  transform: scale(1);
 }
 
 </style>
