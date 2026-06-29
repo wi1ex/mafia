@@ -1,12 +1,21 @@
 <template>
   <section class="room">
-    <div v-if="isReconnecting" class="reconnect-overlay" aria-live="polite">Восстанавливаем соединение…</div>
+    <div v-if="isReconnecting" class="reconnect-overlay" role="status" aria-live="polite">
+      <UiLoaderIcon class="reconnect-overlay__icon" />
+      <span class="reconnect-overlay__text">Восстанавливаем соединение…</span>
+    </div>
 
-    <div v-else-if="!uiReady" class="reconnect-overlay" aria-live="polite">Загрузка комнаты…</div>
+    <div v-else-if="!uiReady" class="reconnect-overlay" role="status" aria-live="polite">
+      <UiLoaderIcon class="reconnect-overlay__icon" />
+      <span class="reconnect-overlay__text">Загрузка комнаты…</span>
+    </div>
 
     <template v-else>
       <Transition name="fade">
-        <div v-if="gameOverlayVisible" class="reconnect-overlay load-game" aria-live="polite">{{ gameOverlayText }}</div>
+        <div v-if="gameOverlayVisible" class="reconnect-overlay" role="status" aria-live="polite">
+          <UiLoaderIcon class="reconnect-overlay__icon" />
+          <span class="reconnect-overlay__text">{{ gameOverlayText }}</span>
+        </div>
       </Transition>
       <Transition name="host-blur">
         <div v-if="hostBlurVisible" class="host-blur-overlay" :class="{ 'host-blur-overlay-head': hostBlurUsesHeadView }" aria-hidden="true">Пауза…</div>
@@ -103,8 +112,9 @@
       <div v-else class="theater">
         <div class="stage">
           <video :ref="(el) => stableScreenRef(screenOwnerId)(el as HTMLVideoElement | null)" playsinline autoplay muted />
-          <div v-if="screenOwnerId" class="screen-quality" :class="`screen-quality-${screenQuality}`" :aria-label="`${screenQualityLabel}: ${SCREEN_QUALITY_HINT}`">
-            {{ screenQualityLabel }}
+          <div v-if="screenOwnerId" class="screen-quality" :aria-label="`${screenQualityLabel}: ${SCREEN_QUALITY_HINT}`">
+            <UiIcon class="dot-img" :icon="iconDotBig" />
+            <span class="screen-text">{{ screenQualityLabel }}</span>
           </div>
           <div v-if="screenOwnerId !== localId && streamAudioKey" class="volume" @click.stop>
             <img :src="volumeIconForStream(streamAudioKey)" alt="vol" />
@@ -450,7 +460,7 @@
       </Transition>
 
       <div v-if="mediaGateVisible" class="reconnect-overlay media-gate" @click.stop.prevent="onMediaGateClick" @touchstart.stop.prevent="onMediaGateClick" @pointerdown.stop.prevent="onMediaGateClick">
-        Нажмите чтобы продолжить…
+        <span class="reconnect-overlay__text">Нажмите чтобы продолжить…</span>
       </div>
     </template>
     <div class="role-preload" aria-hidden="true">
@@ -494,6 +504,7 @@ import Friends from '@/components/Friends.vue'
 import MiniProfile from '@/components/MiniProfile.vue'
 import UiSlider from '@/components/UiSlider.vue'
 import UiIcon from '@/components/UiIcon.vue'
+import UiLoaderIcon from '@/components/UiLoaderIcon.vue'
 
 import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
 import iconVolumeMax from '@/assets/svg/iconVolumeMax.svg'
@@ -537,6 +548,7 @@ import iconVisBlocked from '@/assets/svg/iconVisBlocked.svg'
 import iconScreenOn from '@/assets/svg/iconScreenOn.svg'
 import iconScreenOff from '@/assets/svg/iconScreenOff.svg'
 import iconScreenBlocked from '@/assets/svg/iconScreenBlocked.svg'
+import iconDotBig from '@/assets/svg/iconDotBig.svg'
 
 type State01 = 0 | 1
 type MediaState = {
@@ -3565,20 +3577,31 @@ onBeforeUnmount(() => {
   .reconnect-overlay {
     display: flex;
     position: fixed;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     inset: 0;
-    background-color: rgba($black, 0.25);
-    backdrop-filter: blur(5px);
-    color: $fg;
-    z-index: 1000;
+    gap: 16px;
+    background-color: $neutral-black;
     pointer-events: none;
-    &.load-game {
-      background-color: $black;
-    }
+    z-index: 1000;
     &.media-gate {
+      background-color: rgba($neutral-black, 0.25);
+      backdrop-filter: blur(12px);
       pointer-events: auto;
       cursor: pointer;
+    }
+    .reconnect-overlay__icon {
+      --ui-icon-width: 48px;
+      --ui-icon-height: 48px;
+      --ui-icon-color: #{$neutral-white};
+    }
+    .reconnect-overlay__text {
+      color: $neutral-100;
+      font-family: Hauora-Regular;
+      font-size: 16px;
+      line-height: 22px;
+      letter-spacing: -0.32px;
     }
   }
   .grid {
@@ -3595,32 +3618,40 @@ onBeforeUnmount(() => {
     gap: 10px;
     .stage {
       position: relative;
-      border: 5px solid $dark;
-      border-radius: 5px;
+      border: 2px solid $green-700;
+      border-radius: 24px;
       overflow: hidden;
       video {
         width: 100%;
         height: 100%;
         object-fit: contain;
-        background-color: $black;
+        background-color: $neutral-black;
       }
       .screen-quality {
         display: flex;
         position: absolute;
         align-items: center;
         justify-content: center;
-        top: 5px;
-        right: 5px;
-        min-width: 30px;
-        height: 30px;
-        padding: 0 10px;
-        border-radius: 5px;
-        background-color: rgba($dark, 0.75);
-        color: $fg;
-        font-size: 16px;
-        font-weight: bold;
-        box-shadow: 3px 3px 5px rgba($black, 0.25);
+        top: 8px;
+        right: 8px;
+        height: 40px;
+        padding: 0 16px;
+        gap: 8px;
+        border-radius: 12px;
+        background-color: $soft-purple-900;
         pointer-events: auto;
+        .dot-img {
+          --ui-icon-width: 24px;
+          --ui-icon-height: 24px;
+          --ui-icon-color: #{$green-500};
+        }
+        .screen-text {
+          color: $neutral-100;
+          font-family: Hauora-Regular;
+          font-size: 16px;
+          line-height: 18px;
+          letter-spacing: -0.32px;
+        }
       }
       .volume {
         display: flex;
