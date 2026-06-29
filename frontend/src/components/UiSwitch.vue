@@ -44,6 +44,10 @@ type TooltipTarget = 'off' | 'on'
 type TooltipPlacement = 'top-right' | 'top-center' | 'top-left' | 'bottom-right' | 'bottom-center' | 'bottom-left'
 type SwitchTheme = 'light' | 'dark'
 type SwitchSize = 'high' | 'low'
+const SWITCH_WIDTH_BY_SIZE: Record<SwitchSize, number> = {
+  high: 274,
+  low: 256,
+}
 
 const props = defineProps<{
   modelValue: boolean
@@ -78,9 +82,9 @@ const tooltipPlacement = computed<TooltipPlacement>(() => {
   return props.tooltipPosition === 'bottom' ? 'bottom-right' : 'top-right'
 })
 const tooltipAriaLabel = computed(() => props.tooltipAriaLabel || 'Подсказка')
-const widthPx = computed(() => `${Number.isFinite(props.width) && props.width ? props.width : 274}px`)
 const switchTheme = computed<SwitchTheme>(() => props.theme === 'light' ? 'light' : 'dark')
 const switchSize = computed<SwitchSize>(() => props.size === 'low' ? 'low' : 'high')
+const widthPx = computed(() => `${Number.isFinite(props.width) && props.width ? props.width : SWITCH_WIDTH_BY_SIZE[switchSize.value]}px`,)
 const switchStyle = computed<Record<string, string>>(() => ({ '--switch-width': widthPx.value }))
 const withoutText = computed(() => Boolean(props.withoutText))
 const onBadge = computed(() => props.onBadge?.trim() || '')

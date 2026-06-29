@@ -9,78 +9,71 @@
       </header>
 
       <div class="change-devices">
-        <div v-if="showHotkeysToggle" class="switch-div">
-          <UiSwitch
-            :model-value="hotkeysVisible !== false"
-            label="Подсказки для клавиш:"
-            off-label="Скрыть"
-            on-label="Показать"
-            aria-label="Подсказки для клавиш"
-            theme="light"
-            size="low"
-            :disabled="hotkeysTogglePending"
-            @update:modelValue="onToggleHotkeys"
-          />
-        </div>
+        <UiSwitch
+          v-if="showHotkeysToggle"
+          :model-value="hotkeysVisible !== false"
+          label="Подсказки для клавиш:"
+          off-label="Скрыть"
+          on-label="Показать"
+          aria-label="Подсказки для клавиш"
+          theme="light"
+          size="low"
+          :disabled="hotkeysTogglePending"
+          @update:modelValue="onToggleHotkeys"
+        />
 
-        <div class="switch-div">
-          <UiSwitch
-            :model-value="buttonsHigh"
-            label="Расположение кнопок:"
-            off-label="Стандарт"
-            on-label="Кастом"
-            aria-label="Расположение кнопок"
-            theme="light"
-            size="low"
-            @update:modelValue="onToggleButtonsHigh"
-          />
-        </div>
+        <UiSwitch
+          :model-value="buttonsHigh"
+          label="Расположение кнопок:"
+          off-label="Стандарт"
+          on-label="Кастом"
+          aria-label="Расположение кнопок"
+          theme="light"
+          size="low"
+          @update:modelValue="onToggleButtonsHigh"
+        />
 
-        <div v-if="showVideoFillToggle" class="switch-div">
-          <UiSwitch
-            :model-value="videoFillOn"
-            label="Заполнение видео:"
-            off-label="Откл"
-            on-label="Вкл"
-            aria-label="Заполнение видео"
-            theme="light"
-            size="low"
-            @update:modelValue="onToggleVideoFill"
-          />
-        </div>
+        <UiSwitch
+          v-if="showVideoFillToggle"
+          :model-value="videoFillOn"
+          label="Заполнение видео:"
+          off-label="Откл"
+          on-label="Вкл"
+          aria-label="Заполнение видео"
+          theme="light"
+          size="low"
+          @update:modelValue="onToggleVideoFill"
+        />
 
-        <div v-if="showMirrorToggle" class="switch-div">
-          <UiSwitch
-            :model-value="mirrorOn"
-            label="Зеркальность камеры:"
-            aria-label="Зеркальность камеры"
-            theme="light"
-            size="low"
-            @update:modelValue="onToggleMirror"
-          />
-        </div>
+        <UiSwitch
+          v-if="showMirrorToggle"
+          :model-value="mirrorOn"
+          label="Зеркальность камеры:"
+          aria-label="Зеркальность камеры"
+          theme="light"
+          size="low"
+          @update:modelValue="onToggleMirror"
+        />
 
-<!--        <div v-if="inGame && !isSpectator && canToggleKnownRoles" class="switch-div">-->
-        <div class="switch-div">
-          <UiSwitch
-            :model-value="knownRolesVisible"
-            off-label="Скрыть"
-            on-label="Показать"
-            aria-label="Отображение ролей"
-            theme="light"
-            size="low"
-            @update:modelValue="onToggleKnownRoles"
-          >
-            <template #label>
-              Отображение ролей:
-              <span v-if="!isMobile && hotkeysVisible" class="hot-btn">R</span>
-            </template>
-          </UiSwitch>
-        </div>
+<!--          v-if="inGame && !isSpectator && canToggleKnownRoles"-->
+        <UiSwitch
+          :model-value="knownRolesVisible"
+          off-label="Скрыть"
+          on-label="Показать"
+          aria-label="Отображение ролей"
+          theme="light"
+          size="low"
+          @update:modelValue="onToggleKnownRoles"
+        >
+          <template #label>
+            Отображение ролей:
+            <span v-if="!isMobile && hotkeysVisible" class="hot-btn">R</span>
+          </template>
+        </UiSwitch>
 
 <!--        <div v-if="inGame && musicEnabled" class="volume-block">-->
         <div class="volume-block">
-          <span class="volume-text">Громкость музыки:</span>
+          <span class="block-title">Громкость музыки:</span>
           <div class="volume">
             <UiIcon class="volume-img" :icon="volumeIcon" />
             <UiSlider
@@ -96,7 +89,7 @@
         </div>
 
         <div v-if="!isSpectator" class="switch-device-div">
-          <span>Выбор камеры:</span>
+          <span class="block-title">Выбор камеры:</span>
           <UiDropdown
             :model-value="camId"
             :options="camOptions"
@@ -111,7 +104,7 @@
         </div>
 
         <div v-if="!isSpectator" class="switch-device-div">
-          <span>Выбор микрофона:</span>
+          <span class="block-title">Выбор микрофона:</span>
           <UiDropdown
             :model-value="micId"
             :options="micOptions"
@@ -281,52 +274,47 @@ function onMicDropdownUpdate(value: DropdownValue): void {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    .switch-div {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      width: 100%;
-      .hot-btn {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        height: 16px;
-        min-width: 16px;
-        border-radius: 5px;
-        background-color: $fg;
-        color: $black;
-        font-size: 11px;
-        font-weight: bold;
-      }
+    .hot-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      height: 16px;
+      min-width: 16px;
+      border-radius: 5px;
+      background-color: $fg;
+      color: $black;
+      font-size: 11px;
+      font-weight: bold;
+    }
+    .block-title {
+      color: $neutral-900;
+      font-family: Hauora-Regular;
+      font-size: 16px;
+      line-height: 18px;
+      letter-spacing: -0.32px;
     }
     .volume-block {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 10px;
-      .volume-text {
-        height: 18px;
-        color: $fg;
-        font-size: 16px;
-      }
       .volume {
         display: flex;
         align-items: center;
         padding: 0 16px;
         gap: 8px;
-        width: 274px;
+        width: 224px;
         height: 40px;
         border-radius: 12px;
-        background-color: $soft-purple-900;
+        background-color: $neutral-white;
         -webkit-overflow-scrolling: touch;
         .volume-img {
           --ui-icon-width: 24px;
           --ui-icon-height: 24px;
-          --ui-icon-color: #{$neutral-100};
+          --ui-icon-color: #{$soft-purple-900};
         }
         span {
           min-width: 42px;
-          color: $neutral-100;
+          color: $soft-purple-900;
           font-family: Hauora-Regular;
           font-size: 16px;
           line-height: 16px;
@@ -338,8 +326,8 @@ function onMicDropdownUpdate(value: DropdownValue): void {
     .switch-device-div {
       display: flex;
       flex-direction: column;
-      width: 100%;
-      gap: 5px;
+      margin-top: 8px;
+      gap: 10px;
     }
   }
 }
