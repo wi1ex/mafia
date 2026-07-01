@@ -3810,7 +3810,7 @@ onBeforeUnmount(() => {
         width: 14px;
         height: 14px;
         border-radius: 50%;
-        background-color: $neutral-700;
+        background-color: $neutral-500;
         color: $neutral-white;
         font-family: Hauora-Medium;
         font-size: 10px;

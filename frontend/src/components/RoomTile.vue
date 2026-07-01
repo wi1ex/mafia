@@ -416,7 +416,7 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
     }
     .avatar {
       aspect-ratio: 1;
-      height: 40%;
+      height: 100px;
       border-radius: 50%;
     }
   }
@@ -470,6 +470,11 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
         align-items: center;
         margin-left: 4px;
         gap: 4px;
+        img {
+          width: 16px;
+          height: 16px;
+          opacity: 0.6;
+        }
       }
     }
   }
