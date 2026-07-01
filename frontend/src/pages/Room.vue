@@ -18,7 +18,12 @@
         </div>
       </Transition>
       <Transition name="host-blur">
-        <div v-if="hostBlurVisible" class="host-blur-overlay" :class="{ 'host-blur-overlay-head': hostBlurUsesHeadView }" aria-hidden="true">Пауза…</div>
+        <div v-if="hostBlurVisible" class="host-blur-overlay" :class="{ 'host-blur-overlay-head': hostBlurUsesHeadView }" aria-hidden="true">
+          <div class="pause-block">
+            <UiIcon class="pause-img" :icon="iconDotBig" />
+            <span class="pause-text">Пауза</span>
+          </div>
+        </div>
       </Transition>
       <div v-if="!isTheater" class="grid" :style="gridStyle">
         <RoomTile
@@ -338,7 +343,7 @@
             <UiIcon class="control-state-icon" :class="stateIconClass('screen', localId)" :icon="stateIcon('screen', localId)" label="screen" />
           </button>
           <button v-if="gamePhase !== 'idle' && isHead" @click="toggleHostBlur" :disabled="!hostBlurToggleEnabled || hostBlurPending" :aria-pressed="hostBlurActive" aria-label="Затемнить экран">
-            <UiIcon class="panel-icon" :class="hostBlurActive ? 'panel-icon-green' : 'panel-icon-neutral'" :icon="hostBlurActive ? iconBlurOn : iconBlurOff" />
+            <UiIcon class="panel-icon" :class="hostBlurActive ? 'panel-icon-green' : 'panel-icon-neutral'" :icon="hostBlurActive ? iconPauseOn : iconPauseOff" />
               <span v-if="!IS_MOBILE && hotkeysVisible" class="hot-btn">P</span>
           </button>
         </div>
@@ -450,9 +455,14 @@
              @pointerdown.self="knockModalArmed = true" @pointerup.self="knockModalArmed && closeKnockModal()"
              @pointerleave.self="knockModalArmed = false" @pointercancel.self="knockModalArmed = false">
           <div class="knock-modal" @click.stop>
-            <span>Какое число хотите отстучать?</span>
+            <div class="knock-header">
+              <span>Какое число хотите отстучать?</span>
+              <button class="close-btn">
+                <UiIcon class="close-icon" :icon="iconClose" />
+              </button>
+            </div>
             <div class="knock-grid">
-              <button v-for="n in knockOptions" :key="n" type="button" @click="selectKnockCount(n)" :disabled="knockSending">{{ n }}</button>
+              <button class="knock-btn" v-for="n in knockOptions" :key="n" type="button" @click="selectKnockCount(n)" :disabled="knockSending">{{ n }}</button>
             </div>
           </div>
         </div>
@@ -519,11 +529,11 @@ import iconChat from '@/assets/svg/iconChat.svg'
 import iconSettings from '@/assets/svg/iconSettings.svg'
 import iconParams from '@/assets/svg/iconParams.svg'
 import iconReady from '@/assets/svg/iconReady.svg'
-import iconBlurOn from '@/assets/svg/blurOn.svg'
-import iconBlurOff from '@/assets/svg/blurOff.svg'
-import iconGameStart from '@/assets/svg/gameStart.svg'
-import iconGameStop from '@/assets/svg/gameStop.svg'
-import iconDeadPlayer from '@/assets/svg/deadPlayer.svg'
+import iconPauseOn from '@/assets/svg/iconPauseOn.svg'
+import iconPauseOff from '@/assets/svg/iconPauseOff.svg'
+import iconGameStart from '@/assets/svg/iconPlay.svg'
+import iconGameStop from '@/assets/svg/iconStop.svg'
+import iconDeadPlayer from '@/assets/svg/iconDead.svg'
 import iconCardBack from '@/assets/images/cardBack.png'
 import iconSleepPlayer from '@/assets/images/sleepPlayer.png'
 import iconLowSignal from '@/assets/images/lowSignal.png'
@@ -531,6 +541,8 @@ import iconKillPlayer from '@/assets/images/killPlayer.png'
 import iconVotedPlayer from '@/assets/images/votedPlayer.png'
 import iconFouledPlayer from '@/assets/images/fouledPlayer.png'
 import iconLeavePlayer from '@/assets/images/leavePlayer.png'
+import iconDotBig from '@/assets/svg/iconDotBig.svg'
+import iconClose from '@/assets/svg/iconClose.svg'
 
 import iconMicOn from '@/assets/svg/iconMicOn.svg'
 import iconMicOff from '@/assets/svg/iconMicOff.svg'
@@ -547,7 +559,6 @@ import iconVisBlocked from '@/assets/svg/iconVisBlocked.svg'
 import iconScreenOn from '@/assets/svg/iconScreenOn.svg'
 import iconScreenOff from '@/assets/svg/iconScreenOff.svg'
 import iconScreenBlocked from '@/assets/svg/iconScreenBlocked.svg'
-import iconDotBig from '@/assets/svg/iconDotBig.svg'
 
 type State01 = 0 | 1
 type MediaState = {
@@ -3723,14 +3734,6 @@ onBeforeUnmount(() => {
       display: flex;
       gap: 10px;
     }
-    .btn-text {
-      padding: 0 20px;
-      width: fit-content;
-      color: $fg;
-      font-size: 16px;
-      font-family: Manrope-Medium;
-      line-height: 1;
-    }
     &.panel-high {
       gap: 10px;
       justify-content: flex-start;
@@ -3748,6 +3751,15 @@ onBeforeUnmount(() => {
         margin-right: auto;
         justify-content: flex-start;
       }
+    }
+    .btn-text {
+      padding: 0 16px;
+      width: fit-content;
+      color: $neutral-white;
+      font-family: Hauora-Regular;
+      font-size: 16px;
+      line-height: 16px;
+      letter-spacing: -0.32px;
     }
     button {
       display: flex;
@@ -3928,27 +3940,54 @@ onBeforeUnmount(() => {
     align-items: center;
     justify-content: center;
     inset: 0;
-    background-color: rgba($black, 0.25);
-    backdrop-filter: blur(5px);
+    background-color: rgba($neutral-black, 0.2);
+    backdrop-filter: blur(12px);
     z-index: 900;
     .knock-modal {
       display: flex;
       flex-direction: column;
-      padding: 30px;
-      gap: 20px;
-      width: min(60%, 600px);
-      border-radius: 5px;
-      background-color: $dark;
-      box-shadow: 3px 3px 5px rgba($black, 0.25);
-      span {
-        text-align: center;
-        font-size: 20px;
+      padding: 24px;
+      gap: 32px;
+      width: 606px;
+      border-radius: 24px;
+      background-color: $neutral-100;
+      .knock-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        span {
+          color: $neutral-black;
+          font-family: Involve-Medium;
+          font-size: 24px;
+          line-height: 26px;
+          letter-spacing: -0.48px;
+        }
+        .close-btn {
+          padding: 0;
+          width: 24px;
+          height: 24px;
+          border: none;
+          background: none;
+          cursor: pointer;
+          .close-icon {
+            --ui-icon-width: 24px;
+            --ui-icon-height: 24px;
+            --ui-icon-color: #{$neutral-black};
+          }
+          &:not(:disabled):hover,
+          &:not(:disabled):focus-visible,
+          &:not(:disabled):active {
+            .close-icon {
+              --ui-icon-color: #{$green-500};
+            }
+          }
+        }
       }
       .knock-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(20px, 1fr));
         gap: 20px;
-        button {
+        .knock-btn {
           padding: 0;
           height: 30px;
           border: none;
@@ -3976,18 +4015,37 @@ onBeforeUnmount(() => {
     align-items: center;
     justify-content: center;
     inset: 0;
-    font-size: 32px;
-    color: white;
     z-index: 850;
-    background-color: rgba($black, 0.25);
+    background-color: rgba($neutral-black, 0.2);
     backdrop-filter: blur(25px);
     pointer-events: fill;
+    .pause-block {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 178px;
+      height: 178px;
+      border-radius: 24px;
+      background-color: $neutral-100;
+      .pause-img {
+        --ui-icon-width: 100px;
+        --ui-icon-height: 100px;
+        --ui-icon-color: #{$soft-purple-600};
+      }
+      .pause-text {
+        color: $neutral-black;
+        font-family: Hauora-Regular;
+        font-size: 16px;
+        line-height: 22px;
+        letter-spacing: -0.32px;
+      }
+    }
   }
   .host-blur-overlay.host-blur-overlay-head {
-    background-color: rgba($black, 0.5);
     backdrop-filter: none !important;
     pointer-events: none;
-    text-shadow: 0 2px 8px rgba($black, 0.7);
   }
   .role-preload {
     position: absolute;

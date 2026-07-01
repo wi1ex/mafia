@@ -453,8 +453,8 @@ onBeforeUnmount(() => {
   }
   header {
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    justify-content: space-between;
     padding: 0 12px 16px;
     .title {
       color: $neutral-black;

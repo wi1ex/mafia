@@ -469,7 +469,7 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   inset: 0;
-  background-color: rgba($neutral-black, 0.20);
+  background-color: rgba($neutral-black, 0.2);
   backdrop-filter: blur(12px);
   z-index: 1000;
   .subscription-purchase-modal {

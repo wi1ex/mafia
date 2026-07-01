@@ -31,7 +31,7 @@
       <span>Отменить</span>
     </button>
     <button v-if="showNominate" class="nominate-btn" @click="$emit('nominate', id)" aria-label="Выставить">
-      <img :src="iconLikeBlack" alt="nominate" />
+      <img :src="iconLike" alt="nominate" />
       <span>Выставить</span>
     </button>
     <button v-if="showShoot" class="nominate-btn" @click="$emit('shoot', id)" aria-label="Выстрелить">
@@ -43,6 +43,7 @@
       <span>Проверить</span>
     </button>
     <button v-if="showBestMoveButton" class="nominate-btn" @click="$emit('best-move', id)" aria-label="Лучший ход">
+      <img :src="iconPen" alt="bestmove" />
       <span>Лучший ход</span>
     </button>
     <div class="icon-badge right" :class="{ finish: finishRoleBadge }" v-if="gameRole" aria-hidden="true">
@@ -58,7 +59,7 @@
     </div>
 
     <button v-if="isGameHead && showVoteButton" class="vote-btn" :disabled="!voteEnabled" @click="$emit('vote', id)">
-      <img :src="iconLikeBlack" alt="vote" />
+      <img :src="iconLike" alt="vote" />
       <span>Проголосовать</span>
       <span v-if="!isMobile && hotkeysVisible" class="hot-btn">_</span>
     </button>
@@ -80,7 +81,7 @@
       <img v-else class="avatar" v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar, lazy: false }" alt="avatar" />
     </div>
 
-    <img v-if="hasVoted" class="icon-voted" :src="iconLikeGreen" alt="voted" />
+    <img v-if="hasVoted" class="icon-voted" :src="iconLike" alt="voted" />
 
     <div class="user-card" :style="userCardStyle" @click.stop>
       <button class="card-head" :disabled="!canOpenProfile" aria-haspopup="dialog" @click.stop="$emit('open-profile', id)">
@@ -113,16 +114,16 @@ import { getProfileThemeBadgeSources } from '@/constants/profileIcons'
 import UiIcon from '@/components/UiIcon.vue'
 
 import iconReady from '@/assets/svg/iconCheckMark.svg'
-import iconFoul from '@/assets/svg/foul.svg'
+import iconLike from '@/assets/svg/iconLike.svg'
+import iconPen from '@/assets/svg/iconPen.svg'
+import iconCheck from '@/assets/svg/iconCheck.svg'
+import iconKill from '@/assets/svg/iconKill.svg'
+import iconCloseCircle from '@/assets/svg/iconCloseCircle.svg'
+import iconFoul from '@/assets/svg/iconFoul.svg'
+import iconWink from '@/assets/svg/iconWink.svg'
+import iconKnock from '@/assets/svg/iconKnock.svg'
 import iconRoleCitizen from '@/assets/images/roleCitizen.png'
 import iconRoleMafia from '@/assets/images/roleMafia.png'
-import iconLikeGreen from '@/assets/svg/likeGreen.svg'
-import iconLikeBlack from '@/assets/svg/likeBlack.svg'
-import iconCheck from '@/assets/svg/check.svg'
-import iconKill from '@/assets/svg/killBlack.svg'
-import iconCloseCircle from '@/assets/svg/closeCircle.svg'
-import iconWink from '@/assets/svg/wink.svg'
-import iconKnock from '@/assets/svg/knock.svg'
 
 type IconKind = 'mic' | 'cam' | 'speakers' | 'visibility' | 'screen'
 
