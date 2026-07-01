@@ -473,7 +473,6 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
         img {
           width: 16px;
           height: 16px;
-          opacity: 0.6;
         }
       }
     }

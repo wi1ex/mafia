@@ -55,8 +55,8 @@
           @update:modelValue="onToggleMirror"
         />
 
+<!--          v-if="inGame && !isSpectator && canToggleKnownRoles"-->
         <UiSwitch
-          v-if="inGame && !isSpectator && canToggleKnownRoles"
           :model-value="knownRolesVisible"
           off-label="Скрыть"
           on-label="Показать"

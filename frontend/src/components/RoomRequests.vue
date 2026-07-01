@@ -30,7 +30,10 @@
               </div>
             </li>
           </ul>
-          <div class="muted" v-else-if="showEmpty">Нет заявок</div>
+          <div v-else-if="showEmpty" class="empty">
+            <img :src="iconNoRequests" alt="nofriends" />
+            <span>Заявок пока нет...</span>
+          </div>
         </div>
         <UiScrollbar :target="appsScroll" :active="open" theme="light" :inset-bottom="8" right="-16px" />
       </div>
@@ -52,6 +55,7 @@ import UiScrollbar from '@/components/UiScrollbar.vue'
 import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatarBlack.svg'
 import iconAccept from '@/assets/svg/iconCheckMark.svg'
 import iconClose from '@/assets/svg/iconClose.svg'
+import iconNoRequests from '@/assets/svg/iconNoRequests.svg'
 
 type AppItem = {id: number; username?: string; avatar_name?: string|null; role?: string|null; theme_color?: string|null; theme_icon?: string|null; status: 'pending'|'approved'; requested_at?: string|null}
 
@@ -445,9 +449,24 @@ onBeforeUnmount(() => {
       }
     }
   }
-  .muted {
-    color: $neutral-black;
-    margin: 16px auto;
+  .empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 122px;
+    img {
+      width: 70px;
+      height: 100px;
+    }
+    span {
+      color: $neutral-500;
+      font-family: Hauora-Regular;
+      font-size: 14px;
+      line-height: 14px;
+      letter-spacing: -0.28px;
+    }
   }
 }
 
