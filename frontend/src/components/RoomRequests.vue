@@ -30,12 +30,13 @@
               </div>
             </li>
           </ul>
-          <div v-else-if="showEmpty" class="empty">
-            <img :src="iconNoRequests" alt="nofriends" />
-            <span>Заявок пока нет...</span>
-          </div>
         </div>
         <UiScrollbar :target="appsScroll" :active="open" theme="light" :inset-bottom="8" right="-16px" />
+      </div>
+
+      <div v-if="showEmpty" class="empty">
+        <img :src="iconNoRequests" alt="nofriends" />
+        <span>Заявок пока нет...</span>
       </div>
     </div>
   </Transition>

@@ -277,13 +277,15 @@ function onMicDropdownUpdate(value: DropdownValue): void {
       display: inline-flex;
       align-items: center;
       justify-content: center;
+      width: 16px;
       height: 16px;
-      min-width: 16px;
-      border-radius: 5px;
-      background-color: $fg;
-      color: $black;
-      font-size: 11px;
-      font-weight: bold;
+      border-radius: 999px;
+      background-color: $neutral-black;
+      color: $neutral-white;
+      font-family: Hauora-Bold;
+      font-size: 12px;
+      line-height: 12px;
+      letter-spacing: -0.24px;
     }
     .block-title {
       color: $neutral-900;
