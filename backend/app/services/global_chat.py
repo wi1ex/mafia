@@ -613,6 +613,18 @@ def build_global_chat_role_changed_text(*, target_username: str, role: str, gran
     return f"У пользователя {target_mention} снята роль {role_label}"
 
 
+def build_global_chat_nickname_reset_text(*, previous_username: str, new_username: str) -> str:
+    previous_mention = _format_chat_notice_target_mention(previous_username)
+    return (
+        f"У пользователя {previous_mention} сброшен никнейм (пункт правил: 4.5.1)"
+    )
+
+
+def build_global_chat_avatar_deleted_text(*, target_username: str) -> str:
+    target_mention = _format_chat_notice_target_mention(target_username)
+    return f"У пользователя {target_mention} удален аватар (пункт правил: 4.5.1)"
+
+
 def _message_public_dict(message: GlobalChatMessage) -> dict[str, Any]:
     deleted = message.deleted_at is not None
     return {
@@ -1819,6 +1831,57 @@ async def emit_global_chat_sanction_adjusted_notice(session: AsyncSession, *, ac
         duration_label=duration_label,
         remaining_duration_label=remaining_duration_label,
     )
+    return await publish_global_chat_notice(session, author_user_id=author_user_id, text=text)
+
+
+async def emit_global_chat_nickname_reset_notice(
+    session: AsyncSession,
+    *,
+    actor_user_id: int | None,
+    target_user_id: int,
+    previous_username: str | None,
+    new_username: str | None,
+) -> dict[str, Any] | None:
+    author_user_id = await _resolve_global_chat_notice_author_user_id(
+        session,
+        preferred_user_id=actor_user_id,
+    )
+    if author_user_id is None:
+        return None
+
+    resolved_new_username = await _resolve_chat_notice_target_username(
+        session,
+        user_id=target_user_id,
+        username=new_username,
+    )
+    previous = str(previous_username or "").strip() or resolved_new_username
+    text = build_global_chat_nickname_reset_text(
+        previous_username=previous,
+        new_username=resolved_new_username,
+    )
+    return await publish_global_chat_notice(session, author_user_id=author_user_id, text=text)
+
+
+async def emit_global_chat_avatar_deleted_notice(
+    session: AsyncSession,
+    *,
+    actor_user_id: int | None,
+    target_user_id: int,
+    target_username: str | None,
+) -> dict[str, Any] | None:
+    author_user_id = await _resolve_global_chat_notice_author_user_id(
+        session,
+        preferred_user_id=actor_user_id,
+    )
+    if author_user_id is None:
+        return None
+
+    resolved_target_username = await _resolve_chat_notice_target_username(
+        session,
+        user_id=target_user_id,
+        username=target_username,
+    )
+    text = build_global_chat_avatar_deleted_text(target_username=resolved_target_username)
     return await publish_global_chat_notice(session, author_user_id=author_user_id, text=text)
 
 

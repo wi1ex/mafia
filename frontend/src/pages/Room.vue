@@ -457,7 +457,7 @@
           <div class="knock-modal" @click.stop>
             <div class="knock-header">
               <span>Какое число хотите отстучать?</span>
-              <button class="close-btn">
+              <button class="close-btn" type="button" @click="closeKnockModal">
                 <UiIcon class="close-icon" :icon="iconClose" />
               </button>
             </div>

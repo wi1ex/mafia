@@ -47,7 +47,9 @@ from ...services.nickname_limits import (
     set_user_nickname_changes,
 )
 from ...services.global_chat import (
+    emit_global_chat_avatar_deleted_notice,
     emit_global_chat_cleared,
+    emit_global_chat_nickname_reset_notice,
     emit_global_chat_permissions_refresh,
     emit_global_chat_role_notice,
     emit_global_chat_role_sync,
@@ -1667,6 +1669,14 @@ async def reset_user_nickname(user_id: int, ident: Identity = Depends(get_identi
         await emit_auth_profile_sync(uid, role=str(user.role))
     with suppress(Exception):
         await emit_nickname_reset_notice(uid, note, telegram_id=telegram_id)
+    with suppress(Exception):
+        await emit_global_chat_nickname_reset_notice(
+            session,
+            actor_user_id=int(ident["id"]),
+            target_user_id=uid,
+            previous_username=prev_username,
+            new_username=next_username,
+        )
 
     await log_action(
         session,
@@ -1698,6 +1708,13 @@ async def delete_user_avatar_as_admin(user_id: int, ident: Identity = Depends(ge
         await session.refresh(note)
         with suppress(Exception):
             await emit_notify(uid, note, kind="avatar_reset")
+        with suppress(Exception):
+            await emit_global_chat_avatar_deleted_notice(
+                session,
+                actor_user_id=int(ident["id"]),
+                target_user_id=uid,
+                target_username=target_username,
+            )
 
     await log_action(
         session,
