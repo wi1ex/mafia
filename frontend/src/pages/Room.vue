@@ -3625,10 +3625,10 @@ onBeforeUnmount(() => {
     grid-template-columns: 1fr 328px;
     width: calc(100vw - 20px);
     height: calc(100dvh - 70px);
-    gap: 10px;
+    gap: 6px;
     .stage {
       position: relative;
-      border: 2px solid $green-700;
+      border: 4px solid $green-700;
       border-radius: 24px;
       overflow: hidden;
       video {
@@ -3701,8 +3701,8 @@ onBeforeUnmount(() => {
     .sidebar {
       display: flex;
       flex-direction: column;
-      width: 324px;
-      gap: 10px;
+      width: 328px;
+      gap: 2px;
       overflow-y: auto;
       scrollbar-width: none;
       -ms-overflow-style: none;

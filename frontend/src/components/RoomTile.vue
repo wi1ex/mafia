@@ -408,7 +408,6 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
     align-items: center;
     justify-content: center;
     inset: 0;
-    border-radius: 24px;
     background-color: $soft-purple-900;
     z-index: 1;
     img {
@@ -728,8 +727,8 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
   }
   .role-timer {
     position: absolute;
-    left: 8px;
-    right: 8px;
+    left: 0;
+    right: 0;
     bottom: 0;
     height: 4px;
     background: transparent;
