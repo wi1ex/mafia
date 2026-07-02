@@ -345,7 +345,7 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
   position: relative;
   min-width: 0;
   min-height: 0;
-  border-radius: 24px;
+  border-radius: 26px;
   border: 2px solid transparent;
   transition: border-color 0.25s ease-in-out;
   &.speaking {

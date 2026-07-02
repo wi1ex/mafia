@@ -20,7 +20,7 @@
       <Transition name="host-blur">
         <div v-if="hostBlurVisible" class="host-blur-overlay" :class="{ 'host-blur-overlay-head': hostBlurUsesHeadView }" aria-hidden="true">
           <div class="pause-block">
-            <UiIcon class="pause-img" :icon="iconDotBig" />
+            <UiIcon class="pause-img" :icon="iconPauseOn" />
             <span class="pause-text">Пауза</span>
           </div>
         </div>
@@ -3753,7 +3753,7 @@ onBeforeUnmount(() => {
       }
     }
     .btn-text {
-      padding: 0 16px;
+      padding: 0 20px;
       width: fit-content;
       color: $neutral-white;
       font-family: Hauora-Regular;
@@ -3851,6 +3851,7 @@ onBeforeUnmount(() => {
         letter-spacing: -0.24px;
       }
       &:disabled {
+        opacity: 0.5;
         cursor: not-allowed;
       }
       &:not(:disabled):hover,
@@ -3985,25 +3986,27 @@ onBeforeUnmount(() => {
       }
       .knock-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(20px, 1fr));
-        gap: 20px;
+        grid-template-columns: repeat(auto-fit, minmax(50px, 1fr));
+        gap: 10px;
         .knock-btn {
-          padding: 0;
-          height: 30px;
+          padding: 0 16px;
+          height: 48px;
           border: none;
-          border-radius: 5px;
-          background-color: $graphite;
-          color: $fg;
-          font-size: 16px;
-          font-family: Manrope-Medium;
+          border-radius: 999px;
+          background-color: $neutral-white;
+          color: $neutral-500;
+          font-family: Hauora-Regular;
+          font-size: 18px;
+          line-height: 20px;
+          letter-spacing: -0.36px;
           cursor: pointer;
-          transition: background-color 0.25s ease-in-out;
+          transition: color 0.25s ease-in-out;
           &:hover:enabled {
-            background-color: $lead;
+            color: $neutral-black;
           }
           &:disabled {
-            cursor: default;
             opacity: 0.5;
+            cursor: default;
           }
         }
       }
@@ -4016,7 +4019,7 @@ onBeforeUnmount(() => {
     justify-content: center;
     inset: 0;
     z-index: 850;
-    background-color: rgba($neutral-black, 0.2);
+    background-color: rgba($neutral-black, 0.4);
     backdrop-filter: blur(25px);
     pointer-events: fill;
     .pause-block {
