@@ -81,7 +81,11 @@
       <img v-else class="avatar" v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar, lazy: false }" alt="avatar" />
     </div>
 
-    <img v-if="hasVoted" class="icon-voted" :src="iconLike" alt="voted" />
+    <div v-if="hasVoted" class="icon-voted">
+      <div class="icon-voted-block">
+        <UiIcon class="icon-voted-img" :icon="iconLike" />
+      </div>
+    </div>
 
     <div class="user-card" :style="userCardStyle" @click.stop>
       <button class="card-head" :disabled="!canOpenProfile" aria-haspopup="dialog" @click.stop="$emit('open-profile', id)">
@@ -387,7 +391,7 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
     height: 36px;
     border: none;
     border-radius: 12px;
-    background-color: $neutral-black;
+    background-color: $soft-purple-950;
     z-index: 3;
     .ready-icon {
       --ui-icon-width: 20px;
@@ -495,7 +499,7 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
       height: 16px;
     }
     span {
-      margin-right: -2px;
+      margin: 0px -1px 0 2px;
       color: $neutral-white;
       font-family: Hauora-Bold;
       font-size: 18px;
@@ -518,8 +522,10 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
       left: 46px;
     }
     &.role {
-      width: 24px;
-      height: 24px;
+      img {
+        width: 24px;
+        height: 24px;
+      }
     }
     &.finish {
       inset: 0;
@@ -550,7 +556,7 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
     gap: 2px;
     height: 36px;
     border-radius: 12px;
-    background-color: rgba($dark, 0.75);
+    background-color: $soft-purple-950;
     color: $neutral-white;
     font-family: Hauora-Regular;
     font-size: 14px;
@@ -719,13 +725,30 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
     }
   }
   .icon-voted {
+    display: flex;
     position: absolute;
-    top: 50%;
-    left: 50%;
-    height: 90%;
-    transform: translate(-50%, -50%);
+    align-items: center;
+    justify-content: center;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba($neutral-black, 0.6);
     z-index: 20;
     pointer-events: none;
+    .icon-voted-block {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 96px;
+      height: 96px;
+      border-radius: 999px;
+      background-color: $soft-purple-800;
+      .icon-voted-img {
+        --ui-icon-width: 64px;
+        --ui-icon-height: 64px;
+        --ui-icon-color: #{$green-500};
+      }
+    }
   }
   .role-timer {
     position: absolute;
