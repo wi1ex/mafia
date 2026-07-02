@@ -58,11 +58,20 @@
       </button>
     </div>
 
-    <button v-if="isGameHead && showVoteButton" class="vote-btn" :disabled="!voteEnabled" @click="$emit('vote', id)">
-      <img :src="iconLike" alt="vote" />
+    <UiButton
+      v-if="isGameHead && showVoteButton"
+      class="vote-btn"
+      size="big"
+      variant="green"
+      :icon="iconLike"
+      icon-position="left"
+      :disabled="!voteEnabled"
+      @click="$emit('vote', id)"
+    >
       <span>Проголосовать</span>
-      <span v-if="!isMobile && hotkeysVisible" class="hot-btn">_</span>
-    </button>
+      <span v-if="!isMobile && hotkeysVisible" class="hot-btn" aria-hidden="true">_</span>
+    </UiButton>
+
     <div class="head-bar" v-if="isGameHead && phaseLabel">{{ phaseLabel }}</div>
     <div class="head-bar" v-else-if="isGameHead && voteBlocked">Голосования не будет</div>
     <div class="head-bar" v-else-if="isGameHead && showNominationsBar && offlineSeatsInGame && offlineSeatsInGame.length > 0">
@@ -116,6 +125,7 @@ import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
 import { getProfileThemeBadgeSources } from '@/constants/profileIcons'
 
 import UiIcon from '@/components/UiIcon.vue'
+import UiButton from '@/components/UiButton.vue'
 
 import iconReady from '@/assets/svg/iconCheckMark.svg'
 import iconLike from '@/assets/svg/iconLike.svg'
@@ -672,56 +682,31 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
     }
   }
   .vote-btn {
-    display: flex;
     position: absolute;
-    align-items: center;
-    justify-content: center;
     left: 50%;
     top: 50%;
     transform: translate(-50%, -50%);
-    padding: 0 15px;
-    gap: 5px;
-    height: 50px;
-    border: none;
-    border-radius: 5px;
-    background-color: $green;
-    box-shadow: 3px 3px 5px rgba($black, 0.25);
-    cursor: pointer;
     touch-action: manipulation;
     z-index: 3;
-    &:disabled {
-      background-color: rgba($dark, 0.75);
-      cursor: default;
-      span {
-        color: $fg;
-      }
-    }
-    img {
-      width: 32px;
-      height: 32px;
-    }
-    span {
-      color: $bg;
-      font-size: 20px;
-      font-family: Manrope-Medium;
-      line-height: 1;
+    :deep(.ui-button__text) {
+      overflow: visible;
     }
     .hot-btn {
       display: flex;
       align-items: center;
       justify-content: center;
       position: absolute;
-      bottom: 0;
-      right: 0;
-      width: 16px;
-      height: 16px;
-      border-radius: 5px;
-      background-color: $fg;
-      color: $black;
+      bottom: 1.5px;
+      right: 1.5px;
+      width: 14px;
+      height: 14px;
+      border-radius: 999px;
+      background-color: $neutral-white;
+      color: $soft-purple-900;
+      font-family: Hauora-Bold;
       font-size: 12px;
-      font-weight: bold;
-      font-family: Manrope-Medium;
-      line-height: 1;
+      line-height: 12px;
+      letter-spacing: -0.24px;
     }
   }
   .icon-voted {
@@ -755,7 +740,7 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
     left: 0;
     right: 0;
     bottom: 0;
-    height: 4px;
+    height: 6px;
     background: transparent;
     overflow: hidden;
     z-index: 20;
