@@ -342,7 +342,7 @@
           <button v-if="gamePhase === 'idle' && !adminSpectator && !IS_MOBILE" @click="toggleScreen" :disabled="pendingScreen || (!!screenOwnerId && screenOwnerId !== localId) || blockedSelf.screen === 1" :aria-pressed="isMyScreen">
             <UiIcon class="control-state-icon" :class="stateIconClass('screen', localId)" :icon="stateIcon('screen', localId)" label="screen" />
           </button>
-          <button v-if="gamePhase !== 'idle' && isHead" @click="toggleHostBlur" :disabled="!hostBlurToggleEnabled || hostBlurPending" :aria-pressed="hostBlurActive" aria-label="Затемнить экран">
+          <button v-if="gamePhase !== 'idle' && isHead && hostBlurToggleEnabled" @click="toggleHostBlur" :disabled="hostBlurPending" :aria-pressed="hostBlurActive" aria-label="Пауза">
             <UiIcon class="panel-icon" :class="hostBlurActive ? 'panel-icon-green' : 'panel-icon-neutral'" :icon="hostBlurActive ? iconPauseOn : iconPauseOff" />
               <span v-if="!IS_MOBILE && hotkeysVisible" class="hot-btn">P</span>
           </button>
@@ -3618,11 +3618,11 @@ onBeforeUnmount(() => {
     display: grid;
     width: calc(100vw - 20px);
     height: calc(100dvh - 70px);
-    gap: 10px;
+    gap: 2px;
   }
   .theater {
     display: grid;
-    grid-template-columns: 1fr 324px;
+    grid-template-columns: 1fr 328px;
     width: calc(100vw - 20px);
     height: calc(100dvh - 70px);
     gap: 10px;

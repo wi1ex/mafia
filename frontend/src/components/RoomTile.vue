@@ -345,8 +345,9 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
   position: relative;
   min-width: 0;
   min-height: 0;
-  border-radius: 26px;
-  border: 2px solid transparent;
+  border-radius: 24px;
+  border: 4px solid transparent;
+  overflow: hidden;
   transition: border-color 0.25s ease-in-out;
   &.speaking {
     border-color: $green-500;
@@ -363,7 +364,6 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
   video {
     width: 100%;
     height: 100%;
-    border-radius: 24px;
     background-color: black;
     &.cover {
       object-fit: cover;
@@ -417,7 +417,7 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
     }
     .avatar {
       aspect-ratio: 1;
-      height: 100px;
+      height: 35%;
       border-radius: 50%;
     }
   }
@@ -728,18 +728,17 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
   }
   .role-timer {
     position: absolute;
-    left: 0;
-    right: 0;
+    left: 8px;
+    right: 8px;
     bottom: 0;
-    height: 5px;
-    border-radius: 0 0 7px 7px;
+    height: 4px;
     background: transparent;
     overflow: hidden;
     z-index: 20;
     .role-timer-bar {
       width: 100%;
       height: 100%;
-      background: linear-gradient(to right, $red 0%, $orange 20%, $yellow 45%, $green 75%, green 100%);
+      background: linear-gradient(to right, rgba(68, 16, 122, 1) 0%, rgba(91, 0, 255, 1) 30%, rgba(255, 19, 97, 1) 60%, rgba(255, 248, 0, 1) 100%);
       clip-path: inset(0 0 0 0);
       animation: role-timer-decrease linear forwards;
     }
