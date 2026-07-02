@@ -63,7 +63,7 @@
             </article>
           </template>
           <div v-if="friends.list.length === 0" class="empty">
-            <img :src="iconNoFriendsNotifs" alt="nofriends" />
+            <img :src="iconNoFriends" alt="nofriends" />
             <span>Список друзей пока пуст...</span>
           </div>
         </div>
@@ -105,7 +105,7 @@ import iconRemove from '@/assets/svg/iconDelete.svg'
 import iconInviteOnline from '@/assets/svg/iconNotifBell.svg'
 import iconInviteOffline from '@/assets/svg/iconTelegram.svg'
 import iconDefaultAvatarBlack from '@/assets/svg/iconDefaultAvatarBlack.svg'
-import iconNoFriendsNotifs from '@/assets/svg/iconNoFriendsNotifs.svg'
+import iconNoFriends from '@/assets/svg/iconNoFriendsNotifs.svg'
 
 const props = defineProps<{
   open: boolean
@@ -704,7 +704,7 @@ onBeforeUnmount(() => {
       gap: 10px;
       height: 368px;
       img {
-        width: 95px;
+        width: 90px;
         height: 100px;
       }
       span {

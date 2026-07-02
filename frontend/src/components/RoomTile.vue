@@ -8,16 +8,16 @@
     </div>
 
     <button v-if="showKnock" class="icon-badge button left knock" @click="$emit('knock', id)" aria-label="Постучать">
-      <img :src="iconKnock" alt="knock" />
       <span>{{ knocksLeft }}</span>
+      <img :src="iconKnock" alt="knock" />
     </button>
     <button v-if="showWink" class="icon-badge button left wink" @click="$emit('wink', id)" aria-label="Подмигнуть">
-      <img :src="iconWink" alt="wink" />
       <span>{{ winksLeft }}</span>
+      <img :src="iconWink" alt="wink" />
     </button>
     <button v-if="showFoulControl && inGame && seat != null && !isGameHead && !isDead(id)" class="icon-badge button left" @click="$emit('foul', id)" :disabled="!isHead" aria-label="Выдать фол">
-      <img :src="iconFoul" alt="foul" />
       <span>{{ foulsCount }}</span>
+      <img :src="iconFoul" alt="foul" />
     </button>
     <div v-if="farewellSummary && farewellSummary.length" class="farewell-summary">
       <span v-for="item in farewellSummary" :key="item.targetId" :class="item.verdict">{{ item.seat ?? '?' }}</span>
@@ -46,7 +46,7 @@
       <img :src="iconPen" alt="bestmove" />
       <span>Лучший ход</span>
     </button>
-    <div class="icon-badge right" :class="{ finish: finishRoleBadge }" v-if="gameRole" aria-hidden="true">
+    <div class="icon-badge right role" :class="{ finish: finishRoleBadge }" v-if="gameRole" aria-hidden="true">
       <img :src="gameRole" alt="role" />
     </div>
     <div v-if="showFarewellButtons" class="farewell-buttons">
@@ -411,7 +411,7 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
     background-color: $soft-purple-900;
     z-index: 1;
     img {
-      height: 60%;
+      height: 100%;
       user-select: none;
     }
     .avatar {
@@ -425,7 +425,7 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
     left: 8px;
     top: 8px;
     border-radius: 12px;
-    background-color: var(--user-theme-bg, $neutral-black);
+    background-color: var(--user-theme-bg, $soft-purple-950);
     z-index: 20;
     .card-head {
       display: flex;
@@ -482,56 +482,50 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
     position: absolute;
     align-items: center;
     justify-content: center;
-    bottom: 5px;
+    bottom: 8px;
     padding: 0;
-    width: 30px;
-    height: 30px;
+    width: 36px;
+    height: 36px;
     border: none;
-    border-radius: 5px;
-    background-color: rgba($dark, 0.75);
-    box-shadow: 3px 3px 5px rgba($black, 0.25);
+    border-radius: 12px;
+    background-color: $soft-purple-950;
     z-index: 3;
     img {
-      width: 24px;
-      height: 24px;
+      width: 16px;
+      height: 16px;
     }
     span {
-      position: absolute;
-      top: 5px;
-      right: 12px;
-      color: $fg;
-      font-size: 20px;
-      font-family: Manrope-Medium;
-      line-height: 1;
-      font-weight: bold;
-      font-variant-numeric: tabular-nums;
-      transition: background-color 0.25s ease-in-out;
+      margin-right: -2px;
+      color: $neutral-white;
+      font-family: Hauora-Bold;
+      font-size: 18px;
+      line-height: 20px;
+      letter-spacing: -0.36px;
     }
     &.button {
       cursor: pointer;
     }
-    &:disabled,
-    &.button:disabled {
-      cursor: default;
-      pointer-events: none;
-    }
     &.left {
-      left: 5px;
+      left: 8px;
     }
     &.right {
-      right: 5px;
+      right: 8px;
     }
     &.wink {
-      bottom: 40px;
+      bottom: 46px;
     }
     &.knock {
-      left: 40px;
+      left: 46px;
+    }
+    &.role {
+      width: 24px;
+      height: 24px;
     }
     &.finish {
       inset: 0;
       width: 100%;
       height: 100%;
-      background-color: rgba($dark, 0.25);
+      background-color: rgba($neutral-black, 0.4);
       z-index: 25;
       cursor: default;
       pointer-events: none;
@@ -540,22 +534,28 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
         height: 50%;
       }
     }
+    &:disabled {
+      cursor: default;
+      pointer-events: none;
+    }
   }
   .head-bar {
     display: flex;
     align-items: center;
     justify-content: center;
     position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    padding: 0 0 5px 0;
-    gap: 10px;
-    height: 30px;
-    font-size: 16px;
-    color: $fg;
-    border-radius: 0 0 5px 5px;
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    gap: 2px;
+    height: 36px;
+    border-radius: 12px;
     background-color: rgba($dark, 0.75);
+    color: $neutral-white;
+    font-family: Hauora-Regular;
+    font-size: 14px;
+    line-height: 14px;
+    letter-spacing: -0.28px;
     z-index: 10;
     &.nominate {
       background: none;
@@ -564,15 +564,17 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 30px;
-      height: 30px;
-      border-radius: 5px;
-      background-color: $graphite;
+      width: 36px;
+      height: 36px;
+      border-radius: 12px;
+      background-color: $neutral-600;
+      color: $neutral-white;
+      font-family: Hauora-Bold;
       font-size: 18px;
-      color: $fg;
+      line-height: 20px;
+      letter-spacing: -0.36px;
       &.current {
-        background-color: $green;
-        color: $bg;
+        background-color: $green-500;
       }
     }
   }

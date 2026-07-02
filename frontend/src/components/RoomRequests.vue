@@ -458,7 +458,7 @@ onBeforeUnmount(() => {
     gap: 8px;
     height: 122px;
     img {
-      width: 70px;
+      width: 73px;
       height: 100px;
     }
     span {

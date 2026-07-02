@@ -37,7 +37,7 @@
             </div>
           </article>
           <div v-if="notif.items.length === 0" class="empty">
-            <img :src="iconNoFriendsNotifs" alt="nonotifs" />
+            <img :src="iconNoNotifs" alt="nonotifs" />
             <span>Уведомлений пока нет...</span>
           </div>
         </div>
@@ -58,7 +58,7 @@ import UiScrollbar from '@/components/UiScrollbar.vue'
 
 import iconClose from '@/assets/svg/iconClose.svg'
 import iconNotifBell from '@/assets/svg/iconNotifBell.svg'
-import iconNoFriendsNotifs from '@/assets/svg/iconNoFriendsNotifs.svg'
+import iconNoNotifs from '@/assets/svg/iconNoFriendsNotifs.svg'
 
 const NOTIF_TIME_OPTIONS: Intl.DateTimeFormatOptions = {
   hour: '2-digit',
@@ -447,7 +447,7 @@ onBeforeUnmount(() => {
       gap: 10px;
       height: 368px;
       img {
-        width: 95px;
+        width: 90px;
         height: 100px;
       }
       span {

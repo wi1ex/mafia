@@ -976,7 +976,7 @@ onBeforeUnmount(() => {
       width: 100%;
       height: 100%;
       img {
-        width: 215px;
+        width: 220px;
         height: 250px;
       }
       span {
@@ -1287,7 +1287,7 @@ onBeforeUnmount(() => {
               width: 100%;
               height: 100%;
               img {
-                width: 108px;
+                width: 110px;
                 height: 100px;
               }
               span {
