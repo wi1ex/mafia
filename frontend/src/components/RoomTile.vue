@@ -21,7 +21,10 @@
     </button>
 
     <div v-if="gameRole" class="icon-badge right" :class="[gameRoleClass, { finish: finishRoleBadge }]" aria-hidden="true">
-      <UiIcon class="icon-badge-role-icon" :icon="gameRole" />
+      <div v-if="finishRoleBadge" class="icon-badge-role-block">
+        <UiIcon class="icon-badge-role-icon" :icon="gameRole" />
+      </div>
+      <UiIcon v-else class="icon-badge-role-icon" :icon="gameRole" />
     </div>
 
     <UiButton
@@ -574,6 +577,7 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
     }
   }
   .icon-badge {
+    --icon-badge-role-bg: #{$soft-purple-950};
     display: flex;
     position: absolute;
     align-items: center;
@@ -584,7 +588,7 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
     height: 36px;
     border: none;
     border-radius: 12px;
-    background-color: $soft-purple-950;
+    background-color: var(--icon-badge-role-bg);
     z-index: 3;
     .icon-badge-icon {
       --ui-icon-width: 16px;
@@ -595,6 +599,12 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
       --ui-icon-width: 24px;
       --ui-icon-height: 24px;
       --ui-icon-color: #{$neutral-white};
+    }
+    .icon-badge-role-block {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: var(--icon-badge-role-bg);
     }
     span {
       margin: 0 -1px 0 2px;
@@ -620,6 +630,18 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
     &.knock {
       left: 46px;
     }
+    &.role-citizen {
+      --icon-badge-role-bg: #{$role-citizen};
+    }
+    &.role-sheriff {
+      --icon-badge-role-bg: #{$role-sheriff};
+    }
+    &.role-mafia {
+      --icon-badge-role-bg: #{$role-mafia};
+    }
+    &.role-don {
+      --icon-badge-role-bg: #{$role-don};
+    }
     &.finish {
       inset: 0;
       width: 100%;
@@ -628,22 +650,15 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
       z-index: 25;
       cursor: default;
       pointer-events: none;
-      .icon-badge-role-icon {
-        --ui-icon-width: 50%;
-        --ui-icon-height: 50%;
+      .icon-badge-role-block {
+        width: clamp(72px, 24%, 128px);
+        aspect-ratio: 1;
+        border-radius: 24px;
       }
-    }
-    &.role-citizen {
-      background-color: $role-citizen;
-    }
-    &.role-sheriff {
-      background-color: $role-sheriff;
-    }
-    &.role-mafia {
-      background-color: $role-mafia;
-    }
-    &.role-don {
-      background-color: $role-don;
+      .icon-badge-role-icon {
+        --ui-icon-width: 65%;
+        --ui-icon-height: 65%;
+      }
     }
     &:disabled {
       cursor: default;
