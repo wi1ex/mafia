@@ -601,7 +601,7 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
       justify-content: center;
       width: 96px;
       height: 96px;
-      border-radius: 12px;
+      border-radius: 32px;
       background-color: var(--icon-badge-role-bg);
     }
     .icon-badge-role-icon {
