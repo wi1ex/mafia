@@ -154,11 +154,11 @@
         </div>
         <span class="username">{{ userName(id) }}</span>
         <div class="status" v-if="showHeaderStatus">
-          <img v-if="showMicStatus" :src="micStatusIcon" alt="mic" />
-          <img v-if="showCamStatus" :src="camStatusIcon" alt="cam" />
-          <img v-if="showSpeakersStatus" :src="speakersStatusIcon" alt="spk" />
-          <img v-if="showVisibilityStatus" :src="visibilityStatusIcon" alt="vis" />
-          <img v-if="showScreenStatus" :src="screenStatusIcon" alt="scr" />
+          <UiIcon v-if="showMicStatus" class="status-icon" :class="stateIconClass('mic')" :icon="micStatusIcon" label="mic" />
+          <UiIcon v-if="showCamStatus" class="status-icon" :class="stateIconClass('cam')" :icon="camStatusIcon" label="cam" />
+          <UiIcon v-if="showSpeakersStatus" class="status-icon" :class="stateIconClass('speakers')" :icon="speakersStatusIcon" label="speakers" />
+          <UiIcon v-if="showVisibilityStatus" class="status-icon" :class="stateIconClass('visibility')" :icon="visibilityStatusIcon" label="visibility" />
+          <UiIcon v-if="showScreenStatus" class="status-icon" :class="stateIconClass('screen')" :icon="screenStatusIcon" label="screen" />
         </div>
       </button>
     </div>
@@ -360,6 +360,11 @@ const showSpeakersStatus = computed(() => speakersBlocked.value || !speakersEnab
 const showVisibilityStatus = computed(() => visibilityBlocked.value || !visibilityEnabled.value)
 const showScreenStatus = computed(() => screenBlocked.value || screenEnabled.value)
 
+function stateIconClass(kind: IconKind) {
+  if (props.isBlocked(props.id, kind)) return 'blocked'
+  return props.isOn(props.id, kind) ? 'on' : 'off'
+}
+
 const isAdminUser = computed(() => String(props.moderationRole || '').trim().toLowerCase() === 'admin')
 const showHeaderStatus = computed(() => !isAdminUser.value && (!props.inGame || props.isGameHead))
 const isDeadTile = computed(() => props.isDead(props.id))
@@ -533,9 +538,19 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
         align-items: center;
         margin-left: 4px;
         gap: 4px;
-        img {
-          width: 16px;
-          height: 16px;
+        .status-icon {
+          --ui-icon-width: 16px;
+          --ui-icon-height: 16px;
+          --ui-icon-color: #{$neutral-100};
+          &.on {
+            --ui-icon-color: #{$green-500};
+          }
+          &.off {
+            --ui-icon-color: #{$neutral-100};
+          }
+          &.blocked {
+            --ui-icon-color: #{$red-500};
+          }
         }
       }
     }
