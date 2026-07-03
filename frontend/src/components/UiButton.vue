@@ -20,8 +20,8 @@ defineOptions({
   inheritAttrs: false,
 })
 
-type ButtonVariant = 'green' | 'white'
-type ButtonSize = 'big' | 'middle' | 'small'
+type ButtonVariant = 'green' | 'white' | 'red'
+type ButtonSize = 'big' | 'middle' | 'small' | 'low'
 type IconPosition = 'left' | 'right'
 type ButtonType = 'button' | 'submit' | 'reset'
 
@@ -150,6 +150,14 @@ function onAnchorClick(event: MouseEvent) {
     --ui-button-disabled-bg: #{$neutral-200};
     --ui-button-disabled-color: #{$neutral-600};
   }
+  &--red {
+    --ui-button-bg: #{$red-400};
+    --ui-button-color: #{$neutral-900};
+    --ui-button-hover-bg: #{$red-200};
+    --ui-button-hover-color: #{$neutral-black};
+    --ui-button-disabled-bg: #{$neutral-700};
+    --ui-button-disabled-color: #{$neutral-500};
+  }
   &--big {
     --ui-button-height: 64px;
     --ui-button-gap: 8px;
@@ -182,6 +190,17 @@ function onAnchorClick(event: MouseEvent) {
     --ui-button-line-height: 20px;
     --ui-button-letter-spacing: -0.32px;
     --ui-button-padding-x: 16px;
+  }
+  &--low {
+    --ui-button-height: 36px;
+    --ui-button-gap: 4px;
+    --ui-button-radius: 12px;
+    --ui-button-icon-size: 20px;
+    --ui-button-font-family: Hauora-Regular;
+    --ui-button-font-size: 14px;
+    --ui-button-line-height: 18px;
+    --ui-button-letter-spacing: -0.28px;
+    --ui-button-padding-x: 8px;
   }
   &--icon-only {
     width: var(--ui-button-height);

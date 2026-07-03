@@ -23,32 +23,80 @@
       <span v-for="item in farewellSummary" :key="item.targetId" :class="item.verdict">{{ item.seat ?? '?' }}</span>
     </div>
 
-    <div v-if="pickNumber != null && pickNumber > 0" class="nominate-btn pick-number">
-      <span>{{ pickKind === 'check' ? 'Проверил' : 'Выстрелил в' }} {{ pickNumber }}</span>
-    </div>
-    <button v-if="showUnnominate" class="nominate-btn red-btn" @click="$emit('unnominate', id)" aria-label="Отменить">
-      <img :src="iconCloseCircle" alt="unnominate" />
-      <span>Отменить</span>
-    </button>
-    <button v-if="showNominate" class="nominate-btn" @click="$emit('nominate', id)" aria-label="Выставить">
-      <img :src="iconLike" alt="nominate" />
-      <span>Выставить</span>
-    </button>
-    <button v-if="showShoot" class="nominate-btn" @click="$emit('shoot', id)" aria-label="Выстрелить">
-      <img :src="iconKill" alt="shoot" />
-      <span>Выстрелить</span>
-    </button>
-    <button v-if="showCheck" class="nominate-btn" @click="$emit('check', id)" aria-label="Проверить">
-      <img :src="iconCheck" alt="check" />
-      <span>Проверить</span>
-    </button>
-    <button v-if="showBestMoveButton" class="nominate-btn" @click="$emit('best-move', id)" aria-label="Лучший ход">
-      <img :src="iconPen" alt="bestmove" />
-      <span>Лучший ход</span>
-    </button>
+    <UiButton
+      v-if="pickNumber != null && pickNumber > 0"
+      class="nominate-btn nominate-btn--pick"
+      size="low"
+      variant="green"
+      disabled
+    >
+      {{ pickKind === 'check' ? 'Проверил' : 'Выстрелил в' }} {{ pickNumber }}
+    </UiButton>
+    <UiButton
+      v-if="showUnnominate"
+      class="nominate-btn"
+      size="low"
+      variant="red"
+      :icon="iconCloseCircle"
+      icon-position="left"
+      aria-label="Отменить"
+      @click="$emit('unnominate', id)"
+    >
+      Отменить
+    </UiButton>
+    <UiButton
+      v-if="showNominate"
+      class="nominate-btn"
+      size="low"
+      variant="green"
+      :icon="iconLike"
+      icon-position="left"
+      aria-label="Выставить"
+      @click="$emit('nominate', id)"
+    >
+      Выставить
+    </UiButton>
+    <UiButton
+      v-if="showShoot"
+      class="nominate-btn"
+      size="low"
+      variant="green"
+      :icon="iconKill"
+      icon-position="left"
+      aria-label="Выстрелить"
+      @click="$emit('shoot', id)"
+    >
+      Выстрелить
+    </UiButton>
+    <UiButton
+      v-if="showCheck"
+      class="nominate-btn"
+      size="low"
+      variant="green"
+      :icon="iconCheck"
+      icon-position="left"
+      aria-label="Проверить"
+      @click="$emit('check', id)"
+    >
+      Проверить
+    </UiButton>
+    <UiButton
+      v-if="showBestMoveButton"
+      class="nominate-btn"
+      size="low"
+      variant="green"
+      :icon="iconPen"
+      icon-position="left"
+      aria-label="Лучший ход"
+      @click="$emit('best-move', id)"
+    >
+      Лучший ход
+    </UiButton>
+
     <div class="icon-badge right role" :class="{ finish: finishRoleBadge }" v-if="gameRole" aria-hidden="true">
       <img :src="gameRole" alt="role" />
     </div>
+
     <div v-if="showFarewellButtons" class="farewell-buttons">
       <button @click="$emit('farewell','citizen', id)">
         <img :src="iconRoleCitizen" alt="like" />
@@ -595,37 +643,18 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
     }
   }
   .nominate-btn {
-    display: flex;
     position: absolute;
-    align-items: center;
-    justify-content: center;
     left: 50%;
-    bottom: 5px;
+    bottom: 8px;
     transform: translate(-50%);
-    padding: 0 10px;
-    gap: 5px;
-    height: 30px;
-    border: none;
-    border-radius: 5px;
-    background-color: rgba($green, 0.75);
-    box-shadow: 3px 3px 5px rgba($black, 0.25);
-    cursor: pointer;
     z-index: 20;
-    &.red-btn {
-      background-color: rgba($red, 0.75);
-    }
-    &.pick-number {
+    &.nominate-btn--pick {
+      --ui-button-disabled-bg: #{$green-500};
+      --ui-button-disabled-color: #{$neutral-900};
       cursor: default;
     }
-    img {
-      width: 24px;
-      height: 24px;
-    }
-    span {
-      color: $bg;
-      font-size: 16px;
-      font-family: Manrope-Medium;
-      line-height: 1;
+    &.nominate-btn--pick.ui-button--disabled {
+      cursor: default;
     }
   }
   .farewell-buttons {
