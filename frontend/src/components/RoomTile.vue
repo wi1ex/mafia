@@ -104,7 +104,7 @@
     </div>
 
     <div v-if="farewellSummary && farewellSummary.length" class="farewell-summary">
-      <span v-for="item in farewellSummary" :key="item.targetId" :class="item.verdict">{{ item.seat ?? '?' }}</span>
+      <span class="farewell-summary-badge" v-for="item in farewellSummary" :key="item.targetId" :class="item.verdict">{{ item.seat ?? '?' }}</span>
     </div>
 
     <UiButton
@@ -663,25 +663,24 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
     align-items: center;
     justify-content: center;
     left: 50%;
-    bottom: 5px;
+    bottom: 8px;
     transform: translate(-50%);
-    gap: 10px;
+    gap: 2px;
     z-index: 15;
     button {
       display: flex;
       align-items: center;
       justify-content: center;
       padding: 0;
-      width: 45px;
-      height: 45px;
-      border: none;
-      border-radius: 5px;
-      background-color: rgba($green, 0.75);
-      box-shadow: 3px 3px 5px rgba($black, 0.25);
+      width: 36px;
+      height: 36px;
+      border: 1px solid $green-500;
+      border-radius: 12px;
+      background-color: $soft-purple-800;
       cursor: pointer;
       img {
-        width: 36px;
-        height: 36px;
+        width: 24px;
+        height: 24px;
       }
     }
   }
@@ -691,22 +690,25 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
     align-items: center;
     justify-content: center;
     left: 50%;
-    bottom: 6px;
+    bottom: 8px;
     transform: translate(-50%);
-    gap: 5px;
+    gap: 2px;
     z-index: 15;
-    span {
+    .farewell-summary-badge {
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 28px;
-      height: 28px;
-      border-radius: 5px;
-      border: none;
-      background-color: $graphite;
-      box-shadow: 3px 3px 5px rgba($black, 0.25);
+      width: 36px;
+      height: 36px;
+      border-radius: 12px;
+      background-color: $neutral-600;
+      color: $neutral-white;
+      font-family: Hauora-Bold;
+      font-size: 18px;
+      line-height: 20px;
+      letter-spacing: -0.36px;
       &.citizen {
-        background-color: $red;
+        background-color: $red-500;
       }
     }
   }
