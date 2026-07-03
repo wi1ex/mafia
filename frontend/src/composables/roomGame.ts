@@ -910,10 +910,15 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     return false
   }
 
-  function roleIconForTile(id: string): string {
+  function roleKindForTile(id: string): GameRoleKind | '' {
     const role = gameRolesByUser.get(id)
+    if (!role || !roleVisibleOnTile(id)) return ''
+    return role
+  }
+
+  function roleIconForTile(id: string): string {
+    const role = roleKindForTile(id)
     if (!role) return ''
-    if (!roleVisibleOnTile(id)) return ''
     return ROLE_BADGE_ICONS[role] || ''
   }
 
@@ -973,14 +978,25 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     headNightPicks.clear()
   }
 
-  function nightKnownRoleIconForTile(id: string): string {
+  function nightKnownRoleKindForTile(id: string): GameRoleKind | '' {
     if (gamePhase.value === 'idle') return ''
     if (!knownRolesVisible.value) return ''
     const myRole = myGameRoleKind.value
     if (myRole !== 'don' && myRole !== 'sheriff') return ''
     const rr = nightKnownByMe.get(id)
     if (!rr) return ''
-    return ROLE_BADGE_ICONS[rr] || ''
+    return rr
+  }
+
+  function nightKnownRoleIconForTile(id: string): string {
+    const role = nightKnownRoleKindForTile(id)
+    if (!role) return ''
+    return ROLE_BADGE_ICONS[role] || ''
+  }
+
+  function effectiveRoleKindForTile(id: string): GameRoleKind | '' {
+    if (gameFinished.value) return roleKindForTile(id)
+    return nightKnownRoleKindForTile(id) || roleKindForTile(id)
   }
 
   function effectiveRoleIconForTile(id: string): string {
@@ -3254,6 +3270,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     canMakeFarewellChoice,
     canMakeBestMoveChoice,
     isBestMoveMarked,
+    effectiveRoleKindForTile,
     effectiveRoleIconForTile,
     canShootTarget,
     canCheckTarget,

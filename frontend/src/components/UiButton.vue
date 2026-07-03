@@ -200,7 +200,7 @@ function onAnchorClick(event: MouseEvent) {
     --ui-button-font-size: 14px;
     --ui-button-line-height: 18px;
     --ui-button-letter-spacing: -0.28px;
-    --ui-button-padding-x: 8px;
+    --ui-button-padding-x: 16px;
   }
   &--icon-only {
     width: var(--ui-button-height);

@@ -20,8 +20,8 @@
       <UiIcon class="icon-badge-icon" :icon="iconFoul" />
     </button>
 
-    <div v-if="gameRole" class="icon-badge right" :class="{ finish: finishRoleBadge }" aria-hidden="true">
-      <img :src="gameRole" alt="role" />
+    <div v-if="gameRole" class="icon-badge right" :class="[gameRoleClass, { finish: finishRoleBadge }]" aria-hidden="true">
+      <UiIcon class="icon-badge-role-icon" :icon="gameRole" />
     </div>
 
     <UiButton
@@ -170,6 +170,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import type { GameRoleKind } from '@/composables/roomGame'
 import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
 import { getProfileThemeBadgeSources } from '@/constants/profileIcons'
 
@@ -229,6 +230,7 @@ const props = withDefaults(defineProps<{
   daySpeechPaused?: boolean
   redMark?: boolean
   gameRole?: string
+  gameRoleKind?: GameRoleKind | ''
   finishRoleBadge?: boolean
   hiddenByVisibility?: boolean
   visibilityHiddenAvatar?: string
@@ -284,6 +286,7 @@ const props = withDefaults(defineProps<{
   daySpeechRemainingMs: 0,
   daySpeechPaused: false,
   redMark: false,
+  gameRoleKind: '',
   hiddenByVisibility: false,
   visibilityHiddenAvatar: '',
   finishRoleBadge: false,
@@ -397,6 +400,7 @@ const timelineDurationSec = computed(() => {
 })
 
 const userCardStyle = computed(() => buildProfileThemeBgStyle(props.themeColor))
+const gameRoleClass = computed(() => props.gameRoleKind ? `role-${props.gameRoleKind}` : '')
 const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
   props.themeIcon,
   props.moderationRole,
@@ -587,9 +591,10 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
       --ui-icon-height: 16px;
       --ui-icon-color: #{$neutral-white};
     }
-    img {
-      width: 24px;
-      height: 24px;
+    .icon-badge-role-icon {
+      --ui-icon-width: 24px;
+      --ui-icon-height: 24px;
+      --ui-icon-color: #{$neutral-white};
     }
     span {
       margin: 0 -1px 0 2px;
@@ -619,14 +624,26 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
       inset: 0;
       width: 100%;
       height: 100%;
-      background-color: rgba($neutral-black, 0.4);
+      background-color: rgba($neutral-black, 0.6);
       z-index: 25;
       cursor: default;
       pointer-events: none;
-      img {
-        width: auto;
-        height: 50%;
+      .icon-badge-role-icon {
+        --ui-icon-width: 50%;
+        --ui-icon-height: 50%;
       }
+    }
+    &.role-citizen {
+      background-color: $role-citizen;
+    }
+    &.role-sheriff {
+      background-color: $role-sheriff;
+    }
+    &.role-mafia {
+      background-color: $role-mafia;
+    }
+    &.role-don {
+      background-color: $role-don;
     }
     &:disabled {
       cursor: default;
@@ -757,8 +774,8 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
       align-items: center;
       justify-content: center;
       position: absolute;
-      bottom: 23px;
-      right: 0;
+      bottom: 7.5px;
+      right: 7.5px;
       width: 14px;
       height: 14px;
       border-radius: 999px;

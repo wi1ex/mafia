@@ -63,6 +63,7 @@
           :mafia-talk-host-id="mafiaTalkHostIdFor(id)"
           :mafia-talk-remaining-ms="mafiaTalkRemainingMsFor(id)"
           :red-mark="game.shouldHighlightMafiaTile(id) || game.foulActive.has(id)"
+          :game-role-kind="game.effectiveRoleKindForTile(id)"
           :game-role="game.effectiveRoleIconForTile(id)"
           :finish-role-badge="gameFinished"
           :hidden-by-visibility="hiddenByVisibility(id)"
@@ -174,6 +175,7 @@
             :mafia-talk-host-id="mafiaTalkHostIdFor(id)"
             :mafia-talk-remaining-ms="mafiaTalkRemainingMsFor(id)"
             :red-mark="game.shouldHighlightMafiaTile(id) || game.foulActive.has(id)"
+            :game-role-kind="game.effectiveRoleKindForTile(id)"
             :game-role="game.effectiveRoleIconForTile(id)"
             :finish-role-badge="gameFinished"
             :hidden-by-visibility="hiddenByVisibility(id)"
@@ -3753,7 +3755,7 @@ onBeforeUnmount(() => {
       }
     }
     .btn-text {
-      padding: 0 20px;
+      padding: 0 16px;
       width: fit-content;
       color: $neutral-white;
       font-family: Hauora-Regular;
