@@ -136,8 +136,8 @@ import iconCloseCircle from '@/assets/svg/iconCloseCircle.svg'
 import iconFoul from '@/assets/svg/iconFoul.svg'
 import iconWink from '@/assets/svg/iconWink.svg'
 import iconKnock from '@/assets/svg/iconKnock.svg'
-import iconRoleCitizen from '@/assets/images/roleCitizen.png'
-import iconRoleMafia from '@/assets/images/roleMafia.png'
+import iconRoleCitizen from '@/assets/svg/iconRoleCitizen.svg'
+import iconRoleMafia from '@/assets/svg/iconRoleMafia.svg'
 
 type IconKind = 'mic' | 'cam' | 'speakers' | 'visibility' | 'screen'
 
@@ -696,8 +696,8 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
       align-items: center;
       justify-content: center;
       position: absolute;
-      bottom: 1.5px;
-      right: 1.5px;
+      bottom: 23px;
+      right: 0;
       width: 14px;
       height: 14px;
       border-radius: 999px;

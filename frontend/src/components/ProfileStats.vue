@@ -127,10 +127,11 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { api } from '@/services/axios'
 import { useSettingsStore } from '@/store'
-import iconRoleCitizen from '@/assets/images/roleCitizen.png'
-import iconRoleMafia from '@/assets/images/roleMafia.png'
-import iconRoleDon from '@/assets/images/roleDon.png'
-import iconRoleSheriff from '@/assets/images/roleSheriff.png'
+
+import iconRoleCitizen from '@/assets/svg/iconRoleCitizen.svg'
+import iconRoleMafia from '@/assets/svg/iconRoleMafia.svg'
+import iconRoleDon from '@/assets/svg/iconRoleDon.svg'
+import iconRoleSheriff from '@/assets/svg/iconRoleSheriff.svg'
 
 type UserTopPlayer = {
   id: number

@@ -91,10 +91,10 @@ import HistoryActions from '@/components/HistoryActions.vue'
 
 import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
 import iconArrowDown from '@/assets/svg/arrowDown.svg'
-import iconRoleCitizen from '@/assets/images/roleCitizen.png'
-import iconRoleMafia from '@/assets/images/roleMafia.png'
-import iconRoleDon from '@/assets/images/roleDon.png'
-import iconRoleSheriff from '@/assets/images/roleSheriff.png'
+import iconRoleCitizen from '@/assets/svg/iconRoleCitizen.svg'
+import iconRoleMafia from '@/assets/svg/iconRoleMafia.svg'
+import iconRoleDon from '@/assets/svg/iconRoleDon.svg'
+import iconRoleSheriff from '@/assets/svg/iconRoleSheriff.svg'
 
 type GameHistoryRole = 'citizen' | 'mafia' | 'don' | 'sheriff'
 type GameHistoryRoleFilter = 'all' | GameHistoryRole
