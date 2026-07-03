@@ -595,16 +595,19 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
       --ui-icon-height: 16px;
       --ui-icon-color: #{$neutral-white};
     }
-    .icon-badge-role-icon {
-      --ui-icon-width: 24px;
-      --ui-icon-height: 24px;
-      --ui-icon-color: #{$neutral-white};
-    }
     .icon-badge-role-block {
       display: flex;
       align-items: center;
       justify-content: center;
+      width: 96px;
+      height: 96px;
+      border-radius: 12px;
       background-color: var(--icon-badge-role-bg);
+    }
+    .icon-badge-role-icon {
+      --ui-icon-width: 24px;
+      --ui-icon-height: 24px;
+      --ui-icon-color: #{$neutral-white};
     }
     span {
       margin: 0 -1px 0 2px;
@@ -643,6 +646,10 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
       --icon-badge-role-bg: #{$role-don};
     }
     &.finish {
+      display: flex;
+      position: absolute;
+      align-items: center;
+      justify-content: center;
       inset: 0;
       width: 100%;
       height: 100%;
@@ -650,14 +657,9 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
       z-index: 25;
       cursor: default;
       pointer-events: none;
-      .icon-badge-role-block {
-        width: clamp(72px, 24%, 128px);
-        aspect-ratio: 1;
-        border-radius: 24px;
-      }
       .icon-badge-role-icon {
-        --ui-icon-width: 65%;
-        --ui-icon-height: 65%;
+        --ui-icon-width: 64px;
+        --ui-icon-height: 64px;
       }
     }
     &:disabled {
@@ -812,6 +814,7 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
     height: 100%;
     background-color: rgba($neutral-black, 0.6);
     z-index: 20;
+    cursor: default;
     pointer-events: none;
     .icon-voted-block {
       display: flex;
