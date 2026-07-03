@@ -9,18 +9,19 @@
 
     <button v-if="showKnock" class="icon-badge button left knock" @click="$emit('knock', id)" aria-label="Постучать">
       <span>{{ knocksLeft }}</span>
-      <img :src="iconKnock" alt="knock" />
+      <UiIcon class="icon-badge-icon" :icon="iconKnock" />
     </button>
     <button v-if="showWink" class="icon-badge button left wink" @click="$emit('wink', id)" aria-label="Подмигнуть">
       <span>{{ winksLeft }}</span>
-      <img :src="iconWink" alt="wink" />
+      <UiIcon class="icon-badge-icon" :icon="iconWink" />
     </button>
     <button v-if="showFoulControl && inGame && seat != null && !isGameHead && !isDead(id)" class="icon-badge button left" @click="$emit('foul', id)" :disabled="!isHead" aria-label="Выдать фол">
       <span>{{ foulsCount }}</span>
-      <img :src="iconFoul" alt="foul" />
+      <UiIcon class="icon-badge-icon" :icon="iconFoul" />
     </button>
-    <div v-if="farewellSummary && farewellSummary.length" class="farewell-summary">
-      <span v-for="item in farewellSummary" :key="item.targetId" :class="item.verdict">{{ item.seat ?? '?' }}</span>
+
+    <div v-if="gameRole" class="icon-badge right" :class="{ finish: finishRoleBadge }" aria-hidden="true">
+      <img :src="gameRole" alt="role" />
     </div>
 
     <UiButton
@@ -93,10 +94,6 @@
       Лучший ход
     </UiButton>
 
-    <div class="icon-badge right role" :class="{ finish: finishRoleBadge }" v-if="gameRole" aria-hidden="true">
-      <img :src="gameRole" alt="role" />
-    </div>
-
     <div v-if="showFarewellButtons" class="farewell-buttons">
       <button @click="$emit('farewell','citizen', id)">
         <img :src="iconRoleCitizen" alt="like" />
@@ -104,6 +101,10 @@
       <button @click="$emit('farewell','mafia', id)">
         <img :src="iconRoleMafia" alt="dislike" />
       </button>
+    </div>
+
+    <div v-if="farewellSummary && farewellSummary.length" class="farewell-summary">
+      <span v-for="item in farewellSummary" :key="item.targetId" :class="item.verdict">{{ item.seat ?? '?' }}</span>
     </div>
 
     <UiButton
@@ -552,9 +553,14 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
     border-radius: 12px;
     background-color: $soft-purple-950;
     z-index: 3;
+    .icon-badge-icon {
+      --ui-icon-width: 16px;
+      --ui-icon-height: 16px;
+      --ui-icon-color: #{$neutral-white};
+    }
     img {
-      width: 16px;
-      height: 16px;
+      width: 24px;
+      height: 24px;
     }
     span {
       margin: 0px -1px 0 2px;
@@ -578,12 +584,6 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
     }
     &.knock {
       left: 46px;
-    }
-    &.role {
-      img {
-        width: 24px;
-        height: 24px;
-      }
     }
     &.finish {
       inset: 0;

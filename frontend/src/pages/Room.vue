@@ -4001,12 +4001,14 @@ onBeforeUnmount(() => {
           letter-spacing: -0.36px;
           cursor: pointer;
           transition: color 0.25s ease-in-out;
-          &:hover:enabled {
-            color: $neutral-black;
-          }
           &:disabled {
             opacity: 0.5;
             cursor: default;
+          }
+          &:not(:disabled):hover,
+          &:not(:disabled):focus-visible,
+          &:not(:disabled):active {
+            color: $neutral-black;
           }
         }
       }
