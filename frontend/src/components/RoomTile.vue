@@ -147,7 +147,7 @@
 
     <div class="user-card" :style="userCardStyle" @click.stop>
       <button class="card-head" :disabled="!canOpenProfile" aria-haspopup="dialog" @click.stop="$emit('open-profile', id)">
-        <img v-if="seat != null && seatIcon" :src="seatIcon" alt="seat" />
+        <span v-if="seatLabel" class="seat-label">{{ seatLabel }}</span>
         <img class="user-avatar" v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar, lazy: false }" alt="avatar" />
         <div v-if="profileThemeIconSrcs.length" class="profile-theme-icons" aria-hidden="true">
           <img v-for="badgeSrc in profileThemeIconSrcs" :key="badgeSrc" class="profile-theme-icon" :src="badgeSrc" alt="" />
@@ -217,7 +217,7 @@ const props = withDefaults(defineProps<{
   isDead?: (id: string) => boolean
   deadAvatar?: string
   seat?: number | null
-  seatIcon?: string | null
+  seatLabel?: string
   offline?: boolean
   offlineAvatar?: string
   rolePickOwnerId?: string
@@ -273,7 +273,7 @@ const props = withDefaults(defineProps<{
   isDead: () => false,
   deadAvatar: '',
   seat: null,
-  seatIcon: null,
+  seatLabel: '',
   offline: false,
   offlineAvatar: '',
   rolePickOwnerId: '',
@@ -510,6 +510,19 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
       img {
         width: 20px;
         height: 20px;
+      }
+      .seat-label {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 auto;
+        width: 20px;
+        height: 20px;
+        color: $neutral-white;
+        font-family: Hauora-Bold;
+        font-size: 14px;
+        line-height: 18px;
+        letter-spacing: -0.28px;
       }
       .user-avatar {
         border-radius: 50%;

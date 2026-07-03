@@ -3,7 +3,7 @@
     <div class="slots-grid">
       <article v-for="slot in orderedSlots" :key="slot.slot" :class="['slot-card', slotCardRoleClass(slot.role)]">
         <div class="slot-top">
-          <img class="slot-num-icon" :src="slotIcon(slot.slot)" :alt="`slot-${slot.slot}`" />
+          <span class="slot-num-label">{{ slotLabel(slot.slot) }}</span>
           <button class="slot-player" type="button" :disabled="!canOpenSlotMiniProfile(slot)" @click.stop="openSlotMiniProfile(slot)">
             <img v-minio-img="{ key: slot.avatar_name ? `avatars/${slot.avatar_name}` : '', placeholder: defaultAvatar }" alt="avatar" />
             <span>{{ slot.username || 'Пусто' }}</span>
@@ -82,17 +82,6 @@ import iconLeaveVote from '@/assets/svg/likeWhite.svg'
 import iconLeaveFoul from '@/assets/svg/judge.svg'
 import iconLeaveNight from '@/assets/svg/killWhite.svg'
 import iconLeaveSuicide from '@/assets/svg/deadPlayer.svg'
-
-import iconSlot1 from '@/assets/svg/slot1.svg'
-import iconSlot2 from '@/assets/svg/slot2.svg'
-import iconSlot3 from '@/assets/svg/slot3.svg'
-import iconSlot4 from '@/assets/svg/slot4.svg'
-import iconSlot5 from '@/assets/svg/slot5.svg'
-import iconSlot6 from '@/assets/svg/slot6.svg'
-import iconSlot7 from '@/assets/svg/slot7.svg'
-import iconSlot8 from '@/assets/svg/slot8.svg'
-import iconSlot9 from '@/assets/svg/slot9.svg'
-import iconSlot10 from '@/assets/svg/slot10.svg'
 
 type GameHistoryRole = 'citizen' | 'mafia' | 'don' | 'sheriff'
 type LeaveReason = 'vote' | 'foul' | 'suicide' | 'night'
@@ -252,18 +241,6 @@ const roleIcons: Record<GameHistoryRole, string> = {
   don: iconRoleDon,
   sheriff: iconRoleSheriff,
 }
-const slotIcons: Record<number, string> = {
-  1: iconSlot1,
-  2: iconSlot2,
-  3: iconSlot3,
-  4: iconSlot4,
-  5: iconSlot5,
-  6: iconSlot6,
-  7: iconSlot7,
-  8: iconSlot8,
-  9: iconSlot9,
-  10: iconSlot10,
-}
 const leaveReasonIcons: Record<LeaveReason, string> = {
   vote: iconLeaveVote,
   foul: iconLeaveFoul,
@@ -280,8 +257,11 @@ function roleIcon(role: GameHistoryRole): string {
   return roleIcons[role]
 }
 
-function slotIcon(slot: number): string {
-  return slotIcons[slot] || iconSlot1
+function slotLabel(slot: number): string {
+  const normalized = Math.trunc(Number(slot))
+  if (normalized === 11) return 'В'
+  if (normalized >= 1 && normalized <= 10) return String(normalized)
+  return ''
 }
 
 function leaveReasonIcon(reason: LeaveReason): string {
@@ -371,10 +351,17 @@ function formatMetric(value: number): string {
         display: flex;
         align-items: center;
         gap: 5px;
-        .slot-num-icon {
+        .slot-num-label {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          flex: 0 0 auto;
           width: 25px;
           height: 25px;
-          object-fit: contain;
+          color: $fg;
+          font-family: Manrope-SemiBold;
+          font-size: 14px;
+          line-height: 18px;
         }
         .slot-player {
           display: flex;

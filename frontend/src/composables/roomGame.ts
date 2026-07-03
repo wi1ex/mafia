@@ -12,18 +12,6 @@ import iconCardMafia from '@/assets/images/cardMafia.png'
 import iconCardDon from '@/assets/images/cardDon.png'
 import iconCardSheriff from '@/assets/images/cardSheriff.png'
 
-import iconSlotHead from '@/assets/svg/slotHead.svg'
-import iconSlot1 from '@/assets/svg/slot1.svg'
-import iconSlot2 from '@/assets/svg/slot2.svg'
-import iconSlot3 from '@/assets/svg/slot3.svg'
-import iconSlot4 from '@/assets/svg/slot4.svg'
-import iconSlot5 from '@/assets/svg/slot5.svg'
-import iconSlot6 from '@/assets/svg/slot6.svg'
-import iconSlot7 from '@/assets/svg/slot7.svg'
-import iconSlot8 from '@/assets/svg/slot8.svg'
-import iconSlot9 from '@/assets/svg/slot9.svg'
-import iconSlot0 from '@/assets/svg/slot10.svg'
-
 export type GamePhase = 'idle' | 'roles_pick' | 'mafia_talk_start' | 'mafia_talk_end' | 'day' | 'vote' | 'night'
 export type GameRoleKind = 'citizen' | 'mafia' | 'don' | 'sheriff'
 export type GameResult = 'red' | 'black' | 'draw' | ''
@@ -892,28 +880,17 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     return [left, right]
   }
 
-  function seatIconBySeat(seat: number | null | undefined): string {
+  function seatLabelBySeat(seat: number | null | undefined): string {
     if (!seat) return ''
-    switch (seat) {
-      case 11: return iconSlotHead
-      case 1: return iconSlot1
-      case 2: return iconSlot2
-      case 3: return iconSlot3
-      case 4: return iconSlot4
-      case 5: return iconSlot5
-      case 6: return iconSlot6
-      case 7: return iconSlot7
-      case 8: return iconSlot8
-      case 9: return iconSlot9
-      case 10: return iconSlot0
-      default: return ''
-    }
+    if (seat === 11) return 'В'
+    if (seat >= 1 && seat <= 10) return String(seat)
+    return ''
   }
 
-  function seatIconForUser(id: string): string {
+  function seatLabelForUser(id: string): string {
     if (gamePhase.value === 'idle') return ''
     const s = seatIndex(id)
-    return seatIconBySeat(s)
+    return seatLabelBySeat(s)
   }
 
   function roleVisibleOnTile(id: string): boolean {
@@ -3309,7 +3286,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     isDead,
     deathReason,
     seatIndex,
-    seatIconForUser,
+    seatLabelForUser,
     canClickCard,
     applyFromJoinAck,
     handleGameStarted,
