@@ -164,7 +164,7 @@ import iconBigDefaultAvatar from "@/assets/svg/iconBigDefaultAvatar.svg"
 import iconArrow from '@/assets/svg/iconArrow.svg'
 import iconProfile from "@/assets/svg/iconProfile.svg"
 import iconMiniProfile from "@/assets/svg/iconMiniProfile.svg"
-import iconLogout from '@/assets/svg/iconLogout.svg'
+import iconLogout from '@/assets/svg/iconLeave.svg'
 import { buildProfileThemeStyle } from '@/constants/profileThemes'
 import { getProfileThemeBadgeSources } from '@/constants/profileIcons'
 

@@ -90,7 +90,7 @@ import { api } from '@/services/axios'
 import { formatLocalDateTime } from '@/services/datetime'
 import { useUserStore } from '@/store'
 
-import iconClose from '@/assets/svg/close.svg'
+import iconClose from '@/assets/svg/iconClose.svg'
 
 interface AdminGameActionField {
   label: string

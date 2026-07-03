@@ -73,15 +73,15 @@ import { computed, ref } from 'vue'
 import { canOpenMiniProfileTarget, normalizeMiniProfileRole, normalizeMiniProfileUserId } from '@/services/miniProfile'
 import { useUserStore } from '@/store'
 import MiniProfile from '@/components/MiniProfile.vue'
-import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
+import defaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
 import iconRoleCitizen from '@/assets/svg/iconRoleCitizen.svg'
 import iconRoleMafia from '@/assets/svg/iconRoleMafia.svg'
 import iconRoleDon from '@/assets/svg/iconRoleDon.svg'
 import iconRoleSheriff from '@/assets/svg/iconRoleSheriff.svg'
-import iconLeaveVote from '@/assets/svg/likeWhite.svg'
-import iconLeaveFoul from '@/assets/svg/judge.svg'
-import iconLeaveNight from '@/assets/svg/killWhite.svg'
-import iconLeaveSuicide from '@/assets/svg/deadPlayer.svg'
+import iconLeaveVote from '@/assets/svg/iconLike.svg'
+import iconLeaveFoul from '@/assets/svg/iconJudgeHummer.svg'
+import iconLeaveNight from '@/assets/svg/iconKill.svg'
+import iconLeaveSuicide from '@/assets/svg/iconDead.svg'
 
 type GameHistoryRole = 'citizen' | 'mafia' | 'don' | 'sheriff'
 type LeaveReason = 'vote' | 'foul' | 'suicide' | 'night'
@@ -358,6 +358,8 @@ function formatMetric(value: number): string {
           flex: 0 0 auto;
           width: 25px;
           height: 25px;
+          border-radius: 5px;
+          background-color: $lead;
           color: $fg;
           font-family: Manrope-SemiBold;
           font-size: 14px;

@@ -254,7 +254,7 @@ import MiniProfile from '@/components/MiniProfile.vue'
 import Sanction from '@/components/Sanction.vue'
 import UiInput from '@/components/UiInput.vue'
 
-import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
+import defaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
 
 type TabKey = 'users' | 'sanctions' | 'contact_requests'
 type SanctionListStatus = 'active' | 'expired_auto' | 'revoked'

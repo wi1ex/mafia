@@ -119,7 +119,7 @@
                       <button class="admin-button" type="button" @click="emitProfileRoomBlock('screen')" aria-label="block screen">
                         <UiIcon class="admin-img" :class="profileRoomScreenIconClass" :icon="profileRoomScreenIcon" />
                       </button>
-                      <button class="admin-button red-button" type="button" @click="emit('room-kick')" aria-label="kick user">
+                      <button class="admin-button red-button leave-room-icon" type="button" @click="emit('room-kick')" aria-label="kick user">
                         <UiIcon class="kick-img" :icon="iconLeaveRoom" />
                       </button>
                     </div>
@@ -314,7 +314,7 @@ import iconSubscription from '@/assets/svg/iconPresent.svg'
 import iconDelete from '@/assets/svg/iconDelete.svg'
 import iconEllipsis from '@/assets/svg/iconEllipsis.svg'
 import iconDanger from '@/assets/svg/iconDanger.svg'
-import iconLeaveRoom from '@/assets/svg/leave.svg'
+import iconLeaveRoom from '@/assets/svg/iconLeave.svg'
 
 type FriendActionKind = 'add' | 'remove' | 'incoming' | 'outgoing'
 type MiniProfileSanctionKind = 'timeout' | 'ban' | 'suspend'
@@ -2513,6 +2513,9 @@ onBeforeUnmount(() => {
                                       &:not(:disabled):active {
                                         background-color: $red-200;
                                       }
+                                    }
+                                    &.leave-room-icon {
+                                      transform: scaleX(-1);
                                     }
                                   }
                                 }

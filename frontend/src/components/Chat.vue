@@ -291,17 +291,17 @@ import { canOpenMiniProfileTarget, normalizeMiniProfileUserId, normalizeMiniProf
 import { useAuthStore, useGlobalChatStore, useSettingsStore, useUserStore } from '@/store'
 import MiniProfile from '@/components/MiniProfile.vue'
 
-import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
-import iconClose from '@/assets/svg/close.svg'
-import iconEmoji from '@/assets/svg/emoji.svg'
+import defaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
+import iconClose from '@/assets/svg/iconClose.svg'
+import iconEmoji from '@/assets/svg/iconEmoji.svg'
 import iconPhoto from '@/assets/svg/photo.svg'
-import iconDelete from '@/assets/svg/delete.svg'
-import iconInfo from '@/assets/svg/info.svg'
+import iconDelete from '@/assets/svg/iconDelete.svg'
+import iconInfo from '@/assets/svg/iconInfo.svg'
 import iconSend from '@/assets/svg/send.svg'
 import iconAddReaction from '@/assets/svg/addReaction.svg'
 import iconReplyMessage from '@/assets/svg/replyMessage.svg'
 import iconDotMail from '@/assets/svg/dotMail.svg'
-import iconArrowDown from '@/assets/svg/arrowDown.svg'
+import iconArrowDown from '@/assets/svg/iconArrow.svg'
 
 import type {
   GlobalChatDeletedMessagePreview,

@@ -99,9 +99,9 @@ import UiSlider from '@/components/UiSlider.vue'
 import UiInput from '@/components/UiInput.vue'
 import UiSwitch from '@/components/UiSwitch.vue'
 import UiButton from '@/components/UiButton.vue'
-
-import iconClose from '@/assets/svg/close.svg'
 import UiIcon from '@/components/UiIcon.vue'
+
+import iconClose from '@/assets/svg/iconClose.svg'
 
 const user = useUserStore()
 const settings = useSettingsStore()

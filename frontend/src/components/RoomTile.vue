@@ -183,7 +183,7 @@ import iconCheck from '@/assets/svg/iconCheck.svg'
 import iconKill from '@/assets/svg/iconKill.svg'
 import iconCloseCircle from '@/assets/svg/iconCloseCircle.svg'
 import iconFoul from '@/assets/svg/iconFoul.svg'
-import iconWink from '@/assets/svg/iconWink.svg'
+import iconWink from '@/assets/svg/iconEmoji.svg'
 import iconKnock from '@/assets/svg/iconKnock.svg'
 import iconRoleCitizen from '@/assets/svg/iconRoleCitizen.svg'
 import iconRoleMafia from '@/assets/svg/iconRoleMafia.svg'
@@ -515,14 +515,15 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        flex: 0 0 auto;
         width: 20px;
         height: 20px;
+        border-radius: 4px;
+        background-color: $soft-purple-800;
         color: $neutral-white;
-        font-family: Hauora-Bold;
-        font-size: 14px;
-        line-height: 18px;
-        letter-spacing: -0.28px;
+        font-family: Hauora-Regular;
+        font-size: 12px;
+        line-height: 12px;
+        letter-spacing: -0.24px;
       }
       .user-avatar {
         border-radius: 50%;
@@ -591,7 +592,8 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
       height: 24px;
     }
     span {
-      margin: 0px -1px 0 2px;
+      margin: 0 -1px 0 2px;
+      min-width: 11px;
       color: $neutral-white;
       font-family: Hauora-Bold;
       font-size: 18px;

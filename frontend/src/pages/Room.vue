@@ -522,7 +522,7 @@ import iconVolumeLow from '@/assets/svg/iconVolumeLow.svg'
 import iconVolumeMute from '@/assets/svg/iconVolumeMute.svg'
 import gongAudioUrl from '@/assets/audio/gong.mp3'
 
-import iconLeaveRoom from '@/assets/svg/iconLogout.svg'
+import iconLeaveRoom from '@/assets/svg/iconLeave.svg'
 import iconRequestsRoom from '@/assets/svg/iconRequestsRoom.svg'
 import iconFriends from '@/assets/svg/iconFriends.svg'
 import iconChat from '@/assets/svg/iconChat.svg'

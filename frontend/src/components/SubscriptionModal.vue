@@ -60,8 +60,8 @@ import { ref } from 'vue'
 
 import UiInput from '@/components/UiInput.vue'
 
-import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
-import iconClose from '@/assets/svg/close.svg'
+import defaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
+import iconClose from '@/assets/svg/iconClose.svg'
 
 type SubscriptionTarget = {
   user_id: number

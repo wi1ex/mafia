@@ -52,7 +52,7 @@ import { ref } from 'vue'
 import UiDropdown from '@/components/UiDropdown.vue'
 import UiInput from '@/components/UiInput.vue'
 
-import iconClose from '@/assets/svg/close.svg'
+import iconClose from '@/assets/svg/iconClose.svg'
 
 withDefaults(defineProps<{
   open: boolean

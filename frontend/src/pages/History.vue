@@ -84,8 +84,8 @@ import { formatLocalDateTime } from '@/services/datetime'
 import HistoryDetails from '@/components/HistoryDetails.vue'
 import HistoryActions from '@/components/HistoryActions.vue'
 
-import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
-import iconArrowDown from '@/assets/svg/arrowDown.svg'
+import defaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
+import iconArrowDown from '@/assets/svg/iconArrow.svg'
 
 type GameHistoryRole = 'citizen' | 'mafia' | 'don' | 'sheriff'
 type GameResult = 'red' | 'black' | 'draw'

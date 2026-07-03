@@ -320,11 +320,11 @@ import UiInput from '@/components/UiInput.vue'
 import UiSlider from '@/components/UiSlider.vue'
 import Subscription from '@/components/Subscription.vue'
 
-import defaultAvatar from '@/assets/svg/defaultAvatar.svg'
+import defaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
 import iconSave from '@/assets/svg/save.svg'
-import iconEdit from '@/assets/svg/edit.svg'
-import iconDelete from '@/assets/svg/delete.svg'
-import iconTimeHistory from '@/assets/svg/timeHistory.svg'
+import iconEdit from '@/assets/svg/iconPen.svg'
+import iconDelete from '@/assets/svg/iconDelete.svg'
+import iconTimeHistory from '@/assets/svg/iconTimeHistory.svg'
 import {
   buildProfileThemeBgStyle,
   getProfileThemeOptions,
