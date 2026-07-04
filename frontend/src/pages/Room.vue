@@ -435,7 +435,7 @@
       </div>
 
       <Transition name="role-overlay-fade">
-        <div v-if="gamePhase === 'roles_pick' && roleOverlayMode !== 'hidden' && (roleOverlayMode === 'reveal' || rolePick.activeUserId === localId)" class="role-overlay">
+        <div class="role-overlay" v-if="gamePhase === 'roles_pick' && roleOverlayMode !== 'hidden' && (roleOverlayMode === 'reveal' || rolePick.activeUserId === localId)">
           <button v-for="n in roleCardsToRender" :key="n" class="role-card" @click="game.canClickCard(n) && pickRoleCardUi(n)" :disabled="!game.canClickCard(n)"
             :class="{ 'is-revealed': roleOverlayMode === 'reveal' && roleOverlayCard === n && myGameRoleKind, 'is-taken': takenCardSet.has(n) }">
             <div class="role-card-inner">
@@ -3862,23 +3862,24 @@ onBeforeUnmount(() => {
     }
   }
   .role-overlay {
+    display: grid;
     position: fixed;
-    inset: 0;
-    display: flex;
+    box-sizing: border-box;
+    grid-template-columns: repeat(5, minmax(0, 300px));
+    grid-template-rows: repeat(2, auto);
     align-items: center;
     justify-content: center;
-    gap: clamp(4px, 2vmin, 24px);
-    padding: clamp(12px, 4vmin, 48px);
-    box-sizing: border-box;
+    inset: 0;
+    gap: 24px;
+    padding: 48px;
     background-color: $neutral-black;
     perspective: 1000px;
     z-index: 900;
     .role-card {
       position: relative;
       display: block;
-      flex: 0 0 auto;
-      width: min(190px, 14vw, calc((100dvh - 32px) / 1.1765));
-      aspect-ratio: 17 / 20;
+      width: 100%;
+      aspect-ratio: 4 / 4.7;
       padding: 0;
       border: none;
       background: transparent;
