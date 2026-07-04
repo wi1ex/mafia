@@ -436,19 +436,17 @@
 
       <Transition name="role-overlay-fade">
         <div v-if="gamePhase === 'roles_pick' && roleOverlayMode !== 'hidden' && (roleOverlayMode === 'reveal' || rolePick.activeUserId === localId)" class="role-overlay">
-          <div class="role-overlay-inner">
-            <button v-for="n in roleCardsToRender" :key="n" class="role-card" @click="game.canClickCard(n) && pickRoleCardUi(n)" :disabled="!game.canClickCard(n)"
-              :class="{ 'is-revealed': roleOverlayMode === 'reveal' && roleOverlayCard === n && myGameRoleKind, 'is-taken': takenCardSet.has(n) }">
-              <div class="role-card-inner">
-                <div class="role-card-face back">
-                  <img :src="iconCardBack" alt="card" />
-                </div>
-                <div class="role-card-face front">
-                  <img v-if="myGameRoleKind" :src="ROLE_IMAGES[myGameRoleKind]" alt="role" />
-                </div>
+          <button v-for="n in roleCardsToRender" :key="n" class="role-card" @click="game.canClickCard(n) && pickRoleCardUi(n)" :disabled="!game.canClickCard(n)"
+            :class="{ 'is-revealed': roleOverlayMode === 'reveal' && roleOverlayCard === n && myGameRoleKind, 'is-taken': takenCardSet.has(n) }">
+            <div class="role-card-inner">
+              <div class="role-card-face back">
+                <img :src="iconCardBack" alt="card" />
               </div>
-            </button>
-          </div>
+              <div class="role-card-face front">
+                <img v-if="myGameRoleKind" :src="ROLE_IMAGES[myGameRoleKind]" alt="role" />
+              </div>
+            </div>
+          </button>
         </div>
       </Transition>
 
@@ -3864,76 +3862,72 @@ onBeforeUnmount(() => {
     }
   }
   .role-overlay {
-    display: flex;
     position: fixed;
+    inset: 0;
+    display: flex;
     align-items: center;
     justify-content: center;
-    inset: 0;
-    background-color: rgba($black, 0.25);
-    backdrop-filter: blur(5px);
+    gap: clamp(4px, 2vmin, 24px);
+    padding: clamp(12px, 4vmin, 48px);
+    box-sizing: border-box;
+    background-color: $neutral-black;
+    perspective: 1000px;
     z-index: 900;
-    .role-overlay-inner {
-      display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
-      padding: 30px;
-      gap: 50px;
-      width: calc(100% - 60px);
-      height: calc(100% - 60px);
-      background-color: $dark;
-      perspective: 1000px;
-      .role-card {
-        position: relative;
-        padding: 0;
-        border: none;
-        border-radius: 5px;
-        background: transparent;
-        cursor: pointer;
-        transition: transform 0.15s ease-in-out, opacity 0.25s ease-in-out;
-        &.is-taken:not(.is-revealed) {
-          pointer-events: none;
-          .role-card-inner {
-            visibility: hidden;
-          }
-        }
-        &.is-revealed:disabled {
-          opacity: 1;
-          cursor: default;
-        }
-        &:hover:enabled:not(.is-revealed) {
-          transform: scale(1.1);
-        }
-        &:disabled {
-          opacity: 0.5;
-          cursor: default;
-        }
+    .role-card {
+      position: relative;
+      display: block;
+      flex: 0 0 auto;
+      width: min(190px, 14vw, calc((100dvh - 32px) / 1.1765));
+      aspect-ratio: 17 / 20;
+      padding: 0;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      transition: transform 0.15s ease-in-out, opacity 0.15s ease-in-out;
+      &.is-taken:not(.is-revealed) {
+        pointer-events: none;
         .role-card-inner {
-          position: relative;
-          height: 100%;
-          box-shadow: 3px 3px 5px rgba($black, 0.25);
-          transform-style: preserve-3d;
-          transition: transform 0.5s ease-in-out;
-          .role-card-face {
-            position: absolute;
-            inset: 0;
-            border-radius: 5px;
-            backface-visibility: hidden;
-            overflow: hidden;
-            img {
-              width: 100%;
-              height: 100%;
-              object-fit: cover;
-            }
-            &.back {
-              transform: rotateY(0deg);
-            }
-            &.front {
-              transform: rotateY(180deg);
-            }
+          visibility: hidden;
+        }
+      }
+      &.is-revealed:disabled {
+        opacity: 1;
+        cursor: default;
+      }
+      &:hover:enabled:not(.is-revealed) {
+        transform: scale(1.075);
+      }
+      &:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+      .role-card-inner {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        transform-style: preserve-3d;
+        transition: transform 0.5s ease-in-out;
+        .role-card-face {
+          position: absolute;
+          inset: 0;
+          backface-visibility: hidden;
+          overflow: hidden;
+          img {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: fill;
+          }
+          &.back {
+            transform: rotateY(0deg);
+          }
+          &.front {
+            transform: rotateY(180deg);
           }
         }
-        &.is-revealed .role-card-inner {
-          transform: rotateY(180deg);
-        }
+      }
+      &.is-revealed .role-card-inner {
+        transform: rotateY(180deg);
       }
     }
   }
