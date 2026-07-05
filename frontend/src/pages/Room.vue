@@ -2959,6 +2959,8 @@ async function onMediaGateClick() {
 function joinFailureMessage(j: any): string {
   const st = Number(j?.status || 0)
   const code = String(j?.error || '')
+  if (st === 403 && code === 'room_owner_blacklisted_requester') return 'Вход запрещен: Вы находитесь в ЧС у владельца комнаты'
+  if (st === 403 && code === 'hidden_room') return 'Комната скрыта, вход доступен только по приглашению'
   if (!j) return 'Таймаут сети при входе в комнату'
   if (st === 404) return 'Комната не найдена'
   if (st === 410) return 'Комната закрыта'
@@ -3002,7 +3004,23 @@ async function handleJoinFailure(j: any) {
     await router.replace({ name: 'home', query: { focus: String(rid) } })
     return
   }
+  if (j?.status === 403 && j?.error === 'room_owner_blacklisted_requester') {
+    void alertDialog('Вход запрещен: Вы находитесь в ЧС у владельца комнаты')
+    if (j?.hidden) await router.replace({ name: 'home' })
+    else await router.replace({ name: 'home', query: { focus: String(rid) } })
+    return
+  }
+  if (j?.status === 403 && j?.error === 'hidden_room') {
+    void alertDialog('Комната скрыта, вход доступен только по приглашению')
+    await router.replace({ name: 'home' })
+    return
+  }
   if (j?.status === 403 && j?.error === 'private_room') {
+    if (j?.hidden) {
+      void alertDialog('Комната скрыта, вход доступен только по приглашению')
+      await router.replace({ name: 'home' })
+      return
+    }
     try { await api.post(`/rooms/${rid}/apply`) } catch {}
     void alertDialog('Комната приватная, запрос в комнату отправлен')
     await router.replace({ name: 'home', query: { focus: String(rid) } })
