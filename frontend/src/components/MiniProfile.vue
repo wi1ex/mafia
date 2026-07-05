@@ -251,8 +251,8 @@
     />
     <SubscriptionModal
       :open="staffSubscriptionModalOpen"
-      title="Выдать подписку"
-      save-label="Выдать"
+      :title="staffSubscriptionModalTitle"
+      :save-label="staffSubscriptionModalSaveLabel"
       :saving="staffSubscriptionSaving"
       :can-save="staffSubscriptionCanSave"
       :target="staffSubscriptionTarget"
@@ -318,7 +318,8 @@ import iconLeaveRoom from '@/assets/svg/iconLeave.svg'
 
 type FriendActionKind = 'add' | 'remove' | 'incoming' | 'outgoing'
 type MiniProfileSanctionKind = 'timeout' | 'ban' | 'suspend'
-type StaffActionKey = 'suspend' | 'timeout' | 'avatar' | 'nickname' | 'ban' | 'account' | 'role' | 'subscription'
+type StaffSubscriptionMode = 'grant' | 'extend' | 'reduce'
+type StaffActionKey = 'suspend' | 'timeout' | 'avatar' | 'nickname' | 'ban' | 'account' | 'role' | 'subscription' | 'subscription_extend' | 'subscription_reduce'
 type StaffActionScope = 'admin' | 'moderation'
 type MiniProfileRoomControlKey = 'mic' | 'cam' | 'speakers' | 'screen'
 type NominationLevel = 1 | 2 | 3 | 4 | 5
@@ -507,6 +508,7 @@ const staffSanctionForm = reactive({
 })
 const staffSubscriptionModalOpen = ref(false)
 const staffSubscriptionSaving = ref(false)
+const staffSubscriptionMode = ref<StaffSubscriptionMode>('grant')
 const staffSubscriptionForm = reactive({
   months: 0,
   days: 0,
@@ -793,7 +795,19 @@ const staffSubscriptionTarget = computed(() => {
 const staffSubscriptionCanSave = computed(() => {
   const months = Number(staffSubscriptionForm.months) || 0
   const days = Number(staffSubscriptionForm.days) || 0
-  return Boolean(staffSubscriptionTarget.value && (months > 0 || days > 0))
+  const hasDuration = months > 0 || days > 0
+  if (staffSubscriptionMode.value === 'reduce') {
+    return Boolean(staffSubscriptionTarget.value && targetSubscriptionActive.value && hasDuration)
+  }
+  return Boolean(staffSubscriptionTarget.value && hasDuration)
+})
+const staffSubscriptionModalTitle = computed(() => {
+  if (staffSubscriptionMode.value === 'reduce') return 'Уменьшить подписку'
+  return staffSubscriptionMode.value === 'extend' ? 'Продлить подписку' : 'Выдать подписку'
+})
+const staffSubscriptionModalSaveLabel = computed(() => {
+  if (staffSubscriptionMode.value === 'reduce') return 'Уменьшить'
+  return staffSubscriptionMode.value === 'extend' ? 'Продлить' : 'Выдать'
 })
 const staffSanctionDurationValid = computed(() => (
   isStaffSanctionDurationPartValid(staffSanctionForm.months, STAFF_SANCTION_DURATION_LIMITS.months)
@@ -825,6 +839,33 @@ const staffActionItems = computed<StaffActionItem[]>(() => {
   const timeoutDisabled = isStaffSanctionBusy('timeout')
   if (isAdminViewer.value) {
     if (isSelfProfile.value || targetRoleNormalized.value === 'admin') return []
+    const subscriptionDisabled = staffSubscriptionSaving.value || targetDeleted.value
+    const subscriptionActionItems: StaffActionItem[] = targetSubscriptionActive.value
+      ? [
+        {
+          key: 'subscription_extend',
+          label: 'Продлить подписку',
+          icon: iconSubscription,
+          disabled: subscriptionDisabled,
+          ariaLabel: `Продлить подписку ${displayName.value}`,
+        },
+        {
+          key: 'subscription_reduce',
+          label: 'Уменьшить подписку',
+          icon: iconSubscription,
+          disabled: subscriptionDisabled,
+          ariaLabel: `Уменьшить подписку ${displayName.value}`,
+        },
+      ]
+      : [
+        {
+          key: 'subscription',
+          label: 'Выдать подписку',
+          icon: iconSubscription,
+          disabled: subscriptionDisabled,
+          ariaLabel: `Выдать подписку ${displayName.value}`,
+        },
+      ]
     return [
       {
         key: 'suspend',
@@ -875,13 +916,7 @@ const staffActionItems = computed<StaffActionItem[]>(() => {
         disabled: staffAdminDeletedUserActionsLocked.value || staffRoleBusy.value || targetRoleNormalized.value === 'admin',
         ariaLabel: targetRoleNormalized.value === 'moder' ? `Снять модерку ${displayName.value}` : `Выдать модерку ${displayName.value}`,
       },
-      {
-        key: 'subscription',
-        label: 'Выдать подписку',
-        icon: iconSubscription,
-        disabled: staffSubscriptionSaving.value || targetDeleted.value || targetSubscriptionActive.value,
-        ariaLabel: `Выдать подписку ${displayName.value}`,
-      },
+      ...subscriptionActionItems,
     ]
   }
   if (isModerViewer.value) {
@@ -1214,6 +1249,7 @@ function resetStaffSubscriptionForm(): void {
 function closeStaffSubscriptionModal(): void {
   if (staffSubscriptionSaving.value) return
   staffSubscriptionModalOpen.value = false
+  staffSubscriptionMode.value = 'grant'
   resetStaffSubscriptionForm()
 }
 
@@ -1222,8 +1258,15 @@ function onStaffSubscriptionModalOpenUpdate(open: boolean): void {
   closeStaffSubscriptionModal()
 }
 
-function openStaffSubscription(): void {
-  if (!isAdminViewer.value || staffActionDisabled('subscription')) return
+function staffSubscriptionActionKey(mode: StaffSubscriptionMode): StaffActionKey {
+  if (mode === 'reduce') return 'subscription_reduce'
+  return mode === 'extend' ? 'subscription_extend' : 'subscription'
+}
+
+function openStaffSubscription(mode: StaffSubscriptionMode = 'grant'): void {
+  const actionKey = staffSubscriptionActionKey(mode)
+  if (!isAdminViewer.value || staffActionDisabled(actionKey)) return
+  staffSubscriptionMode.value = mode
   resetStaffSubscriptionForm()
   staffSubscriptionModalOpen.value = true
 }
@@ -1240,25 +1283,42 @@ async function saveStaffSubscription(): Promise<void> {
   if (!isAdminViewer.value || staffSubscriptionSaving.value || !staffSubscriptionCanSave.value) return
   const uid = targetUserId.value
   if (uid <= 0) return
-  const hadActiveSubscription = targetSubscriptionActive.value
+  const mode = staffSubscriptionMode.value
+  const actionKey = staffSubscriptionActionKey(mode)
   staffSubscriptionSaving.value = true
+  const duration = {
+    months: Math.max(0, Math.trunc(Number(staffSubscriptionForm.months) || 0)),
+    days: Math.max(0, Math.trunc(Number(staffSubscriptionForm.days) || 0)),
+  }
   try {
-    await api.post('/admin/subscriptions', {
-      user_id: uid,
-      months: Math.max(0, Math.trunc(Number(staffSubscriptionForm.months) || 0)),
-      days: Math.max(0, Math.trunc(Number(staffSubscriptionForm.days) || 0)),
-    })
+    if (mode === 'reduce') {
+      await api.patch(`/admin/subscriptions/${uid}/reduce`, duration)
+    } else {
+      await api.post('/admin/subscriptions', {
+        user_id: uid,
+        ...duration,
+      })
+    }
     staffSubscriptionModalOpen.value = false
+    staffSubscriptionMode.value = 'grant'
     resetStaffSubscriptionForm()
     patchProfile({ subscription_active: true })
-    emitStaffActionComplete('subscription')
-    void alertDialog(hadActiveSubscription ? 'Подписка продлена' : 'Подписка выдана')
+    emitStaffActionComplete(actionKey)
+    let message = 'Подписка выдана'
+    if (mode === 'reduce') message = 'Срок подписки уменьшен'
+    else if (mode === 'extend') message = 'Подписка продлена'
+    void alertDialog(message)
     void loadProfile()
   } catch (e: any) {
     const st = e?.response?.status
     const d = e?.response?.data?.detail
     if (st === 404 && d === 'user_not_found') void alertDialog('Пользователь не найден')
+    else if (st === 404 && d === 'subscription_not_found') void alertDialog('Подписка уже отсутствует')
     else if (st === 422 && d === 'duration_required') void alertDialog('Укажите срок подписки')
+    else if (st === 422 && d === 'subscription_not_active') void alertDialog('Подписка уже не активна')
+    else if (st === 422 && d === 'subscription_reduce_too_large') {
+      void alertDialog('Нельзя уменьшить срок до нуля или больше оставшегося времени')
+    }
     else void alertDialog('Не удалось сохранить подписку')
   } finally {
     staffSubscriptionSaving.value = false
@@ -1476,8 +1536,11 @@ async function toggleStaffSanction(kind: MiniProfileSanctionKind): Promise<void>
 
 function onStaffAction(key: StaffActionKey): void {
   if (staffActionDisabled(key)) return
-  if (key === 'subscription') {
-    openStaffSubscription()
+  if (key === 'subscription' || key === 'subscription_extend' || key === 'subscription_reduce') {
+    const mode: StaffSubscriptionMode = key === 'subscription_reduce'
+      ? 'reduce'
+      : key === 'subscription_extend' ? 'extend' : 'grant'
+    openStaffSubscription(mode)
     return
   }
   if (key === 'role') {
@@ -1496,7 +1559,9 @@ function onStaffAction(key: StaffActionKey): void {
     void resetStaffNickname()
     return
   }
-  void toggleStaffSanction(key)
+  if (key === 'suspend' || key === 'timeout' || key === 'ban') {
+    void toggleStaffSanction(key)
+  }
 }
 
 function isStaffActionKey(value: unknown): value is StaffActionKey {
@@ -1519,6 +1584,7 @@ function resetStaffActionState(): void {
   resetStaffSanctionForm()
   staffSubscriptionSaving.value = false
   staffSubscriptionModalOpen.value = false
+  staffSubscriptionMode.value = 'grant'
   resetStaffSubscriptionForm()
 }
 
