@@ -165,8 +165,9 @@
                   <span class="date-time">{{ lastOnlineLabel }}</span>
                 </div>
               </div>
-              <div v-else class="profile-restricted-message">
-                Информация скрыта: Вы находитесь в Черном списке у пользователя
+              <div v-else class="profile-restricted-div">
+                <UiIcon class="profile-restricted-img" :icon="iconDanger" />
+                <span class="profile-restricted-text">Вы находитесь в Черном списке у пользователя</span>
               </div>
 
               <div v-if="showRestrictedProfileSections && showActionBlock" class="profile-actions">
@@ -2805,19 +2806,26 @@ onBeforeUnmount(() => {
         }
       }
     }
-    .profile-restricted-message {
+    .profile-restricted-div {
       display: flex;
-      align-items: center;
       justify-content: center;
-      padding: 16px;
-      min-height: 72px;
-      border-radius: 20px;
-      background-color: rgba($soft-purple-900, 0.65);
-      color: $neutral-100;
-      font-family: Hauora-Regular;
-      font-size: 16px;
-      line-height: 22px;
-      text-align: center;
+      align-items: center;
+      padding: 12px;
+      gap: 8px;
+      border-radius: 16px;
+      background-color: $red-100;
+      .profile-restricted-img {
+        --ui-icon-width: 24px;
+        --ui-icon-height: 24px;
+        --ui-icon-color: #{$red-500};
+      }
+      .profile-restricted-text {
+        color: $red-500;
+        font-family: Hauora-Regular;
+        font-size: 16px;
+        line-height: 22px;
+        letter-spacing: -0.32px;
+      }
     }
     .profile-actions {
       display: flex;
