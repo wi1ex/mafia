@@ -3865,8 +3865,8 @@ onBeforeUnmount(() => {
     display: grid;
     position: fixed;
     box-sizing: border-box;
-    grid-template-columns: repeat(5, minmax(0, 300px));
-    grid-template-rows: repeat(2, auto);
+    grid-template-columns: repeat(5, minmax(0, calc((100vw - 193px) / 5)));
+    grid-template-rows: repeat(2, minmax(0, calc((100dvh - 121px) / 2)));
     align-items: center;
     justify-content: center;
     inset: 0;
