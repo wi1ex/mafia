@@ -2029,7 +2029,7 @@ onBeforeUnmount(() => {
                 padding: 0 12px;
                 height: 32px;
                 border-radius: 8px;
-                background-color: rgba($soft-purple-800, 0.65);
+                background-color: rgba($soft-purple-900, 0.65);
                 &.enabled {
                   cursor: default;
                 }
@@ -2151,7 +2151,7 @@ onBeforeUnmount(() => {
                 width: 32px;
                 height: 32px;
                 border-radius: 8px;
-                background-color: rgba($soft-purple-800, 0.65);
+                background-color: rgba($soft-purple-900, 0.65);
                 &:not(:disabled):hover,
                 &:not(:disabled):focus-visible,
                 &:not(:disabled):active {
@@ -2250,7 +2250,7 @@ onBeforeUnmount(() => {
                 width: 32px;
                 height: 32px;
                 border-radius: 8px;
-                background-color: rgba($soft-purple-800, 0.65);
+                background-color: rgba($soft-purple-900, 0.65);
                 &:not(:disabled):hover,
                 &:not(:disabled):focus-visible,
                 &:not(:disabled):active {
@@ -2650,7 +2650,7 @@ onBeforeUnmount(() => {
       padding: 16px;
       gap: 12px;
       border-radius: 20px;
-      background-color: rgba($soft-purple-800, 0.65);
+      background-color: rgba($soft-purple-900, 0.65);
       .date-row {
         display: flex;
         align-items: center;
