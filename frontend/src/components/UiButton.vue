@@ -172,7 +172,7 @@ function onAnchorClick(event: MouseEvent) {
   &--middle {
     --ui-button-height: 40px;
     --ui-button-gap: 4px;
-    --ui-button-radius: 16px;
+    --ui-button-radius: 12px;
     --ui-button-icon-size: 24px;
     --ui-button-font-family: Hauora-Regular;
     --ui-button-font-size: 16px;
@@ -183,7 +183,7 @@ function onAnchorClick(event: MouseEvent) {
   &--small {
     --ui-button-height: 32px;
     --ui-button-gap: 4px;
-    --ui-button-radius: 16px;
+    --ui-button-radius: 12px;
     --ui-button-icon-size: 24px;
     --ui-button-font-family: Hauora-Regular;
     --ui-button-font-size: 16px;

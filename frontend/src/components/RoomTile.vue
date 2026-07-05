@@ -462,7 +462,7 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
     height: 36px;
     border: none;
     border-radius: 12px;
-    background-color: $soft-purple-950;
+    background-color: rgba($soft-purple-950, 0.8);
     z-index: 3;
     .ready-icon {
       --ui-icon-width: 20px;
@@ -500,7 +500,7 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
     left: 8px;
     top: 8px;
     border-radius: 12px;
-    background-color: var(--user-theme-bg, $soft-purple-950);
+    background-color: var(--user-theme-bg, rgba($soft-purple-950, 0.8));
     z-index: 20;
     .card-head {
       display: flex;
@@ -577,7 +577,7 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
     }
   }
   .icon-badge {
-    --icon-badge-role-bg: #{$soft-purple-950};
+    --icon-badge-role-bg: #{rgba($soft-purple-950, 0.8)};
     display: flex;
     position: absolute;
     align-items: center;
@@ -678,7 +678,7 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
     gap: 2px;
     height: 36px;
     border-radius: 12px;
-    background-color: $soft-purple-950;
+    background-color: rgba($soft-purple-950, 0.8);
     color: $neutral-white;
     font-family: Hauora-Regular;
     font-size: 14px;

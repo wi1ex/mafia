@@ -1963,7 +1963,7 @@ onBeforeUnmount(() => {
                 padding: 0 12px;
                 height: 32px;
                 border-radius: 8px;
-                background-color: $soft-purple-900;
+                background-color: rgba($soft-purple-800, 0.65);
                 &.enabled {
                   cursor: default;
                 }
@@ -2085,7 +2085,7 @@ onBeforeUnmount(() => {
                 width: 32px;
                 height: 32px;
                 border-radius: 8px;
-                background-color: $soft-purple-900;
+                background-color: rgba($soft-purple-800, 0.65);
                 &:not(:disabled):hover,
                 &:not(:disabled):focus-visible,
                 &:not(:disabled):active {
@@ -2184,7 +2184,7 @@ onBeforeUnmount(() => {
                 width: 32px;
                 height: 32px;
                 border-radius: 8px;
-                background-color: $soft-purple-900;
+                background-color: rgba($soft-purple-800, 0.65);
                 &:not(:disabled):hover,
                 &:not(:disabled):focus-visible,
                 &:not(:disabled):active {
@@ -2581,26 +2581,26 @@ onBeforeUnmount(() => {
     .profile-dates {
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      padding: 16px;
+      gap: 12px;
+      border-radius: 20px;
+      background-color: rgba($soft-purple-800, 0.65);
       .date-row {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 16px;
-        border-radius: 20px;
-        background-color: $soft-purple-900;
         .date-title {
-          color: $neutral-100;
+          color: $neutral-300;
           font-family: Hauora-Regular;
           font-size: 16px;
           line-height: 16px;
           letter-spacing: -0.32px;
         }
         .date-time {
-          color: $neutral-white;
-          font-family: Hauora-Bold;
+          color: $neutral-100;
+          font-family: Hauora-Regular;
           font-size: 16px;
-          line-height: 18px;
+          line-height: 16px;
           letter-spacing: -0.32px;
         }
       }
@@ -2617,9 +2617,9 @@ onBeforeUnmount(() => {
         padding: 0 16px;
         gap: 8px;
         width: 100%;
-        height: 64px;
+        height: 40px;
         border: none;
-        border-radius: 999px;
+        border-radius: 12px;
         color: $neutral-900;
         font-family: Hauora-Regular;
         font-size: 18px;
