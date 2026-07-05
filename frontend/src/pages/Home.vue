@@ -299,7 +299,7 @@ type HomeMiniProfileInitial = {
   role?: string | null
 }
 type Game = RoomGameParams
-type Access = 'approved'|'pending'|'none'
+type Access = 'approved'|'pending'|'none'|'blacklisted'|'hidden'
 
 const router = useRouter()
 const route = useRoute()
@@ -409,6 +409,8 @@ const topBannerActive = computed(() => {
   return verificationBanner || adminBanner || sanctionBanner
 })
 const blockedLabel = computed(() => {
+  if (access.value === 'blacklisted') return 'Вход запрещен: Вы находитесь в ЧС'
+  if (access.value === 'hidden') return 'Вход только по приглашению'
   if (selectedRoom.value?.entry_closed) return 'Вход в комнату закрыт'
   if (!canEnterRooms.value) return 'Вход в комнаты отключен'
   if (userStore.banActive) return 'Вход запрещен: аккаунт забанен'
@@ -432,6 +434,8 @@ const ctaState = computed<Cta>(() => {
   if (room && !canEnterRooms.value) return 'blocked'
   if (room && (userStore.roomRestricted || verificationRestricted.value)) return 'blocked'
   if (!auth.isAuthed) return 'login'
+  if (access.value === 'blacklisted') return 'blocked'
+  if (access.value === 'hidden') return 'blocked'
   if (room.in_game) {
     if (isGameParticipant.value) return 'enter'
     if (canBypassSpectatorsLimit.value) return 'watch'
@@ -629,6 +633,16 @@ async function onApply() {
     access.value = 'pending'
   } catch (e: any) {
     const detail = e?.response?.data?.detail
+    if (detail === 'room_owner_blacklisted_requester') {
+      access.value = 'blacklisted'
+      void alertDialog('Заявка отменена: Вы находитесь в ЧС у владельца комнаты')
+      return
+    }
+    if (detail === 'hidden_room') {
+      access.value = 'hidden'
+      void alertDialog('Заявка отменена: скрытая комната доступна только по приглашению')
+      return
+    }
     if (detail === 'room_not_found') {
       void alertDialog('Комната не найдена')
       clearSelection()
@@ -871,7 +885,7 @@ function onAppRevoked(e: any) {
   if (!Number.isFinite(rid)) return
   void syncRoomsSnapshot()
   if (selectedId.value && rid === selectedId.value) {
-    access.value = 'none'
+    access.value = p?.source === 'blacklist' ? 'blacklisted' : 'none'
   }
 }
 

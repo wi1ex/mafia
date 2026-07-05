@@ -113,6 +113,7 @@ from ...services.profile_theme import (
     upsert_profile_theme_icon_preference,
     upsert_profile_theme_preference,
 )
+from ...services.blacklist import blacklist_relation
 from ...services.nickname_limits import MAX_NICKNAME_CHANGE_LIMIT, normalize_nickname_changes_left
 from ...services.nickname_history import (
     build_nickname_history_out,
@@ -240,6 +241,17 @@ async def mini_profile(user_id: int, allow_deleted: bool = False, ident: Identit
         nomination_stats = await build_user_mini_profile_nomination_stats_out(db, uid)
 
     friend_status = await friend_status_for(db, viewer_id, uid)
+    blacklisted_by_me = False
+    viewer_blacklisted_by_target = False
+    if viewer_id != uid:
+        relation = await blacklist_relation(db, viewer_id, uid)
+        blacklisted_by_me = bool(relation.get("a_blocks_b"))
+        viewer_blacklisted_by_target = bool(relation.get("b_blocks_a"))
+        if blacklisted_by_me or viewer_blacklisted_by_target:
+            friend_status = "none"
+        if viewer_blacklisted_by_target and not is_staff_viewer:
+            last_game_id = None
+            last_game_at = None
     viewer_username = str(ident.get("username") or f"user{viewer_id}")
     target_username = user.username or f"user{uid}"
 
@@ -269,8 +281,8 @@ async def mini_profile(user_id: int, allow_deleted: bool = False, ident: Identit
         role=target_role,
         protected_user=bool(is_staff_viewer and is_protected_admin(uid)),
         deleted=bool(user.deleted_at),
-        registered_at=user.registered_at,
-        last_visit_at=user.last_visit_at,
+        registered_at=None if viewer_blacklisted_by_target and not is_staff_viewer else user.registered_at,
+        last_visit_at=None if viewer_blacklisted_by_target and not is_staff_viewer else user.last_visit_at,
         last_game_at=last_game_at,
         last_game_id=last_game_id,
         online=online,
@@ -283,6 +295,8 @@ async def mini_profile(user_id: int, allow_deleted: bool = False, ident: Identit
         profile_theme_color=theme_state.color,
         profile_theme_icon=theme_state.icon,
         friend_status=friend_status,
+        blacklisted_by_me=blacklisted_by_me,
+        viewer_blacklisted_by_target=viewer_blacklisted_by_target,
         friends_count=int(friends_count or 0),
         admin_friends=admin_friends,
         active_sanction=active_sanction,

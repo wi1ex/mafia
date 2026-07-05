@@ -30,6 +30,7 @@ from ..core.roles import (
 from ..realtime.sio import sio
 from ..security.parameters import get_cached_settings
 from ..api.utils import is_user_in_active_game
+from ..services.blacklist import filter_notification_targets_for_actor, is_user_blacklisted_by
 from ..services.minio import CHAT_IMAGE_PREFIX, delete_object_async, validate_chat_image_object_async
 from ..services.user_cache import get_user_profiles_cached
 
@@ -938,6 +939,14 @@ async def _build_global_chat_alert_user_ids_map(session: AsyncSession, messages:
         author_user_id = _positive_int(message.user_id)
         if author_user_id > 0:
             alert_user_ids.discard(author_user_id)
+            if alert_user_ids:
+                alert_user_ids = set(
+                    await filter_notification_targets_for_actor(
+                        session,
+                        actor_id=author_user_id,
+                        target_ids=alert_user_ids,
+                    )
+                )
 
         out[message_id] = alert_user_ids
 
@@ -1937,6 +1946,9 @@ async def _upsert_global_chat_reaction_alert(session: AsyncSession, *, message: 
         return ()
 
     if owner_user_id == actor_id or message.deleted_at is not None:
+        return ()
+
+    if await is_user_blacklisted_by(session, owner_id=owner_user_id, target_id=actor_id):
         return ()
 
     alert = await session.get(

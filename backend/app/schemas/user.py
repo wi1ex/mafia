@@ -74,6 +74,8 @@ class UserMiniProfileOut(BaseModel):
     profile_theme_color: Optional[str] = None
     profile_theme_icon: Optional[str] = None
     friend_status: Literal["self", "friends", "outgoing", "incoming", "none"] = "none"
+    blacklisted_by_me: bool = False
+    viewer_blacklisted_by_target: bool = False
     friends_count: int = 0
     admin_friends: Optional[List[UserMiniProfileFriendOut]] = None
     active_sanction: Optional[UserMiniProfileSanctionOut] = None

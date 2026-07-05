@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { api } from '@/services/axios'
 
 export type FriendStatus = 'self' | 'friends' | 'outgoing' | 'incoming' | 'none'
@@ -33,6 +33,20 @@ export type FriendListItem = {
 
 export type FriendsListResponse = {
   items: FriendListItem[]
+}
+
+export type BlacklistItem = {
+  id: number
+  username?: string
+  avatar_name?: string | null
+  role?: string | null
+  theme_color?: string | null
+  theme_icon?: string | null
+  created_at?: string | null
+}
+
+export type BlacklistResponse = {
+  items: BlacklistItem[]
 }
 
 export type FriendApiAction =
@@ -85,6 +99,9 @@ export function resolveFriendsApiError(error: any, action: FriendApiAction = 'un
   if (detail === 'friend_not_found') return 'Пользователь не найден в списке друзей'
   if (detail === 'friend_request_cancel_too_early') return 'Отменить заявку в друзья можно только через 10 минут после отправки'
   if (detail === 'friend_remove_too_early') return 'Удалить из друзей можно только через 10 минут после принятия заявки'
+  if (detail === 'target_blacklisted_by_me') return 'Запрос отменен: пользователь находится у Вас в ЧС'
+  if (detail === 'requester_blacklisted_by_target') return 'Запрос отменен: Вы находитесь в ЧС у пользователя'
+  if (detail === 'subscription_required') return 'Действие доступно только при активной подписке'
 
   if (st === 429) return 'Слишком много запросов. Попробуйте через несколько секунд'
   if (st >= 500) return 'Сервис временно недоступен. Попробуйте позже'
@@ -102,6 +119,8 @@ export function shouldRefreshFriendsStateAfterError(error: any): boolean {
     'incoming_request',
     'outgoing_request',
     'friend_not_found',
+    'target_blacklisted_by_me',
+    'requester_blacklisted_by_target',
   ].includes(detail)
 }
 
@@ -120,17 +139,23 @@ export function inferFriendApiAction(url: string, method?: string): FriendApiAct
 
 export const useFriendsStore = defineStore('friends', () => {
   const list = ref<FriendListItem[]>([])
+  const blacklist = ref<BlacklistItem[]>([])
+  const blacklistIds = computed(() => new Set(blacklist.value.map(item => item.id)))
   const incomingCount = ref(0)
   let inited = false
   let onFriendsUpdate: ((e: any) => void) | null = null
   let onFriendsClosenessUpdate: ((e: any) => void) | null = null
   let onFriendsProfileSync: ((e: any) => void) | null = null
+  let onBlacklistUpdate: ((e: any) => void) | null = null
   let refreshTimer: number | undefined
   let listRefreshTimer: number | undefined
+  let blacklistRefreshTimer: number | undefined
   let listLoading = false
   let listQueued = false
   let listQueuedRoomId: number | null = null
   let lastListRoomId: number | null = null
+  let blacklistLoading = false
+  let blacklistQueued = false
   let countLoading = false
   let countQueued = false
 
@@ -182,6 +207,29 @@ export const useFriendsStore = defineStore('friends', () => {
     }
   }
 
+  async function fetchBlacklist(): Promise<void> {
+    if (blacklistLoading) {
+      blacklistQueued = true
+      return
+    }
+    blacklistLoading = true
+    try {
+      const { data } = await api.get<BlacklistResponse>('/friends/blacklist')
+      blacklist.value = Array.isArray(data?.items) ? data.items : []
+    } catch (e: any) {
+      if (String(e?.response?.data?.detail || '') === 'subscription_required') {
+        blacklist.value = []
+      }
+      throw e
+    } finally {
+      blacklistLoading = false
+      if (blacklistQueued) {
+        blacklistQueued = false
+        void fetchBlacklist().catch(() => {})
+      }
+    }
+  }
+
   async function fetchStatus(userId: number): Promise<FriendStatus> {
     const { data } = await api.get<{ status: FriendStatus }>(`/friends/status/${userId}`)
     return data.status
@@ -211,6 +259,16 @@ export const useFriendsStore = defineStore('friends', () => {
     await api.post('/friends/invite', { user_id: userId, room_id: roomId })
   }
 
+  async function addToBlacklist(userId: number): Promise<void> {
+    await api.post(`/friends/blacklist/${userId}`)
+    await fetchBlacklist()
+  }
+
+  async function removeFromBlacklist(userId: number): Promise<void> {
+    await api.delete(`/friends/blacklist/${userId}`)
+    blacklist.value = blacklist.value.filter(item => item.id !== userId)
+  }
+
   function scheduleRefresh() {
     if (refreshTimer) return
     refreshTimer = window.setTimeout(() => {
@@ -224,6 +282,14 @@ export const useFriendsStore = defineStore('friends', () => {
     listRefreshTimer = window.setTimeout(() => {
       listRefreshTimer = undefined
       void fetchList(lastListRoomId)
+    }, 200)
+  }
+
+  function scheduleBlacklistRefresh() {
+    if (blacklistRefreshTimer) return
+    blacklistRefreshTimer = window.setTimeout(() => {
+      blacklistRefreshTimer = undefined
+      void fetchBlacklist().catch(() => {})
     }, 200)
   }
 
@@ -244,6 +310,7 @@ export const useFriendsStore = defineStore('friends', () => {
     if (onFriendsUpdate) window.removeEventListener('auth-friends_update', onFriendsUpdate)
     if (onFriendsClosenessUpdate) window.removeEventListener('auth-friends_closeness_update', onFriendsClosenessUpdate)
     if (onFriendsProfileSync) window.removeEventListener('auth-friends_profile_sync', onFriendsProfileSync)
+    if (onBlacklistUpdate) window.removeEventListener('auth-blacklist_update', onBlacklistUpdate)
     onFriendsUpdate = (e: any) => {
       const p = e?.detail
       if (!p) return
@@ -259,16 +326,33 @@ export const useFriendsStore = defineStore('friends', () => {
       if (!p) return
       applyProfileRoleSync(p)
     }
+    onBlacklistUpdate = (e: any) => {
+      const p = e?.detail
+      if (!p) return
+      const userId = Number(p.user_id || 0)
+      if ((p.blacklisted === false || p.cleared) && Number.isFinite(userId) && userId > 0) {
+        blacklist.value = blacklist.value.filter(item => item.id !== Math.trunc(userId))
+      }
+      if (Object.prototype.hasOwnProperty.call(p, 'blacklisted') || p.cleared) {
+        scheduleBlacklistRefresh()
+      }
+      scheduleListRefresh()
+      scheduleRefresh()
+    }
     window.addEventListener('auth-friends_update', onFriendsUpdate)
     window.addEventListener('auth-friends_closeness_update', onFriendsClosenessUpdate)
     window.addEventListener('auth-friends_profile_sync', onFriendsProfileSync)
+    window.addEventListener('auth-blacklist_update', onBlacklistUpdate)
     inited = true
   }
 
   return {
     list,
+    blacklist,
+    blacklistIds,
     incomingCount,
     fetchList,
+    fetchBlacklist,
     fetchIncomingCount,
     fetchStatus,
     sendRequest,
@@ -277,6 +361,8 @@ export const useFriendsStore = defineStore('friends', () => {
     cancelOutgoingRequest,
     removeFriend,
     inviteToRoom,
+    addToBlacklist,
+    removeFromBlacklist,
     ensureWS,
   }
 })

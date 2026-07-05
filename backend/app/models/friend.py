@@ -33,3 +33,16 @@ class FriendCloseness(Base):
     games_together: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     room_seconds_together: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class UserBlacklist(Base):
+    __tablename__ = "user_blacklist"
+    __table_args__ = (
+        UniqueConstraint("owner_id", "target_id", name="uq_user_blacklist_pair"),
+        CheckConstraint("owner_id <> target_id", name="ck_user_blacklist_self"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[int] = mapped_column(BigInteger, index=True, nullable=False)
+    target_id: Mapped[int] = mapped_column(BigInteger, index=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

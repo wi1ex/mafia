@@ -16,6 +16,7 @@ from ...core.db import SessionLocal
 from ...security.parameters import get_cached_settings
 from ...schemas.realtime import StateAck, ModerateAck, JoinAck, ScreenAck, GameStartAck, GameRolePickAck, GameHostBlurAck
 from ...api.utils import normalize_spectators_limit
+from ...services.blacklist import is_user_blacklisted_by
 from ...services.livekit import get_livekit_room_name, make_livekit_token, remove_livekit_participant
 from ..utils import (
     SANCTION_TIMEOUT,
@@ -208,6 +209,10 @@ async def join(sid, data) -> JoinAck:
         if str(params.get("entry_closed") or "0") == "1":
             return {"ok": False, "error": "room_closed", "status": 410}
 
+        room_creator_id = int(params.get("creator") or 0)
+        is_private = (params.get("privacy") or "open") == "private"
+        is_hidden_room = str(params.get("anonymity") or "visible") == "hidden"
+
         if not admin_spectator_requested and base_role_normalized != ROLE_ADMIN and not get_cached_settings().rooms_can_enter:
             return {"ok": False, "error": "rooms_entry_disabled", "status": 403}
 
@@ -225,10 +230,13 @@ async def join(sid, data) -> JoinAck:
                     if not verified:
                         return {"ok": False, "error": "not_verified", "status": 403}
 
+                if is_private and room_creator_id > 0 and room_creator_id != uid:
+                    if await is_user_blacklisted_by(s, owner_id=room_creator_id, target_id=uid):
+                        return {"ok": False, "error": "room_owner_blacklisted_requester", "status": 403, "hidden": is_hidden_room}
+
         allowed = True
         pending = False
-        is_private = (params.get("privacy") or "open") == "private"
-        is_creator = int(params.get("creator") or 0) == uid
+        is_creator = room_creator_id == uid
         if is_private and not is_creator:
             allowed = await r.sismember(f"room:{rid}:allow", str(uid))
             if not allowed:
@@ -241,6 +249,9 @@ async def join(sid, data) -> JoinAck:
             return {"ok": False, "error": "admin_spectator_unavailable", "status": 409}
 
         if is_private and not is_creator and not allowed and phase == "idle" and not admin_spectator_mode:
+            if is_hidden_room:
+                return {"ok": False, "error": "hidden_room", "status": 403, "pending": bool(pending)}
+
             return {"ok": False, "error": "private_room", "status": 403, "pending": bool(pending)}
 
         spectator_mode = False

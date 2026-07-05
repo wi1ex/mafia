@@ -29,6 +29,7 @@ from ...schemas.room import (
 from ...security.parameters import get_cached_settings
 from ...services.user_cache import get_user_profile_cached, get_user_profiles_cached
 from ...services.profile_theme import resolve_profile_theme_state
+from ...services.blacklist import is_user_blacklisted_by
 from ...services.text_moderation import enforce_clean_text
 from ..utils import (
     emit_rooms_upsert,
@@ -364,11 +365,18 @@ async def access(room_id: int, ident: Identity = Depends(get_identity), db: Asyn
         return RoomAccessOut(access="approved")
 
     uid = int(ident["id"])
-    if int(params.get("creator") or 0) == uid:
+    creator = int(params.get("creator") or 0)
+    if creator == uid:
         return RoomAccessOut(access="approved")
+
+    if creator > 0 and await is_user_blacklisted_by(db, owner_id=creator, target_id=uid):
+        return RoomAccessOut(access="blacklisted")
 
     if await r.sismember(f"room:{room_id}:allow", str(uid)):
         return RoomAccessOut(access="approved")
+
+    if str(params.get("anonymity") or "visible") == "hidden":
+        return RoomAccessOut(access="hidden")
 
     if await r.sismember(f"room:{room_id}:pending", str(uid)):
         return RoomAccessOut(access="pending")
@@ -401,8 +409,14 @@ async def apply(room_id: int, ident: Identity = Depends(get_identity), db: Async
     if uid == creator:
         return Ok()
 
+    if creator > 0 and await is_user_blacklisted_by(db, owner_id=creator, target_id=uid):
+        raise HTTPException(status_code=403, detail="room_owner_blacklisted_requester")
+
     if await r.sismember(f"room:{room_id}:allow", str(uid)):
         return Ok()
+
+    if str(params.get("anonymity") or "visible") == "hidden":
+        raise HTTPException(status_code=403, detail="hidden_room")
 
     async with r.pipeline(transaction=True) as p:
         await p.sadd(f"room:{room_id}:pending", str(uid))

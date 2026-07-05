@@ -61,7 +61,7 @@ class RoomSpectatorsOut(BaseModel):
 
 
 class RoomAccessOut(BaseModel):
-    access: Literal["approved", "pending", "none"]
+    access: Literal["approved", "pending", "none", "blacklisted", "hidden"]
 
 
 class RoomRequestOut(BaseModel):

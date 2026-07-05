@@ -46,3 +46,17 @@ class FriendIncomingCountOut(BaseModel):
 class FriendInviteIn(BaseModel):
     user_id: int
     room_id: int
+
+
+class BlacklistItemOut(BaseModel):
+    id: int
+    username: Optional[str] = None
+    avatar_name: Optional[str] = None
+    role: Optional[str] = None
+    theme_color: Optional[str] = None
+    theme_icon: Optional[str] = None
+    created_at: datetime
+
+
+class BlacklistOut(BaseModel):
+    items: List[BlacklistItemOut] = Field(default_factory=list)

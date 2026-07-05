@@ -32,7 +32,7 @@
                       <span class="profile-name">{{ displayName }}</span>
                     </div>
 
-                    <div v-if="showProfileMeta" class="profile-meta">
+                    <div v-if="showRestrictedProfileSections && showProfileMeta" class="profile-meta">
                       <div v-if="friendsCount !== null" class="profile-friends-tooltip-wrap" :class="{ enabled: showAdminFriendsTooltip }" :tabindex="showAdminFriendsTooltip ? 0 : undefined">
                         <span class="profile-friends-count" aria-label="Количество друзей">Друзья: {{ friendsCount }}</span>
                         <div v-if="showAdminFriendsTooltip" class="profile-friends-tooltip" role="tooltip">
@@ -144,11 +144,14 @@
                 <button class="close-btn" type="button" aria-label="Закрыть" @click="close">
                   <UiIcon class="close-icon" :icon="iconClose" />
                 </button>
+                <button v-if="showBlacklistButton" class="blacklist-btn" :class="{ active: blacklistedByMe }" type="button" :disabled="blacklistBusy" :aria-label="blacklistButtonLabel" @click="toggleBlacklist">
+                  <UiIcon class="blacklist-icon" :icon="iconBlacklist" />
+                </button>
               </div>
             </header>
 
             <template v-if="view === 'profile'">
-              <div class="profile-dates" aria-label="Даты профиля">
+              <div v-if="showRestrictedProfileSections" class="profile-dates" aria-label="Даты профиля">
                 <div class="date-row">
                   <span class="date-title">Дата регистрации</span>
                   <span class="date-time">{{ registeredAtLabel }}</span>
@@ -162,8 +165,11 @@
                   <span class="date-time">{{ lastOnlineLabel }}</span>
                 </div>
               </div>
+              <div v-else class="profile-restricted-message">
+                Информация скрыта: Вы находитесь в Черном списке у пользователя
+              </div>
 
-              <div v-if="showActionBlock" class="profile-actions">
+              <div v-if="showRestrictedProfileSections && showActionBlock" class="profile-actions">
 <!--                <button v-if="showStatsButton" class="profile-action secondary" type="button" @click="view = 'stats'">-->
 <!--                  Статистика пользователя-->
 <!--                </button>-->
@@ -296,6 +302,7 @@ import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
 import iconDefaultAvatarBlack from '@/assets/svg/iconDefaultAvatarBlack.svg'
 import iconWarning from '@/assets/svg/iconWarning.svg'
 import iconClose from '@/assets/svg/iconClose.svg'
+import iconBlacklist from '@/assets/svg/iconBlacklist.svg'
 import iconProfile from '@/assets/svg/iconProfile.svg'
 import iconAddFriends from '@/assets/svg/iconAddFriends.svg'
 import iconInFriends from '@/assets/svg/iconInFriends.svg'
@@ -402,6 +409,8 @@ type MiniProfileInitial = {
   profile_theme_color?: string | null
   profile_theme_icon?: string | null
   friend_status?: FriendStatus | null
+  blacklisted_by_me?: boolean | null
+  viewer_blacklisted_by_target?: boolean | null
   deleted?: boolean | null
   deleted_at?: string | null
   kind?: 'incoming' | 'outgoing' | 'online' | 'offline' | string | null
@@ -428,6 +437,8 @@ type MiniProfileResponse = {
   profile_theme_color?: string | null
   profile_theme_icon?: string | null
   friend_status?: FriendStatus | null
+  blacklisted_by_me?: boolean
+  viewer_blacklisted_by_target?: boolean
   friends_count?: number | null
   admin_friends?: MiniProfileAdminFriend[] | null
   active_sanction?: MiniProfileSanction | null
@@ -480,6 +491,7 @@ const profilePanelEl = ref<HTMLElement | null>(null)
 const profile = ref<MiniProfileResponse | null>(null)
 const friendStatus = ref<FriendStatus>('none')
 const friendBusy = ref(false)
+const blacklistBusy = ref(false)
 const view = ref<'profile' | 'stats' | 'history'>('profile')
 const avatarImageEl = ref<HTMLImageElement | null>(null)
 const profileFriendsList = ref<HTMLElement | null>(null)
@@ -593,6 +605,7 @@ const viewerRole = computed(() => normalizeMiniProfileRole(userStore.user?.role)
 const isAdminViewer = computed(() => viewerRole.value === 'admin')
 const isModerViewer = computed(() => viewerRole.value === 'moder')
 const isSelfProfile = computed(() => targetUserId.value > 0 && viewerUserId.value === targetUserId.value)
+const viewerSubscriptionActive = computed(() => Boolean(userStore.subscriptionActive))
 const viewerVerificationRestricted = computed(() => Boolean(settingsStore.verificationRestrictions && !userStore.telegramVerified && !isSelfProfile.value))
 const privilegedViewer = computed(() => isMiniProfilePrivilegedViewer(viewerRole.value, props.adminMode))
 const initialTargetDeleted = computed(() => {
@@ -703,6 +716,20 @@ const profileRoomSpeakersIcon = computed(() => String(profileRoomControls.value?
 const profileRoomSpeakersIconClass = computed(() => String(profileRoomControls.value?.speakersIconClass || ''))
 const profileRoomScreenIcon = computed(() => String(profileRoomControls.value?.screenIcon || ''))
 const profileRoomScreenIconClass = computed(() => String(profileRoomControls.value?.screenIconClass || ''))
+const blacklistedByMe = computed(() => Boolean(profileLoadedForTarget.value && profile.value?.blacklisted_by_me))
+const viewerBlacklistedByTarget = computed(() => Boolean(profileLoadedForTarget.value && profile.value?.viewer_blacklisted_by_target))
+const showBlacklistButton = computed(() => (
+  viewerSubscriptionActive.value
+  && targetUserId.value > 0
+  && !isSelfProfile.value
+  && !targetDeleted.value
+))
+const blacklistButtonLabel = computed(() => (blacklistedByMe.value ? 'Удалить из ЧС' : 'Добавить в ЧС'))
+const showRestrictedProfileSections = computed(() => !(
+  viewerBlacklistedByTarget.value
+  && !privilegedViewer.value
+  && !isSelfProfile.value
+))
 
 const friendStatusClass = computed(() => (friendStatus.value === 'self' ? 'none' : friendStatus.value))
 const friendActionLabel = computed(() => {
@@ -1574,6 +1601,7 @@ function onStaffDropdownSelect(value: string | number | null): void {
 }
 
 function resetStaffActionState(): void {
+  blacklistBusy.value = false
   staffRoleBusy.value = false
   staffAccountBusy.value = false
   staffAvatarBusy.value = false
@@ -1647,6 +1675,8 @@ async function loadProfile() {
       profile_theme_color: data?.profile_theme_color ?? null,
       profile_theme_icon: data?.profile_theme_icon ?? null,
       friend_status: normalizeFriendStatus(data?.friend_status),
+      blacklisted_by_me: Boolean(data?.blacklisted_by_me),
+      viewer_blacklisted_by_target: Boolean(data?.viewer_blacklisted_by_target),
       friends_count: Number.isFinite(Number(data?.friends_count)) ? Math.max(0, Math.trunc(Number(data?.friends_count))) : 0,
       admin_friends: (
         Array.isArray(data?.admin_friends) ? normalizeAdminFriends(data.admin_friends) : null
@@ -1800,6 +1830,52 @@ async function onFriendAction(kind: FriendActionKind) {
   }
 }
 
+async function toggleBlacklist() {
+  const uid = targetUserId.value
+  if (uid <= 0 || blacklistBusy.value || !showBlacklistButton.value) return
+  const isRemoving = blacklistedByMe.value
+  const userLabel = displayName.value
+  const ok = await confirmDialog({
+    title: isRemoving ? 'Удалить из Черного списка' : 'Добавить в Черный список',
+    text: isRemoving
+      ? `Вы уверены, что хотите удалить пользователя ${userLabel} из ЧС?`
+      : `Вы уверены, что хотите добавить пользователя ${userLabel} в ЧС?`,
+    confirmText: isRemoving ? 'Удалить' : 'Добавить',
+    cancelText: 'Отмена',
+  })
+  if (!ok) return
+
+  blacklistBusy.value = true
+  const previousStatus = friendStatus.value
+  try {
+    if (isRemoving) {
+      await friends.removeFromBlacklist(uid)
+      patchProfile({ blacklisted_by_me: false })
+    } else {
+      await friends.addToBlacklist(uid)
+      patchProfile({ blacklisted_by_me: true, friend_status: 'none' })
+      applyFriendStatus('none')
+      if (previousStatus === 'friends') adjustProfileFriendsCount(-1)
+    }
+    await refreshFriendsListIfNeeded()
+  } catch (e: any) {
+    const st = Number(e?.response?.status || 0)
+    const detail = String(e?.response?.data?.detail || '').trim()
+    if (st === 403 && detail === 'subscription_required') {
+      void userStore.fetchMe().catch(() => {})
+      void alertDialog('Черный список доступен только при активной подписке')
+    } else if (detail === 'user_not_found') {
+      void alertDialog('Пользователь не найден')
+    } else if (detail === 'self_blacklist') {
+      void alertDialog('Нельзя добавить в ЧС свой аккаунт')
+    } else {
+      void alertDialog(isRemoving ? 'Не удалось удалить пользователя из ЧС' : 'Не удалось добавить пользователя в ЧС')
+    }
+  } finally {
+    blacklistBusy.value = false
+  }
+}
+
 function onKeydown(e: KeyboardEvent) {
   if (!props.open || e.key !== 'Escape') return
   if (avatarPreviewOpen.value) {
@@ -1818,6 +1894,26 @@ function onFriendsUpdate(e: Event) {
   applyFriendStatus(nextStatus)
   if (previousStatus !== 'friends' && nextStatus === 'friends') adjustProfileFriendsCount(1)
   if (previousStatus === 'friends' && nextStatus !== 'friends') adjustProfileFriendsCount(-1)
+}
+
+function onBlacklistUpdate(e: Event) {
+  const detail = (e as CustomEvent)?.detail || {}
+  const uid = Number(detail.user_id)
+  if (!props.open || uid !== targetUserId.value || !profileLoadedForTarget.value) return
+  const previousStatus = friendStatus.value
+  if (Object.prototype.hasOwnProperty.call(detail, 'blacklisted')) {
+    const next = Boolean(detail.blacklisted)
+    patchProfile({ blacklisted_by_me: next, friend_status: next ? 'none' : profile.value?.friend_status })
+    if (next) {
+      applyFriendStatus('none')
+      if (previousStatus === 'friends') adjustProfileFriendsCount(-1)
+    }
+  }
+  if (Object.prototype.hasOwnProperty.call(detail, 'blacklisted_by_target')) {
+    const blocked = Boolean(detail.blacklisted_by_target)
+    patchProfile({ viewer_blacklisted_by_target: blocked, friend_status: blocked ? 'none' : profile.value?.friend_status })
+    if (blocked) applyFriendStatus('none')
+  }
 }
 
 watch([() => props.open, targetUserId, viewerVerificationRestricted, deletedTargetBlocked], ([open, uid, restricted, deletedBlocked]) => {
@@ -1848,6 +1944,7 @@ watch([() => props.open, targetUserId, viewerVerificationRestricted, deletedTarg
 onMounted(() => {
   window.addEventListener('keydown', onKeydown)
   window.addEventListener('auth-friends_update', onFriendsUpdate)
+  window.addEventListener('auth-blacklist_update', onBlacklistUpdate)
 })
 
 onBeforeUnmount(() => {
@@ -1855,6 +1952,7 @@ onBeforeUnmount(() => {
   resetStaffActionState()
   window.removeEventListener('keydown', onKeydown)
   window.removeEventListener('auth-friends_update', onFriendsUpdate)
+  window.removeEventListener('auth-blacklist_update', onBlacklistUpdate)
 })
 </script>
 
@@ -2642,6 +2740,42 @@ onBeforeUnmount(() => {
             }
           }
         }
+        .blacklist-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0;
+          width: 36px;
+          height: 36px;
+          border: none;
+          border-radius: 12px;
+          background-color: $neutral-900;
+          cursor: pointer;
+          transition: opacity 0.25s ease-in-out, background-color 0.25s ease-in-out;
+          .blacklist-icon {
+            --ui-icon-width: 22px;
+            --ui-icon-height: 22px;
+            --ui-icon-color: #{$neutral-white};
+          }
+          &.active {
+            background-color: $red-500;
+            .blacklist-icon {
+              --ui-icon-color: #{$neutral-black};
+            }
+          }
+          &:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+          }
+          &:not(:disabled):hover,
+          &:not(:disabled):focus-visible,
+          &:not(:disabled):active {
+            background-color: $neutral-800;
+            &.active {
+              background-color: $red-400;
+            }
+          }
+        }
       }
     }
     .profile-dates {
@@ -2670,6 +2804,20 @@ onBeforeUnmount(() => {
           letter-spacing: -0.32px;
         }
       }
+    }
+    .profile-restricted-message {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      min-height: 72px;
+      border-radius: 20px;
+      background-color: rgba($soft-purple-900, 0.65);
+      color: $neutral-100;
+      font-family: Hauora-Regular;
+      font-size: 16px;
+      line-height: 22px;
+      text-align: center;
     }
     .profile-actions {
       display: flex;

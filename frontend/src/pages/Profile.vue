@@ -14,6 +14,9 @@
         <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'sanctions' }" :aria-selected="activeTab === 'sanctions'" @click="activeTab = 'sanctions'">
           Санкции
         </button>
+        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'blacklist' }" :aria-selected="activeTab === 'blacklist'" @click="activeTab = 'blacklist'">
+          Черный список
+        </button>
       </nav>
       <router-link class="btn nav" :to="{ name: 'home' }" aria-label="На главную">На главную</router-link>
     </header>
@@ -294,6 +297,36 @@
           </div>
         </div>
 
+        <div v-else-if="activeTab === 'blacklist'" class="grid grid-blacklist">
+          <div class="block blacklist-block">
+            <div class="blacklist-head">
+              <h3>Черный список</h3>
+            </div>
+            <div class="blacklist-rules">
+              <p>Игроки из ЧС не смогут отправлять Вам заявки в друзья и заявки на вход в Ваши приватные комнаты.</p>
+              <p>При добавлении в ЧС текущая дружба, входящая заявка или исходящая заявка с этим игроком удаляется.</p>
+              <p>Вы не будете получать уведомления, если игрок из ЧС отметит Вас в чате или поставит реакцию на Ваше сообщение.</p>
+            </div>
+            <div v-if="blacklistLoading" class="blacklist-empty">Загрузка…</div>
+            <div v-else-if="blacklistError" class="blacklist-empty danger">{{ blacklistError }}</div>
+            <div v-else-if="blacklistItems.length === 0" class="blacklist-empty">В ЧС пока никого нет</div>
+            <div v-else class="blacklist-list">
+              <article v-for="item in blacklistItems" :key="item.id" class="blacklist-card">
+                <div class="blacklist-user">
+                  <img class="blacklist-avatar" v-minio-img="{ key: blacklistAvatarKey(item), placeholder: defaultAvatar, lazy: true, animated: true }" alt="avatar" />
+                  <div class="blacklist-main">
+                    <span>{{ item.username || `user${item.id}` }}</span>
+                    <small>Добавлен: {{ formatLocalDateTime(item.created_at) }}</small>
+                  </div>
+                </div>
+                <button class="btn danger blacklist-remove" type="button" :disabled="blacklistRemoving[item.id]" @click="removeFromBlacklistProfile(item)">
+                  {{ blacklistRemoving[item.id] ? '...' : 'Удалить из ЧС' }}
+                </button>
+              </article>
+            </div>
+          </div>
+        </div>
+
         <div v-else class="grid grid-empty">
           <!-- пока что пусто -->
         </div>
@@ -308,7 +341,7 @@ import { computed, nextTick, onMounted, onBeforeUnmount, reactive, ref, watch } 
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { api, refreshAccessTokenFull } from '@/services/axios'
-import { useAuthStore, useSettingsStore, useUserStore } from '@/store'
+import { useAuthStore, useFriendsStore, useSettingsStore, useUserStore, type BlacklistItem } from '@/store'
 import { confirmDialog, alertDialog } from '@/services/confirm'
 import { formatModerationAlert } from '@/services/moderation'
 import { formatLocalDateTime } from '@/services/datetime'
@@ -341,6 +374,7 @@ import {
 } from '@/constants/profileIcons'
 
 const userStore = useUserStore()
+const friendsStore = useFriendsStore()
 const auth = useAuthStore()
 const settings = useSettingsStore()
 const isBanned = computed(() => userStore.banActive)
@@ -418,7 +452,7 @@ const ANIMATED_AVATAR_TYPE = 'image/gif'
 const route = useRoute()
 const router = useRouter()
 
-const TAB_KEYS = ['profile', 'stats', 'history', 'sanctions'] as const
+const TAB_KEYS = ['profile', 'stats', 'history', 'sanctions', 'blacklist'] as const
 type TabKey = typeof TAB_KEYS[number]
 
 function normalizeTab(v: unknown): TabKey {
@@ -457,6 +491,9 @@ const sanctions = ref<SanctionItem[]>([])
 const sanctionsLoading = ref(false)
 const sanctionsLoaded = ref(false)
 const sanctionsError = ref('')
+const blacklistLoading = ref(false)
+const blacklistError = ref('')
+const blacklistRemoving = reactive<Record<number, boolean>>({})
 const tgInvitesTogglePending = ref(false)
 const themeSaveBusy = ref(false)
 const subscriptionModalOpen = ref(false)
@@ -507,6 +544,9 @@ const canEditProfileTheme = computed(() => {
   if (subscriptionUntilMs.value > 0) return subscriptionUntilMs.value > userNow.value
   return Boolean(me.subscription_active)
 })
+const blacklistItems = computed<BlacklistItem[]>(() => (
+  Array.isArray(friendsStore.blacklist) ? friendsStore.blacklist : []
+))
 const canUseAnimatedAvatar = computed(() => canEditProfileTheme.value)
 const avatarAccept = computed(() => (
   canUseAnimatedAvatar.value ? 'image/jpeg,image/png,image/gif' : 'image/jpeg,image/png'
@@ -651,6 +691,58 @@ async function loadSanctions(force = false) {
     sanctionsError.value = 'Не удалось загрузить историю ограничений'
   } finally {
     sanctionsLoading.value = false
+  }
+}
+
+async function loadBlacklist(): Promise<void> {
+  if (blacklistLoading.value) return
+  blacklistLoading.value = true
+  blacklistError.value = ''
+  try {
+    await friendsStore.fetchBlacklist()
+  } catch (e: any) {
+    const detail = String(e?.response?.data?.detail || '').trim()
+    if (detail === 'subscription_required') {
+      blacklistError.value = ''
+      return
+    }
+    blacklistError.value = 'Не удалось загрузить черный список'
+  } finally {
+    blacklistLoading.value = false
+  }
+}
+
+function blacklistAvatarKey(item: BlacklistItem): string {
+  const name = String(item.avatar_name || '').trim()
+  if (!name) return ''
+  return name.startsWith('avatars/') ? name : `avatars/${name}`
+}
+
+async function removeFromBlacklistProfile(item: BlacklistItem): Promise<void> {
+  const uid = Number(item?.id || 0)
+  if (!Number.isFinite(uid) || uid <= 0 || blacklistRemoving[Math.trunc(uid)]) return
+  const userLabel = item.username || `user${Math.trunc(uid)}`
+  const ok = await confirmDialog({
+    title: 'Удалить из Черного списка',
+    text: `Вы уверены, что хотите удалить пользователя ${userLabel} из ЧС?`,
+    confirmText: 'Удалить',
+    cancelText: 'Отмена',
+  })
+  if (!ok) return
+  const id = Math.trunc(uid)
+  blacklistRemoving[id] = true
+  try {
+    await friendsStore.removeFromBlacklist(id)
+  } catch (e: any) {
+    const detail = String(e?.response?.data?.detail || '').trim()
+    if (detail === 'subscription_required') {
+      void loadMe({ keepNickDraft: true }).catch(() => {})
+      void alertDialog('Черный список доступен только при активной подписке')
+    } else {
+      void alertDialog('Не удалось удалить пользователя из ЧС')
+    }
+  } finally {
+    delete blacklistRemoving[id]
   }
 }
 
@@ -1307,12 +1399,18 @@ watch(nick, (v) => {
 
 watch(() => route.query.tab, (tab) => {
   const requested = normalizeTab(tab)
-  const next = requested === 'history' && !showHistoryTab.value ? 'profile' : requested
+  const next = requested === 'history' && !showHistoryTab.value
+    ? 'profile'
+    : requested
   if (next !== activeTab.value) activeTab.value = next
 })
 
 watch(showHistoryTab, ok => {
   if (!ok && activeTab.value === 'history') activeTab.value = 'profile'
+})
+
+watch(canEditProfileTheme, () => {
+  if (activeTab.value === 'blacklist') void loadBlacklist()
 })
 
 watch(activeTab, (tab) => {
@@ -1323,20 +1421,29 @@ watch(activeTab, (tab) => {
     void loadSanctions(true)
     return
   }
+  if (tab === 'blacklist') {
+    void loadBlacklist()
+    return
+  }
   if (tab === 'profile') void loadMe({ keepNickDraft: true })
 })
 
 onMounted(async () => {
   try { await loadMe() } catch {}
   const normalizedRequestedTab = normalizeTab(route.query.tab)
-  const requestedTab = normalizedRequestedTab === 'history' && !showHistoryTab.value ? 'profile' : normalizedRequestedTab
+  const requestedTab = normalizedRequestedTab === 'history' && !showHistoryTab.value
+    ? 'profile'
+    : normalizedRequestedTab
   if (typeof route.query.tab === 'string' && requestedTab !== activeTab.value) {
     Promise.resolve().then(() => {
       activeTab.value = requestedTab
     })
   } else if (activeTab.value === 'sanctions') {
     void loadSanctions(true)
+  } else if (activeTab.value === 'blacklist') {
+    void loadBlacklist()
   }
+  friendsStore.ensureWS()
   onSanctionsUpdate = () => {
     if (activeTab.value === 'sanctions') void loadSanctions(true)
   }
@@ -1863,6 +1970,92 @@ onBeforeUnmount(() => {
             }
           }
         }
+        &.blacklist-block {
+          .blacklist-head {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 10px;
+          }
+          .blacklist-rules {
+            display: grid;
+            gap: 6px;
+            margin-top: 10px;
+            padding: 12px;
+            border: 3px solid $lead;
+            border-radius: 5px;
+            background-color: rgba($black, 0.08);
+            p {
+              margin: 0;
+              color: $ashy;
+              font-size: 14px;
+              line-height: 1.35;
+            }
+          }
+          .blacklist-empty {
+            padding: 20px 0;
+            color: $ashy;
+            &.danger {
+              color: $red;
+            }
+          }
+          .blacklist-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+            .blacklist-card {
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              gap: 10px;
+              padding: 10px;
+              border: 3px solid $lead;
+              border-radius: 5px;
+              background-color: rgba($black, 0.12);
+              .blacklist-user {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                min-width: 0;
+                .blacklist-avatar {
+                  flex: 0 0 auto;
+                  width: 48px;
+                  height: 48px;
+                  border-radius: 50%;
+                  object-fit: cover;
+                  background-color: $black;
+                }
+                .blacklist-main {
+                  display: flex;
+                  flex-direction: column;
+                  gap: 4px;
+                  min-width: 0;
+                  span {
+                    color: $fg;
+                    font-family: Manrope-SemiBold;
+                    font-size: 16px;
+                    line-height: 1.2;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                  }
+                  small {
+                    color: $ashy;
+                    font-size: 12px;
+                    line-height: 1.2;
+                  }
+                }
+              }
+              .blacklist-remove {
+                flex: 0 0 auto;
+                max-width: none;
+                min-width: 130px;
+              }
+            }
+          }
+        }
       }
       .modal {
         display: flex;
@@ -1934,6 +2127,9 @@ onBeforeUnmount(() => {
         }
       }
       &.grid-sanctions {
+        grid-template-columns: 1fr;
+      }
+      &.grid-blacklist {
         grid-template-columns: 1fr;
       }
       &.grid-history {

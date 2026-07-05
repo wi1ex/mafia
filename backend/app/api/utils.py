@@ -19,7 +19,7 @@ from ..core.roles import ROLE_ADMIN, ROLE_USER, normalize_user_role, room_modera
 from ..core.settings import settings
 from ..models.game import Game
 from ..models.room import Room
-from ..models.friend import FriendLink
+from ..models.friend import FriendLink, UserBlacklist
 from ..models.notif import Notif
 from ..models.subscription import UserSubscription
 from ..models.sanction import UserSanction
@@ -39,6 +39,7 @@ from ..services.nickname_limits import (
     normalize_nickname_changes_left,
     reset_nickname_changes_after_subscription_expired,
 )
+from ..services.blacklist import clear_user_blacklist_if_subscription_inactive
 from ..services.telegram import send_text_message
 from ..schemas.common import Ok, Identity
 if TYPE_CHECKING:
@@ -1807,6 +1808,7 @@ async def sync_expired_profile_subscriptions() -> int:
                     user_id=uid,
                 )
                 avatar_deleted = await delete_gif_avatar_for_inactive_subscription(session, uid, redis_client=r)
+                removed_blacklist_target_ids = await clear_user_blacklist_if_subscription_inactive(session, uid)
                 if nickname_counter_reset and not avatar_deleted:
                     await session.commit()
                 if not avatar_deleted:
@@ -1838,6 +1840,12 @@ async def sync_expired_profile_subscriptions() -> int:
                             ),
                         )
                 synced += 1
+                if removed_blacklist_target_ids:
+                    log.info(
+                        "subscriptions.expired_blacklist_clear.done",
+                        uid=uid,
+                        removed=len(removed_blacklist_target_ids),
+                    )
             except Exception as exc:
                 with suppress(Exception):
                     await session.rollback()
@@ -3883,6 +3891,19 @@ async def load_link(db: AsyncSession, uid: int, other: int) -> FriendLink | None
 async def friend_status_for(db: AsyncSession, viewer_id: int, target_id: int) -> str:
     if target_id == viewer_id:
         return "self"
+
+    blacklist_id = await db.scalar(
+        select(UserBlacklist.id)
+        .where(
+            or_(
+                and_(UserBlacklist.owner_id == viewer_id, UserBlacklist.target_id == target_id),
+                and_(UserBlacklist.owner_id == target_id, UserBlacklist.target_id == viewer_id),
+            )
+        )
+        .limit(1)
+    )
+    if blacklist_id is not None:
+        return "none"
 
     link = await load_link(db, viewer_id, target_id)
     if not link:

@@ -57,6 +57,7 @@ from ...services.global_chat import (
     emit_global_chat_sanction_removed_notice,
 )
 from ...services.minio import CHAT_IMAGE_PREFIX, delete_chat_images_async, get_prefix_storage_stats_async
+from ...services.blacklist import clear_user_blacklist
 from ...services.nickname_history import prepend_nickname_history
 from ...schemas.common import Ok, Identity
 from ...schemas.user import UserGamesHistoryOut, UserStatsOut
@@ -1497,6 +1498,7 @@ async def subscriptions_delete(user_id: int, ident: Identity = Depends(get_ident
     await session.delete(subscription)
     await session.commit()
     avatar_deleted = await delete_gif_avatar_for_inactive_subscription(session, uid)
+    removed_blacklist_target_ids = await clear_user_blacklist(session, uid)
     if not avatar_deleted:
         await refresh_user_profile_cache(session, uid)
 
@@ -1507,6 +1509,12 @@ async def subscriptions_delete(user_id: int, ident: Identity = Depends(get_ident
         action="admin_subscription_delete",
         details=f"Подписка снята user_id={uid} username={user.username or f'user{uid}'}",
     )
+    if removed_blacklist_target_ids:
+        log.info(
+            "admin.subscription.blacklist_clear.done",
+            uid=uid,
+            removed=len(removed_blacklist_target_ids),
+        )
 
     with suppress(Exception):
         await emit_auth_profile_sync(uid, role=str(user.role))

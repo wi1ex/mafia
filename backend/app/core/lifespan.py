@@ -93,6 +93,24 @@ async def lifespan(app) -> AsyncIterator[None]:
                 "created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()"
                 ")"
             ))
+            await conn.execute(text(
+                "CREATE TABLE IF NOT EXISTS user_blacklist ("
+                "id SERIAL PRIMARY KEY, "
+                "owner_id BIGINT NOT NULL, "
+                "target_id BIGINT NOT NULL, "
+                "created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), "
+                "CONSTRAINT uq_user_blacklist_pair UNIQUE (owner_id, target_id), "
+                "CONSTRAINT ck_user_blacklist_self CHECK (owner_id <> target_id)"
+                ")"
+            ))
+            await conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_user_blacklist_owner_id "
+                "ON user_blacklist (owner_id)"
+            ))
+            await conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_user_blacklist_target_id "
+                "ON user_blacklist (target_id)"
+            ))
             donation_url_default = settings.DONATION_URL.replace("'", "''")
             await conn.execute(text(
                 "ALTER TABLE settings "

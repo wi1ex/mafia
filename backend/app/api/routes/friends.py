@@ -19,10 +19,19 @@ from ...realtime.sio import sio
 from ...services.telegram import send_text_message
 from ...services.user_cache import get_user_profile_cached, get_user_profiles_cached
 from ...schemas.common import Identity, Ok
-from ...schemas.friend import FriendStatusOut, FriendsListOut, FriendsListItemOut, FriendIncomingCountOut, FriendInviteIn
+from ...schemas.friend import FriendStatusOut, FriendsListOut, FriendsListItemOut, FriendIncomingCountOut, FriendInviteIn, BlacklistOut, BlacklistItemOut
 from ...schemas.room import RoomBriefOut
 from ...security.auth_tokens import get_identity
 from ...security.decorators import log_route, rate_limited
+from ...services.blacklist import (
+    add_user_to_blacklist,
+    blacklist_relation,
+    build_blacklist_items,
+    clear_user_blacklist,
+    raise_if_friend_request_blocked_by_blacklist,
+    remove_user_from_blacklist,
+    user_has_active_subscription,
+)
 from ...api.utils import (
     SANCTION_BAN,
     SANCTION_TIMEOUT,
@@ -62,6 +71,10 @@ async def friend_status(user_id: int, ident: Identity = Depends(get_identity), d
 
     if user_id == uid:
         return FriendStatusOut(status="self")
+
+    relation = await blacklist_relation(db, uid, int(user_id))
+    if relation.get("a_blocks_b") or relation.get("b_blocks_a"):
+        return FriendStatusOut(status="none")
 
     link = await load_link(db, uid, int(user_id))
     if not link:
@@ -386,6 +399,63 @@ async def incoming_count(ident: Identity = Depends(get_identity), db: AsyncSessi
     return FriendIncomingCountOut(count=int(count or 0))
 
 
+@router.get("/blacklist", response_model=BlacklistOut)
+@log_route("friends.blacklist.list")
+@rate_limited(lambda ident, **_: f"rl:friends:blacklist:list:{ident['id']}", limit=10, window_s=1)
+async def blacklist_list(ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> BlacklistOut:
+    uid = int(ident["id"])
+    if not await user_has_active_subscription(db, uid):
+        await clear_user_blacklist(db, uid)
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="subscription_required")
+
+    items = await build_blacklist_items(db, uid)
+    return BlacklistOut(items=[BlacklistItemOut(**item) for item in items])
+
+
+@router.post("/blacklist/{user_id}", response_model=Ok)
+@log_route("friends.blacklist.add")
+@rate_limited(lambda ident, user_id, **_: f"rl:friends:blacklist:add:{ident['id']}:{user_id}", limit=5, window_s=5)
+async def blacklist_add(user_id: int, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
+    uid = int(ident["id"])
+    target_id = int(user_id)
+    created, _affected_friend_ids = await add_user_to_blacklist(db, owner_id=uid, target_id=target_id)
+    if created:
+        target_profile = await get_user_profile_cached(db, target_id)
+        await log_action(
+            db,
+            user_id=uid,
+            username=ident["username"],
+            action="blacklist_added",
+            details=(
+                f"blacklist_added target_user={target_id} "
+                f"target_username={(target_profile or {}).get('username') or f'user{target_id}'}"
+            ),
+        )
+    return Ok()
+
+
+@router.delete("/blacklist/{user_id}", response_model=Ok)
+@log_route("friends.blacklist.remove")
+@rate_limited(lambda ident, user_id, **_: f"rl:friends:blacklist:remove:{ident['id']}:{user_id}", limit=5, window_s=5)
+async def blacklist_remove(user_id: int, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
+    uid = int(ident["id"])
+    target_id = int(user_id)
+    removed = await remove_user_from_blacklist(db, owner_id=uid, target_id=target_id)
+    if removed:
+        target_profile = await get_user_profile_cached(db, target_id)
+        await log_action(
+            db,
+            user_id=uid,
+            username=ident["username"],
+            action="blacklist_removed",
+            details=(
+                f"blacklist_removed target_user={target_id} "
+                f"target_username={(target_profile or {}).get('username') or f'user{target_id}'}"
+            ),
+        )
+    return Ok()
+
+
 @router.post("/requests/{user_id}", response_model=Ok)
 @log_route("friends.request_send")
 @rate_limited(lambda ident, user_id, **_: f"rl:friends:request:{ident['id']}:{user_id}", limit=3, window_s=5)
@@ -404,6 +474,8 @@ async def send_friend_request(user_id: int, ident: Identity = Depends(get_identi
 
     if normalize_user_role(ident.get("role")) == ROLE_ADMIN or normalize_user_role(target.role) == ROLE_ADMIN:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="admin_friend_requests_disabled")
+
+    await raise_if_friend_request_blocked_by_blacklist(db, requester_id=uid, target_id=target_id)
 
     requester_profile = await get_user_profile_cached(db, uid)
 
