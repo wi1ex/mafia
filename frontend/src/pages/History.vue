@@ -409,13 +409,13 @@ onBeforeUnmount(() => {
       align-items: flex-start;
       padding: 50px 15px 15px;
       border-radius: 5px;
-      background-color: $fg;
-      box-shadow: 0 15px 20px rgba($white, 0.1), 0 5px 10px rgba($white, 0.1);
+      background-color: $neutral-100;
+      box-shadow: 0 15px 20px rgba($neutral-white, 0.1), 0 5px 10px rgba($neutral-white, 0.1);
       h1 {
         position: absolute;
         top: 15px;
         margin: 0;
-        color: $bg;
+        color: $neutral-black;
         font-size: 26px;
       }
       .history-header-stats {
@@ -432,7 +432,7 @@ onBeforeUnmount(() => {
         }
         .history-header-stat-label {
           text-align: center;
-          color: $bg;
+          color: $neutral-black;
           font-size: 14px;
           line-height: 1.2;
         }
@@ -444,14 +444,14 @@ onBeforeUnmount(() => {
           min-width: 50px;
           height: 25px;
           border-radius: 5px;
-          color: $fg;
+          color: $neutral-100;
           font-size: 14px;
           font-weight: bold;
           &.history-header-stat-value--red {
-            background-color: $red;
+            background-color: $red-500;
           }
           &.history-header-stat-value--black {
-            background-color: $graphite;
+            background-color: $neutral-800;
           }
         }
       }
@@ -459,9 +459,9 @@ onBeforeUnmount(() => {
     .history-state {
       padding: 40px 10px;
       text-align: center;
-      color: $ashy;
+      color: $neutral-300;
       &.history-state--error {
-        color: $orange;
+        color: $orange-500;
       }
     }
     .history-list {
@@ -473,18 +473,18 @@ onBeforeUnmount(() => {
       list-style: none;
       .history-item {
         border-radius: 5px;
-        background-color: $graphite;
-        box-shadow: 0 5px 10px rgba($black, 0.25);
+        background-color: $neutral-800;
+        box-shadow: 0 5px 10px rgba(black, 0.25);
         overflow: hidden;
         transition: background-color 0.25s ease-in-out;
         &.history-item--red:not(.open) {
-          background-color: rgba($red, 0.5);
+          background-color: rgba($red-500, 0.5);
         }
         &.history-item--black:not(.open) {
-          background-color: $graphite;
+          background-color: $neutral-800;
         }
         &.open {
-          background-color: $lead;
+          background-color: $neutral-700;
         }
         .history-main {
           display: grid;
@@ -513,7 +513,7 @@ onBeforeUnmount(() => {
               min-width: 0;
             }
             .game-number {
-              color: $fg;
+              color: $neutral-100;
               font-size: 16px;
             }
             .game-head {
@@ -521,7 +521,7 @@ onBeforeUnmount(() => {
               align-items: center;
               gap: 5px;
               min-width: 0;
-              color: $ashy;
+              color: $neutral-300;
               img {
                 width: 20px;
                 height: 20px;
@@ -529,7 +529,7 @@ onBeforeUnmount(() => {
                 object-fit: cover;
               }
               span {
-                color: $fg;
+                color: $neutral-100;
                 white-space: nowrap;
                 overflow: hidden;
                 text-overflow: ellipsis;
@@ -538,13 +538,13 @@ onBeforeUnmount(() => {
           }
           .history-main-mid {
             span {
-              color: $ashy;
+              color: $neutral-300;
               white-space: nowrap;
               overflow: hidden;
               text-overflow: ellipsis;
             }
             .game-result {
-              color: $fg;
+              color: $neutral-100;
             }
           }
           .arrow {
@@ -561,10 +561,10 @@ onBeforeUnmount(() => {
           .history-extra-state {
             padding: 15px 10px;
             text-align: center;
-            color: $ashy;
+            color: $neutral-300;
             font-size: 14px;
             &.history-extra-state--error {
-              color: $orange;
+              color: $orange-500;
             }
           }
         }
@@ -576,7 +576,7 @@ onBeforeUnmount(() => {
       justify-content: center;
       padding: 10px 0 20px;
       gap: 10px;
-      color: $ashy;
+      color: $neutral-300;
       font-size: 14px;
       .btn {
         display: inline-flex;
@@ -586,12 +586,12 @@ onBeforeUnmount(() => {
         height: 40px;
         border: none;
         border-radius: 5px;
-        background-color: $graphite;
-        color: $fg;
+        background-color: $neutral-800;
+        color: $neutral-100;
         cursor: pointer;
         transition: background-color 0.25s ease-in-out, opacity 0.25s ease-in-out;
         &:hover {
-          background-color: $lead;
+          background-color: $neutral-700;
         }
         &:disabled {
           opacity: 0.5;

@@ -1471,7 +1471,7 @@ onBeforeUnmount(() => {
   margin: 0 10px;
   padding: 10px;
   border-radius: 5px;
-  background-color: $dark;
+  background-color: $neutral-900;
   overflow: auto;
   scrollbar-width: none;
   .btn {
@@ -1484,51 +1484,51 @@ onBeforeUnmount(() => {
     height: 40px;
     border: none;
     border-radius: 5px;
-    background-color: $fg;
-    box-shadow: 3px 3px 5px rgba($black, 0.25);
+    background-color: $neutral-100;
+    box-shadow: 3px 3px 5px rgba(black, 0.25);
     font-size: 16px;
-    color: $bg;
-    font-family: Manrope-Medium;
+    color: $neutral-black;
+    font-family: Hauora-Regular;
     line-height: 1;
     text-decoration: none;
     cursor: pointer;
     transition: opacity 0.25s ease-in-out, color 0.25s ease-in-out, border-radius 0.25s ease-in-out, background-color 0.25s ease-in-out;
     &:hover {
-      background-color: $white;
+      background-color: $neutral-white;
     }
     &.nav {
       font-size: 16px;
       border-radius: 5px 5px 0 0;
     }
     &.dark {
-      background-color: $lead;
-      color: $fg;
+      background-color: $neutral-700;
+      color: $neutral-100;
       &:hover {
-        background-color: rgba($grey, 0.5);
+        background-color: rgba($neutral-500, 0.5);
       }
     }
     &.confirm {
-      background-color: rgba($green, 0.75);
+      background-color: rgba($green-500, 0.75);
       &:hover {
-        background-color: $green;
+        background-color: $green-500;
       }
     }
     &.danger {
-      background-color: rgba($red, 0.75);
-      color: $fg;
+      background-color: rgba($red-500, 0.75);
+      color: $neutral-100;
       &:hover {
-        background-color: $red;
+        background-color: $red-500;
       }
     }
     &.subscription-btn {
       max-width: 240px;
-      background-color: $fg;
-      color: $bg;
-      font-family: Manrope-SemiBold;
+      background-color: $neutral-100;
+      color: $neutral-black;
+      font-family: Hauora-SemiBold;
       &:hover,
       &:focus-visible {
-        background-color: $white;
-        box-shadow: 0 15px 30px rgba($black, 0.25);
+        background-color: $neutral-white;
+        box-shadow: 0 15px 30px rgba(black, 0.25);
       }
     }
     &:disabled {
@@ -1544,7 +1544,7 @@ onBeforeUnmount(() => {
     display: flex;
     align-items: flex-end;
     justify-content: space-between;
-    border-bottom: 3px solid $lead;
+    border-bottom: 3px solid $neutral-700;
     .tabs {
       display: flex;
       align-items: flex-end;
@@ -1557,16 +1557,16 @@ onBeforeUnmount(() => {
         height: 30px;
         border: none;
         border-radius: 5px 5px 0 0;
-        background-color: $graphite;
-        color: $fg;
+        background-color: $neutral-800;
+        color: $neutral-100;
         font-size: 18px;
-        font-family: Manrope-Medium;
+        font-family: Hauora-Regular;
         line-height: 1;
         cursor: pointer;
         transition: opacity 0.25s ease-in-out, height 0.25s ease-in-out, background-color 0.25s ease-in-out;
         &.active {
           height: 40px;
-          background-color: $lead;
+          background-color: $neutral-700;
         }
         &:disabled {
           opacity: 0.5;
@@ -1584,32 +1584,32 @@ onBeforeUnmount(() => {
       .block {
         padding: 15px;
         min-height: 190px;
-        border: 3px solid $lead;
+        border: 3px solid $neutral-700;
         border-radius: 5px;
         h3 {
           margin: 0 0 20px;
           font-size: 20px;
-          color: $fg;
+          color: $neutral-100;
         }
         .hint {
           margin: 0;
-          color: $grey;
+          color: $neutral-500;
           font-size: 14px;
           &.center {
             text-align: center;
           }
           &.text {
             font-size: 16px;
-            color: $fg;
+            color: $neutral-100;
           }
           &.warn {
-            color: $yellow;
+            color: $yellow-500;
           }
           &.red {
-            color: $red;
+            color: $red-500;
           }
           a {
-            color: $fg;
+            color: $neutral-100;
             text-decoration: none;
           }
         }
@@ -1690,9 +1690,9 @@ onBeforeUnmount(() => {
                   max-height: 250px;
                   padding: 10px;
                   border-radius: 5px;
-                  background-color: $graphite;
-                  box-shadow: 3px 3px 5px rgba($black, 0.25);
-                  color: $fg;
+                  background-color: $neutral-800;
+                  box-shadow: 3px 3px 5px rgba(black, 0.25);
+                  color: $neutral-100;
                   font-size: 14px;
                   line-height: 1.2;
                   z-index: 5;
@@ -1703,16 +1703,16 @@ onBeforeUnmount(() => {
                     font-size: 14px;
                   }
                   .nickname-history-access-text {
-                    color: $ashy;
+                    color: $neutral-300;
                     overflow-wrap: anywhere;
                     &.disabled {
-                      color: $grey;
+                      color: $neutral-500;
                     }
                   }
                   .nickname-history-divider {
                     width: 100%;
                     height: 1px;
-                    background-color: rgba($white, 0.1);
+                    background-color: rgba($neutral-white, 0.1);
                   }
                   .nickname-history-list {
                     display: flex;
@@ -1721,18 +1721,18 @@ onBeforeUnmount(() => {
                     overflow-y: auto;
                     scrollbar-width: thin;
                     span {
-                      color: $ashy;
+                      color: $neutral-300;
                       overflow-wrap: anywhere;
                       &.current {
-                        color: $fg;
-                        font-family: Manrope-SemiBold;
+                        color: $neutral-100;
+                        font-family: Hauora-SemiBold;
                       }
                     }
                   }
                   .nickname-history-state {
-                    color: $ashy;
+                    color: $neutral-300;
                     &.danger {
-                      color: $red;
+                      color: $red-500;
                     }
                   }
                 }
@@ -1756,8 +1756,8 @@ onBeforeUnmount(() => {
               gap: 5px;
               width: fit-content;
               border-radius: 15px;
-              background-color: var(--user-theme-bg, rgba($dark, 0.75));
-              box-shadow: 3px 3px 5px rgba($black, 0.25);
+              background-color: var(--user-theme-bg, rgba($neutral-900, 0.75));
+              box-shadow: 3px 3px 5px rgba(black, 0.25);
               transition: background-color 0.25s ease-in-out;
               .theme-preview-avatar {
                 width: 40px;
@@ -1778,9 +1778,9 @@ onBeforeUnmount(() => {
               }
               span {
                 min-width: 0;
-                color: $fg;
+                color: $neutral-100;
                 font-size: 22px;
-                font-family: Manrope-SemiBold;
+                font-family: Hauora-SemiBold;
                 line-height: 1.3;
                 white-space: nowrap;
                 overflow: hidden;
@@ -1793,9 +1793,9 @@ onBeforeUnmount(() => {
               margin: 15px 0;
               padding: 10px;
               gap: 5px;
-              background-color: $graphite;
+              background-color: $neutral-800;
               border-radius: 10px;
-              box-shadow: 3px 3px 5px rgba($black, 0.25);
+              box-shadow: 3px 3px 5px rgba(black, 0.25);
             }
             .theme-icon-palette {
               display: inline-grid;
@@ -1803,9 +1803,9 @@ onBeforeUnmount(() => {
               margin-bottom: 15px;
               padding: 10px;
               gap: 5px;
-              background-color: $graphite;
+              background-color: $neutral-800;
               border-radius: 10px;
-              box-shadow: 3px 3px 5px rgba($black, 0.25);
+              box-shadow: 3px 3px 5px rgba(black, 0.25);
             }
             .theme-option {
               display: flex;
@@ -1813,16 +1813,16 @@ onBeforeUnmount(() => {
               justify-content: center;
               width: 30px;
               height: 30px;
-              border: 2px solid $graphite;
+              border: 2px solid $neutral-800;
               border-radius: 999px;
-              background-color: var(--user-theme-bg, $graphite);
+              background-color: var(--user-theme-bg, $neutral-800);
               cursor: pointer;
               transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out;
               &:hover:enabled {
-                border-color: rgba($white, 0.5);
+                border-color: rgba($neutral-white, 0.5);
               }
               &.active {
-                border-color: $fg;
+                border-color: $neutral-100;
               }
               &:disabled {
                 cursor: not-allowed;
@@ -1848,13 +1848,13 @@ onBeforeUnmount(() => {
                 width: 10px;
                 height: 2px;
                 border-radius: 2px;
-                background-color: rgba($white, 0.75);
+                background-color: rgba($neutral-white, 0.75);
               }
               &:hover:enabled {
-                border-color: rgba($white, 0.5);
+                border-color: rgba($neutral-white, 0.5);
               }
               &.active {
-                border-color: $fg;
+                border-color: $neutral-100;
               }
               &:disabled {
                 cursor: not-allowed;
@@ -1874,7 +1874,7 @@ onBeforeUnmount(() => {
             align-items: flex-start;
             margin-top: 5px;
             gap: 10px;
-            --ui-input-label-bg: #{$dark};
+            --ui-input-label-bg: #{$neutral-900};
             :deep(.profile-input) {
               max-width: 320px;
               width: 100%;
@@ -1894,13 +1894,13 @@ onBeforeUnmount(() => {
             flex-wrap: wrap;
             gap: 10px;
             font-size: 14px;
-            color: $fg;
+            color: $neutral-100;
           }
           .sanctions-empty {
             padding: 20px 0;
-            color: $ashy;
+            color: $neutral-300;
             &.danger {
-              color: $red;
+              color: $red-500;
             }
           }
           .sanctions-list {
@@ -1909,20 +1909,20 @@ onBeforeUnmount(() => {
             gap: 10px;
             margin-top: 10px;
             .sanction-card {
-              border: 3px solid $lead;
+              border: 3px solid $neutral-700;
               border-radius: 5px;
               padding: 10px;
               &.sanction-card--timeout {
-                border-color: rgba($yellow, 0.5);
-                background-color: rgba($yellow, 0.25);
+                border-color: rgba($yellow-500, 0.5);
+                background-color: rgba($yellow-500, 0.25);
               }
               &.sanction-card--suspend {
-                border-color: rgba($orange, 0.5);
-                background-color: rgba($orange, 0.25);
+                border-color: rgba($orange-500, 0.5);
+                background-color: rgba($orange-500, 0.25);
               }
               &.sanction-card--ban {
-                border-color: rgba($red, 0.5);
-                background-color: rgba($red, 0.25);
+                border-color: rgba($red-500, 0.5);
+                background-color: rgba($red-500, 0.25);
               }
               .sanction-head {
                 display: flex;
@@ -1941,9 +1941,9 @@ onBeforeUnmount(() => {
                     padding: 5px 10px;
                     min-width: 30px;
                     border-radius: 999px;
-                    background-color: $dark;
+                    background-color: $neutral-900;
                     font-size: 12px;
-                    color: $fg;
+                    color: $neutral-100;
                   }
                 }
               }
@@ -1958,11 +1958,11 @@ onBeforeUnmount(() => {
                   gap: 3px;
                   font-size: 14px;
                   span {
-                    color: $ashy;
+                    color: $neutral-300;
                     font-size: 12px;
                   }
                   strong {
-                    color: $fg;
+                    color: $neutral-100;
                     overflow-wrap: anywhere;
                   }
                 }
@@ -1983,21 +1983,21 @@ onBeforeUnmount(() => {
             gap: 6px;
             margin-top: 10px;
             padding: 12px;
-            border: 3px solid $lead;
+            border: 3px solid $neutral-700;
             border-radius: 5px;
-            background-color: rgba($black, 0.08);
+            background-color: rgba(black, 0.08);
             p {
               margin: 0;
-              color: $ashy;
+              color: $neutral-300;
               font-size: 14px;
               line-height: 1.35;
             }
           }
           .blacklist-empty {
             padding: 20px 0;
-            color: $ashy;
+            color: $neutral-300;
             &.danger {
-              color: $red;
+              color: $red-500;
             }
           }
           .blacklist-list {
@@ -2011,9 +2011,9 @@ onBeforeUnmount(() => {
               justify-content: space-between;
               gap: 10px;
               padding: 10px;
-              border: 3px solid $lead;
+              border: 3px solid $neutral-700;
               border-radius: 5px;
-              background-color: rgba($black, 0.12);
+              background-color: rgba(black, 0.12);
               .blacklist-user {
                 display: flex;
                 align-items: center;
@@ -2025,7 +2025,7 @@ onBeforeUnmount(() => {
                   height: 48px;
                   border-radius: 50%;
                   object-fit: cover;
-                  background-color: $black;
+                  background-color: black;
                 }
                 .blacklist-main {
                   display: flex;
@@ -2033,8 +2033,8 @@ onBeforeUnmount(() => {
                   gap: 4px;
                   min-width: 0;
                   span {
-                    color: $fg;
-                    font-family: Manrope-SemiBold;
+                    color: $neutral-100;
+                    font-family: Hauora-SemiBold;
                     font-size: 16px;
                     line-height: 1.2;
                     overflow: hidden;
@@ -2042,7 +2042,7 @@ onBeforeUnmount(() => {
                     white-space: nowrap;
                   }
                   small {
-                    color: $ashy;
+                    color: $neutral-300;
                     font-size: 12px;
                     line-height: 1.2;
                   }
@@ -2063,7 +2063,7 @@ onBeforeUnmount(() => {
         align-items: center;
         justify-content: center;
         inset: 0;
-        background-color: rgba($black, 0.25);
+        background-color: rgba(black, 0.25);
         backdrop-filter: blur(5px);
         overscroll-behavior: contain;
         z-index: 50;
@@ -2072,9 +2072,9 @@ onBeforeUnmount(() => {
           flex-direction: column;
           padding: 10px;
           gap: 10px;
-          border: 1px solid $graphite;
+          border: 1px solid $neutral-800;
           border-radius: 5px;
-          background-color: $dark;
+          background-color: $neutral-900;
           .gif-preview-row {
             display: flex;
             flex-wrap: wrap;
@@ -2088,23 +2088,23 @@ onBeforeUnmount(() => {
             gap: 5px;
             align-items: center;
             span {
-              color: $grey;
+              color: $neutral-500;
               font-size: 18px;
             }
             img {
               width: 300px;
               height: 300px;
               border-radius: 5px;
-              background-color: $black;
+              background-color: black;
               object-fit: contain;
             }
           }
           .hint {
             margin: 0;
-            color: $grey;
+            color: $neutral-500;
             font-size: 14px;
             &.red {
-              color: $red;
+              color: $red-500;
             }
           }
           canvas {
@@ -2112,7 +2112,7 @@ onBeforeUnmount(() => {
             width: 300px;
             height: 300px;
             border-radius: 5px;
-            background-color: $black;
+            background-color: black;
           }
           .range {
             display: flex;

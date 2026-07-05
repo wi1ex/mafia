@@ -443,7 +443,7 @@ watch(
 .actions-trigger {
   display: inline-flex;
   align-items: center;
-  color: $orange;
+  color: $orange-500;
   font-size: 12px;
   line-height: 1;
   text-decoration: underline;
@@ -456,7 +456,7 @@ watch(
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: rgba($black, 0.25);
+  background-color: rgba(black, 0.25);
   backdrop-filter: blur(5px);
   z-index: 1100;
   .modal {
@@ -467,7 +467,7 @@ watch(
     max-height: calc(100vh - 40px);
     padding: 10px;
     border-radius: 5px;
-    background-color: $graphite;
+    background-color: $neutral-800;
     box-sizing: border-box;
     .modal-header {
       display: flex;
@@ -480,9 +480,9 @@ watch(
         gap: 10px;
         min-width: 0;
         span {
-          color: $fg;
+          color: $neutral-100;
           font-size: 18px;
-          font-family: Manrope-Medium;
+          font-family: Hauora-Regular;
         }
       }
       .editors {
@@ -496,16 +496,16 @@ watch(
           gap: 5px;
           width: min(320px, 100%);
           label {
-            color: $grey;
+            color: $neutral-500;
             font-size: 13px;
             line-height: 1.2;
           }
           .editor-status {
-            color: $ashy;
+            color: $neutral-300;
             font-size: 12px;
             line-height: 1.2;
             &.editor-status--error {
-              color: $orange;
+              color: $orange-500;
             }
           }
         }
@@ -527,10 +527,10 @@ watch(
       overflow: auto;
       .state {
         padding: 30px 10px;
-        color: $ashy;
+        color: $neutral-300;
         text-align: center;
         &.state-error {
-          color: $orange;
+          color: $orange-500;
         }
       }
       .actions-list {
@@ -542,9 +542,9 @@ watch(
           flex-direction: column;
           gap: 10px;
           padding: 10px;
-          border: 1px solid rgba($grey, 0.25);
+          border: 1px solid rgba($neutral-500, 0.25);
           border-radius: 5px;
-          background-color: rgba($lead, 0.75);
+          background-color: rgba($neutral-700, 0.75);
           .action-head {
             display: flex;
             align-items: flex-start;
@@ -563,15 +563,15 @@ watch(
                 height: 25px;
                 padding: 0 5px;
                 border-radius: 5px;
-                background-color: $fg;
-                color: $bg;
+                background-color: $neutral-100;
+                color: $neutral-black;
                 font-size: 12px;
-                font-family: Manrope-SemiBold;
+                font-family: Hauora-SemiBold;
               }
               .action-title {
-                color: $fg;
+                color: $neutral-100;
                 font-size: 16px;
-                font-family: Manrope-SemiBold;
+                font-family: Hauora-SemiBold;
               }
             }
             .action-head-meta {
@@ -579,18 +579,18 @@ watch(
               flex-direction: column;
               align-items: flex-end;
               gap: 5px;
-              color: $ashy;
+              color: $neutral-300;
               font-size: 12px;
               text-align: right;
               .action-type {
-                color: $orange;
+                color: $orange-500;
                 text-transform: lowercase;
               }
             }
           }
           .action-summary {
             margin: 0;
-            color: $fg;
+            color: $neutral-100;
             font-size: 14px;
             line-height: 1.2;
           }
@@ -604,14 +604,14 @@ watch(
               gap: 5px;
               padding: 10px;
               border-radius: 5px;
-              background-color: rgba($dark, 0.5);
+              background-color: rgba($neutral-900, 0.5);
               .field-label {
-                color: $grey;
+                color: $neutral-500;
                 font-size: 12px;
                 line-height: 1.2;
               }
               .field-value {
-                color: $fg;
+                color: $neutral-100;
                 font-size: 14px;
                 line-height: 1.2;
                 word-break: break-word;

@@ -444,7 +444,7 @@ onBeforeUnmount(() => {
             height: 32px;
             padding: 0 8px;
             border-radius: 12px;
-            background-color: $black;
+            background-color: $neutral-black;
             color: $neutral-white;
             font-family: Hauora-Regular;
             font-size: 16px;

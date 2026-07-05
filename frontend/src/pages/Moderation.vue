@@ -822,7 +822,7 @@ onBeforeUnmount(() => {
   margin: 0 10px 10px;
   padding: 10px;
   border-radius: 5px;
-  background-color: $dark;
+  background-color: $neutral-900;
   overflow: auto;
   scrollbar-width: none;
   user-select: text;
@@ -830,7 +830,7 @@ onBeforeUnmount(() => {
     display: flex;
     align-items: flex-end;
     justify-content: space-between;
-    border-bottom: 3px solid $lead;
+    border-bottom: 3px solid $neutral-700;
     .tabs {
       display: flex;
       align-items: flex-end;
@@ -841,16 +841,16 @@ onBeforeUnmount(() => {
         height: 30px;
         border: none;
         border-radius: 5px 5px 0 0;
-        background-color: $graphite;
-        color: $fg;
+        background-color: $neutral-800;
+        color: $neutral-100;
         font-size: 18px;
-        font-family: Manrope-Medium;
+        font-family: Hauora-Regular;
         line-height: 1;
         cursor: pointer;
         transition: opacity 0.25s ease-in-out, height 0.25s ease-in-out, background-color 0.25s ease-in-out;
         &.active {
           height: 40px;
-          background-color: $lead;
+          background-color: $neutral-700;
         }
       }
     }
@@ -867,33 +867,33 @@ onBeforeUnmount(() => {
     height: 40px;
     border: none;
     border-radius: 5px;
-    background-color: $fg;
+    background-color: $neutral-100;
     font-size: 14px;
-    color: $bg;
-    font-family: Manrope-Medium;
+    color: $neutral-black;
+    font-family: Hauora-Regular;
     line-height: 1;
     text-decoration: none;
     cursor: pointer;
     transition: opacity 0.25s ease-in-out, color 0.25s ease-in-out, border-radius 0.25s ease-in-out, background-color 0.25s ease-in-out;
     &:hover {
-      background-color: $white;
+      background-color: $neutral-white;
     }
     &.nav {
       font-size: 16px;
       border-radius: 5px 5px 0 0;
     }
     &.dark {
-      background-color: $lead;
-      color: $fg;
+      background-color: $neutral-700;
+      color: $neutral-100;
       &:hover {
-        background-color: rgba($grey, 0.5);
+        background-color: rgba($neutral-500, 0.5);
       }
     }
     &.danger {
-      background-color: rgba($red, 0.75);
-      color: $fg;
+      background-color: rgba($red-500, 0.75);
+      color: $neutral-100;
       &:hover {
-        background-color: $red;
+        background-color: $red-500;
       }
     }
     &:disabled {
@@ -920,18 +920,18 @@ onBeforeUnmount(() => {
   .table {
     width: 100%;
     border-collapse: collapse;
-    color: $fg;
-    font-family: Manrope-Medium;
+    color: $neutral-100;
+    font-family: Hauora-Regular;
     th {
       padding: 10px;
-      border-bottom: 1px solid $lead;
+      border-bottom: 1px solid $neutral-700;
       font-size: 16px;
-      color: $grey;
+      color: $neutral-500;
       text-align: left;
     }
     td {
       padding: 10px;
-      border-bottom: 1px solid $lead;
+      border-bottom: 1px solid $neutral-700;
       font-size: 14px;
     }
     .user-cell {
@@ -942,13 +942,13 @@ onBeforeUnmount(() => {
         padding: 0;
         border: none;
         background: transparent;
-        color: $fg;
+        color: $neutral-100;
         font: inherit;
         text-align: left;
         cursor: pointer;
         transition: color 0.25s ease-in-out;
         &:hover {
-          color: $white;
+          color: $neutral-white;
           text-decoration: underline;
         }
       }
@@ -960,7 +960,7 @@ onBeforeUnmount(() => {
         &:disabled {
           cursor: default;
           &:hover {
-            color: $fg;
+            color: $neutral-100;
             text-decoration: none;
           }
         }
@@ -992,17 +992,17 @@ onBeforeUnmount(() => {
     padding: 5px 10px;
     border-radius: 999px;
     font-size: 12px;
-    font-family: Manrope-SemiBold;
+    font-family: Hauora-SemiBold;
     line-height: 1;
     white-space: nowrap;
     &.status-active {
-      background-color: rgba($green, 0.25);
+      background-color: rgba($green-500, 0.25);
     }
     &.status-expired {
-      background-color: rgba($yellow, 0.25);
+      background-color: rgba($yellow-500, 0.25);
     }
     &.status-revoked {
-      background-color: rgba($red, 0.25);
+      background-color: rgba($red-500, 0.25);
     }
   }
   .pager {
@@ -1011,11 +1011,11 @@ onBeforeUnmount(() => {
     align-items: center;
     justify-content: center;
     gap: 10px;
-    color: $fg;
-    font-family: Manrope-Medium;
+    color: $neutral-100;
+    font-family: Hauora-Regular;
   }
   .muted {
-    color: $grey;
+    color: $neutral-500;
     text-align: center;
   }
 }

@@ -312,7 +312,7 @@ function formatMetric(value: number): string {
 <style scoped lang="scss">
 .history-details {
   padding: 10px;
-  border-top: 1px solid $lead;
+  border-top: 1px solid $neutral-700;
   .slots-grid {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -325,19 +325,19 @@ function formatMetric(value: number): string {
       gap: 5px;
       min-height: 130px;
       border-radius: 5px;
-      background-color: $dark;
-      border: 1px solid rgba($grey, 0.25);
+      background-color: $neutral-900;
+      border: 1px solid rgba($neutral-500, 0.25);
       &.role-citizen {
-        background-color: rgba($red, 0.2);
+        background-color: rgba($red-500, 0.2);
       }
       &.role-sheriff {
-        background-color: rgba($yellow, 0.2);
+        background-color: rgba($yellow-500, 0.2);
       }
       &.role-mafia {
-        background-color: $dark;
+        background-color: $neutral-900;
       }
       &.role-don {
-        background-color: $bg;
+        background-color: $neutral-black;
       }
       .slot-role-icon {
         position: absolute;
@@ -359,9 +359,9 @@ function formatMetric(value: number): string {
           width: 25px;
           height: 25px;
           border-radius: 5px;
-          background-color: $lead;
-          color: $fg;
-          font-family: Manrope-SemiBold;
+          background-color: $neutral-700;
+          color: $neutral-100;
+          font-family: Hauora-SemiBold;
           font-size: 14px;
           line-height: 18px;
         }
@@ -392,7 +392,7 @@ function formatMetric(value: number): string {
           span {
             width: 105px;
             height: 14px;
-            color: $fg;
+            color: $neutral-100;
             font-size: 12px;
             white-space: nowrap;
             overflow: hidden;
@@ -407,12 +407,12 @@ function formatMetric(value: number): string {
         bottom: 10px;
         flex-direction: column;
         gap: 5px;
-        color: $ashy;
+        color: $neutral-300;
         font-size: 12px;
         font-variant-numeric: tabular-nums;
       }
       .slot-extra {
-        color: $ashy;
+        color: $neutral-300;
         font-size: 12px;
         line-height: 1.2;
         &.slot-extra-best-move {
@@ -420,7 +420,7 @@ function formatMetric(value: number): string {
           align-items: center;
           gap: 5px;
           .slot-extra-label {
-            color: $ashy;
+            color: $neutral-300;
           }
           .best-move-values {
             display: inline-flex;
@@ -434,8 +434,8 @@ function formatMetric(value: number): string {
               min-width: 16px;
               height: 16px;
               border-radius: 5px;
-              background-color: $orange;
-              color: $bg;
+              background-color: $orange-500;
+              color: $neutral-black;
               font-size: 10px;
             }
           }
@@ -445,7 +445,7 @@ function formatMetric(value: number): string {
           align-items: center;
           gap: 5px;
           .slot-extra-label {
-            color: $ashy;
+            color: $neutral-300;
           }
           .farewell-values {
             display: inline-flex;
@@ -459,13 +459,13 @@ function formatMetric(value: number): string {
               min-width: 16px;
               height: 16px;
               border-radius: 5px;
-              color: $fg;
+              color: $neutral-100;
               font-size: 10px;
               &.citizen {
-                background-color: $red;
+                background-color: $red-500;
               }
               &.mafia {
-                background-color: $black;
+                background-color: black;
               }
             }
           }
@@ -475,7 +475,7 @@ function formatMetric(value: number): string {
           align-items: center;
           gap: 5px;
           .slot-extra-label {
-            color: $ashy;
+            color: $neutral-300;
           }
           .night-check-values {
             display: inline-flex;
@@ -489,17 +489,17 @@ function formatMetric(value: number): string {
               min-width: 16px;
               height: 16px;
               border-radius: 5px;
-              color: $fg;
+              color: $neutral-100;
               font-size: 10px;
               &.citizen {
-                background-color: $red;
+                background-color: $red-500;
               }
               &.sheriff {
-                background-color: $yellow;
-                color: $dark;
+                background-color: $yellow-500;
+                color: $neutral-900;
               }
               &.mafia {
-                background-color: $black;
+                background-color: black;
               }
             }
           }
@@ -510,7 +510,7 @@ function formatMetric(value: number): string {
         align-items: center;
         gap: 5px;
         max-width: calc(100% - 70px);
-        color: $orange;
+        color: $orange-500;
         font-size: 12px;
         line-height: 1.2;
         span {
@@ -522,10 +522,10 @@ function formatMetric(value: number): string {
           justify-content: center;
           padding: 3px 5px;
           border-radius: 5px;
-          background-color: rgba($red, 0.75);
-          color: $white;
+          background-color: rgba($red-500, 0.75);
+          color: $neutral-white;
           font-size: 10px;
-          font-family: Manrope-SemiBold;
+          font-family: Hauora-SemiBold;
           line-height: 1.1;
         }
         .vote-values {
@@ -540,8 +540,8 @@ function formatMetric(value: number): string {
             min-width: 16px;
             height: 16px;
             border-radius: 5px;
-            background-color: $ashy;
-            color: $bg;
+            background-color: $neutral-300;
+            color: $neutral-black;
             font-size: 10px;
           }
         }

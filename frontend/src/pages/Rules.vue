@@ -314,13 +314,13 @@ onBeforeUnmount(() => {
       justify-content: center;
       height: 40px;
       border-radius: 10px;
-      background-color: $fg;
-      color: $bg;
+      background-color: $neutral-100;
+      color: $neutral-black;
       text-decoration: none;
       cursor: pointer;
       transition: background-color 0.25s ease-in-out;
       &:hover {
-        background-color: $white;
+        background-color: $neutral-white;
       }
     }
     .toc-card {
@@ -329,14 +329,14 @@ onBeforeUnmount(() => {
       gap: 10px;
       padding: 20px;
       border-radius: 10px;
-      background-color: $graphite;
-      border: 1px solid $grey;
+      background-color: $neutral-800;
+      border: 1px solid $neutral-500;
     }
     .toc-title {
       font-size: 12px;
       letter-spacing: 1.5px;
       text-transform: uppercase;
-      color: $ashy;
+      color: $neutral-300;
     }
     .toc-links {
       display: flex;
@@ -346,21 +346,21 @@ onBeforeUnmount(() => {
         padding: 5px 20px;
         border-radius: 5px;
         border: 1px solid transparent;
-        background-color: $dark;
-        color: $fg;
+        background-color: $neutral-900;
+        color: $neutral-100;
         font-size: 14px;
         text-decoration: none;
         transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out, color 0.25s ease-in-out;
         &:hover {
-          background-color: $lead;
-          border-color: $grey;
-          color: $white;
+          background-color: $neutral-700;
+          border-color: $neutral-500;
+          color: $neutral-white;
         }
         &.active {
-          background-color: $lead;
-          border-color: $orange;
-          color: $white;
-          box-shadow: inset 10px 0 0 $orange;
+          background-color: $neutral-700;
+          border-color: $orange-500;
+          color: $neutral-white;
+          box-shadow: inset 10px 0 0 $orange-500;
         }
       }
     }
@@ -372,8 +372,8 @@ onBeforeUnmount(() => {
     gap: 20px;
     padding: 20px;
     border-radius: 10px;
-    background: linear-gradient(to right, $lead, $dark);
-    border: 1px solid $grey;
+    background: linear-gradient(to right, $neutral-700, $neutral-900);
+    border: 1px solid $neutral-500;
     overflow: hidden;
     animation: liftIn 0.25s ease-out both;
     &::before,
@@ -389,14 +389,14 @@ onBeforeUnmount(() => {
       height: 320px;
       top: -160px;
       left: -120px;
-      background: radial-gradient(circle, $orange, transparent 50%);
+      background: radial-gradient(circle, $orange-500, transparent 50%);
     }
     &::after {
       width: 400px;
       height: 400px;
       bottom: -200px;
       right: -130px;
-      background: radial-gradient(circle, $green, transparent 50%);
+      background: radial-gradient(circle, $green-500, transparent 50%);
     }
     .hero-content {
       position: relative;
@@ -409,7 +409,7 @@ onBeforeUnmount(() => {
         font-size: 12px;
         letter-spacing: 1.5px;
         text-transform: uppercase;
-        color: $ashy;
+        color: $neutral-300;
       }
       h1 {
         margin: 0;
@@ -423,8 +423,8 @@ onBeforeUnmount(() => {
         .pill {
           padding: 5px 15px;
           border-radius: 50px;
-          border: 1px solid $grey;
-          background-color: $dark;
+          border: 1px solid $neutral-500;
+          background-color: $neutral-900;
           font-size: 12px;
           letter-spacing: 1px;
           text-transform: uppercase;
@@ -442,22 +442,22 @@ onBeforeUnmount(() => {
       gap: 10px;
       padding: 20px;
       border-radius: 10px;
-      background-color: $graphite;
-      border: 1px solid $grey;
+      background-color: $neutral-800;
+      border: 1px solid $neutral-500;
       animation: liftIn 0.25s ease-out both;
       h3 {
         margin: 0;
         font-size: 18px;
-        color: $fg;
+        color: $neutral-100;
       }
       h4 {
         margin: 5px 0 0;
         font-size: 15px;
-        color: $fg;
+        color: $neutral-100;
       }
       p {
         margin: 0;
-        color: $ashy;
+        color: $neutral-300;
       }
       ul {
         margin: 0;
@@ -465,7 +465,7 @@ onBeforeUnmount(() => {
         display: grid;
         gap: 5px;
         li {
-          color: $fg;
+          color: $neutral-100;
         }
       }
       &:nth-child(2) { animation-delay: 0.15s; }
@@ -481,8 +481,8 @@ onBeforeUnmount(() => {
     gap: 20px;
     padding: 20px;
     border-radius: 10px;
-    background: linear-gradient(to right, $graphite, $lead);
-    border: 1px solid $grey;
+    background: linear-gradient(to right, $neutral-800, $neutral-700);
+    border: 1px solid $neutral-500;
     animation: liftIn 0.25s ease-out both;
     .notice-text {
       h2 {
@@ -491,7 +491,7 @@ onBeforeUnmount(() => {
       }
       p {
         margin: 0;
-        color: $ashy;
+        color: $neutral-300;
       }
     }
     .notice-list {
@@ -501,19 +501,19 @@ onBeforeUnmount(() => {
       .notice-item {
         padding: 5px 10px;
         border-radius: 10px;
-        background-color: $dark;
-        border: 1px solid $grey;
+        background-color: $neutral-900;
+        border: 1px solid $neutral-500;
         font-size: 14px;
-        color: $fg;
+        color: $neutral-100;
       }
       .notice-item--suspend {
-        border-color: $yellow;
+        border-color: $yellow-500;
       }
       .notice-item--timeout {
-        border-color: $orange;
+        border-color: $orange-500;
       }
       .notice-item--ban {
-        border-color: $red;
+        border-color: $red-500;
       }
     }
   }

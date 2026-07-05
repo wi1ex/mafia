@@ -1637,8 +1637,8 @@ onBeforeUnmount(() => {
   pointer-events: none;
   z-index: 70;
   .message-mention {
-    color: $orange;
-    font-family: Manrope-SemiBold;
+    color: $orange-500;
+    font-family: Hauora-SemiBold;
   }
   .message-mention-trigger {
     display: inline;
@@ -1665,9 +1665,9 @@ onBeforeUnmount(() => {
   width: 400px;
   height: min(600px, calc(100dvh - 85px));
   border-radius: 10px;
-  border: 3px solid $lead;
-  background-color: $dark;
-  box-shadow: 0 15px 30px rgba($black, 0.25);
+  border: 3px solid $neutral-700;
+  background-color: $neutral-900;
+  box-shadow: 0 15px 30px rgba(black, 0.25);
   overflow: hidden;
   .panel-header {
     display: flex;
@@ -1675,11 +1675,11 @@ onBeforeUnmount(() => {
     justify-content: space-between;
     padding: 5px 10px;
     min-height: 25px;
-    background-color: $lead;
+    background-color: $neutral-700;
     .panel-header-main {
-      color: $white;
+      color: $neutral-white;
       font-size: 20px;
-      font-family: Manrope-SemiBold;
+      font-family: Hauora-SemiBold;
     }
     .panel-header-actions {
       display: flex;
@@ -1718,10 +1718,10 @@ onBeforeUnmount(() => {
       padding: 0;
       width: 30px;
       height: 30px;
-      border: 1px solid $dark;
+      border: 1px solid $neutral-900;
       border-radius: 999px;
-      background-color: $lead;
-      box-shadow: 0 15px 30px rgba($black, 0.25);
+      background-color: $neutral-700;
+      box-shadow: 0 15px 30px rgba(black, 0.25);
       cursor: pointer;
       pointer-events: auto;
       img {
@@ -1735,10 +1735,10 @@ onBeforeUnmount(() => {
         width: 12px;
         height: 12px;
         border-radius: 999px;
-        background-color: $red;
-        color: $fg;
+        background-color: $red-500;
+        color: $neutral-100;
         white-space: nowrap;
-        font-family: Manrope-SemiBold;
+        font-family: Hauora-SemiBold;
         font-size: 10px;
         line-height: 1;
       }
@@ -1759,8 +1759,8 @@ onBeforeUnmount(() => {
       min-height: 30px;
       border: none;
       border-radius: 999px;
-      background-color: $lead;
-      color: $fg;
+      background-color: $neutral-700;
+      color: $neutral-100;
       font-size: 14px;
       cursor: pointer;
       &:disabled {
@@ -1770,7 +1770,7 @@ onBeforeUnmount(() => {
     }
     .empty-state {
       margin: auto 0;
-      color: $grey;
+      color: $neutral-500;
       text-align: center;
     }
     .global-chat-message {
@@ -1778,17 +1778,17 @@ onBeforeUnmount(() => {
       padding: 5px 8px;
       width: calc(100% - 20px);
       border-radius: 10px;
-      background-color: var(--user-theme-bg, $graphite);
-      border: 1px solid $lead;
+      background-color: var(--user-theme-bg, $neutral-800);
+      border: 1px solid $neutral-700;
       transition: border-color 0.25s ease-in-out;
       &--own {
-        background-color: var(--user-theme-bg, $graphite);
+        background-color: var(--user-theme-bg, $neutral-800);
       }
       &--deleted {
         opacity: 0.5;
       }
       &--highlighted {
-        border-color: $orange;
+        border-color: $orange-500;
       }
       .message-main {
         display: flex;
@@ -1833,16 +1833,16 @@ onBeforeUnmount(() => {
             }
             .author-name {
               min-width: 0;
-              color: $fg;
+              color: $neutral-100;
               font-size: 16px;
-              font-family: Manrope-Medium;
+              font-family: Hauora-Regular;
               overflow: hidden;
               text-overflow: ellipsis;
               white-space: nowrap;
             }
           }
           .message-time {
-            color: $ashy;
+            color: $neutral-300;
             font-size: 12px;
           }
         }
@@ -1853,11 +1853,11 @@ onBeforeUnmount(() => {
           gap: 5px;
           padding: 5px;
           border: none;
-          border-left: 5px solid rgba($orange, 0.5);
+          border-left: 5px solid rgba($orange-500, 0.5);
           border-radius: 5px;
-          background-color: $lead;
+          background-color: $neutral-700;
           text-align: left;
-          color: $fg;
+          color: $neutral-100;
           cursor: pointer;
           .reply-preview-body {
             display: flex;
@@ -1869,14 +1869,14 @@ onBeforeUnmount(() => {
               object-fit: cover;
             }
             .reply-author {
-              color: $fg;
+              color: $neutral-100;
               font-size: 14px;
-              font-family: Manrope-Medium;
+              font-family: Hauora-Regular;
             }
           }
           .reply-snippet {
             width: 100%;
-            color: $ashy;
+            color: $neutral-300;
             font-size: 12px;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -1892,8 +1892,8 @@ onBeforeUnmount(() => {
             margin: 0;
             padding: 5px 8px;
             border-radius: 5px;
-            background-color: $dark;
-            color: $fg;
+            background-color: $neutral-900;
+            color: $neutral-100;
             font-size: 16px;
             line-height: 1.2;
             user-select: text;
@@ -1901,15 +1901,15 @@ onBeforeUnmount(() => {
             overflow-wrap: anywhere;
           }
           .message-link {
-            color: $white;
-            font-family: Manrope-SemiBold;
+            color: $neutral-white;
+            font-family: Hauora-SemiBold;
             text-decoration: underline;
             text-decoration-thickness: 1px;
             text-underline-offset: 2px;
             word-break: break-word;
           }
           .tombstone {
-            color: $ashy;
+            color: $neutral-300;
             font-style: italic;
           }
           .tombstone-actions {
@@ -1925,7 +1925,7 @@ onBeforeUnmount(() => {
               padding: 5px 8px;
               border: none;
               border-radius: 999px;
-              background-color: $dark;
+              background-color: $neutral-900;
               cursor: pointer;
               img {
                 width: 16px;
@@ -1936,7 +1936,7 @@ onBeforeUnmount(() => {
                 cursor: default;
               }
               &--danger {
-                background-color: $red;
+                background-color: $red-500;
               }
             }
           }
@@ -1964,10 +1964,10 @@ onBeforeUnmount(() => {
               align-items: center;
               gap: 3px;
               padding: 3px 7px 3px 5px;
-              border: 1px solid $grey;
+              border: 1px solid $neutral-500;
               border-radius: 999px;
-              background-color: $lead;
-              color: $fg;
+              background-color: $neutral-700;
+              color: $neutral-100;
               font-size: 14px;
               font-weight: bold;
               line-height: 1.3;
@@ -1977,15 +1977,15 @@ onBeforeUnmount(() => {
                 cursor: default;
               }
               &--active {
-                border-color: rgba($green, 0.25);
-                background-color: rgba($green, 0.1);
+                border-color: rgba($green-500, 0.25);
+                background-color: rgba($green-500, 0.1);
               }
               &--picker {
                 padding: 5px 8px;
                 border: none;
-                background-color: $dark;
+                background-color: $neutral-900;
                 &.red {
-                  background-color: rgba($red, 0.75);
+                  background-color: rgba($red-500, 0.75);
                 }
                 img {
                   width: 16px;
@@ -2004,8 +2004,8 @@ onBeforeUnmount(() => {
               width: max-content;
               height: max-content;
               border-radius: 5px;
-              background-color: $lead;
-              box-shadow: 0 15px 30px rgba($black, 0.25);
+              background-color: $neutral-700;
+              box-shadow: 0 15px 30px rgba(black, 0.25);
               z-index: 5;
               .reaction-details-item {
                 display: flex;
@@ -2023,23 +2023,23 @@ onBeforeUnmount(() => {
                   gap: 3px;
                   min-width: 0;
                   .reaction-details-name {
-                    color: $fg;
+                    color: $neutral-100;
                     font-size: 12px;
-                    font-family: Manrope-Medium;
+                    font-family: Hauora-Regular;
                   }
                   .reaction-details-time {
-                    color: $grey;
+                    color: $neutral-500;
                     font-size: 10px;
                   }
                 }
               }
               .reaction-details-state {
                 margin: 0;
-                color: $ashy;
+                color: $neutral-300;
                 font-size: 12px;
                 line-height: 1.2;
                 &--error {
-                  color: $red;
+                  color: $red-500;
                 }
               }
             }
@@ -2055,20 +2055,20 @@ onBeforeUnmount(() => {
     padding: 10px;
     gap: 10px;
     min-height: 30px;
-    background-color: $lead;
-    color: $fg;
+    background-color: $neutral-700;
+    color: $neutral-100;
     font-size: 14px;
     font-weight: bold;
     &--error {
-      color: $red;
+      color: $red-500;
     }
     button {
       padding: 0 10px;
       height: 30px;
       border: none;
       border-radius: 999px;
-      background-color: $dark;
-      color: $fg;
+      background-color: $neutral-900;
+      color: $neutral-100;
       cursor: pointer;
     }
   }
@@ -2078,19 +2078,19 @@ onBeforeUnmount(() => {
     justify-content: space-between;
     padding: 10px;
     gap: 10px;
-    background-color: $lead;
+    background-color: $neutral-700;
     .reply-bar-text {
       display: flex;
       flex-direction: column;
       gap: 5px;
       min-width: 0;
       .reply-bar-label {
-        color: $ashy;
+        color: $neutral-300;
         font-size: 12px;
-        font-family: Manrope-Medium;
+        font-family: Hauora-Regular;
       }
       .reply-bar-snippet {
-        color: $fg;
+        color: $neutral-100;
         font-size: 14px;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -2106,7 +2106,7 @@ onBeforeUnmount(() => {
       min-height: 20px;
       border: none;
       border-radius: 999px;
-      background-color: $dark;
+      background-color: $neutral-900;
       cursor: pointer;
       img {
         width: 12px;
@@ -2119,7 +2119,7 @@ onBeforeUnmount(() => {
     align-items: flex-start;
     justify-content: space-between;
     padding: 10px;
-    background-color: $lead;
+    background-color: $neutral-700;
     .image-preview-div {
       display: flex;
       align-items: flex-start;
@@ -2137,7 +2137,7 @@ onBeforeUnmount(() => {
         justify-content: space-between;
         height: 40px;
         span {
-          color: $fg;
+          color: $neutral-100;
           font-size: 12px;
           line-height: 1.2;
           text-overflow: ellipsis;
@@ -2145,7 +2145,7 @@ onBeforeUnmount(() => {
           overflow: hidden;
         }
         small {
-          color: $ashy;
+          color: $neutral-300;
           font-size: 12px;
         }
       }
@@ -2159,7 +2159,7 @@ onBeforeUnmount(() => {
       min-height: 20px;
       border: none;
       border-radius: 999px;
-      background-color: $dark;
+      background-color: $neutral-900;
       cursor: pointer;
       img {
         width: 12px;
@@ -2174,7 +2174,7 @@ onBeforeUnmount(() => {
     min-height: 52px;
     .composer-input-wrap {
       width: 100%;
-      background-color: $lead;
+      background-color: $neutral-700;
       overflow: hidden;
     }
     .composer-highlight-overlay {
@@ -2191,10 +2191,10 @@ onBeforeUnmount(() => {
         padding: 18px 80px 14px 45px;
         width: calc(100% - 125px);
         height: 20px;
-        color: $fg;
+        color: $neutral-100;
         font-size: 16px;
         line-height: 1.2;
-        font-family: Manrope-Medium;
+        font-family: Hauora-Regular;
         white-space: pre-wrap;
         overflow-wrap: anywhere;
       }
@@ -2215,7 +2215,7 @@ onBeforeUnmount(() => {
       height: 30px;
       border: none;
       border-radius: 999px;
-      background-color: $dark;
+      background-color: $neutral-900;
       cursor: pointer;
       z-index: 5;
       &--file {
@@ -2248,21 +2248,21 @@ onBeforeUnmount(() => {
       height: 20px;
       border: none;
       background-color: transparent;
-      color: $fg;
+      color: $neutral-100;
       font-size: 16px;
       line-height: 1.2;
-      font-family: Manrope-Medium;
+      font-family: Hauora-Regular;
       resize: none;
       outline: none;
       overflow: auto;
       scrollbar-width: none;
-      caret-color: $fg;
+      caret-color: $neutral-100;
       z-index: 1;
       &--mirrored {
         color: transparent;
       }
       &::selection {
-        background-color: rgba($orange, 0.25);
+        background-color: rgba($orange-500, 0.25);
         color: transparent;
       }
       &:disabled {
@@ -2280,14 +2280,14 @@ onBeforeUnmount(() => {
       padding: 5px;
       gap: 5px;
       max-height: 150px;
-      background-color: $lead;
+      background-color: $neutral-700;
       overflow-y: auto;
       scrollbar-width: thin;
       z-index: 10;
       .mention-suggestions-state {
         margin: 0;
         padding: 5px;
-        color: $ashy;
+        color: $neutral-300;
         font-size: 14px;
       }
       .mention-suggestion {
@@ -2298,10 +2298,10 @@ onBeforeUnmount(() => {
         border: none;
         border-radius: 5px;
         background-color: transparent;
-        color: $fg;
+        color: $neutral-100;
         cursor: pointer;
         &--active {
-          background-color: rgba($orange, 0.25);
+          background-color: rgba($orange-500, 0.25);
         }
         .mention-suggestion-avatar {
           width: 24px;
@@ -2312,7 +2312,7 @@ onBeforeUnmount(() => {
         .mention-suggestion-name {
           min-width: 0;
           font-size: 16px;
-          font-family: Manrope-Medium;
+          font-family: Hauora-Regular;
           text-overflow: ellipsis;
           white-space: nowrap;
           overflow: hidden;
@@ -2330,7 +2330,7 @@ onBeforeUnmount(() => {
       height: 30px;
       border: none;
       border-radius: 999px;
-      background-color: $dark;
+      background-color: $neutral-900;
       cursor: pointer;
       z-index: 5;
       &:disabled {
@@ -2350,8 +2350,8 @@ onBeforeUnmount(() => {
   display: flex;
   position: absolute;
   transform-origin: bottom right;
-  background-color: $lead;
-  box-shadow: 0 15px 30px rgba($black, 0.25);
+  background-color: $neutral-700;
+  box-shadow: 0 15px 30px rgba(black, 0.25);
   overflow: hidden;
   z-index: 10;
   .emoji-button {
@@ -2403,7 +2403,7 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   inset: 0;
-  background-color: rgba($black, 0.5);
+  background-color: rgba(black, 0.5);
   z-index: 120;
   .deleted-preview-modal {
     display: flex;
@@ -2411,8 +2411,8 @@ onBeforeUnmount(() => {
     width: min(600px, 80vw);
     max-height: min(600px, 80dvh);
     border-radius: 20px;
-    background-color: $graphite;
-    box-shadow: 0 15px 30px rgba($black, 0.25);
+    background-color: $neutral-800;
+    box-shadow: 0 15px 30px rgba(black, 0.25);
     overflow: hidden;
     .deleted-preview-header {
       display: flex;
@@ -2420,18 +2420,18 @@ onBeforeUnmount(() => {
       justify-content: space-between;
       gap: 10px;
       padding: 10px 15px;
-      background-color: $lead;
+      background-color: $neutral-700;
       .deleted-preview-header-main {
         display: flex;
         flex-direction: column;
         gap: 5px;
         span {
-          color: $fg;
+          color: $neutral-100;
           font-size: 16px;
-          font-family: Manrope-SemiBold;
+          font-family: Hauora-SemiBold;
         }
         small {
-          color: $ashy;
+          color: $neutral-300;
           font-size: 12px;
         }
       }
@@ -2468,34 +2468,34 @@ onBeforeUnmount(() => {
           object-fit: cover;
         }
         span {
-          color: $fg;
+          color: $neutral-100;
           font-size: 16px;
-          font-family: Manrope-Medium;
+          font-family: Hauora-Regular;
         }
       }
       .deleted-preview-text,
       .deleted-preview-empty {
         margin: 0;
-        color: $fg;
+        color: $neutral-100;
         font-size: 16px;
         line-height: 1.2;
         white-space: pre-wrap;
         overflow-wrap: anywhere;
       }
       .message-link {
-        color: $white;
-        font-family: Manrope-SemiBold;
+        color: $neutral-white;
+        font-family: Hauora-SemiBold;
         text-decoration: underline;
         text-decoration-thickness: 1px;
         text-underline-offset: 2px;
         word-break: break-word;
       }
       .message-mention {
-        color: $orange;
-        font-family: Manrope-SemiBold;
+        color: $orange-500;
+        font-family: Hauora-SemiBold;
       }
       .deleted-preview-empty {
-        color: $ashy;
+        color: $neutral-300;
         font-style: italic;
       }
       .deleted-preview-image {
@@ -2514,7 +2514,7 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   inset: 0;
-  background-color: $dark;
+  background-color: $neutral-900;
   z-index: 130;
   .image-lightbox-close {
     position: absolute;
@@ -2528,7 +2528,7 @@ onBeforeUnmount(() => {
     padding: 0;
     border: none;
     border-radius: 999px;
-    background-color: $graphite;
+    background-color: $neutral-800;
     cursor: pointer;
     img {
       width: 20px;
@@ -2539,7 +2539,7 @@ onBeforeUnmount(() => {
     max-width: min(80vw, 1440px);
     max-height: min(80vh, 960px);
     object-fit: contain;
-    box-shadow: 0 15px 30px rgba($black, 0.25);
+    box-shadow: 0 15px 30px rgba(black, 0.25);
   }
 }
 

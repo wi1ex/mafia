@@ -510,8 +510,8 @@ onMounted(() => {
 
 <style scoped lang="scss">
 .stats-tab {
-  --ring-win: #{rgba($green, 0.75)};
-  --ring-loss: #{rgba($red, 0.75)};
+  --ring-win: #{rgba($green-500, 0.75)};
+  --ring-loss: #{rgba($red-500, 0.75)};
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -541,17 +541,17 @@ onMounted(() => {
       padding: 0 20px;
       border: none;
       border-radius: 5px;
-      background-color: $graphite;
-      color: $fg;
+      background-color: $neutral-800;
+      color: $neutral-100;
       font-size: 16px;
       cursor: pointer;
       transition: background-color 0.25s ease-in-out, color 0.25s ease-in-out;
       &:hover {
-        background-color: $lead;
+        background-color: $neutral-700;
       }
       &.active {
-        background-color: $fg;
-        color: $bg;
+        background-color: $neutral-100;
+        color: $neutral-black;
       }
     }
   }
@@ -562,15 +562,15 @@ onMounted(() => {
     padding: 10px;
     gap: 10px;
     min-height: 140px;
-    border: 1px solid rgba($grey, 0.5);
+    border: 1px solid rgba($neutral-500, 0.5);
     border-radius: 5px;
-    background-color: rgba($graphite, 0.5);
-    color: $ashy;
+    background-color: rgba($neutral-800, 0.5);
+    color: $neutral-300;
     &.state-inline {
       min-height: auto;
     }
     &.state-danger {
-      color: $red;
+      color: $red-500;
     }
   }
   .stats-layout {
@@ -583,8 +583,8 @@ onMounted(() => {
       padding: 10px;
       gap: 10px;
       border-radius: 5px;
-      border: 1px solid rgba($grey, 0.5);
-      background: linear-gradient(150deg, rgba($graphite, 0.75), rgba($dark, 0.75));
+      border: 1px solid rgba($neutral-500, 0.5);
+      background: linear-gradient(150deg, rgba($neutral-800, 0.75), rgba($neutral-900, 0.75));
       h4 {
         margin: 0;
       }
@@ -597,16 +597,16 @@ onMounted(() => {
       gap: 5px;
       height: 72px;
       border-radius: 5px;
-      border: 1px solid rgba($grey, 0.5);
-      background: linear-gradient(150deg, rgba($graphite, 0.75), rgba($lead, 0.75));
+      border: 1px solid rgba($neutral-500, 0.5);
+      background: linear-gradient(150deg, rgba($neutral-800, 0.75), rgba($neutral-700, 0.75));
       span {
-        color: $ashy;
+        color: $neutral-300;
         font-size: 14px;
       }
       strong {
         text-align: end;
-        color: $fg;
-        font-family: Manrope-SemiBold;
+        color: $neutral-100;
+        font-family: Hauora-SemiBold;
         font-size: 20px;
         line-height: 1.1;
       }
@@ -623,8 +623,8 @@ onMounted(() => {
         gap: 10px;
         min-width: 800px;
         border-radius: 5px;
-        border: 1px solid rgba($grey, 0.5);
-        background: linear-gradient(150deg, rgba($graphite, 0.75), rgba($dark, 0.75));
+        border: 1px solid rgba($neutral-500, 0.5);
+        background: linear-gradient(150deg, rgba($neutral-800, 0.75), rgba($neutral-900, 0.75));
       }
       .result-ring {
         display: flex;
@@ -635,14 +635,14 @@ onMounted(() => {
         width: 300px;
         height: 300px;
         border-radius: 50%;
-        border: 1px solid $grey;
+        border: 1px solid $neutral-500;
         &::before {
           content: "";
           position: absolute;
           inset: 30px;
           border-radius: inherit;
-          background-color: $dark;
-          border: 1px solid rgba($grey, 0.5);
+          background-color: $neutral-900;
+          border: 1px solid rgba($neutral-500, 0.5);
         }
         .result-center {
           display: flex;
@@ -653,14 +653,14 @@ onMounted(() => {
           width: 170px;
           z-index: 1;
           span {
-            color: $ashy;
+            color: $neutral-300;
             font-size: 24px;
             text-transform: uppercase;
             text-align: center;
           }
           strong {
-            color: $fg;
-            font-family: Manrope-SemiBold;
+            color: $neutral-100;
+            font-family: Hauora-SemiBold;
             font-size: 40px;
             line-height: 1;
             text-align: center;
@@ -681,16 +681,16 @@ onMounted(() => {
               height: 10px;
               border-radius: 50%;
               &.wins {
-                background-color: $green;
+                background-color: $green-500;
               }
               &.losses {
-                background-color: $red;
+                background-color: $red-500;
               }
             }
             .legend-pct {
               font-size: 16px;
-              color: $fg;
-              font-family: Manrope-SemiBold;
+              color: $neutral-100;
+              font-family: Hauora-SemiBold;
               text-align: right;
               white-space: nowrap;
             }
@@ -713,14 +713,14 @@ onMounted(() => {
           width: 200px;
           height: 200px;
           border-radius: 50%;
-          border: 1px solid $grey;
+          border: 1px solid $neutral-500;
           &::before {
             content: "";
             position: absolute;
             inset: 20px;
             border-radius: inherit;
-            background-color: $dark;
-            border: 1px solid rgba($grey, 0.5);
+            background-color: $neutral-900;
+            border: 1px solid rgba($neutral-500, 0.5);
           }
           .role-result-center {
             display: flex;
@@ -738,8 +738,8 @@ onMounted(() => {
               object-fit: contain;
             }
             strong {
-              color: $fg;
-              font-family: Manrope-SemiBold;
+              color: $neutral-100;
+              font-family: Hauora-SemiBold;
               font-size: 30px;
               line-height: 1;
               text-align: center;
@@ -760,16 +760,16 @@ onMounted(() => {
                 height: 10px;
                 border-radius: 50%;
                 &.wins {
-                  background-color: $green;
+                  background-color: $green-500;
                 }
                 &.losses {
-                  background-color: $red;
+                  background-color: $red-500;
                 }
               }
               .legend-pct {
                 font-size: 14px;
-                color: $fg;
-                font-family: Manrope-SemiBold;
+                color: $neutral-100;
+                font-family: Hauora-SemiBold;
                 text-align: right;
                 white-space: nowrap;
               }
@@ -791,15 +791,15 @@ onMounted(() => {
         padding: 10px;
         gap: 5px;
         border-radius: 5px;
-        background-color: $dark;
-        border: 1px solid rgba($grey, 0.5);
+        background-color: $neutral-900;
+        border: 1px solid rgba($neutral-500, 0.5);
         .rank-top {
           display: grid;
           grid-template-columns: auto 1fr auto;
           align-items: center;
           gap: 5px;
           .rank-pos {
-            color: $ashy;
+            color: $neutral-300;
           }
           .rank-name {
             text-overflow: ellipsis;
@@ -807,19 +807,19 @@ onMounted(() => {
             overflow: hidden;
           }
           .rank-val {
-            color: $fg;
+            color: $neutral-100;
           }
         }
         .rank-bar {
           height: 10px;
           border-radius: 999px;
-          background-color: rgba($black, 0.5);
+          background-color: rgba(black, 0.5);
           overflow: hidden;
           span {
             display: block;
             height: 100%;
             border-radius: inherit;
-            background: linear-gradient(90deg, $lead, $fg);
+            background: linear-gradient(90deg, $neutral-700, $neutral-100);
           }
         }
       }
@@ -839,19 +839,19 @@ onMounted(() => {
           gap: 10px;
           .best-label {
             min-width: 30px;
-            color: $ashy;
+            color: $neutral-300;
             font-size: 14px;
           }
           .best-bar {
             height: 10px;
             border-radius: 999px;
-            background-color: rgba($black, 0.5);
+            background-color: rgba(black, 0.5);
             overflow: hidden;
             span {
               display: block;
               height: 100%;
               border-radius: inherit;
-              background: linear-gradient(90deg, rgba($yellow, 0.75), rgba($green, 0.75));
+              background: linear-gradient(90deg, rgba($yellow-500, 0.75), rgba($green-500, 0.75));
             }
           }
           strong {

@@ -2657,7 +2657,7 @@ onMounted(() => {
   margin: 0 10px 10px;
   padding: 10px;
   border-radius: 5px;
-  background-color: $dark;
+  background-color: $neutral-900;
   overflow: auto;
   scrollbar-width: none;
   user-select: text;
@@ -2665,7 +2665,7 @@ onMounted(() => {
     display: flex;
     align-items: flex-end;
     justify-content: space-between;
-    border-bottom: 3px solid $lead;
+    border-bottom: 3px solid $neutral-700;
     .tabs {
       display: flex;
       align-items: flex-end;
@@ -2676,16 +2676,16 @@ onMounted(() => {
         height: 30px;
         border: none;
         border-radius: 5px 5px 0 0;
-        background-color: $graphite;
-        color: $fg;
+        background-color: $neutral-800;
+        color: $neutral-100;
         font-size: 18px;
-        font-family: Manrope-Medium;
+        font-family: Hauora-Regular;
         line-height: 1;
         cursor: pointer;
         transition: opacity 0.25s ease-in-out, height 0.25s ease-in-out, background-color 0.25s ease-in-out;
         &.active {
           height: 40px;
-          background-color: $lead;
+          background-color: $neutral-700;
         }
         &:disabled {
           opacity: 0.5;
@@ -2701,7 +2701,7 @@ onMounted(() => {
     justify-content: center;
     inset: 0;
     padding: 20px;
-    background-color: rgba($black, 0.5);
+    background-color: rgba(black, 0.5);
     backdrop-filter: blur(5px);
     z-index: 1200;
     .user-stats-modal {
@@ -2709,9 +2709,9 @@ onMounted(() => {
       flex-direction: column;
       width: min(96vw, 1500px);
       max-height: 92vh;
-      border: 1px solid $lead;
+      border: 1px solid $neutral-700;
       border-radius: 5px;
-      background-color: $dark;
+      background-color: $neutral-900;
       overflow: hidden;
     }
     .user-stats-head {
@@ -2720,11 +2720,11 @@ onMounted(() => {
       justify-content: space-between;
       gap: 10px;
       padding: 10px;
-      border-bottom: 1px solid $lead;
-      background-color: $graphite;
+      border-bottom: 1px solid $neutral-700;
+      background-color: $neutral-800;
       span {
         font-size: 16px;
-        font-family: Manrope-SemiBold;
+        font-family: Hauora-SemiBold;
       }
       button {
         display: flex;
@@ -2757,39 +2757,39 @@ onMounted(() => {
     height: 40px;
     border: none;
     border-radius: 5px;
-    background-color: $fg;
+    background-color: $neutral-100;
     font-size: 14px;
-    color: $bg;
-    font-family: Manrope-Medium;
+    color: $neutral-black;
+    font-family: Hauora-Regular;
     line-height: 1;
     text-decoration: none;
     cursor: pointer;
     transition: opacity 0.25s ease-in-out, color 0.25s ease-in-out, border-radius 0.25s ease-in-out, background-color 0.25s ease-in-out;
     &:hover {
-      background-color: $white;
+      background-color: $neutral-white;
     }
     &.nav {
       font-size: 16px;
       border-radius: 5px 5px 0 0;
     }
     &.dark {
-      background-color: $lead;
-      color: $fg;
+      background-color: $neutral-700;
+      color: $neutral-100;
       &:hover {
-        background-color: rgba($grey, 0.5);
+        background-color: rgba($neutral-500, 0.5);
       }
     }
     &.confirm {
-      background-color: rgba($green, 0.75);
+      background-color: rgba($green-500, 0.75);
       &:hover {
-        background-color: $green;
+        background-color: $green-500;
       }
     }
     &.danger {
-      background-color: rgba($red, 0.75);
-      color: $fg;
+      background-color: rgba($red-500, 0.75);
+      color: $neutral-100;
       &:hover {
-        background-color: $red;
+        background-color: $red-500;
       }
     }
     &:disabled {
@@ -2817,7 +2817,7 @@ onMounted(() => {
       grid-template-columns: 1fr 1fr 1fr;
       gap: 10px;
       .block {
-        border: 3px solid $lead;
+        border: 3px solid $neutral-700;
         border-radius: 5px;
         padding: 15px;
         .field-stack {
@@ -2860,7 +2860,7 @@ onMounted(() => {
       cursor: default;
       width: fit-content;
       .tooltip-value {
-        border-bottom: 1px dashed $grey;
+        border-bottom: 1px dashed $neutral-500;
       }
       .tooltip-body {
         position: absolute;
@@ -2871,10 +2871,10 @@ onMounted(() => {
         max-height: 200px;
         overflow: auto;
         padding: 10px;
-        border: 1px solid $lead;
+        border: 1px solid $neutral-700;
         border-radius: 5px;
-        background-color: $graphite;
-        box-shadow: 0 5px 15px rgba($black, 0.25);
+        background-color: $neutral-800;
+        box-shadow: 0 5px 15px rgba(black, 0.25);
         opacity: 0;
         transform: translateY(-5px);
         pointer-events: none;
@@ -2892,7 +2892,7 @@ onMounted(() => {
         flex-wrap: wrap;
         gap: 5px;
         font-size: 18px;
-        color: $fg;
+        color: $neutral-100;
       }
       .tooltip-avatar {
         width: 16px;
@@ -2903,11 +2903,11 @@ onMounted(() => {
       }
       .tooltip-id,
       .tooltip-minutes {
-        color: $grey;
+        color: $neutral-500;
       }
       .tooltip-empty {
         font-size: 18px;
-        color: $grey;
+        color: $neutral-500;
       }
       &:hover .tooltip-body,
       &:focus-within .tooltip-body {
@@ -2923,7 +2923,7 @@ onMounted(() => {
       .stats-mini-title {
         margin-bottom: 5px;
         font-size: 12px;
-        color: $grey;
+        color: $neutral-500;
       }
       .stats-grid {
         display: grid;
@@ -2934,16 +2934,16 @@ onMounted(() => {
           flex-direction: column;
           gap: 5px;
           padding: 10px;
-          border: 1px solid $lead;
+          border: 1px solid $neutral-700;
           border-radius: 5px;
-          background-color: $graphite;
+          background-color: $neutral-800;
           .label {
             font-size: 12px;
-            color: $fg;
+            color: $neutral-100;
           }
           .value {
             font-size: 20px;
-            color: $green;
+            color: $green-500;
           }
         }
       }
@@ -2964,7 +2964,7 @@ onMounted(() => {
       .chart {
         padding: 10px;
         border-radius: 5px;
-        background-color: $graphite;
+        background-color: $neutral-800;
         .chart-body {
           display: flex;
           margin-top: 10px;
@@ -2977,7 +2977,7 @@ onMounted(() => {
           height: 185px;
           padding: 2px 0;
           font-size: 14px;
-          color: $grey;
+          color: $neutral-500;
           min-width: 10px;
           text-align: right;
         }
@@ -3001,7 +3001,7 @@ onMounted(() => {
             .bar {
               position: relative;
               width: 100%;
-              background-color: $fg;
+              background-color: $neutral-100;
               border-radius: 3px 3px 0 0;
               transition: height 0.25s ease-in-out;
               .bar-value {
@@ -3010,13 +3010,13 @@ onMounted(() => {
                 left: 50%;
                 transform: translateX(-50%);
                 font-size: 10px;
-                color: $fg;
+                color: $neutral-100;
                 white-space: nowrap;
               }
             }
             .bar-label {
               font-size: 10px;
-              color: $grey;
+              color: $neutral-500;
             }
           }
         }
@@ -3033,18 +3033,18 @@ onMounted(() => {
     .table {
       width: 100%;
       border-collapse: collapse;
-      color: $fg;
-      font-family: Manrope-Medium;
+      color: $neutral-100;
+      font-family: Hauora-Regular;
       th {
         padding: 10px;
-        border-bottom: 1px solid $lead;
+        border-bottom: 1px solid $neutral-700;
         font-size: 16px;
-        color: $grey;
+        color: $neutral-500;
         text-align: left;
       }
       td {
         padding: 10px;
-        border-bottom: 1px solid $lead;
+        border-bottom: 1px solid $neutral-700;
         font-size: 14px;
       }
       .user-cell {
@@ -3058,13 +3058,13 @@ onMounted(() => {
           padding: 0;
           border: none;
           background: transparent;
-          color: $fg;
+          color: $neutral-100;
           font: inherit;
           text-align: left;
           cursor: pointer;
           transition: color 0.25s ease-in-out;
           &:hover {
-            color: $white;
+            color: $neutral-white;
             text-decoration: underline;
           }
         }
@@ -3076,7 +3076,7 @@ onMounted(() => {
           &:disabled {
             cursor: default;
             &:hover {
-              color: $fg;
+              color: $neutral-100;
               text-decoration: none;
             }
           }
@@ -3107,9 +3107,9 @@ onMounted(() => {
       padding: 10px;
       box-sizing: border-box;
       border-radius: 5px;
-      background-color: $graphite;
-      box-shadow: 3px 3px 5px rgba($black, 0.25);
-      color: $fg;
+      background-color: $neutral-800;
+      box-shadow: 3px 3px 5px rgba(black, 0.25);
+      color: $neutral-100;
     }
     .update-notice-preview-item {
       display: flex;
@@ -3118,8 +3118,8 @@ onMounted(() => {
       padding: 10px;
       gap: 15px;
       border-radius: 5px;
-      background-color: $lead;
-      box-shadow: 0 3px 5px rgba($black, 0.25);
+      background-color: $neutral-700;
+      box-shadow: 0 3px 5px rgba(black, 0.25);
     }
     .update-notice-preview-header {
       display: flex;
@@ -3134,14 +3134,14 @@ onMounted(() => {
       }
       time {
         margin-top: 3px;
-        color: $grey;
+        color: $neutral-500;
         font-size: 12px;
       }
     }
     .update-notice-preview-text {
       margin: 0;
       width: 100%;
-      color: $fg;
+      color: $neutral-100;
       line-height: 1.35;
       overflow-wrap: anywhere;
       word-break: break-word;
@@ -3184,17 +3184,17 @@ onMounted(() => {
       padding: 5px 10px;
       border-radius: 999px;
       font-size: 12px;
-      font-family: Manrope-SemiBold;
+      font-family: Hauora-SemiBold;
       line-height: 1;
       white-space: nowrap;
       &.status-active {
-        background-color: rgba($green, 0.25);
+        background-color: rgba($green-500, 0.25);
       }
       &.status-expired {
-        background-color: rgba($yellow, 0.25);
+        background-color: rgba($yellow-500, 0.25);
       }
       &.status-revoked {
-        background-color: rgba($red, 0.25);
+        background-color: rgba($red-500, 0.25);
       }
     }
     .subscriptions-tab {
@@ -3203,7 +3203,7 @@ onMounted(() => {
         h3 {
           margin: 0 0 20px;
           font-size: 20px;
-          color: $fg;
+          color: $neutral-100;
         }
       }
       .subscription-table-block {
@@ -3226,8 +3226,8 @@ onMounted(() => {
         width: 30px;
         height: 30px;
         border-radius: 999px;
-        background-color: var(--user-theme-bg, $graphite);
-        font-family: Manrope-Medium;
+        background-color: var(--user-theme-bg, $neutral-800);
+        font-family: Hauora-Regular;
       }
       .subscription-theme-icon {
         width: 30px;
@@ -3247,11 +3247,11 @@ onMounted(() => {
       align-items: center;
       justify-content: center;
       gap: 10px;
-      color: $fg;
-      font-family: Manrope-Medium;
+      color: $neutral-100;
+      font-family: Hauora-Regular;
     }
     .muted {
-      color: $grey;
+      color: $neutral-500;
       text-align: center;
     }
   }

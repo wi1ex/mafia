@@ -99,14 +99,14 @@ function close() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: rgba($black, 0.25);
+  background-color: rgba(black, 0.25);
   backdrop-filter: blur(5px);
   z-index: 1000;
   .modal {
     width: 420px;
     max-width: calc(100% - 30px);
     border-radius: 5px;
-    background-color: $graphite;
+    background-color: $neutral-800;
     padding: 10px;
     display: flex;
     flex-direction: column;
@@ -120,27 +120,27 @@ function close() {
       height: 40px;
       border: none;
       border-radius: 5px;
-      background-color: $fg;
+      background-color: $neutral-100;
       font-size: 14px;
-      color: $bg;
-      font-family: Manrope-Medium;
+      color: $neutral-black;
+      font-family: Hauora-Regular;
       line-height: 1;
       cursor: pointer;
       transition: opacity 0.25s ease-in-out, color 0.25s ease-in-out, border-radius 0.25s ease-in-out, background-color 0.25s ease-in-out;
       &:hover {
-        background-color: $white;
+        background-color: $neutral-white;
       }
       &.confirm {
-        background-color: rgba($green, 0.75);
+        background-color: rgba($green-500, 0.75);
         &:hover {
-          background-color: $green;
+          background-color: $green-500;
         }
       }
       &.dark {
-        background-color: $lead;
-        color: $fg;
+        background-color: $neutral-700;
+        color: $neutral-100;
         &:hover {
-          background-color: rgba($grey, 0.5);
+          background-color: rgba($neutral-500, 0.5);
         }
       }
       &:disabled {
@@ -154,7 +154,7 @@ function close() {
       justify-content: space-between;
       span {
         font-size: 18px;
-        font-family: Manrope-Medium;
+        font-family: Hauora-Regular;
       }
       .icon {
         width: 28px;
