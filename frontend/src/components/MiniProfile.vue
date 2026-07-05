@@ -1809,7 +1809,7 @@ onBeforeUnmount(() => {
     gap: 24px;
     width: 611px;
     border-radius: 24px;
-    background-color: var(--user-theme-bg, $neutral-black);
+    background-color: var(--user-theme-bg, $neutral-950);
     overflow-y: auto;
     scrollbar-width: none;
     transition: width 0.25s ease-in-out, height 0.25s ease-in-out;
