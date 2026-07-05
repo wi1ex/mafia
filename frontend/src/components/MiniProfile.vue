@@ -2810,7 +2810,7 @@ onBeforeUnmount(() => {
       display: flex;
       justify-content: center;
       align-items: center;
-      padding: 12px;
+      padding: 16px;
       gap: 8px;
       border-radius: 16px;
       background-color: $red-100;

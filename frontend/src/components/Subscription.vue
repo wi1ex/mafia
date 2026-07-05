@@ -232,6 +232,7 @@ const subscriptionBenefits: readonly string[] = [
   'создание скрытых комнат',
   'отключение зрителей в игре',
   'трансляции в высоком качестве',
+  'черный список пользователей',
   'увеличенный лимит на изменение никнейма',
   'обнуление истории своих никнеймов',
 ]
@@ -563,13 +564,13 @@ onBeforeUnmount(() => {
             display: none;
           }
           .subscribe-switch {
-            margin: 40px 0 16px;
+            margin: 28px 0 16px;
           }
           .subscribe {
             display: flex;
             position: relative;
             flex-direction: column;
-            margin-bottom: 36px;
+            margin-bottom: 24px;
             padding: 24px;
             gap: 40px;
             border-radius: 24px;
