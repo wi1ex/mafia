@@ -90,19 +90,19 @@
             :disabled="loading"
             label="Результат"
           />
-        </div>
-        <div class="history-admin-filters-actions">
-          <button class="history-filter-action history-filter-action--primary" type="submit" :disabled="loading">
-            Применить
-          </button>
-          <button
-            class="history-filter-action"
-            type="button"
-            :disabled="loading || !hasAnyAdminFilters"
-            @click="resetAdminFilters"
-          >
-            Сбросить
-          </button>
+          <div class="history-admin-filters-actions">
+            <button class="history-filter-action history-filter-action--primary" type="submit" :disabled="loading">
+              Применить
+            </button>
+            <button
+              class="history-filter-action"
+              type="button"
+              :disabled="loading || !hasAnyAdminFilters"
+              @click="resetAdminFilters"
+            >
+              Сбросить
+            </button>
+          </div>
         </div>
       </form>
 
@@ -689,7 +689,7 @@ onBeforeUnmount(() => {
       --ui-dropdown-label-bg-override: #{$neutral-900};
       .history-admin-filters-grid {
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(4, minmax(0, 1fr));
         gap: 12px;
         :deep(input),
         :deep(label),
@@ -701,6 +701,7 @@ onBeforeUnmount(() => {
       }
       .history-admin-filters-actions {
         display: flex;
+        align-items: center;
         justify-content: flex-end;
         gap: 10px;
         .history-filter-action {
