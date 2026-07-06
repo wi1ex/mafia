@@ -555,6 +555,7 @@ onBeforeUnmount(() => {
         }
         .subscription-purchase-slide {
           flex: 0 0 50%;
+          position: relative;
           overflow-y: auto;
           scrollbar-width: none;
           &[inert] {
@@ -725,9 +726,10 @@ onBeforeUnmount(() => {
             }
             .lava-actions {
               display: flex;
-              justify-content: center;
-              margin-top: 50px;
+              position: absolute;
+              bottom: 0;
               gap: 10px;
+              transform: translate(calc(50% - 15px));
               :deep(.lava-back .ui-button__icon) {
                 transform: rotate(90deg);
               }
