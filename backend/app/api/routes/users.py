@@ -38,6 +38,7 @@ from ..utils import (
     fetch_online_user_ids,
     fetch_friends_count_for_users,
     build_admin_mini_profile_friends,
+    build_admin_mini_profile_blacklist,
     build_user_mini_profile_nomination_stats_out,
     friend_status_for,
 )
@@ -225,6 +226,11 @@ async def mini_profile(user_id: int, allow_deleted: bool = False, ident: Identit
         if viewer_role == "admin"
         else None
     )
+    admin_blacklist = (
+        await build_admin_mini_profile_blacklist(db, uid)
+        if viewer_role == "admin"
+        else None
+    )
     active_sanctions = await fetch_active_sanctions(db, uid)
     active_sanction_kind = pick_active_sanction_kind(active_sanctions)
     active_sanction = None
@@ -299,6 +305,7 @@ async def mini_profile(user_id: int, allow_deleted: bool = False, ident: Identit
         viewer_blacklisted_by_target=viewer_blacklisted_by_target,
         friends_count=int(friends_count or 0),
         admin_friends=admin_friends,
+        admin_blacklist=admin_blacklist,
         active_sanction=active_sanction,
         nomination_stats=nomination_stats,
     )

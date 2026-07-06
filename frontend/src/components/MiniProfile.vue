@@ -36,10 +36,22 @@
                       <div v-if="friendsCount !== null" class="profile-friends-tooltip-wrap" :class="{ enabled: showAdminFriendsTooltip }" :tabindex="showAdminFriendsTooltip ? 0 : undefined">
                         <span class="profile-friends-count" aria-label="Количество друзей">Друзья: {{ friendsCount }}</span>
                         <div v-if="showAdminFriendsTooltip" class="profile-friends-tooltip" role="tooltip">
-                          <span v-if="adminFriends.length === 0" class="profile-friends-empty">Нет друзей</span>
-                          <template v-else>
-                            <div ref="profileFriendsList" class="profile-friends-list">
-                              <div v-for="friend in adminFriends" :key="friend.id" class="profile-friend-row">
+                          <div ref="profileFriendsList" class="profile-friends-list">
+                            <div class="profile-friends-section">
+                              <span class="profile-friends-section-title">Черный список:</span>
+                              <span v-if="adminBlacklist.length === 0" class="profile-friends-empty">Нет пользователей</span>
+                              <div v-for="user in adminBlacklist" :key="`blacklist-${user.id}`" class="profile-friend-row">
+                                <img class="profile-friend-avatar" v-minio-img="{key: friendAvatarKey(user), placeholder: iconDefaultAvatarBlack, lazy: false}" alt="avatar" />
+                                <div class="profile-friend-main">
+                                  <span class="profile-friend-name">{{ user.username || `user${user.id}` }}</span>
+                                  <span class="profile-friend-date">{{ formatBlacklistedAt(user.blacklisted_at) }}</span>
+                                </div>
+                              </div>
+                            </div>
+                            <div class="profile-friends-section">
+                              <span class="profile-friends-section-title">Друзья:</span>
+                              <span v-if="adminFriends.length === 0" class="profile-friends-empty">Нет друзей</span>
+                              <div v-for="friend in adminFriends" :key="`friend-${friend.id}`" class="profile-friend-row">
                                 <img class="profile-friend-avatar" v-minio-img="{key: friendAvatarKey(friend), placeholder: iconDefaultAvatarBlack, lazy: false}" alt="avatar" />
                                 <div class="profile-friend-main">
                                   <span class="profile-friend-name">{{ friend.username || `user${friend.id}` }}</span>
@@ -47,8 +59,8 @@
                                 </div>
                               </div>
                             </div>
-                            <UiScrollbar :target="profileFriendsList" :active="showAdminFriendsTooltip" theme="grey" :inset-top="16" :inset-bottom="16" right="6px" :overflow-tolerance="4" />
-                          </template>
+                          </div>
+                          <UiScrollbar :target="profileFriendsList" :active="showAdminFriendsTooltip" theme="grey" :inset-top="16" :inset-bottom="16" right="6px" :overflow-tolerance="4" />
                         </div>
                       </div>
 
@@ -353,6 +365,13 @@ type MiniProfileAdminFriend = {
   friendship_started_at?: string | null
 }
 
+type MiniProfileAdminBlacklistUser = {
+  id: number
+  username?: string | null
+  avatar_name?: string | null
+  blacklisted_at?: string | null
+}
+
 type MiniProfileNominationStats = {
   games_played?: number | null
   games_hosted?: number | null
@@ -442,6 +461,7 @@ type MiniProfileResponse = {
   viewer_blacklisted_by_target?: boolean
   friends_count?: number | null
   admin_friends?: MiniProfileAdminFriend[] | null
+  admin_blacklist?: MiniProfileAdminBlacklistUser[] | null
   active_sanction?: MiniProfileSanction | null
   nomination_stats?: MiniProfileNominationStats | null
 }
@@ -662,6 +682,11 @@ const adminFriends = computed(() => (
     ? profile.value.admin_friends
     : []
 ))
+const adminBlacklist = computed(() => (
+  profileLoadedForTarget.value && Array.isArray(profile.value?.admin_blacklist)
+    ? profile.value.admin_blacklist
+    : []
+))
 const nominationStats = computed(() => (
   profileLoadedForTarget.value
     ? profile.value?.nomination_stats || null
@@ -675,7 +700,7 @@ const profileNominations = computed<ProfileNomination[]>(() => {
 const showAdminFriendsTooltip = computed(() => (
   viewerRole.value === 'admin'
   && profileLoadedForTarget.value
-  && Array.isArray(profile.value?.admin_friends)
+  && (Array.isArray(profile.value?.admin_friends) || Array.isArray(profile.value?.admin_blacklist))
 ))
 const showProfileMeta = computed(() => Boolean(activeSanction.value || targetUserId.value > 0 || friendsCount.value !== null || profileNominations.value.length))
 const activeSanctionKindLabel = computed(() => sanctionKindLabel(activeSanction.value?.kind))
@@ -1157,6 +1182,22 @@ function normalizeAdminFriends(value: unknown): MiniProfileAdminFriend[] {
   }).filter((item) => item.id > 0)
 }
 
+function normalizeAdminBlacklist(value: unknown): MiniProfileAdminBlacklistUser[] {
+  if (!Array.isArray(value)) return []
+  return value.map((item) => {
+    const raw = item && typeof item === 'object' ? (item as Record<string, unknown>) : {}
+    const id = Number(raw.id || 0)
+    return {
+      id: Number.isFinite(id) && id > 0 ? Math.trunc(id) : 0,
+      username: typeof raw.username === 'string' ? raw.username : null,
+      avatar_name: typeof raw.avatar_name === 'string' ? raw.avatar_name : null,
+      blacklisted_at: (
+        typeof raw.blacklisted_at === 'string' ? raw.blacklisted_at : null
+      ),
+    }
+  }).filter((item) => item.id > 0)
+}
+
 function normalizeMiniProfileNominationStats(value: unknown): MiniProfileNominationStats | null {
   if (!value || typeof value !== 'object') return null
   const raw = value as Record<string, unknown>
@@ -1176,6 +1217,10 @@ function friendAvatarKey(friend: MiniProfileAdminFriend): string {
 }
 
 function formatFriendshipStartedAt(value?: string | number | Date | null): string {
+  return formatDateOnly(value)
+}
+
+function formatBlacklistedAt(value?: string | number | Date | null): string {
   return formatDateOnly(value)
 }
 
@@ -1681,6 +1726,9 @@ async function loadProfile() {
       friends_count: Number.isFinite(Number(data?.friends_count)) ? Math.max(0, Math.trunc(Number(data?.friends_count))) : 0,
       admin_friends: (
         Array.isArray(data?.admin_friends) ? normalizeAdminFriends(data.admin_friends) : null
+      ),
+      admin_blacklist: (
+        Array.isArray(data?.admin_blacklist) ? normalizeAdminBlacklist(data.admin_blacklist) : null
       ),
       active_sanction: data?.active_sanction ?? null,
       nomination_stats: normalizeMiniProfileNominationStats(data?.nomination_stats),
@@ -2203,6 +2251,22 @@ onBeforeUnmount(() => {
                       width: 0;
                       height: 0;
                     }
+                                                .profile-friends-section {
+                                                  display: flex;
+                                                  flex-direction: column;
+                                                  gap: 8px;
+                                                  & + .profile-friends-section {
+                                                    margin-top: 4px;
+                                                    padding-top: 10px;
+                                                    border-top: 1px solid rgba($neutral-black, 0.08);
+                                                  }
+                                                  .profile-friends-section-title {
+                                                    color: $neutral-black;
+                                                    font-family: Hauora-SemiBold;
+                                                    font-size: 13px;
+                                                    line-height: 13px;
+                                                  }
+                                                }
                     .profile-friend-row {
                       display: flex;
                       align-items: center;

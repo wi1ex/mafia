@@ -45,6 +45,13 @@ class UserMiniProfileFriendOut(BaseModel):
     friendship_started_at: Optional[datetime] = None
 
 
+class UserMiniProfileBlacklistOut(BaseModel):
+    id: int
+    username: Optional[str] = None
+    avatar_name: Optional[str] = None
+    blacklisted_at: Optional[datetime] = None
+
+
 class UserMiniProfileNominationStatsOut(BaseModel):
     games_played: int = 0
     games_hosted: int = 0
@@ -78,6 +85,7 @@ class UserMiniProfileOut(BaseModel):
     viewer_blacklisted_by_target: bool = False
     friends_count: int = 0
     admin_friends: Optional[List[UserMiniProfileFriendOut]] = None
+    admin_blacklist: Optional[List[UserMiniProfileBlacklistOut]] = None
     active_sanction: Optional[UserMiniProfileSanctionOut] = None
     nomination_stats: Optional[UserMiniProfileNominationStatsOut] = None
 

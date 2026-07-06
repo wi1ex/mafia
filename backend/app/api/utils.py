@@ -114,6 +114,7 @@ __all__ = [
     "fetch_users_last_spectator_room_id",
     "fetch_friends_count_for_users",
     "build_admin_mini_profile_friends",
+    "build_admin_mini_profile_blacklist",
     "fetch_sanction_counts_for_users",
     "compute_duration_seconds",
     "elapsed_seconds_since",
@@ -689,6 +690,49 @@ async def build_admin_mini_profile_friends(session: AsyncSession, user_id: int) 
             "username": str(username) if isinstance(username, str) else None,
             "avatar_name": str(avatar_name) if isinstance(avatar_name, str) else None,
             "friendship_started_at": started_at,
+        })
+
+    return out
+
+
+async def build_admin_mini_profile_blacklist(session: AsyncSession, user_id: int) -> list[dict[str, Any]]:
+    uid = int(user_id)
+    rows = await session.execute(
+        select(UserBlacklist.target_id, UserBlacklist.created_at)
+        .where(UserBlacklist.owner_id == uid)
+    )
+    blacklist_rows: list[tuple[int, datetime | None]] = []
+    for target_id, created_at in rows.all():
+        try:
+            target_uid = int(target_id)
+        except Exception:
+            target_uid = 0
+        if target_uid <= 0:
+            continue
+        blacklist_rows.append((target_uid, created_at if isinstance(created_at, datetime) else None))
+    if not blacklist_rows:
+        return []
+
+    profiles = await get_user_profiles_cached(session, [target_id for target_id, _ in blacklist_rows])
+
+    def blacklisted_sort_value(item: tuple[int, datetime | None]) -> float:
+        blacklisted_at = item[1]
+        if blacklisted_at is None:
+            return 0.0
+
+        return blacklisted_at.timestamp()
+
+    blacklist_rows.sort(key=blacklisted_sort_value, reverse=True)
+    out: list[dict[str, Any]] = []
+    for target_id, blacklisted_at in blacklist_rows:
+        profile = profiles.get(target_id) or {}
+        username = profile.get("username")
+        avatar_name = profile.get("avatar_name")
+        out.append({
+            "id": target_id,
+            "username": str(username) if isinstance(username, str) else None,
+            "avatar_name": str(avatar_name) if isinstance(avatar_name, str) else None,
+            "blacklisted_at": blacklisted_at,
         })
 
     return out
