@@ -287,7 +287,7 @@ const subscribeYearSelected = computed({
 })
 const selectedSubscribePrice = computed(() => lavaPlanPrices[lavaForm.value.plan])
 const lavaSubmitText = computed(() => (
-  `Перейти к оплате ${lavaPaymentPrices[lavaForm.value.currency][lavaForm.value.plan]}`
+  `Оплатить ${lavaPaymentPrices[lavaForm.value.currency][lavaForm.value.plan]}`
 ))
 
 const donateSite = computed<PaymentSite>(() => ({
@@ -736,11 +736,11 @@ onBeforeUnmount(() => {
             .lava-actions {
               display: flex;
               position: absolute;
-              left: 110px;
+              left: 135px;
               bottom: 0;
               gap: 10px;
               .lava-submit {
-                min-width: 240px;
+                min-width: 175px;
               }
               :deep(.lava-back .ui-button__icon) {
                 transform: rotate(90deg);

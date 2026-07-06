@@ -157,7 +157,7 @@
                   <UiIcon class="close-icon" :icon="iconClose" />
                 </button>
                 <button v-if="showBlacklistButton" class="blacklist-btn" :class="{ active: blacklistedByMe }" type="button" :disabled="blacklistBusy" :aria-label="blacklistButtonLabel" @click="toggleBlacklist">
-                  <UiIcon class="blacklist-icon" :icon="iconBlacklist" />
+                  <UiIcon class="blacklist-icon" :icon="iconBlockPlayer" />
                 </button>
               </div>
             </header>
@@ -179,7 +179,7 @@
               </div>
               <div v-else class="profile-restricted-div">
                 <UiIcon class="profile-restricted-img" :icon="iconDanger" />
-                <span class="profile-restricted-text">Вы находитесь в Черном списке у пользователя</span>
+                <span class="profile-restricted-text">Вы в Черном списке у пользователя</span>
               </div>
 
               <div v-if="showRestrictedProfileSections && showActionBlock" class="profile-actions">
@@ -315,7 +315,7 @@ import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
 import iconDefaultAvatarBlack from '@/assets/svg/iconDefaultAvatarBlack.svg'
 import iconWarning from '@/assets/svg/iconWarning.svg'
 import iconClose from '@/assets/svg/iconClose.svg'
-import iconBlacklist from '@/assets/svg/iconBlacklist.svg'
+import iconBlockPlayer from '@/assets/svg/iconBlockPlayer.svg'
 import iconProfile from '@/assets/svg/iconProfile.svg'
 import iconAddFriends from '@/assets/svg/iconAddFriends.svg'
 import iconInFriends from '@/assets/svg/iconInFriends.svg'
@@ -2022,7 +2022,7 @@ onBeforeUnmount(() => {
     gap: 24px;
     width: 611px;
     border-radius: 24px;
-    background-color: var(--user-theme-bg, $neutral-950);
+    background-color: var(--user-theme-bg, $neutral-black);
     overflow-y: auto;
     scrollbar-width: none;
     transition: width 0.25s ease-in-out, height 0.25s ease-in-out;
@@ -2693,99 +2693,100 @@ onBeforeUnmount(() => {
               }
             }
           }
-                              .profile-room-controls {
-                                display: flex;
-                                flex-direction: column;
-                                gap: 8px;
-                                .profile-room-admin {
-                                  display: grid;
-                                  grid-template-columns: repeat(5, minmax(0, 1fr));
-                                  gap: 4px;
-                                  .admin-button {
-                                    display: flex;
-                                    align-items: center;
-                                    justify-content: center;
-                                    padding: 0 16px;
-                                    height: 40px;
-                                    border: none;
-                                    border-radius: 12px;
-                                    background-color: $soft-purple-900;
-                                    cursor: pointer;
-                                    transition: background-color 0.25s ease-in-out;
-                                    .admin-img {
-                                      --ui-icon-width: 24px;
-                                      --ui-icon-height: 24px;
-                                      --ui-icon-color: #{$neutral-100};
-                                      &.on {
-                                        --ui-icon-color: #{$green-500};
-                                      }
-                                      &.off {
-                                        --ui-icon-color: #{$neutral-100};
-                                      }
-                                      &.blocked {
-                                        --ui-icon-color: #{$red-500};
-                                      }
-                                    }
-                                    &:not(:disabled):hover,
-                                    &:not(:disabled):focus-visible,
-                                    &:not(:disabled):active {
-                                      background-color: $soft-purple-800;
-                                    }
-                                    &.red-button {
-                                      background-color: $red-400;
-                                      .kick-img {
-                                        --ui-icon-width: 24px;
-                                        --ui-icon-height: 24px;
-                                        --ui-icon-color: #{$neutral-900};
-                                      }
-                                      &:not(:disabled):hover,
-                                      &:not(:disabled):focus-visible,
-                                      &:not(:disabled):active {
-                                        background-color: $red-200;
-                                      }
-                                    }
-                                    &.leave-room-icon {
-                                      transform: scaleX(-1);
-                                    }
-                                  }
-                                }
-                                .profile-room-volume {
-                                  display: flex;
-                                  align-items: center;
-                                  padding: 0 16px;
-                                  gap: 8px;
-                                  height: 40px;
-                                  border-radius: 12px;
-                                  background-color: $soft-purple-900;
-                                  -webkit-overflow-scrolling: touch;
-                                  transition: background-color 0.25s ease-in-out;
-                                  &:not(:disabled):hover,
-                                  &:not(:disabled):focus-visible,
-                                  &:not(:disabled):active {
-                                    background-color: $soft-purple-800;
-                                  }
-                                  .volume-img {
-                                    --ui-icon-width: 24px;
-                                    --ui-icon-height: 24px;
-                                    --ui-icon-color: #{$neutral-100};
-                                  }
-                                  span {
-                                    min-width: 42px;
-                                    color: $neutral-100;
-                                    font-family: Hauora-Regular;
-                                    font-size: 16px;
-                                    line-height: 16px;
-                                    letter-spacing: -0.32px;
-                                    text-align: right;
-                                  }
-                                }
-                              }
+          .profile-room-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            .profile-room-admin {
+              display: grid;
+              grid-template-columns: repeat(5, minmax(0, 1fr));
+              gap: 4px;
+              .admin-button {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 0 16px;
+                height: 40px;
+                border: none;
+                border-radius: 12px;
+                background-color: $soft-purple-900;
+                cursor: pointer;
+                transition: background-color 0.25s ease-in-out;
+                .admin-img {
+                  --ui-icon-width: 24px;
+                  --ui-icon-height: 24px;
+                  --ui-icon-color: #{$neutral-100};
+                  &.on {
+                    --ui-icon-color: #{$green-500};
+                  }
+                  &.off {
+                    --ui-icon-color: #{$neutral-100};
+                  }
+                  &.blocked {
+                    --ui-icon-color: #{$red-500};
+                  }
+                }
+                &:not(:disabled):hover,
+                &:not(:disabled):focus-visible,
+                &:not(:disabled):active {
+                  background-color: $soft-purple-800;
+                }
+                &.red-button {
+                  background-color: $red-400;
+                  .kick-img {
+                    --ui-icon-width: 24px;
+                    --ui-icon-height: 24px;
+                    --ui-icon-color: #{$neutral-900};
+                  }
+                  &:not(:disabled):hover,
+                  &:not(:disabled):focus-visible,
+                  &:not(:disabled):active {
+                    background-color: $red-200;
+                  }
+                }
+                &.leave-room-icon {
+                  transform: scaleX(-1);
+                }
+              }
+            }
+            .profile-room-volume {
+              display: flex;
+              align-items: center;
+              padding: 0 16px;
+              gap: 8px;
+              height: 40px;
+              border-radius: 12px;
+              background-color: $soft-purple-900;
+              -webkit-overflow-scrolling: touch;
+              transition: background-color 0.25s ease-in-out;
+              &:not(:disabled):hover,
+              &:not(:disabled):focus-visible,
+              &:not(:disabled):active {
+                background-color: $soft-purple-800;
+              }
+              .volume-img {
+                --ui-icon-width: 24px;
+                --ui-icon-height: 24px;
+                --ui-icon-color: #{$neutral-100};
+              }
+              span {
+                min-width: 42px;
+                color: $neutral-100;
+                font-family: Hauora-Regular;
+                font-size: 16px;
+                line-height: 16px;
+                letter-spacing: -0.32px;
+                text-align: right;
+              }
+            }
+          }
         }
       }
       .profile-side-tools {
         display: flex;
         flex-direction: column;
         align-items: flex-end;
+        gap: 14px;
         .close-btn {
           padding: 0;
           width: 24px;
@@ -2807,38 +2808,36 @@ onBeforeUnmount(() => {
           }
         }
         .blacklist-btn {
-          display: flex;
+          display: inline-flex;
+          position: relative;
           align-items: center;
           justify-content: center;
-          padding: 0;
-          width: 36px;
-          height: 36px;
+          width: 32px;
+          height: 32px;
           border: none;
-          border-radius: 12px;
-          background-color: $neutral-900;
+          border-radius: 8px;
+          background-color: rgba($soft-purple-900, 0.65);
           cursor: pointer;
           transition: opacity 0.25s ease-in-out, background-color 0.25s ease-in-out;
           .blacklist-icon {
-            --ui-icon-width: 22px;
-            --ui-icon-height: 22px;
+            --ui-icon-width: 20px;
+            --ui-icon-height: 20px;
             --ui-icon-color: #{$neutral-white};
           }
           &.active {
             background-color: $red-500;
-            .blacklist-icon {
-              --ui-icon-color: #{$neutral-black};
-            }
           }
           &:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
+            opacity: 0.5;
           }
           &:not(:disabled):hover,
           &:not(:disabled):focus-visible,
           &:not(:disabled):active {
-            background-color: $neutral-800;
             &.active {
-              background-color: $red-400;
+              background-color: rgba($soft-purple-900, 0.65);
+              .blacklist-icon {
+                --ui-icon-color: #{$red-500};
+              }
             }
           }
         }
@@ -2875,7 +2874,7 @@ onBeforeUnmount(() => {
       display: flex;
       justify-content: center;
       align-items: center;
-      padding: 16px;
+      padding: 12px;
       gap: 8px;
       border-radius: 16px;
       background-color: $red-100;
@@ -2887,9 +2886,9 @@ onBeforeUnmount(() => {
       .profile-restricted-text {
         color: $red-500;
         font-family: Hauora-Regular;
-        font-size: 16px;
-        line-height: 22px;
-        letter-spacing: -0.32px;
+        font-size: 18px;
+        line-height: 20px;
+        letter-spacing: -0.36px;
       }
     }
     .profile-actions {
