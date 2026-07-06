@@ -133,7 +133,7 @@
                     <UiButton
                       class="lava-submit"
                       type="submit"
-                      text="Перейти к оплате"
+                      :text="lavaSubmitText"
                       :disabled="lavaBusy"
                     />
                   </div>
@@ -225,6 +225,12 @@ const lavaPlanPrices: Record<LavaPlan, { amount: string; period: string }> = {
   year: { amount: '4990 ₽', period: '/год' },
 }
 
+const lavaPaymentPrices: Record<LavaCurrency, Record<LavaPlan, string>> = {
+  RUB: { month: '490 ₽', year: '4990 ₽' },
+  EUR: { month: '6.9 €', year: '69 €' },
+  USD: { month: '7.9 $', year: '79 $' },
+}
+
 const subscriptionBenefits: readonly string[] = [
   'GIF-аватары',
   'выбор цвета профиля',
@@ -280,6 +286,9 @@ const subscribeYearSelected = computed({
   },
 })
 const selectedSubscribePrice = computed(() => lavaPlanPrices[lavaForm.value.plan])
+const lavaSubmitText = computed(() => (
+  `Перейти к оплате ${lavaPaymentPrices[lavaForm.value.currency][lavaForm.value.plan]}`
+))
 
 const donateSite = computed<PaymentSite>(() => ({
   id: 'donate',
