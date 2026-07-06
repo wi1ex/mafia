@@ -35,6 +35,7 @@
                   :details-loading="isDetailsLoading(game.id)"
                   @result-updated="handleGameResultUpdated"
                   @ppk-updated="handleGamePpkUpdated"
+                  @foul-removals-updated="handleGameFoulRemovalsUpdated"
                 />
               </div>
               <div class="game-head">
@@ -228,8 +229,8 @@ function adjustResultTotal(result: GameResult, delta: number): void {
   else if (result === 'black') totalBlackWins.value = Math.max(0, totalBlackWins.value + delta)
 }
 
-async function fetchGameDetails(gameId: number): Promise<void> {
-  if (detailsByGameId.value[gameId]) return
+async function fetchGameDetails(gameId: number, force = false): Promise<void> {
+  if (!force && detailsByGameId.value[gameId]) return
   if (detailsLoading.value.has(gameId)) return
 
   const loadingNext = new Set(detailsLoading.value)
@@ -259,6 +260,13 @@ async function fetchGameDetails(gameId: number): Promise<void> {
     loadingDone.delete(gameId)
     detailsLoading.value = loadingDone
   }
+}
+
+function reloadGameDetails(gameId: number): void {
+  const nextDetails = { ...detailsByGameId.value }
+  delete nextDetails[gameId]
+  detailsByGameId.value = nextDetails
+  void fetchGameDetails(gameId, true)
 }
 
 function resultLabel(game: GameHistoryListItem): string {
@@ -302,6 +310,13 @@ function handleGamePpkUpdated(payload: { gameId: number; userId: number | null; 
     ...detailsByGameId.value,
     [payload.gameId]: nextSlots,
   }
+}
+
+function handleGameFoulRemovalsUpdated(payload: { gameId: number; ppkUserId: number | null }): void {
+  items.value = items.value.map((game) => (
+    game.id === payload.gameId ? { ...game, has_ppk: payload.ppkUserId !== null } : game
+  ))
+  reloadGameDetails(payload.gameId)
 }
 
 function headName(game: GameHistoryListItem): string {

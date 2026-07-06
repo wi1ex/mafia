@@ -83,6 +83,8 @@ from ...schemas.admin import (
     AdminGameActionsOut,
     AdminGamePpkOut,
     AdminGamePpkUpdateIn,
+    AdminGameFoulRemovalsOut,
+    AdminGameFoulRemovalsUpdateIn,
     AdminGameResultUpdateIn,
     AdminGameResultOut,
     AdminUserOut,
@@ -144,6 +146,14 @@ from ..utils import (
     normalizeGameActionsForUpdate,
     gameActionHasPpk,
     findGamePpkTargetUserId,
+    game_action_target_user_id,
+    game_action_type,
+    is_game_foul_death_action,
+    game_seat_user_ids,
+    game_foul_removed_user_ids,
+    game_max_action_day,
+    game_fallback_action_ts,
+    build_admin_foul_death_action,
     findGameFoulDeathActionIndex,
     findGameFoulActionIndex,
     setGameActionPpk,
@@ -862,7 +872,6 @@ async def update_game_ppk(game_id: int, payload: AdminGamePpkUpdateIn, ident: Id
     actual_target_user_id = findGamePpkTargetUserId(actions)
 
     if changed:
-        cache_user_ids = game_stats_cache_user_ids(game)
         game.actions = actions
         await log_action(
             session,
@@ -876,16 +885,141 @@ async def update_game_ppk(game_id: int, payload: AdminGamePpkUpdateIn, ident: Id
             commit=False,
         )
         await session.commit()
-        await invalidate_game_stats_cache_for_game_users(
-            cache_user_ids,
-            "admin.games.ppk_update.invalidate_stats_cache_failed",
-            game_id=gid,
-        )
 
     return AdminGamePpkOut(
         id=gid,
         number=gid,
         target_user_id=actual_target_user_id,
+    )
+
+
+@router.patch("/games/{game_id}/foul-removals", response_model=AdminGameFoulRemovalsOut, dependencies=ADMIN_GUARD)
+@log_route("admin.games.foul_removals_update")
+async def update_game_foul_removals(game_id: int, payload: AdminGameFoulRemovalsUpdateIn, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> AdminGameFoulRemovalsOut:
+    gid = safe_int(game_id)
+    if gid <= 0:
+        raise HTTPException(status_code=404, detail="game_not_found")
+
+    game = await session.get(Game, gid)
+    if not game:
+        raise HTTPException(status_code=404, detail="game_not_found")
+
+    valid_user_ids = game_seat_user_ids(getattr(game, "seats", None))
+    if not valid_user_ids:
+        raise HTTPException(status_code=409, detail="foul_removal_players_not_found")
+
+    requested_user_ids: set[int] = set()
+    for raw_user_id in payload.removed_user_ids:
+        uid = safe_int(raw_user_id)
+        if uid <= 0:
+            raise HTTPException(status_code=422, detail="foul_removal_target_invalid")
+
+        if uid not in valid_user_ids:
+            raise HTTPException(status_code=409, detail="foul_removal_target_not_player")
+
+        requested_user_ids.add(uid)
+
+    original_actions = getattr(game, "actions", None)
+    original_actions_list = original_actions if isinstance(original_actions, list) else []
+    actions = normalizeGameActionsForUpdate(original_actions_list)
+
+    previous_removed_user_ids = set(game_foul_removed_user_ids(actions, valid_user_ids=valid_user_ids))
+    previous_ppk_user_id = findGamePpkTargetUserId(actions)
+    fallback_day = game_max_action_day(actions)
+    fallback_ts = game_fallback_action_ts(game)
+    head_uid = safe_int(getattr(game, "head_id", None))
+
+    missing_user_ids = set(requested_user_ids - previous_removed_user_ids)
+    inserted_user_ids: set[int] = set()
+    kept_foul_deaths: set[int] = set()
+    next_actions: list[object] = []
+
+    for raw_action in actions:
+        target_uid = game_action_target_user_id(raw_action)
+        action_type = game_action_type(raw_action)
+
+        if target_uid in missing_user_ids and target_uid not in inserted_user_ids and action_type == "death":
+            day = fallback_day
+            ts = fallback_ts
+            if isinstance(raw_action, dict):
+                day = safe_int(raw_action.get("day")) or fallback_day
+                ts = safe_int(raw_action.get("ts")) or fallback_ts
+            next_actions.append(
+                build_admin_foul_death_action(
+                    target_uid=target_uid,
+                    day=day,
+                    head_uid=head_uid,
+                    ts=ts,
+                )
+            )
+            inserted_user_ids.add(target_uid)
+
+        if is_game_foul_death_action(raw_action) and target_uid in valid_user_ids:
+            if target_uid not in requested_user_ids:
+                continue
+            if target_uid in kept_foul_deaths:
+                continue
+            kept_foul_deaths.add(target_uid)
+
+        if isinstance(raw_action, dict) and gameActionHasPpk(raw_action) and target_uid not in requested_user_ids:
+            setGameActionPpk(raw_action, False)
+
+        next_actions.append(raw_action)
+
+    for target_uid in sorted(missing_user_ids - inserted_user_ids):
+        next_actions.append(
+            build_admin_foul_death_action(
+                target_uid=target_uid,
+                day=fallback_day,
+                head_uid=head_uid,
+                ts=fallback_ts,
+            )
+        )
+
+    if previous_ppk_user_id is not None:
+        for raw_action in next_actions:
+            if isinstance(raw_action, dict) and gameActionHasPpk(raw_action):
+                setGameActionPpk(raw_action, False)
+
+        if previous_ppk_user_id in requested_user_ids:
+            death_action_index = findGameFoulDeathActionIndex(next_actions, previous_ppk_user_id)
+            if death_action_index is not None:
+                death_action = next_actions[death_action_index]
+                if isinstance(death_action, dict):
+                    setGameActionPpk(death_action, True)
+
+            foul_action_index = findGameFoulActionIndex(next_actions, previous_ppk_user_id)
+            if foul_action_index is not None:
+                foul_action = next_actions[foul_action_index]
+                if isinstance(foul_action, dict):
+                    setGameActionPpk(foul_action, True)
+
+    actual_removed_user_ids = game_foul_removed_user_ids(next_actions, valid_user_ids=valid_user_ids)
+    actual_ppk_user_id = findGamePpkTargetUserId(next_actions)
+    changed = next_actions != original_actions_list
+
+    if changed:
+        game.actions = next_actions
+        await log_action(
+            session,
+            user_id=int(ident["id"]),
+            username=ident["username"],
+            action="admin_game_foul_removals_update",
+            details=(
+                f"Изменение удалений по фолам game_id={gid} "
+                f"from_user_ids={','.join(str(uid) for uid in sorted(previous_removed_user_ids)) or '-'} "
+                f"to_user_ids={','.join(str(uid) for uid in actual_removed_user_ids) or '-'} "
+                f"ppk_from_user_id={previous_ppk_user_id or 0} ppk_to_user_id={actual_ppk_user_id or 0}"
+            ),
+            commit=False,
+        )
+        await session.commit()
+
+    return AdminGameFoulRemovalsOut(
+        id=gid,
+        number=gid,
+        removed_user_ids=actual_removed_user_ids,
+        ppk_target_user_id=actual_ppk_user_id,
     )
 
 

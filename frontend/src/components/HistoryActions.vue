@@ -18,7 +18,7 @@
                     :id="`game-history-result-${gameId}`"
                     :value="selectedResult"
                     aria-label="Выбрать исход игры"
-                    :disabled="loading || savingResult || savingPpk"
+                    :disabled="loading || savingResult || savingPpk || savingFoulRemovals"
                     @change="selectResult"
                   >
                     <option v-for="option in RESULT_OPTIONS" :key="option.value" :value="option.value">{{ option.label }}</option>
@@ -41,6 +41,26 @@
                   <span v-if="savingPpk" class="editor-status">Сохраняем...</span>
                   <span v-else-if="ppkSaveError" class="editor-status editor-status--error">{{ ppkSaveError }}</span>
                   <span v-else-if="ppkHint" class="editor-status">{{ ppkHint }}</span>
+                </div>
+              </div>
+
+              <div class="foul-removal-editor">
+                <div class="foul-removal-head">
+                  <span>Удаление по фолам</span>
+                  <small v-if="savingFoulRemovals">Сохраняем...</small>
+                  <small v-else-if="foulRemovalSaveError" class="editor-status--error">{{ foulRemovalSaveError }}</small>
+                  <small v-else-if="foulRemovalHint">{{ foulRemovalHint }}</small>
+                </div>
+                <div v-if="foulRemovalPlayerOptions.length > 0" class="foul-removal-grid">
+                  <label v-for="option in foulRemovalPlayerOptions" :key="option.key" class="foul-removal-option">
+                    <input
+                      type="checkbox"
+                      :checked="isFoulRemovalChecked(option.value)"
+                      :disabled="foulRemovalControlsDisabled"
+                      @change="toggleFoulRemoval($event, option.value)"
+                    />
+                    <span>{{ option.label }}</span>
+                  </label>
                 </div>
               </div>
             </div>
@@ -138,6 +158,13 @@ interface AdminGamePpkResponse {
   target_user_id?: number | null
 }
 
+interface AdminGameFoulRemovalsResponse {
+  id: number
+  number: number
+  removed_user_ids?: number[] | null
+  ppk_target_user_id?: number | null
+}
+
 const props = defineProps<{
   gameId: number
   gameNumber: number
@@ -149,6 +176,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'result-updated', payload: { gameId: number; result: GameResult; previousResult: GameResult }): void
   (e: 'ppk-updated', payload: { gameId: number; userId: number | null; previousUserId: number | null }): void
+  (e: 'foul-removals-updated', payload: { gameId: number; removedUserIds: number[]; previousRemovedUserIds: number[]; ppkUserId: number | null; previousPpkUserId: number | null }): void
 }>()
 
 const userStore = useUserStore()
@@ -168,6 +196,10 @@ const selectedPpkUserId = ref<number | null>(null)
 const savedPpkUserId = ref<number | null>(null)
 const savingPpk = ref(false)
 const ppkSaveError = ref('')
+const selectedFoulRemovalUserIds = ref<number[]>([])
+const savedFoulRemovalUserIds = ref<number[]>([])
+const savingFoulRemovals = ref(false)
+const foulRemovalSaveError = ref('')
 
 const DATE_OPTIONS: Intl.DateTimeFormatOptions = {
   year: 'numeric',
@@ -207,13 +239,41 @@ const ppkOptions = computed<Array<{ key: string; value: number | null; label: st
   buildPpkOptions()
 ))
 const ppkSelectDisabled = computed(() => {
-  if (loading.value || savingResult.value || savingPpk.value) return true
+  if (loading.value || savingResult.value || savingPpk.value || savingFoulRemovals.value) return true
   return ppkOptions.value.length <= 1 && selectedPpkUserId.value === null
 })
 const ppkHint = computed(() => {
   if (savingPpk.value || ppkSaveError.value) return ''
   if (props.detailsLoading) return 'Загружаем игроков...'
   if (ppkOptions.value.length <= 1 && selectedPpkUserId.value === null) return 'В этой игре нет удалений по фолам'
+  return ''
+})
+
+const foulRemovalPlayerOptions = computed<Array<{ key: string; value: number; label: string }>>(() => {
+  const slots = Array.isArray(props.detailsSlots) ? [...props.detailsSlots] : []
+  slots.sort((left, right) => normalizeSlotNumber(left.slot) - normalizeSlotNumber(right.slot))
+
+  const out: Array<{ key: string; value: number; label: string }> = []
+  const seen = new Set<number>()
+  for (const slot of slots) {
+    const userId = normalizeOptionalUserId(slot.user_id)
+    if (userId === null || seen.has(userId)) continue
+    seen.add(userId)
+    out.push({
+      key: String(userId),
+      value: userId,
+      label: formatPpkOptionLabel(slot),
+    })
+  }
+  return out
+})
+const foulRemovalControlsDisabled = computed(() => (
+  loading.value || savingResult.value || savingPpk.value || savingFoulRemovals.value || Boolean(props.detailsLoading)
+))
+const foulRemovalHint = computed(() => {
+  if (savingFoulRemovals.value || foulRemovalSaveError.value) return ''
+  if (props.detailsLoading) return 'Загружаем игроков...'
+  if (foulRemovalPlayerOptions.value.length === 0) return 'Игроки не загружены'
   return ''
 })
 
@@ -233,6 +293,33 @@ function normalizeSlotNumber(raw: unknown): number {
   const value = Number(raw)
   if (!Number.isFinite(value)) return 0
   return Math.max(0, Math.trunc(value))
+}
+
+function normalizeUserIdList(raw: unknown): number[] {
+  if (!Array.isArray(raw)) return []
+  const out: number[] = []
+  const seen = new Set<number>()
+  for (const item of raw) {
+    const userId = normalizeOptionalUserId(item)
+    if (userId === null || seen.has(userId)) continue
+    seen.add(userId)
+    out.push(userId)
+  }
+  return out.sort((left, right) => left - right)
+}
+
+function sameUserIdList(left: number[], right: number[]): boolean {
+  if (left.length !== right.length) return false
+  return left.every((value, index) => value === right[index])
+}
+
+function currentFoulRemovalUserIds(): number[] {
+  const slots = Array.isArray(props.detailsSlots) ? props.detailsSlots : []
+  return normalizeUserIdList(
+    slots
+      .filter((slot) => slot.leave_reason === 'foul')
+      .map((slot) => slot.user_id),
+  )
 }
 
 function buildPpkOptions(): Array<{ key: string; value: number | null; label: string }> {
@@ -268,6 +355,7 @@ function applyActionsPayload(data: AdminGameActionsResponse | undefined): void {
   savedPpkUserId.value = normalizeOptionalUserId(data?.ppk_target_user_id)
   saveError.value = ''
   ppkSaveError.value = ''
+  foulRemovalSaveError.value = ''
   items.value = normalizeItems(data?.items)
 }
 
@@ -282,16 +370,32 @@ function selectValue(event: Event): string {
 
 function selectResult(event: Event): void {
   const next = normalizeGameResult(selectValue(event))
-  if (savingResult.value || savingPpk.value || next === selectedResult.value) return
+  if (savingResult.value || savingPpk.value || savingFoulRemovals.value || next === selectedResult.value) return
   selectedResult.value = next
   void onResultChange()
 }
 
 function selectPpk(event: Event): void {
   const next = normalizeOptionalUserId(selectValue(event))
-  if (savingResult.value || savingPpk.value || next === selectedPpkUserId.value) return
+  if (savingResult.value || savingPpk.value || savingFoulRemovals.value || next === selectedPpkUserId.value) return
   selectedPpkUserId.value = next
   void onPpkChange()
+}
+
+function isFoulRemovalChecked(userId: number): boolean {
+  return selectedFoulRemovalUserIds.value.includes(userId)
+}
+
+function toggleFoulRemoval(event: Event, userId: number): void {
+  const normalizedUserId = normalizeOptionalUserId(userId)
+  if (normalizedUserId === null || foulRemovalControlsDisabled.value) return
+
+  const checked = Boolean((event.target as HTMLInputElement).checked)
+  const next = new Set(selectedFoulRemovalUserIds.value)
+  if (checked) next.add(normalizedUserId)
+  else next.delete(normalizedUserId)
+  selectedFoulRemovalUserIds.value = normalizeUserIdList([...next])
+  void onFoulRemovalsChange()
 }
 
 function normalizeItems(raw: unknown): AdminGameActionItem[] {
@@ -354,6 +458,7 @@ function openModal(): void {
   armed.value = false
   saveError.value = ''
   ppkSaveError.value = ''
+  foulRemovalSaveError.value = ''
   open.value = true
   void loadActions()
 }
@@ -362,7 +467,7 @@ async function onResultChange(): Promise<void> {
   const nextResult = normalizeGameResult(selectedResult.value)
   const previousResult = savedResult.value
   saveError.value = ''
-  if (savingResult.value || savingPpk.value || nextResult === previousResult) return
+  if (savingResult.value || savingPpk.value || savingFoulRemovals.value || nextResult === previousResult) return
 
   savingResult.value = true
   try {
@@ -390,7 +495,7 @@ async function onPpkChange(): Promise<void> {
   const nextUserId = selectedPpkUserId.value
   const previousUserId = savedPpkUserId.value
   ppkSaveError.value = ''
-  if (savingResult.value || savingPpk.value || nextUserId === previousUserId) return
+  if (savingResult.value || savingPpk.value || savingFoulRemovals.value || nextUserId === previousUserId) return
 
   savingPpk.value = true
   try {
@@ -422,6 +527,50 @@ async function onPpkChange(): Promise<void> {
   }
 }
 
+async function onFoulRemovalsChange(): Promise<void> {
+  const nextUserIds = normalizeUserIdList(selectedFoulRemovalUserIds.value)
+  const previousUserIds = normalizeUserIdList(savedFoulRemovalUserIds.value)
+  foulRemovalSaveError.value = ''
+  if (savingResult.value || savingPpk.value || savingFoulRemovals.value || sameUserIdList(nextUserIds, previousUserIds)) return
+
+  const previousPpkUserId = savedPpkUserId.value
+  savingFoulRemovals.value = true
+  try {
+    const { data } = await api.patch<AdminGameFoulRemovalsResponse>(`/admin/games/${props.gameId}/foul-removals`, {
+      removed_user_ids: nextUserIds,
+    })
+    const actualUserIds = normalizeUserIdList(data?.removed_user_ids)
+    const actualPpkUserId = normalizeOptionalUserId(data?.ppk_target_user_id)
+    selectedFoulRemovalUserIds.value = actualUserIds
+    savedFoulRemovalUserIds.value = actualUserIds
+    selectedPpkUserId.value = actualPpkUserId
+    savedPpkUserId.value = actualPpkUserId
+    emit('foul-removals-updated', {
+      gameId: props.gameId,
+      removedUserIds: actualUserIds,
+      previousRemovedUserIds: previousUserIds,
+      ppkUserId: actualPpkUserId,
+      previousPpkUserId,
+    })
+    void refreshActionsQuietly()
+  } catch (e: any) {
+    selectedFoulRemovalUserIds.value = previousUserIds
+    const status = Number(e?.response?.status || 0)
+    const code = String(e?.response?.data?.detail || '')
+    if (status === 404) {
+      foulRemovalSaveError.value = 'Игра не найдена'
+    } else if (status === 409 && code === 'foul_removal_target_not_player') {
+      foulRemovalSaveError.value = 'Игрок не найден в этой игре'
+    } else if (status === 409 && code === 'foul_removal_players_not_found') {
+      foulRemovalSaveError.value = 'Игроки не найдены'
+    } else {
+      foulRemovalSaveError.value = 'Не удалось изменить удаления по фолам'
+    }
+  } finally {
+    savingFoulRemovals.value = false
+  }
+}
+
 function formatOccurredAt(value: string): string {
   return formatLocalDateTime(value, DATE_OPTIONS)
 }
@@ -435,6 +584,18 @@ watch(
     savedResult.value = normalized
     saveError.value = ''
   },
+)
+
+watch(
+  () => props.detailsSlots,
+  () => {
+    if (savingFoulRemovals.value) return
+    const nextUserIds = currentFoulRemovalUserIds()
+    selectedFoulRemovalUserIds.value = nextUserIds
+    savedFoulRemovalUserIds.value = nextUserIds
+    foulRemovalSaveError.value = ''
+  },
+  { immediate: true, deep: true },
 )
 
 </script>
@@ -507,6 +668,61 @@ watch(
             &.editor-status--error {
               color: $orange-500;
             }
+          }
+        }
+      }
+      .foul-removal-editor {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        width: min(520px, 100%);
+        .foul-removal-head {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          span {
+            color: $neutral-100;
+            font-size: 14px;
+            font-family: Hauora-SemiBold;
+            line-height: 1.2;
+          }
+          small {
+            color: $neutral-300;
+            font-size: 12px;
+            line-height: 1.2;
+            &.editor-status--error {
+              color: $orange-500;
+            }
+          }
+        }
+        .foul-removal-grid {
+          display: grid;
+          grid-template-columns: repeat(5, minmax(0, 1fr));
+          gap: 6px;
+        }
+        .foul-removal-option {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          min-width: 0;
+          color: $neutral-100;
+          font-size: 12px;
+          line-height: 1.2;
+          cursor: pointer;
+          input {
+            flex: 0 0 auto;
+            width: 14px;
+            height: 14px;
+            margin: 0;
+          }
+          span {
+            min-width: 0;
+            color: inherit;
+            font-size: 12px;
+            line-height: 1.2;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
           }
         }
       }

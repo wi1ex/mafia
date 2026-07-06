@@ -212,6 +212,15 @@ __all__ = [
     "normalizeGameActionsForUpdate",
     "gameActionHasPpk",
     "findGamePpkTargetUserId",
+    "game_action_target_user_id",
+    "game_action_type",
+    "game_death_reason",
+    "is_game_foul_death_action",
+    "game_seat_user_ids",
+    "game_foul_removed_user_ids",
+    "game_max_action_day",
+    "game_fallback_action_ts",
+    "build_admin_foul_death_action",
     "findGameFoulDeathActionIndex",
     "findGameFoulActionIndex",
     "setGameActionPpk",
@@ -2568,6 +2577,92 @@ def findGamePpkTargetUserId(actions: list[object]) -> int | None:
             return targetUid
 
     return None
+
+
+def game_action_target_user_id(raw_action: object) -> int:
+    if not isinstance(raw_action, dict):
+        return 0
+
+    return safe_int(raw_action.get("target_id"))
+
+
+def game_action_type(raw_action: object) -> str:
+    if not isinstance(raw_action, dict):
+        return ""
+
+    return str(raw_action.get("type") or "").strip().lower()
+
+
+def game_death_reason(raw_action: object) -> str:
+    if not isinstance(raw_action, dict):
+        return ""
+
+    return str(raw_action.get("reason") or "").strip().lower()
+
+
+def is_game_foul_death_action(raw_action: object) -> bool:
+    return game_action_type(raw_action) == "death" and game_death_reason(raw_action) == "foul"
+
+
+def game_seat_user_ids(seats_raw: object) -> set[int]:
+    user_ids: set[int] = set()
+    if not isinstance(seats_raw, dict):
+        return user_ids
+
+    for raw_uid, raw_slot in seats_raw.items():
+        uid = safe_int(raw_uid)
+        slot = safe_int(raw_slot)
+        if uid <= 0 or slot <= 0 or slot > 10:
+            continue
+        user_ids.add(uid)
+    return user_ids
+
+
+def game_foul_removed_user_ids(actions: list[object], *, valid_user_ids: set[int] | None = None) -> list[int]:
+    out: list[int] = []
+    seen: set[int] = set()
+    for raw_action in actions:
+        if not is_game_foul_death_action(raw_action):
+            continue
+        target_uid = game_action_target_user_id(raw_action)
+        if target_uid <= 0 or target_uid in seen:
+            continue
+        if valid_user_ids is not None and target_uid not in valid_user_ids:
+            continue
+        seen.add(target_uid)
+        out.append(target_uid)
+    return out
+
+
+def game_max_action_day(actions: list[object]) -> int:
+    max_day = 0
+    for raw_action in actions:
+        if not isinstance(raw_action, dict):
+            continue
+        max_day = max(max_day, safe_int(raw_action.get("day")))
+    return max(1, max_day)
+
+
+def game_fallback_action_ts(game: Game) -> int:
+    finished_at = getattr(game, "finished_at", None)
+    if isinstance(finished_at, datetime):
+        return max(1, int(finished_at.timestamp()))
+
+    return max(1, int(time()))
+
+
+def build_admin_foul_death_action(*, target_uid: int, day: int, head_uid: int, ts: int) -> dict[str, object]:
+    action: dict[str, object] = {
+        "type": "death",
+        "reason": "foul",
+        "target_id": target_uid,
+        "day": max(1, safe_int(day)),
+        "ts": max(1, safe_int(ts)),
+        "admin_adjusted": True,
+    }
+    if head_uid > 0:
+        action["by"] = [head_uid]
+    return action
 
 
 def findGameFoulDeathActionIndex(actions: list[object], targetUid: int) -> int | None:

@@ -327,6 +327,17 @@ class AdminGamePpkOut(BaseModel):
     target_user_id: Optional[int] = None
 
 
+class AdminGameFoulRemovalsUpdateIn(BaseModel):
+    removed_user_ids: List[int] = Field(default_factory=list)
+
+
+class AdminGameFoulRemovalsOut(BaseModel):
+    id: int
+    number: int
+    removed_user_ids: List[int] = Field(default_factory=list)
+    ppk_target_user_id: Optional[int] = None
+
+
 class AdminUserOut(BaseModel):
     id: int
     tg_id: Optional[int] = None
