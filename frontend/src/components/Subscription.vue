@@ -736,9 +736,12 @@ onBeforeUnmount(() => {
             .lava-actions {
               display: flex;
               position: absolute;
+              left: 110px;
               bottom: 0;
               gap: 10px;
-              transform: translate(calc(50% - 15px));
+              .lava-submit {
+                min-width: 240px;
+              }
               :deep(.lava-back .ui-button__icon) {
                 transform: rotate(90deg);
               }
