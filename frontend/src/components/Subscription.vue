@@ -479,7 +479,7 @@ onBeforeUnmount(() => {
     flex-direction: column;
     padding: 24px;
     width: 570px;
-    height: 596px;
+    height: 624px;
     border-radius: 24px;
     background-color: $neutral-100;
     box-shadow: 0 2px 16px 0 rgba($neutral-black, 0.20);
@@ -564,13 +564,13 @@ onBeforeUnmount(() => {
             display: none;
           }
           .subscribe-switch {
-            margin: 28px 0 16px;
+            margin: 40px 0 16px;
           }
           .subscribe {
             display: flex;
             position: relative;
             flex-direction: column;
-            margin-bottom: 24px;
+            margin-bottom: 40px;
             padding: 24px;
             gap: 40px;
             border-radius: 24px;
@@ -633,7 +633,7 @@ onBeforeUnmount(() => {
           .lava-form {
             display: flex;
             flex-direction: column;
-            margin-top: 62px;
+            margin-top: 76px;
             gap: 24px;
             .lava-input {
               --ui-input-label-bg: #{$neutral-100};
@@ -726,7 +726,7 @@ onBeforeUnmount(() => {
             .lava-actions {
               display: flex;
               justify-content: center;
-              margin-top: 36px;
+              margin-top: 50px;
               gap: 10px;
               :deep(.lava-back .ui-button__icon) {
                 transform: rotate(90deg);
