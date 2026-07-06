@@ -447,9 +447,36 @@ async def contact_request(request: Request, payload: ContactRequestIn, ident: Id
 @router.get("/games/history", response_model=UserGamesHistoryOut)
 @log_route("users.games_history")
 @rate_limited(lambda ident, **_: f"rl:games_history:{ident['id']}", limit=10, window_s=1)
-async def games_history(page: int = 1, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserGamesHistoryOut:
+async def games_history(
+    page: int = 1,
+    duration_lt_minutes: int | None = None,
+    duration_gt_minutes: int | None = None,
+    game_number_from: int | None = None,
+    game_number_to: int | None = None,
+    foul_removals: int | None = None,
+    suicides: int | None = None,
+    result: Literal["red", "black", "draw"] | None = None,
+    ident: Identity = Depends(get_identity),
+    db: AsyncSession = Depends(get_session),
+) -> UserGamesHistoryOut:
     await ensure_verification_allowed(db, int(ident["id"]))
-    return await fetch_games_history_page(db, page=page, per_page=GAME_HISTORY_PER_PAGE)
+    history_filters = None
+    if normalize_user_role(str(ident.get("role") or "")) == ROLE_ADMIN:
+        history_filters = {
+            "duration_lt_minutes": duration_lt_minutes,
+            "duration_gt_minutes": duration_gt_minutes,
+            "game_number_from": game_number_from,
+            "game_number_to": game_number_to,
+            "foul_removals": foul_removals,
+            "suicides": suicides,
+            "result": result,
+        }
+    return await fetch_games_history_page(
+        db,
+        page=page,
+        per_page=GAME_HISTORY_PER_PAGE,
+        history_filters=history_filters,
+    )
 
 
 @router.get("/games/history/personal", response_model=UserGamesHistoryOut)

@@ -10,7 +10,7 @@ from time import time
 from datetime import date, datetime, timezone, timedelta
 from typing import Optional, Dict, Any, Literal, Sequence, Iterable, cast, TYPE_CHECKING
 from fastapi import Depends, HTTPException, status, Header, Request
-from sqlalchemy import update, func, select, or_, and_, delete
+from sqlalchemy import update, func, select, or_, and_, delete, literal_column
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.clients import get_redis
 from ..core.db import SessionLocal, get_session
@@ -3018,16 +3018,57 @@ def game_actions_has_ppk(raw_actions: Any) -> bool:
     return False
 
 
-async def fetch_games_history_page(db: AsyncSession, *, page: int, per_page: int, player_uid: int | None = None, player_role: Literal["citizen", "mafia", "don", "sheriff"] | None = None) -> UserGamesHistoryOut:
+def _history_filter_positive_int(raw: Any) -> int | None:
+    if raw is None:
+        return None
+
+    value = safe_int(raw)
+    return value if value > 0 else None
+
+
+def _history_filter_nonnegative_int(raw: Any) -> int | None:
+    if raw is None:
+        return None
+
+    value = safe_int(raw)
+    return value if value >= 0 else None
+
+
+def _game_action_reason_count_expr(reason: str):
+    reason_value = "suicide" if reason == "suicide" else "foul"
+    jsonpath = literal_column(
+        f"""'$[*] ? (@.type == "death" && @.reason == "{reason_value}")'::jsonpath"""
+    )
+    return func.jsonb_array_length(func.jsonb_path_query_array(Game.actions, jsonpath))
+
+
+async def fetch_games_history_page(
+    db: AsyncSession,
+    *,
+    page: int,
+    per_page: int,
+    player_uid: int | None = None,
+    player_role: Literal["citizen", "mafia", "don", "sheriff"] | None = None,
+    history_filters: dict[str, Any] | None = None,
+) -> UserGamesHistoryOut:
     from ..schemas.user import UserGamesHistoryOut, GameHistoryItemOut, GameHistoryHostOut
 
     valid_roles = {"citizen", "mafia", "don", "sheriff"}
+    filters = history_filters if isinstance(history_filters, dict) else {}
     per_page_i = max(1, min(safe_int(per_page), 100))
     page_num = max(1, min(int(page or 1), 1_000_000))
     uid_i = safe_int(player_uid)
     uid_key = str(uid_i) if uid_i > 0 else None
     role_filter_raw = str(player_role or "").strip().lower()
     role_filter = role_filter_raw if role_filter_raw in valid_roles else None
+    duration_lt_minutes = _history_filter_positive_int(filters.get("duration_lt_minutes"))
+    duration_gt_minutes = _history_filter_positive_int(filters.get("duration_gt_minutes"))
+    game_number_from = _history_filter_positive_int(filters.get("game_number_from"))
+    game_number_to = _history_filter_positive_int(filters.get("game_number_to"))
+    foul_removals_count = _history_filter_nonnegative_int(filters.get("foul_removals"))
+    suicides_count = _history_filter_nonnegative_int(filters.get("suicides"))
+    result_filter_raw = str(filters.get("result") or "").strip().lower()
+    result_filter = result_filter_raw if result_filter_raw in {"red", "black", "draw"} else None
 
     total_stmt = select(func.count(Game.id))
     result_stmt = select(Game.result, func.count(Game.id)).group_by(Game.result)
@@ -3047,13 +3088,33 @@ async def fetch_games_history_page(db: AsyncSession, *, page: int, per_page: int
         .order_by(Game.id.desc())
     )
 
+    filter_exprs = []
     if uid_key is not None:
         filter_expr = Game.roles.has_key(uid_key)
         if role_filter is not None:
             filter_expr = and_(filter_expr, Game.roles.contains({uid_key: role_filter}))
-        total_stmt = total_stmt.where(filter_expr)
-        result_stmt = result_stmt.where(filter_expr)
-        rows_stmt = rows_stmt.where(filter_expr)
+        filter_exprs.append(filter_expr)
+
+    duration_seconds_expr = func.extract("epoch", Game.finished_at - Game.started_at)
+    if duration_lt_minutes is not None:
+        filter_exprs.append(duration_seconds_expr < duration_lt_minutes * 60)
+    if duration_gt_minutes is not None:
+        filter_exprs.append(duration_seconds_expr > duration_gt_minutes * 60)
+    if game_number_from is not None:
+        filter_exprs.append(Game.id >= game_number_from)
+    if game_number_to is not None:
+        filter_exprs.append(Game.id <= game_number_to)
+    if foul_removals_count is not None:
+        filter_exprs.append(_game_action_reason_count_expr("foul") == foul_removals_count)
+    if suicides_count is not None:
+        filter_exprs.append(_game_action_reason_count_expr("suicide") == suicides_count)
+    if result_filter is not None:
+        filter_exprs.append(Game.result == result_filter)
+
+    if filter_exprs:
+        total_stmt = total_stmt.where(*filter_exprs)
+        result_stmt = result_stmt.where(*filter_exprs)
+        rows_stmt = rows_stmt.where(*filter_exprs)
 
     total = int(await db.scalar(total_stmt) or 0)
     pages = max(1, (total + per_page_i - 1) // per_page_i)
