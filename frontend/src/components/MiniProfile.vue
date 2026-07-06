@@ -2083,7 +2083,6 @@ onBeforeUnmount(() => {
         .profile-block {
           display: flex;
           flex-direction: column;
-          justify-content: space-between;
           gap: 8px;
           height: 182px;
           .profile-div {

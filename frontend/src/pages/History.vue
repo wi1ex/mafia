@@ -91,17 +91,20 @@
             label="Результат"
           />
           <div class="history-admin-filters-actions">
-            <button class="history-filter-action history-filter-action--primary" type="submit" :disabled="loading">
-              Применить
-            </button>
-            <button
+            <UiButton
+              class="history-filter-action"
+              type="submit"
+              text="Применить"
+              :disabled="loading"
+            />
+            <UiButton
               class="history-filter-action"
               type="button"
+              variant="white"
+              text="Сбросить"
               :disabled="loading || !hasAnyAdminFilters"
               @click="resetAdminFilters"
-            >
-              Сбросить
-            </button>
+            />
           </div>
         </div>
       </form>
@@ -176,6 +179,7 @@ import { formatLocalDateTime } from '@/services/datetime'
 import { useUserStore } from '@/store'
 import HistoryDetails from '@/components/HistoryDetails.vue'
 import HistoryActions from '@/components/HistoryActions.vue'
+import UiButton from '@/components/UiButton.vue'
 import UiDropdown from '@/components/UiDropdown.vue'
 import UiInput from '@/components/UiInput.vue'
 
@@ -705,34 +709,8 @@ onBeforeUnmount(() => {
         justify-content: flex-end;
         gap: 10px;
         .history-filter-action {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          min-width: 120px;
-          height: 40px;
-          padding: 0 16px;
-          border-radius: 5px;
-          border: 1px solid $neutral-700;
-          background-color: $neutral-800;
-          color: $neutral-100;
-          font-family: Hauora-Regular;
-          font-size: 14px;
-          line-height: 18px;
-          letter-spacing: 0;
-          cursor: pointer;
-          transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out, opacity 0.25s ease-in-out;
-          &:hover:not(:disabled) {
-            border-color: $neutral-500;
-            background-color: $neutral-700;
-          }
-          &.history-filter-action--primary {
-            border-color: $green-600;
-            background-color: $green-700;
-          }
-          &:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-          }
+          width: 120px;
+          --ui-button-letter-spacing: 0;
         }
       }
     }
