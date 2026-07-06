@@ -2251,22 +2251,24 @@ onBeforeUnmount(() => {
                       width: 0;
                       height: 0;
                     }
-                                                .profile-friends-section {
-                                                  display: flex;
-                                                  flex-direction: column;
-                                                  gap: 8px;
-                                                  & + .profile-friends-section {
-                                                    margin-top: 4px;
-                                                    padding-top: 10px;
-                                                    border-top: 1px solid rgba($neutral-black, 0.08);
-                                                  }
-                                                  .profile-friends-section-title {
-                                                    color: $neutral-black;
-                                                    font-family: Hauora-SemiBold;
-                                                    font-size: 13px;
-                                                    line-height: 13px;
-                                                  }
-                                                }
+                    .profile-friends-section {
+                      display: flex;
+                      flex-direction: column;
+                      gap: 8px;
+                      & + .profile-friends-section {
+                        margin-top: 16px;
+                        padding-top: 16px;
+                        border-top: 1px solid $neutral-300;
+                      }
+                      .profile-friends-section-title {
+                        margin-bottom: 8px;
+                        color: $neutral-black;
+                        font-family: Hauora-Bold;
+                        font-size: 16px;
+                        line-height: 18px;
+                        letter-spacing: -0.32px;
+                      }
+                    }
                     .profile-friend-row {
                       display: flex;
                       align-items: center;
