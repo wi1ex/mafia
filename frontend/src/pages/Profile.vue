@@ -1,33 +1,45 @@
 <template>
   <section class="profile">
     <header>
-      <nav class="tabs" aria-label="Личный кабинет" role="tablist">
-        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'profile' }" :aria-selected="activeTab === 'profile'" @click="activeTab = 'profile'">
-          Аватар и никнейм
-        </button>
-        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'theme' }" :aria-selected="activeTab === 'theme'" @click="activeTab = 'theme'">
-          Оформление профиля
-        </button>
-        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'account' }" :aria-selected="activeTab === 'account'" @click="activeTab = 'account'">
-          Аккаунт
-        </button>
-        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'stats' }" :aria-selected="activeTab === 'stats'" @click="activeTab = 'stats'">
-          Статистика
-        </button>
-        <button v-if="showHistoryTab" class="tab" type="button" role="tab" :class="{ active: activeTab === 'history' }" :aria-selected="activeTab === 'history'" @click="activeTab = 'history'">
-          История игр
-        </button>
-        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'sanctions' }" :aria-selected="activeTab === 'sanctions'" @click="activeTab = 'sanctions'">
-          Санкции
-        </button>
-        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'blacklist' }" :aria-selected="activeTab === 'blacklist'" @click="activeTab = 'blacklist'">
-          Черный список
-        </button>
-        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'payments' }" :aria-selected="activeTab === 'payments'" @click="activeTab = 'payments'">
-          Платежи
-        </button>
-      </nav>
-      <router-link class="btn nav" :to="{ name: 'home' }" aria-label="На главную">На главную</router-link>
+      <div class="tab-div">
+        <router-link class="btn nav" :to="{ name: 'home' }" aria-label="На главную">На главную</router-link>
+        <nav class="tabs" aria-label="Навигация" role="tablist">
+          <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'profile' }" :aria-selected="activeTab === 'profile'" @click="activeTab = 'profile'">
+            Аватар и никнейм
+          </button>
+          <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'theme' }" :aria-selected="activeTab === 'theme'" @click="activeTab = 'theme'">
+            Оформление профиля
+          </button>
+          <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'account' }" :aria-selected="activeTab === 'account'" @click="activeTab = 'account'">
+            Аккаунт
+          </button>
+          <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'stats' }" :aria-selected="activeTab === 'stats'" @click="activeTab = 'stats'">
+            Статистика
+          </button>
+          <button v-if="showHistoryTab" class="tab" type="button" role="tab" :class="{ active: activeTab === 'history' }" :aria-selected="activeTab === 'history'" @click="activeTab = 'history'">
+            История игр
+          </button>
+          <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'sanctions' }" :aria-selected="activeTab === 'sanctions'" @click="activeTab = 'sanctions'">
+            Санкции
+          </button>
+          <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'blacklist' }" :aria-selected="activeTab === 'blacklist'" @click="activeTab = 'blacklist'">
+            Черный список
+          </button>
+          <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'payments' }" :aria-selected="activeTab === 'payments'" @click="activeTab = 'payments'">
+            Платежи
+          </button>
+        </nav>
+      </div>
+      <div class="tab-div">
+        <div class="tab-subscribe">
+          <span>ПОДПИСКА</span>
+          <span>купить подписку</span>
+          <button type="button" class="btn subscription-btn" @click="openSubscriptionModal">
+            Оформить подписку
+          </button>
+        </div>
+        <router-link class="btn nav" :to="{ name: 'home' }" aria-label="На главную">На главную</router-link>
+      </div>
     </header>
 
     <Transition name="tab-fade" mode="out-in">
@@ -1628,111 +1640,117 @@ onBeforeUnmount(() => {
 <style scoped lang="scss">
 .profile {
   display: flex;
-  flex-direction: column;
-  margin: 0 10px;
-  padding: 10px;
-  border-radius: 5px;
-  background-color: $neutral-900;
+  padding: 40px 40px 10px;
+  gap: 10px;
   overflow: auto;
   scrollbar-width: none;
-  .btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0 15px;
-    gap: 5px;
-    max-width: 200px;
-    height: 40px;
-    border: none;
-    border-radius: 5px;
-    background-color: $neutral-100;
-    box-shadow: 3px 3px 5px rgba(black, 0.25);
-    font-size: 16px;
-    color: $neutral-black;
-    font-family: Hauora-Regular;
-    line-height: 1;
-    text-decoration: none;
-    cursor: pointer;
-    transition: opacity 0.25s ease-in-out, color 0.25s ease-in-out, border-radius 0.25s ease-in-out, background-color 0.25s ease-in-out;
-    &:hover {
-      background-color: $neutral-white;
-    }
-    &.nav {
-      font-size: 16px;
-      border-radius: 5px 5px 0 0;
-    }
-    &.dark {
-      background-color: $neutral-700;
-      color: $neutral-100;
-      &:hover {
-        background-color: rgba($neutral-500, 0.5);
-      }
-    }
-    &.confirm {
-      background-color: rgba($green-500, 0.75);
-      &:hover {
-        background-color: $green-500;
-      }
-    }
-    &.danger {
-      background-color: rgba($red-500, 0.75);
-      color: $neutral-100;
-      &:hover {
-        background-color: $red-500;
-      }
-    }
-    &.subscription-btn {
-      max-width: 240px;
-      background-color: $neutral-100;
-      color: $neutral-black;
-      font-family: Hauora-SemiBold;
-      &:hover,
-      &:focus-visible {
-        background-color: $neutral-white;
-        box-shadow: 0 15px 30px rgba(black, 0.25);
-      }
-    }
-    &:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-    .btn-img {
-      width: 20px;
-      height: 20px;
-    }
-  }
   header {
     display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    border-bottom: 3px solid $neutral-700;
-    .tabs {
+    flex-direction: column;
+    .tab-div {
       display: flex;
-      align-items: flex-end;
-      width: 80%;
-      height: 30px;
-      .tab {
-        min-width: 150px;
-        width: auto;
-        padding: 0 20px;
-        height: 30px;
+      flex-direction: column;
+      gap: 4px;
+      .btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 15px;
+        gap: 5px;
+        max-width: 200px;
+        height: 40px;
         border: none;
-        border-radius: 5px 5px 0 0;
-        background-color: $neutral-800;
-        color: $neutral-100;
-        font-size: 18px;
+        border-radius: 5px;
+        background-color: $neutral-100;
+        box-shadow: 3px 3px 5px rgba(black, 0.25);
+        font-size: 16px;
+        color: $neutral-black;
         font-family: Hauora-Regular;
         line-height: 1;
+        text-decoration: none;
         cursor: pointer;
-        transition: opacity 0.25s ease-in-out, height 0.25s ease-in-out, background-color 0.25s ease-in-out;
-        &.active {
-          height: 40px;
+        transition: opacity 0.25s ease-in-out, color 0.25s ease-in-out, border-radius 0.25s ease-in-out, background-color 0.25s ease-in-out;
+        &:hover {
+          background-color: $neutral-white;
+        }
+        &.nav {
+          font-size: 16px;
+          border-radius: 5px 5px 0 0;
+        }
+        &.dark {
           background-color: $neutral-700;
+          color: $neutral-100;
+          &:hover {
+            background-color: rgba($neutral-500, 0.5);
+          }
+        }
+        &.confirm {
+          background-color: rgba($green-500, 0.75);
+          &:hover {
+            background-color: $green-500;
+          }
+        }
+        &.danger {
+          background-color: rgba($red-500, 0.75);
+          color: $neutral-100;
+          &:hover {
+            background-color: $red-500;
+          }
+        }
+        &.subscription-btn {
+          max-width: 240px;
+          background-color: $neutral-100;
+          color: $neutral-black;
+          font-family: Hauora-SemiBold;
+          &:hover,
+          &:focus-visible {
+            background-color: $neutral-white;
+            box-shadow: 0 15px 30px rgba(black, 0.25);
+          }
         }
         &:disabled {
           opacity: 0.5;
           cursor: not-allowed;
         }
+        .btn-img {
+          width: 20px;
+          height: 20px;
+        }
+      }
+      .tabs {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        width: 80%;
+        height: 30px;
+        .tab {
+          min-width: 150px;
+          width: auto;
+          padding: 0 20px;
+          height: 30px;
+          border: none;
+          border-radius: 5px 5px 0 0;
+          background-color: $neutral-800;
+          color: $neutral-100;
+          font-size: 18px;
+          font-family: Hauora-Regular;
+          line-height: 1;
+          cursor: pointer;
+          transition: opacity 0.25s ease-in-out, height 0.25s ease-in-out, background-color 0.25s ease-in-out;
+          &.active {
+            height: 40px;
+            background-color: $neutral-700;
+          }
+          &:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+          }
+        }
+      }
+      .tab-subscribe {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
       }
     }
   }
@@ -2358,7 +2376,7 @@ onBeforeUnmount(() => {
 
 .tab-fade-enter-active,
 .tab-fade-leave-active {
-  transition: opacity 0.15s ease-in-out;
+  transition: opacity 0.25s ease-in-out;
 }
 .tab-fade-enter-from,
 .tab-fade-leave-to {
