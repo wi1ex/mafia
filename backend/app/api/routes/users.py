@@ -41,9 +41,13 @@ from ..utils import (
     build_admin_mini_profile_blacklist,
     build_user_mini_profile_nomination_stats_out,
     friend_status_for,
+    payment_amount_text,
+    payment_plan,
+    payment_promo_discount_percent,
 )
 from ...models.game import Game
 from ...models.contact_request import ContactRequestRecord
+from ...models.lava_payment import LavaPayment
 from ...models.notif import Notif
 from ...models.user import User
 from ...core.db import get_session
@@ -85,6 +89,8 @@ from ...schemas.user import (
     UserMiniProfileSanctionOut,
     UserMiniProfileNominationStatsOut,
     UserNicknameHistoryOut,
+    UserSubscriptionPaymentOut,
+    UserSubscriptionPaymentsOut,
 )
 from ...security.passwords import hash_password, verify_password
 from ...services.global_chat import global_chat_send_error, resolve_global_chat_permissions
@@ -143,6 +149,43 @@ CHAT_MENTION_SEARCH_RATE_WINDOW_S = 10
 @rate_limited(lambda ident, **_: f"rl:profile_info:{ident['id']}", limit=10, window_s=1)
 async def profile_info(ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserOut:
     return await build_user_out_payload(db, user_id=int(ident["id"]), role=str(ident["role"]))
+
+
+@router.get("/payments/subscriptions", response_model=UserSubscriptionPaymentsOut)
+@log_route("users.subscription_payments")
+@rate_limited(lambda ident, **_: f"rl:user_subscription_payments:{ident['id']}", limit=10, window_s=1)
+async def user_subscription_payments(ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserSubscriptionPaymentsOut:
+    uid = int(ident["id"])
+    user = await db.get(User, uid)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+
+    rows = await db.scalars(
+        select(LavaPayment)
+        .where(
+            LavaPayment.user_id == uid,
+            LavaPayment.status == "processed",
+            LavaPayment.processed_at.is_not(None),
+        )
+        .order_by(LavaPayment.processed_at.desc(), LavaPayment.id.desc())
+    )
+    items: list[UserSubscriptionPaymentOut] = []
+    for payment in rows.all():
+        if payment.processed_at is None:
+            continue
+        items.append(
+            UserSubscriptionPaymentOut(
+                id=int(payment.id),
+                paid_at=payment.processed_at,
+                email=payment.email or None,
+                plan=payment_plan(payment),
+                subscription_months=int(payment.subscription_months or 0),
+                amount=payment_amount_text(payment.amount),
+                currency=(str(payment.currency or "").strip().upper() or None),
+                promo_discount_percent=payment_promo_discount_percent(payment),
+            )
+        )
+    return UserSubscriptionPaymentsOut(items=items)
 
 
 @router.get("/stats", response_model=UserStatsOut)

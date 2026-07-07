@@ -94,6 +94,21 @@ class UserNicknameHistoryOut(BaseModel):
     items: List[str] = Field(default_factory=list)
 
 
+class UserSubscriptionPaymentOut(BaseModel):
+    id: int
+    paid_at: datetime
+    email: Optional[str] = None
+    plan: Optional[Literal["month", "year"]] = None
+    subscription_months: int = 0
+    amount: Optional[str] = None
+    currency: Optional[str] = None
+    promo_discount_percent: Optional[float] = None
+
+
+class UserSubscriptionPaymentsOut(BaseModel):
+    items: List[UserSubscriptionPaymentOut] = Field(default_factory=list)
+
+
 class UserTopPlayerOut(BaseModel):
     id: int
     username: Optional[str] = None

@@ -10,6 +10,7 @@ from time import time
 from datetime import date, datetime, timezone, timedelta
 from typing import Optional, Dict, Any, Literal, Sequence, Iterable, cast, TYPE_CHECKING
 from fastapi import Depends, HTTPException, status, Header, Request
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from sqlalchemy import update, func, select, or_, and_, delete, literal_column
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.clients import get_redis
@@ -18,6 +19,7 @@ from ..core.logging import log_action
 from ..core.roles import ROLE_ADMIN, ROLE_USER, normalize_user_role, room_moderation_role
 from ..core.settings import settings
 from ..models.game import Game
+from ..models.lava_payment import LavaPayment
 from ..models.room import Room
 from ..models.friend import FriendLink, UserBlacklist
 from ..models.notif import Notif
@@ -165,6 +167,11 @@ __all__ = [
     "format_duration_parts",
     "format_duration_seconds_compact",
     "format_subscription_until",
+    "SUBSCRIPTION_PAYMENT_BASE_PRICES",
+    "payment_decimal",
+    "payment_amount_text",
+    "payment_plan",
+    "payment_promo_discount_percent",
     "normalize_chat_mention_query",
     "normalize_username",
     "normalize_password",
@@ -1605,6 +1612,71 @@ def format_subscription_purchase_duration(*, months: int = 0, days: int = 0) -> 
 
 def _is_admin_subscription_target(role: object) -> bool:
     return normalize_user_role(role) == ROLE_ADMIN
+
+
+SUBSCRIPTION_PAYMENT_BASE_PRICES: dict[str, dict[str, Decimal]] = {
+    "RUB": {"month": Decimal("490"), "year": Decimal("4990")},
+    "EUR": {"month": Decimal("6.9"), "year": Decimal("69")},
+    "USD": {"month": Decimal("7.9"), "year": Decimal("79")},
+}
+
+
+def payment_decimal(value: object) -> Decimal | None:
+    if value is None or value == "":
+        return None
+
+    try:
+        return Decimal(str(value))
+
+    except (InvalidOperation, TypeError, ValueError):
+        return None
+
+
+def payment_amount_text(value: object) -> str | None:
+    amount = payment_decimal(value)
+    if amount is None:
+        return None
+
+    return format(amount, "f")
+
+
+def payment_plan(payment: LavaPayment) -> Literal["month", "year"] | None:
+    plan = str(payment.plan or "").strip().lower()
+    if plan in {"month", "year"}:
+        return cast(Literal["month", "year"], plan)
+
+    months = int(payment.subscription_months or 0)
+    if months == 1:
+        return "month"
+
+    if months == 12:
+        return "year"
+
+    return None
+
+
+def payment_promo_discount_percent(payment: LavaPayment) -> float | None:
+    amount = payment_decimal(payment.amount)
+    if amount is None or amount < 0:
+        return None
+
+    currency = str(payment.currency or "").strip().upper()
+    plan = payment_plan(payment)
+    if not currency or plan is None:
+        return None
+
+    base_amount = SUBSCRIPTION_PAYMENT_BASE_PRICES.get(currency, {}).get(plan)
+    if base_amount is None or base_amount <= 0 or amount >= base_amount:
+        return None
+
+    percent = ((base_amount - amount) * Decimal("100") / base_amount).quantize(
+        Decimal("0.01"),
+        rounding=ROUND_HALF_UP,
+    )
+    if percent <= 0:
+        return None
+
+    return float(percent)
 
 
 async def _send_user_telegram_notice(uid: int, telegram_id: int | None, title: str, text: str, *, log_event: str) -> bool:
