@@ -3,29 +3,30 @@
     <header>
       <div class="tab-div">
         <router-link class="btn nav" :to="{ name: 'home' }" aria-label="На главную">На главную</router-link>
+        <div class="tab-div-line"></div>
         <nav class="tabs" aria-label="Навигация" role="tablist">
-          <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'profile' }" :aria-selected="activeTab === 'profile'" @click="activeTab = 'profile'">
+          <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'profile' }" :aria-selected="activeTab === 'profile'" @click="activeTab = 'profile'">
             Аватар и никнейм
           </button>
-          <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'theme' }" :aria-selected="activeTab === 'theme'" @click="activeTab = 'theme'">
+          <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'theme' }" :aria-selected="activeTab === 'theme'" @click="activeTab = 'theme'">
             Оформление профиля
           </button>
-          <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'account' }" :aria-selected="activeTab === 'account'" @click="activeTab = 'account'">
+          <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'account' }" :aria-selected="activeTab === 'account'" @click="activeTab = 'account'">
             Аккаунт
           </button>
-          <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'stats' }" :aria-selected="activeTab === 'stats'" @click="activeTab = 'stats'">
+          <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'stats' }" :aria-selected="activeTab === 'stats'" @click="activeTab = 'stats'">
             Статистика
           </button>
-          <button v-if="showHistoryTab" class="tab" type="button" role="tab" :class="{ active: activeTab === 'history' }" :aria-selected="activeTab === 'history'" @click="activeTab = 'history'">
+          <button v-if="showHistoryTab" class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'history' }" :aria-selected="activeTab === 'history'" @click="activeTab = 'history'">
             История игр
           </button>
-          <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'sanctions' }" :aria-selected="activeTab === 'sanctions'" @click="activeTab = 'sanctions'">
+          <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'sanctions' }" :aria-selected="activeTab === 'sanctions'" @click="activeTab = 'sanctions'">
             Санкции
           </button>
-          <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'blacklist' }" :aria-selected="activeTab === 'blacklist'" @click="activeTab = 'blacklist'">
+          <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'blacklist' }" :aria-selected="activeTab === 'blacklist'" @click="activeTab = 'blacklist'">
             Черный список
           </button>
-          <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'payments' }" :aria-selected="activeTab === 'payments'" @click="activeTab = 'payments'">
+          <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'payments' }" :aria-selected="activeTab === 'payments'" @click="activeTab = 'payments'">
             Платежи
           </button>
         </nav>
@@ -34,7 +35,7 @@
         <div class="tab-subscribe">
           <span>ПОДПИСКА</span>
           <span>купить подписку</span>
-          <button type="button" class="btn subscription-btn" @click="openSubscriptionModal">
+          <button class="tab-btn" type="button" @click="openSubscriptionModal">
             Оформить подписку
           </button>
         </div>
@@ -1642,16 +1643,18 @@ onBeforeUnmount(() => {
   display: flex;
   padding: 40px 40px 10px;
   gap: 10px;
+  height: 100%;
   overflow: auto;
   scrollbar-width: none;
   header {
     display: flex;
     flex-direction: column;
+    justify-content: space-between;
     .tab-div {
       display: flex;
       flex-direction: column;
       gap: 4px;
-      .btn {
+      .tab-btn {
         display: flex;
         align-items: center;
         justify-content: center;
@@ -1669,83 +1672,27 @@ onBeforeUnmount(() => {
         line-height: 1;
         text-decoration: none;
         cursor: pointer;
-        transition: opacity 0.25s ease-in-out, color 0.25s ease-in-out, border-radius 0.25s ease-in-out, background-color 0.25s ease-in-out;
-        &:hover {
-          background-color: $neutral-white;
-        }
-        &.nav {
-          font-size: 16px;
-          border-radius: 5px 5px 0 0;
-        }
-        &.dark {
-          background-color: $neutral-700;
-          color: $neutral-100;
-          &:hover {
-            background-color: rgba($neutral-500, 0.5);
-          }
-        }
-        &.confirm {
-          background-color: rgba($green-500, 0.75);
-          &:hover {
-            background-color: $green-500;
-          }
-        }
-        &.danger {
-          background-color: rgba($red-500, 0.75);
-          color: $neutral-100;
-          &:hover {
-            background-color: $red-500;
-          }
-        }
-        &.subscription-btn {
-          max-width: 240px;
-          background-color: $neutral-100;
-          color: $neutral-black;
-          font-family: Hauora-SemiBold;
-          &:hover,
-          &:focus-visible {
-            background-color: $neutral-white;
-            box-shadow: 0 15px 30px rgba(black, 0.25);
-          }
+        transition: opacity 0.25s ease-in-out, background-color 0.25s ease-in-out;
+        .tab-btn-img {
+          width: 20px;
+          height: 20px;
         }
         &:disabled {
           opacity: 0.5;
           cursor: not-allowed;
         }
-        .btn-img {
-          width: 20px;
-          height: 20px;
+        &:hover {
+          background-color: $neutral-white;
         }
+      }
+      .tab-div-line {
+        width: 100%;
+        border-bottom: 1px solid $neutral-800;
       }
       .tabs {
         display: flex;
         flex-direction: column;
         align-items: flex-end;
-        width: 80%;
-        height: 30px;
-        .tab {
-          min-width: 150px;
-          width: auto;
-          padding: 0 20px;
-          height: 30px;
-          border: none;
-          border-radius: 5px 5px 0 0;
-          background-color: $neutral-800;
-          color: $neutral-100;
-          font-size: 18px;
-          font-family: Hauora-Regular;
-          line-height: 1;
-          cursor: pointer;
-          transition: opacity 0.25s ease-in-out, height 0.25s ease-in-out, background-color 0.25s ease-in-out;
-          &.active {
-            height: 40px;
-            background-color: $neutral-700;
-          }
-          &:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-          }
-        }
       }
       .tab-subscribe {
         display: flex;
@@ -2286,8 +2233,8 @@ onBeforeUnmount(() => {
         align-items: center;
         justify-content: center;
         inset: 0;
-        background-color: rgba(black, 0.25);
-        backdrop-filter: blur(5px);
+        background-color: rgba($neutral-800, 0.2);
+        backdrop-filter: blur(12px);
         overscroll-behavior: contain;
         z-index: 50;
         .modal-body {

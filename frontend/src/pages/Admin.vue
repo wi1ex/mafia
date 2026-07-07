@@ -2694,60 +2694,6 @@ onMounted(() => {
       }
     }
   }
-  .user-stats-overlay {
-    display: flex;
-    position: fixed;
-    align-items: center;
-    justify-content: center;
-    inset: 0;
-    padding: 20px;
-    background-color: rgba(black, 0.5);
-    backdrop-filter: blur(5px);
-    z-index: 1200;
-    .user-stats-modal {
-      display: flex;
-      flex-direction: column;
-      width: min(96vw, 1500px);
-      max-height: 92vh;
-      border: 1px solid $neutral-700;
-      border-radius: 5px;
-      background-color: $neutral-900;
-      overflow: hidden;
-    }
-    .user-stats-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      padding: 10px;
-      border-bottom: 1px solid $neutral-700;
-      background-color: $neutral-800;
-      span {
-        font-size: 16px;
-        font-family: Hauora-SemiBold;
-      }
-      button {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 30px;
-        height: 30px;
-        padding: 0;
-        border: none;
-        border-radius: 5px;
-        background: transparent;
-        cursor: pointer;
-        img {
-          width: 20px;
-          height: 20px;
-        }
-      }
-    }
-    .user-stats-body {
-      padding: 10px;
-      overflow: auto;
-    }
-  }
   .btn {
     display: flex;
     align-items: center;

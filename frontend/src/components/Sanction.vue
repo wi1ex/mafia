@@ -99,8 +99,8 @@ function close() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: rgba(black, 0.25);
-  backdrop-filter: blur(5px);
+  background-color: rgba($neutral-800, 0.2);
+  backdrop-filter: blur(12px);
   z-index: 1000;
   .modal {
     width: 420px;

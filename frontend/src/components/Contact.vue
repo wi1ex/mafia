@@ -280,7 +280,7 @@ onBeforeUnmount(() => {
   position: fixed;
   justify-content: flex-end;
   inset: 10px;
-  background-color: rgba($neutral-black, 0.2);
+  background-color: rgba($neutral-800, 0.2);
   backdrop-filter: blur(12px);
   z-index: 1000;
   .contact-drawer-panel {

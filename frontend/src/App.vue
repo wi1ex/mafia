@@ -160,7 +160,7 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   inset: 0;
-  background-color: rgba($neutral-black, 0.2);
+  background-color: rgba($neutral-800, 0.2);
   backdrop-filter: blur(12px);
   text-align: center;
   color: $neutral-white;
