@@ -816,7 +816,7 @@ const showProfileDataButtons = computed(() => Boolean(
 const showStatsButton = computed(() => showProfileDataButtons.value)
 const showGameHistoryButton = computed(() => showProfileDataButtons.value)
 const showActionBlockOld = computed(() => showStatsButton.value || showGameHistoryButton.value || showFriendAction.value)
-const showActionBlock = computed(() => showFriendAction.value)
+const showActionBlock = computed(() => !blacklistedByMe.value && showFriendAction.value)
 const staffActionScope = computed<StaffActionScope | null>(() => {
   if (isAdminViewer.value) return 'admin'
   if (isModerViewer.value) return 'moderation'
@@ -2833,11 +2833,9 @@ onBeforeUnmount(() => {
           &:not(:disabled):hover,
           &:not(:disabled):focus-visible,
           &:not(:disabled):active {
-            &.active {
-              background-color: rgba($soft-purple-900, 0.65);
-              .blacklist-icon {
-                --ui-icon-color: #{$red-500};
-              }
+            background-color: rgba($soft-purple-900, 0.65);
+            .blacklist-icon {
+              --ui-icon-color: #{$red-500};
             }
           }
         }

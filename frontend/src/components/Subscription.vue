@@ -34,7 +34,7 @@
                   aria-label="Выбор срока подписки"
                 />
                 <div class="subscribe">
-                  <img class="background-image" :src="imageSlide6" alt="" aria-hidden="true" />
+                  <img class="background-image" :src="imageSlide8" alt="" aria-hidden="true" />
                   <span class="subscribe-price-value">Оформи подписку всего за <span class="subscribe-price-amount">{{ selectedSubscribePrice.amount }}</span><span class="subscribe-price-period">{{ selectedSubscribePrice.period }}</span></span>
                   <ul class="subscribe-benefits">
                     <li v-for="benefit in subscriptionBenefits" :key="benefit">
@@ -158,7 +158,7 @@ import { api } from '@/services/axios'
 import { alertDialog } from '@/services/confirm'
 import { useAuthStore, useSettingsStore } from '@/store'
 
-import imageSlide6 from '@/assets/images/carousel-image6.png'
+import imageSlide8 from '@/assets/images/carousel-image8.png'
 import iconClose from '@/assets/svg/iconClose.svg'
 import iconCheckCircle from '@/assets/svg/iconCheckCircle.svg'
 import iconDonation from '@/assets/svg/iconPresent.svg'
