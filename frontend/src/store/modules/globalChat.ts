@@ -565,7 +565,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
     })
 
     Object.entries(reactionParticipantsCache).forEach(([key, participants]) => {
-      const nextParticipants = participants.map((participant) => {
+      reactionParticipantsCache[Number(key)] = participants.map((participant) => {
         if (participant.user.id !== userId) return participant
         return {
           ...participant,
@@ -576,7 +576,6 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
           },
         }
       })
-      reactionParticipantsCache[Number(key)] = nextParticipants
     })
 
     if (changed) markMutation('none')
@@ -602,7 +601,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
     })
 
     Object.entries(reactionParticipantsCache).forEach(([key, participants]) => {
-      const nextParticipants = participants.map((participant) => {
+      reactionParticipantsCache[Number(key)] = participants.map((participant) => {
         if (participant.user.id !== userId) return participant
         return {
           ...participant,
@@ -612,7 +611,6 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
           },
         }
       })
-      reactionParticipantsCache[Number(key)] = nextParticipants
     })
 
     if (changed) markMutation('none')

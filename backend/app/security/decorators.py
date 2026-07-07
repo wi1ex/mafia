@@ -260,7 +260,7 @@ def _default_http_rate_limits(method: str, path: str) -> RateLimitRules:
         return public_safe_limits
 
     if normalized_path.startswith("/api/bot"):
-        return ((30, 1), (90, 60))
+        return (30, 1), (90, 60)
 
     if method == "PATCH" and normalized_path == ROOM_GAME_UPDATE_HTTP_PATH:
         return ROOM_GAME_UPDATE_HTTP_LIMITS
@@ -270,9 +270,9 @@ def _default_http_rate_limits(method: str, path: str) -> RateLimitRules:
             return PRIVILEGED_SAFE_HTTP_LIMITS
 
         if normalized_path in PRIVILEGED_SENSITIVE_MUTATION_LIMITS:
-            return ((2, 10), (PRIVILEGED_SENSITIVE_MUTATION_LIMITS[normalized_path], 60))
+            return (2, 10), (PRIVILEGED_SENSITIVE_MUTATION_LIMITS[normalized_path], 60)
 
-        return ((4, 10), (10, 60))
+        return (4, 10), (10, 60)
 
     return DEFAULT_SAFE_HTTP_LIMITS if method in SAFE_HTTP_METHODS else DEFAULT_MUTATING_HTTP_LIMITS
 

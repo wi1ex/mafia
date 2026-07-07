@@ -1,7 +1,7 @@
 from __future__ import annotations
 from contextlib import suppress
 from datetime import datetime, timezone
-from typing import Any, Iterable, Sequence
+from typing import Any, Iterable
 import structlog
 from fastapi import HTTPException, status
 from sqlalchemy import and_, delete, or_, select

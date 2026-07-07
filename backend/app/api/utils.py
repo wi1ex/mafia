@@ -167,6 +167,7 @@ __all__ = [
     "format_duration_parts",
     "format_duration_seconds_compact",
     "format_subscription_until",
+    "format_subscription_purchase_duration",
     "SUBSCRIPTION_PAYMENT_BASE_PRICES",
     "payment_decimal",
     "payment_amount_text",

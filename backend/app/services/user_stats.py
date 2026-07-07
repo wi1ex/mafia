@@ -325,4 +325,3 @@ async def get_user_game_stats_cached(session: AsyncSession, user_id: int, season
     game_stats = await _compute_user_game_stats(session, user_id, season_no)
     await _write_cached_game_stats(user_id, season_no, game_stats)
     return game_stats
-
