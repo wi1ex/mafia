@@ -358,6 +358,7 @@ onBeforeUnmount(() => {
             width: 24px;
             height: 24px;
             border-radius: 50%;
+            object-fit: cover;
           }
           span {
             color: $neutral-900;

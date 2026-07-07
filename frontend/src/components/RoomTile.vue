@@ -493,6 +493,7 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
       aspect-ratio: 1;
       height: 35%;
       border-radius: 50%;
+      object-fit: cover;
     }
   }
   .user-card {

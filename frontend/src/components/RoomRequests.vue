@@ -366,6 +366,7 @@ onBeforeUnmount(() => {
           width: 24px;
           height: 24px;
           border-radius: 50%;
+          object-fit: cover;
         }
         .profile-theme-icons {
           display: inline-flex;

@@ -817,6 +817,7 @@ function openAuth(mode: 'login' | 'register') {
             width: 56px;
             height: 56px;
             border-radius: 50%;
+            object-fit: cover;
           }
           .user-menu-nickname {
             max-width: 261px;
