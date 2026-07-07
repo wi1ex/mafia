@@ -3,7 +3,13 @@
     <header>
       <nav class="tabs" aria-label="Личный кабинет" role="tablist">
         <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'profile' }" :aria-selected="activeTab === 'profile'" @click="activeTab = 'profile'">
-          Профиль
+          Аватар и никнейм
+        </button>
+        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'theme' }" :aria-selected="activeTab === 'theme'" @click="activeTab = 'theme'">
+          Оформление профиля
+        </button>
+        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'account' }" :aria-selected="activeTab === 'account'" @click="activeTab = 'account'">
+          Аккаунт
         </button>
         <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'stats' }" :aria-selected="activeTab === 'stats'" @click="activeTab = 'stats'">
           Статистика
@@ -26,9 +32,9 @@
 
     <Transition name="tab-fade" mode="out-in">
       <div :key="activeTab" class="tab-panel">
-        <div v-if="activeTab === 'profile'" class="grid">
-          <div class="block avatar-block">
-            <h3>Аватар и Никнейм</h3>
+        <div v-if="isProfileSettingsTab(activeTab)" class="grid grid-profile-section">
+          <div v-if="activeTab === 'profile'" class="block avatar-block">
+            <h3>Аватар и никнейм</h3>
             <div class="avatar-row">
               <img class="avatar-img" v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="Текущий аватар" />
               <div class="actions">
@@ -82,7 +88,7 @@
             <p class="hint">Никнейм является логином для авторизации</p>
           </div>
 
-          <div class="block theme-block">
+          <div v-else-if="activeTab === 'theme'" class="block theme-block">
             <h3>Оформление профиля</h3>
             <div class="theme-row">
               <div class="theme-preview-grid">
@@ -120,7 +126,7 @@
             <p class="hint">{{ profileThemeMessageText }}</p>
           </div>
 
-          <div class="block account-block">
+          <div v-else-if="activeTab === 'account'" class="block account-block">
             <h3>Аккаунт</h3>
             <div class="verify-row">
               <p class="hint text">Дата регистрации: {{ registrationDateLabel }}</p>
@@ -486,12 +492,17 @@ const ANIMATED_AVATAR_TYPE = 'image/gif'
 const route = useRoute()
 const router = useRouter()
 
-const TAB_KEYS = ['profile', 'stats', 'payments', 'history', 'sanctions', 'blacklist'] as const
+const TAB_KEYS = ['profile', 'theme', 'account', 'stats', 'payments', 'history', 'sanctions', 'blacklist'] as const
 type TabKey = typeof TAB_KEYS[number]
+const DEFAULT_TAB: TabKey = 'profile'
 
 function normalizeTab(v: unknown): TabKey {
   if (typeof v === 'string' && (TAB_KEYS as readonly string[]).includes(v)) return v as TabKey
-  return 'profile'
+  return DEFAULT_TAB
+}
+
+function isProfileSettingsTab(tab: TabKey): boolean {
+  return tab === 'profile' || tab === 'theme' || tab === 'account'
 }
 
 function parseDateMs(raw: string | null | undefined): number {
@@ -505,7 +516,7 @@ function normalizeNicknameChangesLeft(raw: unknown): number {
   return Number.isFinite(parsed) ? Math.min(NICKNAME_CHANGES_MAX, Math.max(0, Math.floor(parsed))) : 0
 }
 
-const activeTab = ref<TabKey>('profile')
+const activeTab = ref<TabKey>(DEFAULT_TAB)
 let onSanctionsUpdate: ((e: Event) => void) | null = null
 let onProfileSync: ((e: Event) => void) | null = null
 
@@ -1543,13 +1554,13 @@ watch(nick, (v) => {
 watch(() => route.query.tab, (tab) => {
   const requested = normalizeTab(tab)
   const next = requested === 'history' && !showHistoryTab.value
-    ? 'profile'
+    ? DEFAULT_TAB
     : requested
   if (next !== activeTab.value) activeTab.value = next
 })
 
 watch(showHistoryTab, ok => {
-  if (!ok && activeTab.value === 'history') activeTab.value = 'profile'
+  if (!ok && activeTab.value === 'history') activeTab.value = DEFAULT_TAB
 })
 
 watch(canEditProfileTheme, () => {
@@ -1572,14 +1583,14 @@ watch(activeTab, (tab) => {
     void loadBlacklist()
     return
   }
-  if (tab === 'profile') void loadMe({ keepNickDraft: true })
+  if (isProfileSettingsTab(tab)) void loadMe({ keepNickDraft: true })
 })
 
 onMounted(async () => {
   try { await loadMe() } catch {}
   const normalizedRequestedTab = normalizeTab(route.query.tab)
   const requestedTab = normalizedRequestedTab === 'history' && !showHistoryTab.value
-    ? 'profile'
+    ? DEFAULT_TAB
     : normalizedRequestedTab
   if (typeof route.query.tab === 'string' && requestedTab !== activeTab.value) {
     Promise.resolve().then(() => {
@@ -2331,6 +2342,9 @@ onBeforeUnmount(() => {
       }
       &.grid-payments {
         grid-template-columns: 1fr;
+      }
+      &.grid-profile-section {
+        grid-template-columns: minmax(0, 1fr);
       }
       &.grid-stats {
         grid-template-columns: 1fr;
