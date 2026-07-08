@@ -3,7 +3,6 @@
     <header>
       <div class="tab-div">
         <UiButton
-          class="tab-btn"
           size="middle"
           variant="white"
           :href="homeHref"
@@ -57,7 +56,6 @@
           <span>ПОДПИСКА</span>
           <span>купить подписку</span>
           <UiButton
-            class="tab-btn"
             size="middle"
             variant="white"
             type="button"
@@ -1700,62 +1698,52 @@ onBeforeUnmount(() => {
       .tab-btn {
         display: flex;
         align-items: center;
-        justify-content: center;
-        padding: 0 15px;
-        gap: 5px;
-        max-width: 200px;
+        padding: 0 16px;
+        gap: 4px;
+        width: 266px;
         height: 40px;
         border: none;
-        border-radius: 5px;
-        background-color: $neutral-100;
-        box-shadow: 3px 3px 5px rgba(black, 0.25);
-        font-size: 16px;
-        color: $neutral-black;
-        font-family: Hauora-Regular;
-        line-height: 1;
+        border-radius: 12px;
         text-decoration: none;
         cursor: pointer;
-        transition: opacity 0.25s ease-in-out, background-color 0.25s ease-in-out;
-        :deep(.ui-button__icon) {
-          --ui-icon-width: 48px;
-          --ui-icon-height: 48px;
-          --ui-icon-color: #{$neutral-white};
-        }
+        transition: opacity 0.25s ease-in-out;
         .tab-btn-img {
-          --ui-icon-width: 48px;
-          --ui-icon-height: 48px;
-          --ui-icon-color: #{$neutral-white};
-        }
-        :deep(.ui-button__text) {
-          color: $neutral-100;
-          font-family: Hauora-Regular;
-          font-size: 16px;
-          line-height: 22px;
-          letter-spacing: -0.32px;
+          --ui-icon-width: 24px;
+          --ui-icon-height: 24px;
+          --ui-icon-color: #{$neutral-500};
         }
         .tab-btn-text {
-          color: $neutral-100;
+          color: $neutral-500;
           font-family: Hauora-Regular;
-          font-size: 16px;
-          line-height: 22px;
-          letter-spacing: -0.32px;
+          font-size: 18px;
+          line-height: 20px;
+          letter-spacing: -0.36px;
+          transition: color 0.25s ease-in-out;
         }
         &:disabled {
           opacity: 0.5;
           cursor: not-allowed;
         }
-        &:hover {
-          background-color: $neutral-white;
+        &:not(:disabled):hover,
+        &:not(:disabled):focus-visible,
+        &:not(:disabled):active {
+          .tab-btn-img {
+            --ui-icon-color: #{$neutral-white};
+          }
+          .tab-btn-text {
+            color: $neutral-white;
+          }
         }
       }
       .tab-div-line {
+        margin: 12px 0;
         width: 100%;
-        border-bottom: 1px solid $neutral-800;
+        border-bottom: 1px solid $neutral-600;
       }
       .tabs {
         display: flex;
         flex-direction: column;
-        align-items: flex-end;
+        gap: 4px;
       }
       .tab-subscribe {
         display: flex;
