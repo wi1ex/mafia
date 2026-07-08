@@ -53,7 +53,7 @@
         </nav>
       </div>
       <div class="tab-div">
-        <div class="tab-subscribe">
+        <div v-if="!hasActiveSubscription" class="tab-subscribe">
           <span>ПОДПИСКА</span>
           <span>купить подписку</span>
           <UiButton
@@ -661,10 +661,11 @@ function hasPasswordWhitespace(value: string) {
 const selectedProfileThemeColor = ref<ProfileThemeColor>(resolveProfileThemeColor(null))
 const selectedProfileThemeIcon = ref<ProfileThemeIcon | null>(null)
 const subscriptionUntilMs = computed(() => parseDateMs(me.subscription_until))
-const canEditProfileTheme = computed(() => {
+const hasActiveSubscription = computed(() => {
   if (subscriptionUntilMs.value > 0) return subscriptionUntilMs.value > userNow.value
   return Boolean(me.subscription_active)
 })
+const canEditProfileTheme = computed(() => hasActiveSubscription.value)
 const blacklistItems = computed<BlacklistItem[]>(() => (
   Array.isArray(friendsStore.blacklist) ? friendsStore.blacklist : []
 ))
