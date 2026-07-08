@@ -2,32 +2,47 @@
   <section class="profile">
     <header>
       <div class="tab-div">
-        <router-link class="btn nav" :to="{ name: 'home' }" aria-label="На главную">На главную</router-link>
+        <router-link class="tab-btn" :to="{ name: 'home' }" aria-label="На главную">
+          <UiIcon class="tab-btn-img" :icon="iconHome" />
+          <span class="tab-btn-text">На главную</span>
+        </router-link>
         <div class="tab-div-line"></div>
         <nav class="tabs" aria-label="Навигация" role="tablist">
           <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'profile' }" :aria-selected="activeTab === 'profile'" @click="activeTab = 'profile'">
-            Аватар и никнейм
-          </button>
-          <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'theme' }" :aria-selected="activeTab === 'theme'" @click="activeTab = 'theme'">
-            Оформление профиля
+            <UiIcon class="tab-btn-img" :icon="iconDefaultAvatar" />
+            <span class="tab-btn-text">Аватар и никнейм</span>
           </button>
           <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'account' }" :aria-selected="activeTab === 'account'" @click="activeTab = 'account'">
-            Аккаунт
+            <UiIcon class="tab-btn-img" :icon="iconSettings" />
+            <span class="tab-btn-text">Аккаунт</span>
+          </button>
+          <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'theme' }" :aria-selected="activeTab === 'theme'" @click="activeTab = 'theme'">
+            <UiIcon class="tab-btn-img" :icon="iconDesign" />
+            <span class="tab-btn-text">Оформление профиля</span>
           </button>
           <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'stats' }" :aria-selected="activeTab === 'stats'" @click="activeTab = 'stats'">
-            Статистика
+            <UiIcon class="tab-btn-img" :icon="iconStats" />
+            <span class="tab-btn-text">Статистика</span>
           </button>
           <button v-if="showHistoryTab" class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'history' }" :aria-selected="activeTab === 'history'" @click="activeTab = 'history'">
-            История игр
+            <UiIcon class="tab-btn-img" :icon="iconHistory" />
+            <span class="tab-btn-text">История игр</span>
           </button>
           <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'sanctions' }" :aria-selected="activeTab === 'sanctions'" @click="activeTab = 'sanctions'">
-            Санкции
-          </button>
-          <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'blacklist' }" :aria-selected="activeTab === 'blacklist'" @click="activeTab = 'blacklist'">
-            Черный список
+            <UiIcon class="tab-btn-img" :icon="iconJudgeHummer" />
+            <span class="tab-btn-text">Санкции</span>
           </button>
           <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'payments' }" :aria-selected="activeTab === 'payments'" @click="activeTab = 'payments'">
-            Платежи
+            <UiIcon class="tab-btn-img" :icon="iconCard" />
+            <span class="tab-btn-text">Платежи</span>
+          </button>
+          <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'music' }" :aria-selected="activeTab === 'music'" @click="activeTab = 'music'">
+            <UiIcon class="tab-btn-img" :icon="iconMusic" />
+            <span class="tab-btn-text">Музыка</span>
+          </button>
+          <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'blacklist' }" :aria-selected="activeTab === 'blacklist'" @click="activeTab = 'blacklist'">
+            <UiIcon class="tab-btn-img" :icon="iconBlockPlayer" />
+            <span class="tab-btn-text">Черный список</span>
           </button>
         </nav>
       </div>
@@ -36,10 +51,13 @@
           <span>ПОДПИСКА</span>
           <span>купить подписку</span>
           <button class="tab-btn" type="button" @click="openSubscriptionModal">
-            Оформить подписку
+            <span class="tab-btn-text">Оформить</span>
           </button>
         </div>
-        <router-link class="btn nav" :to="{ name: 'home' }" aria-label="На главную">На главную</router-link>
+        <router-link class="tab-btn" :to="{ name: 'home' }" aria-label="На главную">
+          <UiIcon class="tab-btn-img" :icon="iconLeave" />
+          <span class="tab-btn-text">Выход из аккаунта</span>
+        </router-link>
       </div>
     </header>
 
@@ -48,11 +66,11 @@
         <div v-if="activeTab === 'profile'" class="block">
           <h3>Аватар и никнейм</h3>
           <div class="avatar-row">
-            <img class="avatar-img" v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="Текущий аватар" />
+            <img class="avatar-img" v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false, animated: true }" alt="Текущий аватар" />
             <div class="actions">
               <input ref="fileEl" type="file" :accept="avatarAccept" @change="onPick" :disabled="isBanned" hidden />
               <button class="btn dark" @click="fileEl?.click()" :disabled="busyAva || isBanned">
-                <img class="btn-img" :src="iconEdit" alt="edit" />
+                <img class="btn-img" :src="iconDownload" alt="edit" />
                 {{ me.avatar_name ? 'Изменить' : 'Загрузить' }}
               </button>
               <span class="hint center">{{ avatarFormatHint }}</span>
@@ -157,7 +175,7 @@
           <div class="theme-row">
             <div class="theme-preview-grid">
               <div class="theme-preview-card" :style="themePreviewStyle">
-                <img class="theme-preview-avatar" v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="avatar" />
+                <img class="theme-preview-avatar" v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false, animated: true }" alt="avatar" />
                 <div v-if="themePreviewIconSrcs.length" class="theme-preview-icons" aria-hidden="true">
                   <img v-for="badgeSrc in themePreviewIconSrcs" :key="badgeSrc" class="theme-preview-icon" :src="badgeSrc" alt="" />
                 </div>
@@ -355,7 +373,7 @@
           <div v-else class="blacklist-list">
             <article v-for="item in blacklistItems" :key="item.id" class="blacklist-card">
               <div class="blacklist-user">
-                <img class="blacklist-avatar" v-minio-img="{ key: blacklistAvatarKey(item), placeholder: defaultAvatar, lazy: true, animated: true }" alt="avatar" />
+                <img class="blacklist-avatar" v-minio-img="{ key: blacklistAvatarKey(item), placeholder: iconDefaultAvatar, lazy: true, animated: true }" alt="avatar" />
                 <div class="blacklist-main">
                   <span>{{ item.username || `user${item.id}` }}</span>
                   <small>Добавлен: {{ formatLocalDateTime(item.created_at) }}</small>
@@ -368,8 +386,8 @@
           </div>
         </div>
 
-        <div v-else class="block">
-          <!-- пока что пусто -->
+        <div v-else-if="activeTab === 'music'" class="block">
+          <h3>Музыка</h3>
         </div>
       </div>
     </Transition>
@@ -387,19 +405,6 @@ import { useAuthStore, useFriendsStore, useSettingsStore, useUserStore, type Bla
 import { confirmDialog, alertDialog } from '@/services/confirm'
 import { formatModerationAlert } from '@/services/moderation'
 import { formatLocalDateTime } from '@/services/datetime'
-
-import ProfileStats from '@/components/ProfileStats.vue'
-import ProfileHistory from '@/components/ProfileHistory.vue'
-import UiSwitch from '@/components/UiSwitch.vue'
-import UiInput from '@/components/UiInput.vue'
-import UiSlider from '@/components/UiSlider.vue'
-import Subscription from '@/components/Subscription.vue'
-
-import defaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
-import iconSave from '@/assets/svg/save.svg'
-import iconEdit from '@/assets/svg/iconPen.svg'
-import iconDelete from '@/assets/svg/iconDelete.svg'
-import iconTimeHistory from '@/assets/svg/iconTimeHistory.svg'
 import {
   buildProfileThemeBgStyle,
   getProfileThemeOptions,
@@ -414,6 +419,31 @@ import {
   normalizeProfileThemeIcon,
   type ProfileThemeIcon,
 } from '@/constants/profileIcons'
+
+import ProfileStats from '@/components/ProfileStats.vue'
+import ProfileHistory from '@/components/ProfileHistory.vue'
+import Subscription from '@/components/Subscription.vue'
+import UiSwitch from '@/components/UiSwitch.vue'
+import UiInput from '@/components/UiInput.vue'
+import UiSlider from '@/components/UiSlider.vue'
+import UiIcon from '@/components/UiIcon.vue'
+
+import iconHome from '@/assets/svg/iconHome.svg'
+import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
+import iconSettings from '@/assets/svg/iconSettings.svg'
+import iconDesign from '@/assets/svg/iconDesign.svg'
+import iconStats from '@/assets/svg/iconStats.svg'
+import iconHistory from '@/assets/svg/iconHistory.svg'
+import iconJudgeHummer from '@/assets/svg/iconJudgeHummer.svg'
+import iconCard from '@/assets/svg/iconCard.svg'
+import iconMusic from '@/assets/svg/iconMusic.svg'
+import iconBlockPlayer from '@/assets/svg/iconBlockPlayer.svg'
+import iconLeave from '@/assets/svg/iconLeave.svg'
+import iconTimeHistory from '@/assets/svg/iconTimeHistory.svg'
+import iconDownload from '@/assets/svg/iconDownload.svg'
+import iconDelete from '@/assets/svg/iconDelete.svg'
+import iconEdit from '@/assets/svg/iconPen.svg'
+import iconSave from '@/assets/svg/save.svg'
 
 const userStore = useUserStore()
 const friendsStore = useFriendsStore()
@@ -494,7 +524,7 @@ const ANIMATED_AVATAR_TYPE = 'image/gif'
 const route = useRoute()
 const router = useRouter()
 
-const TAB_KEYS = ['profile', 'theme', 'account', 'stats', 'payments', 'history', 'sanctions', 'blacklist'] as const
+const TAB_KEYS = ['profile', 'theme', 'music', 'account', 'stats', 'payments', 'history', 'sanctions', 'blacklist'] as const
 type TabKey = typeof TAB_KEYS[number]
 const DEFAULT_TAB: TabKey = 'profile'
 
@@ -1663,8 +1693,16 @@ onBeforeUnmount(() => {
         cursor: pointer;
         transition: opacity 0.25s ease-in-out, background-color 0.25s ease-in-out;
         .tab-btn-img {
-          width: 20px;
-          height: 20px;
+          --ui-icon-width: 48px;
+          --ui-icon-height: 48px;
+          --ui-icon-color: #{$neutral-white};
+        }
+        .tab-btn-text {
+          color: $neutral-100;
+          font-family: Hauora-Regular;
+          font-size: 16px;
+          line-height: 22px;
+          letter-spacing: -0.32px;
         }
         &:disabled {
           opacity: 0.5;
