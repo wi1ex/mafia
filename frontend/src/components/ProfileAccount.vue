@@ -299,13 +299,26 @@ onBeforeUnmount(() => {
 <style scoped lang="scss">
 
 .block-account {
-
+  display: flex;
+  width: 100%;
+  gap: 10px;
   .account-verif-params {
-
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: calc(50% - 5px);
     .account-verif {
-
+      display: flex;
+      gap: 10px;
       .account {
-
+        display: flex;
+        flex-direction: column;
+        padding: 24px;
+        gap: 24px;
+        width: calc(50% - 5px);
+        height: 210px;
+        border-radius: 24px;
+        background-color: $soft-purple-900;
         .title {
 
         }
@@ -317,7 +330,14 @@ onBeforeUnmount(() => {
         }
       }
       .verif {
-
+        display: flex;
+        flex-direction: column;
+        padding: 24px;
+        gap: 24px;
+        width: calc(50% - 5px);
+        height: 210px;
+        border-radius: 24px;
+        background-color: $soft-purple-900;
         .title {
 
         }
@@ -327,14 +347,26 @@ onBeforeUnmount(() => {
       }
     }
     .params {
-
+      display: flex;
+      flex-direction: column;
+      padding: 24px;
+      gap: 24px;
+      border-radius: 24px;
+      background-color: $soft-purple-900;
       .title {
 
       }
     }
   }
   .password {
-
+    display: flex;
+    flex-direction: column;
+    padding: 24px;
+    gap: 24px;
+    width: calc(50% - 5px);
+    height: 496px;
+    border-radius: 24px;
+    background-color: $soft-purple-900;
     .title {
 
     }

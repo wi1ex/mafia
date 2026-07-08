@@ -379,6 +379,7 @@ onBeforeUnmount(() => {
   }
   .tab-panel {
     display: flex;
+    width: calc(100% - 308px);
   }
 }
 
