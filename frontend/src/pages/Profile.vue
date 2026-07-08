@@ -73,7 +73,65 @@
 
     <Transition name="tab-fade" mode="out-in">
       <div :key="activeTab" class="tab-panel">
-        <div v-if="activeTab === 'profile'" class="block">
+        <div v-if="activeTab === 'account'" class="block">
+          <h3>Аккаунт</h3>
+          <div class="verify-row">
+            <p class="hint text">Дата регистрации: {{ registrationDateLabel }}</p>
+            <UiSwitch
+              class="profile-switch"
+              :model-value="tgInvitesEnabled"
+              label="Уведомления в TG о приглашениях в комнату"
+              off-label="Запретить"
+              on-label="Разрешить"
+              :width="200"
+              :disabled="tgInvitesTogglePending || !telegramVerified"
+              @update:modelValue="onToggleTgInvites" />
+            <button v-if="telegramVerified" class="btn danger" @click="unlinkTelegram" :disabled="unlinkTgBusy">
+              {{ unlinkTgBusy ? '...' : 'Отвязать TG-аккаунт' }}
+            </button>
+            <a v-else-if="botName" class="btn confirm" :href="botLink" target="_blank" rel="noopener noreferrer">
+              Пройти верификацию
+            </a>
+            <p v-if="telegramVerified" class="hint">Если отвязать TG-аккаунт верификация будет снята и вход в комнаты будет ограничен</p>
+            <p v-else class="hint">В чате с ботом сначала введите никнейм, затем пароль. После успешной верификации ограничения на вход в комнаты будут сняты</p>
+            <button class="btn danger" @click="deleteAccount" :disabled="deleteBusy || isDeleteAccountForbiddenSelf">
+              {{ deleteBusy ? '...' : 'Удалить аккаунт' }}
+            </button>
+            <p class="hint red">Удаление произойдет навсегда без возможности восстановления</p>
+
+            <div v-if="me.has_password" class="password-row">
+              <p class="hint text">Пароль</p>
+              <p v-if="passwordTemp" class="hint warn">У вас временный пароль — рекомендуем изменить его</p>
+              <UiInput class="profile-input" id="profile-pass-current" v-model="pwd.current" type="password" autocomplete="current-password" minlength="8" maxlength="32" label="Текущий пароль"
+                :invalid="currentPasswordInvalid" :aria-invalid="currentPasswordInvalid" aria-describedby="profile-pass-current-hint">
+                <template #meta>
+                  <span id="profile-pass-current-hint">{{ pwd.current.length }}/{{ PASSWORD_MAX }}</span>
+                </template>
+              </UiInput>
+              <UiInput class="profile-input" id="profile-pass-new" v-model="pwd.next" type="password" autocomplete="new-password" minlength="8" maxlength="32" label="Новый пароль"
+                :invalid="newPasswordInvalid" :aria-invalid="newPasswordInvalid" aria-describedby="profile-pass-new-hint">
+                <template #meta>
+                  <span id="profile-pass-new-hint">{{ pwd.next.length }}/{{ PASSWORD_MAX }}</span>
+                </template>
+              </UiInput>
+              <UiInput class="profile-input" id="profile-pass-confirm" v-model="pwd.confirm" type="password" autocomplete="new-password" minlength="8" maxlength="32" label="Повторите пароль"
+                :invalid="confirmPasswordInvalid" :aria-invalid="confirmPasswordInvalid" aria-describedby="profile-pass-confirm-hint">
+                <template #meta>
+                  <span id="profile-pass-confirm-hint">{{ pwd.confirm.length }}/{{ PASSWORD_MAX }}</span>
+                </template>
+              </UiInput>
+              <button class="btn confirm" @click="changePassword" :disabled="pwdBusy || !canChangePassword">
+                {{ pwdBusy ? '...' : 'Сменить пароль' }}
+              </button>
+              <p class="hint">
+                Сбросить пароль можно через
+                <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">TG-бота</a>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div v-else-if="activeTab === 'profile'" class="block">
           <h3>Аватар и никнейм</h3>
           <div class="avatar-row">
             <img class="avatar-img" v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false, animated: true }" alt="Текущий аватар" />
@@ -218,64 +276,6 @@
           <p class="hint">{{ profileThemeMessageText }}</p>
         </div>
 
-        <div v-else-if="activeTab === 'account'" class="block">
-          <h3>Аккаунт</h3>
-          <div class="verify-row">
-            <p class="hint text">Дата регистрации: {{ registrationDateLabel }}</p>
-            <UiSwitch
-              class="profile-switch"
-              :model-value="tgInvitesEnabled"
-              label="Уведомления в TG о приглашениях в комнату"
-              off-label="Запретить"
-              on-label="Разрешить"
-              :width="200"
-              :disabled="tgInvitesTogglePending || !telegramVerified"
-              @update:modelValue="onToggleTgInvites" />
-            <button v-if="telegramVerified" class="btn danger" @click="unlinkTelegram" :disabled="unlinkTgBusy">
-              {{ unlinkTgBusy ? '...' : 'Отвязать TG-аккаунт' }}
-            </button>
-            <a v-else-if="botName" class="btn confirm" :href="botLink" target="_blank" rel="noopener noreferrer">
-              Пройти верификацию
-            </a>
-            <p v-if="telegramVerified" class="hint">Если отвязать TG-аккаунт верификация будет снята и вход в комнаты будет ограничен</p>
-            <p v-else class="hint">В чате с ботом сначала введите никнейм, затем пароль. После успешной верификации ограничения на вход в комнаты будут сняты</p>
-            <button class="btn danger" @click="deleteAccount" :disabled="deleteBusy || isDeleteAccountForbiddenSelf">
-              {{ deleteBusy ? '...' : 'Удалить аккаунт' }}
-            </button>
-            <p class="hint red">Удаление произойдет навсегда без возможности восстановления</p>
-
-            <div v-if="me.has_password" class="password-row">
-              <p class="hint text">Пароль</p>
-              <p v-if="passwordTemp" class="hint warn">У вас временный пароль — рекомендуем изменить его</p>
-              <UiInput class="profile-input" id="profile-pass-current" v-model="pwd.current" type="password" autocomplete="current-password" minlength="8" maxlength="32" label="Текущий пароль"
-                :invalid="currentPasswordInvalid" :aria-invalid="currentPasswordInvalid" aria-describedby="profile-pass-current-hint">
-                <template #meta>
-                  <span id="profile-pass-current-hint">{{ pwd.current.length }}/{{ PASSWORD_MAX }}</span>
-                </template>
-              </UiInput>
-              <UiInput class="profile-input" id="profile-pass-new" v-model="pwd.next" type="password" autocomplete="new-password" minlength="8" maxlength="32" label="Новый пароль"
-                :invalid="newPasswordInvalid" :aria-invalid="newPasswordInvalid" aria-describedby="profile-pass-new-hint">
-                <template #meta>
-                  <span id="profile-pass-new-hint">{{ pwd.next.length }}/{{ PASSWORD_MAX }}</span>
-                </template>
-              </UiInput>
-              <UiInput class="profile-input" id="profile-pass-confirm" v-model="pwd.confirm" type="password" autocomplete="new-password" minlength="8" maxlength="32" label="Повторите пароль"
-                :invalid="confirmPasswordInvalid" :aria-invalid="confirmPasswordInvalid" aria-describedby="profile-pass-confirm-hint">
-                <template #meta>
-                  <span id="profile-pass-confirm-hint">{{ pwd.confirm.length }}/{{ PASSWORD_MAX }}</span>
-                </template>
-              </UiInput>
-              <button class="btn confirm" @click="changePassword" :disabled="pwdBusy || !canChangePassword">
-                {{ pwdBusy ? '...' : 'Сменить пароль' }}
-              </button>
-              <p class="hint">
-                Сбросить пароль можно через
-                <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">TG-бота</a>
-              </p>
-            </div>
-          </div>
-        </div>
-
         <div v-else-if="activeTab === 'stats'" class="block">
           <ProfileStats />
         </div>
@@ -283,35 +283,6 @@
         <div v-else-if="activeTab === 'history'" class="block">
           <h3>Личная история игр</h3>
           <ProfileHistory />
-        </div>
-
-        <div v-else-if="activeTab === 'payments'" class="block">
-          <h3>История платежей</h3>
-          <div v-if="paymentsLoading" class="payments-state">Загрузка...</div>
-          <div v-else-if="paymentsError" class="payments-state danger">{{ paymentsError }}</div>
-          <div v-else-if="paymentsItems.length === 0" class="payments-state">Успешных платежей пока нет</div>
-          <div v-else class="payments-table-wrap">
-            <table class="payments-table">
-              <thead>
-                <tr>
-                  <th>Дата платежа</th>
-                  <th>Email</th>
-                  <th>Срок подписки</th>
-                  <th>Оплаченная стоимость</th>
-                  <th>Промокод</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="item in paymentsItems" :key="item.id">
-                  <td>{{ formatPaymentPaidAt(item.paid_at) }}</td>
-                  <td>{{ item.email || '-' }}</td>
-                  <td>{{ formatPaymentSubscriptionTerm(item) }}</td>
-                  <td>{{ formatPaymentMoney(item.amount, item.currency) }}</td>
-                  <td>{{ formatPaymentPromoDiscount(item.promo_discount_percent) }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
         </div>
 
         <div v-else-if="activeTab === 'sanctions'" class="block">
@@ -368,6 +339,39 @@
           </div>
         </div>
 
+        <div v-else-if="activeTab === 'payments'" class="block">
+          <h3>История платежей</h3>
+          <div v-if="paymentsLoading" class="payments-state">Загрузка...</div>
+          <div v-else-if="paymentsError" class="payments-state danger">{{ paymentsError }}</div>
+          <div v-else-if="paymentsItems.length === 0" class="payments-state">Успешных платежей пока нет</div>
+          <div v-else class="payments-table-wrap">
+            <table class="payments-table">
+              <thead>
+                <tr>
+                  <th>Дата платежа</th>
+                  <th>Email</th>
+                  <th>Срок подписки</th>
+                  <th>Оплаченная стоимость</th>
+                  <th>Промокод</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="item in paymentsItems" :key="item.id">
+                  <td>{{ formatPaymentPaidAt(item.paid_at) }}</td>
+                  <td>{{ item.email || '-' }}</td>
+                  <td>{{ formatPaymentSubscriptionTerm(item) }}</td>
+                  <td>{{ formatPaymentMoney(item.amount, item.currency) }}</td>
+                  <td>{{ formatPaymentPromoDiscount(item.promo_discount_percent) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div v-else-if="activeTab === 'music'" class="block">
+          <h3>Музыка</h3>
+        </div>
+
         <div v-else-if="activeTab === 'blacklist'" class="block">
           <div class="blacklist-head">
             <h3>Черный список</h3>
@@ -394,10 +398,6 @@
               </button>
             </article>
           </div>
-        </div>
-
-        <div v-else-if="activeTab === 'music'" class="block">
-          <h3>Музыка</h3>
         </div>
       </div>
     </Transition>
@@ -1818,6 +1818,23 @@ onBeforeUnmount(() => {
           text-decoration: none;
         }
       }
+      .verify-row {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .password-row {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        margin-top: 5px;
+        gap: 10px;
+        --ui-input-label-bg: #{$neutral-900};
+        :deep(.profile-input) {
+          max-width: 320px;
+          width: 100%;
+        }
+      }
       .avatar-row {
         display: flex;
         gap: 20px;
@@ -2139,65 +2156,6 @@ onBeforeUnmount(() => {
           }
         }
       }
-      .verify-row {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-      }
-      .password-row {
-        display: flex;
-        flex-direction: column;
-        align-items: flex-start;
-        margin-top: 5px;
-        gap: 10px;
-        --ui-input-label-bg: #{$neutral-900};
-        :deep(.profile-input) {
-          max-width: 320px;
-          width: 100%;
-        }
-      }
-      .payments-state {
-        padding: 20px 10px;
-        text-align: center;
-        color: $neutral-300;
-        &.danger {
-          color: $orange-500;
-        }
-      }
-      .payments-table-wrap {
-        width: 100%;
-        overflow-x: auto;
-        border: 1px solid rgba($neutral-500, 0.5);
-        border-radius: 5px;
-        background-color: rgba($neutral-800, 0.45);
-        .payments-table {
-          width: 100%;
-          min-width: 820px;
-          border-collapse: collapse;
-          color: $neutral-100;
-          th,
-          td {
-            padding: 12px 14px;
-            border-bottom: 1px solid rgba($neutral-500, 0.35);
-            text-align: left;
-            vertical-align: top;
-            line-height: 1.25;
-          }
-          th {
-            color: $neutral-300;
-            font-family: Hauora-SemiBold;
-            font-size: 14px;
-            white-space: nowrap;
-          }
-          td {
-            font-size: 15px;
-            overflow-wrap: anywhere;
-          }
-          tbody tr:last-child td {
-            border-bottom: none;
-          }
-        }
-      }
       .sanctions-head {
         display: flex;
         flex-wrap: wrap;
@@ -2282,6 +2240,48 @@ onBeforeUnmount(() => {
                 overflow-wrap: anywhere;
               }
             }
+          }
+        }
+      }
+      .payments-state {
+        padding: 20px 10px;
+        text-align: center;
+        color: $neutral-300;
+        &.danger {
+          color: $orange-500;
+        }
+      }
+      .payments-table-wrap {
+        width: 100%;
+        overflow-x: auto;
+        border: 1px solid rgba($neutral-500, 0.5);
+        border-radius: 5px;
+        background-color: rgba($neutral-800, 0.45);
+        .payments-table {
+          width: 100%;
+          min-width: 820px;
+          border-collapse: collapse;
+          color: $neutral-100;
+          th,
+          td {
+            padding: 12px 14px;
+            border-bottom: 1px solid rgba($neutral-500, 0.35);
+            text-align: left;
+            vertical-align: top;
+            line-height: 1.25;
+          }
+          th {
+            color: $neutral-300;
+            font-family: Hauora-SemiBold;
+            font-size: 14px;
+            white-space: nowrap;
+          }
+          td {
+            font-size: 15px;
+            overflow-wrap: anywhere;
+          }
+          tbody tr:last-child td {
+            border-bottom: none;
           }
         }
       }
