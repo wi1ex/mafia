@@ -385,6 +385,7 @@
         </div>
       </div>
     </Transition>
+
     <Subscription v-model:open="subscriptionModalOpen" @select="onSubscriptionPaymentSelect" />
   </section>
 </template>
