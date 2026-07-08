@@ -14,39 +14,39 @@
         />
         <div class="tab-div-line"></div>
         <nav class="tabs" aria-label="Навигация" role="tablist">
-          <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'profile' }" :aria-selected="activeTab === 'profile'" @click="activeTab = 'profile'">
-            <UiIcon class="tab-btn-img" :icon="iconDefaultAvatar" />
-            <span class="tab-btn-text">Аватар и никнейм</span>
-          </button>
           <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'account' }" :aria-selected="activeTab === 'account'" @click="activeTab = 'account'">
             <UiIcon class="tab-btn-img" :icon="iconSettings" />
             <span class="tab-btn-text">Аккаунт</span>
           </button>
-          <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'theme' }" :aria-selected="activeTab === 'theme'" @click="activeTab = 'theme'">
+          <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'profile' }" :aria-selected="activeTab === 'profile'" :disabled="profileTabsDisabled" @click="activeTab = 'profile'">
+            <UiIcon class="tab-btn-img" :icon="iconDefaultAvatar" />
+            <span class="tab-btn-text">Аватар и никнейм</span>
+          </button>
+          <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'theme' }" :aria-selected="activeTab === 'theme'" :disabled="profileTabsDisabled" @click="activeTab = 'theme'">
             <UiIcon class="tab-btn-img" :icon="iconDesign" />
             <span class="tab-btn-text">Оформление профиля</span>
           </button>
-          <button disabled class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'stats' }" :aria-selected="activeTab === 'stats'" @click="activeTab = 'stats'">
+          <button disabled class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'stats' }" :aria-selected="activeTab === 'stats'" :disabled="profileTabsDisabled" @click="activeTab = 'stats'">
             <UiIcon class="tab-btn-img" :icon="iconStats" />
             <span class="tab-btn-text">Статистика</span>
           </button>
-          <button disabled v-if="showHistoryTab" class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'history' }" :aria-selected="activeTab === 'history'" @click="activeTab = 'history'">
+          <button disabled class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'history' }" :aria-selected="activeTab === 'history'" :disabled="profileTabsDisabled" @click="activeTab = 'history'">
             <UiIcon class="tab-btn-img" :icon="iconHistory" />
             <span class="tab-btn-text">История игр</span>
           </button>
-          <button disabled class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'sanctions' }" :aria-selected="activeTab === 'sanctions'" @click="activeTab = 'sanctions'">
+          <button disabled class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'sanctions' }" :aria-selected="activeTab === 'sanctions'" :disabled="profileTabsDisabled" @click="activeTab = 'sanctions'">
             <UiIcon class="tab-btn-img" :icon="iconJudgeHummer" />
             <span class="tab-btn-text">Санкции</span>
           </button>
-          <button disabled class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'payments' }" :aria-selected="activeTab === 'payments'" @click="activeTab = 'payments'">
+          <button disabled class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'payments' }" :aria-selected="activeTab === 'payments'" :disabled="profileTabsDisabled" @click="activeTab = 'payments'">
             <UiIcon class="tab-btn-img" :icon="iconCard" />
             <span class="tab-btn-text">Платежи</span>
           </button>
-          <button disabled class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'music' }" :aria-selected="activeTab === 'music'" @click="activeTab = 'music'">
+          <button disabled class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'music' }" :aria-selected="activeTab === 'music'" :disabled="profileTabsDisabled" @click="activeTab = 'music'">
             <UiIcon class="tab-btn-img" :icon="iconMusic" />
             <span class="tab-btn-text">Музыка</span>
           </button>
-          <button disabled class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'blacklist' }" :aria-selected="activeTab === 'blacklist'" @click="activeTab = 'blacklist'">
+          <button disabled class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'blacklist' }" :aria-selected="activeTab === 'blacklist'" :disabled="profileTabsDisabled" @click="activeTab = 'blacklist'">
             <UiIcon class="tab-btn-img" :icon="iconBlockPlayer" />
             <span class="tab-btn-text">Черный список</span>
           </button>
@@ -280,7 +280,7 @@
           <ProfileStats />
         </div>
 
-        <div v-else-if="activeTab === 'history' && showHistoryTab" class="block">
+        <div v-else-if="activeTab === 'history'" class="block">
           <h3>Личная история игр</h3>
           <ProfileHistory />
         </div>
@@ -619,7 +619,7 @@ const tgInvitesTogglePending = ref(false)
 const themeSaveBusy = ref(false)
 const subscriptionModalOpen = ref(false)
 const telegramVerified = computed(() => userStore.telegramVerified)
-const showHistoryTab = computed(() => !(settings.verificationRestrictions && !telegramVerified.value))
+const profileTabsDisabled = computed(() => settings.verificationRestrictions && !telegramVerified.value)
 const passwordTemp = computed(() => userStore.passwordTemp)
 const botName = (import.meta.env.VITE_TG_BOT_NAME as string || '').trim()
 const botLink = botName ? `https://t.me/${botName}` : 'https://t.me'
@@ -1606,23 +1606,28 @@ watch(nick, (v) => {
   if (v !== clean) nick.value = clean
 })
 
+function resolveProfileTabAccess(tab: TabKey): TabKey {
+  return profileTabsDisabled.value && tab !== 'account' ? 'account' : tab
+}
+
 watch(() => route.query.tab, (tab) => {
-  const requested = normalizeTab(tab)
-  const next = requested === 'history' && !showHistoryTab.value
-    ? DEFAULT_TAB
-    : requested
+  const next = resolveProfileTabAccess(normalizeTab(tab))
   if (next !== activeTab.value) activeTab.value = next
 })
 
-watch(showHistoryTab, ok => {
-  if (!ok && activeTab.value === 'history') activeTab.value = DEFAULT_TAB
-})
+watch(profileTabsDisabled, disabled => {
+  if (disabled && activeTab.value !== 'account') activeTab.value = 'account'
+}, { immediate: true })
 
 watch(canEditProfileTheme, () => {
   if (activeTab.value === 'blacklist') void loadBlacklist()
 })
 
 watch(activeTab, (tab) => {
+  if (profileTabsDisabled.value && tab !== 'account') {
+    activeTab.value = 'account'
+    return
+  }
   if (normalizeTab(route.query.tab) !== tab) {
     router.replace({ query: { ...route.query, tab } }).catch(() => {})
   }
@@ -1643,10 +1648,7 @@ watch(activeTab, (tab) => {
 
 onMounted(async () => {
   try { await loadMe() } catch {}
-  const normalizedRequestedTab = normalizeTab(route.query.tab)
-  const requestedTab = normalizedRequestedTab === 'history' && !showHistoryTab.value
-    ? DEFAULT_TAB
-    : normalizedRequestedTab
+  const requestedTab = resolveProfileTabAccess(normalizeTab(route.query.tab))
   if (typeof route.query.tab === 'string' && requestedTab !== activeTab.value) {
     Promise.resolve().then(() => {
       activeTab.value = requestedTab
