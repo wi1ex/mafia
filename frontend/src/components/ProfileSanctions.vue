@@ -55,6 +55,10 @@
 </template>
 
 <script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { api } from '@/services/axios'
+import { formatLocalDateTime } from '@/services/datetime'
+
 type SanctionKind = 'timeout' | 'ban' | 'suspend'
 type SanctionCompletionReason = 'active' | 'expired' | 'revoked_staff' | 'hosted_game'
 
@@ -70,26 +74,90 @@ type SanctionItem = {
   hosted_workoff_seconds?: number | null
 }
 
-type SanctionsSummary = {
-  total: number
-  timeout: number
-  suspend: number
-  ban: number
+const sanctions = ref<SanctionItem[]>([])
+const sanctionsLoading = ref(false)
+const sanctionsLoaded = ref(false)
+const sanctionsError = ref('')
+let onSanctionsUpdate: ((e: Event) => void) | null = null
+
+const sanctionsSummary = computed(() => {
+  const out = { total: sanctions.value.length, timeout: 0, ban: 0, suspend: 0 }
+  for (const item of sanctions.value) {
+    if (item.kind === 'timeout') out.timeout += 1
+    else if (item.kind === 'ban') out.ban += 1
+    else if (item.kind === 'suspend') out.suspend += 1
+  }
+  return out
+})
+
+async function loadSanctions(force = false) {
+  if (sanctionsLoading.value) return
+  if (sanctionsLoaded.value && !force) return
+  sanctionsLoading.value = true
+  sanctionsError.value = ''
+  try {
+    const { data } = await api.get<{ items: SanctionItem[] }>('/users/sanctions')
+    sanctions.value = Array.isArray(data?.items) ? data.items : []
+    sanctionsLoaded.value = true
+  } catch {
+    sanctionsError.value = 'Не удалось загрузить историю ограничений'
+  } finally {
+    sanctionsLoading.value = false
+  }
 }
 
-defineProps<{
-  sanctionsLoaded: boolean
-  sanctionsSummary: SanctionsSummary
-  sanctionsLoading: boolean
-  sanctionsError: string
-  sanctions: SanctionItem[]
-  formatSanctionKind: (kind: SanctionKind) => string
-  formatLocalDateTime: (value: string, options?: Intl.DateTimeFormatOptions) => string
-  formatSanctionDuration: (seconds?: number | null) => string
-  formatSanctionFinishedAt: (item: SanctionItem) => string
-  formatSanctionCompletionReason: (item: SanctionItem) => string
-  formatDurationSeconds: (seconds?: number | null, zeroLabel?: string) => string
-}>()
+function formatSanctionKind(kind: SanctionKind): string {
+  if (kind === 'timeout') return 'Таймаут'
+  if (kind === 'suspend') return 'Отстранение'
+  if (kind === 'ban') return 'Бан'
+  return kind
+}
+
+function formatDurationSeconds(seconds?: number | null, zeroLabel = 'без срока'): string {
+  if (!seconds) return zeroLabel
+  const total = Math.max(0, Math.floor(Number(seconds) || 0))
+  const mins = Math.floor(total / 60)
+  const days = Math.floor(mins / 1440)
+  const hours = Math.floor((mins % 1440) / 60)
+  const minutes = mins % 60
+  const parts: string[] = []
+  if (days > 0) parts.push(`${days}д`)
+  if (hours > 0) parts.push(`${hours}ч`)
+  if (minutes > 0 || parts.length === 0) parts.push(`${minutes}м`)
+  return parts.join(' ')
+}
+
+function formatSanctionDuration(seconds?: number | null): string {
+  return formatDurationSeconds(seconds, 'без срока')
+}
+
+function isSanctionCompleted(item: SanctionItem): boolean {
+  return item.completion_reason !== 'active'
+}
+
+function formatSanctionFinishedAt(item: SanctionItem): string {
+  if (!isSanctionCompleted(item) || !item.finished_at) return '-'
+  return formatLocalDateTime(item.finished_at)
+}
+
+function formatSanctionCompletionReason(item: SanctionItem): string {
+  if (item.completion_reason === 'expired') return 'Истекла'
+  if (item.completion_reason === 'revoked_staff') return 'Досрочное снятие'
+  if (item.completion_reason === 'hosted_game') return 'Проведение игры'
+  return '-'
+}
+
+onMounted(() => {
+  void loadSanctions(true)
+  onSanctionsUpdate = () => {
+    void loadSanctions(true)
+  }
+  window.addEventListener('auth-sanctions_update', onSanctionsUpdate)
+})
+
+onBeforeUnmount(() => {
+  if (onSanctionsUpdate) window.removeEventListener('auth-sanctions_update', onSanctionsUpdate)
+})
 </script>
 
 <style scoped lang="scss">

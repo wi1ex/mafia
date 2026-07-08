@@ -30,6 +30,10 @@
 </template>
 
 <script setup lang="ts">
+import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { api } from '@/services/axios'
+import { formatLocalDateTime } from '@/services/datetime'
+
 type SubscriptionPaymentPlan = 'month' | 'year'
 
 type SubscriptionPaymentItem = {
@@ -43,15 +47,111 @@ type SubscriptionPaymentItem = {
   promo_discount_percent?: number | null
 }
 
-defineProps<{
-  paymentsLoading: boolean
-  paymentsError: string
-  paymentsItems: SubscriptionPaymentItem[]
-  formatPaymentPaidAt: (value: string) => string
-  formatPaymentSubscriptionTerm: (item: SubscriptionPaymentItem) => string
-  formatPaymentMoney: (amountRaw?: string | null, currencyRaw?: string | null) => string
-  formatPaymentPromoDiscount: (valueRaw?: number | null) => string
-}>()
+type SubscriptionPaymentsResponse = {
+  items?: SubscriptionPaymentItem[] | null
+}
+
+const paymentsItems = ref<SubscriptionPaymentItem[]>([])
+const paymentsLoading = ref(false)
+const paymentsLoaded = ref(false)
+const paymentsError = ref('')
+let paymentsRequestSeq = 0
+
+const PAYMENT_DATE_OPTIONS: Intl.DateTimeFormatOptions = {
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+}
+
+function paymentMonths(raw: unknown): number {
+  const value = Number(raw)
+  if (!Number.isFinite(value)) return 0
+  return Math.max(0, Math.trunc(value))
+}
+
+function paymentMonthWord(value: number): string {
+  const mod100 = value % 100
+  const mod10 = value % 10
+  if (mod100 >= 11 && mod100 <= 14) return 'месяцев'
+  if (mod10 === 1) return 'месяц'
+  if (mod10 >= 2 && mod10 <= 4) return 'месяца'
+  return 'месяцев'
+}
+
+function formatPaymentPaidAt(value: string): string {
+  return formatLocalDateTime(value, PAYMENT_DATE_OPTIONS)
+}
+
+function formatPaymentSubscriptionTerm(item: SubscriptionPaymentItem): string {
+  if (item.plan === 'month') return '1 месяц'
+  if (item.plan === 'year') return '1 год'
+
+  const months = paymentMonths(item.subscription_months)
+  if (months <= 0) return '-'
+  return `${months} ${paymentMonthWord(months)}`
+}
+
+function formatPaymentMoney(amountRaw?: string | null, currencyRaw?: string | null): string {
+  const amountText = String(amountRaw || '').trim()
+  if (!amountText) return '-'
+
+  const currency = String(currencyRaw || '').trim().toUpperCase()
+  const value = Number(amountText)
+  if (Number.isFinite(value) && /^[A-Z]{3}$/.test(currency)) {
+    try {
+      return new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency,
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2,
+      }).format(value)
+    } catch {
+      return `${amountText} ${currency}`.trim()
+    }
+  }
+
+  return `${amountText} ${currency}`.trim()
+}
+
+function formatPaymentPromoDiscount(valueRaw?: number | null): string {
+  const value = Number(valueRaw)
+  if (!Number.isFinite(value) || value <= 0) return 'нет'
+
+  const formatted = new Intl.NumberFormat('ru-RU', {
+    maximumFractionDigits: 2,
+  }).format(value)
+  return `${formatted}%`
+}
+
+async function loadPayments(force = false): Promise<void> {
+  if (paymentsLoading.value) return
+  if (paymentsLoaded.value && !force) return
+  const seq = ++paymentsRequestSeq
+  paymentsLoading.value = true
+  paymentsError.value = ''
+  try {
+    const { data } = await api.get<SubscriptionPaymentsResponse>('/users/payments/subscriptions')
+    if (seq !== paymentsRequestSeq) return
+    paymentsItems.value = Array.isArray(data?.items) ? data.items : []
+    paymentsLoaded.value = true
+  } catch {
+    if (seq !== paymentsRequestSeq) return
+    paymentsItems.value = []
+    paymentsError.value = 'Не удалось загрузить платежи'
+  } finally {
+    if (seq === paymentsRequestSeq) paymentsLoading.value = false
+  }
+}
+
+onMounted(() => {
+  void loadPayments(true)
+})
+
+onBeforeUnmount(() => {
+  paymentsRequestSeq += 1
+})
 </script>
 
 <style scoped lang="scss">

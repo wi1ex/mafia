@@ -14,73 +14,218 @@
 
       <div class="theme-palette">
         <button v-for="item in profileThemeOptions" :key="item.key" class="theme-option" type="button" :class="{ active: selectedProfileThemeColor === item.key }"
-                :style="themeOptionStyle(item.key)" :disabled="themeSaveBusy || isBanned" @click="emit('pickProfileTheme', item.key)">
+                :style="themeOptionStyle(item.key)" :disabled="themeSaveBusy || isBanned" @click="pickProfileTheme(item.key)">
         </button>
       </div>
 
       <div class="theme-icon-palette">
-        <button v-for="item in profileThemeIconOptions" :key="item.key" @click="emit('pickProfileThemeIcon', item.key)"
+        <button v-for="item in profileThemeIconOptions" :key="item.key" @click="pickProfileThemeIcon(item.key)"
                 class="theme-icon-option" type="button" :class="{ active: selectedProfileThemeIcon === item.key }" :disabled="themeSaveBusy || isBanned || !item.available">
           <img v-if="themeIconSrc(item.key)" :src="themeIconSrc(item.key) || ''" alt="" aria-hidden="true" />
           <span v-else class="theme-icon-none" aria-hidden="true"></span>
         </button>
       </div>
 
-      <button v-if="canEditProfileTheme" class="btn confirm" @click="emit('saveProfileTheme')" :disabled="themeSaveDisabled">
+      <button v-if="canEditProfileTheme" class="btn confirm" @click="saveProfileTheme" :disabled="themeSaveDisabled">
         <img class="btn-img" :src="iconSave" alt="save" />
         {{ themeSaveBusy ? '...' : 'Сохранить' }}
       </button>
-      <button v-else type="button" class="btn subscription-btn" @click="emit('openSubscriptionModal')">
+      <button v-else type="button" class="btn subscription-btn" @click="openSubscriptionModal">
         Оформить подписку
       </button>
     </div>
     <p class="hint">{{ profileThemeMessageText }}</p>
+    <Subscription v-model:open="subscriptionModalOpen" @select="onSubscriptionPaymentSelect" />
   </div>
 </template>
 
 <script setup lang="ts">
-import type { ProfileThemeColor } from '@/constants/profileThemes'
-import type { ProfileThemeIcon } from '@/constants/profileIcons'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { storeToRefs } from 'pinia'
+import { api } from '@/services/axios'
+import { alertDialog } from '@/services/confirm'
+import { useUserStore } from '@/store'
+import Subscription from '@/components/Subscription.vue'
+import {
+  buildProfileThemeBgStyle,
+  getProfileThemeOptions,
+  normalizeProfileThemeColor,
+  resolveProfileThemeColor,
+  type ProfileThemeColor,
+} from '@/constants/profileThemes'
+import {
+  PROFILE_THEME_ICON_OPTIONS,
+  getProfileThemeBadgeSources,
+  getProfileThemeIconSrc,
+  normalizeProfileThemeIcon,
+  type ProfileThemeIcon,
+} from '@/constants/profileIcons'
 
-type ProfileThemeUser = {
-  username: string
-  avatar_name: string | null
+import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
+import iconSave from '@/assets/svg/save.svg'
+
+type SubscriptionSite = {
+  id: string
+  name: string
+  url: string
 }
 
-type ProfileThemeOption = {
-  key: ProfileThemeColor
+const userStore = useUserStore()
+const { now: userNow } = storeToRefs(userStore)
+
+const me = reactive({
+  username: '',
+  avatar_name: null as string | null,
+  role: '',
+  subscription_active: false,
+  subscription_started_at: null as string | null,
+  subscription_until: null as string | null,
+  profile_theme_color: null as ProfileThemeColor | null,
+  profile_theme_icon: null as ProfileThemeIcon | null,
+})
+const selectedProfileThemeColor = ref<ProfileThemeColor>(resolveProfileThemeColor(null))
+const selectedProfileThemeIcon = ref<ProfileThemeIcon | null>(null)
+const subscriptionModalOpen = ref(false)
+const themeSaveBusy = ref(false)
+const isBanned = computed(() => userStore.banActive)
+let onProfileSync: ((e: Event) => void) | null = null
+
+function parseDateMs(raw: string | null | undefined): number {
+  if (!raw) return 0
+  const ts = Date.parse(raw)
+  return Number.isFinite(ts) ? ts : 0
 }
 
-type ProfileThemeIconOption = {
-  key: ProfileThemeIcon
-  available: boolean
+const subscriptionUntilMs = computed(() => parseDateMs(me.subscription_until))
+const hasActiveSubscription = computed(() => {
+  if (subscriptionUntilMs.value > 0) return subscriptionUntilMs.value > userNow.value
+  return Boolean(me.subscription_active)
+})
+const canEditProfileTheme = computed(() => hasActiveSubscription.value)
+const currentProfileThemeColor = computed(() => resolveProfileThemeColor(me.profile_theme_color))
+const currentProfileThemeIcon = computed(() => normalizeProfileThemeIcon(me.profile_theme_icon))
+const profileThemeDirty = computed(() => (
+  selectedProfileThemeColor.value !== currentProfileThemeColor.value
+  || selectedProfileThemeIcon.value !== currentProfileThemeIcon.value
+))
+const themeSaveDisabled = computed(() => themeSaveBusy.value || isBanned.value || !canEditProfileTheme.value || !profileThemeDirty.value)
+const profileThemeSaveDisabledText = computed(() => {
+  if (!canEditProfileTheme.value) return 'Выбор оформления доступен только при наличии подписки'
+  return ''
+})
+const themePreviewStyle = computed(() => buildProfileThemeBgStyle(selectedProfileThemeColor.value))
+const themePreviewIconSrcs = computed(() => getProfileThemeBadgeSources(selectedProfileThemeIcon.value, me.role))
+const profileThemeOptions = computed(() => getProfileThemeOptions(me.role))
+const profileThemeIconOptions = computed(() => PROFILE_THEME_ICON_OPTIONS.filter((item) => item.available || item.key === selectedProfileThemeIcon.value))
+const profileThemeAvailabilityText = computed(() => {
+  const raw = me.subscription_until
+  if (!raw) return 'Доступно, пока активна подписка'
+  const dt = new Date(raw)
+  if (Number.isNaN(dt.getTime())) return 'Доступно, пока активна подписка'
+  return `Доступно для Вас до ${dt.toLocaleDateString('ru-RU')}`
+})
+const profileThemeMessageText = computed(() => canEditProfileTheme.value ? profileThemeAvailabilityText.value : profileThemeSaveDisabledText.value)
+
+function applyProfileThemePayload(data: any, options: { keepDraft?: boolean } = {}) {
+  me.subscription_active = Boolean(data?.subscription_active)
+  me.subscription_started_at = data?.subscription_started_at || null
+  me.subscription_until = data?.subscription_until || null
+  me.profile_theme_color = normalizeProfileThemeColor(data?.profile_theme_color)
+  me.profile_theme_icon = normalizeProfileThemeIcon(data?.profile_theme_icon)
+  userStore.setProfileTheme({
+    subscription_active: me.subscription_active,
+    subscription_started_at: me.subscription_started_at,
+    subscription_until: me.subscription_until,
+    profile_theme_color: me.profile_theme_color,
+    profile_theme_icon: me.profile_theme_icon,
+  })
+  if (!options.keepDraft) {
+    selectedProfileThemeColor.value = resolveProfileThemeColor(me.profile_theme_color)
+    selectedProfileThemeIcon.value = me.profile_theme_icon
+  }
 }
 
-defineProps<{
-  me: ProfileThemeUser
-  iconDefaultAvatar: string
-  iconSave: string
-  themePreviewStyle: Record<string, string>
-  themePreviewIconSrcs: string[]
-  profileThemeOptions: readonly ProfileThemeOption[]
-  selectedProfileThemeColor: ProfileThemeColor
-  themeOptionStyle: (color: ProfileThemeColor) => Record<string, string>
-  profileThemeIconOptions: readonly ProfileThemeIconOption[]
-  selectedProfileThemeIcon: ProfileThemeIcon | null
-  themeIconSrc: (icon: ProfileThemeIcon) => string | null
-  themeSaveBusy: boolean
-  isBanned: boolean
-  canEditProfileTheme: boolean
-  themeSaveDisabled: boolean
-  profileThemeMessageText: string
-}>()
+function applyMePayload(data: any, options: { keepThemeDraft?: boolean } = {}) {
+  me.username = data?.username || ''
+  me.avatar_name = data?.avatar_name || null
+  me.role = data?.role || ''
+  applyProfileThemePayload(data, { keepDraft: options.keepThemeDraft })
+}
 
-const emit = defineEmits<{
-  (e: 'pickProfileTheme', color: ProfileThemeColor): void
-  (e: 'pickProfileThemeIcon', icon: ProfileThemeIcon): void
-  (e: 'saveProfileTheme'): void
-  (e: 'openSubscriptionModal'): void
-}>()
+function themeOptionStyle(color: ProfileThemeColor): Record<string, string> {
+  return buildProfileThemeBgStyle(color)
+}
+
+function themeIconSrc(icon: ProfileThemeIcon): string | null {
+  return getProfileThemeIconSrc(icon)
+}
+
+function pickProfileTheme(color: ProfileThemeColor) {
+  if (themeSaveBusy.value || isBanned.value) return
+  selectedProfileThemeColor.value = color
+}
+
+function pickProfileThemeIcon(icon: ProfileThemeIcon) {
+  if (themeSaveBusy.value || isBanned.value) return
+  selectedProfileThemeIcon.value = icon
+}
+
+function openSubscriptionModal() {
+  subscriptionModalOpen.value = true
+}
+
+function onSubscriptionPaymentSelect(site: SubscriptionSite) {
+  if (site.id === 'lava') return
+  void api.post('/users/support_link_click', {
+    source: 'profile_theme',
+    site_id: site.id,
+    site_name: site.name,
+    url: site.url,
+  }).catch(() => {})
+}
+
+async function loadMe(options: { keepThemeDraft?: boolean } = {}) {
+  const { data } = await api.get('/users/profile_info')
+  applyMePayload(data, { keepThemeDraft: options.keepThemeDraft })
+  userStore.applyProfile(data)
+}
+
+async function saveProfileTheme() {
+  if (themeSaveDisabled.value) return
+  themeSaveBusy.value = true
+  try {
+    const { data } = await api.patch('/users/profile_theme', {
+      color: selectedProfileThemeColor.value,
+      icon: selectedProfileThemeIcon.value,
+    })
+    applyProfileThemePayload(data)
+    return void alertDialog('Оформление профиля сохранено')
+  } catch (e: any) {
+    const st = e?.response?.status
+    const d = e?.response?.data?.detail
+    if (st === 403 && d === 'subscription_required') return void alertDialog('Выбор оформления доступен только при активной подписке')
+    if (st === 403 && d === 'user_banned') return void alertDialog('Аккаунт забанен. Изменение оформления профиля недоступно')
+    if (st === 422 && d === 'profile_theme_invalid') return void alertDialog('Выбран недопустимый цвет профиля')
+    if (st === 422 && d === 'profile_theme_icon_invalid') return void alertDialog('Выбрана недопустимая иконка профиля')
+    void alertDialog('Не удалось сохранить оформление профиля')
+  } finally {
+    themeSaveBusy.value = false
+  }
+}
+
+onMounted(() => {
+  void loadMe()
+  onProfileSync = (e: Event) => {
+    const payload = (e as CustomEvent)?.detail
+    if (!payload) return
+    applyMePayload(payload, { keepThemeDraft: true })
+  }
+  window.addEventListener('auth-profile_sync', onProfileSync)
+})
+
+onBeforeUnmount(() => {
+  if (onProfileSync) window.removeEventListener('auth-profile_sync', onProfileSync)
+})
 </script>
 
 <style scoped lang="scss">

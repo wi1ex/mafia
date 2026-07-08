@@ -20,7 +20,7 @@
             <small>Добавлен: {{ formatLocalDateTime(item.created_at || '') }}</small>
           </div>
         </div>
-        <button class="btn danger blacklist-remove" type="button" :disabled="blacklistRemoving[item.id]" @click="emit('removeFromBlacklist', item)">
+        <button class="btn danger blacklist-remove" type="button" :disabled="blacklistRemoving[item.id]" @click="removeFromBlacklistProfile(item)">
           {{ blacklistRemoving[item.id] ? '...' : 'Удалить из ЧС' }}
         </button>
       </article>
@@ -29,21 +29,84 @@
 </template>
 
 <script setup lang="ts">
-import type { BlacklistItem } from '@/store'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { storeToRefs } from 'pinia'
+import { useFriendsStore, useUserStore, type BlacklistItem } from '@/store'
+import { alertDialog, confirmDialog } from '@/services/confirm'
+import { formatLocalDateTime } from '@/services/datetime'
 
-defineProps<{
-  blacklistLoading: boolean
-  blacklistError: string
-  blacklistItems: BlacklistItem[]
-  blacklistRemoving: Record<number, boolean>
-  iconDefaultAvatar: string
-  blacklistAvatarKey: (item: BlacklistItem) => string
-  formatLocalDateTime: (value: string, options?: Intl.DateTimeFormatOptions) => string
-}>()
+import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
 
-const emit = defineEmits<{
-  (e: 'removeFromBlacklist', item: BlacklistItem): void
-}>()
+const friendsStore = useFriendsStore()
+const userStore = useUserStore()
+const { subscriptionActive } = storeToRefs(userStore)
+const blacklistLoading = ref(false)
+const blacklistError = ref('')
+const blacklistRemoving = reactive<Record<number, boolean>>({})
+const blacklistItems = computed<BlacklistItem[]>(() => (
+  Array.isArray(friendsStore.blacklist) ? friendsStore.blacklist : []
+))
+
+async function loadBlacklist(): Promise<void> {
+  if (blacklistLoading.value) return
+  blacklistLoading.value = true
+  blacklistError.value = ''
+  try {
+    await friendsStore.fetchBlacklist()
+  } catch (e: any) {
+    const detail = String(e?.response?.data?.detail || '').trim()
+    if (detail === 'subscription_required') {
+      blacklistError.value = ''
+      return
+    }
+    blacklistError.value = 'Не удалось загрузить черный список'
+  } finally {
+    blacklistLoading.value = false
+  }
+}
+
+function blacklistAvatarKey(item: BlacklistItem): string {
+  const name = String(item.avatar_name || '').trim()
+  if (!name) return ''
+  return name.startsWith('avatars/') ? name : `avatars/${name}`
+}
+
+async function removeFromBlacklistProfile(item: BlacklistItem): Promise<void> {
+  const uid = Number(item?.id || 0)
+  if (!Number.isFinite(uid) || uid <= 0 || blacklistRemoving[Math.trunc(uid)]) return
+  const userLabel = item.username || `user${Math.trunc(uid)}`
+  const ok = await confirmDialog({
+    title: 'Удалить из Черного списка',
+    text: `Вы уверены, что хотите удалить пользователя ${userLabel} из ЧС?`,
+    confirmText: 'Удалить',
+    cancelText: 'Отмена',
+  })
+  if (!ok) return
+  const id = Math.trunc(uid)
+  blacklistRemoving[id] = true
+  try {
+    await friendsStore.removeFromBlacklist(id)
+  } catch (e: any) {
+    const detail = String(e?.response?.data?.detail || '').trim()
+    if (detail === 'subscription_required') {
+      void userStore.fetchMe().catch(() => {})
+      void alertDialog('Черный список доступен только при активной подписке')
+    } else {
+      void alertDialog('Не удалось удалить пользователя из ЧС')
+    }
+  } finally {
+    delete blacklistRemoving[id]
+  }
+}
+
+watch(subscriptionActive, () => {
+  void loadBlacklist()
+})
+
+onMounted(() => {
+  friendsStore.ensureWS()
+  void loadBlacklist()
+})
 </script>
 
 <style scoped lang="scss">
