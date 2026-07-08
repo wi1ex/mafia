@@ -2,10 +2,16 @@
   <section class="profile">
     <header>
       <div class="tab-div">
-        <router-link class="tab-btn" :to="{ name: 'home' }" aria-label="На главную">
-          <UiIcon class="tab-btn-img" :icon="iconHome" />
-          <span class="tab-btn-text">На главную</span>
-        </router-link>
+        <UiButton
+          class="tab-btn"
+          size="middle"
+          variant="white"
+          :href="homeHref"
+          :icon="iconHome"
+          text="На главную"
+          aria-label="На главную"
+          @click="navigateHome"
+        />
         <div class="tab-div-line"></div>
         <nav class="tabs" aria-label="Навигация" role="tablist">
           <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'profile' }" :aria-selected="activeTab === 'profile'" @click="activeTab = 'profile'">
@@ -50,9 +56,14 @@
         <div class="tab-subscribe">
           <span>ПОДПИСКА</span>
           <span>купить подписку</span>
-          <button class="tab-btn" type="button" @click="openSubscriptionModal">
-            <span class="tab-btn-text">Оформить</span>
-          </button>
+          <UiButton
+            class="tab-btn"
+            size="middle"
+            variant="white"
+            type="button"
+            text="Оформить"
+            @click="openSubscriptionModal"
+          />
         </div>
         <router-link class="tab-btn" :to="{ name: 'home' }" aria-label="На главную">
           <UiIcon class="tab-btn-img" :icon="iconLeave" />
@@ -427,6 +438,7 @@ import UiSwitch from '@/components/UiSwitch.vue'
 import UiInput from '@/components/UiInput.vue'
 import UiSlider from '@/components/UiSlider.vue'
 import UiIcon from '@/components/UiIcon.vue'
+import UiButton from '@/components/UiButton.vue'
 
 import iconHome from '@/assets/svg/iconHome.svg'
 import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
@@ -523,6 +535,7 @@ const STATIC_AVATAR_TYPES = new Set(['image/jpeg', 'image/png'])
 const ANIMATED_AVATAR_TYPE = 'image/gif'
 const route = useRoute()
 const router = useRouter()
+const homeHref = computed(() => router.resolve({ name: 'home' }).href)
 
 const TAB_KEYS = ['profile', 'theme', 'music', 'account', 'stats', 'payments', 'history', 'sanctions', 'blacklist'] as const
 type TabKey = typeof TAB_KEYS[number]
@@ -535,6 +548,12 @@ function normalizeTab(v: unknown): TabKey {
 
 function isProfileSettingsTab(tab: TabKey): boolean {
   return tab === 'profile' || tab === 'theme' || tab === 'account'
+}
+
+function navigateHome(event: MouseEvent) {
+  if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.altKey || event.ctrlKey || event.shiftKey) return
+  event.preventDefault()
+  router.push({ name: 'home' }).catch(() => {})
 }
 
 function parseDateMs(raw: string | null | undefined): number {
@@ -1692,10 +1711,22 @@ onBeforeUnmount(() => {
         text-decoration: none;
         cursor: pointer;
         transition: opacity 0.25s ease-in-out, background-color 0.25s ease-in-out;
+        :deep(.ui-button__icon) {
+          --ui-icon-width: 48px;
+          --ui-icon-height: 48px;
+          --ui-icon-color: #{$neutral-white};
+        }
         .tab-btn-img {
           --ui-icon-width: 48px;
           --ui-icon-height: 48px;
           --ui-icon-color: #{$neutral-white};
+        }
+        :deep(.ui-button__text) {
+          color: $neutral-100;
+          font-family: Hauora-Regular;
+          font-size: 16px;
+          line-height: 22px;
+          letter-spacing: -0.32px;
         }
         .tab-btn-text {
           color: $neutral-100;
