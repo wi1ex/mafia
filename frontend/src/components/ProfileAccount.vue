@@ -3,26 +3,32 @@
     <div class="account-verif-params">
       <div class="account-verif">
         <div class="account">
-          <span class="title">Аккаунт</span>
-          <span class="date-text">Дата регистрации: {{ registrationDateLabel }}</span>
-          <button @click="deleteAccount" :disabled="deleteBusy || isDeleteAccountForbiddenSelf">
-            <UiIcon :icon="iconDelete" />
-            <span>{{ deleteBusy ? '...' : 'Удалить аккаунт' }}</span>
-          </button>
-          <span class="hint">Удаление произойдет навсегда без возможности его восстановления.</span>
+          <div class="account-div">
+            <span class="title">Аккаунт</span>
+            <span class="date-text">Дата регистрации: {{ registrationDateLabel }}</span>
+          </div>
+          <div class="account-btn">
+            <button @click="deleteAccount" :disabled="deleteBusy || isDeleteAccountForbiddenSelf">
+              <UiIcon :icon="iconDelete" />
+              <span>{{ deleteBusy ? '...' : 'Удалить аккаунт' }}</span>
+            </button>
+            <span class="hint">Удаление произойдет навсегда без возможности его восстановления.</span>
+          </div>
         </div>
 
         <div class="verif">
           <img class="verif-icon" :src="iconTickCircle" alt="" aria-hidden="true" />
-          <span class="title">Верификация</span>
+          <div class="verif-div">
+            <span class="title">Верификация</span>
+            <span v-if="telegramVerified" class="hint">Если отвязать TG-аккаунт верификация будет снята.</span>
+            <span v-else class="hint">В чате с ботом сначала введите никнейм, затем пароль. После успешной верификации ограничения будут сняты.</span>
+          </div>
           <button v-if="telegramVerified" @click="unlinkTelegram" :disabled="unlinkTgBusy">
             {{ unlinkTgBusy ? '...' : 'Отвязать TG-аккаунт' }}
           </button>
           <a v-else-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">
             Пройти верификацию
           </a>
-          <span v-if="telegramVerified" class="hint">Если отвязать TG-аккаунт верификация будет снята.</span>
-          <span v-else class="hint">В чате с ботом сначала введите никнейм, затем пароль. После успешной верификации ограничения будут сняты.</span>
         </div>
       </div>
 
@@ -324,37 +330,45 @@ onBeforeUnmount(() => {
         height: 210px;
         border-radius: 24px;
         background-color: $soft-purple-900;
-        .title {
-          color: $neutral-white;
-          font-family: Involve-Medium;
-          font-size: 24px;
-          line-height: 26px;
-          letter-spacing: -0.48px;
+        .account-div {
+          display: flex;
+          gap: 24px;
+          .title {
+            color: $neutral-white;
+            font-family: Involve-Medium;
+            font-size: 24px;
+            line-height: 26px;
+            letter-spacing: -0.48px;
+          }
+          .date-text {
+            padding: 16px;
+            border-radius: 20px;
+            background-color: $soft-purple-800;
+            color: $neutral-white;
+            font-family: Hauora-Bold;
+            font-size: 16px;
+            line-height: 18px;
+            letter-spacing: -0.32px;
+          }
         }
-        .date-text {
-          padding: 16px;
-          border-radius: 20px;
-          background-color: $soft-purple-800;
-          color: $neutral-white;
-          font-family: Hauora-Bold;
-          font-size: 16px;
-          line-height: 18px;
-          letter-spacing: -0.32px;
-        }
-        .hint {
-          color: $neutral-300;
-          font-family: Hauora-Regular;
-          font-size: 14px;
-          line-height: 14px;
-          letter-spacing: -0.28px;
+        .account-btn {
+          display: flex;
+          gap: 16px;
+          .hint {
+            color: $neutral-300;
+            font-family: Hauora-Regular;
+            font-size: 14px;
+            line-height: 14px;
+            letter-spacing: -0.28px;
+          }
         }
       }
       .verif {
         display: flex;
         position: relative;
         flex-direction: column;
+        justify-content: space-between;
         padding: 24px;
-        gap: 24px;
         width: calc(50% - 5px);
         height: 210px;
         border-radius: 24px;
@@ -366,19 +380,23 @@ onBeforeUnmount(() => {
           width: 26px;
           height: 26px;
         }
-        .title {
-          color: $neutral-white;
-          font-family: Involve-Medium;
-          font-size: 24px;
-          line-height: 26px;
-          letter-spacing: -0.48px;
-        }
-        .hint {
-          color: $neutral-100;
-          font-family: Hauora-Regular;
-          font-size: 16px;
-          line-height: 22px;
-          letter-spacing: -0.32px;
+        .verif-div {
+          display: flex;
+          gap: 16px;
+          .title {
+            color: $neutral-white;
+            font-family: Involve-Medium;
+            font-size: 24px;
+            line-height: 26px;
+            letter-spacing: -0.48px;
+          }
+          .hint {
+            color: $neutral-100;
+            font-family: Hauora-Regular;
+            font-size: 16px;
+            line-height: 22px;
+            letter-spacing: -0.32px;
+          }
         }
       }
     }
