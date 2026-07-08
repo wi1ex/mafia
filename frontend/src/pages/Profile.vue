@@ -538,7 +538,7 @@ const homeHref = computed(() => router.resolve({ name: 'home' }).href)
 
 const TAB_KEYS = ['profile', 'theme', 'music', 'account', 'stats', 'payments', 'history', 'sanctions', 'blacklist'] as const
 type TabKey = typeof TAB_KEYS[number]
-const DEFAULT_TAB: TabKey = 'profile'
+const DEFAULT_TAB: TabKey = 'account'
 
 function normalizeTab(v: unknown): TabKey {
   if (typeof v === 'string' && (TAB_KEYS as readonly string[]).includes(v)) return v as TabKey
@@ -1784,12 +1784,12 @@ onBeforeUnmount(() => {
     }
   }
   .tab-panel {
-    margin-top: 10px;
+    display: flex;
     .block {
-      padding: 15px;
+      padding: 24px;
       min-height: 190px;
-      border: 3px solid $neutral-700;
-      border-radius: 5px;
+      border-radius: 24px;
+      background-color: $soft-purple-900;
       h3 {
         margin: 0 0 20px;
         font-size: 20px;
