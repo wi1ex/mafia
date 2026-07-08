@@ -54,11 +54,13 @@
       </div>
       <div class="tab-div">
         <div v-if="!hasActiveSubscription" class="tab-subscribe">
-          <span>ПОДПИСКА</span>
-          <span>купить подписку</span>
+          <img class="background-image" :src="imageSlide9" alt="" aria-hidden="true" />
+          <span class="tab-subscribe-title">Оформи подписку</span>
+          <span class="tab-subscribe-text">Подписка откроет новые функции, персонализацию профиля и дополнительные привилегии.</span>
           <UiButton
             size="middle"
             variant="white"
+            width="100%"
             type="button"
             text="Оформить"
             @click="openSubscriptionModal"
@@ -116,6 +118,7 @@ import Subscription from '@/components/Subscription.vue'
 import UiIcon from '@/components/UiIcon.vue'
 import UiButton from '@/components/UiButton.vue'
 
+import imageSlide9 from '@/assets/images/carousel-image9.png'
 import iconHome from '@/assets/svg/iconHome.svg'
 import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
 import iconSettings from '@/assets/svg/iconSettings.svg'
@@ -336,6 +339,29 @@ onBeforeUnmount(() => {
         display: flex;
         flex-direction: column;
         gap: 10px;
+        .background-image {
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 100%;
+          height: 100%;
+          border-radius: inherit;
+          object-fit: cover;
+        }
+        .tab-subscribe-title {
+          color: $neutral-white;
+          font-family: Hauora-Bold;
+          font-size: 18px;
+          line-height: 20px;
+          letter-spacing: -0.36px;
+        }
+        .tab-subscribe-text {
+          color: $neutral-100;
+          font-family: Hauora-Regular;
+          font-size: 14px;
+          line-height: 14px;
+          letter-spacing: -0.28px;
+        }
       }
     }
   }
