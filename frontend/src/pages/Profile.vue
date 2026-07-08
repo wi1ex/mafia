@@ -65,10 +65,10 @@
             @click="openSubscriptionModal"
           />
         </div>
-        <router-link class="tab-btn" :to="{ name: 'home' }" aria-label="На главную">
+        <button class="tab-btn" type="button" @click="onLogoutClick">
           <UiIcon class="tab-btn-img" :icon="iconLeave" />
           <span class="tab-btn-text">Выход из аккаунта</span>
-        </router-link>
+        </button>
       </div>
     </header>
 
@@ -554,6 +554,11 @@ function navigateHome(event: MouseEvent) {
   if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.altKey || event.ctrlKey || event.shiftKey) return
   event.preventDefault()
   router.push({ name: 'home' }).catch(() => {})
+}
+
+async function onLogoutClick() {
+  try { await auth.logout() }
+  finally {}
 }
 
 function parseDateMs(raw: string | null | undefined): number {
