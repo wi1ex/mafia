@@ -5,6 +5,7 @@
         <UiButton
           size="middle"
           variant="white"
+          width="100%"
           :href="homeHref"
           :icon="iconHome"
           text="На главную"
@@ -25,27 +26,27 @@
             <UiIcon class="tab-btn-img" :icon="iconDesign" />
             <span class="tab-btn-text">Оформление профиля</span>
           </button>
-          <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'stats' }" :aria-selected="activeTab === 'stats'" @click="activeTab = 'stats'">
+          <button disabled class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'stats' }" :aria-selected="activeTab === 'stats'" @click="activeTab = 'stats'">
             <UiIcon class="tab-btn-img" :icon="iconStats" />
             <span class="tab-btn-text">Статистика</span>
           </button>
-          <button v-if="showHistoryTab" class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'history' }" :aria-selected="activeTab === 'history'" @click="activeTab = 'history'">
+          <button disabled v-if="showHistoryTab" class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'history' }" :aria-selected="activeTab === 'history'" @click="activeTab = 'history'">
             <UiIcon class="tab-btn-img" :icon="iconHistory" />
             <span class="tab-btn-text">История игр</span>
           </button>
-          <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'sanctions' }" :aria-selected="activeTab === 'sanctions'" @click="activeTab = 'sanctions'">
+          <button disabled class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'sanctions' }" :aria-selected="activeTab === 'sanctions'" @click="activeTab = 'sanctions'">
             <UiIcon class="tab-btn-img" :icon="iconJudgeHummer" />
             <span class="tab-btn-text">Санкции</span>
           </button>
-          <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'payments' }" :aria-selected="activeTab === 'payments'" @click="activeTab = 'payments'">
+          <button disabled class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'payments' }" :aria-selected="activeTab === 'payments'" @click="activeTab = 'payments'">
             <UiIcon class="tab-btn-img" :icon="iconCard" />
             <span class="tab-btn-text">Платежи</span>
           </button>
-          <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'music' }" :aria-selected="activeTab === 'music'" @click="activeTab = 'music'">
+          <button disabled class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'music' }" :aria-selected="activeTab === 'music'" @click="activeTab = 'music'">
             <UiIcon class="tab-btn-img" :icon="iconMusic" />
             <span class="tab-btn-text">Музыка</span>
           </button>
-          <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'blacklist' }" :aria-selected="activeTab === 'blacklist'" @click="activeTab = 'blacklist'">
+          <button disabled class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'blacklist' }" :aria-selected="activeTab === 'blacklist'" @click="activeTab = 'blacklist'">
             <UiIcon class="tab-btn-img" :icon="iconBlockPlayer" />
             <span class="tab-btn-text">Черный список</span>
           </button>
