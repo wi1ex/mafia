@@ -45,8 +45,7 @@
 
     <Transition name="tab-fade" mode="out-in">
       <div :key="activeTab" class="tab-panel">
-        <div v-if="isProfileSettingsTab(activeTab)" class="grid grid-profile-section">
-          <div v-if="activeTab === 'profile'" class="block avatar-block">
+        <div v-if="activeTab === 'profile'" class="block avatar-block">
             <h3>Аватар и никнейм</h3>
             <div class="avatar-row">
               <img class="avatar-img" v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="Текущий аватар" />
@@ -99,9 +98,61 @@
               </button>
             </div>
             <p class="hint">Никнейм является логином для авторизации</p>
+
+            <div v-if="crop.show" ref="modalEl" class="modal" @keydown.esc="cancelCrop" tabindex="0" aria-modal="true" aria-label="Кадрирование аватара" >
+              <div class="modal-body">
+                <canvas ref="canvasEl" @mousedown="dragStart" @mousemove="dragMove" @mouseup="dragStop" @mouseleave="dragStop" @wheel.passive="onWheel" />
+                <div class="range">
+                  <span>Масштаб</span>
+                  <UiSlider
+                    :model-value="crop.scale"
+                    :min="crop.min"
+                    :max="crop.max"
+                    :step="0.01"
+                    :disabled="isBanned"
+                    aria-label="Масштаб"
+                    @update:modelValue="scaleTo" />
+                </div>
+                <div class="modal-actions">
+                  <button class="btn danger" @click="cancelCrop">Отменить</button>
+                  <button class="btn confirm" @click="applyCrop" :disabled="busyAva || isBanned">Загрузить</button>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="gifPicker.show" ref="gifModalEl" class="modal gif-modal" @keydown.esc="cancelGifPicker" tabindex="0" aria-modal="true" aria-label="Выбор статичного кадра GIF">
+              <div class="modal-body gif-modal-body">
+                <div class="gif-preview-row">
+                  <div class="gif-preview-block">
+                    <span>Анимация</span>
+                    <img v-if="gifPicker.animatedUrl" :src="gifPicker.animatedUrl" alt="GIF-анимация" />
+                  </div>
+                  <div class="gif-preview-block">
+                    <span>Статичный кадр</span>
+                    <canvas ref="gifCanvasEl" />
+                  </div>
+                </div>
+                <p v-if="gifPicker.error" class="hint red">{{ gifPicker.error }}</p>
+                <div class="range">
+                  <span>Кадр {{ gifFrameLabel }}</span>
+                  <UiSlider
+                    :model-value="gifPicker.frameIndex"
+                    :min="0"
+                    :max="Math.max(0, gifPicker.frameCount - 1)"
+                    :step="1"
+                    :disabled="busyAva || isBanned || gifPicker.frameCount <= 1 || gifPicker.decoding"
+                    aria-label="Кадр GIF"
+                    @update:modelValue="onGifFrameRange" />
+                </div>
+                <div class="modal-actions">
+                  <button class="btn danger" @click="cancelGifPicker">Отменить</button>
+                  <button class="btn confirm" @click="applyGifPicker" :disabled="busyAva || isBanned || gifPicker.loading || gifPicker.decoding || !!gifPicker.error">Загрузить</button>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div v-else-if="activeTab === 'theme'" class="block theme-block">
+        <div v-else-if="activeTab === 'theme'" class="block theme-block">
             <h3>Оформление профиля</h3>
             <div class="theme-row">
               <div class="theme-preview-grid">
@@ -139,7 +190,7 @@
             <p class="hint">{{ profileThemeMessageText }}</p>
           </div>
 
-          <div v-else-if="activeTab === 'account'" class="block account-block">
+        <div v-else-if="activeTab === 'account'" class="block account-block">
             <h3>Аккаунт</h3>
             <div class="verify-row">
               <p class="hint text">Дата регистрации: {{ registrationDateLabel }}</p>
@@ -197,74 +248,16 @@
             </div>
           </div>
 
-          <div v-if="crop.show" ref="modalEl" class="modal" @keydown.esc="cancelCrop" tabindex="0" aria-modal="true" aria-label="Кадрирование аватара" >
-            <div class="modal-body">
-              <canvas ref="canvasEl" @mousedown="dragStart" @mousemove="dragMove" @mouseup="dragStop" @mouseleave="dragStop" @wheel.passive="onWheel" />
-              <div class="range">
-                <span>Масштаб</span>
-                <UiSlider
-                  :model-value="crop.scale"
-                  :min="crop.min"
-                  :max="crop.max"
-                  :step="0.01"
-                  :disabled="isBanned"
-                  aria-label="Масштаб"
-                  @update:modelValue="scaleTo" />
-              </div>
-              <div class="modal-actions">
-                <button class="btn danger" @click="cancelCrop">Отменить</button>
-                <button class="btn confirm" @click="applyCrop" :disabled="busyAva || isBanned">Загрузить</button>
-              </div>
-            </div>
-          </div>
-
-          <div v-if="gifPicker.show" ref="gifModalEl" class="modal gif-modal" @keydown.esc="cancelGifPicker" tabindex="0" aria-modal="true" aria-label="Выбор статичного кадра GIF">
-            <div class="modal-body gif-modal-body">
-              <div class="gif-preview-row">
-                <div class="gif-preview-block">
-                  <span>Анимация</span>
-                  <img v-if="gifPicker.animatedUrl" :src="gifPicker.animatedUrl" alt="GIF-анимация" />
-                </div>
-                <div class="gif-preview-block">
-                  <span>Статичный кадр</span>
-                  <canvas ref="gifCanvasEl" />
-                </div>
-              </div>
-              <p v-if="gifPicker.error" class="hint red">{{ gifPicker.error }}</p>
-              <div class="range">
-                <span>Кадр {{ gifFrameLabel }}</span>
-                <UiSlider
-                  :model-value="gifPicker.frameIndex"
-                  :min="0"
-                  :max="Math.max(0, gifPicker.frameCount - 1)"
-                  :step="1"
-                  :disabled="busyAva || isBanned || gifPicker.frameCount <= 1 || gifPicker.decoding"
-                  aria-label="Кадр GIF"
-                  @update:modelValue="onGifFrameRange" />
-              </div>
-              <div class="modal-actions">
-                <button class="btn danger" @click="cancelGifPicker">Отменить</button>
-                <button class="btn confirm" @click="applyGifPicker" :disabled="busyAva || isBanned || gifPicker.loading || gifPicker.decoding || !!gifPicker.error">Загрузить</button>
-              </div>
-            </div>
-          </div>
+        <div v-else-if="activeTab === 'stats'" class="block stats-block">
+          <ProfileStats />
         </div>
 
-        <div v-else-if="activeTab === 'stats'" class="grid grid-stats">
-          <div class="block">
-            <ProfileStats />
-          </div>
+        <div v-else-if="activeTab === 'history' && showHistoryTab" class="block history-block">
+          <h3>Личная история игр</h3>
+          <ProfileHistory />
         </div>
 
-        <div v-else-if="activeTab === 'history' && showHistoryTab" class="grid grid-history">
-          <div class="block history-block">
-            <h3>Личная история игр</h3>
-            <ProfileHistory />
-          </div>
-        </div>
-
-        <div v-else-if="activeTab === 'payments'" class="grid grid-payments">
-          <div class="block payments-block">
+        <div v-else-if="activeTab === 'payments'" class="block payments-block">
             <h3>История платежей</h3>
             <div v-if="paymentsLoading" class="payments-state">Загрузка...</div>
             <div v-else-if="paymentsError" class="payments-state danger">{{ paymentsError }}</div>
@@ -291,11 +284,9 @@
                 </tbody>
               </table>
             </div>
-          </div>
         </div>
 
-        <div v-else-if="activeTab === 'sanctions'" class="grid grid-sanctions">
-          <div class="block sanctions-block">
+        <div v-else-if="activeTab === 'sanctions'" class="block sanctions-block">
             <div class="sanctions-head">
               <h3>История отстранений от игр, таймаутов и банов</h3>
             </div>
@@ -347,11 +338,9 @@
                 </div>
               </article>
             </div>
-          </div>
         </div>
 
-        <div v-else-if="activeTab === 'blacklist'" class="grid grid-blacklist">
-          <div class="block blacklist-block">
+        <div v-else-if="activeTab === 'blacklist'" class="block blacklist-block">
             <div class="blacklist-head">
               <h3>Черный список</h3>
             </div>
@@ -377,10 +366,9 @@
                 </button>
               </article>
             </div>
-          </div>
         </div>
 
-        <div v-else class="grid grid-empty">
+        <div v-else class="block empty-block">
           <!-- пока что пусто -->
         </div>
       </div>
@@ -1704,532 +1692,164 @@ onBeforeUnmount(() => {
   }
   .tab-panel {
     margin-top: 10px;
-    .grid {
-      display: grid;
-      gap: 10px;
-      grid-template-columns: 1fr 1fr 1fr;
-      .block {
-        padding: 15px;
-        min-height: 190px;
-        border: 3px solid $neutral-700;
-        border-radius: 5px;
-        h3 {
-          margin: 0 0 20px;
-          font-size: 20px;
+    .block {
+      padding: 15px;
+      min-height: 190px;
+      border: 3px solid $neutral-700;
+      border-radius: 5px;
+      h3 {
+        margin: 0 0 20px;
+        font-size: 20px;
+        color: $neutral-100;
+      }
+      .hint {
+        margin: 0;
+        color: $neutral-500;
+        font-size: 14px;
+        &.center {
+          text-align: center;
+        }
+        &.text {
+          font-size: 16px;
           color: $neutral-100;
         }
-        .hint {
-          margin: 0;
-          color: $neutral-500;
-          font-size: 14px;
-          &.center {
-            text-align: center;
-          }
-          &.text {
-            font-size: 16px;
-            color: $neutral-100;
-          }
-          &.warn {
-            color: $yellow-500;
-          }
-          &.red {
-            color: $red-500;
-          }
-          a {
-            color: $neutral-100;
-            text-decoration: none;
-          }
+        &.warn {
+          color: $yellow-500;
         }
-        &.avatar-block {
-          .avatar-row {
-            display: flex;
-            gap: 20px;
-            align-items: center;
-            .avatar-img {
-              width: 150px;
-              height: 150px;
-              object-fit: cover;
-              border-radius: 50%;
-            }
-            .actions {
-              display: flex;
-              flex-direction: column;
-              gap: 10px;
-            }
-          }
-          .nick-row {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-start;
-            margin-bottom: 5px;
-            gap: 10px;
-            .nick-input-line {
-              display: flex;
-              align-items: center;
-              gap: 10px;
-              width: 100%;
-              :deep(.profile-input) {
-                flex: 1 1 auto;
-                max-width: 300px;
-                width: 100%;
-              }
-              .nickname-history-tooltip-wrap {
-                display: inline-flex;
-                position: relative;
-                flex: 0 0 auto;
-                align-items: center;
-                justify-content: center;
-                width: 40px;
-                height: 40px;
-                outline: none;
-                &:hover,
-                &:focus-within {
-                  &::after {
-                    display: block;
-                  }
-                  .nickname-history-tooltip {
-                    display: flex;
-                  }
-                }
-                &::after {
-                  content: '';
-                  display: none;
-                  position: absolute;
-                  top: 100%;
-                  right: 0;
-                  width: 300px;
-                  height: 10px;
-                  z-index: 4;
-                }
-                .nickname-history-icon {
-                  width: 24px;
-                  height: 24px;
-                  object-fit: contain;
-                }
-                .nickname-history-tooltip {
-                  display: none;
-                  position: absolute;
-                  top: calc(100% + 10px);
-                  right: 0;
-                  flex-direction: column;
-                  gap: 10px;
-                  width: 300px;
-                  max-height: 250px;
-                  padding: 10px;
-                  border-radius: 5px;
-                  background-color: $neutral-800;
-                  box-shadow: 3px 3px 5px rgba(black, 0.25);
-                  color: $neutral-100;
-                  font-size: 14px;
-                  line-height: 1.2;
-                  z-index: 5;
-                  .nickname-history-clear {
-                    width: 100%;
-                    max-width: none;
-                    min-height: 30px;
-                    font-size: 14px;
-                  }
-                  .nickname-history-access-text {
-                    color: $neutral-300;
-                    overflow-wrap: anywhere;
-                    &.disabled {
-                      color: $neutral-500;
-                    }
-                  }
-                  .nickname-history-divider {
-                    width: 100%;
-                    height: 1px;
-                    background-color: rgba($neutral-white, 0.1);
-                  }
-                  .nickname-history-list {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 5px;
-                    overflow-y: auto;
-                    scrollbar-width: thin;
-                    span {
-                      color: $neutral-300;
-                      overflow-wrap: anywhere;
-                      &.current {
-                        color: $neutral-100;
-                        font-family: Hauora-SemiBold;
-                      }
-                    }
-                  }
-                  .nickname-history-state {
-                    color: $neutral-300;
-                    &.danger {
-                      color: $red-500;
-                    }
-                  }
-                }
-              }
-            }
-          }
+        &.red {
+          color: $red-500;
         }
-        &.theme-block {
-          .theme-row {
-            display: inline-flex;
-            flex-direction: column;
-            margin-bottom: 10px;
-            .theme-preview-grid {
-              display: grid;
-              gap: 10px;
-              .theme-preview-card {
-                display: flex;
-                align-items: center;
-                padding: 10px 15px;
-                gap: 5px;
-                width: fit-content;
-                border-radius: 15px;
-                background-color: var(--user-theme-bg, rgba($neutral-900, 0.75));
-                box-shadow: 3px 3px 5px rgba(black, 0.25);
-                transition: background-color 0.25s ease-in-out;
-                .theme-preview-avatar {
-                  width: 40px;
-                  height: 40px;
-                  border-radius: 50%;
-                  object-fit: cover;
-                }
-                .theme-preview-icons {
-                  display: inline-flex;
-                  align-items: center;
-                  gap: 5px;
-                  flex: 0 0 auto;
-                  .theme-preview-icon {
-                    width: 40px;
-                    height: 40px;
-                    object-fit: contain;
-                  }
-                }
-                span {
-                  min-width: 0;
-                  color: $neutral-100;
-                  font-size: 22px;
-                  font-family: Hauora-SemiBold;
-                  line-height: 1.3;
-                  white-space: nowrap;
-                  overflow: hidden;
-                  text-overflow: ellipsis;
-                }
-              }
-            }
-            .theme-palette {
-              display: inline-grid;
-              grid-template-columns: repeat(10, 1fr);
-              margin: 15px 0;
-              padding: 10px;
-              gap: 5px;
-              background-color: $neutral-800;
-              border-radius: 10px;
-              box-shadow: 3px 3px 5px rgba(black, 0.25);
-              .theme-option {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                width: 30px;
-                height: 30px;
-                border: 2px solid $neutral-800;
-                border-radius: 999px;
-                background-color: var(--user-theme-bg, $neutral-800);
-                cursor: pointer;
-                transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out;
-                &:hover:enabled {
-                  border-color: rgba($neutral-white, 0.5);
-                }
-                &.active {
-                  border-color: $neutral-100;
-                }
-                &:disabled {
-                  cursor: not-allowed;
-                }
-              }
-            }
-            .theme-icon-palette {
-              display: inline-grid;
-              grid-template-columns: repeat(10, 1fr);
-              margin-bottom: 15px;
-              padding: 10px;
-              gap: 5px;
-              background-color: $neutral-800;
-              border-radius: 10px;
-              box-shadow: 3px 3px 5px rgba(black, 0.25);
-              .theme-icon-option {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                width: 30px;
-                height: 30px;
-                border: 2px solid transparent;
-                border-radius: 999px;
-                background: none;
-                cursor: pointer;
-                transition: border-color 0.25s ease-in-out;
-                img {
-                  width: 24px;
-                  height: 24px;
-                  object-fit: contain;
-                }
-                .theme-icon-none {
-                  width: 10px;
-                  height: 2px;
-                  border-radius: 2px;
-                  background-color: rgba($neutral-white, 0.75);
-                }
-                &:hover:enabled {
-                  border-color: rgba($neutral-white, 0.5);
-                }
-                &.active {
-                  border-color: $neutral-100;
-                }
-                &:disabled {
-                  cursor: not-allowed;
-                }
-              }
-            }
-          }
-        }
-        &.account-block {
-          .verify-row {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-          }
-          .password-row {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-start;
-            margin-top: 5px;
-            gap: 10px;
-            --ui-input-label-bg: #{$neutral-900};
-            :deep(.profile-input) {
-              max-width: 320px;
-              width: 100%;
-            }
-          }
-        }
-        &.payments-block {
-          .payments-state {
-            padding: 20px 10px;
-            text-align: center;
-            color: $neutral-300;
-            &.danger {
-              color: $orange-500;
-            }
-          }
-          .payments-table-wrap {
-            width: 100%;
-            overflow-x: auto;
-            border: 1px solid rgba($neutral-500, 0.5);
-            border-radius: 5px;
-            background-color: rgba($neutral-800, 0.45);
-            .payments-table {
-              width: 100%;
-              min-width: 820px;
-              border-collapse: collapse;
-              color: $neutral-100;
-              th,
-              td {
-                padding: 12px 14px;
-                border-bottom: 1px solid rgba($neutral-500, 0.35);
-                text-align: left;
-                vertical-align: top;
-                line-height: 1.25;
-              }
-              th {
-                color: $neutral-300;
-                font-family: Hauora-SemiBold;
-                font-size: 14px;
-                white-space: nowrap;
-              }
-              td {
-                font-size: 15px;
-                overflow-wrap: anywhere;
-              }
-              tbody tr:last-child td {
-                border-bottom: none;
-              }
-            }
-          }
-        }
-        &.sanctions-block {
-          .sanctions-head {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: flex-start;
-            justify-content: space-between;
-            gap: 10px;
-          }
-          .sanctions-summary {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            font-size: 14px;
-            color: $neutral-100;
-          }
-          .sanctions-empty {
-            padding: 20px 0;
-            color: $neutral-300;
-            &.danger {
-              color: $red-500;
-            }
-          }
-          .sanctions-list {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 10px;
-            margin-top: 10px;
-            .sanction-card {
-              border: 3px solid $neutral-700;
-              border-radius: 5px;
-              padding: 10px;
-              &.sanction-card--timeout {
-                border-color: rgba($yellow-500, 0.5);
-                background-color: rgba($yellow-500, 0.25);
-              }
-              &.sanction-card--suspend {
-                border-color: rgba($orange-500, 0.5);
-                background-color: rgba($orange-500, 0.25);
-              }
-              &.sanction-card--ban {
-                border-color: rgba($red-500, 0.5);
-                background-color: rgba($red-500, 0.25);
-              }
-              .sanction-head {
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                gap: 10px;
-                .sanction-kind {
-                  display: flex;
-                  align-items: center;
-                  gap: 5px;
-                  flex-wrap: wrap;
-                  .sanction-tag {
-                    display: inline-flex;
-                    align-items: center;
-                    justify-content: center;
-                    padding: 5px 10px;
-                    min-width: 30px;
-                    border-radius: 999px;
-                    background-color: $neutral-900;
-                    font-size: 12px;
-                    color: $neutral-100;
-                  }
-                }
-              }
-              .sanction-grid {
-                display: grid;
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-                gap: 10px;
-                margin-top: 10px;
-                .sanction-cell {
-                  display: flex;
-                  flex-direction: column;
-                  gap: 3px;
-                  font-size: 14px;
-                  span {
-                    color: $neutral-300;
-                    font-size: 12px;
-                  }
-                  strong {
-                    color: $neutral-100;
-                    overflow-wrap: anywhere;
-                  }
-                }
-              }
-            }
-          }
-        }
-        &.blacklist-block {
-          .blacklist-head {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: flex-start;
-            justify-content: space-between;
-            gap: 10px;
-          }
-          .blacklist-rules {
-            display: grid;
-            gap: 6px;
-            margin-top: 10px;
-            padding: 12px;
-            border: 3px solid $neutral-700;
-            border-radius: 5px;
-            background-color: rgba(black, 0.08);
-            p {
-              margin: 0;
-              color: $neutral-300;
-              font-size: 14px;
-              line-height: 1.35;
-            }
-          }
-          .blacklist-empty {
-            padding: 20px 0;
-            color: $neutral-300;
-            &.danger {
-              color: $red-500;
-            }
-          }
-          .blacklist-list {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 10px;
-            margin-top: 10px;
-            .blacklist-card {
-              display: flex;
-              align-items: center;
-              justify-content: space-between;
-              gap: 10px;
-              padding: 10px;
-              border: 3px solid $neutral-700;
-              border-radius: 5px;
-              background-color: rgba(black, 0.12);
-              .blacklist-user {
-                display: flex;
-                align-items: center;
-                gap: 10px;
-                min-width: 0;
-                .blacklist-avatar {
-                  flex: 0 0 auto;
-                  width: 48px;
-                  height: 48px;
-                  border-radius: 50%;
-                  object-fit: cover;
-                  background-color: black;
-                }
-                .blacklist-main {
-                  display: flex;
-                  flex-direction: column;
-                  gap: 4px;
-                  min-width: 0;
-                  span {
-                    color: $neutral-100;
-                    font-family: Hauora-SemiBold;
-                    font-size: 16px;
-                    line-height: 1.2;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                    white-space: nowrap;
-                  }
-                  small {
-                    color: $neutral-300;
-                    font-size: 12px;
-                    line-height: 1.2;
-                  }
-                }
-              }
-              .blacklist-remove {
-                flex: 0 0 auto;
-                max-width: none;
-                min-width: 130px;
-              }
-            }
-          }
+        a {
+          color: $neutral-100;
+          text-decoration: none;
         }
       }
-      &.grid-profile-section {
-        grid-template-columns: minmax(0, 1fr);
+      &.avatar-block {
+        .avatar-row {
+          display: flex;
+          gap: 20px;
+          align-items: center;
+          .avatar-img {
+            width: 150px;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 50%;
+          }
+          .actions {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+          }
+        }
+        .nick-row {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          margin-bottom: 5px;
+          gap: 10px;
+          .nick-input-line {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            :deep(.profile-input) {
+              flex: 1 1 auto;
+              max-width: 300px;
+              width: 100%;
+            }
+            .nickname-history-tooltip-wrap {
+              display: inline-flex;
+              position: relative;
+              flex: 0 0 auto;
+              align-items: center;
+              justify-content: center;
+              width: 40px;
+              height: 40px;
+              outline: none;
+              &:hover,
+              &:focus-within {
+                &::after {
+                  display: block;
+                }
+                .nickname-history-tooltip {
+                  display: flex;
+                }
+              }
+              &::after {
+                content: '';
+                display: none;
+                position: absolute;
+                top: 100%;
+                right: 0;
+                width: 300px;
+                height: 10px;
+                z-index: 4;
+              }
+              .nickname-history-icon {
+                width: 24px;
+                height: 24px;
+                object-fit: contain;
+              }
+              .nickname-history-tooltip {
+                display: none;
+                position: absolute;
+                top: calc(100% + 10px);
+                right: 0;
+                flex-direction: column;
+                gap: 10px;
+                width: 300px;
+                max-height: 250px;
+                padding: 10px;
+                border-radius: 5px;
+                background-color: $neutral-800;
+                box-shadow: 3px 3px 5px rgba(black, 0.25);
+                color: $neutral-100;
+                font-size: 14px;
+                line-height: 1.2;
+                z-index: 5;
+                .nickname-history-clear {
+                  width: 100%;
+                  max-width: none;
+                  min-height: 30px;
+                  font-size: 14px;
+                }
+                .nickname-history-access-text {
+                  color: $neutral-300;
+                  overflow-wrap: anywhere;
+                  &.disabled {
+                    color: $neutral-500;
+                  }
+                }
+                .nickname-history-divider {
+                  width: 100%;
+                  height: 1px;
+                  background-color: rgba($neutral-white, 0.1);
+                }
+                .nickname-history-list {
+                  display: flex;
+                  flex-direction: column;
+                  gap: 5px;
+                  overflow-y: auto;
+                  scrollbar-width: thin;
+                  span {
+                    color: $neutral-300;
+                    overflow-wrap: anywhere;
+                    &.current {
+                      color: $neutral-100;
+                      font-family: Hauora-SemiBold;
+                    }
+                  }
+                }
+                .nickname-history-state {
+                  color: $neutral-300;
+                  &.danger {
+                    color: $red-500;
+                  }
+                }
+              }
+            }
+          }
+        }
         .modal {
           display: flex;
           position: fixed;
@@ -2307,22 +1927,367 @@ onBeforeUnmount(() => {
           }
         }
       }
-      &.grid-stats {
-        grid-template-columns: 1fr;
+      &.theme-block {
+        .theme-row {
+          display: inline-flex;
+          flex-direction: column;
+          margin-bottom: 10px;
+          .theme-preview-grid {
+            display: grid;
+            gap: 10px;
+            .theme-preview-card {
+              display: flex;
+              align-items: center;
+              padding: 10px 15px;
+              gap: 5px;
+              width: fit-content;
+              border-radius: 15px;
+              background-color: var(--user-theme-bg, rgba($neutral-900, 0.75));
+              box-shadow: 3px 3px 5px rgba(black, 0.25);
+              transition: background-color 0.25s ease-in-out;
+              .theme-preview-avatar {
+                width: 40px;
+                height: 40px;
+                border-radius: 50%;
+                object-fit: cover;
+              }
+              .theme-preview-icons {
+                display: inline-flex;
+                align-items: center;
+                gap: 5px;
+                flex: 0 0 auto;
+                .theme-preview-icon {
+                  width: 40px;
+                  height: 40px;
+                  object-fit: contain;
+                }
+              }
+              span {
+                min-width: 0;
+                color: $neutral-100;
+                font-size: 22px;
+                font-family: Hauora-SemiBold;
+                line-height: 1.3;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+              }
+            }
+          }
+          .theme-palette {
+            display: inline-grid;
+            grid-template-columns: repeat(10, 1fr);
+            margin: 15px 0;
+            padding: 10px;
+            gap: 5px;
+            background-color: $neutral-800;
+            border-radius: 10px;
+            box-shadow: 3px 3px 5px rgba(black, 0.25);
+            .theme-option {
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              width: 30px;
+              height: 30px;
+              border: 2px solid $neutral-800;
+              border-radius: 999px;
+              background-color: var(--user-theme-bg, $neutral-800);
+              cursor: pointer;
+              transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out;
+              &:hover:enabled {
+                border-color: rgba($neutral-white, 0.5);
+              }
+              &.active {
+                border-color: $neutral-100;
+              }
+              &:disabled {
+                cursor: not-allowed;
+              }
+            }
+          }
+          .theme-icon-palette {
+            display: inline-grid;
+            grid-template-columns: repeat(10, 1fr);
+            margin-bottom: 15px;
+            padding: 10px;
+            gap: 5px;
+            background-color: $neutral-800;
+            border-radius: 10px;
+            box-shadow: 3px 3px 5px rgba(black, 0.25);
+            .theme-icon-option {
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              width: 30px;
+              height: 30px;
+              border: 2px solid transparent;
+              border-radius: 999px;
+              background: none;
+              cursor: pointer;
+              transition: border-color 0.25s ease-in-out;
+              img {
+                width: 24px;
+                height: 24px;
+                object-fit: contain;
+              }
+              .theme-icon-none {
+                width: 10px;
+                height: 2px;
+                border-radius: 2px;
+                background-color: rgba($neutral-white, 0.75);
+              }
+              &:hover:enabled {
+                border-color: rgba($neutral-white, 0.5);
+              }
+              &.active {
+                border-color: $neutral-100;
+              }
+              &:disabled {
+                cursor: not-allowed;
+              }
+            }
+          }
+        }
       }
-      &.grid-history {
-        grid-template-columns: 1fr;
+      &.account-block {
+        .verify-row {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+        .password-row {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          margin-top: 5px;
+          gap: 10px;
+          --ui-input-label-bg: #{$neutral-900};
+          :deep(.profile-input) {
+            max-width: 320px;
+            width: 100%;
+          }
+        }
       }
-      &.grid-payments {
-        grid-template-columns: 1fr;
+      &.payments-block {
+        .payments-state {
+          padding: 20px 10px;
+          text-align: center;
+          color: $neutral-300;
+          &.danger {
+            color: $orange-500;
+          }
+        }
+        .payments-table-wrap {
+          width: 100%;
+          overflow-x: auto;
+          border: 1px solid rgba($neutral-500, 0.5);
+          border-radius: 5px;
+          background-color: rgba($neutral-800, 0.45);
+          .payments-table {
+            width: 100%;
+            min-width: 820px;
+            border-collapse: collapse;
+            color: $neutral-100;
+            th,
+            td {
+              padding: 12px 14px;
+              border-bottom: 1px solid rgba($neutral-500, 0.35);
+              text-align: left;
+              vertical-align: top;
+              line-height: 1.25;
+            }
+            th {
+              color: $neutral-300;
+              font-family: Hauora-SemiBold;
+              font-size: 14px;
+              white-space: nowrap;
+            }
+            td {
+              font-size: 15px;
+              overflow-wrap: anywhere;
+            }
+            tbody tr:last-child td {
+              border-bottom: none;
+            }
+          }
+        }
       }
-      &.grid-sanctions {
-        grid-template-columns: 1fr;
+      &.sanctions-block {
+        .sanctions-head {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 10px;
+        }
+        .sanctions-summary {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 10px;
+          font-size: 14px;
+          color: $neutral-100;
+        }
+        .sanctions-empty {
+          padding: 20px 0;
+          color: $neutral-300;
+          &.danger {
+            color: $red-500;
+          }
+        }
+        .sanctions-list {
+          display: grid;
+          grid-template-columns: 1fr 1fr 1fr;
+          gap: 10px;
+          margin-top: 10px;
+          .sanction-card {
+            border: 3px solid $neutral-700;
+            border-radius: 5px;
+            padding: 10px;
+            &.sanction-card--timeout {
+              border-color: rgba($yellow-500, 0.5);
+              background-color: rgba($yellow-500, 0.25);
+            }
+            &.sanction-card--suspend {
+              border-color: rgba($orange-500, 0.5);
+              background-color: rgba($orange-500, 0.25);
+            }
+            &.sanction-card--ban {
+              border-color: rgba($red-500, 0.5);
+              background-color: rgba($red-500, 0.25);
+            }
+            .sanction-head {
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              gap: 10px;
+              .sanction-kind {
+                display: flex;
+                align-items: center;
+                gap: 5px;
+                flex-wrap: wrap;
+                .sanction-tag {
+                  display: inline-flex;
+                  align-items: center;
+                  justify-content: center;
+                  padding: 5px 10px;
+                  min-width: 30px;
+                  border-radius: 999px;
+                  background-color: $neutral-900;
+                  font-size: 12px;
+                  color: $neutral-100;
+                }
+              }
+            }
+            .sanction-grid {
+              display: grid;
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+              gap: 10px;
+              margin-top: 10px;
+              .sanction-cell {
+                display: flex;
+                flex-direction: column;
+                gap: 3px;
+                font-size: 14px;
+                span {
+                  color: $neutral-300;
+                  font-size: 12px;
+                }
+                strong {
+                  color: $neutral-100;
+                  overflow-wrap: anywhere;
+                }
+              }
+            }
+          }
+        }
       }
-      &.grid-blacklist {
-        grid-template-columns: 1fr;
+      &.blacklist-block {
+        .blacklist-head {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 10px;
+        }
+        .blacklist-rules {
+          display: grid;
+          gap: 6px;
+          margin-top: 10px;
+          padding: 12px;
+          border: 3px solid $neutral-700;
+          border-radius: 5px;
+          background-color: rgba(black, 0.08);
+          p {
+            margin: 0;
+            color: $neutral-300;
+            font-size: 14px;
+            line-height: 1.35;
+          }
+        }
+        .blacklist-empty {
+          padding: 20px 0;
+          color: $neutral-300;
+          &.danger {
+            color: $red-500;
+          }
+        }
+        .blacklist-list {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+          gap: 10px;
+          margin-top: 10px;
+          .blacklist-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 10px;
+            border: 3px solid $neutral-700;
+            border-radius: 5px;
+            background-color: rgba(black, 0.12);
+            .blacklist-user {
+              display: flex;
+              align-items: center;
+              gap: 10px;
+              min-width: 0;
+              .blacklist-avatar {
+                flex: 0 0 auto;
+                width: 48px;
+                height: 48px;
+                border-radius: 50%;
+                object-fit: cover;
+                background-color: black;
+              }
+              .blacklist-main {
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+                min-width: 0;
+                span {
+                  color: $neutral-100;
+                  font-family: Hauora-SemiBold;
+                  font-size: 16px;
+                  line-height: 1.2;
+                  overflow: hidden;
+                  text-overflow: ellipsis;
+                  white-space: nowrap;
+                }
+                small {
+                  color: $neutral-300;
+                  font-size: 12px;
+                  line-height: 1.2;
+                }
+              }
+            }
+            .blacklist-remove {
+              flex: 0 0 auto;
+              max-width: none;
+              min-width: 130px;
+            }
+          }
+        }
       }
-      &.grid-empty {
+      &.empty-block {
         min-height: 200px;
       }
     }
