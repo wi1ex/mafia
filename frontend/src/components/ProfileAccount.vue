@@ -13,6 +13,7 @@
         </div>
 
         <div class="verif">
+          <img class="verif-icon" :src="iconTickCircle" alt="" aria-hidden="true" />
           <span class="title">Верификация</span>
           <button v-if="telegramVerified" @click="unlinkTelegram" :disabled="unlinkTgBusy">
             {{ unlinkTgBusy ? '...' : 'Отвязать TG-аккаунт' }}
@@ -27,16 +28,18 @@
 
       <div class="params">
         <span class="title">Настройки</span>
-        <UiSwitch
-          class="profile-switch"
-          :model-value="tgInvitesEnabled"
-          label="Уведомления в TG о приглашениях в комнату"
-          off-label="Запретить"
-          on-label="Разрешить"
-          :width="200"
-          :disabled="tgInvitesTogglePending || !telegramVerified"
-          @update:modelValue="onToggleTgInvites"
-        />
+        <div class="params-div">
+          <UiSwitch
+            class="profile-switch"
+            :model-value="tgInvitesEnabled"
+            label="Уведомления в TG о приглашениях в комнату"
+            off-label="Запретить"
+            on-label="Разрешить"
+            :width="200"
+            :disabled="tgInvitesTogglePending || !telegramVerified"
+            @update:modelValue="onToggleTgInvites"
+          />
+        </div>
       </div>
     </div>
 
@@ -114,6 +117,8 @@ import UiSwitch from '@/components/UiSwitch.vue'
 import UiIcon from '@/components/UiIcon.vue'
 
 import iconDelete from '@/assets/svg/iconDelete.svg'
+import iconTickCircle from '@/assets/svg/iconTickCircle.svg'
+import imageSlide9 from '@/assets/images/carousel-image9.png'
 
 const PASSWORD_MIN = 8
 const PASSWORD_MAX = 32
@@ -320,17 +325,33 @@ onBeforeUnmount(() => {
         border-radius: 24px;
         background-color: $soft-purple-900;
         .title {
-
+          color: $neutral-white;
+          font-family: Involve-Medium;
+          font-size: 24px;
+          line-height: 26px;
+          letter-spacing: -0.48px;
         }
         .date-text {
-
+          padding: 16px;
+          border-radius: 20px;
+          background-color: $soft-purple-800;
+          color: $neutral-white;
+          font-family: Hauora-Bold;
+          font-size: 16px;
+          line-height: 18px;
+          letter-spacing: -0.32px;
         }
         .hint {
-
+          color: $neutral-300;
+          font-family: Hauora-Regular;
+          font-size: 14px;
+          line-height: 14px;
+          letter-spacing: -0.28px;
         }
       }
       .verif {
         display: flex;
+        position: relative;
         flex-direction: column;
         padding: 24px;
         gap: 24px;
@@ -338,11 +359,26 @@ onBeforeUnmount(() => {
         height: 210px;
         border-radius: 24px;
         background-color: $soft-purple-900;
+        .verif-icon {
+          position: absolute;
+          top: 24px;
+          right: 24px;
+          width: 26px;
+          height: 26px;
+        }
         .title {
-
+          color: $neutral-white;
+          font-family: Involve-Medium;
+          font-size: 24px;
+          line-height: 26px;
+          letter-spacing: -0.48px;
         }
         .hint {
-
+          color: $neutral-100;
+          font-family: Hauora-Regular;
+          font-size: 16px;
+          line-height: 22px;
+          letter-spacing: -0.32px;
         }
       }
     }
@@ -354,7 +390,16 @@ onBeforeUnmount(() => {
       border-radius: 24px;
       background-color: $soft-purple-900;
       .title {
-
+        color: $neutral-white;
+        font-family: Involve-Medium;
+        font-size: 24px;
+        line-height: 26px;
+        letter-spacing: -0.48px;
+      }
+      .params-div {
+        padding: 16px;
+        border-radius: 20px;
+        background-color: $soft-purple-800;
       }
     }
   }
@@ -368,10 +413,18 @@ onBeforeUnmount(() => {
     border-radius: 24px;
     background-color: $soft-purple-900;
     .title {
-
+      color: $neutral-white;
+      font-family: Involve-Medium;
+      font-size: 24px;
+      line-height: 26px;
+      letter-spacing: -0.48px;
     }
     .hint {
-
+      color: $neutral-300;
+      font-family: Hauora-Regular;
+      font-size: 14px;
+      line-height: 14px;
+      letter-spacing: -0.28px;
     }
   }
 }
