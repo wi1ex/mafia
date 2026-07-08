@@ -355,6 +355,8 @@ onBeforeUnmount(() => {
         }
         .tab-subscribe-div {
           display: flex;
+          flex-direction: column;
+          gap: 8px;
           z-index: 5;
           .tab-subscribe-title {
             color: $neutral-white;
@@ -364,6 +366,7 @@ onBeforeUnmount(() => {
             letter-spacing: -0.36px;
           }
           .tab-subscribe-text {
+            margin-bottom: 8px;
             color: $neutral-100;
             font-family: Hauora-Regular;
             font-size: 14px;
@@ -376,8 +379,6 @@ onBeforeUnmount(() => {
   }
   .tab-panel {
     display: flex;
-    flex-direction: column;
-    gap: 10px;
   }
 }
 

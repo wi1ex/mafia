@@ -207,10 +207,6 @@ onBeforeUnmount(() => {
         transition: color 0.25s ease-in-out;
         z-index: 1;
         .slider-option-badge {
-          position: absolute;
-          top: 1px;
-          left: 50%;
-          transform: translateX(18px);
           padding: 3px 5px;
           border-radius: 999px;
           background-color: $red-500;

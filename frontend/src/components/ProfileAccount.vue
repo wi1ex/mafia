@@ -1,68 +1,119 @@
 <template>
-  <div class="profile-tab-block block-account">
-    <h3>Аккаунт</h3>
-    <div class="verify-row">
-      <p class="hint text">Дата регистрации: {{ registrationDateLabel }}</p>
-      <UiSwitch
-        class="profile-switch"
-        :model-value="tgInvitesEnabled"
-        label="Уведомления в TG о приглашениях в комнату"
-        off-label="Запретить"
-        on-label="Разрешить"
-        :width="200"
-        :disabled="tgInvitesTogglePending || !telegramVerified"
-        @update:modelValue="onToggleTgInvites"
-      />
-      <button v-if="telegramVerified" class="btn danger" @click="unlinkTelegram" :disabled="unlinkTgBusy">
-        {{ unlinkTgBusy ? '...' : 'Отвязать TG-аккаунт' }}
-      </button>
-      <a v-else-if="botName" class="btn confirm" :href="botLink" target="_blank" rel="noopener noreferrer">Пройти верификацию</a>
-      <p v-if="telegramVerified" class="hint">Если отвязать TG-аккаунт верификация будет снята и вход в комнаты будет ограничен</p>
-      <p v-else class="hint">В чате с ботом сначала введите никнейм, затем пароль. После успешной верификации ограничения на вход в комнаты будут сняты</p>
-      <button class="btn danger" @click="deleteAccount" :disabled="deleteBusy || isDeleteAccountForbiddenSelf">{{ deleteBusy ? '...' : 'Удалить аккаунт' }}</button>
-      <p class="hint red">Удаление произойдет навсегда без возможности восстановления</p>
+  <section class="block-account">
+    <div class="account-verif-params">
+      <div class="account-verif">
+        <div class="account">
+          <span class="title">Аккаунт</span>
+          <span class="date-text">Дата регистрации: {{ registrationDateLabel }}</span>
+          <button @click="deleteAccount" :disabled="deleteBusy || isDeleteAccountForbiddenSelf">
+            <UiIcon :icon="iconDelete" />
+            <span>{{ deleteBusy ? '...' : 'Удалить аккаунт' }}</span>
+          </button>
+          <span class="hint">Удаление произойдет навсегда без возможности его восстановления.</span>
+        </div>
 
-      <div v-if="me.has_password" class="password-row">
-        <p class="hint text">Пароль</p>
-        <p v-if="passwordTemp" class="hint warn">У вас временный пароль — рекомендуем изменить его</p>
-        <UiInput class="profile-input" id="profile-pass-current" v-model="pwd.current" type="password" autocomplete="current-password" minlength="8" maxlength="32" label="Текущий пароль"
-          :invalid="currentPasswordInvalid" :aria-invalid="currentPasswordInvalid" aria-describedby="profile-pass-current-hint">
-          <template #meta>
-            <span id="profile-pass-current-hint">{{ pwd.current.length }}/{{ PASSWORD_MAX }}</span>
-          </template>
-        </UiInput>
-        <UiInput class="profile-input" id="profile-pass-new" v-model="pwd.next" type="password" autocomplete="new-password" minlength="8" maxlength="32" label="Новый пароль"
-          :invalid="newPasswordInvalid" :aria-invalid="newPasswordInvalid" aria-describedby="profile-pass-new-hint">
-          <template #meta>
-            <span id="profile-pass-new-hint">{{ pwd.next.length }}/{{ PASSWORD_MAX }}</span>
-          </template>
-        </UiInput>
-        <UiInput class="profile-input" id="profile-pass-confirm" v-model="pwd.confirm" type="password" autocomplete="new-password" minlength="8" maxlength="32" label="Повторите пароль"
-          :invalid="confirmPasswordInvalid" :aria-invalid="confirmPasswordInvalid" aria-describedby="profile-pass-confirm-hint">
-          <template #meta>
-            <span id="profile-pass-confirm-hint">{{ pwd.confirm.length }}/{{ PASSWORD_MAX }}</span>
-          </template>
-        </UiInput>
-        <button class="btn confirm" @click="changePassword" :disabled="pwdBusy || !canChangePassword">
-          {{ pwdBusy ? '...' : 'Сменить пароль' }}
-        </button>
-        <p class="hint">
-          Сбросить пароль можно через
-          <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">TG-бота</a>
-        </p>
+        <div class="verif">
+          <span class="title">Верификация</span>
+          <button v-if="telegramVerified" @click="unlinkTelegram" :disabled="unlinkTgBusy">
+            {{ unlinkTgBusy ? '...' : 'Отвязать TG-аккаунт' }}
+          </button>
+          <a v-else-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">
+            Пройти верификацию
+          </a>
+          <span v-if="telegramVerified" class="hint">Если отвязать TG-аккаунт верификация будет снята.</span>
+          <span v-else class="hint">В чате с ботом сначала введите никнейм, затем пароль. После успешной верификации ограничения будут сняты.</span>
+        </div>
+      </div>
+
+      <div class="params">
+        <span class="title">Настройки</span>
+        <UiSwitch
+          class="profile-switch"
+          :model-value="tgInvitesEnabled"
+          label="Уведомления в TG о приглашениях в комнату"
+          off-label="Запретить"
+          on-label="Разрешить"
+          :width="200"
+          :disabled="tgInvitesTogglePending || !telegramVerified"
+          @update:modelValue="onToggleTgInvites"
+        />
       </div>
     </div>
-  </div>
+
+    <div v-if="me.has_password" class="password">
+      <span class="title">Пароль</span>
+      <span v-if="passwordTemp" class="hint">У вас временный пароль — рекомендуем изменить его</span>
+      <span class="hint">
+        Сбросить пароль можно через
+        <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">TG-бота</a>
+      </span>
+      <UiInput
+        id="profile-pass-current"
+        v-model="pwd.current"
+        type="password"
+        autocomplete="current-password"
+        minlength="8"
+        maxlength="32"
+        label="Текущий пароль"
+        :invalid="currentPasswordInvalid"
+        :aria-invalid="currentPasswordInvalid"
+        aria-describedby="profile-pass-current-hint"
+      >
+        <template #meta>
+          <span id="profile-pass-current-hint">{{ pwd.current.length }}/{{ PASSWORD_MAX }}</span>
+        </template>
+      </UiInput>
+      <UiInput
+        id="profile-pass-new"
+        v-model="pwd.next"
+        type="password"
+        autocomplete="new-password"
+        minlength="8"
+        maxlength="32"
+        label="Новый пароль"
+        :invalid="newPasswordInvalid"
+        :aria-invalid="newPasswordInvalid"
+        aria-describedby="profile-pass-new-hint"
+      >
+        <template #meta>
+          <span id="profile-pass-new-hint">{{ pwd.next.length }}/{{ PASSWORD_MAX }}</span>
+        </template>
+      </UiInput>
+      <UiInput
+        id="profile-pass-confirm"
+        v-model="pwd.confirm"
+        type="password"
+        autocomplete="new-password"
+        minlength="8"
+        maxlength="32"
+        label="Повторите пароль"
+        :invalid="confirmPasswordInvalid"
+        :aria-invalid="confirmPasswordInvalid"
+        aria-describedby="profile-pass-confirm-hint"
+      >
+        <template #meta>
+          <span id="profile-pass-confirm-hint">{{ pwd.confirm.length }}/{{ PASSWORD_MAX }}</span>
+        </template>
+      </UiInput>
+      <button @click="changePassword" :disabled="pwdBusy || !canChangePassword">
+        {{ pwdBusy ? '...' : 'Сменить пароль' }}
+      </button>
+    </div>
+  </section>
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { storeToRefs } from 'pinia'
-import UiInput from '@/components/UiInput.vue'
-import UiSwitch from '@/components/UiSwitch.vue'
 import { api } from '@/services/axios'
 import { alertDialog, confirmDialog } from '@/services/confirm'
 import { useAuthStore, useUserStore } from '@/store'
+
+import UiInput from '@/components/UiInput.vue'
+import UiSwitch from '@/components/UiSwitch.vue'
+import UiIcon from '@/components/UiIcon.vue'
+
+import iconDelete from '@/assets/svg/iconDelete.svg'
 
 const PASSWORD_MIN = 8
 const PASSWORD_MAX = 32
@@ -248,21 +299,47 @@ onBeforeUnmount(() => {
 <style scoped lang="scss">
 
 .block-account {
-  .verify-row {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
+
+  .account-verif-params {
+
+    .account-verif {
+
+      .account {
+
+        .title {
+
+        }
+        .date-text {
+
+        }
+        .hint {
+
+        }
+      }
+      .verif {
+
+        .title {
+
+        }
+        .hint {
+
+        }
+      }
+    }
+    .params {
+
+      .title {
+
+      }
+    }
   }
-  .password-row {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    margin-top: 5px;
-    gap: 10px;
-    --ui-input-label-bg: #{$neutral-900};
-    :deep(.profile-input) {
-      max-width: 320px;
-      width: 100%;
+  .password {
+
+    .title {
+
+    }
+    .hint {
+
     }
   }
 }
