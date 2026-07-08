@@ -1697,6 +1697,7 @@ onBeforeUnmount(() => {
       gap: 4px;
       .tab-btn {
         display: flex;
+        position: relative;
         align-items: center;
         padding: 0 16px;
         gap: 4px;
@@ -1704,21 +1705,37 @@ onBeforeUnmount(() => {
         height: 40px;
         border: none;
         border-radius: 12px;
+        background: transparent;
         text-decoration: none;
         cursor: pointer;
+        overflow: hidden;
         transition: opacity 0.25s ease-in-out;
+        &::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          border-radius: inherit;
+          background: linear-gradient(261deg, $soft-purple-800 0%, $green-700 100%);
+          opacity: 0;
+          transition: opacity 0.25s ease-in-out;
+          z-index: 0;
+        }
         .tab-btn-img {
+          position: relative;
           --ui-icon-width: 24px;
           --ui-icon-height: 24px;
           --ui-icon-color: #{$neutral-500};
+          z-index: 1;
         }
         .tab-btn-text {
+          position: relative;
           color: $neutral-500;
           font-family: Hauora-Regular;
           font-size: 18px;
           line-height: 20px;
           letter-spacing: -0.36px;
           transition: color 0.25s ease-in-out;
+          z-index: 1;
         }
         &:disabled {
           opacity: 0.5;
@@ -1727,6 +1744,17 @@ onBeforeUnmount(() => {
         &:not(:disabled):hover,
         &:not(:disabled):focus-visible,
         &:not(:disabled):active {
+          .tab-btn-img {
+            --ui-icon-color: #{$neutral-white};
+          }
+          .tab-btn-text {
+            color: $neutral-white;
+          }
+        }
+        &.active {
+          &::before {
+            opacity: 1;
+          }
           .tab-btn-img {
             --ui-icon-color: #{$neutral-white};
           }
