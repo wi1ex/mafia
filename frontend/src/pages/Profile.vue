@@ -73,332 +73,153 @@
 
     <Transition name="tab-fade" mode="out-in">
       <div :key="activeTab" class="tab-panel">
-        <div v-if="activeTab === 'account'" class="block">
-          <h3>Аккаунт</h3>
-          <div class="verify-row">
-            <p class="hint text">Дата регистрации: {{ registrationDateLabel }}</p>
-            <UiSwitch
-              class="profile-switch"
-              :model-value="tgInvitesEnabled"
-              label="Уведомления в TG о приглашениях в комнату"
-              off-label="Запретить"
-              on-label="Разрешить"
-              :width="200"
-              :disabled="tgInvitesTogglePending || !telegramVerified"
-              @update:modelValue="onToggleTgInvites" />
-            <button v-if="telegramVerified" class="btn danger" @click="unlinkTelegram" :disabled="unlinkTgBusy">
-              {{ unlinkTgBusy ? '...' : 'Отвязать TG-аккаунт' }}
-            </button>
-            <a v-else-if="botName" class="btn confirm" :href="botLink" target="_blank" rel="noopener noreferrer">
-              Пройти верификацию
-            </a>
-            <p v-if="telegramVerified" class="hint">Если отвязать TG-аккаунт верификация будет снята и вход в комнаты будет ограничен</p>
-            <p v-else class="hint">В чате с ботом сначала введите никнейм, затем пароль. После успешной верификации ограничения на вход в комнаты будут сняты</p>
-            <button class="btn danger" @click="deleteAccount" :disabled="deleteBusy || isDeleteAccountForbiddenSelf">
-              {{ deleteBusy ? '...' : 'Удалить аккаунт' }}
-            </button>
-            <p class="hint red">Удаление произойдет навсегда без возможности восстановления</p>
+        <ProfileAccount
+          v-if="activeTab === 'account'"
+          :me="me"
+          :registration-date-label="registrationDateLabel"
+          :tg-invites-enabled="tgInvitesEnabled"
+          :tg-invites-toggle-pending="tgInvitesTogglePending"
+          :telegram-verified="telegramVerified"
+          :unlink-tg-busy="unlinkTgBusy"
+          :bot-name="botName"
+          :bot-link="botLink"
+          :delete-busy="deleteBusy"
+          :is-delete-account-forbidden-self="isDeleteAccountForbiddenSelf"
+          :password-temp="passwordTemp"
+          :pwd="pwd"
+          :password-max="PASSWORD_MAX"
+          :current-password-invalid="currentPasswordInvalid"
+          :new-password-invalid="newPasswordInvalid"
+          :confirm-password-invalid="confirmPasswordInvalid"
+          :pwd-busy="pwdBusy"
+          :can-change-password="canChangePassword"
+          @toggle-tg-invites="onToggleTgInvites"
+          @unlink-telegram="unlinkTelegram"
+          @delete-account="deleteAccount"
+          @change-password="changePassword"
+        />
 
-            <div v-if="me.has_password" class="password-row">
-              <p class="hint text">Пароль</p>
-              <p v-if="passwordTemp" class="hint warn">У вас временный пароль — рекомендуем изменить его</p>
-              <UiInput class="profile-input" id="profile-pass-current" v-model="pwd.current" type="password" autocomplete="current-password" minlength="8" maxlength="32" label="Текущий пароль"
-                :invalid="currentPasswordInvalid" :aria-invalid="currentPasswordInvalid" aria-describedby="profile-pass-current-hint">
-                <template #meta>
-                  <span id="profile-pass-current-hint">{{ pwd.current.length }}/{{ PASSWORD_MAX }}</span>
-                </template>
-              </UiInput>
-              <UiInput class="profile-input" id="profile-pass-new" v-model="pwd.next" type="password" autocomplete="new-password" minlength="8" maxlength="32" label="Новый пароль"
-                :invalid="newPasswordInvalid" :aria-invalid="newPasswordInvalid" aria-describedby="profile-pass-new-hint">
-                <template #meta>
-                  <span id="profile-pass-new-hint">{{ pwd.next.length }}/{{ PASSWORD_MAX }}</span>
-                </template>
-              </UiInput>
-              <UiInput class="profile-input" id="profile-pass-confirm" v-model="pwd.confirm" type="password" autocomplete="new-password" minlength="8" maxlength="32" label="Повторите пароль"
-                :invalid="confirmPasswordInvalid" :aria-invalid="confirmPasswordInvalid" aria-describedby="profile-pass-confirm-hint">
-                <template #meta>
-                  <span id="profile-pass-confirm-hint">{{ pwd.confirm.length }}/{{ PASSWORD_MAX }}</span>
-                </template>
-              </UiInput>
-              <button class="btn confirm" @click="changePassword" :disabled="pwdBusy || !canChangePassword">
-                {{ pwdBusy ? '...' : 'Сменить пароль' }}
-              </button>
-              <p class="hint">
-                Сбросить пароль можно через
-                <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">TG-бота</a>
-              </p>
-            </div>
-          </div>
-        </div>
+        <ProfileAvatarNick
+          v-if="activeTab === 'profile'"
+          v-model:nick="nick"
+          :me="me"
+          :icon-default-avatar="iconDefaultAvatar"
+          :icon-download="iconDownload"
+          :icon-delete="iconDelete"
+          :icon-time-history="iconTimeHistory"
+          :icon-save="iconSave"
+          :avatar-accept="avatarAccept"
+          :avatar-format-hint="avatarFormatHint"
+          :is-banned="isBanned"
+          :busy-ava="busyAva"
+          :busy-nick="busyNick"
+          :is-protected-admin-self="isProtectedAdminSelf"
+          :nick-max="NICK_MAX"
+          :valid-nick="validNick"
+          :can-edit-profile-theme="canEditProfileTheme"
+          :nickname-history-access-text="nicknameHistoryAccessText"
+          :nickname-history-clear-disabled="nicknameHistoryClearDisabled"
+          :nickname-history-clear-busy="nicknameHistoryClearBusy"
+          :nickname-history-loading="nicknameHistoryLoading"
+          :nickname-history-error="nicknameHistoryError"
+          :nickname-history-items="nicknameHistoryItems"
+          :nickname-changes-left="nicknameChangesLeft"
+          :save-nick-disabled="saveNickDisabled"
+          :crop="crop"
+          :gif-picker="gifPicker"
+          :gif-frame-label="gifFrameLabel"
+          @pick="onPick"
+          @delete-avatar="onDeleteAvatar"
+          @load-nickname-history="loadNicknameHistory"
+          @clear-nickname-history="clearNicknameHistory"
+          @save-nick="saveNick"
+          @modal-ref="setProfileModalEl"
+          @canvas-ref="setProfileCanvasEl"
+          @gif-modal-ref="setProfileGifModalEl"
+          @gif-canvas-ref="setProfileGifCanvasEl"
+          @cancel-crop="cancelCrop"
+          @drag-start="dragStart"
+          @drag-move="dragMove"
+          @drag-stop="dragStop"
+          @wheel="onWheel"
+          @scale-to="scaleTo"
+          @cancel-gif-picker="cancelGifPicker"
+          @gif-frame-range="onGifFrameRange"
+          @apply-gif-picker="applyGifPicker"
+          @apply-crop="applyCrop"
+        />
 
-        <div v-else-if="activeTab === 'profile'" class="block">
-          <h3>Аватар и никнейм</h3>
-          <div class="avatar-row">
-            <img class="avatar-img" v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false, animated: true }" alt="Текущий аватар" />
-            <div class="actions">
-              <input ref="fileEl" type="file" :accept="avatarAccept" @change="onPick" :disabled="isBanned" hidden />
-              <button class="btn dark" @click="fileEl?.click()" :disabled="busyAva || isBanned">
-                <img class="btn-img" :src="iconDownload" alt="edit" />
-                {{ me.avatar_name ? 'Изменить' : 'Загрузить' }}
-              </button>
-              <span class="hint center">{{ avatarFormatHint }}</span>
-              <button class="btn danger" v-if="me.avatar_name" @click="onDeleteAvatar" :disabled="busyAva || isBanned">
-                <img class="btn-img" :src="iconDelete" alt="delete" />
-                Удалить
-              </button>
-            </div>
-          </div>
+        <ProfileTheme
+          v-if="activeTab === 'theme'"
+          :me="me"
+          :icon-default-avatar="iconDefaultAvatar"
+          :icon-save="iconSave"
+          :theme-preview-style="themePreviewStyle"
+          :theme-preview-icon-srcs="themePreviewIconSrcs"
+          :profile-theme-options="profileThemeOptions"
+          :selected-profile-theme-color="selectedProfileThemeColor"
+          :theme-option-style="themeOptionStyle"
+          :profile-theme-icon-options="profileThemeIconOptions"
+          :selected-profile-theme-icon="selectedProfileThemeIcon"
+          :theme-icon-src="themeIconSrc"
+          :theme-save-busy="themeSaveBusy"
+          :is-banned="isBanned"
+          :can-edit-profile-theme="canEditProfileTheme"
+          :theme-save-disabled="themeSaveDisabled"
+          :profile-theme-message-text="profileThemeMessageText"
+          @pick-profile-theme="pickProfileTheme"
+          @pick-profile-theme-icon="pickProfileThemeIcon"
+          @save-profile-theme="saveProfileTheme"
+          @open-subscription-modal="openSubscriptionModal"
+        />
 
-          <div class="nick-row">
-            <div class="nick-input-line">
-              <UiInput class="profile-input" id="profile-nick" v-model.trim="nick" :maxlength="NICK_MAX" :disabled="busyNick || isBanned || isProtectedAdminSelf" autocomplete="off" inputmode="text" label="Никнейм"
-                :invalid="!!nick && !validNick" :aria-invalid="!!nick && !validNick" aria-describedby="profile-nick-hint" >
-                <template #meta>
-                  <span id="profile-nick-hint">{{ nick.length }}/{{ NICK_MAX }}</span>
-                </template>
-              </UiInput>
-              <div v-if="me.id > 0" class="nickname-history-tooltip-wrap" tabindex="0" aria-label="История никнеймов" @mouseenter="loadNicknameHistory()" @focusin="loadNicknameHistory()">
-                <img class="nickname-history-icon" :src="iconTimeHistory" alt="" />
-                <div class="nickname-history-tooltip" role="tooltip" @click.stop>
-                  <button class="btn danger nickname-history-clear" type="button" :disabled="nicknameHistoryClearDisabled" @click="clearNicknameHistory">
-                    {{ nicknameHistoryClearBusy ? '...' : 'Очистить историю' }}
-                  </button>
-                  <span class="nickname-history-access-text" :class="{ disabled: !canEditProfileTheme }">{{ nicknameHistoryAccessText }}</span>
-                  <span class="nickname-history-divider" aria-hidden="true"></span>
-                  <span v-if="nicknameHistoryLoading" class="nickname-history-state">Загрузка...</span>
-                  <span v-else-if="nicknameHistoryError" class="nickname-history-state danger">{{ nicknameHistoryError }}</span>
-                  <span v-else class="nickname-history-list">
-                    <span v-for="(nicknameItem, index) in nicknameHistoryItems" :key="`${nicknameItem}-${index}`" :class="{ current: index === 0 }">
-                      {{ nicknameItem }}
-                    </span>
-                    <span v-if="!nicknameHistoryItems.length" class="nickname-history-state">-</span>
-                  </span>
-                </div>
-              </div>
-            </div>
-            <span class="hint"><code>латиница, кириллица, цифры, символы ()._-</code></span>
-            <span class="hint" :class="{ red: nicknameChangesLeft <= 0 }">Осталось изменений никнейма: {{ nicknameChangesLeft }}</span>
-            <button class="btn confirm" @click="saveNick" :disabled="saveNickDisabled">
-              <img class="btn-img" :src="iconSave" alt="save" />
-              {{ busyNick ? '...' : 'Сохранить' }}
-            </button>
-          </div>
-          <p class="hint">Никнейм является логином для авторизации</p>
-
-          <div v-if="crop.show" ref="modalEl" class="modal" @keydown.esc="cancelCrop" tabindex="0" aria-modal="true" aria-label="Кадрирование аватара" >
-            <div class="modal-body">
-              <canvas ref="canvasEl" @mousedown="dragStart" @mousemove="dragMove" @mouseup="dragStop" @mouseleave="dragStop" @wheel.passive="onWheel" />
-              <div class="range">
-                <span>Масштаб</span>
-                <UiSlider
-                  :model-value="crop.scale"
-                  :min="crop.min"
-                  :max="crop.max"
-                  :step="0.01"
-                  :disabled="isBanned"
-                  aria-label="Масштаб"
-                  @update:modelValue="scaleTo" />
-              </div>
-              <div class="modal-actions">
-                <button class="btn danger" @click="cancelCrop">Отменить</button>
-                <button class="btn confirm" @click="applyCrop" :disabled="busyAva || isBanned">Загрузить</button>
-              </div>
-            </div>
-          </div>
-
-          <div v-if="gifPicker.show" ref="gifModalEl" class="modal gif-modal" @keydown.esc="cancelGifPicker" tabindex="0" aria-modal="true" aria-label="Выбор статичного кадра GIF">
-            <div class="modal-body gif-modal-body">
-              <div class="gif-preview-row">
-                <div class="gif-preview-block">
-                  <span>Анимация</span>
-                  <img v-if="gifPicker.animatedUrl" :src="gifPicker.animatedUrl" alt="GIF-анимация" />
-                </div>
-                <div class="gif-preview-block">
-                  <span>Статичный кадр</span>
-                  <canvas ref="gifCanvasEl" />
-                </div>
-              </div>
-              <p v-if="gifPicker.error" class="hint red">{{ gifPicker.error }}</p>
-              <div class="range">
-                <span>Кадр {{ gifFrameLabel }}</span>
-                <UiSlider
-                  :model-value="gifPicker.frameIndex"
-                  :min="0"
-                  :max="Math.max(0, gifPicker.frameCount - 1)"
-                  :step="1"
-                  :disabled="busyAva || isBanned || gifPicker.frameCount <= 1 || gifPicker.decoding"
-                  aria-label="Кадр GIF"
-                  @update:modelValue="onGifFrameRange" />
-              </div>
-              <div class="modal-actions">
-                <button class="btn danger" @click="cancelGifPicker">Отменить</button>
-                <button class="btn confirm" @click="applyGifPicker" :disabled="busyAva || isBanned || gifPicker.loading || gifPicker.decoding || !!gifPicker.error">Загрузить</button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div v-else-if="activeTab === 'theme'" class="block">
-          <h3>Оформление профиля</h3>
-          <div class="theme-row">
-            <div class="theme-preview-grid">
-              <div class="theme-preview-card" :style="themePreviewStyle">
-                <img class="theme-preview-avatar" v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false, animated: true }" alt="avatar" />
-                <div v-if="themePreviewIconSrcs.length" class="theme-preview-icons" aria-hidden="true">
-                  <img v-for="badgeSrc in themePreviewIconSrcs" :key="badgeSrc" class="theme-preview-icon" :src="badgeSrc" alt="" />
-                </div>
-                <span>{{ me.username || 'User' }}</span>
-              </div>
-            </div>
-
-            <div class="theme-palette">
-              <button v-for="item in profileThemeOptions" :key="item.key" class="theme-option" type="button" :class="{ active: selectedProfileThemeColor === item.key }"
-                      :style="themeOptionStyle(item.key)" :disabled="themeSaveBusy || isBanned" @click="pickProfileTheme(item.key)">
-              </button>
-            </div>
-
-            <div class="theme-icon-palette">
-              <button v-for="item in profileThemeIconOptions" :key="item.key" @click="pickProfileThemeIcon(item.key)"
-                      class="theme-icon-option" type="button" :class="{ active: selectedProfileThemeIcon === item.key }" :disabled="themeSaveBusy || isBanned || !item.available">
-                <img v-if="themeIconSrc(item.key)" :src="themeIconSrc(item.key) || ''" alt="" aria-hidden="true" />
-                <span v-else class="theme-icon-none" aria-hidden="true"></span>
-              </button>
-            </div>
-
-            <button v-if="canEditProfileTheme" class="btn confirm" @click="saveProfileTheme" :disabled="themeSaveDisabled">
-              <img class="btn-img" :src="iconSave" alt="save" />
-              {{ themeSaveBusy ? '...' : 'Сохранить' }}
-            </button>
-            <button v-else type="button" class="btn subscription-btn" @click="openSubscriptionModal">
-              Оформить подписку
-            </button>
-          </div>
-          <p class="hint">{{ profileThemeMessageText }}</p>
-        </div>
-
-        <div v-else-if="activeTab === 'stats'" class="block">
+        <div v-if="activeTab === 'stats'" class="profile-tab-block block-stats">
           <ProfileStats />
         </div>
 
-        <div v-else-if="activeTab === 'history'" class="block">
-          <h3>Личная история игр</h3>
+        <div v-if="activeTab === 'history'" class="profile-tab-block block-history">
           <ProfileHistory />
         </div>
 
-        <div v-else-if="activeTab === 'sanctions'" class="block">
-          <div class="sanctions-head">
-            <h3>История отстранений от игр, таймаутов и банов</h3>
-          </div>
-          <div v-if="sanctionsLoaded" class="sanctions-summary">
-            <span>Всего: {{ sanctionsSummary.total }}</span>
-            <span>Таймауты: {{ sanctionsSummary.timeout }}</span>
-            <span>Отстранения: {{ sanctionsSummary.suspend }}</span>
-            <span>Баны: {{ sanctionsSummary.ban }}</span>
-          </div>
-          <div v-if="sanctionsLoading" class="sanctions-empty">Загрузка…</div>
-          <div v-else-if="sanctionsError" class="sanctions-empty danger">{{ sanctionsError }}</div>
-          <div v-else-if="sanctions.length === 0" class="sanctions-empty">Ограничений пока не было</div>
-          <div v-else class="sanctions-list">
-            <article v-for="item in sanctions" :key="item.id" class="sanction-card" :class="`sanction-card--${item.kind}`">
-              <div class="sanction-head">
-                <div class="sanction-kind">
-                  <span class="sanction-tag">{{ formatSanctionKind(item.kind) }}</span>
-                </div>
-              </div>
-              <div class="sanction-grid">
-                <div class="sanction-cell">
-                  <span>Дата выдачи</span>
-                  <strong>{{ formatLocalDateTime(item.issued_at) }}</strong>
-                </div>
-                <div class="sanction-cell">
-                  <span>Пункт правил</span>
-                  <strong>{{ item.reason || 'Причина не указана' }}</strong>
-                </div>
-                <div class="sanction-cell">
-                  <span>Срок изначальный</span>
-                  <strong>{{ formatSanctionDuration(item.duration_seconds) }}</strong>
-                </div>
-                <div class="sanction-cell">
-                  <span>Дата снятия</span>
-                  <strong>{{ formatSanctionFinishedAt(item) }}</strong>
-                </div>
-                <div class="sanction-cell">
-                  <span>Причина снятия</span>
-                  <strong>{{ formatSanctionCompletionReason(item) }}</strong>
-                </div>
-                <div class="sanction-cell">
-                  <span>Срок по факту</span>
-                  <strong>{{ formatDurationSeconds(item.served_seconds, '0м') }}</strong>
-                </div>
-                <div v-if="item.kind === 'suspend'" class="sanction-cell">
-                  <span>Отработка ведущим</span>
-                  <strong>{{ formatDurationSeconds(item.hosted_workoff_seconds, '0м') }}</strong>
-                </div>
-              </div>
-            </article>
-          </div>
-        </div>
+        <ProfileSanctions
+          v-if="activeTab === 'sanctions'"
+          :sanctions-loaded="sanctionsLoaded"
+          :sanctions-summary="sanctionsSummary"
+          :sanctions-loading="sanctionsLoading"
+          :sanctions-error="sanctionsError"
+          :sanctions="sanctions"
+          :format-sanction-kind="formatSanctionKind"
+          :format-local-date-time="formatLocalDateTime"
+          :format-sanction-duration="formatSanctionDuration"
+          :format-sanction-finished-at="formatSanctionFinishedAt"
+          :format-sanction-completion-reason="formatSanctionCompletionReason"
+          :format-duration-seconds="formatDurationSeconds"
+        />
 
-        <div v-else-if="activeTab === 'payments'" class="block">
-          <h3>История платежей</h3>
-          <div v-if="paymentsLoading" class="payments-state">Загрузка...</div>
-          <div v-else-if="paymentsError" class="payments-state danger">{{ paymentsError }}</div>
-          <div v-else-if="paymentsItems.length === 0" class="payments-state">Успешных платежей пока нет</div>
-          <div v-else class="payments-table-wrap">
-            <table class="payments-table">
-              <thead>
-                <tr>
-                  <th>Дата платежа</th>
-                  <th>Email</th>
-                  <th>Срок подписки</th>
-                  <th>Оплаченная стоимость</th>
-                  <th>Промокод</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="item in paymentsItems" :key="item.id">
-                  <td>{{ formatPaymentPaidAt(item.paid_at) }}</td>
-                  <td>{{ item.email || '-' }}</td>
-                  <td>{{ formatPaymentSubscriptionTerm(item) }}</td>
-                  <td>{{ formatPaymentMoney(item.amount, item.currency) }}</td>
-                  <td>{{ formatPaymentPromoDiscount(item.promo_discount_percent) }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <ProfilePayments
+          v-if="activeTab === 'payments'"
+          :payments-loading="paymentsLoading"
+          :payments-error="paymentsError"
+          :payments-items="paymentsItems"
+          :format-payment-paid-at="formatPaymentPaidAt"
+          :format-payment-subscription-term="formatPaymentSubscriptionTerm"
+          :format-payment-money="formatPaymentMoney"
+          :format-payment-promo-discount="formatPaymentPromoDiscount"
+        />
 
-        <div v-else-if="activeTab === 'music'" class="block">
-          <h3>Музыка</h3>
-        </div>
+        <ProfileMusic v-if="activeTab === 'music'" />
 
-        <div v-else-if="activeTab === 'blacklist'" class="block">
-          <div class="blacklist-head">
-            <h3>Черный список</h3>
-          </div>
-          <div class="blacklist-rules">
-            <p>Игроки из ЧС не смогут отправлять Вам заявки в друзья и заявки на вход в Ваши приватные комнаты.</p>
-            <p>При добавлении в ЧС текущая дружба, входящая заявка или исходящая заявка с этим игроком удаляется.</p>
-            <p>Вы не будете получать уведомления, если игрок из ЧС отметит Вас в чате или поставит реакцию на Ваше сообщение.</p>
-          </div>
-          <div v-if="blacklistLoading" class="blacklist-empty">Загрузка…</div>
-          <div v-else-if="blacklistError" class="blacklist-empty danger">{{ blacklistError }}</div>
-          <div v-else-if="blacklistItems.length === 0" class="blacklist-empty">В ЧС пока никого нет</div>
-          <div v-else class="blacklist-list">
-            <article v-for="item in blacklistItems" :key="item.id" class="blacklist-card">
-              <div class="blacklist-user">
-                <img class="blacklist-avatar" v-minio-img="{ key: blacklistAvatarKey(item), placeholder: iconDefaultAvatar, lazy: true, animated: true }" alt="avatar" />
-                <div class="blacklist-main">
-                  <span>{{ item.username || `user${item.id}` }}</span>
-                  <small>Добавлен: {{ formatLocalDateTime(item.created_at) }}</small>
-                </div>
-              </div>
-              <button class="btn danger blacklist-remove" type="button" :disabled="blacklistRemoving[item.id]" @click="removeFromBlacklistProfile(item)">
-                {{ blacklistRemoving[item.id] ? '...' : 'Удалить из ЧС' }}
-              </button>
-            </article>
-          </div>
-        </div>
+        <ProfileBlacklist
+          v-if="activeTab === 'blacklist'"
+          :blacklist-loading="blacklistLoading"
+          :blacklist-error="blacklistError"
+          :blacklist-items="blacklistItems"
+          :blacklist-removing="blacklistRemoving"
+          :icon-default-avatar="iconDefaultAvatar"
+          :blacklist-avatar-key="blacklistAvatarKey"
+          :format-local-date-time="formatLocalDateTime"
+          @remove-from-blacklist="removeFromBlacklistProfile"
+        />
       </div>
     </Transition>
 
@@ -432,10 +253,14 @@ import {
 
 import ProfileStats from '@/components/ProfileStats.vue'
 import ProfileHistory from '@/components/ProfileHistory.vue'
+import ProfileAccount from '@/components/ProfileAccount.vue'
+import ProfileAvatarNick from '@/components/ProfileAvatarNick.vue'
+import ProfileTheme from '@/components/ProfileTheme.vue'
+import ProfileSanctions from '@/components/ProfileSanctions.vue'
+import ProfilePayments from '@/components/ProfilePayments.vue'
+import ProfileMusic from '@/components/ProfileMusic.vue'
+import ProfileBlacklist from '@/components/ProfileBlacklist.vue'
 import Subscription from '@/components/Subscription.vue'
-import UiSwitch from '@/components/UiSwitch.vue'
-import UiInput from '@/components/UiInput.vue'
-import UiSlider from '@/components/UiSlider.vue'
 import UiIcon from '@/components/UiIcon.vue'
 import UiButton from '@/components/UiButton.vue'
 
@@ -453,7 +278,6 @@ import iconLeave from '@/assets/svg/iconLeave.svg'
 import iconTimeHistory from '@/assets/svg/iconTimeHistory.svg'
 import iconDownload from '@/assets/svg/iconDownload.svg'
 import iconDelete from '@/assets/svg/iconDelete.svg'
-import iconEdit from '@/assets/svg/iconPen.svg'
 import iconSave from '@/assets/svg/save.svg'
 
 const userStore = useUserStore()
@@ -492,7 +316,6 @@ const isDeleteAccountForbiddenSelf = computed(() => {
   const role = String(me.role || '').trim().toLowerCase()
   return Boolean(me.protected_user) || role === 'admin' || role === 'moder'
 })
-const fileEl = ref<HTMLInputElement | null>(null)
 const modalEl = ref<HTMLDivElement | null>(null)
 
 const nick = ref('')
@@ -1254,6 +1077,22 @@ let gifDecodeSeq = 0
 const busyAva = ref(false)
 const deleteBusy = ref(false)
 
+function setProfileModalEl(el: HTMLDivElement | null) {
+  modalEl.value = el
+}
+
+function setProfileCanvasEl(el: HTMLCanvasElement | null) {
+  canvasEl.value = el
+}
+
+function setProfileGifModalEl(el: HTMLDivElement | null) {
+  gifModalEl.value = el
+}
+
+function setProfileGifCanvasEl(el: HTMLCanvasElement | null) {
+  gifCanvasEl.value = el
+}
+
 function clamp(v:number, lo:number, hi:number) { return Math.min(hi, Math.max(lo, v)) }
 
 function fitContain(imgW: number, imgH: number, boxW: number, boxH: number) {
@@ -1517,7 +1356,7 @@ function showAvatarUploadError(e: any) {
   const st = e?.response?.status
   const d  = e?.response?.data?.detail
   if (st === 403 && d === 'user_banned')                 void alertDialog('Аккаунт забанен. Изменение аватара недоступно')
-  else if (st === 403 && d === 'subscription_required')   void alertDialog('GIF-аватары доступны только при активной подписке')
+  else if (st === 403 && d === 'subscription_required')  void alertDialog('GIF-аватары доступны только при активной подписке')
   else if (st === 415 || d === 'unsupported_media_type') void alertDialog('К загрузке допустимы только форматы JPG/PNG/GIF')
   else if (st === 413)                                   void alertDialog('К загрузке допустимы только файлы менее 5 Мбайт')
   else if (st === 422 && d === 'empty_file')             void alertDialog('Не удалось прочитать файл')
@@ -1786,590 +1625,8 @@ onBeforeUnmount(() => {
   }
   .tab-panel {
     display: flex;
-    .block {
-      padding: 24px;
-      min-height: 190px;
-      border-radius: 24px;
-      background-color: $soft-purple-900;
-      h3 {
-        margin: 0 0 20px;
-        font-size: 20px;
-        color: $neutral-100;
-      }
-      .hint {
-        margin: 0;
-        color: $neutral-500;
-        font-size: 14px;
-        &.center {
-          text-align: center;
-        }
-        &.text {
-          font-size: 16px;
-          color: $neutral-100;
-        }
-        &.warn {
-          color: $yellow-500;
-        }
-        &.red {
-          color: $red-500;
-        }
-        a {
-          color: $neutral-100;
-          text-decoration: none;
-        }
-      }
-      .verify-row {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-      }
-      .password-row {
-        display: flex;
-        flex-direction: column;
-        align-items: flex-start;
-        margin-top: 5px;
-        gap: 10px;
-        --ui-input-label-bg: #{$neutral-900};
-        :deep(.profile-input) {
-          max-width: 320px;
-          width: 100%;
-        }
-      }
-      .avatar-row {
-        display: flex;
-        gap: 20px;
-        align-items: center;
-        .avatar-img {
-          width: 150px;
-          height: 150px;
-          object-fit: cover;
-          border-radius: 50%;
-        }
-        .actions {
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-        }
-      }
-      .nick-row {
-        display: flex;
-        flex-direction: column;
-        align-items: flex-start;
-        margin-bottom: 5px;
-        gap: 10px;
-        .nick-input-line {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          width: 100%;
-          :deep(.profile-input) {
-            flex: 1 1 auto;
-            max-width: 300px;
-            width: 100%;
-          }
-          .nickname-history-tooltip-wrap {
-            display: inline-flex;
-            position: relative;
-            flex: 0 0 auto;
-            align-items: center;
-            justify-content: center;
-            width: 40px;
-            height: 40px;
-            outline: none;
-            &:hover,
-            &:focus-within {
-              &::after {
-                display: block;
-              }
-              .nickname-history-tooltip {
-                display: flex;
-              }
-            }
-            &::after {
-              content: '';
-              display: none;
-              position: absolute;
-              top: 100%;
-              right: 0;
-              width: 300px;
-              height: 10px;
-              z-index: 4;
-            }
-            .nickname-history-icon {
-              width: 24px;
-              height: 24px;
-              object-fit: contain;
-            }
-            .nickname-history-tooltip {
-              display: none;
-              position: absolute;
-              top: calc(100% + 10px);
-              right: 0;
-              flex-direction: column;
-              gap: 10px;
-              width: 300px;
-              max-height: 250px;
-              padding: 10px;
-              border-radius: 5px;
-              background-color: $neutral-800;
-              box-shadow: 3px 3px 5px rgba(black, 0.25);
-              color: $neutral-100;
-              font-size: 14px;
-              line-height: 1.2;
-              z-index: 5;
-              .nickname-history-clear {
-                width: 100%;
-                max-width: none;
-                min-height: 30px;
-                font-size: 14px;
-              }
-              .nickname-history-access-text {
-                color: $neutral-300;
-                overflow-wrap: anywhere;
-                &.disabled {
-                  color: $neutral-500;
-                }
-              }
-              .nickname-history-divider {
-                width: 100%;
-                height: 1px;
-                background-color: rgba($neutral-white, 0.1);
-              }
-              .nickname-history-list {
-                display: flex;
-                flex-direction: column;
-                gap: 5px;
-                overflow-y: auto;
-                scrollbar-width: thin;
-                span {
-                  color: $neutral-300;
-                  overflow-wrap: anywhere;
-                  &.current {
-                    color: $neutral-100;
-                    font-family: Hauora-SemiBold;
-                  }
-                }
-              }
-              .nickname-history-state {
-                color: $neutral-300;
-                &.danger {
-                  color: $red-500;
-                }
-              }
-            }
-          }
-        }
-      }
-      .modal {
-        display: flex;
-        position: fixed;
-        align-items: center;
-        justify-content: center;
-        inset: 0;
-        background-color: rgba($neutral-800, 0.2);
-        backdrop-filter: blur(12px);
-        overscroll-behavior: contain;
-        z-index: 50;
-        .modal-body {
-          display: flex;
-          flex-direction: column;
-          padding: 10px;
-          gap: 10px;
-          border: 1px solid $neutral-800;
-          border-radius: 5px;
-          background-color: $neutral-900;
-          > canvas {
-            align-self: center;
-            width: 300px;
-            height: 300px;
-            border-radius: 5px;
-            background-color: black;
-          }
-          .range {
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-          }
-          .modal-actions {
-            display: flex;
-            justify-content: space-between;
-            gap: 10px;
-          }
-          .gif-preview-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            align-items: stretch;
-            justify-content: center;
-            .gif-preview-block {
-              display: flex;
-              flex-direction: column;
-              gap: 5px;
-              align-items: center;
-              span {
-                color: $neutral-500;
-                font-size: 18px;
-              }
-              img {
-                width: 300px;
-                height: 300px;
-                border-radius: 5px;
-                background-color: black;
-                object-fit: contain;
-              }
-              canvas {
-                align-self: center;
-                width: 300px;
-                height: 300px;
-                border-radius: 5px;
-                background-color: black;
-              }
-            }
-          }
-          .hint {
-            margin: 0;
-            color: $neutral-500;
-            font-size: 14px;
-            &.red {
-              color: $red-500;
-            }
-          }
-        }
-      }
-      .theme-row {
-        display: inline-flex;
-        flex-direction: column;
-        margin-bottom: 10px;
-        .theme-preview-grid {
-          display: grid;
-          gap: 10px;
-          .theme-preview-card {
-            display: flex;
-            align-items: center;
-            padding: 10px 15px;
-            gap: 5px;
-            width: fit-content;
-            border-radius: 15px;
-            background-color: var(--user-theme-bg, rgba($neutral-900, 0.75));
-            box-shadow: 3px 3px 5px rgba(black, 0.25);
-            transition: background-color 0.25s ease-in-out;
-            .theme-preview-avatar {
-              width: 40px;
-              height: 40px;
-              border-radius: 50%;
-              object-fit: cover;
-            }
-            .theme-preview-icons {
-              display: inline-flex;
-              align-items: center;
-              gap: 5px;
-              flex: 0 0 auto;
-              .theme-preview-icon {
-                width: 40px;
-                height: 40px;
-                object-fit: contain;
-              }
-            }
-            span {
-              min-width: 0;
-              color: $neutral-100;
-              font-size: 22px;
-              font-family: Hauora-SemiBold;
-              line-height: 1.3;
-              white-space: nowrap;
-              overflow: hidden;
-              text-overflow: ellipsis;
-            }
-          }
-        }
-        .theme-palette {
-          display: inline-grid;
-          grid-template-columns: repeat(10, 1fr);
-          margin: 15px 0;
-          padding: 10px;
-          gap: 5px;
-          background-color: $neutral-800;
-          border-radius: 10px;
-          box-shadow: 3px 3px 5px rgba(black, 0.25);
-          .theme-option {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 30px;
-            height: 30px;
-            border: 2px solid $neutral-800;
-            border-radius: 999px;
-            background-color: var(--user-theme-bg, $neutral-800);
-            cursor: pointer;
-            transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out;
-            &:hover:enabled {
-              border-color: rgba($neutral-white, 0.5);
-            }
-            &.active {
-              border-color: $neutral-100;
-            }
-            &:disabled {
-              cursor: not-allowed;
-            }
-          }
-        }
-        .theme-icon-palette {
-          display: inline-grid;
-          grid-template-columns: repeat(10, 1fr);
-          margin-bottom: 15px;
-          padding: 10px;
-          gap: 5px;
-          background-color: $neutral-800;
-          border-radius: 10px;
-          box-shadow: 3px 3px 5px rgba(black, 0.25);
-          .theme-icon-option {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 30px;
-            height: 30px;
-            border: 2px solid transparent;
-            border-radius: 999px;
-            background: none;
-            cursor: pointer;
-            transition: border-color 0.25s ease-in-out;
-            img {
-              width: 24px;
-              height: 24px;
-              object-fit: contain;
-            }
-            .theme-icon-none {
-              width: 10px;
-              height: 2px;
-              border-radius: 2px;
-              background-color: rgba($neutral-white, 0.75);
-            }
-            &:hover:enabled {
-              border-color: rgba($neutral-white, 0.5);
-            }
-            &.active {
-              border-color: $neutral-100;
-            }
-            &:disabled {
-              cursor: not-allowed;
-            }
-          }
-        }
-      }
-      .sanctions-head {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: 10px;
-      }
-      .sanctions-summary {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-        font-size: 14px;
-        color: $neutral-100;
-      }
-      .sanctions-empty {
-        padding: 20px 0;
-        color: $neutral-300;
-        &.danger {
-          color: $red-500;
-        }
-      }
-      .sanctions-list {
-        display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
-        gap: 10px;
-        margin-top: 10px;
-        .sanction-card {
-          border: 3px solid $neutral-700;
-          border-radius: 5px;
-          padding: 10px;
-          &.sanction-card--timeout {
-            border-color: rgba($yellow-500, 0.5);
-            background-color: rgba($yellow-500, 0.25);
-          }
-          &.sanction-card--suspend {
-            border-color: rgba($orange-500, 0.5);
-            background-color: rgba($orange-500, 0.25);
-          }
-          &.sanction-card--ban {
-            border-color: rgba($red-500, 0.5);
-            background-color: rgba($red-500, 0.25);
-          }
-          .sanction-head {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 10px;
-            .sanction-kind {
-              display: flex;
-              align-items: center;
-              gap: 5px;
-              flex-wrap: wrap;
-              .sanction-tag {
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                padding: 5px 10px;
-                min-width: 30px;
-                border-radius: 999px;
-                background-color: $neutral-900;
-                font-size: 12px;
-                color: $neutral-100;
-              }
-            }
-          }
-          .sanction-grid {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 10px;
-            margin-top: 10px;
-            .sanction-cell {
-              display: flex;
-              flex-direction: column;
-              gap: 3px;
-              font-size: 14px;
-              span {
-                color: $neutral-300;
-                font-size: 12px;
-              }
-              strong {
-                color: $neutral-100;
-                overflow-wrap: anywhere;
-              }
-            }
-          }
-        }
-      }
-      .payments-state {
-        padding: 20px 10px;
-        text-align: center;
-        color: $neutral-300;
-        &.danger {
-          color: $orange-500;
-        }
-      }
-      .payments-table-wrap {
-        width: 100%;
-        overflow-x: auto;
-        border: 1px solid rgba($neutral-500, 0.5);
-        border-radius: 5px;
-        background-color: rgba($neutral-800, 0.45);
-        .payments-table {
-          width: 100%;
-          min-width: 820px;
-          border-collapse: collapse;
-          color: $neutral-100;
-          th,
-          td {
-            padding: 12px 14px;
-            border-bottom: 1px solid rgba($neutral-500, 0.35);
-            text-align: left;
-            vertical-align: top;
-            line-height: 1.25;
-          }
-          th {
-            color: $neutral-300;
-            font-family: Hauora-SemiBold;
-            font-size: 14px;
-            white-space: nowrap;
-          }
-          td {
-            font-size: 15px;
-            overflow-wrap: anywhere;
-          }
-          tbody tr:last-child td {
-            border-bottom: none;
-          }
-        }
-      }
-      .blacklist-head {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: 10px;
-      }
-      .blacklist-rules {
-        display: grid;
-        gap: 6px;
-        margin-top: 10px;
-        padding: 12px;
-        border: 3px solid $neutral-700;
-        border-radius: 5px;
-        background-color: rgba(black, 0.08);
-        p {
-          margin: 0;
-          color: $neutral-300;
-          font-size: 14px;
-          line-height: 1.35;
-        }
-      }
-      .blacklist-empty {
-        padding: 20px 0;
-        color: $neutral-300;
-        &.danger {
-          color: $red-500;
-        }
-      }
-      .blacklist-list {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-        gap: 10px;
-        margin-top: 10px;
-        .blacklist-card {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 10px;
-          padding: 10px;
-          border: 3px solid $neutral-700;
-          border-radius: 5px;
-          background-color: rgba(black, 0.12);
-          .blacklist-user {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            min-width: 0;
-            .blacklist-avatar {
-              flex: 0 0 auto;
-              width: 48px;
-              height: 48px;
-              border-radius: 50%;
-              object-fit: cover;
-              background-color: black;
-            }
-            .blacklist-main {
-              display: flex;
-              flex-direction: column;
-              gap: 4px;
-              min-width: 0;
-              span {
-                color: $neutral-100;
-                font-family: Hauora-SemiBold;
-                font-size: 16px;
-                line-height: 1.2;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
-              }
-              small {
-                color: $neutral-300;
-                font-size: 12px;
-                line-height: 1.2;
-              }
-            }
-          }
-          .blacklist-remove {
-            flex: 0 0 auto;
-            max-width: none;
-            min-width: 130px;
-          }
-        }
-      }
-    }
+    flex-direction: column;
+    gap: 10px;
   }
 }
 
