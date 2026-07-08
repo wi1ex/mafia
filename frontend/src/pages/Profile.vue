@@ -55,16 +55,18 @@
       <div class="tab-div">
         <div v-if="!hasActiveSubscription" class="tab-subscribe">
           <img class="background-image" :src="imageSlide9" alt="" aria-hidden="true" />
-          <span class="tab-subscribe-title">Оформи подписку</span>
-          <span class="tab-subscribe-text">Подписка откроет новые функции, персонализацию профиля и дополнительные привилегии.</span>
-          <UiButton
-            size="middle"
-            variant="white"
-            width="100%"
-            type="button"
-            text="Оформить"
-            @click="openSubscriptionModal"
-          />
+          <div class="tab-subscribe-div">
+            <span class="tab-subscribe-title">Оформи подписку</span>
+            <span class="tab-subscribe-text">Подписка откроет новые функции, персонализацию профиля и дополнительные привилегии.</span>
+            <UiButton
+              size="middle"
+              variant="white"
+              width="100%"
+              type="button"
+              text="Оформить"
+              @click="openSubscriptionModal"
+            />
+          </div>
         </div>
         <button class="tab-btn" type="button" @click="onLogoutClick">
           <UiIcon class="tab-btn-img" :icon="iconLeave" />
@@ -253,6 +255,7 @@ onBeforeUnmount(() => {
     display: flex;
     flex-direction: column;
     justify-content: space-between;
+    width: 298px;
     .tab-div {
       display: flex;
       flex-direction: column;
@@ -263,7 +266,6 @@ onBeforeUnmount(() => {
         align-items: center;
         padding: 0 16px;
         gap: 4px;
-        width: 266px;
         height: 40px;
         border: none;
         border-radius: 12px;
@@ -337,8 +339,11 @@ onBeforeUnmount(() => {
       }
       .tab-subscribe {
         display: flex;
+        position: relative;
         flex-direction: column;
+        padding: 16px;
         gap: 10px;
+        border-radius: 24px;
         .background-image {
           position: absolute;
           left: 0;
@@ -348,19 +353,23 @@ onBeforeUnmount(() => {
           border-radius: inherit;
           object-fit: cover;
         }
-        .tab-subscribe-title {
-          color: $neutral-white;
-          font-family: Hauora-Bold;
-          font-size: 18px;
-          line-height: 20px;
-          letter-spacing: -0.36px;
-        }
-        .tab-subscribe-text {
-          color: $neutral-100;
-          font-family: Hauora-Regular;
-          font-size: 14px;
-          line-height: 14px;
-          letter-spacing: -0.28px;
+        .tab-subscribe-div {
+          display: flex;
+          z-index: 5;
+          .tab-subscribe-title {
+            color: $neutral-white;
+            font-family: Hauora-Bold;
+            font-size: 18px;
+            line-height: 20px;
+            letter-spacing: -0.36px;
+          }
+          .tab-subscribe-text {
+            color: $neutral-100;
+            font-family: Hauora-Regular;
+            font-size: 14px;
+            line-height: 14px;
+            letter-spacing: -0.28px;
+          }
         }
       }
     }
