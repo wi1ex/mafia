@@ -29,11 +29,17 @@
             <div class="nickname-title">
               <span class="title">Никнейм</span>
               <UiTooltip
-                text="Никнейм также является логином для авторизации"
-                placement="top-center"
+                text="Никнейм также является логином - используйте его для авторизации."
+                placement="top-right"
               />
             </div>
-            <span class="nickname-changes">{{ nicknameChangesText }}</span>
+            <div class="nickname-changes-div">
+              <span class="nickname-changes">{{ nicknameChangesText }}</span>
+              <UiTooltip
+                text="Без подписки доступно 1 изменение никнейма в месяц. При наличии подписки лимит увеличен до 30."
+                placement="top-left"
+              />
+            </div>
           </div>
 
           <div class="nick-row">
@@ -54,7 +60,7 @@
                 <span id="profile-nick-hint">{{ nick.length }}/{{ NICK_MAX }}</span>
               </template>
             </UiInput>
-            <span class="hint"><code>латиница, кириллица, цифры, символы ()._-</code></span>
+            <span class="hint"><code>Латиница, кириллица, цифры, символы ()._-</code></span>
           </div>
         </div>
         
@@ -1004,19 +1010,21 @@ onBeforeUnmount(() => {
               letter-spacing: -0.48px;
             }
           }
-          .nickname-changes {
+          .nickname-changes-div {
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 16px;
+            padding: 0 16px;
             height: 32px;
             border-radius: 12px;
             background-color: $red-100;
-            color: $red-500;
-            font-family: Hauora-Regular;
-            font-size: 14px;
-            line-height: 14px;
-            letter-spacing: -0.28px;
+            .nickname-changes {
+              color: $red-500;
+              font-family: Hauora-Regular;
+              font-size: 14px;
+              line-height: 14px;
+              letter-spacing: -0.28px;
+            }
           }
         }
         .nick-row {
