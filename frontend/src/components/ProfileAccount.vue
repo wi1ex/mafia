@@ -143,6 +143,7 @@
       </div>
 
       <UiButton
+        class="password-btn"
         variant="green"
         size="middle"
         :text="pwdBusy ? '...' : 'Сменить пароль'"
@@ -450,6 +451,8 @@ onBeforeUnmount(() => {
       flex-direction: column;
       padding: 24px;
       gap: 24px;
+      width: fit-content;
+      height: fit-content;
       border-radius: 24px;
       background-color: $soft-purple-900;
       .title {
@@ -470,23 +473,26 @@ onBeforeUnmount(() => {
     display: flex;
     flex-direction: column;
     padding: 24px;
-    gap: 40px;
+    gap: 24px;
     width: calc(50% - 5px);
-    height: 496px;
+    height: fit-content;
     border-radius: 24px;
     background-color: $soft-purple-900;
+    .title {
+      margin-bottom: 16px;
+      color: $neutral-white;
+      font-family: Involve-Medium;
+      font-size: 24px;
+      line-height: 26px;
+      letter-spacing: -0.48px;
+    }
     .password-div {
       display: flex;
+      flex-direction: column;
       gap: 16px;
-      .title {
-        color: $neutral-white;
-        font-family: Involve-Medium;
-        font-size: 24px;
-        line-height: 26px;
-        letter-spacing: -0.48px;
-      }
       .password-temp {
         padding: 16px;
+        width: fit-content;
         border-radius: 20px;
         background-color: $yellow-500;
         color: $neutral-900;
@@ -512,6 +518,9 @@ onBeforeUnmount(() => {
         line-height: 18px;
         letter-spacing: -0.32px;
       }
+    }
+    .password-btn {
+      margin-top: 16px;
     }
   }
 }
