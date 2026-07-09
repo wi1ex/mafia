@@ -51,6 +51,7 @@
         <UiSwitch
           v-model="isPrivate"
           theme="light"
+          :width="274"
           :disabled="isPrivacyLocked"
           label="Приватность"
           off-label="Открытая"
@@ -60,6 +61,7 @@
         <UiSwitch
           v-model="isAnonymous"
           theme="light"
+          :width="274"
           :disabled="!canCreateHiddenRoom"
           :tooltip="!canCreateHiddenRoom ? hiddenRoomHint : undefined"
           tooltip-target="on"

@@ -18,6 +18,7 @@
           aria-label="Подсказки для клавиш"
           theme="light"
           size="low"
+          :width="256"
           :disabled="hotkeysTogglePending"
           @update:modelValue="onToggleHotkeys"
         />
@@ -30,6 +31,7 @@
           aria-label="Расположение кнопок"
           theme="light"
           size="low"
+          :width="256"
           @update:modelValue="onToggleButtonsHigh"
         />
 
@@ -42,6 +44,7 @@
           aria-label="Заполнение видео"
           theme="light"
           size="low"
+          :width="256"
           @update:modelValue="onToggleVideoFill"
         />
 
@@ -52,6 +55,7 @@
           aria-label="Зеркальность камеры"
           theme="light"
           size="low"
+          :width="256"
           @update:modelValue="onToggleMirror"
         />
 
@@ -63,6 +67,7 @@
           aria-label="Отображение ролей"
           theme="light"
           size="low"
+          :width="256"
           @update:modelValue="onToggleKnownRoles"
         >
           <template #label>

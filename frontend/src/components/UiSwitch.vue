@@ -45,8 +45,8 @@ type TooltipPlacement = 'top-right' | 'top-center' | 'top-left' | 'bottom-right'
 type SwitchTheme = 'light' | 'dark'
 type SwitchSize = 'high' | 'low'
 const SWITCH_WIDTH_BY_SIZE: Record<SwitchSize, number> = {
-  high: 274,
-  low: 256,
+  high: 480,
+  low: 480,
 }
 
 const props = defineProps<{
@@ -133,7 +133,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  --switch-width: 274px;
+  --switch-width: 480px;
   --switch-height: 56px;
   --switch-border: 4px;
   --switch-radius: 999px;
@@ -170,6 +170,9 @@ onBeforeUnmount(() => {
   &.switch--low .switch-label {
     color: $neutral-900;
     font-family: Hauora-Regular;
+  }
+  &.switch--dark .switch-label {
+    color: $neutral-white;
   }
   label {
     position: relative;

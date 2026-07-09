@@ -56,7 +56,8 @@
             label="Уведомления в TG о приглашениях в комнату"
             off-label="Запретить"
             on-label="Разрешить"
-            :width="200"
+            size="low"
+            :width="256"
             :disabled="tgInvitesTogglePending || !telegramVerified"
             @update:modelValue="onToggleTgInvites"
           />
@@ -342,11 +343,12 @@ onBeforeUnmount(() => {
         padding: 24px;
         gap: 24px;
         width: calc(50% - 5px);
-        height: 210px;
+        min-height: 210px;
         border-radius: 24px;
         background-color: $soft-purple-900;
         .account-div {
           display: flex;
+          flex-direction: column;
           gap: 24px;
           .title {
             color: $neutral-white;
@@ -368,6 +370,7 @@ onBeforeUnmount(() => {
         }
         .account-btn {
           display: flex;
+          flex-direction: column;
           gap: 16px;
           .hint {
             color: $neutral-300;
@@ -385,7 +388,7 @@ onBeforeUnmount(() => {
         justify-content: space-between;
         padding: 24px;
         width: calc(50% - 5px);
-        height: 210px;
+        min-height: 210px;
         border-radius: 24px;
         background-color: $soft-purple-900;
         .verif-icon {
@@ -397,6 +400,7 @@ onBeforeUnmount(() => {
         }
         .verif-div {
           display: flex;
+          flex-direction: column;
           gap: 16px;
           .title {
             color: $neutral-white;

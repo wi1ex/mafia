@@ -21,6 +21,7 @@
               label="Зрители:"
               theme="light"
               size="low"
+              :width="256"
               off-label="Откл"
               on-label="Вкл"
               aria-label="Зрители: откл/вкл"
@@ -30,6 +31,7 @@
               label="Режим:"
               theme="light"
               size="low"
+              :width="256"
               off-label="Обычный"
               on-label="Рейтинг"
               aria-label="Режим: обычный/рейтинг"
@@ -40,6 +42,7 @@
               label="Ведущий:"
               theme="light"
               size="low"
+              :width="256"
               off-label="Ведущий"
               on-label="Авто"
               aria-label="Ведущий: с ведущим/авто"
@@ -50,6 +53,7 @@
               label="Выставления:"
               theme="light"
               size="low"
+              :width="256"
               off-label="Ведущий"
               on-label="Игрок"
               aria-label="Выставления"
@@ -60,6 +64,7 @@
               label="Завещания:"
               theme="light"
               size="low"
+              :width="256"
               aria-label="Завещания"
               :disabled="gameParamsDisabled"
             />
@@ -68,6 +73,7 @@
               label="Подмигивать/Стучать:"
               theme="light"
               size="low"
+              :width="256"
               aria-label="Подмигивать/Стучать"
               :disabled="gameParamsDisabled"
             />
@@ -76,6 +82,7 @@
               label="Слом в нуле:"
               theme="light"
               size="low"
+              :width="256"
               aria-label="Слом в нуле"
               :disabled="gameParamsDisabled"
             />
@@ -84,6 +91,7 @@
               label="Подъём в нуле:"
               theme="light"
               size="low"
+              :width="256"
               aria-label="Подъём в нуле"
               :disabled="gameParamsDisabled"
             />
@@ -92,6 +100,7 @@
               label="Подъём 3х при 9х:"
               theme="light"
               size="low"
+              :width="256"
               aria-label="Подъём 3х при 9х"
               :disabled="gameParamsDisabled"
             />
@@ -100,6 +109,7 @@
               label="Музыка:"
               theme="light"
               size="low"
+              :width="256"
               aria-label="Музыка"
               :disabled="gameParamsDisabled"
             />

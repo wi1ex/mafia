@@ -28,7 +28,6 @@
                   off-label="Месяц"
                   on-label="Год"
                   on-badge="-15%"
-                  :width="472"
                   theme="light"
                   without-text
                   aria-label="Выбор срока подписки"
