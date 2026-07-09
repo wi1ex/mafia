@@ -5,14 +5,14 @@
       <div class="avatar-row">
         <img class="avatar-img" v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false, animated: true }" alt="Текущий аватар" />
         <button class="btn-delete" v-if="me.avatar_name" @click="onDeleteAvatar" :disabled="busyAva || isBanned">
-          <UiIcon class="btn-img" :icon="iconDelete" />
+          <UiIcon class="btn-img-delete" :icon="iconClose" />
         </button>
       </div>
       <div class="avatar-upload">
         <input ref="fileEl" type="file" :accept="avatarAccept" @change="onPick" :disabled="avatarUploadDisabled" hidden />
         <button class="btn-upload" type="button" :class="{ 'drag-active': avatarDragActive }" :disabled="avatarUploadDisabled" @click="fileEl?.click()"
                 @dragenter.prevent="onAvatarDragEnter" @dragover.prevent="onAvatarDragOver" @dragleave.prevent="onAvatarDragLeave" @drop.prevent="onAvatarDrop">
-          <img class="btn-img" :src="iconDownload" alt="upload" />
+          <UiIcon class="btn-img-delete" :icon="iconDownload" />
           <span class="hint">{{ avatarDragActive ? 'Отпустите изображение' : (me.avatar_name ? 'Изменить' : 'Загрузить') }}</span>
           <span class="hint">{{ avatarFormatHint }}</span>
         </button>
@@ -143,7 +143,7 @@ import UiIcon from '@/components/UiIcon.vue'
 
 import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
 import iconDownload from '@/assets/svg/iconDownload.svg'
-import iconDelete from '@/assets/svg/iconDelete.svg'
+import iconClose from '@/assets/svg/iconClose.svg'
 
 const NICK_MAX = 20
 const NICKNAME_CHANGES_MAX = 30
@@ -847,22 +847,34 @@ onBeforeUnmount(() => {
       align-items: center;
       gap: 24px;
       .avatar-img {
-        flex: 0 0 auto;
         width: 150px;
         height: 150px;
         border-radius: 50%;
         object-fit: cover;
       }
-      .actions {
-        display: flex;
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 10px;
-        .btn-upload {
-          transition: box-shadow 0.25s ease-in-out;
-          &.drag-active {
-            box-shadow: 0 0 0 2px $green-500;
-          }
+      .btn-delete {
+        width: 30px;
+        height: 30px;
+        .btn-img-delete {
+          --ui-icon-width: 24px;
+          --ui-icon-height: 24px;
+          --ui-icon-color: #{$red-500};
+        }
+      }
+    }
+    .avatar-row {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      .btn-upload {
+        transition: box-shadow 0.25s ease-in-out;
+        &.drag-active {
+          box-shadow: 0 0 0 2px $green-500;
+        }
+        .btn-img-upload {
+          --ui-icon-width: 24px;
+          --ui-icon-height: 24px;
+          --ui-icon-color: #{$red-500};
         }
         .hint {
           color: $neutral-300;
