@@ -116,6 +116,7 @@
           <canvas ref="canvasEl" @mousedown="dragStart" @mousemove="dragMove" @mouseup="dragStop" @mouseleave="dragStop" @wheel.passive="onWheel" />
 
           <UiSlider
+            class="modal-slider"
             :model-value="crop.scale"
             :min="crop.min"
             :max="crop.max"
@@ -126,8 +127,19 @@
           />
 
           <div class="modal-actions">
-            <button class="btn danger" @click="cancelCrop">Отменить</button>
-            <button class="btn confirm" @click="applyCrop" :disabled="busyAva || isBanned">Загрузить</button>
+            <UiButton
+              variant="white"
+              size="middle"
+              text="Отменить"
+              @click="cancelCrop"
+            />
+            <UiButton
+              variant="green"
+              size="middle"
+              text="Загрузить"
+              :disabled="busyAva || isBanned"
+              @click="applyCrop"
+            />
           </div>
         </div>
       </div>
@@ -142,6 +154,7 @@
               <UiIcon class="close-icon" :icon="iconClose" />
             </button>
           </header>
+
           <div class="gif-preview-row">
             <div class="gif-preview-block">
               <span>Анимация</span>
@@ -152,22 +165,34 @@
               <canvas ref="gifCanvasEl" />
             </div>
           </div>
+
           <p v-if="gifPicker.error" class="hint red">{{ gifPicker.error }}</p>
-          <div class="range">
-            <span>Кадр {{ gifFrameLabel }}</span>
-            <UiSlider
-              :model-value="gifPicker.frameIndex"
-              :min="0"
-              :max="Math.max(0, gifPicker.frameCount - 1)"
-              :step="1"
-              :disabled="busyAva || isBanned || gifPicker.frameCount <= 1 || gifPicker.decoding"
-              aria-label="Кадр GIF"
-              @update:modelValue="onGifFrameRange"
-            />
-          </div>
+
+          <UiSlider
+            class="modal-slider"
+            :model-value="gifPicker.frameIndex"
+            :min="0"
+            :max="Math.max(0, gifPicker.frameCount - 1)"
+            :step="1"
+            :disabled="busyAva || isBanned || gifPicker.frameCount <= 1 || gifPicker.decoding"
+            aria-label="Кадр GIF"
+            @update:modelValue="onGifFrameRange"
+          />
+
           <div class="modal-actions">
-            <button class="btn danger" @click="cancelGifPicker">Отменить</button>
-            <button class="btn confirm" @click="applyGifPicker" :disabled="busyAva || isBanned || gifPicker.loading || gifPicker.decoding || !!gifPicker.error">Загрузить</button>
+            <UiButton
+              variant="white"
+              size="middle"
+              text="Отменить"
+              @click="cancelGifPicker"
+            />
+            <UiButton
+              variant="green"
+              size="middle"
+              text="Загрузить"
+              :disabled="busyAva || isBanned || gifPicker.loading || gifPicker.decoding || !!gifPicker.error"
+              @click="applyGifPicker"
+            />
           </div>
         </div>
       </div>
@@ -1143,7 +1168,6 @@ onBeforeUnmount(() => {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 0 12px 16px;
         .title {
           color: $neutral-black;
           font-family: Hauora-Bold;
@@ -1173,11 +1197,13 @@ onBeforeUnmount(() => {
         }
       }
       > canvas {
-        align-self: center;
         width: 404px;
         height: 404px;
-        border-radius: 5px;
-        background-color: black;
+        border-radius: 999px;
+        cursor: grab;
+      }
+      .modal-slider {
+        margin-top: -16px;
       }
       .modal-actions {
         display: flex;
