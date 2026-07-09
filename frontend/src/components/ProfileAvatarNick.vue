@@ -855,7 +855,10 @@ onBeforeUnmount(() => {
         object-fit: cover;
       }
       .btn-delete {
+        display: flex;
         position: absolute;
+        align-items: center;
+        justify-content: center;
         top: 0;
         right: 0;
         border: 1px solid $neutral-800;
@@ -897,16 +900,25 @@ onBeforeUnmount(() => {
         border: 2px dashed $neutral-600;
         border-radius: 20px;
         background-color: $soft-purple-800;
+        cursor: pointer;
         transition: border-color 0.25s ease-in-out;
         &.drag-active {
           border-color: $green-500;
         }
+        &:not(:disabled):hover,
+        &:not(:disabled):focus-visible,
+        &:not(:disabled):active {
+          border-color: $green-500;
+        }
         .btn-img-div {
+          display: flex;
+          align-items: center;
+          justify-content: center;
           margin-bottom: 8px;
           width: 64px;
           height: 64px;
           border-radius: 999px;
-          background-color: rgba($soft-purple-800, 0.65);
+          background-color: rgba($soft-purple-900, 0.65);
           .btn-img-upload {
             --ui-icon-width: 40px;
             --ui-icon-height: 40px;
