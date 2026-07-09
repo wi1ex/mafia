@@ -1,7 +1,34 @@
 <template>
   <section class="block-account">
-    <div class="account-verif-params">
-      <div class="account-verif">
+    <div class="verif">
+      <img class="verif-icon" :src="iconTickCircle" alt="" aria-hidden="true" />
+      <div class="verif-div">
+        <span class="title">Верификация</span>
+        <span v-if="telegramVerified" class="hint">Если отвязать TG-аккаунт верификация будет снята.</span>
+        <span v-if="!telegramVerified" class="hint">В чате с ботом сначала введите никнейм, затем пароль. После успешной верификации ограничения будут сняты.</span>
+      </div>
+
+      <UiButton
+        v-if="telegramVerified"
+        variant="red"
+        size="middle"
+        :text="unlinkTgBusy ? '...' : 'Отвязать TG-аккаунт'"
+        @click="unlinkTelegram"
+        :disabled="unlinkTgBusy"
+      />
+
+      <UiButton
+        v-if="!telegramVerified && botName"
+        variant="green"
+        size="middle"
+        text="Пройти верификацию"
+        :href="botLink"
+        target="_blank"
+        rel="noopener noreferrer"
+      />
+    </div>
+    <div class="account-params-password">
+      <div class="account-params">
         <div class="account">
           <div class="account-div">
             <span class="title">Аккаунт</span>
@@ -21,135 +48,108 @@
           </div>
         </div>
 
-        <div class="verif">
-          <img class="verif-icon" :src="iconTickCircle" alt="" aria-hidden="true" />
-          <div class="verif-div">
-            <span class="title">Верификация</span>
-            <span v-if="telegramVerified" class="hint">Если отвязать TG-аккаунт верификация будет снята.</span>
-            <span v-if="!telegramVerified" class="hint">В чате с ботом сначала введите никнейм, затем пароль. После успешной верификации ограничения будут сняты.</span>
+        <div class="params">
+          <span class="title">Настройки</span>
+          <div class="params-div">
+            <UiSwitch
+              class="profile-switch"
+              :model-value="tgInvitesEnabled"
+              label="Уведомления в TG о приглашениях в комнату"
+              off-label="Запретить"
+              on-label="Разрешить"
+              size="low"
+              :width="256"
+              :disabled="tgInvitesTogglePending || !telegramVerified"
+              @update:modelValue="onToggleTgInvites"
+            />
           </div>
-
-          <UiButton
-            v-if="telegramVerified"
-            variant="red"
-            size="middle"
-            :text="unlinkTgBusy ? '...' : 'Отвязать TG-аккаунт'"
-            @click="unlinkTelegram"
-            :disabled="unlinkTgBusy"
-          />
-
-          <UiButton
-            v-if="!telegramVerified && botName"
-            variant="green"
-            size="middle"
-            text="Пройти верификацию"
-            :href="botLink"
-            target="_blank"
-            rel="noopener noreferrer"
-          />
         </div>
       </div>
 
-      <div class="params">
-        <span class="title">Настройки</span>
-        <div class="params-div">
-          <UiSwitch
-            class="profile-switch"
-            :model-value="tgInvitesEnabled"
-            label="Уведомления в TG о приглашениях в комнату"
-            off-label="Запретить"
-            on-label="Разрешить"
-            size="low"
-            :width="256"
-            :disabled="tgInvitesTogglePending || !telegramVerified"
-            @update:modelValue="onToggleTgInvites"
-          />
+      <div class="password">
+        <span class="title">Пароль</span>
+        <div class="password-div">
+          <span v-if="passwordTemp" class="password-temp">У вас временный пароль — рекомендуем изменить его</span>
+          <span class="hint">
+            Сбросить пароль можно через
+            <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">TG-бота</a>
+          </span>
         </div>
+
+        <div class="password-div">
+          <span class="password-text">Текущий пароль</span>
+          <UiInput
+            id="profile-pass-current"
+            v-model="pwd.current"
+            type="password"
+            password-toggle
+            autocomplete="current-password"
+            minlength="8"
+            maxlength="32"
+            label="Введите текущий пароль"
+            :invalid="currentPasswordInvalid"
+            :aria-invalid="currentPasswordInvalid"
+            aria-describedby="profile-pass-current-hint"
+          >
+            <template #meta>
+              <span id="profile-pass-current-hint">{{ pwd.current.length }}/{{ PASSWORD_MAX }}</span>
+            </template>
+          </UiInput>
+        </div>
+
+        <div class="password-div">
+          <span class="password-text">Новый пароль</span>
+          <UiInput
+            id="profile-pass-new"
+            v-model="pwd.next"
+            type="password"
+            password-toggle
+            autocomplete="new-password"
+            minlength="8"
+            maxlength="32"
+            label="Введите новый пароль"
+            :invalid="newPasswordInvalid"
+            :aria-invalid="newPasswordInvalid"
+            aria-describedby="profile-pass-new-hint"
+          >
+            <template #meta>
+              <span id="profile-pass-new-hint">{{ pwd.next.length }}/{{ PASSWORD_MAX }}</span>
+            </template>
+          </UiInput>
+        </div>
+
+        <div class="password-div">
+          <span class="password-text">Повторите пароль</span>
+          <UiInput
+            id="profile-pass-confirm"
+            v-model="pwd.confirm"
+            type="password"
+            password-toggle
+            autocomplete="new-password"
+            minlength="8"
+            maxlength="32"
+            label="Повторите новый пароль"
+            :invalid="confirmPasswordInvalid"
+            :aria-invalid="confirmPasswordInvalid"
+            aria-describedby="profile-pass-confirm-hint"
+          >
+            <template #meta>
+              <span id="profile-pass-confirm-hint">{{ pwd.confirm.length }}/{{ PASSWORD_MAX }}</span>
+            </template>
+          </UiInput>
+        </div>
+
+        <UiButton
+          class="password-btn"
+          variant="green"
+          size="middle"
+          :text="pwdBusy ? '...' : 'Сменить пароль'"
+          @click="changePassword"
+          :disabled="pwdBusy || !canChangePassword"
+        />
       </div>
     </div>
 
-    <div v-if="me.has_password" class="password">
-      <span class="title">Пароль</span>
-      <div class="password-div">
-        <span v-if="passwordTemp" class="password-temp">У вас временный пароль — рекомендуем изменить его</span>
-        <span class="hint">
-          Сбросить пароль можно через
-          <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">TG-бота</a>
-        </span>
-      </div>
-
-      <div class="password-div">
-        <span class="password-text">Текущий пароль</span>
-        <UiInput
-          id="profile-pass-current"
-          v-model="pwd.current"
-          type="password"
-          password-toggle
-          autocomplete="current-password"
-          minlength="8"
-          maxlength="32"
-          label="Введите текущий пароль"
-          :invalid="currentPasswordInvalid"
-          :aria-invalid="currentPasswordInvalid"
-          aria-describedby="profile-pass-current-hint"
-        >
-          <template #meta>
-            <span id="profile-pass-current-hint">{{ pwd.current.length }}/{{ PASSWORD_MAX }}</span>
-          </template>
-        </UiInput>
-      </div>
-
-      <div class="password-div">
-        <span class="password-text">Новый пароль</span>
-        <UiInput
-          id="profile-pass-new"
-          v-model="pwd.next"
-          type="password"
-          password-toggle
-          autocomplete="new-password"
-          minlength="8"
-          maxlength="32"
-          label="Введите новый пароль"
-          :invalid="newPasswordInvalid"
-          :aria-invalid="newPasswordInvalid"
-          aria-describedby="profile-pass-new-hint"
-        >
-          <template #meta>
-            <span id="profile-pass-new-hint">{{ pwd.next.length }}/{{ PASSWORD_MAX }}</span>
-          </template>
-        </UiInput>
-      </div>
-
-      <div class="password-div">
-        <span class="password-text">Повторите пароль</span>
-        <UiInput
-          id="profile-pass-confirm"
-          v-model="pwd.confirm"
-          type="password"
-          password-toggle
-          autocomplete="new-password"
-          minlength="8"
-          maxlength="32"
-          label="Повторите новый пароль"
-          :invalid="confirmPasswordInvalid"
-          :aria-invalid="confirmPasswordInvalid"
-          aria-describedby="profile-pass-confirm-hint"
-        >
-          <template #meta>
-            <span id="profile-pass-confirm-hint">{{ pwd.confirm.length }}/{{ PASSWORD_MAX }}</span>
-          </template>
-        </UiInput>
-      </div>
-
-      <UiButton
-        class="password-btn"
-        variant="green"
-        size="middle"
-        :text="pwdBusy ? '...' : 'Сменить пароль'"
-        @click="changePassword"
-        :disabled="pwdBusy || !canChangePassword"
-      />
-    </div>
   </section>
 </template>
 
@@ -354,12 +354,49 @@ onBeforeUnmount(() => {
   display: flex;
   width: 100%;
   gap: 10px;
-  .account-verif-params {
+  .verif {
+    display: flex;
+    position: relative;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 24px;
+    width: calc(50% - 5px);
+    min-height: 210px;
+    border-radius: 24px;
+    background-color: $soft-purple-900;
+    .verif-icon {
+      position: absolute;
+      top: 24px;
+      right: 24px;
+      width: 26px;
+      height: 26px;
+    }
+    .verif-div {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      .title {
+        color: $neutral-white;
+        font-family: Involve-Medium;
+        font-size: 24px;
+        line-height: 26px;
+        letter-spacing: -0.48px;
+      }
+      .hint {
+        color: $neutral-100;
+        font-family: Hauora-Regular;
+        font-size: 16px;
+        line-height: 22px;
+        letter-spacing: -0.32px;
+      }
+    }
+  }
+  .account-params-password {
     display: flex;
     flex-direction: column;
     gap: 10px;
     width: calc(60% - 5px);
-    .account-verif {
+    .account-params {
       display: flex;
       gap: 10px;
       .account {
@@ -406,119 +443,82 @@ onBeforeUnmount(() => {
           }
         }
       }
-      .verif {
+      .params {
         display: flex;
-        position: relative;
         flex-direction: column;
-        justify-content: space-between;
         padding: 24px;
-        width: calc(50% - 5px);
-        min-height: 210px;
+        gap: 24px;
         border-radius: 24px;
         background-color: $soft-purple-900;
-        .verif-icon {
-          position: absolute;
-          top: 24px;
-          right: 24px;
-          width: 26px;
-          height: 26px;
+        .title {
+          color: $neutral-white;
+          font-family: Involve-Medium;
+          font-size: 24px;
+          line-height: 26px;
+          letter-spacing: -0.48px;
         }
-        .verif-div {
-          display: flex;
-          flex-direction: column;
-          gap: 16px;
-          .title {
-            color: $neutral-white;
-            font-family: Involve-Medium;
-            font-size: 24px;
-            line-height: 26px;
-            letter-spacing: -0.48px;
-          }
-          .hint {
-            color: $neutral-100;
-            font-family: Hauora-Regular;
-            font-size: 16px;
-            line-height: 22px;
-            letter-spacing: -0.32px;
-          }
+        .params-div {
+          padding: 16px;
+          border-radius: 20px;
+          background-color: $soft-purple-800;
         }
       }
     }
-    .params {
+    .password {
       display: flex;
+      box-sizing: border-box;
       flex-direction: column;
       padding: 24px;
       gap: 24px;
+      width: calc(40% - 5px);
+      height: fit-content;
       border-radius: 24px;
       background-color: $soft-purple-900;
+      --ui-input-label-bg: #{$soft-purple-900};
       .title {
+        margin-bottom: 16px;
         color: $neutral-white;
         font-family: Involve-Medium;
         font-size: 24px;
         line-height: 26px;
         letter-spacing: -0.48px;
       }
-      .params-div {
-        padding: 16px;
-        border-radius: 20px;
-        background-color: $soft-purple-800;
-      }
-    }
-  }
-  .password {
-    display: flex;
-    box-sizing: border-box;
-    flex-direction: column;
-    padding: 24px;
-    gap: 24px;
-    width: calc(40% - 5px);
-    height: fit-content;
-    border-radius: 24px;
-    background-color: $soft-purple-900;
-    --ui-input-label-bg: #{$soft-purple-900};
-    .title {
-      margin-bottom: 16px;
-      color: $neutral-white;
-      font-family: Involve-Medium;
-      font-size: 24px;
-      line-height: 26px;
-      letter-spacing: -0.48px;
-    }
-    .password-div {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      .password-temp {
-        padding: 16px;
-        width: fit-content;
-        border-radius: 20px;
-        background-color: $yellow-500;
-        color: $neutral-900;
-        font-family: Hauora-Bold;
-        font-size: 16px;
-        line-height: 18px;
-        letter-spacing: -0.32px;
-      }
-      .hint {
-        color: $neutral-300;
-        font-family: Hauora-Regular;
-        font-size: 14px;
-        line-height: 14px;
-        letter-spacing: -0.28px;
-        a {
+      .password-div {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        .password-temp {
+          padding: 16px;
+          width: fit-content;
+          border-radius: 20px;
+          background-color: $yellow-500;
+          color: $neutral-900;
+          font-family: Hauora-Bold;
+          font-size: 16px;
+          line-height: 18px;
+          letter-spacing: -0.32px;
+        }
+        .hint {
+          color: $neutral-300;
+          font-family: Hauora-Regular;
+          font-size: 14px;
+          line-height: 14px;
+          letter-spacing: -0.28px;
+          a {
+            color: $neutral-white;
+          }
+        }
+        .password-text {
           color: $neutral-white;
+          font-family: Hauora-Bold;
+          font-size: 16px;
+          line-height: 18px;
+          letter-spacing: -0.32px;
         }
       }
-      .password-text {
-        color: $neutral-white;
-        font-family: Hauora-Bold;
-        font-size: 16px;
-        line-height: 18px;
-        letter-spacing: -0.32px;
+      .password-btn {
+        margin-top: 16px;
       }
-    }
-    .password-btn {
-      margin-top: 16px;
     }
   }
 }

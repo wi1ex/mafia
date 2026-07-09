@@ -925,7 +925,7 @@ onBeforeUnmount(() => {
     height: 578px;
     border-radius: 24px;
     background-color: $soft-purple-900;
-    .title {
+    .avatar-title {
       color: $neutral-white;
       font-family: Involve-Medium;
       font-size: 24px;
