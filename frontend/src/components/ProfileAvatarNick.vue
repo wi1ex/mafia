@@ -23,7 +23,13 @@
 
     <div class="profile-details">
       <div class="nickname">
-        <span class="title">Никнейм</span>
+        <div class="nickname-div">
+          <div class="nickname-title">
+            <span class="title">Никнейм</span>
+            <span class="hint">Никнейм также является логином для авторизации</span>
+          </div>
+          <span class="nickname-changes">{{ nicknameChangesText }}</span>
+        </div>
         <div class="nick-row">
           <div class="nick-input-line">
             <UiInput
@@ -31,7 +37,7 @@
               id="profile-nick"
               v-model.trim="nick"
               :maxlength="NICK_MAX"
-              :disabled="busyNick || isBanned || isProtectedAdminSelf"
+              :disabled="busyNick || isBanned"
               autocomplete="off"
               inputmode="text"
               label="Никнейм"
@@ -45,11 +51,9 @@
             </UiInput>
           </div>
           <span class="hint"><code>латиница, кириллица, цифры, символы ()._-</code></span>
-          <span class="hint" :class="{ red: nicknameChangesLeft <= 0 }">Осталось изменений никнейма: {{ nicknameChangesLeft }}</span>
           <button class="btn confirm" @click="saveNick" :disabled="saveNickDisabled">
             {{ busyNick ? '...' : 'Сохранить' }}
           </button>
-          <span class="hint">Никнейм является логином для авторизации</span>
         </div>
       </div>
 
@@ -237,13 +241,22 @@ const validNick = computed(() => {
   return !lower.startsWith('deleted_') && !lower.startsWith('user_')
 })
 const nicknameChangesLeft = computed(() => normalizeNicknameChangesLeft(me.nickname_changes_left))
+const nicknameChangesText = computed(() => {
+  const value = nicknameChangesLeft.value
+  if (value === 0) return 'Изменение никнейма недоступно'
+  const lastTwoDigits = value % 100
+  if (lastTwoDigits >= 11 && lastTwoDigits <= 14) return `Доступно ещё ${value} изменений никнейма`
+  const lastDigit = value % 10
+  if (lastDigit === 1) return `Доступно ещё ${value} изменение никнейма`
+  if (lastDigit >= 2 && lastDigit <= 4) return `Доступно ещё ${value} изменения никнейма`
+  return `Доступно ещё ${value} изменений никнейма`
+})
 const saveNickDisabled = computed(() => (
   busyNick.value
   || isBanned.value
-  || isProtectedAdminSelf.value
   || nick.value === me.username
   || !validNick.value
-  || nicknameChangesLeft.value <= 0
+  || (!isProtectedAdminSelf.value && nicknameChangesLeft.value <= 0)
 ))
 const subscriptionUntilMs = computed(() => parseDateMs(me.subscription_until))
 const hasActiveSubscription = computed(() => {
@@ -406,6 +419,7 @@ async function saveNick() {
     const moderationText = formatModerationAlert(d)
     if (st === 409 && d === 'username_taken')               void alertDialog('Данный никнейм уже занят')
     else if (st === 403 && d === 'user_banned')             void alertDialog('Аккаунт забанен. Изменение никнейма недоступно')
+    else if (st === 403 && d === 'protected_user')          void alertDialog('Администратору нельзя изменять свой никнейм')
     else if (st === 403 && d === 'nickname_change_limit_exhausted') {
       me.nickname_changes_left = 0
       userStore.setNicknameChangesLeft(0)

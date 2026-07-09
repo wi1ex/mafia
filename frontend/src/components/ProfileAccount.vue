@@ -196,7 +196,7 @@ let onProfileSync: ((e: Event) => void) | null = null
 
 const isDeleteAccountForbiddenSelf = computed(() => {
   const role = String(me.role || '').trim().toLowerCase()
-  return Boolean(me.protected_user) || role === 'admin' || role === 'moder'
+  return role === 'moder'
 })
 const registrationDateLabel = computed(() => {
   const raw = me.registered_at
