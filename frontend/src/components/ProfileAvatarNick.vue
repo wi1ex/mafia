@@ -1,7 +1,7 @@
 <template>
   <section class="block-profile">
     <div class="avatar">
-      <span class="title">Аватар</span>
+      <span class="avatar-title">Аватар</span>
       <div class="avatar-row">
         <img class="avatar-img" v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false, animated: true }" alt="Текущий аватар" />
         <button class="btn-delete" v-if="me.avatar_name" @click="onDeleteAvatar" :disabled="busyAva || isBanned">
@@ -69,12 +69,13 @@
         />
       </div>
 
-      <div class="nickname-history" aria-labelledby="nickname-history-title">
+      <div class="nickname-history">
         <div class="nickname-history-header">
-          <span id="nickname-history-title" class="nickname-history-title">История никнеймов</span>
-          <button class="btn danger nickname-history-clear" type="button" :disabled="nicknameHistoryClearDisabled" @click="clearNicknameHistory">
-            {{ nicknameHistoryClearBusy ? '...' : 'Очистить историю' }}
-          </button>
+          <span class="nickname-history-title">История никнеймов</span>
+          <UiTooltip
+            text="Обнуление истории никнеймов доступно только при наличии подписки."
+            placement="bottom-right"
+          />
         </div>
         <span class="nickname-history-access-text" :class="{ disabled: !canEditProfileTheme }">{{ nicknameHistoryAccessText }}</span>
         <span class="nickname-history-divider" aria-hidden="true"></span>
@@ -89,6 +90,9 @@
           </span>
           <span v-if="!nicknameHistoryItems.length" class="nickname-history-state">-</span>
         </div>
+        <button class="btn danger nickname-history-clear" type="button" :disabled="nicknameHistoryClearDisabled" @click="clearNicknameHistory">
+          {{ nicknameHistoryClearBusy ? '...' : 'Очистить историю' }}
+        </button>
       </div>
     </div>
 
