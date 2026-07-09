@@ -117,6 +117,7 @@
 
           <UiSlider
             class="modal-slider"
+            theme="light"
             :model-value="crop.scale"
             :min="crop.min"
             :max="crop.max"
@@ -166,10 +167,11 @@
             </div>
           </div>
 
-          <p v-if="gifPicker.error" class="hint red">{{ gifPicker.error }}</p>
+          <span v-if="gifPicker.error" class="hint">{{ gifPicker.error }}</span>
 
           <UiSlider
             class="modal-slider"
+            theme="light"
             :model-value="gifPicker.frameIndex"
             :min="0"
             :max="Math.max(0, gifPicker.frameCount - 1)"
@@ -1215,42 +1217,35 @@ onBeforeUnmount(() => {
       .gif-modal-body {
         .gif-preview-row {
           display: flex;
-          flex-wrap: wrap;
-          align-items: stretch;
-          justify-content: center;
           gap: 10px;
           .gif-preview-block {
             display: flex;
             flex-direction: column;
-            align-items: center;
-            gap: 5px;
+            gap: 8px;
             span {
+              margin-left: 8px;
               color: $neutral-500;
-              font-size: 18px;
+              font-family: Hauora-Regular;
+              font-size: 16px;
+              line-height: 16px;
+              letter-spacing: -0.32px;
             }
             img {
-              width: 300px;
-              height: 300px;
-              border-radius: 5px;
-              background-color: black;
+              width: 404px;
+              height: 404px;
+              border-radius: 999px;
               object-fit: contain;
             }
             canvas {
-              align-self: center;
-              width: 300px;
-              height: 300px;
-              border-radius: 5px;
-              background-color: black;
+              width: 404px;
+              height: 404px;
+              border-radius: 999px;
             }
           }
         }
         .hint {
-          margin: 0;
-          color: $neutral-500;
+          color: $red-500;
           font-size: 14px;
-          &.red {
-            color: $red-500;
-          }
         }
       }
     }

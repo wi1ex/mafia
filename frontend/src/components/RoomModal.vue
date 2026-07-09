@@ -35,6 +35,7 @@
           </div>
           <UiSlider
             v-model="limit"
+            theme="light"
             :min="RANGE_MIN"
             :max="RANGE_MAX"
             :step="1"

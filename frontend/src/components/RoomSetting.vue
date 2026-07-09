@@ -82,6 +82,7 @@
             <UiIcon class="volume-img" :icon="volumeIcon" />
             <UiSlider
               :model-value="volume"
+              theme="light"
               :min="0"
               :max="100"
               :step="10"

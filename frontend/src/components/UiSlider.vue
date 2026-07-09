@@ -1,5 +1,5 @@
 <template>
-  <div class="ui-slider ui-slider--filled" :class="{ disabled }">
+  <div class="ui-slider ui-slider--filled" :class="[themeClass, { disabled }]">
     <div class="ui-slider__fill-wrap">
       <div v-if="hasDeadZone" class="ui-slider__dead-zone" :style="deadZoneStyle" @click.stop="onDeadZoneClick"></div>
       <div class="ui-slider__fill-track" :style="fillStyle" aria-hidden="true"></div>
@@ -30,6 +30,7 @@ const props = withDefaults(defineProps<{
   ariaLabel?: string
   deadZoneUntil?: number | null
   deadZoneValue?: number | null
+  theme?: 'dark' | 'light'
 }>(), {
   min: 0,
   max: 100,
@@ -38,6 +39,7 @@ const props = withDefaults(defineProps<{
   ariaLabel: '',
   deadZoneUntil: null,
   deadZoneValue: null,
+  theme: 'dark',
 })
 
 const emit = defineEmits<{
@@ -61,6 +63,7 @@ const stepValue = computed(() => {
   const v = toNum(props.step, 1)
   return v > 0 ? v : 1
 })
+const themeClass = computed(() => `ui-slider--${props.theme}`)
 
 const currentValue = computed(() => normalizeValue(toNum(props.modelValue, minValue.value)))
 
@@ -117,6 +120,16 @@ function onDeadZoneClick(): void {
   align-items: center;
   width: 100%;
   min-width: 0;
+  &--dark {
+    --ui-slider-track-background: #{$neutral-700};
+    --ui-slider-thumb-border-color: #{$green-500};
+    --ui-slider-thumb-background: #{$soft-purple-900};
+  }
+  &--light {
+    --ui-slider-track-background: #{$neutral-200};
+    --ui-slider-thumb-border-color: #{$green-600};
+    --ui-slider-thumb-background: #{$neutral-white};
+  }
 }
 .ui-slider__input {
   width: 100%;
@@ -160,7 +173,7 @@ function onDeadZoneClick(): void {
     transform: translateY(-50%);
     border-radius: var(--ui-slider-track-radius);
     border: none;
-    background-color: $neutral-700;
+    background-color: var(--ui-slider-track-background);
     overflow: hidden;
     pointer-events: none;
   }
@@ -211,8 +224,8 @@ function onDeadZoneClick(): void {
     width: var(--ui-slider-thumb-size);
     height: var(--ui-slider-thumb-size);
     border-radius: 50%;
-    border: var(--ui-slider-thumb-border) solid $green-500;
-    background-color: $neutral-white;
+    border: var(--ui-slider-thumb-border) solid var(--ui-slider-thumb-border-color);
+    background-color: var(--ui-slider-thumb-background);
     box-sizing: border-box;
     cursor: grab;
   }
@@ -220,8 +233,8 @@ function onDeadZoneClick(): void {
     width: var(--ui-slider-thumb-size);
     height: var(--ui-slider-thumb-size);
     border-radius: 50%;
-    border: var(--ui-slider-thumb-border) solid $green-500;
-    background-color: $neutral-white;
+    border: var(--ui-slider-thumb-border) solid var(--ui-slider-thumb-border-color);
+    background-color: var(--ui-slider-thumb-background);
     box-sizing: border-box;
     cursor: grab;
   }
