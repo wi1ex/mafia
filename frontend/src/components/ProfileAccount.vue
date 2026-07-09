@@ -352,22 +352,17 @@ onBeforeUnmount(() => {
 
 .block-account {
   display: flex;
-  width: 100%;
+  flex-direction: column;
   gap: 10px;
+  width: 100%;
   .verif {
     display: flex;
-    position: relative;
     flex-direction: column;
     justify-content: space-between;
     padding: 24px;
-    width: calc(50% - 5px);
-    min-height: 210px;
     border-radius: 24px;
     background-color: $soft-purple-900;
     .verif-icon {
-      position: absolute;
-      top: 24px;
-      right: 24px;
       width: 26px;
       height: 26px;
     }
@@ -393,19 +388,17 @@ onBeforeUnmount(() => {
   }
   .account-params-password {
     display: flex;
-    flex-direction: column;
     gap: 10px;
-    width: calc(60% - 5px);
     .account-params {
       display: flex;
+      flex-direction: column;
       gap: 10px;
+      width: calc(50% - 5px);
       .account {
         display: flex;
         flex-direction: column;
         padding: 24px;
         gap: 24px;
-        width: calc(50% - 5px);
-        min-height: 210px;
         border-radius: 24px;
         background-color: $soft-purple-900;
         .account-div {
@@ -421,6 +414,7 @@ onBeforeUnmount(() => {
           }
           .date-text {
             padding: 16px;
+            width: fit-content;
             border-radius: 20px;
             background-color: $soft-purple-800;
             color: $neutral-white;
@@ -470,8 +464,7 @@ onBeforeUnmount(() => {
       flex-direction: column;
       padding: 24px;
       gap: 24px;
-      width: calc(40% - 5px);
-      height: fit-content;
+      width: calc(50% - 5px);
       border-radius: 24px;
       background-color: $soft-purple-900;
       --ui-input-label-bg: #{$soft-purple-900};
