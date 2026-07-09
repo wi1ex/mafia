@@ -1,5 +1,18 @@
 <template>
-  <div class="ui-input" :class="[rootClass, modeClass, labelModeClass, { invalid, 'ui-input--with-action': showPasswordToggle }]" :style="rootStyle">
+  <div
+    class="ui-input"
+    :class="[
+      rootClass,
+      modeClass,
+      labelModeClass,
+      {
+        invalid,
+        'ui-input--with-action': hasTrailingContent,
+        'ui-input--disabled': inputDisabled,
+      },
+    ]"
+    :style="rootStyle"
+  >
     <component
       :is="controlTag"
       :id="id"
@@ -13,6 +26,7 @@
     <span v-if="$slots.meta || meta" class="meta">
       <slot name="meta">{{ meta }}</slot>
     </span>
+    <UiIcon v-if="showStaticIcon" class="input-icon" :icon="icon" />
     <button v-if="showPasswordToggle" class="password-toggle" type="button" @click="togglePasswordVisibility"
             :aria-label="passwordVisible ? 'Скрыть пароль' : 'Показать пароль'" @pointerdown.prevent>
       <UiIcon class="password-toggle__icon" :icon="passwordVisible ? iconVisOn : iconVisOff" />
@@ -43,6 +57,7 @@ const props = withDefaults(defineProps<{
   mode?: 'light' | 'dark'
   labelMode?: 'floating' | 'placeholder'
   passwordToggle?: boolean
+  icon?: string
 }>(), {
   modelValue: '',
   type: 'text',
@@ -51,6 +66,7 @@ const props = withDefaults(defineProps<{
   mode: 'dark',
   labelMode: 'floating',
   passwordToggle: false,
+  icon: '',
 })
 
 const emit = defineEmits<{ (e: 'update:modelValue', value: string | number): void }>()
@@ -67,6 +83,9 @@ const modeClass = computed(() => `ui-input--${props.mode}`)
 const labelModeClass = computed(() => `ui-input--${props.labelMode}-label`)
 const resolvedPlaceholder = computed(() => props.placeholder ?? (props.labelMode === 'placeholder' ? props.label : ' '))
 const showPasswordToggle = computed(() => props.passwordToggle && controlTag.value === 'input' && props.type === 'password')
+const showStaticIcon = computed(() => Boolean(props.icon) && !showPasswordToggle.value)
+const hasTrailingContent = computed(() => showPasswordToggle.value || showStaticIcon.value)
+const inputDisabled = computed(() => Boolean(attrs.disabled))
 const passwordVisible = ref(false)
 const resolvedType = computed(() => {
   if (controlTag.value !== 'input') return undefined
@@ -135,7 +154,8 @@ watch(() => [props.id, props.type, props.passwordToggle], () => {
     transition: border-color 0.25s ease-in-out, color 0.25s ease-in-out;
   }
   &.ui-input--with-action {
-    input {
+    input,
+    textarea {
       width: calc(100% - 104px);
       padding-right: 72px;
     }
@@ -223,6 +243,23 @@ watch(() => [props.id, props.type, props.passwordToggle], () => {
       outline-offset: 2px;
       border-radius: 50%;
     }
+  }
+  .input-icon {
+    position: absolute;
+    top: 50%;
+    right: 32px;
+    transform: translateY(-50%);
+    pointer-events: none;
+    --ui-icon-width: 24px;
+    --ui-icon-height: 24px;
+    --ui-icon-color: var(--ui-input-text);
+  }
+  &:hover:not(.invalid):not(.ui-input--disabled) .input-icon,
+  &:focus-within:not(.invalid) .input-icon {
+    --ui-icon-color: var(--ui-input-hover-text);
+  }
+  &.invalid .input-icon {
+    --ui-icon-color: var(--ui-input-error-text);
   }
   &:hover:not(.invalid) input:placeholder-shown + label,
   &:hover:not(.invalid) textarea:placeholder-shown + label {

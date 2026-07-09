@@ -29,17 +29,12 @@
             <div class="nickname-title">
               <span class="title">Никнейм</span>
               <UiTooltip
-                text="Никнейм также является логином - используйте его для авторизации."
-                placement="top-right"
+                text="Никнейм также является логином - используйте его для авторизации.
+                Без подписки доступно 1 изменение никнейма в месяц. При наличии подписки лимит увеличен до 30."
+                placement="bottom-right"
               />
             </div>
-            <div class="nickname-changes-div">
-              <span class="nickname-changes">{{ nicknameChangesText }}</span>
-              <UiTooltip
-                text="Без подписки доступно 1 изменение никнейма в месяц. При наличии подписки лимит увеличен до 30."
-                placement="top-left"
-              />
-            </div>
+            <span class="nickname-changes">{{ nicknameChangesText }}</span>
           </div>
 
           <div class="nick-row">
@@ -52,6 +47,7 @@
               autocomplete="off"
               inputmode="text"
               label="Никнейм"
+              :icon="iconPen"
               :invalid="!!nick && !validNick"
               :aria-invalid="!!nick && !validNick"
               aria-describedby="profile-nick-hint"
@@ -168,6 +164,7 @@ import UiButton from '@/components/UiButton.vue'
 import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
 import iconDownload from '@/assets/svg/iconDownload.svg'
 import iconClose from '@/assets/svg/iconClose.svg'
+import iconPen from '@/assets/svg/iconPen.svg'
 
 const NICK_MAX = 20
 const NICKNAME_CHANGES_MAX = 30
@@ -1010,7 +1007,7 @@ onBeforeUnmount(() => {
               letter-spacing: -0.48px;
             }
           }
-          .nickname-changes-div {
+          .nickname-changes {
             display: flex;
             align-items: center;
             justify-content: center;
@@ -1018,13 +1015,11 @@ onBeforeUnmount(() => {
             height: 32px;
             border-radius: 12px;
             background-color: $red-100;
-            .nickname-changes {
-              color: $red-500;
-              font-family: Hauora-Regular;
-              font-size: 14px;
-              line-height: 14px;
-              letter-spacing: -0.28px;
-            }
+            color: $red-500;
+            font-family: Hauora-Regular;
+            font-size: 14px;
+            line-height: 14px;
+            letter-spacing: -0.28px;
           }
         }
         .nick-row {
