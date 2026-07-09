@@ -88,6 +88,7 @@
           id="profile-pass-current"
           v-model="pwd.current"
           type="password"
+          password-toggle
           autocomplete="current-password"
           minlength="8"
           maxlength="32"
@@ -108,6 +109,7 @@
           id="profile-pass-new"
           v-model="pwd.next"
           type="password"
+          password-toggle
           autocomplete="new-password"
           minlength="8"
           maxlength="32"
@@ -128,6 +130,7 @@
           id="profile-pass-confirm"
           v-model="pwd.confirm"
           type="password"
+          password-toggle
           autocomplete="new-password"
           minlength="8"
           maxlength="32"
