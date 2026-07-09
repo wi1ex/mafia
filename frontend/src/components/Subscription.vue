@@ -67,7 +67,6 @@
                   <UiInput
                     id="lava-email"
                     v-model.trim="lavaForm.email"
-                    class="lava-input"
                     type="email"
                     autocomplete="email"
                     label="Введите email"
@@ -110,7 +109,6 @@
                   <UiInput
                     id="lava-promo-code"
                     v-model.trim="lavaForm.promo_code"
-                    class="lava-input"
                     type="text"
                     inputmode="text"
                     autocomplete="off"
@@ -644,9 +642,6 @@ onBeforeUnmount(() => {
             flex-direction: column;
             margin-top: 76px;
             gap: 24px;
-            .lava-input {
-              --ui-input-label-bg: #{$neutral-100};
-            }
             .lava-field {
               display: flex;
               align-items: center;

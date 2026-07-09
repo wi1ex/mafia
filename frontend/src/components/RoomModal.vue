@@ -401,7 +401,6 @@ onBeforeUnmount(() => {
       flex-direction: column;
       gap: 24px;
       background-color: $neutral-100;
-      --ui-input-label-bg: #{$neutral-100};
       .range {
         display: flex;
         flex-direction: column;

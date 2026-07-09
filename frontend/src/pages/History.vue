@@ -689,8 +689,6 @@ onBeforeUnmount(() => {
       border-radius: 5px;
       border: 1px solid rgba($neutral-500, 0.3);
       background-color: $neutral-900;
-      --ui-input-label-bg: #{$neutral-900};
-      --ui-dropdown-label-bg-override: #{$neutral-900};
       .history-admin-filters-grid {
         display: grid;
         grid-template-columns: repeat(4, minmax(0, 1fr));

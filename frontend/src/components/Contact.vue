@@ -294,7 +294,6 @@ onBeforeUnmount(() => {
     background-color: $neutral-100;
     box-shadow: 0 0 16px 0 rgba($neutral-black, 0.16);
     box-sizing: border-box;
-    --ui-input-label-bg: #{$neutral-100};
     header {
       display: flex;
       align-items: flex-start;

@@ -74,8 +74,7 @@
       <span class="title">Пароль</span>
 
       <div class="password-div">
-<!--        <span v-if="passwordTemp" class="password-temp">У вас временный пароль — рекомендуем изменить его</span>-->
-        <span class="password-temp">У вас временный пароль — рекомендуем изменить его</span>
+        <span v-if="passwordTemp" class="password-temp">У вас временный пароль — рекомендуем изменить его</span>
         <span class="hint">
           Сбросить пароль можно через
           <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">TG-бота</a>
@@ -363,7 +362,7 @@ onBeforeUnmount(() => {
     display: flex;
     flex-direction: column;
     gap: 10px;
-    width: calc(50% - 5px);
+    width: calc(60% - 5px);
     .account-verif {
       display: flex;
       gap: 10px;
@@ -454,8 +453,6 @@ onBeforeUnmount(() => {
       flex-direction: column;
       padding: 24px;
       gap: 24px;
-      width: fit-content;
-      height: fit-content;
       border-radius: 24px;
       background-color: $soft-purple-900;
       .title {
@@ -477,10 +474,11 @@ onBeforeUnmount(() => {
     flex-direction: column;
     padding: 24px;
     gap: 24px;
-    width: calc(50% - 5px);
+    width: calc(40% - 53px);
     height: fit-content;
     border-radius: 24px;
     background-color: $soft-purple-900;
+    --ui-input-label-bg: #{$soft-purple-900};
     .title {
       margin-bottom: 16px;
       color: $neutral-white;

@@ -786,6 +786,7 @@ onBeforeUnmount(() => {
         flex: 1 1 auto;
         max-width: 300px;
         width: 100%;
+        --ui-input-label-bg: #{$soft-purple-900};
       }
       .nickname-history-tooltip-wrap {
         display: inline-flex;
