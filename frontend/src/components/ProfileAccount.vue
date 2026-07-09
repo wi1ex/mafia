@@ -428,18 +428,23 @@ onBeforeUnmount(() => {
       }
       .verif {
         display: flex;
+        position: relative;
         flex-direction: column;
         justify-content: space-between;
         padding: 24px;
         border-radius: 24px;
         background-color: $soft-purple-900;
         .verif-icon {
+          position: absolute;
+          top: 24px;
+          right: 24px;
           width: 26px;
           height: 26px;
         }
         .verif-div {
           display: flex;
           flex-direction: column;
+          margin-bottom: 24px;
           gap: 16px;
           .title {
             color: $neutral-white;
