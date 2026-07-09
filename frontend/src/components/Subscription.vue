@@ -7,11 +7,11 @@
             <UiIcon class="close-icon" :icon="iconClose" />
           </button>
           <header>
-            <div class="header-track" :class="{ 'is-lava': lavaFormOpen }">
-              <div class="header-div" :aria-hidden="lavaFormOpen ? 'true' : 'false'">
+            <div class="header-track" :class="{ 'is-kassa': kassaFormOpen }">
+              <div class="header-div" :aria-hidden="kassaFormOpen ? 'true' : 'false'">
                 <span class="header-title">Выбери свой план подписки или просто поддержи проект</span>
               </div>
-              <div class="header-div" :aria-hidden="lavaFormOpen ? 'false' : 'true'">
+              <div class="header-div" :aria-hidden="kassaFormOpen ? 'false' : 'true'">
                 <span class="header-title">Оформление подписки</span>
                 <span class="header-text">Настрой параметры платежа перед переходом на страницу оплаты</span>
               </div>
@@ -19,8 +19,8 @@
           </header>
 
           <div class="subscription-purchase-content">
-            <div class="subscription-purchase-track" :class="{ 'is-lava': lavaFormOpen }">
-              <div class="subscription-purchase-slide" :inert="lavaFormOpen ? true : undefined" :aria-hidden="lavaFormOpen ? 'true' : 'false'">
+            <div class="subscription-purchase-track" :class="{ 'is-kassa': kassaFormOpen }">
+              <div class="subscription-purchase-slide" :inert="kassaFormOpen ? true : undefined" :aria-hidden="kassaFormOpen ? 'true' : 'false'">
                 <UiSwitch
                   v-model="subscribeYearSelected"
                   class="subscribe-switch"
@@ -56,17 +56,17 @@
                   <UiButton
                     text="Оформить подписку"
                     :icon="iconCard"
-                    :disabled="lavaBusy"
-                    @click="openLavaForm"
+                    :disabled="kassaBusy"
+                    @click="openKassaForm"
                   />
                 </div>
               </div>
 
-              <div class="subscription-purchase-slide" :inert="lavaFormOpen ? undefined : true" :aria-hidden="lavaFormOpen ? 'false' : 'true'">
-                <form class="lava-form" @submit.prevent="onLavaPay">
+              <div class="subscription-purchase-slide" :inert="kassaFormOpen ? undefined : true" :aria-hidden="kassaFormOpen ? 'false' : 'true'">
+                <form class="kassa-form" @submit.prevent="onKassaPay">
                   <UiInput
-                    id="lava-email"
-                    v-model.trim="lavaForm.email"
+                    id="kassa-email"
+                    v-model.trim="kassaForm.email"
                     type="email"
                     autocomplete="email"
                     label="Введите email"
@@ -74,32 +74,32 @@
                     mode="light"
                   />
 
-                  <div class="lava-field">
-                    <span class="lava-text">Срок подписки</span>
-                    <div class="lava-segmented">
-                      <button v-for="plan in lavaPlans" :key="plan.id" type="button" :class="{ active: lavaForm.plan === plan.id }" @click="lavaForm.plan = plan.id">
+                  <div class="kassa-field">
+                    <span class="kassa-text">Срок подписки</span>
+                    <div class="kassa-segmented">
+                      <button v-for="plan in kassaPlans" :key="plan.id" type="button" :class="{ active: kassaForm.plan === plan.id }" @click="kassaForm.plan = plan.id">
                         <span>{{ plan.label }}</span>
-                        <span v-if="plan.id === 'year'" class="lava-segmented-badge">-15%</span>
+                        <span v-if="plan.id === 'year'" class="kassa-segmented-badge">-15%</span>
                       </button>
                     </div>
                   </div>
 
-                  <div class="lava-field">
-                    <span class="lava-text">Валюта</span>
-                    <div class="lava-segmented">
-                      <button v-for="currency in lavaCurrencies" :key="currency" type="button" :class="{ active: lavaForm.currency === currency }" @click="lavaForm.currency = currency">
-                        <UiIcon class="lava-segmented-icon" :icon="lavaCurrencyIcons[currency]" />
+                  <div class="kassa-field">
+                    <span class="kassa-text">Валюта</span>
+                    <div class="kassa-segmented">
+                      <button v-for="currency in kassaCurrencies" :key="currency" type="button" :class="{ active: kassaForm.currency === currency }" @click="kassaForm.currency = currency">
+                        <UiIcon class="kassa-segmented-icon" :icon="kassaCurrencyIcons[currency]" />
                         <span>{{ currency }}</span>
                       </button>
                     </div>
                   </div>
 
-                  <Transition name="lava-payment-expand">
-                    <div v-if="lavaForm.currency === 'RUB'" class="lava-field">
-                      <span class="lava-text">Способ оплаты</span>
-                      <div class="lava-segmented">
-                        <button v-for="method in availableLavaPaymentOptions" :key="method.id" type="button" :class="{ active: lavaForm.payment_option === method.id }" @click="lavaForm.payment_option = method.id">
-                          <UiIcon class="lava-segmented-icon" :icon="lavaPaymentOptionIcons[method.id]" />
+                  <Transition name="kassa-payment-expand">
+                    <div v-if="kassaForm.currency === 'RUB'" class="kassa-field">
+                      <span class="kassa-text">Способ оплаты</span>
+                      <div class="kassa-segmented">
+                        <button v-for="method in availableKassaPaymentOptions" :key="method.id" type="button" :class="{ active: kassaForm.payment_option === method.id }" @click="kassaForm.payment_option = method.id">
+                          <UiIcon class="kassa-segmented-icon" :icon="kassaPaymentOptionIcons[method.id]" />
                           <span>{{ method.label }}</span>
                         </button>
                       </div>
@@ -107,8 +107,8 @@
                   </Transition>
 
                   <UiInput
-                    id="lava-promo-code"
-                    v-model.trim="lavaForm.promo_code"
+                    id="kassa-promo-code"
+                    v-model.trim="kassaForm.promo_code"
                     type="text"
                     inputmode="text"
                     autocomplete="off"
@@ -117,21 +117,21 @@
                     mode="light"
                   />
 
-                  <div class="lava-actions">
+                  <div class="kassa-actions">
                     <UiButton
-                      class="lava-back"
+                      class="kassa-back"
                       variant="white"
                       :icon="iconArrowDown"
                       icon-position="left"
                       text="Назад"
-                      :disabled="lavaBusy"
-                      @click="closeLavaForm"
+                      :disabled="kassaBusy"
+                      @click="closeKassaForm"
                     />
                     <UiButton
-                      class="lava-submit"
+                      class="kassa-submit"
                       type="submit"
-                      :text="lavaSubmitText"
-                      :disabled="lavaBusy"
+                      :text="kassaSubmitText"
+                      :disabled="kassaBusy"
                     />
                   </div>
                 </form>
@@ -183,46 +183,46 @@ const emit = defineEmits<{
 
 const auth = useAuthStore()
 const settings = useSettingsStore()
-const lavaBusy = ref(false)
-const lavaFormOpen = ref(false)
-const lavaEmailStorageKey = 'lava:buyerEmail'
+const kassaBusy = ref(false)
+const kassaFormOpen = ref(false)
+const kassaEmailStorageKey = 'kassa:buyerEmail'
 const emailRe = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$/i
 const promoCodeRe = /^[A-Z0-9_-]{3,36}$/
 
-type LavaPlan = 'month' | 'year'
-type LavaCurrency = 'RUB' | 'USD' | 'EUR'
-type LavaPaymentOptionId = 'card' | 'sbp'
+type KassaPlan = 'month' | 'year'
+type KassaCurrency = 'RUB' | 'USD' | 'EUR'
+type KassaPaymentOptionId = 'card' | 'sbp'
 
-type LavaPaymentOption = {
-  id: LavaPaymentOptionId
+type KassaPaymentOption = {
+  id: KassaPaymentOptionId
   label: string
-  currencies: readonly LavaCurrency[]
+  currencies: readonly KassaCurrency[]
   payment_provider: string
   payment_method: string
 }
 
-const lavaCurrencyIcons: Record<LavaCurrency, string> = {
+const kassaCurrencyIcons: Record<KassaCurrency, string> = {
   RUB: iconRouble,
   USD: iconDollar,
   EUR: iconEuro,
 }
 
-const lavaPaymentOptionIcons: Record<LavaPaymentOptionId, string> = {
+const kassaPaymentOptionIcons: Record<KassaPaymentOptionId, string> = {
   card: iconCard,
   sbp: iconSBP,
 }
 
-const lavaPlans: readonly { id: LavaPlan; label: string }[] = [
+const kassaPlans: readonly { id: KassaPlan; label: string }[] = [
   { id: 'month', label: 'Месяц' },
   { id: 'year', label: 'Год' },
 ]
 
-const lavaPlanPrices: Record<LavaPlan, { amount: string; period: string }> = {
+const kassaPlanPrices: Record<KassaPlan, { amount: string; period: string }> = {
   month: { amount: '490 ₽', period: '/мес' },
   year: { amount: '4990 ₽', period: '/год' },
 }
 
-const lavaPaymentPrices: Record<LavaCurrency, Record<LavaPlan, string>> = {
+const kassaPaymentPrices: Record<KassaCurrency, Record<KassaPlan, string>> = {
   RUB: { month: '490 ₽', year: '4990 ₽' },
   EUR: { month: '6.9 €', year: '69 €' },
   USD: { month: '7.9 $', year: '79 $' },
@@ -240,9 +240,9 @@ const subscriptionBenefits: readonly string[] = [
   'обнуление истории своих никнеймов',
 ]
 
-const lavaCurrencies: readonly LavaCurrency[] = ['RUB', 'USD', 'EUR']
+const kassaCurrencies: readonly KassaCurrency[] = ['RUB', 'USD', 'EUR']
 
-const lavaPaymentOptions: readonly LavaPaymentOption[] = [
+const kassaPaymentOptions: readonly KassaPaymentOption[] = [
   {
     id: 'card',
     label: 'Карта',
@@ -259,11 +259,11 @@ const lavaPaymentOptions: readonly LavaPaymentOption[] = [
   },
 ]
 
-const lavaForm = ref<{
+const kassaForm = ref<{
   email: string
-  plan: LavaPlan
-  currency: LavaCurrency
-  payment_option: LavaPaymentOptionId
+  plan: KassaPlan
+  currency: KassaCurrency
+  payment_option: KassaPaymentOptionId
   promo_code: string
 }>({
   email: '',
@@ -273,18 +273,18 @@ const lavaForm = ref<{
   promo_code: '',
 })
 
-const availableLavaPaymentOptions = computed(() => (
-  lavaPaymentOptions.filter((option) => option.currencies.includes(lavaForm.value.currency))
+const availableKassaPaymentOptions = computed(() => (
+  kassaPaymentOptions.filter((option) => option.currencies.includes(kassaForm.value.currency))
 ))
 const subscribeYearSelected = computed({
-  get: () => lavaForm.value.plan === 'year',
+  get: () => kassaForm.value.plan === 'year',
   set: (yearSelected: boolean) => {
-    lavaForm.value.plan = yearSelected ? 'year' : 'month'
+    kassaForm.value.plan = yearSelected ? 'year' : 'month'
   },
 })
-const selectedSubscribePrice = computed(() => lavaPlanPrices[lavaForm.value.plan])
-const lavaSubmitText = computed(() => (
-  `Оплатить ${lavaPaymentPrices[lavaForm.value.currency][lavaForm.value.plan]}`
+const selectedSubscribePrice = computed(() => kassaPlanPrices[kassaForm.value.plan])
+const kassaSubmitText = computed(() => (
+  `Оплатить ${kassaPaymentPrices[kassaForm.value.currency][kassaForm.value.plan]}`
 ))
 
 const donateSite = computed<PaymentSite>(() => ({
@@ -296,7 +296,7 @@ const donateSite = computed<PaymentSite>(() => ({
 const armed = ref(false)
 
 function requestClose(): void {
-  if (!lavaBusy.value) lavaFormOpen.value = false
+  if (!kassaBusy.value) kassaFormOpen.value = false
   emit('update:open', false)
 }
 
@@ -306,79 +306,79 @@ function onDonateSelect(): void {
   requestClose()
 }
 
-function openLavaForm(): void {
-  if (lavaBusy.value) return
+function openKassaForm(): void {
+  if (kassaBusy.value) return
   if (!auth.isAuthed) {
     void alertDialog('Войдите в аккаунт перед оплатой')
     return
   }
 
-  const saved = localStorage.getItem(lavaEmailStorageKey) || ''
-  lavaForm.value.email = lavaForm.value.email || saved
-  lavaFormOpen.value = true
+  const saved = localStorage.getItem(kassaEmailStorageKey) || ''
+  kassaForm.value.email = kassaForm.value.email || saved
+  kassaFormOpen.value = true
 }
 
-function closeLavaForm(): void {
-  if (lavaBusy.value) return
-  lavaFormOpen.value = false
+function closeKassaForm(): void {
+  if (kassaBusy.value) return
+  kassaFormOpen.value = false
 }
 
-function selectedLavaPaymentOption(): LavaPaymentOption {
-  const selected = availableLavaPaymentOptions.value.find((option) => option.id === lavaForm.value.payment_option)
-  return selected || lavaPaymentOptions[0]
+function selectedKassaPaymentOption(): KassaPaymentOption {
+  const selected = availableKassaPaymentOptions.value.find((option) => option.id === kassaForm.value.payment_option)
+  return selected || kassaPaymentOptions[0]
 }
 
-function paymentProviderForOption(option: LavaPaymentOption): string {
+function paymentProviderForOption(option: KassaPaymentOption): string {
   return option.payment_provider
 }
 
-function normalizedLavaEmail(): string | null {
-  const email = lavaForm.value.email.trim().toLowerCase()
+function normalizedKassaEmail(): string | null {
+  const email = kassaForm.value.email.trim().toLowerCase()
   if (!emailRe.test(email)) {
     void alertDialog('Введите корректный email')
     return null
   }
 
-  lavaForm.value.email = email
-  localStorage.setItem(lavaEmailStorageKey, email)
+  kassaForm.value.email = email
+  localStorage.setItem(kassaEmailStorageKey, email)
   return email
 }
 
 function normalizedPromoCode(): string | null {
-  const promoCode = lavaForm.value.promo_code.trim()
+  const promoCode = kassaForm.value.promo_code.trim()
   if (promoCode && !promoCodeRe.test(promoCode)) {
     void alertDialog('Промокод должен быть от 3 до 36 символов: заглавные латинские буквы A-Z, цифры 0-9, "-" или "_"')
     return null
   }
 
-  lavaForm.value.promo_code = promoCode
+  kassaForm.value.promo_code = promoCode
   return promoCode
 }
 
-async function onLavaPay(): Promise<void> {
-  if (lavaBusy.value) return
+async function onKassaPay(): Promise<void> {
+  if (kassaBusy.value) return
   if (!auth.isAuthed) {
     void alertDialog('Войдите в аккаунт перед оплатой')
     return
   }
 
-  const email = normalizedLavaEmail()
+  const email = normalizedKassaEmail()
   if (!email) return
 
   const promoCode = normalizedPromoCode()
   if (promoCode === null) return
 
-  const paymentOption = lavaForm.value.currency === 'RUB' ? selectedLavaPaymentOption() : null
+  const paymentOption = kassaForm.value.currency === 'RUB' ? selectedKassaPaymentOption() : null
   const paymentProvider = paymentOption ? paymentProviderForOption(paymentOption) : ''
 
-  lavaBusy.value = true
+  kassaBusy.value = true
   const paymentWindow = window.open('', '_blank')
   if (paymentWindow) paymentWindow.opener = null
   try {
-    const { data } = await api.post<{ payment_url: string; processed?: boolean }>('/payments/lava/link', {
+    const { data } = await api.post<{ payment_url: string; processed?: boolean }>('/payments/kassa/link', {
       email,
-      plan: lavaForm.value.plan,
-      currency: lavaForm.value.currency,
+      plan: kassaForm.value.plan,
+      currency: kassaForm.value.currency,
       payment_provider: paymentProvider,
       payment_method: paymentOption?.payment_method || '',
       promo_code: promoCode,
@@ -392,7 +392,7 @@ async function onLavaPay(): Promise<void> {
     }
 
     if (!paymentUrl) throw new Error('payment_url_missing')
-    emit('select', { id: 'lava', name: 'Lava.top', url: paymentUrl })
+    emit('select', { id: 'kassa', name: 'kassa', url: paymentUrl })
     requestClose()
     if (paymentWindow) paymentWindow.location.href = paymentUrl
     else window.location.assign(paymentUrl)
@@ -401,41 +401,41 @@ async function onLavaPay(): Promise<void> {
     const st = Number(e?.response?.status || 0)
     const detail = String(e?.response?.data?.detail || '')
     if (st === 401) void alertDialog('Войдите в аккаунт перед оплатой')
-    else if (st === 422 && detail === 'lava_email_required') void alertDialog('Введите email для отправки чека и оформления платежа')
-    else if (st === 422 && detail === 'lava_email_invalid') void alertDialog('Введите корректный email')
-    else if (st === 422 && detail === 'lava_email_rejected') void alertDialog('Сервис не принял этот email. Проверьте адрес или попробуйте другой')
-    else if (st === 422 && detail === 'lava_promo_code_invalid') void alertDialog('Промокод должен содержать только заглавные латинские буквы, цифры, "-" или "_"')
-    else if (st === 422 && detail === 'lava_promo_code_usage_limit_exceeded') void alertDialog('Лимит использования промокода исчерпан')
-    else if (st === 422 && detail === 'lava_promo_code_rejected') void alertDialog('Сервис не принял промокод для выбранного тарифа или валюты')
-    else if (st === 422 && detail === 'lava_currency_rejected') void alertDialog('Сервис не принял выбранную валюту. Выберите другую валюту')
-    else if (st === 422 && detail === 'lava_currency_invalid') void alertDialog('Выбрана неподдерживаемая валюта')
-    else if (st === 422 && detail === 'lava_plan_invalid') void alertDialog('Выбран неподдерживаемый тариф подписки')
-    else if (st === 422 && detail === 'lava_payment_method_rejected') void alertDialog('Сервис не принял выбранный способ оплаты. Выберите другой способ')
-    else if (st === 422 && detail === 'lava_payment_provider_invalid') void alertDialog('Выбран неподдерживаемый платежный провайдер')
-    else if (st === 422 && detail === 'lava_payment_method_invalid') void alertDialog('Выбран неподдерживаемый способ оплаты')
-    else if (st === 422 && detail === 'lava_payment_method_required') void alertDialog('Выберите способ оплаты')
-    else if (st === 422 && detail === 'lava_payment_method_unsupported') void alertDialog('Выбранный способ оплаты недоступен для этой валюты')
-    else if (st === 422 && detail === 'lava_request_rejected') void alertDialog('Сервис отклонил параметры платежа. Проверьте тариф, валюту и промокод')
-    else if (st === 429 && detail === 'lava_rate_limited') void alertDialog('Сервис временно ограничил частоту запросов. Повторите попытку позже')
-    else if (st === 503 && detail === 'lava_offer_not_found') void alertDialog('Тариф сервиса не найден. Сообщите администратору')
-    else if (st === 503 && detail === 'lava_api_unauthorized') void alertDialog('Оплата сервиса настроена неверно: API-ключ не принят')
-    else if (st === 503 && detail === 'lava_service_unavailable') void alertDialog('Сервис временно недоступен. Повторите попытку позже')
-    else if (st === 503 && detail === 'lava_product_missing') void alertDialog('Оплата сервиса не настроена: не указан продукт')
-    else if (st === 503 && detail === 'lava_api_key_missing') void alertDialog('Оплата сервиса не настроена: не указан API-ключ')
-    else if (st === 503 && detail === 'lava_monthly_offer_missing') void alertDialog('Оплата сервиса не настроена: не указан месячный тариф')
-    else if (st === 503 && detail === 'lava_yearly_offer_missing') void alertDialog('Оплата сервиса не настроена: не указан годовой тариф')
-    else if (st === 502 && detail === 'lava_contract_id_missing') void alertDialog('Сервис создал платеж без номера договора. Повторите попытку позже')
-    else if (st === 502 && detail === 'lava_payment_url_missing') void alertDialog('Сервис не вернул ссылку на оплату. Повторите попытку позже')
-    else if (st === 502 && detail === 'lava_invoice_invalid_response') void alertDialog('Сервис вернул некорректный ответ. Повторите попытку позже')
-    else if (st === 502 && detail === 'lava_invoice_request_failed') void alertDialog('Не удалось подключиться к сервису. Повторите попытку позже')
-    else if (st === 502 && detail === 'lava_invoice_failed') void alertDialog('Сервис отклонил создание платежа. Проверьте параметры или повторите попытку позже')
-    else if (st === 502 && detail === 'lava_free_invoice_not_processed') void alertDialog('Платеж без оплаты создан, но подписка не активировалась. Сообщите администратору')
-    else if (st === 504 && detail === 'lava_invoice_timeout') void alertDialog('Сервис не ответил вовремя. Повторите попытку позже')
-    else if (st === 503 && detail.startsWith('lava_')) void alertDialog('Оплата сервиса пока не настроена')
-    else if (st === 422 && detail.startsWith('lava_')) void alertDialog('Проверьте параметры оплаты')
+    else if (st === 422 && detail === 'kassa_email_required') void alertDialog('Введите email для отправки чека и оформления платежа')
+    else if (st === 422 && detail === 'kassa_email_invalid') void alertDialog('Введите корректный email')
+    else if (st === 422 && detail === 'kassa_email_rejected') void alertDialog('Сервис не принял этот email. Проверьте адрес или попробуйте другой')
+    else if (st === 422 && detail === 'kassa_promo_code_invalid') void alertDialog('Промокод должен содержать только заглавные латинские буквы, цифры, "-" или "_"')
+    else if (st === 422 && detail === 'kassa_promo_code_usage_limit_exceeded') void alertDialog('Лимит использования промокода исчерпан')
+    else if (st === 422 && detail === 'kassa_promo_code_rejected') void alertDialog('Сервис не принял промокод для выбранного тарифа или валюты')
+    else if (st === 422 && detail === 'kassa_currency_rejected') void alertDialog('Сервис не принял выбранную валюту. Выберите другую валюту')
+    else if (st === 422 && detail === 'kassa_currency_invalid') void alertDialog('Выбрана неподдерживаемая валюта')
+    else if (st === 422 && detail === 'kassa_plan_invalid') void alertDialog('Выбран неподдерживаемый тариф подписки')
+    else if (st === 422 && detail === 'kassa_payment_method_rejected') void alertDialog('Сервис не принял выбранный способ оплаты. Выберите другой способ')
+    else if (st === 422 && detail === 'kassa_payment_provider_invalid') void alertDialog('Выбран неподдерживаемый платежный провайдер')
+    else if (st === 422 && detail === 'kassa_payment_method_invalid') void alertDialog('Выбран неподдерживаемый способ оплаты')
+    else if (st === 422 && detail === 'kassa_payment_method_required') void alertDialog('Выберите способ оплаты')
+    else if (st === 422 && detail === 'kassa_payment_method_unsupported') void alertDialog('Выбранный способ оплаты недоступен для этой валюты')
+    else if (st === 422 && detail === 'kassa_request_rejected') void alertDialog('Сервис отклонил параметры платежа. Проверьте тариф, валюту и промокод')
+    else if (st === 429 && detail === 'kassa_rate_limited') void alertDialog('Сервис временно ограничил частоту запросов. Повторите попытку позже')
+    else if (st === 503 && detail === 'kassa_offer_not_found') void alertDialog('Тариф сервиса не найден. Сообщите администратору')
+    else if (st === 503 && detail === 'kassa_api_unauthorized') void alertDialog('Оплата сервиса настроена неверно: API-ключ не принят')
+    else if (st === 503 && detail === 'kassa_service_unavailable') void alertDialog('Сервис временно недоступен. Повторите попытку позже')
+    else if (st === 503 && detail === 'kassa_product_missing') void alertDialog('Оплата сервиса не настроена: не указан продукт')
+    else if (st === 503 && detail === 'kassa_api_key_missing') void alertDialog('Оплата сервиса не настроена: не указан API-ключ')
+    else if (st === 503 && detail === 'kassa_monthly_offer_missing') void alertDialog('Оплата сервиса не настроена: не указан месячный тариф')
+    else if (st === 503 && detail === 'kassa_yearly_offer_missing') void alertDialog('Оплата сервиса не настроена: не указан годовой тариф')
+    else if (st === 502 && detail === 'kassa_contract_id_missing') void alertDialog('Сервис создал платеж без номера договора. Повторите попытку позже')
+    else if (st === 502 && detail === 'kassa_payment_url_missing') void alertDialog('Сервис не вернул ссылку на оплату. Повторите попытку позже')
+    else if (st === 502 && detail === 'kassa_invoice_invalid_response') void alertDialog('Сервис вернул некорректный ответ. Повторите попытку позже')
+    else if (st === 502 && detail === 'kassa_invoice_request_failed') void alertDialog('Не удалось подключиться к сервису. Повторите попытку позже')
+    else if (st === 502 && detail === 'kassa_invoice_failed') void alertDialog('Сервис отклонил создание платежа. Проверьте параметры или повторите попытку позже')
+    else if (st === 502 && detail === 'kassa_free_invoice_not_processed') void alertDialog('Платеж без оплаты создан, но подписка не активировалась. Сообщите администратору')
+    else if (st === 504 && detail === 'kassa_invoice_timeout') void alertDialog('Сервис не ответил вовремя. Повторите попытку позже')
+    else if (st === 503 && detail.startsWith('kassa_')) void alertDialog('Оплата сервиса пока не настроена')
+    else if (st === 422 && detail.startsWith('kassa_')) void alertDialog('Проверьте параметры оплаты')
     else void alertDialog('Не удалось открыть оплату сервиса')
   } finally {
-    lavaBusy.value = false
+    kassaBusy.value = false
   }
 }
 
@@ -444,22 +444,22 @@ function onKeydown(event: KeyboardEvent): void {
   if (event.key === 'Escape') requestClose()
 }
 
-watch(() => lavaForm.value.currency, () => {
-  if (lavaForm.value.currency !== 'RUB') return
+watch(() => kassaForm.value.currency, () => {
+  if (kassaForm.value.currency !== 'RUB') return
 
-  const available = availableLavaPaymentOptions.value.some((option) => option.id === lavaForm.value.payment_option)
+  const available = availableKassaPaymentOptions.value.some((option) => option.id === kassaForm.value.payment_option)
   if (!available) {
-    lavaForm.value.payment_option = availableLavaPaymentOptions.value[0]?.id || 'card'
+    kassaForm.value.payment_option = availableKassaPaymentOptions.value[0]?.id || 'card'
   }
 })
 
 watch(() => props.open, (open) => {
   armed.value = false
   if (open) {
-    lavaForm.value.email = lavaForm.value.email || localStorage.getItem(lavaEmailStorageKey) || ''
+    kassaForm.value.email = kassaForm.value.email || localStorage.getItem(kassaEmailStorageKey) || ''
     document.addEventListener('keydown', onKeydown)
   } else {
-    lavaFormOpen.value = false
+    kassaFormOpen.value = false
     document.removeEventListener('keydown', onKeydown)
   }
 })
@@ -521,7 +521,7 @@ onBeforeUnmount(() => {
         display: flex;
         flex: 0 0 200%;
         transition: transform 0.35s cubic-bezier(0.25, 1, 0.5, 1);
-        &.is-lava {
+        &.is-kassa {
           transform: translateX(-50%);
         }
       }
@@ -556,7 +556,7 @@ onBeforeUnmount(() => {
         display: flex;
         flex: 0 0 200%;
         transition: transform 0.35s cubic-bezier(0.25, 1, 0.5, 1);
-        &.is-lava {
+        &.is-kassa {
           transform: translateX(-50%);
         }
         .subscription-purchase-slide {
@@ -637,24 +637,24 @@ onBeforeUnmount(() => {
             justify-self: center;
             gap: 10px;
           }
-          .lava-form {
+          .kassa-form {
             display: flex;
             flex-direction: column;
             margin-top: 76px;
             gap: 24px;
-            .lava-field {
+            .kassa-field {
               display: flex;
               align-items: center;
               justify-content: space-between;
               gap: 40px;
-              .lava-text {
+              .kassa-text {
                 color: $neutral-black;
                 font-family: Hauora-Bold;
                 font-size: 16px;
                 line-height: 18px;
                 letter-spacing: -0.32px;
               }
-              .lava-segmented {
+              .kassa-segmented {
                 display: flex;
                 align-items: center;
                 gap: 10px;
@@ -692,14 +692,14 @@ onBeforeUnmount(() => {
                     position: relative;
                     z-index: 1;
                   }
-                  .lava-segmented-icon {
+                  .kassa-segmented-icon {
                     position: relative;
                     z-index: 1;
                     --ui-icon-width: 24px;
                     --ui-icon-height: 24px;
                     --ui-icon-color: currentColor;
                   }
-                  .lava-segmented-badge {
+                  .kassa-segmented-badge {
                     display: inline-flex;
                     align-items: center;
                     justify-content: center;
@@ -727,16 +727,16 @@ onBeforeUnmount(() => {
                 }
               }
             }
-            .lava-actions {
+            .kassa-actions {
               display: flex;
               position: absolute;
               left: 135px;
               bottom: 0;
               gap: 10px;
-              .lava-submit {
+              .kassa-submit {
                 min-width: 175px;
               }
-              :deep(.lava-back .ui-button__icon) {
+              :deep(.kassa-back .ui-button__icon) {
                 transform: rotate(90deg);
               }
             }
@@ -755,19 +755,19 @@ onBeforeUnmount(() => {
 .subscription-purchase-overlay-leave-to {
   opacity: 0;
 }
-.lava-payment-expand-enter-active,
-.lava-payment-expand-leave-active {
+.kassa-payment-expand-enter-active,
+.kassa-payment-expand-leave-active {
   overflow: hidden;
   transition: max-height 0.25s ease-in-out, opacity 0.2s ease-in-out, transform 0.25s ease-in-out;
 }
-.lava-payment-expand-enter-from,
-.lava-payment-expand-leave-to {
+.kassa-payment-expand-enter-from,
+.kassa-payment-expand-leave-to {
   max-height: 0;
   opacity: 0;
   transform: translateY(-10px);
 }
-.lava-payment-expand-enter-to,
-.lava-payment-expand-leave-from {
+.kassa-payment-expand-enter-to,
+.kassa-payment-expand-leave-from {
   max-height: 120px;
   opacity: 1;
   transform: translateY(0);

@@ -17,10 +17,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.logging import log_action
 from ..core.settings import settings
-from ..models.lava_payment import LavaPayment
+from ..models.kassa_payment import KassaPayment
 from ..models.subscription import UserSubscription
 from ..models.user import User
-from ..schemas.payments import LavaPaymentLinkCreateIn, LavaPaymentLinkCreateOut
+from ..schemas.payments import KassaPaymentLinkCreateIn, KassaPaymentLinkCreateOut
 from .nickname_limits import (
     SUBSCRIPTION_NICKNAME_CHANGE_LIMIT,
     normalize_nickname_changes_left,
@@ -42,36 +42,36 @@ from .telegram import send_text_message
 
 log = structlog.get_logger()
 
-LAVA_CURRENCY = "RUB"
-LAVA_API_BASE_URL = "https://gate.lava.top"
-LAVA_INVOICE_PATH = "/api/v3/invoice"
-LAVA_BUYER_LANGUAGE = "RU"
-LAVA_REQUEST_TIMEOUT_SECONDS = 15
-LAVA_CURRENCIES = {"RUB", "USD", "EUR"}
-LAVA_PAYMENT_PROVIDERS = {"SMART_GLOCAL", "PAY2ME"}
-LAVA_PAYMENT_METHODS = {"CARD", "SBP"}
-LAVA_MONTH_PLAN = "month"
-LAVA_YEAR_PLAN = "year"
-LAVA_MONTHS_BY_PLAN = {
-    LAVA_MONTH_PLAN: 1,
-    LAVA_YEAR_PLAN: 12,
+KASSA_CURRENCY = "RUB"
+KASSA_API_BASE_URL = "https://gate.lava.top"
+KASSA_INVOICE_PATH = "/api/v3/invoice"
+KASSA_BUYER_LANGUAGE = "RU"
+KASSA_REQUEST_TIMEOUT_SECONDS = 15
+KASSA_CURRENCIES = {"RUB", "USD", "EUR"}
+KASSA_PAYMENT_PROVIDERS = {"SMART_GLOCAL", "PAY2ME"}
+KASSA_PAYMENT_METHODS = {"CARD", "SBP"}
+KASSA_MONTH_PLAN = "month"
+KASSA_YEAR_PLAN = "year"
+KASSA_MONTHS_BY_PLAN = {
+    KASSA_MONTH_PLAN: 1,
+    KASSA_YEAR_PLAN: 12,
 }
-LAVA_TRACKING_TOKEN_PREFIX = "lv_"
-TRACKING_TOKEN_RE = re.compile(r"^lv_[A-Za-z0-9_-]{24,96}$")
+KASSA_TRACKING_TOKEN_PREFIX = "kassa_"
+TRACKING_TOKEN_RE = re.compile(r"^kassa_[A-Za-z0-9_-]{24,90}$")
 EMAIL_RE = re.compile(r"^[^@\s]{1,64}@[^@\s]{1,190}\.[^@\s]{2,}$")
 PROMO_CODE_RE = re.compile(r"^[A-Z0-9_-]{3,36}$")
-LAVA_PROMO_REJECTION_RE = re.compile(r"promo|promocode|coupon|discount|промо|скид", re.I)
-LAVA_PROMO_USAGE_LIMIT_RE = re.compile(r"usage\s+limit|limit.*exceed|лимит|исчерпан", re.I)
-LAVA_PAYMENT_SUCCESS_EVENT = "payment.success"
-LAVA_PAYMENT_FAILED_EVENT = "payment.failed"
-LAVA_PAYMENT_FAILED_STATUSES = {"failed", "cancelled", "refunded", "chargeback"}
-LAVA_IGNORED_EVENTS = {
+KASSA_PROMO_REJECTION_RE = re.compile(r"promo|promocode|coupon|discount|промо|скид", re.I)
+KASSA_PROMO_USAGE_LIMIT_RE = re.compile(r"usage\s+limit|limit.*exceed|лимит|исчерпан", re.I)
+KASSA_PAYMENT_SUCCESS_EVENT = "payment.success"
+KASSA_PAYMENT_FAILED_EVENT = "payment.failed"
+KASSA_PAYMENT_FAILED_STATUSES = {"failed", "cancelled", "refunded", "chargeback"}
+KASSA_IGNORED_EVENTS = {
     "subscription.recurring.payment.success",
     "subscription.recurring.payment.failed",
     "subscription.cancelled",
 }
-LAVA_LOG_ACTION = "lava_payment"
-LAVA_SUBSCRIPTION_ADMIN_TELEGRAM_ID = 59404714
+KASSA_LOG_ACTION = "kassa_payment"
+KASSA_SUBSCRIPTION_ADMIN_TELEGRAM_ID = 59404714
 
 
 def _clean(value: object, *, max_len: int | None = None) -> str:
@@ -105,7 +105,7 @@ def _log_value(value: object) -> str:
     return text or "-"
 
 
-LAVA_LOG_FIELD_ORDER = (
+KASSA_LOG_FIELD_ORDER = (
     "event",
     "email",
     "plan",
@@ -117,7 +117,7 @@ LAVA_LOG_FIELD_ORDER = (
     "result",
     "status",
 )
-LAVA_LOG_FIELD_LABELS = {
+KASSA_LOG_FIELD_LABELS = {
     "event": "Событие",
     "email": "Email",
     "plan": "Тариф",
@@ -129,54 +129,54 @@ LAVA_LOG_FIELD_LABELS = {
     "result": "Результат",
     "status": "Статус",
 }
-LAVA_LOG_EVENT_LABELS = {
+KASSA_LOG_EVENT_LABELS = {
     "payment_link": "выдача ссылки на оплату",
     "payment_result": "результат оплаты",
 }
-LAVA_LOG_PLAN_LABELS = {
-    LAVA_MONTH_PLAN: "1 месяц",
-    LAVA_YEAR_PLAN: "12 месяцев",
+KASSA_LOG_PLAN_LABELS = {
+    KASSA_MONTH_PLAN: "1 месяц",
+    KASSA_YEAR_PLAN: "12 месяцев",
 }
-LAVA_LOG_PAYMENT_METHOD_LABELS = {
+KASSA_LOG_PAYMENT_METHOD_LABELS = {
     "CARD": "карта",
     "SBP": "СБП",
 }
-LAVA_LOG_REASON_LABELS = {
-    "lava_invoice_timeout": "сервис Lava не ответил вовремя",
-    "lava_invoice_request_failed": "не удалось подключиться к Lava",
-    "lava_api_unauthorized": "API-ключ Lava не принят",
-    "lava_offer_not_found": "тариф Lava не найден",
-    "lava_rate_limited": "Lava ограничила частоту запросов",
-    "lava_email_rejected": "Lava не приняла email",
-    "lava_currency_rejected": "Lava не приняла валюту",
-    "lava_payment_method_rejected": "Lava не приняла способ оплаты",
-    "lava_request_rejected": "Lava отклонила параметры платежа",
-    "lava_service_unavailable": "Lava временно недоступна",
-    "lava_invoice_invalid_response": "Lava вернула некорректный ответ",
-    "lava_contract_id_missing": "Lava не вернула номер договора",
-    "lava_payment_url_missing": "Lava не вернула ссылку на оплату",
-    "lava_free_invoice_not_processed": (
+KASSA_LOG_REASON_LABELS = {
+    "kassa_invoice_timeout": "сервис не ответил вовремя",
+    "kassa_invoice_request_failed": "не удалось подключиться к сервису",
+    "kassa_api_unauthorized": "API-ключ сервиса не принят",
+    "kassa_offer_not_found": "тариф сервиса не найден",
+    "kassa_rate_limited": "сервис ограничил частоту запросов",
+    "kassa_email_rejected": "сервис не принял email",
+    "kassa_currency_rejected": "сервис не принял валюту",
+    "kassa_payment_method_rejected": "сервис не принял способ оплаты",
+    "kassa_request_rejected": "сервис отклонил параметры платежа",
+    "kassa_service_unavailable": "сервис временно недоступен",
+    "kassa_invoice_invalid_response": "сервис вернул некорректный ответ",
+    "kassa_contract_id_missing": "сервис не вернул номер договора",
+    "kassa_payment_url_missing": "сервис не вернул ссылку на оплату",
+    "kassa_free_invoice_not_processed": (
         "нулевой счет создан, но подписка не активировалась"
     ),
-    "lava_plan_invalid": "выбран неподдерживаемый тариф",
-    "lava_yearly_offer_missing": "не настроен годовой тариф Lava",
-    "lava_monthly_offer_missing": "не настроен месячный тариф Lava",
-    "lava_email_required": "email не указан",
-    "lava_email_invalid": "email некорректен",
-    "lava_currency_invalid": "выбрана неподдерживаемая валюта",
-    "lava_payment_provider_invalid": (
+    "kassa_plan_invalid": "выбран неподдерживаемый тариф",
+    "kassa_yearly_offer_missing": "не настроен годовой тариф сервиса",
+    "kassa_monthly_offer_missing": "не настроен месячный тариф сервиса",
+    "kassa_email_required": "email не указан",
+    "kassa_email_invalid": "email некорректен",
+    "kassa_currency_invalid": "выбрана неподдерживаемая валюта",
+    "kassa_payment_provider_invalid": (
         "выбран неподдерживаемый платежный провайдер"
     ),
-    "lava_payment_method_invalid": (
+    "kassa_payment_method_invalid": (
         "выбран неподдерживаемый способ оплаты"
     ),
-    "lava_promo_code_invalid": "промокод некорректен",
-    "lava_promo_code_usage_limit_exceeded": (
+    "kassa_promo_code_invalid": "промокод некорректен",
+    "kassa_promo_code_usage_limit_exceeded": (
         "лимит использования промокода исчерпан"
     ),
-    "lava_promo_code_rejected": "Lava не приняла промокод",
-    "lava_payment_method_required": "способ оплаты не выбран",
-    "lava_payment_method_unsupported": (
+    "kassa_promo_code_rejected": "сервис не принял промокод",
+    "kassa_payment_method_required": "способ оплаты не выбран",
+    "kassa_payment_method_unsupported": (
         "способ оплаты недоступен для выбранной валюты"
     ),
     "free_invoice_not_processed": (
@@ -186,12 +186,12 @@ LAVA_LOG_REASON_LABELS = {
         "не найден пользователь или период подписки"
     ),
     "product_mismatch": (
-        "продукт в уведомлении Lava не совпал с настройками"
+        "продукт в уведомлении сервиса не совпал с настройками"
     ),
     "payment_failed": "платеж не прошел",
-    "unhandled_webhook": "уведомление Lava не обработано",
+    "unhandled_webhook": "уведомление сервиса не обработано",
 }
-LAVA_LOG_RESULT_LABELS = {
+KASSA_LOG_RESULT_LABELS = {
     "payment_url_created": "ссылка на оплату выдана",
     "payment_link_failed": "ошибка выдачи ссылки на оплату",
     "subscription_granted_without_payment_url": (
@@ -207,7 +207,7 @@ LAVA_LOG_RESULT_LABELS = {
     ),
     "unhandled_webhook": "результат платежа не обработан",
 }
-LAVA_LOG_STATUS_LABELS = {
+KASSA_LOG_STATUS_LABELS = {
     "success": "успешно",
     "failed": "ошибка",
     "pending": "ожидает оплаты",
@@ -222,28 +222,28 @@ LAVA_LOG_STATUS_LABELS = {
 }
 
 
-def _localized_lava_log_value(field: str, value: object) -> str:
+def _localized_kassa_log_value(field: str, value: object) -> str:
     raw = _log_value(value)
     if raw == "-":
         return raw
 
     if field == "event":
-        return LAVA_LOG_EVENT_LABELS.get(raw, raw)
+        return KASSA_LOG_EVENT_LABELS.get(raw, raw)
 
     if field == "plan":
-        return LAVA_LOG_PLAN_LABELS.get(raw, raw)
+        return KASSA_LOG_PLAN_LABELS.get(raw, raw)
 
     if field == "payment_method":
-        return LAVA_LOG_PAYMENT_METHOD_LABELS.get(raw.upper(), raw)
+        return KASSA_LOG_PAYMENT_METHOD_LABELS.get(raw.upper(), raw)
 
     if field == "reason":
-        return LAVA_LOG_REASON_LABELS.get(raw, raw)
+        return KASSA_LOG_REASON_LABELS.get(raw, raw)
 
     if field == "result":
-        return LAVA_LOG_RESULT_LABELS.get(raw, raw)
+        return KASSA_LOG_RESULT_LABELS.get(raw, raw)
 
     if field == "status":
-        return LAVA_LOG_STATUS_LABELS.get(raw.lower(), raw)
+        return KASSA_LOG_STATUS_LABELS.get(raw.lower(), raw)
 
     return raw
 
@@ -251,26 +251,26 @@ def _localized_lava_log_value(field: str, value: object) -> str:
 def _log_details(event: str, **fields: object) -> str:
     allowed_fields = {"event": event}
     allowed_fields.update(
-        {key: value for key, value in fields.items() if key in LAVA_LOG_FIELD_ORDER}
+        {key: value for key, value in fields.items() if key in KASSA_LOG_FIELD_ORDER}
     )
     parts = []
-    for key in LAVA_LOG_FIELD_ORDER:
+    for key in KASSA_LOG_FIELD_ORDER:
         if key not in allowed_fields:
             continue
 
-        label = LAVA_LOG_FIELD_LABELS[key]
-        value = _localized_lava_log_value(key, allowed_fields[key])
+        label = KASSA_LOG_FIELD_LABELS[key]
+        value = _localized_kassa_log_value(key, allowed_fields[key])
         parts.append(f"{label}: {value}")
 
     return "; ".join(parts)
 
 
-async def _log_lava_event(session: AsyncSession, *, event: str, user_id: int | None, username: str | None, commit: bool = True, **fields: object) -> None:
+async def _log_kassa_event(session: AsyncSession, *, event: str, user_id: int | None, username: str | None, commit: bool = True, **fields: object) -> None:
     await log_action(
         session,
         user_id=user_id,
         username=username,
-        action=LAVA_LOG_ACTION,
+        action=KASSA_LOG_ACTION,
         details=_log_details(event, **fields),
         commit=commit,
     )
@@ -280,11 +280,11 @@ def _user_log_username(user: User, fallback: object = None) -> str:
     return str(user.username or fallback or f"user{user.id}")
 
 
-def _payment_log_username(payment: LavaPayment) -> str | None:
+def _payment_log_username(payment: KassaPayment) -> str | None:
     return f"user{payment.user_id}" if payment.user_id else None
 
 
-def _lava_payment_amount_text(payment: LavaPayment) -> str:
+def _kassa_payment_amount_text(payment: KassaPayment) -> str:
     if payment.amount is None:
         return "-"
 
@@ -293,7 +293,7 @@ def _lava_payment_amount_text(payment: LavaPayment) -> str:
     return f"{amount} {currency}" if currency else amount
 
 
-async def _send_lava_subscription_admin_telegram_message(*, uid: int, chat_id: int, text: str) -> None:
+async def _send_kassa_subscription_admin_telegram_message(*, uid: int, chat_id: int, text: str) -> None:
     try:
         send_result = await send_text_message(
             chat_id=chat_id,
@@ -301,7 +301,7 @@ async def _send_lava_subscription_admin_telegram_message(*, uid: int, chat_id: i
         )
     except Exception:
         log.warning(
-            "lava.subscription.admin_telegram_notify_failed",
+            "kassa.subscription.admin_telegram_notify_failed",
             uid=uid,
             reason="unexpected_error",
             exc_info=True,
@@ -310,36 +310,36 @@ async def _send_lava_subscription_admin_telegram_message(*, uid: int, chat_id: i
 
     if not send_result.ok:
         log.warning(
-            "lava.subscription.admin_telegram_notify_failed",
+            "kassa.subscription.admin_telegram_notify_failed",
             uid=uid,
             reason=send_result.reason,
         )
 
 
-def _schedule_lava_subscription_admin_telegram_message(*, uid: int, chat_id: int, text: str) -> None:
+def _schedule_kassa_subscription_admin_telegram_message(*, uid: int, chat_id: int, text: str) -> None:
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:
         log.warning(
-            "lava.subscription.admin_telegram_notify_failed",
+            "kassa.subscription.admin_telegram_notify_failed",
             uid=uid,
             reason="event_loop_unavailable",
         )
         return
 
-    loop.create_task(_send_lava_subscription_admin_telegram_message(uid=uid, chat_id=chat_id, text=text))
+    loop.create_task(_send_kassa_subscription_admin_telegram_message(uid=uid, chat_id=chat_id, text=text))
 
 
-async def _send_lava_subscription_admin_notice(
+async def _send_kassa_subscription_admin_notice(
     *,
     user: User,
-    payment: LavaPayment,
+    payment: KassaPayment,
     months: int,
 ) -> None:
     uid = int(user.id)
     username = str(user.username or f"user{uid}")
     duration = format_subscription_purchase_duration(months=months)
-    amount = _lava_payment_amount_text(payment)
+    amount = _kassa_payment_amount_text(payment)
     text = (
         "Покупка подписки\n"
         f"Пользователь: {username}\n"
@@ -347,9 +347,9 @@ async def _send_lava_subscription_admin_notice(
         f"Срок: {duration}\n"
         f"Сумма: {amount}"
     )
-    _schedule_lava_subscription_admin_telegram_message(
+    _schedule_kassa_subscription_admin_telegram_message(
         uid=uid,
-        chat_id=LAVA_SUBSCRIPTION_ADMIN_TELEGRAM_ID,
+        chat_id=KASSA_SUBSCRIPTION_ADMIN_TELEGRAM_ID,
         text=text,
     )
 
@@ -370,7 +370,7 @@ def _flatten_text(value: object) -> str:
     return str(value)
 
 
-def _lava_error_text(response: httpx.Response) -> str:
+def _kassa_error_text(response: httpx.Response) -> str:
     try:
         data = response.json()
     except ValueError:
@@ -389,42 +389,42 @@ def _lava_error_text(response: httpx.Response) -> str:
     return response.text[:1000]
 
 
-def _lava_invoice_error_detail(response: httpx.Response, *, has_promo_code: bool) -> str:
-    text = _lava_error_text(response)
+def _kassa_invoice_error_detail(response: httpx.Response, *, has_promo_code: bool) -> str:
+    text = _kassa_error_text(response)
     normalized = text.lower()
 
     if has_promo_code:
-        if LAVA_PROMO_USAGE_LIMIT_RE.search(text):
-            return "lava_promo_code_usage_limit_exceeded"
+        if KASSA_PROMO_USAGE_LIMIT_RE.search(text):
+            return "kassa_promo_code_usage_limit_exceeded"
 
-        if LAVA_PROMO_REJECTION_RE.search(text):
-            return "lava_promo_code_rejected"
+        if KASSA_PROMO_REJECTION_RE.search(text):
+            return "kassa_promo_code_rejected"
 
     if response.status_code in {401, 403}:
-        return "lava_api_unauthorized"
+        return "kassa_api_unauthorized"
 
     if response.status_code == 404 or "offer" in normalized and "not found" in normalized:
-        return "lava_offer_not_found"
+        return "kassa_offer_not_found"
 
     if response.status_code == 429:
-        return "lava_rate_limited"
+        return "kassa_rate_limited"
 
     if response.status_code in {400, 422}:
         if "email" in normalized:
-            return "lava_email_rejected"
+            return "kassa_email_rejected"
 
         if "currency" in normalized:
-            return "lava_currency_rejected"
+            return "kassa_currency_rejected"
 
         if "payment" in normalized and ("method" in normalized or "provider" in normalized):
-            return "lava_payment_method_rejected"
+            return "kassa_payment_method_rejected"
 
-        return "lava_request_rejected"
+        return "kassa_request_rejected"
 
     if response.status_code >= 500:
-        return "lava_service_unavailable"
+        return "kassa_service_unavailable"
 
-    return "lava_invoice_failed"
+    return "kassa_invoice_failed"
 
 
 def _decimal_or_none(value: object) -> Decimal | None:
@@ -483,11 +483,11 @@ def _extract_amount_and_currency(payload: dict[str, Any]) -> tuple[Decimal | Non
         amount = _decimal_or_none(amount_value)
         currency = _clean(amount_total.get("currency"), max_len=3).upper()
         if amount is not None:
-            return amount, currency or LAVA_CURRENCY
+            return amount, currency or KASSA_CURRENCY
 
     amount = _decimal_or_none(payload.get("amount"))
     currency = _clean(payload.get("currency"), max_len=3).upper()
-    return amount, currency or LAVA_CURRENCY
+    return amount, currency or KASSA_CURRENCY
 
 
 def _extract_payment_method_from_payload(payload: dict[str, Any]) -> str:
@@ -507,7 +507,7 @@ def _extract_payment_method_from_payload(payload: dict[str, Any]) -> str:
     return ""
 
 
-def _extract_payment_method_for_log(payment: LavaPayment, webhook_payload: dict[str, Any]) -> str:
+def _extract_payment_method_for_log(payment: KassaPayment, webhook_payload: dict[str, Any]) -> str:
     method = _extract_payment_method_from_payload(webhook_payload)
     if method:
         return method
@@ -533,33 +533,33 @@ def _normalized_event(value: str) -> str:
     return _clean(value, max_len=128).lower()
 
 
-def _is_ignored_lava_event(event_type: str) -> bool:
-    return _normalized_event(event_type) in LAVA_IGNORED_EVENTS
+def _is_ignored_kassa_event(event_type: str) -> bool:
+    return _normalized_event(event_type) in KASSA_IGNORED_EVENTS
 
 
-def _is_lava_payment_failure(event_type: str, status_value: str) -> bool:
+def _is_kassa_payment_failure(event_type: str, status_value: str) -> bool:
     return (
-        _normalized_event(event_type) == LAVA_PAYMENT_FAILED_EVENT
-        or _normalize_status(status_value) in LAVA_PAYMENT_FAILED_STATUSES
+        _normalized_event(event_type) == KASSA_PAYMENT_FAILED_EVENT
+        or _normalize_status(status_value) in KASSA_PAYMENT_FAILED_STATUSES
     )
 
 
-def _is_lava_payment_success(event_type: str, status_value: str) -> bool:
-    return _normalized_event(event_type) == LAVA_PAYMENT_SUCCESS_EVENT
+def _is_kassa_payment_success(event_type: str, status_value: str) -> bool:
+    return _normalized_event(event_type) == KASSA_PAYMENT_SUCCESS_EVENT
 
 
 def _configured_product_url() -> str:
-    product_url = _clean(settings.LAVA_PRODUCT_URL)
+    product_url = _clean(settings.KASSA_PRODUCT_URL)
     if not product_url:
-        raise HTTPException(status_code=503, detail="lava_product_missing")
+        raise HTTPException(status_code=503, detail="kassa_product_missing")
 
     return product_url
 
 
-def _configured_lava_api_key() -> str:
-    api_key = _clean(settings.LAVA_API_KEY)
+def _configured_kassa_api_key() -> str:
+    api_key = _clean(settings.KASSA_API_KEY)
     if not api_key:
-        raise HTTPException(status_code=503, detail="lava_api_key_missing")
+        raise HTTPException(status_code=503, detail="kassa_api_key_missing")
 
     return api_key
 
@@ -567,60 +567,60 @@ def _configured_lava_api_key() -> str:
 def _normalize_plan(value: object) -> str:
     plan = _clean(value).lower()
     if plan in {"year", "annual", "annually", "12", "12m"}:
-        return LAVA_YEAR_PLAN
+        return KASSA_YEAR_PLAN
 
     if plan in {"", "month", "monthly", "1", "1m"}:
-        return LAVA_MONTH_PLAN
+        return KASSA_MONTH_PLAN
 
-    raise HTTPException(status_code=422, detail="lava_plan_invalid")
+    raise HTTPException(status_code=422, detail="kassa_plan_invalid")
 
 
 def _configured_offer_for_plan(plan: str) -> tuple[str, int]:
-    if plan == LAVA_YEAR_PLAN:
-        offer_id = _clean(settings.LAVA_YEARLY_OFFER_ID)
+    if plan == KASSA_YEAR_PLAN:
+        offer_id = _clean(settings.KASSA_YEARLY_OFFER_ID)
         if not offer_id:
-            raise HTTPException(status_code=503, detail="lava_yearly_offer_missing")
+            raise HTTPException(status_code=503, detail="kassa_yearly_offer_missing")
 
-        return offer_id, LAVA_MONTHS_BY_PLAN[LAVA_YEAR_PLAN]
+        return offer_id, KASSA_MONTHS_BY_PLAN[KASSA_YEAR_PLAN]
 
-    offer_id = _clean(settings.LAVA_MONTHLY_OFFER_ID)
+    offer_id = _clean(settings.KASSA_MONTHLY_OFFER_ID)
     if not offer_id:
-        raise HTTPException(status_code=503, detail="lava_monthly_offer_missing")
+        raise HTTPException(status_code=503, detail="kassa_monthly_offer_missing")
 
-    return offer_id, LAVA_MONTHS_BY_PLAN[LAVA_MONTH_PLAN]
+    return offer_id, KASSA_MONTHS_BY_PLAN[KASSA_MONTH_PLAN]
 
 
 def _normalize_buyer_email(value: object) -> str:
     email = _clean(value, max_len=254).lower()
     if not email:
-        raise HTTPException(status_code=422, detail="lava_email_required")
+        raise HTTPException(status_code=422, detail="kassa_email_required")
 
     if not EMAIL_RE.match(email):
-        raise HTTPException(status_code=422, detail="lava_email_invalid")
+        raise HTTPException(status_code=422, detail="kassa_email_invalid")
 
     return email
 
 
-def _normalize_lava_currency(value: object) -> str:
-    currency = _clean(value, max_len=3).upper() or LAVA_CURRENCY
-    if currency not in LAVA_CURRENCIES:
-        raise HTTPException(status_code=422, detail="lava_currency_invalid")
+def _normalize_kassa_currency(value: object) -> str:
+    currency = _clean(value, max_len=3).upper() or KASSA_CURRENCY
+    if currency not in KASSA_CURRENCIES:
+        raise HTTPException(status_code=422, detail="kassa_currency_invalid")
 
     return currency
 
 
 def _normalize_payment_provider(value: object) -> str:
     provider = _clean(value, max_len=32).upper()
-    if provider and provider not in LAVA_PAYMENT_PROVIDERS:
-        raise HTTPException(status_code=422, detail="lava_payment_provider_invalid")
+    if provider and provider not in KASSA_PAYMENT_PROVIDERS:
+        raise HTTPException(status_code=422, detail="kassa_payment_provider_invalid")
 
     return provider
 
 
 def _normalize_payment_method(value: object) -> str:
     method = _clean(value, max_len=32).upper()
-    if method and method not in LAVA_PAYMENT_METHODS:
-        raise HTTPException(status_code=422, detail="lava_payment_method_invalid")
+    if method and method not in KASSA_PAYMENT_METHODS:
+        raise HTTPException(status_code=422, detail="kassa_payment_method_invalid")
 
     return method
 
@@ -628,27 +628,27 @@ def _normalize_payment_method(value: object) -> str:
 def _normalize_promo_code(value: object) -> str:
     promo_code = _clean(value, max_len=36)
     if promo_code and not PROMO_CODE_RE.match(promo_code):
-        raise HTTPException(status_code=422, detail="lava_promo_code_invalid")
+        raise HTTPException(status_code=422, detail="kassa_promo_code_invalid")
 
     return promo_code
 
 
 def _ensure_payment_method_supported(*, currency: str, payment_provider: str, payment_method: str) -> None:
     if not payment_provider or not payment_method:
-        raise HTTPException(status_code=422, detail="lava_payment_method_required")
+        raise HTTPException(status_code=422, detail="kassa_payment_method_required")
 
     allowed: set[tuple[str, str, str]] = {
         ("RUB", "SMART_GLOCAL", "CARD"),
         ("RUB", "PAY2ME", "SBP"),
     }
     if (currency, payment_provider, payment_method) not in allowed:
-        raise HTTPException(status_code=422, detail="lava_payment_method_unsupported")
+        raise HTTPException(status_code=422, detail="kassa_payment_method_unsupported")
 
 
-def _normalize_invoice_options(payload: LavaPaymentLinkCreateIn | None) -> tuple[str, str, str, str]:
-    currency = _normalize_lava_currency(payload.currency if payload is not None else None)
+def _normalize_invoice_options(payload: KassaPaymentLinkCreateIn | None) -> tuple[str, str, str, str]:
+    currency = _normalize_kassa_currency(payload.currency if payload is not None else None)
     promo_code = _normalize_promo_code(payload.promo_code if payload is not None else None)
-    if currency != LAVA_CURRENCY:
+    if currency != KASSA_CURRENCY:
         return currency, "", "", promo_code
 
     payment_provider = _normalize_payment_provider(
@@ -678,14 +678,14 @@ def _configured_product_id() -> str:
 
 
 def _new_tracking_token() -> str:
-    return f"{LAVA_TRACKING_TOKEN_PREFIX}{token_urlsafe(24)}"
+    return f"{KASSA_TRACKING_TOKEN_PREFIX}{token_urlsafe(24)}"
 
 
 def _invoice_client_utm(*, token: str, user_id: int) -> dict[str, str]:
     return {
         "utm_source": "mafia_site",
         "utm_medium": "subscription",
-        "utm_campaign": "lava_subscription",
+        "utm_campaign": "kassa_subscription",
         "utm_term": str(user_id),
         "utm_content": token,
     }
@@ -696,7 +696,7 @@ def _invoice_request_payload(*, email: str, offer_id: str, currency: str, paymen
         "email": email,
         "offerId": offer_id,
         "currency": currency,
-        "buyerLanguage": LAVA_BUYER_LANGUAGE,
+        "buyerLanguage": KASSA_BUYER_LANGUAGE,
         "clientUtm": _invoice_client_utm(token=token, user_id=user_id),
     }
     if payment_provider:
@@ -711,46 +711,46 @@ def _invoice_request_payload(*, email: str, offer_id: str, currency: str, paymen
     return payload
 
 
-def _lava_invoice_url() -> str:
-    return f"{LAVA_API_BASE_URL}{LAVA_INVOICE_PATH}"
+def _kassa_invoice_url() -> str:
+    return f"{KASSA_API_BASE_URL}{KASSA_INVOICE_PATH}"
 
 
-async def _create_lava_invoice(payload: dict[str, Any]) -> dict[str, Any]:
-    url = _lava_invoice_url()
+async def _create_kassa_invoice(payload: dict[str, Any]) -> dict[str, Any]:
+    url = _kassa_invoice_url()
     headers = {
         "Accept": "application/json",
         "Content-Type": "application/json",
-        "X-Api-Key": _configured_lava_api_key(),
+        "X-Api-Key": _configured_kassa_api_key(),
     }
     try:
-        async with httpx.AsyncClient(timeout=LAVA_REQUEST_TIMEOUT_SECONDS) as client:
+        async with httpx.AsyncClient(timeout=KASSA_REQUEST_TIMEOUT_SECONDS) as client:
             response = await client.post(url, json=payload, headers=headers)
     except httpx.TimeoutException as exc:
-        log.warning("lava.invoice.timeout", url=url)
-        raise HTTPException(status_code=504, detail="lava_invoice_timeout") from exc
+        log.warning("kassa.invoice.timeout", url=url)
+        raise HTTPException(status_code=504, detail="kassa_invoice_timeout") from exc
 
     except httpx.HTTPError as exc:
-        log.warning("lava.invoice.request_failed", url=url, error=type(exc).__name__)
-        raise HTTPException(status_code=502, detail="lava_invoice_request_failed") from exc
+        log.warning("kassa.invoice.request_failed", url=url, error=type(exc).__name__)
+        raise HTTPException(status_code=502, detail="kassa_invoice_request_failed") from exc
 
     if response.status_code < 200 or response.status_code >= 300:
-        body = _lava_error_text(response)[:1000]
-        detail = _lava_invoice_error_detail(
+        body = _kassa_error_text(response)[:1000]
+        detail = _kassa_invoice_error_detail(
             response,
             has_promo_code=bool(payload.get("promoCode")),
         )
         log.warning(
-            "lava.invoice.bad_status",
+            "kassa.invoice.bad_status",
             status_code=response.status_code,
             body=body,
             detail=detail,
         )
-        status_code = 422 if detail.startswith("lava_promo_") or detail.endswith("_rejected") else 502
-        if detail in {"lava_api_unauthorized", "lava_offer_not_found"}:
+        status_code = 422 if detail.startswith("kassa_promo_") or detail.endswith("_rejected") else 502
+        if detail in {"kassa_api_unauthorized", "kassa_offer_not_found"}:
             status_code = 503
-        elif detail == "lava_rate_limited":
+        elif detail == "kassa_rate_limited":
             status_code = 429
-        elif detail == "lava_service_unavailable":
+        elif detail == "kassa_service_unavailable":
             status_code = 503
 
         raise HTTPException(status_code=status_code, detail=detail)
@@ -758,12 +758,12 @@ async def _create_lava_invoice(payload: dict[str, Any]) -> dict[str, Any]:
     try:
         data = response.json()
     except ValueError as exc:
-        log.warning("lava.invoice.invalid_json", body=response.text[:1000])
-        raise HTTPException(status_code=502, detail="lava_invoice_invalid_response") from exc
+        log.warning("kassa.invoice.invalid_json", body=response.text[:1000])
+        raise HTTPException(status_code=502, detail="kassa_invoice_invalid_response") from exc
 
     if not isinstance(data, dict):
-        log.warning("lava.invoice.invalid_payload", payload_type=type(data).__name__)
-        raise HTTPException(status_code=502, detail="lava_invoice_invalid_response")
+        log.warning("kassa.invoice.invalid_payload", payload_type=type(data).__name__)
+        raise HTTPException(status_code=502, detail="kassa_invoice_invalid_response")
 
     return data
 
@@ -814,7 +814,7 @@ def _extract_tracking_user_id(payload: dict[str, Any]) -> int | None:
 
 
 def _expected_webhook_secrets() -> list[str]:
-    secret = _clean(settings.LAVA_WEBHOOK_SECRET)
+    secret = _clean(settings.KASSA_WEBHOOK_SECRET)
     return [secret] if secret else []
 
 
@@ -871,7 +871,7 @@ def _provided_webhook_secrets(request: Request, *, x_api_key: str | None, x_webh
 def _ensure_webhook_authorized(request: Request, *, x_api_key: str | None, x_webhook_secret: str | None, authorization: str | None) -> None:
     expected_values = _expected_webhook_secrets()
     if not expected_values:
-        raise HTTPException(status_code=503, detail="lava_webhook_secret_missing")
+        raise HTTPException(status_code=503, detail="kassa_webhook_secret_missing")
 
     provided_values = _provided_webhook_secrets(
         request,
@@ -885,7 +885,7 @@ def _ensure_webhook_authorized(request: Request, *, x_api_key: str | None, x_web
         for expected in expected_values
     ):
         log.warning(
-            "lava.webhook.unauthorized",
+            "kassa.webhook.unauthorized",
             client=str(request.client.host if request.client else ""),
         )
         raise HTTPException(status_code=401, detail="Unauthorized")
@@ -896,23 +896,23 @@ def _product_matches_expected(product_id: str) -> bool:
     return not expected or not product_id or product_id == expected
 
 
-async def _find_payment_by_contract(session: AsyncSession, contract_id: str) -> LavaPayment | None:
+async def _find_payment_by_contract(session: AsyncSession, contract_id: str) -> KassaPayment | None:
     if not contract_id:
         return None
 
     return await session.scalar(
-        select(LavaPayment).where(LavaPayment.contract_id == contract_id).limit(1)
+        select(KassaPayment).where(KassaPayment.contract_id == contract_id).limit(1)
     )
 
 
-async def _find_or_create_payment_for_webhook(session: AsyncSession, *, contract_id: str, token: str, user_id: int | None, payload: dict[str, Any]) -> LavaPayment:
+async def _find_or_create_payment_for_webhook(session: AsyncSession, *, contract_id: str, token: str, user_id: int | None, payload: dict[str, Any]) -> KassaPayment:
     payment = await _find_payment_by_contract(session, contract_id)
     if payment is not None:
         payment.metadata_token = payment.metadata_token or token or None
         payment.user_id = payment.user_id or user_id
         return payment
 
-    payment = LavaPayment(
+    payment = KassaPayment(
         contract_id=contract_id,
         user_id=user_id,
         metadata_token=token or None,
@@ -924,7 +924,7 @@ async def _find_or_create_payment_for_webhook(session: AsyncSession, *, contract
     return payment
 
 
-async def _grant_subscription_for_payment(session: AsyncSession, payment: LavaPayment) -> bool:
+async def _grant_subscription_for_payment(session: AsyncSession, payment: KassaPayment) -> bool:
     uid = int(payment.user_id or 0)
     months = int(payment.subscription_months or 0)
     if uid <= 0 or months <= 0:
@@ -987,7 +987,7 @@ async def _grant_subscription_for_payment(session: AsyncSession, payment: LavaPa
             months=months,
         )
     with suppress(Exception):
-        await _send_lava_subscription_admin_notice(
+        await _send_kassa_subscription_admin_notice(
             user=user,
             payment=payment,
             months=months,
@@ -996,13 +996,13 @@ async def _grant_subscription_for_payment(session: AsyncSession, payment: LavaPa
     return True
 
 
-async def create_lava_payment_link(
+async def create_kassa_payment_link(
     session: AsyncSession,
     *,
-    payload: LavaPaymentLinkCreateIn | None,
+    payload: KassaPaymentLinkCreateIn | None,
     user_id: int,
     username: object = None,
-) -> LavaPaymentLinkCreateOut:
+) -> KassaPaymentLinkCreateOut:
     uid = int(user_id)
     user = await session.get(User, uid)
     if not user or user.deleted_at is not None:
@@ -1010,10 +1010,10 @@ async def create_lava_payment_link(
 
     log_username = _user_log_username(user, username)
     raw_email = _clean(payload.email if payload is not None else None, max_len=254).lower()
-    raw_plan = _clean(payload.plan if payload is not None else None).lower() or LAVA_MONTH_PLAN
+    raw_plan = _clean(payload.plan if payload is not None else None).lower() or KASSA_MONTH_PLAN
     raw_currency = (
         _clean(payload.currency if payload is not None else None, max_len=3).upper()
-        or LAVA_CURRENCY
+        or KASSA_CURRENCY
     )
     raw_payment_method = _clean(
         payload.payment_method if payload is not None else None,
@@ -1028,7 +1028,7 @@ async def create_lava_payment_link(
         )
         offer_id, months = _configured_offer_for_plan(plan)
     except HTTPException as exc:
-        await _log_lava_event(
+        await _log_kassa_event(
             session,
             event="payment_link",
             user_id=uid,
@@ -1056,9 +1056,9 @@ async def create_lava_payment_link(
         user_id=uid,
     )
     try:
-        invoice = await _create_lava_invoice(invoice_request)
+        invoice = await _create_kassa_invoice(invoice_request)
     except HTTPException as exc:
-        await _log_lava_event(
+        await _log_kassa_event(
             session,
             event="payment_link",
             user_id=uid,
@@ -1078,10 +1078,10 @@ async def create_lava_payment_link(
     payment_url = _clean(invoice.get("paymentUrl"))
     if not contract_id:
         log.warning(
-            "lava.invoice.contract_id_missing",
+            "kassa.invoice.contract_id_missing",
             response=_json_dumps(invoice)[:1000],
         )
-        await _log_lava_event(
+        await _log_kassa_event(
             session,
             event="payment_link",
             user_id=uid,
@@ -1091,20 +1091,20 @@ async def create_lava_payment_link(
             currency=requested_currency,
             payment_method=payment_method,
             promo_code=promo_code,
-            reason="lava_contract_id_missing",
+            reason="kassa_contract_id_missing",
             result="payment_link_failed",
             status="failed",
         )
-        raise HTTPException(status_code=502, detail="lava_contract_id_missing")
+        raise HTTPException(status_code=502, detail="kassa_contract_id_missing")
 
     amount, invoice_currency = _extract_amount_and_currency(invoice)
     if not payment_url and not _is_zero_amount(amount):
         log.warning(
-            "lava.invoice.payment_url_missing",
+            "kassa.invoice.payment_url_missing",
             contract_id=contract_id,
             response=_json_dumps(invoice)[:1000],
         )
-        await _log_lava_event(
+        await _log_kassa_event(
             session,
             event="payment_link",
             user_id=uid,
@@ -1114,14 +1114,14 @@ async def create_lava_payment_link(
             currency=requested_currency,
             payment_method=payment_method,
             promo_code=promo_code,
-            reason="lava_payment_url_missing",
+            reason="kassa_payment_url_missing",
             amount=amount,
             result="payment_link_failed",
             status="failed",
         )
-        raise HTTPException(status_code=502, detail="lava_payment_url_missing")
+        raise HTTPException(status_code=502, detail="kassa_payment_url_missing")
 
-    payment = LavaPayment(
+    payment = KassaPayment(
         contract_id=contract_id,
         user_id=uid,
         metadata_token=token,
@@ -1135,7 +1135,7 @@ async def create_lava_payment_link(
         payment_url=payment_url,
         raw_payload=_json_dumps(
             {
-                "kind": "lava_invoice",
+                "kind": "kassa_invoice",
                 "request": {**invoice_request, "email": email},
                 "response": invoice,
             }
@@ -1149,7 +1149,7 @@ async def create_lava_payment_link(
         await session.flush()
         processed = await _grant_subscription_for_payment(session, payment)
         if not processed:
-            await _log_lava_event(
+            await _log_kassa_event(
                 session,
                 event="payment_link",
                 user_id=uid,
@@ -1166,9 +1166,9 @@ async def create_lava_payment_link(
                 commit=False,
             )
             await session.commit()
-            raise HTTPException(status_code=502, detail="lava_free_invoice_not_processed")
+            raise HTTPException(status_code=502, detail="kassa_free_invoice_not_processed")
 
-    await _log_lava_event(
+    await _log_kassa_event(
         session,
         event="payment_link",
         user_id=uid,
@@ -1187,14 +1187,14 @@ async def create_lava_payment_link(
         status="paid" if processed else "success",
     )
 
-    return LavaPaymentLinkCreateOut(
+    return KassaPaymentLinkCreateOut(
         payment_url=payment_url,
         contract_id=contract_id,
         processed=processed,
     )
 
 
-async def process_lava_webhook(
+async def process_kassa_webhook(
     session: AsyncSession,
     *,
     request: Request,
@@ -1244,12 +1244,12 @@ async def process_lava_webhook(
         payment.status = "product_mismatch"
         expected_product_id = _configured_product_id()
         log.warning(
-            "lava.webhook.product_mismatch",
+            "kassa.webhook.product_mismatch",
             contract_id=contract_id,
             expected_product_id=expected_product_id,
             actual_product_id=product_id,
         )
-        await _log_lava_event(
+        await _log_kassa_event(
             session,
             event="payment_result",
             user_id=payment.user_id,
@@ -1267,12 +1267,12 @@ async def process_lava_webhook(
         await session.commit()
         return
 
-    if _is_ignored_lava_event(event_type):
+    if _is_ignored_kassa_event(event_type):
         await session.commit()
         return
 
-    if _is_lava_payment_failure(event_type, status_value):
-        await _log_lava_event(
+    if _is_kassa_payment_failure(event_type, status_value):
+        await _log_kassa_event(
             session,
             event="payment_result",
             user_id=payment.user_id,
@@ -1294,11 +1294,11 @@ async def process_lava_webhook(
         await session.commit()
         return
 
-    if _is_lava_payment_success(event_type, status_value):
+    if _is_kassa_payment_success(event_type, status_value):
         granted = await _grant_subscription_for_payment(session, payment)
         if not granted:
             log.warning(
-                "lava.webhook.grant_skipped",
+                "kassa.webhook.grant_skipped",
                 contract_id=contract_id,
                 user_id=payment.user_id,
                 plan=payment.plan,
@@ -1307,7 +1307,7 @@ async def process_lava_webhook(
                 amount=str(payment.amount) if payment.amount is not None else None,
                 currency=payment.currency,
             )
-            await _log_lava_event(
+            await _log_kassa_event(
                 session,
                 event="payment_result",
                 user_id=payment.user_id,
@@ -1324,7 +1324,7 @@ async def process_lava_webhook(
             )
             await session.commit()
         else:
-            await _log_lava_event(
+            await _log_kassa_event(
                 session,
                 event="payment_result",
                 user_id=payment.user_id,
@@ -1339,7 +1339,7 @@ async def process_lava_webhook(
             )
         return
 
-    await _log_lava_event(
+    await _log_kassa_event(
         session,
         event="payment_result",
         user_id=payment.user_id,

@@ -55,11 +55,11 @@ class Settings(BaseSettings):
     CHAT_MESSAGES_ENABLED: bool = True
     VERIFICATION_RESTRICTIONS: bool = True
 
-    LAVA_API_KEY: str = ""
-    LAVA_PRODUCT_URL: str = ""
-    LAVA_MONTHLY_OFFER_ID: str = ""
-    LAVA_YEARLY_OFFER_ID: str = ""
-    LAVA_WEBHOOK_SECRET: str = ""
+    KASSA_API_KEY: str = ""
+    KASSA_PRODUCT_URL: str = ""
+    KASSA_MONTHLY_OFFER_ID: str = ""
+    KASSA_YEARLY_OFFER_ID: str = ""
+    KASSA_WEBHOOK_SECRET: str = ""
     DONATION_URL: str = ""
 
     ROOMS_LIMIT_GLOBAL: int = 10

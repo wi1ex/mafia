@@ -2,7 +2,7 @@ from __future__ import annotations
 from pydantic import BaseModel
 
 
-class LavaPaymentLinkCreateIn(BaseModel):
+class KassaPaymentLinkCreateIn(BaseModel):
     email: str = ""
     plan: str = "month"
     currency: str = "RUB"
@@ -11,7 +11,7 @@ class LavaPaymentLinkCreateIn(BaseModel):
     promo_code: str = ""
 
 
-class LavaPaymentLinkCreateOut(BaseModel):
+class KassaPaymentLinkCreateOut(BaseModel):
     payment_url: str
     contract_id: str | None = None
     processed: bool = False

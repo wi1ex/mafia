@@ -36,6 +36,68 @@ def _next_local_daily_run_at(*, hour: int, minute: int = 0) -> datetime:
     return next_run
 
 
+# AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+async def _rename_legacy_payment_table(conn) -> None:
+    legacy_table_name = "lava_payments"
+    legacy_exists = bool(
+        await conn.scalar(
+            text("SELECT to_regclass(:name) IS NOT NULL"),
+            {"name": f"public.{legacy_table_name}"},
+        )
+    )
+    current_exists = bool(
+        await conn.scalar(text("SELECT to_regclass('public.kassa_payments') IS NOT NULL"))
+    )
+    if legacy_exists and current_exists:
+        raise RuntimeError(
+            "Both legacy and current payment tables exist; refusing to choose one automatically"
+        )
+
+    if not legacy_exists:
+        return
+
+    await conn.execute(
+        text(f'ALTER TABLE "{legacy_table_name}" RENAME TO kassa_payments')
+    )
+
+    constraint_renames = (
+        (f"uq_{legacy_table_name}_contract_id", "uq_kassa_payments_contract_id"),
+        (f"pk_{legacy_table_name}", "pk_kassa_payments"),
+        (f"{legacy_table_name}_pkey", "kassa_payments_pkey"),
+    )
+    for old_name, new_name in constraint_renames:
+        exists = bool(
+            await conn.scalar(
+                text(
+                    "SELECT EXISTS ("
+                    "SELECT 1 FROM pg_constraint "
+                    "WHERE conrelid = 'kassa_payments'::regclass AND conname = :name"
+                    ")"
+                ),
+                {"name": old_name},
+            )
+        )
+        if exists:
+            await conn.execute(
+                text(
+                    f'ALTER TABLE kassa_payments RENAME CONSTRAINT "{old_name}" TO "{new_name}"'
+                )
+            )
+
+    for column_name in ("contract_id", "user_id", "metadata_token", "offer_id"):
+        old_name = f"ix_{legacy_table_name}_{column_name}"
+        new_name = f"ix_kassa_payments_{column_name}"
+        exists = bool(
+            await conn.scalar(
+                text("SELECT to_regclass(:name) IS NOT NULL"),
+                {"name": f"public.{old_name}"},
+            )
+        )
+        if exists:
+            await conn.execute(text(f'ALTER INDEX "{old_name}" RENAME TO "{new_name}"'))
+# AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+
+
 @asynccontextmanager
 async def lifespan(app) -> AsyncIterator[None]:
     configure_logging()
@@ -47,6 +109,9 @@ async def lifespan(app) -> AsyncIterator[None]:
     try:
         async with engine.begin() as conn:
             await conn.execute(text("SELECT 1"))
+            # AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+            await _rename_legacy_payment_table(conn)
+            # AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
             await conn.run_sync(Base.metadata.create_all)
             # AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
             await conn.execute(text(
@@ -117,11 +182,11 @@ async def lifespan(app) -> AsyncIterator[None]:
                 f"ADD COLUMN IF NOT EXISTS donation_url VARCHAR(2048) NOT NULL DEFAULT '{donation_url_default}'"
             ))
             await conn.execute(text(
-                "ALTER TABLE lava_payments "
+                "ALTER TABLE kassa_payments "
                 "DROP COLUMN IF EXISTS parent_contract_id"
             ))
             await conn.execute(text(
-                "ALTER TABLE lava_payments "
+                "ALTER TABLE kassa_payments "
                 "DROP COLUMN IF EXISTS offer_title"
             ))
             await conn.execute(text("DROP TABLE IF EXISTS update_reads"))

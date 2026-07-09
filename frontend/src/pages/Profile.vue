@@ -188,7 +188,7 @@ function openSubscriptionModal() {
 }
 
 function onSubscriptionPaymentSelect(site: SubscriptionSite) {
-  if (site.id === 'lava') return
+  if (site.id === 'kassa') return
   void api.post('/users/support_link_click', {
     source: 'profile_theme',
     site_id: site.id,

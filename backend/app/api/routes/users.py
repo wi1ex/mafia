@@ -47,7 +47,7 @@ from ..utils import (
 )
 from ...models.game import Game
 from ...models.contact_request import ContactRequestRecord
-from ...models.lava_payment import LavaPayment
+from ...models.kassa_payment import KassaPayment
 from ...models.notif import Notif
 from ...models.user import User
 from ...core.db import get_session
@@ -161,13 +161,13 @@ async def user_subscription_payments(ident: Identity = Depends(get_identity), db
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
     rows = await db.scalars(
-        select(LavaPayment)
+        select(KassaPayment)
         .where(
-            LavaPayment.user_id == uid,
-            LavaPayment.status == "processed",
-            LavaPayment.processed_at.is_not(None),
+            KassaPayment.user_id == uid,
+            KassaPayment.status == "processed",
+            KassaPayment.processed_at.is_not(None),
         )
-        .order_by(LavaPayment.processed_at.desc(), LavaPayment.id.desc())
+        .order_by(KassaPayment.processed_at.desc(), KassaPayment.id.desc())
     )
     items: list[UserSubscriptionPaymentOut] = []
     for payment in rows.all():

@@ -539,7 +539,7 @@ function openContactModal() {
 
 function onSubscriptionPaymentSelect(site: { id: string; name: string; url: string }) {
   if (!auth.isAuthed) return
-  if (site.id === 'lava') return
+  if (site.id === 'kassa') return
   void api.post('/users/support_link_click', {
     source: 'home_right_extra_primary',
     site_id: site.id,

@@ -4,22 +4,22 @@ from fastapi import APIRouter, Body, Depends, Header, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...core.db import get_session
 from ...schemas.common import Identity, Ok
-from ...schemas.payments import LavaPaymentLinkCreateIn, LavaPaymentLinkCreateOut
+from ...schemas.payments import KassaPaymentLinkCreateIn, KassaPaymentLinkCreateOut
 from ...security.auth_tokens import get_identity
 from ...security.decorators import log_route
-from ...services.payments import create_lava_payment_link, process_lava_webhook
+from ...services.payments import create_kassa_payment_link, process_kassa_webhook
 
 router = APIRouter()
 
 
-@router.post("/lava/link", response_model=LavaPaymentLinkCreateOut)
-@log_route("payments.lava.link")
-async def lava_payment_link_create(
-    payload: LavaPaymentLinkCreateIn | None = Body(default=None),
+@router.post("/kassa/link", response_model=KassaPaymentLinkCreateOut)
+@log_route("payments.kassa.link")
+async def kassa_payment_link_create(
+    payload: KassaPaymentLinkCreateIn | None = Body(default=None),
     ident: Identity = Depends(get_identity),
     session: AsyncSession = Depends(get_session),
-) -> LavaPaymentLinkCreateOut:
-    return await create_lava_payment_link(
+) -> KassaPaymentLinkCreateOut:
+    return await create_kassa_payment_link(
         session,
         payload=payload,
         user_id=int(ident["id"]),
@@ -27,10 +27,10 @@ async def lava_payment_link_create(
     )
 
 
-@router.post("/lava/webhook/", response_model=Ok, include_in_schema=False)
-@router.post("/lava/webhook", response_model=Ok)
-@log_route("payments.lava.webhook")
-async def lava_webhook(
+@router.post("/kassa/webhook/", response_model=Ok, include_in_schema=False)
+@router.post("/kassa/webhook", response_model=Ok)
+@log_route("payments.kassa.webhook")
+async def kassa_webhook(
     request: Request,
     payload: dict[str, Any] = Body(...),
     x_api_key: str | None = Header(default=None, alias="X-Api-Key"),
@@ -38,7 +38,7 @@ async def lava_webhook(
     authorization: str | None = Header(default=None, alias="Authorization"),
     session: AsyncSession = Depends(get_session),
 ) -> Ok:
-    await process_lava_webhook(
+    await process_kassa_webhook(
         session,
         request=request,
         payload=payload,

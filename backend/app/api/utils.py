@@ -19,7 +19,7 @@ from ..core.logging import log_action
 from ..core.roles import ROLE_ADMIN, ROLE_USER, normalize_user_role, room_moderation_role
 from ..core.settings import settings
 from ..models.game import Game
-from ..models.lava_payment import LavaPayment
+from ..models.kassa_payment import KassaPayment
 from ..models.room import Room
 from ..models.friend import FriendLink, UserBlacklist
 from ..models.notif import Notif
@@ -1641,7 +1641,7 @@ def payment_amount_text(value: object) -> str | None:
     return format(amount, "f")
 
 
-def payment_plan(payment: LavaPayment) -> Literal["month", "year"] | None:
+def payment_plan(payment: KassaPayment) -> Literal["month", "year"] | None:
     plan = str(payment.plan or "").strip().lower()
     if plan in {"month", "year"}:
         return cast(Literal["month", "year"], plan)
@@ -1656,7 +1656,7 @@ def payment_plan(payment: LavaPayment) -> Literal["month", "year"] | None:
     return None
 
 
-def payment_promo_discount_percent(payment: LavaPayment) -> float | None:
+def payment_promo_discount_percent(payment: KassaPayment) -> float | None:
     amount = payment_decimal(payment.amount)
     if amount is None or amount < 0:
         return None

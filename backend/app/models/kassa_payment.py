@@ -7,10 +7,10 @@ from sqlalchemy.orm import Mapped, mapped_column
 from ..core.db import Base
 
 
-class LavaPayment(Base):
-    __tablename__ = "lava_payments"
+class KassaPayment(Base):
+    __tablename__ = "kassa_payments"
     __table_args__ = (
-        UniqueConstraint("contract_id", name="uq_lava_payments_contract_id"),
+        UniqueConstraint("contract_id", name="uq_kassa_payments_contract_id"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
