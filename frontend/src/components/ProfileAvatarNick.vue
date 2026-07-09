@@ -8,6 +8,7 @@
           <UiIcon class="btn-img-delete" :icon="iconClose" />
         </button>
       </div>
+
       <div class="avatar-upload">
         <input ref="fileEl" type="file" :accept="avatarAccept" @change="onPick" :disabled="avatarUploadDisabled" hidden />
         <button class="btn-upload" type="button" :class="{ 'drag-active': avatarDragActive }" :disabled="avatarUploadDisabled" @click="fileEl?.click()"
@@ -24,14 +25,18 @@
     <div class="profile-details">
       <div class="nickname">
         <div class="nickname-div">
-          <div class="nickname-title">
-            <span class="title">Никнейм</span>
-            <span class="hint">Никнейм также является логином для авторизации</span>
+          <div class="nickname-header">
+            <div class="nickname-title">
+              <span class="title">Никнейм</span>
+              <UiTooltip
+                text="Никнейм также является логином для авторизации"
+                placement="top-center"
+              />
+            </div>
+            <span class="nickname-changes">{{ nicknameChangesText }}</span>
           </div>
-          <span class="nickname-changes">{{ nicknameChangesText }}</span>
-        </div>
-        <div class="nick-row">
-          <div class="nick-input-line">
+
+          <div class="nick-row">
             <UiInput
               class="profile-input"
               id="profile-nick"
@@ -49,12 +54,17 @@
                 <span id="profile-nick-hint">{{ nick.length }}/{{ NICK_MAX }}</span>
               </template>
             </UiInput>
+            <span class="hint"><code>латиница, кириллица, цифры, символы ()._-</code></span>
           </div>
-          <span class="hint"><code>латиница, кириллица, цифры, символы ()._-</code></span>
-          <button class="btn confirm" @click="saveNick" :disabled="saveNickDisabled">
-            {{ busyNick ? '...' : 'Сохранить' }}
-          </button>
         </div>
+        
+        <UiButton
+          variant="green"
+          size="middle"
+          :text="busyNick ? '...' : 'Сохранить изменения'"
+          :disabled="saveNickDisabled"
+          @click="saveNick"
+        />
       </div>
 
       <div class="nickname-history" aria-labelledby="nickname-history-title">
@@ -146,6 +156,8 @@ import { useUserStore } from '@/store'
 import UiInput from '@/components/UiInput.vue'
 import UiSlider from '@/components/UiSlider.vue'
 import UiIcon from '@/components/UiIcon.vue'
+import UiTooltip from '@/components/UiTooltip.vue'
+import UiButton from '@/components/UiButton.vue'
 
 import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
 import iconDownload from '@/assets/svg/iconDownload.svg'
@@ -965,42 +977,58 @@ onBeforeUnmount(() => {
     .nickname {
       display: flex;
       box-sizing: border-box;
+      justify-content: space-between;
       flex-direction: column;
       padding: 24px;
-      gap: 24px;
       height: calc(50% - 5px);
       border-radius: 24px;
       background-color: $soft-purple-900;
       --ui-input-label-bg: #{$soft-purple-900};
-      .title {
-        color: $neutral-white;
-        font-family: Involve-Medium;
-        font-size: 24px;
-        line-height: 26px;
-        letter-spacing: -0.48px;
-      }
-      .nick-row {
+      .nickname-div {
         display: flex;
         flex-direction: column;
-        align-items: flex-start;
-        gap: 16px;
-        width: 100%;
-        .nick-input-line {
+        gap: 24px;
+        .nickname-header {
           display: flex;
           align-items: center;
-          width: 100%;
-          :deep(.profile-input) {
-            width: 100%;
+          justify-content: space-between;
+          .nickname-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            .title {
+              color: $neutral-white;
+              font-family: Involve-Medium;
+              font-size: 24px;
+              line-height: 26px;
+              letter-spacing: -0.48px;
+            }
+          }
+          .nickname-changes {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            height: 32px;
+            border-radius: 12px;
+            background-color: $red-100;
+            color: $red-500;
+            font-family: Hauora-Regular;
+            font-size: 14px;
+            line-height: 14px;
+            letter-spacing: -0.28px;
           }
         }
-        .hint {
-          color: $neutral-300;
-          font-family: Hauora-Regular;
-          font-size: 14px;
-          line-height: 14px;
-          letter-spacing: -0.28px;
-          &.red {
-            color: $red-500;
+        .nick-row {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          .hint {
+            color: $neutral-300;
+            font-family: Hauora-Regular;
+            font-size: 14px;
+            line-height: 14px;
+            letter-spacing: -0.28px;
           }
         }
       }
