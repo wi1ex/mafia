@@ -104,7 +104,7 @@
     </div>
 
     <Transition name="modal-fade">
-      <div v-if="crop.show" ref="modalEl" class="modal" @keydown.esc="cancelCrop" tabindex="0" aria-modal="true" aria-label="Кадрирование аватара" >
+      <div v-if="crop.show" ref="modalEl" class="modal profile-avatar-modal" @keydown.esc="cancelCrop" tabindex="0" aria-modal="true" aria-label="Кадрирование аватара" >
         <div class="modal-body">
           <header>
             <span class="title">Масштабирование аватара</span>
@@ -134,7 +134,7 @@
     </Transition>
 
     <Transition name="modal-fade">
-      <div v-if="gifPicker.show" ref="gifModalEl" class="modal gif-modal" @keydown.esc="cancelGifPicker" tabindex="0" aria-modal="true" aria-label="Выбор статичного кадра GIF">
+      <div v-if="gifPicker.show" ref="gifModalEl" class="modal profile-avatar-modal gif-modal" @keydown.esc="cancelGifPicker" tabindex="0" aria-modal="true" aria-label="Выбор статичного кадра GIF">
         <div class="modal-body gif-modal-body">
           <header>
             <span class="title">Выбор кадра для аватара</span>
@@ -200,9 +200,6 @@ const NICKNAME_HISTORY_LOAD_ATTEMPTS = 3
 const NICKNAME_HISTORY_RETRY_DELAY_MS = 300
 const AVATAR_MAX_BYTES = 5 * 1024 * 1024
 const MAX_AVATAR_GIF_FRAMES = 300
-const CROP_CANVAS_DESKTOP_SIZE = 400
-const CROP_CANVAS_MOBILE_SIZE = 200
-const CROP_CANVAS_MOBILE_QUERY = '(max-width: 1280px)'
 const STATIC_AVATAR_TYPES = new Set(['image/jpeg', 'image/png'])
 const ANIMATED_AVATAR_TYPE = 'image/gif'
 
@@ -481,17 +478,14 @@ function fitContain(imgW: number, imgH: number, boxW: number, boxH: number) {
   return Math.min(boxW / imgW, boxH / imgH)
 }
 
-function cropCanvasDisplaySize(): number {
-  return window.matchMedia(CROP_CANVAS_MOBILE_QUERY).matches
-    ? CROP_CANVAS_MOBILE_SIZE
-    : CROP_CANVAS_DESKTOP_SIZE
-}
-
-function gifCanvasDisplaySize(canvas: HTMLCanvasElement): number {
-  canvas.style.width = ''
-  canvas.style.height = ''
-  const cssWidth = Number.parseFloat(window.getComputedStyle(canvas).width)
-  return Number.isFinite(cssWidth) && cssWidth > 0 ? Math.round(cssWidth) : 300
+function canvasDisplaySize(canvas: HTMLCanvasElement): { width: number; height: number } {
+  const styles = window.getComputedStyle(canvas)
+  const cssWidth = Number.parseFloat(styles.width)
+  const cssHeight = Number.parseFloat(styles.height)
+  return {
+    width: Number.isFinite(cssWidth) && cssWidth > 0 ? Math.round(cssWidth) : 300,
+    height: Number.isFinite(cssHeight) && cssHeight > 0 ? Math.round(cssHeight) : 300,
+  }
 }
 
 function scaleTo(next: number) {
@@ -549,9 +543,9 @@ async function drawGifFrame(frameIndex: number) {
 
     const canvas = gifCanvasEl.value
     const dpr = Math.max(1, window.devicePixelRatio || 1)
-    const size = gifCanvasDisplaySize(canvas)
-    canvas.width = Math.round(size * dpr)
-    canvas.height = Math.round(size * dpr)
+    const size = canvasDisplaySize(canvas)
+    canvas.width = Math.round(size.width * dpr)
+    canvas.height = Math.round(size.height * dpr)
 
     const width = Number(image.displayWidth || image.codedWidth || image.width || 1)
     const height = Number(image.displayHeight || image.codedHeight || image.height || 1)
@@ -689,11 +683,9 @@ async function handleAvatarFile(file: File) {
     document.body.style.overflow = 'hidden'
     const canvas = canvasEl.value!
     const dpr = Math.max(1, window.devicePixelRatio || 1)
-    const S = cropCanvasDisplaySize()
-    canvas.width = Math.round(S * dpr)
-    canvas.height = Math.round(S * dpr)
-    canvas.style.width = S + 'px'
-    canvas.style.height = S + 'px'
+    const size = canvasDisplaySize(canvas)
+    canvas.width = Math.round(size.width * dpr)
+    canvas.height = Math.round(size.height * dpr)
     const s = fitContain(img.width, img.height, canvas.width, canvas.height)
     crop.min = s
     crop.max = s * 3
@@ -1182,8 +1174,8 @@ onBeforeUnmount(() => {
       }
       > canvas {
         align-self: center;
-        width: 300px;
-        height: 300px;
+        width: 404px;
+        height: 404px;
         border-radius: 5px;
         background-color: black;
       }
