@@ -1,34 +1,24 @@
 <template>
   <section class="block-account">
-    <div class="verif">
-      <img class="verif-icon" :src="iconTickCircle" alt="" aria-hidden="true" />
-      <div class="verif-div">
-        <span class="title">Верификация</span>
-        <span v-if="telegramVerified" class="hint">Если отвязать TG-аккаунт верификация будет снята.</span>
-        <span v-if="!telegramVerified" class="hint">В чате с ботом сначала введите никнейм, затем пароль. После успешной верификации ограничения будут сняты.</span>
-      </div>
+    <div class="params">
+          <span class="title">Настройки</span>
+          <div class="params-div">
+            <UiSwitch
+              class="profile-switch"
+              :model-value="tgInvitesEnabled"
+              label="Уведомления в TG о приглашениях в комнату"
+              off-label="Запретить"
+              on-label="Разрешить"
+              size="low"
+              :width="256"
+              :disabled="tgInvitesTogglePending || !telegramVerified"
+              @update:modelValue="onToggleTgInvites"
+            />
+          </div>
+        </div>
 
-      <UiButton
-        v-if="telegramVerified"
-        variant="red"
-        size="middle"
-        :text="unlinkTgBusy ? '...' : 'Отвязать TG-аккаунт'"
-        @click="unlinkTelegram"
-        :disabled="unlinkTgBusy"
-      />
-
-      <UiButton
-        v-if="!telegramVerified && botName"
-        variant="green"
-        size="middle"
-        text="Пройти верификацию"
-        :href="botLink"
-        target="_blank"
-        rel="noopener noreferrer"
-      />
-    </div>
-    <div class="account-params-password">
-      <div class="account-params">
+    <div class="account-verif-password">
+      <div class="account-verif">
         <div class="account">
           <div class="account-div">
             <span class="title">Аккаунт</span>
@@ -48,21 +38,32 @@
           </div>
         </div>
 
-        <div class="params">
-          <span class="title">Настройки</span>
-          <div class="params-div">
-            <UiSwitch
-              class="profile-switch"
-              :model-value="tgInvitesEnabled"
-              label="Уведомления в TG о приглашениях в комнату"
-              off-label="Запретить"
-              on-label="Разрешить"
-              size="low"
-              :width="256"
-              :disabled="tgInvitesTogglePending || !telegramVerified"
-              @update:modelValue="onToggleTgInvites"
-            />
+        <div class="verif">
+          <img class="verif-icon" :src="iconTickCircle" alt="" aria-hidden="true" />
+          <div class="verif-div">
+            <span class="title">Верификация</span>
+            <span v-if="telegramVerified" class="hint">Если отвязать TG-аккаунт верификация будет снята.</span>
+            <span v-if="!telegramVerified" class="hint">В чате с ботом сначала введите никнейм, затем пароль. После успешной верификации ограничения будут сняты.</span>
           </div>
+
+          <UiButton
+            v-if="telegramVerified"
+            variant="red"
+            size="middle"
+            :text="unlinkTgBusy ? '...' : 'Отвязать TG-аккаунт'"
+            @click="unlinkTelegram"
+            :disabled="unlinkTgBusy"
+          />
+
+          <UiButton
+            v-if="!telegramVerified && botName"
+            variant="green"
+            size="middle"
+            text="Пройти верификацию"
+            :href="botLink"
+            target="_blank"
+            rel="noopener noreferrer"
+          />
         </div>
       </div>
 
@@ -149,7 +150,6 @@
         />
       </div>
     </div>
-
   </section>
 </template>
 
@@ -355,41 +355,30 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 10px;
   width: 100%;
-  .verif {
+  .params {
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
     padding: 24px;
+    gap: 24px;
     border-radius: 24px;
     background-color: $soft-purple-900;
-    .verif-icon {
-      width: 26px;
-      height: 26px;
+    .title {
+      color: $neutral-white;
+      font-family: Involve-Medium;
+      font-size: 24px;
+      line-height: 26px;
+      letter-spacing: -0.48px;
     }
-    .verif-div {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      .title {
-        color: $neutral-white;
-        font-family: Involve-Medium;
-        font-size: 24px;
-        line-height: 26px;
-        letter-spacing: -0.48px;
-      }
-      .hint {
-        color: $neutral-100;
-        font-family: Hauora-Regular;
-        font-size: 16px;
-        line-height: 22px;
-        letter-spacing: -0.32px;
-      }
+    .params-div {
+      padding: 16px;
+      border-radius: 20px;
+      background-color: $soft-purple-800;
     }
   }
-  .account-params-password {
+  .account-verif-password {
     display: flex;
     gap: 10px;
-    .account-params {
+    .account-verif {
       display: flex;
       flex-direction: column;
       gap: 10px;
@@ -437,24 +426,35 @@ onBeforeUnmount(() => {
           }
         }
       }
-      .params {
+      .verif {
         display: flex;
         flex-direction: column;
+        justify-content: space-between;
         padding: 24px;
-        gap: 24px;
         border-radius: 24px;
         background-color: $soft-purple-900;
-        .title {
-          color: $neutral-white;
-          font-family: Involve-Medium;
-          font-size: 24px;
-          line-height: 26px;
-          letter-spacing: -0.48px;
+        .verif-icon {
+          width: 26px;
+          height: 26px;
         }
-        .params-div {
-          padding: 16px;
-          border-radius: 20px;
-          background-color: $soft-purple-800;
+        .verif-div {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          .title {
+            color: $neutral-white;
+            font-family: Involve-Medium;
+            font-size: 24px;
+            line-height: 26px;
+            letter-spacing: -0.48px;
+          }
+          .hint {
+            color: $neutral-100;
+            font-family: Hauora-Regular;
+            font-size: 16px;
+            line-height: 22px;
+            letter-spacing: -0.32px;
+          }
         }
       }
     }
