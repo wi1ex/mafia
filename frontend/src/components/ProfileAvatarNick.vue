@@ -35,7 +35,7 @@
                 bubble-width="320px"
               />
             </div>
-            <span class="nickname-changes">{{ nicknameChangesText }}</span>
+            <span v-if="nicknameChangesLeft < 5" class="nickname-changes">{{ nicknameChangesText }}</span>
           </div>
 
           <div class="nick-row">
@@ -192,7 +192,7 @@
               variant="green"
               size="middle"
               text="Загрузить"
-              :disabled="busyAva || isBanned || gifPicker.loading || gifPicker.decoding || !!gifPicker.error"
+              :disabled="busyAva || isBanned || gifPicker.loading || !!gifPicker.error"
               @click="applyGifPicker"
             />
           </div>
@@ -316,11 +316,8 @@ const nicknameChangesLeft = computed(() => normalizeNicknameChangesLeft(me.nickn
 const nicknameChangesText = computed(() => {
   const value = nicknameChangesLeft.value
   if (value === 0) return 'Изменение никнейма недоступно'
-  const lastTwoDigits = value % 100
-  if (lastTwoDigits >= 11 && lastTwoDigits <= 14) return `Доступно ещё ${value} изменений никнейма`
-  const lastDigit = value % 10
-  if (lastDigit === 1) return `Доступно ещё ${value} изменение никнейма`
-  if (lastDigit >= 2 && lastDigit <= 4) return `Доступно ещё ${value} изменения никнейма`
+  if (value === 1) return `Доступно ещё ${value} изменение никнейма`
+  if (value >= 2 && lastDigit <= 4) return `Доступно ещё ${value} изменения никнейма`
   return `Доступно ещё ${value} изменений никнейма`
 })
 const saveNickDisabled = computed(() => (
@@ -649,7 +646,7 @@ function onGifFrameRange(value: number) {
   gifPicker.frameIndex = next
   cancelScheduledGifFrameDraw()
   gifDecodeSeq += 1
-  gifPicker.decoding = true
+  gifPicker.decoding = false
   gifFrameDecodeTimer = window.setTimeout(() => {
     gifFrameDecodeTimer = null
     void drawGifFrame(next)
@@ -657,7 +654,7 @@ function onGifFrameRange(value: number) {
 }
 
 async function applyGifPicker() {
-  if (!gifPicker.file || gifPicker.loading || gifPicker.decoding || gifPicker.error) return
+  if (!gifPicker.file || gifPicker.loading || gifPicker.error) return
   const ok = await uploadAvatarFile(gifPicker.file, gifPicker.frameIndex)
   if (ok) cancelGifPicker()
 }
@@ -1055,8 +1052,9 @@ onBeforeUnmount(() => {
         gap: 24px;
         .nickname-header {
           display: flex;
-          align-items: center;
+          align-items: flex-start;
           justify-content: space-between;
+          height: 32px;
           .nickname-title {
             display: flex;
             align-items: center;
@@ -1248,6 +1246,7 @@ onBeforeUnmount(() => {
               width: 404px;
               height: 404px;
               border-radius: 999px;
+              background-color: $neutral-black;
               object-fit: contain;
             }
             canvas {
