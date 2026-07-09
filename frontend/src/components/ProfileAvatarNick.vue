@@ -112,19 +112,19 @@
               <UiIcon class="close-icon" :icon="iconClose" />
             </button>
           </header>
+
           <canvas ref="canvasEl" @mousedown="dragStart" @mousemove="dragMove" @mouseup="dragStop" @mouseleave="dragStop" @wheel.passive="onWheel" />
-          <div class="range">
-            <span>Масштаб</span>
-            <UiSlider
-              :model-value="crop.scale"
-              :min="crop.min"
-              :max="crop.max"
-              :step="0.01"
-              :disabled="isBanned"
-              aria-label="Масштаб"
-              @update:modelValue="scaleTo"
-            />
-          </div>
+
+          <UiSlider
+            :model-value="crop.scale"
+            :min="crop.min"
+            :max="crop.max"
+            :step="0.01"
+            :disabled="isBanned"
+            aria-label="Масштаб"
+            @update:modelValue="scaleTo"
+          />
+
           <div class="modal-actions">
             <button class="btn danger" @click="cancelCrop">Отменить</button>
             <button class="btn confirm" @click="applyCrop" :disabled="busyAva || isBanned">Загрузить</button>
@@ -1187,14 +1187,9 @@ onBeforeUnmount(() => {
         border-radius: 5px;
         background-color: black;
       }
-      .range {
-        display: flex;
-        flex-direction: column;
-        gap: 5px;
-      }
       .modal-actions {
         display: flex;
-        justify-content: space-between;
+        align-items: center;
         gap: 10px;
       }
     }
