@@ -7,6 +7,7 @@
             <span class="title">Аккаунт</span>
             <span class="date-text">Дата регистрации: {{ registrationDateLabel }}</span>
           </div>
+
           <div class="account-btn">
             <UiButton
               variant="red"
@@ -22,11 +23,13 @@
 
         <div class="verif">
           <img class="verif-icon" :src="iconTickCircle" alt="" aria-hidden="true" />
+
           <div class="verif-div">
             <span class="title">Верификация</span>
             <span v-if="telegramVerified" class="hint">Если отвязать TG-аккаунт верификация будет снята.</span>
             <span v-else class="hint">В чате с ботом сначала введите никнейм, затем пароль. После успешной верификации ограничения будут сняты.</span>
           </div>
+
           <UiButton
             v-if="telegramVerified"
             variant="red"
@@ -35,6 +38,7 @@
             @click="unlinkTelegram"
             :disabled="unlinkTgBusy"
           />
+
           <UiButton
             v-else-if="botName"
             variant="green"
@@ -49,6 +53,7 @@
 
       <div class="params">
         <span class="title">Настройки</span>
+
         <div class="params-div">
           <UiSwitch
             class="profile-switch"
@@ -67,62 +72,82 @@
 
     <div v-if="me.has_password" class="password">
       <span class="title">Пароль</span>
-      <span v-if="passwordTemp" class="hint">У вас временный пароль — рекомендуем изменить его</span>
-      <span class="hint">
-        Сбросить пароль можно через
-        <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">TG-бота</a>
-      </span>
-      <UiInput
-        id="profile-pass-current"
-        v-model="pwd.current"
-        type="password"
-        autocomplete="current-password"
-        minlength="8"
-        maxlength="32"
-        label="Текущий пароль"
-        :invalid="currentPasswordInvalid"
-        :aria-invalid="currentPasswordInvalid"
-        aria-describedby="profile-pass-current-hint"
-      >
-        <template #meta>
-          <span id="profile-pass-current-hint">{{ pwd.current.length }}/{{ PASSWORD_MAX }}</span>
-        </template>
-      </UiInput>
-      <UiInput
-        id="profile-pass-new"
-        v-model="pwd.next"
-        type="password"
-        autocomplete="new-password"
-        minlength="8"
-        maxlength="32"
-        label="Новый пароль"
-        :invalid="newPasswordInvalid"
-        :aria-invalid="newPasswordInvalid"
-        aria-describedby="profile-pass-new-hint"
-      >
-        <template #meta>
-          <span id="profile-pass-new-hint">{{ pwd.next.length }}/{{ PASSWORD_MAX }}</span>
-        </template>
-      </UiInput>
-      <UiInput
-        id="profile-pass-confirm"
-        v-model="pwd.confirm"
-        type="password"
-        autocomplete="new-password"
-        minlength="8"
-        maxlength="32"
-        label="Повторите пароль"
-        :invalid="confirmPasswordInvalid"
-        :aria-invalid="confirmPasswordInvalid"
-        aria-describedby="profile-pass-confirm-hint"
-      >
-        <template #meta>
-          <span id="profile-pass-confirm-hint">{{ pwd.confirm.length }}/{{ PASSWORD_MAX }}</span>
-        </template>
-      </UiInput>
-      <button @click="changePassword" :disabled="pwdBusy || !canChangePassword">
-        {{ pwdBusy ? '...' : 'Сменить пароль' }}
-      </button>
+
+      <div class="password-div">
+        <span v-if="passwordTemp" class="password-temp">У вас временный пароль — рекомендуем изменить его</span>
+        <span class="hint">
+          Сбросить пароль можно через
+          <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">TG-бота</a>
+        </span>
+      </div>
+
+      <div class="password-div">
+        <span class="password-text">Текущий пароль</span>
+        <UiInput
+          id="profile-pass-current"
+          v-model="pwd.current"
+          type="password"
+          autocomplete="current-password"
+          minlength="8"
+          maxlength="32"
+          label="Текущий пароль"
+          :invalid="currentPasswordInvalid"
+          :aria-invalid="currentPasswordInvalid"
+          aria-describedby="profile-pass-current-hint"
+        >
+          <template #meta>
+            <span id="profile-pass-current-hint">{{ pwd.current.length }}/{{ PASSWORD_MAX }}</span>
+          </template>
+        </UiInput>
+      </div>
+
+      <div class="password-div">
+        <span class="password-text">Новый пароль</span>
+        <UiInput
+          id="profile-pass-new"
+          v-model="pwd.next"
+          type="password"
+          autocomplete="new-password"
+          minlength="8"
+          maxlength="32"
+          label="Новый пароль"
+          :invalid="newPasswordInvalid"
+          :aria-invalid="newPasswordInvalid"
+          aria-describedby="profile-pass-new-hint"
+        >
+          <template #meta>
+            <span id="profile-pass-new-hint">{{ pwd.next.length }}/{{ PASSWORD_MAX }}</span>
+          </template>
+        </UiInput>
+      </div>
+
+      <div class="password-div">
+        <span class="password-text">Повторите пароль</span>
+        <UiInput
+          id="profile-pass-confirm"
+          v-model="pwd.confirm"
+          type="password"
+          autocomplete="new-password"
+          minlength="8"
+          maxlength="32"
+          label="Повторите пароль"
+          :invalid="confirmPasswordInvalid"
+          :aria-invalid="confirmPasswordInvalid"
+          aria-describedby="profile-pass-confirm-hint"
+        >
+          <template #meta>
+            <span id="profile-pass-confirm-hint">{{ pwd.confirm.length }}/{{ PASSWORD_MAX }}</span>
+          </template>
+        </UiInput>
+      </div>
+
+      <UiButton
+        variant="green"
+        size="middle"
+        :text="pwdBusy ? '...' : 'Сменить пароль'"
+        @click="changePassword"
+        :disabled="pwdBusy || !canChangePassword"
+      />
     </div>
   </section>
 </template>
@@ -444,24 +469,48 @@ onBeforeUnmount(() => {
     display: flex;
     flex-direction: column;
     padding: 24px;
-    gap: 24px;
+    gap: 40px;
     width: calc(50% - 5px);
     height: 496px;
     border-radius: 24px;
     background-color: $soft-purple-900;
-    .title {
-      color: $neutral-white;
-      font-family: Involve-Medium;
-      font-size: 24px;
-      line-height: 26px;
-      letter-spacing: -0.48px;
-    }
-    .hint {
-      color: $neutral-300;
-      font-family: Hauora-Regular;
-      font-size: 14px;
-      line-height: 14px;
-      letter-spacing: -0.28px;
+    .password-div {
+      display: flex;
+      gap: 16px;
+      .title {
+        color: $neutral-white;
+        font-family: Involve-Medium;
+        font-size: 24px;
+        line-height: 26px;
+        letter-spacing: -0.48px;
+      }
+      .password-temp {
+        padding: 16px;
+        border-radius: 20px;
+        background-color: $yellow-500;
+        color: $neutral-900;
+        font-family: Hauora-Bold;
+        font-size: 16px;
+        line-height: 18px;
+        letter-spacing: -0.32px;
+      }
+      .hint {
+        color: $neutral-300;
+        font-family: Hauora-Regular;
+        font-size: 14px;
+        line-height: 14px;
+        letter-spacing: -0.28px;
+        a {
+          color: $neutral-white;
+        }
+      }
+      .password-text {
+        color: $neutral-white;
+        font-family: Hauora-Bold;
+        font-size: 16px;
+        line-height: 18px;
+        letter-spacing: -0.32px;
+      }
     }
   }
 }
