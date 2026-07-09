@@ -1169,11 +1169,11 @@ onBeforeUnmount(() => {
         align-items: center;
         justify-content: space-between;
         .title {
-          color: $neutral-black;
-          font-family: Hauora-Bold;
-          font-size: 18px;
-          line-height: 20px;
-          letter-spacing: -0.36px;
+          color: $soft-purple-900;
+          font-family: Involve-Medium;
+          font-size: 24px;
+          line-height: 26px;
+          letter-spacing: -0.48px;
         }
         .close-btn {
           padding: 0;
