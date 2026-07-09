@@ -27,7 +27,6 @@
       </div>
 
       <button v-if="canEditProfileTheme" class="btn confirm" @click="saveProfileTheme" :disabled="themeSaveDisabled">
-        <img class="btn-img" :src="iconSave" alt="save" />
         {{ themeSaveBusy ? '...' : 'Сохранить' }}
       </button>
       <button v-else type="button" class="btn subscription-btn" @click="openSubscriptionModal">
@@ -62,7 +61,6 @@ import {
 } from '@/constants/profileIcons'
 
 import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
-import iconSave from '@/assets/svg/save.svg'
 
 type SubscriptionSite = {
   id: string

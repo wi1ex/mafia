@@ -112,7 +112,6 @@
 
             <div class="form-actions">
               <button class="btn confirm width-full" :disabled="savingSettings || !isSettingsDirty" @click="saveSettings">
-                <img class="btn-img" :src="iconSave" alt="save" />
                 Сохранить
               </button>
             </div>
@@ -150,7 +149,6 @@
               </div>
               <div class="form-actions">
                 <button class="btn confirm width-full" :disabled="updateNoticeSaving || !canSendUpdateNotice" @click="sendUpdateNotice">
-                  <img class="btn-img" :src="iconSave" alt="save" />
                   Отправить всем
                 </button>
               </div>
@@ -869,7 +867,6 @@ import UiInput from '@/components/UiInput.vue'
 
 import defaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
 import iconDelete from '@/assets/svg/iconDelete.svg'
-import iconSave from '@/assets/svg/save.svg'
 import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
 import { getProfileThemeBadgeSources } from '@/constants/profileIcons'
 import { normalizeNotificationText, parseNotificationText } from '@/services/notificationText'

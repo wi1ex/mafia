@@ -1,5 +1,5 @@
 <template>
-  <div class="profile-tab-block block-profile">
+  <section class="block-profile">
     <h3>Аватар и никнейм</h3>
     <div class="avatar-row">
       <img class="avatar-img" v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false, animated: true }" alt="Текущий аватар" />
@@ -19,8 +19,19 @@
 
     <div class="nick-row">
       <div class="nick-input-line">
-        <UiInput class="profile-input" id="profile-nick" v-model.trim="nick" :maxlength="NICK_MAX" :disabled="busyNick || isBanned || isProtectedAdminSelf" autocomplete="off" inputmode="text" label="Никнейм"
-          :invalid="!!nick && !validNick" :aria-invalid="!!nick && !validNick" aria-describedby="profile-nick-hint">
+        <UiInput
+          class="profile-input"
+          id="profile-nick"
+          v-model.trim="nick"
+          :maxlength="NICK_MAX"
+          :disabled="busyNick || isBanned || isProtectedAdminSelf"
+          autocomplete="off"
+          inputmode="text"
+          label="Никнейм"
+          :invalid="!!nick && !validNick"
+          :aria-invalid="!!nick && !validNick"
+          aria-describedby="profile-nick-hint"
+        >
           <template #meta>
             <span id="profile-nick-hint">{{ nick.length }}/{{ NICK_MAX }}</span>
           </template>
@@ -47,7 +58,6 @@
       <span class="hint"><code>латиница, кириллица, цифры, символы ()._-</code></span>
       <span class="hint" :class="{ red: nicknameChangesLeft <= 0 }">Осталось изменений никнейма: {{ nicknameChangesLeft }}</span>
       <button class="btn confirm" @click="saveNick" :disabled="saveNickDisabled">
-        <img class="btn-img" :src="iconSave" alt="save" />
         {{ busyNick ? '...' : 'Сохранить' }}
       </button>
     </div>
@@ -65,7 +75,8 @@
             :step="0.01"
             :disabled="isBanned"
             aria-label="Масштаб"
-            @update:modelValue="scaleTo" />
+            @update:modelValue="scaleTo"
+          />
         </div>
         <div class="modal-actions">
           <button class="btn danger" @click="cancelCrop">Отменить</button>
@@ -96,7 +107,8 @@
             :step="1"
             :disabled="busyAva || isBanned || gifPicker.frameCount <= 1 || gifPicker.decoding"
             aria-label="Кадр GIF"
-            @update:modelValue="onGifFrameRange" />
+            @update:modelValue="onGifFrameRange"
+          />
         </div>
         <div class="modal-actions">
           <button class="btn danger" @click="cancelGifPicker">Отменить</button>
@@ -104,7 +116,7 @@
         </div>
       </div>
     </div>
-  </div>
+  </section>
 </template>
 
 <script setup lang="ts">
@@ -113,6 +125,7 @@ import { api, refreshAccessTokenFull } from '@/services/axios'
 import { alertDialog, confirmDialog } from '@/services/confirm'
 import { formatModerationAlert } from '@/services/moderation'
 import { useUserStore } from '@/store'
+
 import UiInput from '@/components/UiInput.vue'
 import UiSlider from '@/components/UiSlider.vue'
 
@@ -120,7 +133,6 @@ import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
 import iconDownload from '@/assets/svg/iconDownload.svg'
 import iconDelete from '@/assets/svg/iconDelete.svg'
 import iconTimeHistory from '@/assets/svg/iconTimeHistory.svg'
-import iconSave from '@/assets/svg/save.svg'
 
 const NICK_MAX = 20
 const NICKNAME_CHANGES_MAX = 30

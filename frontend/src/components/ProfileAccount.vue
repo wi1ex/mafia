@@ -23,11 +23,10 @@
 
         <div class="verif">
           <img class="verif-icon" :src="iconTickCircle" alt="" aria-hidden="true" />
-
           <div class="verif-div">
             <span class="title">Верификация</span>
             <span v-if="telegramVerified" class="hint">Если отвязать TG-аккаунт верификация будет снята.</span>
-            <span v-else class="hint">В чате с ботом сначала введите никнейм, затем пароль. После успешной верификации ограничения будут сняты.</span>
+            <span v-if="!telegramVerified" class="hint">В чате с ботом сначала введите никнейм, затем пароль. После успешной верификации ограничения будут сняты.</span>
           </div>
 
           <UiButton
@@ -40,7 +39,7 @@
           />
 
           <UiButton
-            v-else-if="botName"
+            v-if="!telegramVerified && botName"
             variant="green"
             size="middle"
             text="Пройти верификацию"
@@ -53,7 +52,6 @@
 
       <div class="params">
         <span class="title">Настройки</span>
-
         <div class="params-div">
           <UiSwitch
             class="profile-switch"
@@ -72,7 +70,6 @@
 
     <div v-if="me.has_password" class="password">
       <span class="title">Пароль</span>
-
       <div class="password-div">
         <span v-if="passwordTemp" class="password-temp">У вас временный пароль — рекомендуем изменить его</span>
         <span class="hint">
@@ -169,7 +166,6 @@ import UiButton from '@/components/UiButton.vue'
 
 import iconDelete from '@/assets/svg/iconDelete.svg'
 import iconTickCircle from '@/assets/svg/iconTickCircle.svg'
-import imageSlide9 from '@/assets/images/carousel-image9.png'
 
 const PASSWORD_MIN = 8
 const PASSWORD_MAX = 32
