@@ -74,7 +74,8 @@
       <span class="title">Пароль</span>
 
       <div class="password-div">
-        <span v-if="passwordTemp" class="password-temp">У вас временный пароль — рекомендуем изменить его</span>
+<!--        <span v-if="passwordTemp" class="password-temp">У вас временный пароль — рекомендуем изменить его</span>-->
+        <span class="password-temp">У вас временный пароль — рекомендуем изменить его</span>
         <span class="hint">
           Сбросить пароль можно через
           <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">TG-бота</a>
