@@ -176,7 +176,7 @@
             :min="0"
             :max="Math.max(0, gifPicker.frameCount - 1)"
             :step="1"
-            :disabled="busyAva || isBanned || gifPicker.frameCount <= 1 || gifPicker.decoding"
+            :disabled="busyAva || isBanned || gifPicker.frameCount <= 1"
             aria-label="Кадр GIF"
             @update:modelValue="onGifFrameRange"
           />
@@ -227,6 +227,7 @@ const NICKNAME_HISTORY_LOAD_ATTEMPTS = 3
 const NICKNAME_HISTORY_RETRY_DELAY_MS = 300
 const AVATAR_MAX_BYTES = 5 * 1024 * 1024
 const MAX_AVATAR_GIF_FRAMES = 300
+const GIF_FRAME_DECODE_DEBOUNCE_MS = 80
 const STATIC_AVATAR_TYPES = new Set(['image/jpeg', 'image/png'])
 const ANIMATED_AVATAR_TYPE = 'image/gif'
 
@@ -298,6 +299,7 @@ let nicknameHistorySeq = 0
 let avatarDragDepth = 0
 let gifDecoder: any = null
 let gifDecodeSeq = 0
+let gifFrameDecodeTimer: number | null = null
 let onProfileSync: ((e: Event) => void) | null = null
 
 const isBanned = computed(() => userStore.banActive)
@@ -349,7 +351,6 @@ const nicknameHistoryClearDisabled = computed(() => (
   || isBanned.value
   || !canEditProfileTheme.value
 ))
-const gifFrameLabel = computed(() => `${gifPicker.frameIndex + 1}/${Math.max(1, gifPicker.frameCount)}`)
 
 function parseDateMs(raw: string | null | undefined): number {
   if (!raw) return 0
@@ -533,7 +534,14 @@ function closeGifDecoder() {
   gifDecoder = null
 }
 
+function cancelScheduledGifFrameDraw() {
+  if (gifFrameDecodeTimer === null) return
+  window.clearTimeout(gifFrameDecodeTimer)
+  gifFrameDecodeTimer = null
+}
+
 function resetGifPicker() {
+  cancelScheduledGifFrameDraw()
   closeGifDecoder()
   gifDecodeSeq += 1
   if (gifPicker.animatedUrl) {
@@ -639,7 +647,13 @@ async function openGifFramePicker(file: File) {
 function onGifFrameRange(value: number) {
   const next = clamp(Math.trunc(Number(value)), 0, Math.max(0, gifPicker.frameCount - 1))
   gifPicker.frameIndex = next
-  void drawGifFrame(next)
+  cancelScheduledGifFrameDraw()
+  gifDecodeSeq += 1
+  gifPicker.decoding = true
+  gifFrameDecodeTimer = window.setTimeout(() => {
+    gifFrameDecodeTimer = null
+    void drawGifFrame(next)
+  }, GIF_FRAME_DECODE_DEBOUNCE_MS)
 }
 
 async function applyGifPicker() {
