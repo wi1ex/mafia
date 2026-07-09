@@ -36,24 +36,6 @@
             <span id="profile-nick-hint">{{ nick.length }}/{{ NICK_MAX }}</span>
           </template>
         </UiInput>
-        <div v-if="me.id > 0" class="nickname-history-tooltip-wrap" tabindex="0" aria-label="История никнеймов" @mouseenter="loadNicknameHistory()" @focusin="loadNicknameHistory()">
-          <img class="nickname-history-icon" :src="iconTimeHistory" alt="" />
-          <div class="nickname-history-tooltip" role="tooltip" @click.stop>
-            <button class="btn danger nickname-history-clear" type="button" :disabled="nicknameHistoryClearDisabled" @click="clearNicknameHistory">
-              {{ nicknameHistoryClearBusy ? '...' : 'Очистить историю' }}
-            </button>
-            <span class="nickname-history-access-text" :class="{ disabled: !canEditProfileTheme }">{{ nicknameHistoryAccessText }}</span>
-            <span class="nickname-history-divider" aria-hidden="true"></span>
-            <span v-if="nicknameHistoryLoading" class="nickname-history-state">Загрузка...</span>
-            <span v-else-if="nicknameHistoryError" class="nickname-history-state danger">{{ nicknameHistoryError }}</span>
-            <span v-else class="nickname-history-list">
-              <span v-for="(nicknameItem, index) in nicknameHistoryItems" :key="`${nicknameItem}-${index}`" :class="{ current: index === 0 }">
-                {{ nicknameItem }}
-              </span>
-              <span v-if="!nicknameHistoryItems.length" class="nickname-history-state">-</span>
-            </span>
-          </div>
-        </div>
       </div>
       <span class="hint"><code>латиница, кириллица, цифры, символы ()._-</code></span>
       <span class="hint" :class="{ red: nicknameChangesLeft <= 0 }">Осталось изменений никнейма: {{ nicknameChangesLeft }}</span>
@@ -62,6 +44,28 @@
       </button>
     </div>
     <p class="hint">Никнейм является логином для авторизации</p>
+
+    <div class="nickname-history" aria-labelledby="nickname-history-title">
+      <div class="nickname-history-header">
+        <span id="nickname-history-title" class="nickname-history-title">История никнеймов</span>
+        <button class="btn danger nickname-history-clear" type="button" :disabled="nicknameHistoryClearDisabled" @click="clearNicknameHistory">
+          {{ nicknameHistoryClearBusy ? '...' : 'Очистить историю' }}
+        </button>
+      </div>
+      <span class="nickname-history-access-text" :class="{ disabled: !canEditProfileTheme }">{{ nicknameHistoryAccessText }}</span>
+      <span class="nickname-history-divider" aria-hidden="true"></span>
+      <span v-if="nicknameHistoryLoading" class="nickname-history-state">Загрузка...</span>
+      <div v-else-if="nicknameHistoryError" class="nickname-history-error">
+        <span class="nickname-history-state danger">{{ nicknameHistoryError }}</span>
+        <button class="btn dark nickname-history-retry" type="button" @click="loadNicknameHistory(true)">Повторить</button>
+      </div>
+      <div v-else class="nickname-history-list">
+        <span v-for="(nicknameItem, index) in nicknameHistoryItems" :key="`${nicknameItem}-${index}`" :class="{ current: index === 0 }">
+          {{ nicknameItem }}
+        </span>
+        <span v-if="!nicknameHistoryItems.length" class="nickname-history-state">-</span>
+      </div>
+    </div>
 
     <div v-if="crop.show" ref="modalEl" class="modal" @keydown.esc="cancelCrop" tabindex="0" aria-modal="true" aria-label="Кадрирование аватара" >
       <div class="modal-body">
@@ -132,7 +136,6 @@ import UiSlider from '@/components/UiSlider.vue'
 import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
 import iconDownload from '@/assets/svg/iconDownload.svg'
 import iconDelete from '@/assets/svg/iconDelete.svg'
-import iconTimeHistory from '@/assets/svg/iconTimeHistory.svg'
 
 const NICK_MAX = 20
 const NICKNAME_CHANGES_MAX = 30
@@ -287,7 +290,10 @@ function applyMePayload(data: any, options: { keepNickDraft?: boolean } = {}) {
   me.nickname_changes_left = normalizeNicknameChangesLeft(data?.nickname_changes_left)
   const hasNickDraft = Boolean(options.keepNickDraft) && nick.value !== prevUsername
   if (!hasNickDraft) nick.value = me.username
-  if (me.id !== prevUserId || me.username !== prevUsername) resetNicknameHistory()
+  if (me.id !== prevUserId || me.username !== prevUsername) {
+    resetNicknameHistory()
+    if (me.id > 0) void loadNicknameHistory()
+  }
 }
 
 async function loadMe(options: { keepNickDraft?: boolean } = {}) {
@@ -379,6 +385,7 @@ async function saveNick() {
     userStore.setUsername(data.username)
     userStore.setNicknameChangesLeft(me.nickname_changes_left)
     resetNicknameHistory()
+    void loadNicknameHistory()
     try { await refreshAccessTokenFull(false) } catch {}
   } catch (e: any) {
     const st = e?.response?.status
@@ -800,95 +807,84 @@ onBeforeUnmount(() => {
         width: 100%;
         --ui-input-label-bg: #{$soft-purple-900};
       }
-      .nickname-history-tooltip-wrap {
-        display: inline-flex;
-        position: relative;
+    }
+  }
+  .nickname-history {
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 480px;
+    margin-top: 24px;
+    padding: 24px;
+    gap: 16px;
+    border-radius: 24px;
+    background-color: $soft-purple-900;
+    color: $neutral-100;
+    font-size: 14px;
+    line-height: 18px;
+    .nickname-history-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      .nickname-history-title {
+        font-family: Involve-Medium;
+        font-size: 24px;
+        line-height: 26px;
+        letter-spacing: -0.48px;
+      }
+      .nickname-history-clear {
         flex: 0 0 auto;
-        align-items: center;
-        justify-content: center;
-        width: 40px;
-        height: 40px;
-        outline: none;
-        &:hover,
-        &:focus-within {
-          &::after {
-            display: block;
-          }
-          .nickname-history-tooltip {
-            display: flex;
-          }
+        min-height: 30px;
+        font-size: 14px;
+      }
+    }
+    .nickname-history-access-text {
+      color: $neutral-300;
+      overflow-wrap: anywhere;
+      &.disabled {
+        color: $neutral-500;
+      }
+    }
+    .nickname-history-divider {
+      width: 100%;
+      height: 1px;
+      background-color: rgba($neutral-white, 0.1);
+    }
+    > .nickname-history-state {
+      color: $neutral-300;
+    }
+    .nickname-history-error {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      .nickname-history-state {
+        color: $neutral-300;
+        &.danger {
+          color: $red-500;
         }
-        &::after {
-          content: '';
-          display: none;
-          position: absolute;
-          top: 100%;
-          right: 0;
-          width: 300px;
-          height: 10px;
-          z-index: 4;
-        }
-        .nickname-history-icon {
-          width: 24px;
-          height: 24px;
-          object-fit: contain;
-        }
-        .nickname-history-tooltip {
-          display: none;
-          position: absolute;
-          top: calc(100% + 10px);
-          right: 0;
-          flex-direction: column;
-          gap: 10px;
-          width: 300px;
-          max-height: 250px;
-          padding: 10px;
-          border-radius: 5px;
-          background-color: $neutral-800;
-          box-shadow: 3px 3px 5px rgba(black, 0.25);
+      }
+      .nickname-history-retry {
+        flex: 0 0 auto;
+        min-height: 30px;
+        font-size: 14px;
+      }
+    }
+    .nickname-history-list {
+      display: flex;
+      flex-direction: column;
+      max-height: 250px;
+      gap: 5px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      span {
+        color: $neutral-300;
+        overflow-wrap: anywhere;
+        &.current {
           color: $neutral-100;
-          font-size: 14px;
-          line-height: 1.2;
-          z-index: 5;
-          .nickname-history-clear {
-            width: 100%;
-            max-width: none;
-            min-height: 30px;
-            font-size: 14px;
-          }
-          .nickname-history-access-text {
-            color: $neutral-300;
-            overflow-wrap: anywhere;
-            &.disabled {
-              color: $neutral-500;
-            }
-          }
-          .nickname-history-divider {
-            width: 100%;
-            height: 1px;
-            background-color: rgba($neutral-white, 0.1);
-          }
-          .nickname-history-list {
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-            overflow-y: auto;
-            scrollbar-width: thin;
-            span {
-              color: $neutral-300;
-              overflow-wrap: anywhere;
-              &.current {
-                color: $neutral-100;
-                font-family: Hauora-SemiBold;
-              }
-            }
-          }
-          .nickname-history-state {
-            color: $neutral-300;
-            &.danger {
-              color: $red-500;
-            }
-          }
+          font-family: Hauora-SemiBold;
         }
       }
     }
@@ -928,43 +924,47 @@ onBeforeUnmount(() => {
         justify-content: space-between;
         gap: 10px;
       }
-      .gif-preview-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-        align-items: stretch;
-        justify-content: center;
-        .gif-preview-block {
+    }
+    &.gif-modal {
+      .gif-modal-body {
+        .gif-preview-row {
           display: flex;
-          flex-direction: column;
-          gap: 5px;
-          align-items: center;
-          span {
-            color: $neutral-500;
-            font-size: 18px;
-          }
-          img {
-            width: 300px;
-            height: 300px;
-            border-radius: 5px;
-            background-color: black;
-            object-fit: contain;
-          }
-          canvas {
-            align-self: center;
-            width: 300px;
-            height: 300px;
-            border-radius: 5px;
-            background-color: black;
+          flex-wrap: wrap;
+          align-items: stretch;
+          justify-content: center;
+          gap: 10px;
+          .gif-preview-block {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            span {
+              color: $neutral-500;
+              font-size: 18px;
+            }
+            img {
+              width: 300px;
+              height: 300px;
+              border-radius: 5px;
+              background-color: black;
+              object-fit: contain;
+            }
+            canvas {
+              align-self: center;
+              width: 300px;
+              height: 300px;
+              border-radius: 5px;
+              background-color: black;
+            }
           }
         }
-      }
-      .hint {
-        margin: 0;
-        color: $neutral-500;
-        font-size: 14px;
-        &.red {
-          color: $red-500;
+        .hint {
+          margin: 0;
+          color: $neutral-500;
+          font-size: 14px;
+          &.red {
+            color: $red-500;
+          }
         }
       }
     }
