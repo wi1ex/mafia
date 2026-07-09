@@ -32,6 +32,7 @@
                 text="Никнейм также является логином - используйте его для авторизации.
                 Без подписки доступно 1 изменение никнейма в месяц. При наличии подписки лимит увеличен до 30."
                 placement="bottom-right"
+                bubble-width="320px"
               />
             </div>
             <span class="nickname-changes">{{ nicknameChangesText }}</span>
@@ -76,14 +77,18 @@
             <UiTooltip
               text="Обнуление истории никнеймов доступно только при наличии подписки."
               placement="bottom-right"
+              bubble-width="320px"
             />
           </div>
           <span v-if="nicknameHistoryLoading" class="nickname-history-item">Загрузка...</span>
           <span v-else-if="nicknameHistoryError" class="nickname-history-item danger">{{ nicknameHistoryError }}</span>
-          <div v-else class="nickname-history-list">
-            <span class="nickname-history-item" v-for="(nicknameItem, index) in nicknameHistoryItems" :key="`${nicknameItem}-${index}`" :class="{ current: index === 0 }">
-              {{ nicknameItem }}
-            </span>
+          <div v-else class="nickname-history-list-wrap">
+            <div ref="nicknameHistoryList" class="nickname-history-list">
+              <span class="nickname-history-item" v-for="(nicknameItem, index) in nicknameHistoryItems" :key="`${nicknameItem}-${index}`" :class="{ current: index === 0 }">
+                {{ nicknameItem }}
+              </span>
+            </div>
+            <UiScrollbar :target="nicknameHistoryList" theme="dark" :overflow-tolerance="4" />
           </div>
         </div>
         <UiButton
@@ -165,6 +170,7 @@ import UiSlider from '@/components/UiSlider.vue'
 import UiIcon from '@/components/UiIcon.vue'
 import UiTooltip from '@/components/UiTooltip.vue'
 import UiButton from '@/components/UiButton.vue'
+import UiScrollbar from '@/components/UiScrollbar.vue'
 
 import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
 import iconDownload from '@/assets/svg/iconDownload.svg'
@@ -236,6 +242,7 @@ const nicknameHistoryError = ref('')
 const nicknameHistoryItems = ref<string[]>([])
 const nicknameHistoryLoaded = ref(false)
 const nicknameHistoryClearBusy = ref(false)
+const nicknameHistoryList = ref<HTMLElement | null>(null)
 const crop = reactive<Crop>({ show: false, scale: 1, min: 0.5, max: 3, x: 0, y: 0, dragging: false, sx: 0, sy: 0, type: 'image/jpeg' })
 const gifPicker = reactive<GifPicker>({
   show: false,
@@ -1053,6 +1060,8 @@ onBeforeUnmount(() => {
       .nickname-history-div {
         display: flex;
         flex-direction: column;
+        flex: 1;
+        min-height: 0;
         gap: 24px;
         .nickname-history-header {
           display: flex;
@@ -1078,10 +1087,27 @@ onBeforeUnmount(() => {
             color: $neutral-100;
           }
         }
-        .nickname-history-list {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
+        .nickname-history-list-wrap {
+          position: relative;
+          flex: 1;
+          min-height: 0;
+          .nickname-history-list {
+            display: flex;
+            box-sizing: border-box;
+            flex-direction: column;
+            height: 100%;
+            padding-right: 16px;
+            gap: 8px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            &::-webkit-scrollbar {
+              display: none;
+              width: 0;
+              height: 0;
+            }
+          }
         }
       }
     }
