@@ -4,18 +4,18 @@
       <span class="title">Аватар</span>
       <div class="avatar-row">
         <img class="avatar-img" v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false, animated: true }" alt="Текущий аватар" />
-        <div class="actions">
-          <input ref="fileEl" type="file" :accept="avatarAccept" @change="onPick" :disabled="isBanned" hidden />
-          <button class="btn dark" @click="fileEl?.click()" :disabled="busyAva || isBanned">
-            <img class="btn-img" :src="iconDownload" alt="edit" />
-            {{ me.avatar_name ? 'Изменить' : 'Загрузить' }}
-          </button>
-          <span class="hint center">{{ avatarFormatHint }}</span>
-          <button class="btn danger" v-if="me.avatar_name" @click="onDeleteAvatar" :disabled="busyAva || isBanned">
-            <img class="btn-img" :src="iconDelete" alt="delete" />
-            Удалить
-          </button>
-        </div>
+        <button class="btn-delete" v-if="me.avatar_name" @click="onDeleteAvatar" :disabled="busyAva || isBanned">
+          <UiIcon class="btn-img" :icon="iconDelete" />
+        </button>
+      </div>
+      <div class="avatar-upload">
+        <input ref="fileEl" type="file" :accept="avatarAccept" @change="onPick" :disabled="avatarUploadDisabled" hidden />
+        <button class="btn-upload" type="button" :class="{ 'drag-active': avatarDragActive }" :disabled="avatarUploadDisabled" @click="fileEl?.click()"
+                @dragenter.prevent="onAvatarDragEnter" @dragover.prevent="onAvatarDragOver" @dragleave.prevent="onAvatarDragLeave" @drop.prevent="onAvatarDrop">
+          <img class="btn-img" :src="iconDownload" alt="upload" />
+          <span class="hint">{{ avatarDragActive ? 'Отпустите изображение' : (me.avatar_name ? 'Изменить' : 'Загрузить') }}</span>
+          <span class="hint">{{ avatarFormatHint }}</span>
+        </button>
       </div>
     </div>
 
@@ -139,6 +139,7 @@ import { useUserStore } from '@/store'
 
 import UiInput from '@/components/UiInput.vue'
 import UiSlider from '@/components/UiSlider.vue'
+import UiIcon from '@/components/UiIcon.vue'
 
 import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
 import iconDownload from '@/assets/svg/iconDownload.svg'
@@ -201,6 +202,7 @@ const gifCanvasEl = ref<HTMLCanvasElement | null>(null)
 const nick = ref('')
 const busyNick = ref(false)
 const busyAva = ref(false)
+const avatarDragActive = ref(false)
 const nicknameHistoryLoading = ref(false)
 const nicknameHistoryError = ref('')
 const nicknameHistoryItems = ref<string[]>([])
@@ -217,11 +219,13 @@ const gifPicker = reactive<GifPicker>({
   error: '',
 })
 let nicknameHistorySeq = 0
+let avatarDragDepth = 0
 let gifDecoder: any = null
 let gifDecodeSeq = 0
 let onProfileSync: ((e: Event) => void) | null = null
 
 const isBanned = computed(() => userStore.banActive)
+const avatarUploadDisabled = computed(() => busyAva.value || isBanned.value)
 const isProtectedAdminSelf = computed(() => Boolean(me.protected_user))
 const validNick = computed(() => {
   const value = nick.value
@@ -563,33 +567,62 @@ async function applyGifPicker() {
   if (ok) cancelGifPicker()
 }
 
-async function onPick(e: Event) {
-  if (isBanned.value) return
-  const f = (e.target as HTMLInputElement).files?.[0]
-  ;(e.target as HTMLInputElement).value = ''
-  if (!f) return
-  if (!STATIC_AVATAR_TYPES.has(f.type) && f.type !== ANIMATED_AVATAR_TYPE) {
+function isAvatarFileDrag(event: DragEvent): boolean {
+  return Array.from(event.dataTransfer?.types || []).includes('Files')
+}
+
+function resetAvatarDragState() {
+  avatarDragDepth = 0
+  avatarDragActive.value = false
+}
+
+function onAvatarDragEnter(event: DragEvent) {
+  if (avatarUploadDisabled.value || !isAvatarFileDrag(event)) return
+  avatarDragDepth += 1
+  avatarDragActive.value = true
+}
+
+function onAvatarDragOver(event: DragEvent) {
+  if (avatarUploadDisabled.value || !isAvatarFileDrag(event) || !event.dataTransfer) return
+  event.dataTransfer.dropEffect = 'copy'
+}
+
+function onAvatarDragLeave() {
+  avatarDragDepth = Math.max(0, avatarDragDepth - 1)
+  avatarDragActive.value = avatarDragDepth > 0
+}
+
+async function onAvatarDrop(event: DragEvent) {
+  const file = event.dataTransfer?.files?.[0]
+  resetAvatarDragState()
+  if (avatarUploadDisabled.value || !file) return
+  await handleAvatarFile(file)
+}
+
+async function handleAvatarFile(file: File) {
+  if (avatarUploadDisabled.value) return
+  if (!STATIC_AVATAR_TYPES.has(file.type) && file.type !== ANIMATED_AVATAR_TYPE) {
     void alertDialog('К загрузке допустимы только форматы JPG/PNG/GIF')
     return
   }
-  if (f.size > AVATAR_MAX_BYTES) {
+  if (file.size > AVATAR_MAX_BYTES) {
     void alertDialog('К загрузке допустимы только файлы менее 5 Мбайт')
     return
   }
-  if (f.type === ANIMATED_AVATAR_TYPE) {
+  if (file.type === ANIMATED_AVATAR_TYPE) {
     if (!canUseAnimatedAvatar.value) {
       void alertDialog('GIF-аватары доступны только при активной подписке')
       return
     }
-    await openGifFramePicker(f)
+    await openGifFramePicker(file)
     return
   }
-  const url = URL.createObjectURL(f)
+  const url = URL.createObjectURL(file)
   const img = new Image()
   img.onload = async () => {
     URL.revokeObjectURL(url)
     crop.img = img
-    crop.type = (f.type === 'image/png' ? 'image/png' : 'image/jpeg')
+    crop.type = (file.type === 'image/png' ? 'image/png' : 'image/jpeg')
     crop.show = true
     await nextTick()
     modalEl.value?.focus()
@@ -615,6 +648,14 @@ async function onPick(e: Event) {
     void alertDialog('Не удалось открыть изображение')
   }
   img.src = url
+}
+
+async function onPick(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  await handleAvatarFile(file)
 }
 
 function redraw() {
@@ -789,7 +830,7 @@ onBeforeUnmount(() => {
     box-sizing: border-box;
     flex-direction: column;
     width: calc(50% - 5px);
-    height: fit-content;
+    height: 578px;
     padding: 24px;
     gap: 24px;
     border-radius: 24px;
@@ -817,6 +858,12 @@ onBeforeUnmount(() => {
         flex-direction: column;
         align-items: flex-start;
         gap: 10px;
+        .btn-upload {
+          transition: box-shadow 0.25s ease-in-out;
+          &.drag-active {
+            box-shadow: 0 0 0 2px $green-500;
+          }
+        }
         .hint {
           color: $neutral-300;
           font-family: Hauora-Regular;
@@ -832,12 +879,14 @@ onBeforeUnmount(() => {
     flex-direction: column;
     gap: 10px;
     width: calc(50% - 5px);
+    height: 578px;
     .nickname {
       display: flex;
       box-sizing: border-box;
       flex-direction: column;
       padding: 24px;
       gap: 24px;
+      height: calc(50% - 5px);
       border-radius: 24px;
       background-color: $soft-purple-900;
       --ui-input-label-bg: #{$soft-purple-900};
@@ -880,6 +929,7 @@ onBeforeUnmount(() => {
       flex-direction: column;
       padding: 24px;
       gap: 16px;
+      height: calc(50% - 5px);
       border-radius: 24px;
       background-color: $soft-purple-900;
       .nickname-history-header {
