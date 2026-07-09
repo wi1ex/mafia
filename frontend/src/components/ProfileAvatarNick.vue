@@ -1,69 +1,78 @@
 <template>
   <section class="block-profile">
-    <h3>Аватар и никнейм</h3>
-    <div class="avatar-row">
-      <img class="avatar-img" v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false, animated: true }" alt="Текущий аватар" />
-      <div class="actions">
-        <input ref="fileEl" type="file" :accept="avatarAccept" @change="onPick" :disabled="isBanned" hidden />
-        <button class="btn dark" @click="fileEl?.click()" :disabled="busyAva || isBanned">
-          <img class="btn-img" :src="iconDownload" alt="edit" />
-          {{ me.avatar_name ? 'Изменить' : 'Загрузить' }}
-        </button>
-        <span class="hint center">{{ avatarFormatHint }}</span>
-        <button class="btn danger" v-if="me.avatar_name" @click="onDeleteAvatar" :disabled="busyAva || isBanned">
-          <img class="btn-img" :src="iconDelete" alt="delete" />
-          Удалить
-        </button>
+    <div class="avatar">
+      <span class="title">Аватар</span>
+
+      <div class="avatar-row">
+        <img class="avatar-img" v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false, animated: true }" alt="Текущий аватар" />
+        <div class="actions">
+          <input ref="fileEl" type="file" :accept="avatarAccept" @change="onPick" :disabled="isBanned" hidden />
+          <button class="btn dark" @click="fileEl?.click()" :disabled="busyAva || isBanned">
+            <img class="btn-img" :src="iconDownload" alt="edit" />
+            {{ me.avatar_name ? 'Изменить' : 'Загрузить' }}
+          </button>
+          <span class="hint center">{{ avatarFormatHint }}</span>
+          <button class="btn danger" v-if="me.avatar_name" @click="onDeleteAvatar" :disabled="busyAva || isBanned">
+            <img class="btn-img" :src="iconDelete" alt="delete" />
+            Удалить
+          </button>
+        </div>
       </div>
     </div>
 
-    <div class="nick-row">
-      <div class="nick-input-line">
-        <UiInput
-          class="profile-input"
-          id="profile-nick"
-          v-model.trim="nick"
-          :maxlength="NICK_MAX"
-          :disabled="busyNick || isBanned || isProtectedAdminSelf"
-          autocomplete="off"
-          inputmode="text"
-          label="Никнейм"
-          :invalid="!!nick && !validNick"
-          :aria-invalid="!!nick && !validNick"
-          aria-describedby="profile-nick-hint"
-        >
-          <template #meta>
-            <span id="profile-nick-hint">{{ nick.length }}/{{ NICK_MAX }}</span>
-          </template>
-        </UiInput>
-      </div>
-      <span class="hint"><code>латиница, кириллица, цифры, символы ()._-</code></span>
-      <span class="hint" :class="{ red: nicknameChangesLeft <= 0 }">Осталось изменений никнейма: {{ nicknameChangesLeft }}</span>
-      <button class="btn confirm" @click="saveNick" :disabled="saveNickDisabled">
-        {{ busyNick ? '...' : 'Сохранить' }}
-      </button>
-    </div>
-    <p class="hint">Никнейм является логином для авторизации</p>
+    <div class="profile-details">
+      <div class="nickname">
+        <span class="title">Никнейм</span>
 
-    <div class="nickname-history" aria-labelledby="nickname-history-title">
-      <div class="nickname-history-header">
-        <span id="nickname-history-title" class="nickname-history-title">История никнеймов</span>
-        <button class="btn danger nickname-history-clear" type="button" :disabled="nicknameHistoryClearDisabled" @click="clearNicknameHistory">
-          {{ nicknameHistoryClearBusy ? '...' : 'Очистить историю' }}
-        </button>
+        <div class="nick-row">
+          <div class="nick-input-line">
+            <UiInput
+              class="profile-input"
+              id="profile-nick"
+              v-model.trim="nick"
+              :maxlength="NICK_MAX"
+              :disabled="busyNick || isBanned || isProtectedAdminSelf"
+              autocomplete="off"
+              inputmode="text"
+              label="Никнейм"
+              :invalid="!!nick && !validNick"
+              :aria-invalid="!!nick && !validNick"
+              aria-describedby="profile-nick-hint"
+            >
+              <template #meta>
+                <span id="profile-nick-hint">{{ nick.length }}/{{ NICK_MAX }}</span>
+              </template>
+            </UiInput>
+          </div>
+          <span class="hint"><code>латиница, кириллица, цифры, символы ()._-</code></span>
+          <span class="hint" :class="{ red: nicknameChangesLeft <= 0 }">Осталось изменений никнейма: {{ nicknameChangesLeft }}</span>
+          <button class="btn confirm" @click="saveNick" :disabled="saveNickDisabled">
+            {{ busyNick ? '...' : 'Сохранить' }}
+          </button>
+          <span class="hint">Никнейм является логином для авторизации</span>
+        </div>
       </div>
-      <span class="nickname-history-access-text" :class="{ disabled: !canEditProfileTheme }">{{ nicknameHistoryAccessText }}</span>
-      <span class="nickname-history-divider" aria-hidden="true"></span>
-      <span v-if="nicknameHistoryLoading" class="nickname-history-state">Загрузка...</span>
-      <div v-else-if="nicknameHistoryError" class="nickname-history-error">
-        <span class="nickname-history-state danger">{{ nicknameHistoryError }}</span>
-        <button class="btn dark nickname-history-retry" type="button" @click="loadNicknameHistory(true)">Повторить</button>
-      </div>
-      <div v-else class="nickname-history-list">
-        <span v-for="(nicknameItem, index) in nicknameHistoryItems" :key="`${nicknameItem}-${index}`" :class="{ current: index === 0 }">
-          {{ nicknameItem }}
-        </span>
-        <span v-if="!nicknameHistoryItems.length" class="nickname-history-state">-</span>
+
+      <div class="nickname-history" aria-labelledby="nickname-history-title">
+        <div class="nickname-history-header">
+          <span id="nickname-history-title" class="nickname-history-title">История никнеймов</span>
+          <button class="btn danger nickname-history-clear" type="button" :disabled="nicknameHistoryClearDisabled" @click="clearNicknameHistory">
+            {{ nicknameHistoryClearBusy ? '...' : 'Очистить историю' }}
+          </button>
+        </div>
+        <span class="nickname-history-access-text" :class="{ disabled: !canEditProfileTheme }">{{ nicknameHistoryAccessText }}</span>
+        <span class="nickname-history-divider" aria-hidden="true"></span>
+        <span v-if="nicknameHistoryLoading" class="nickname-history-state">Загрузка...</span>
+        <div v-else-if="nicknameHistoryError" class="nickname-history-error">
+          <span class="nickname-history-state danger">{{ nicknameHistoryError }}</span>
+          <button class="btn dark nickname-history-retry" type="button" @click="loadNicknameHistory(true)">Повторить</button>
+        </div>
+        <div v-else class="nickname-history-list">
+          <span v-for="(nicknameItem, index) in nicknameHistoryItems" :key="`${nicknameItem}-${index}`" :class="{ current: index === 0 }">
+            {{ nicknameItem }}
+          </span>
+          <span v-if="!nicknameHistoryItems.length" class="nickname-history-state">-</span>
+        </div>
       </div>
     </div>
 
@@ -774,117 +783,174 @@ onBeforeUnmount(() => {
 
 <style scoped lang="scss">
 .block-profile {
-  .avatar-row {
-    display: flex;
-    gap: 20px;
-    align-items: center;
-    .avatar-img {
-      width: 150px;
-      height: 150px;
-      object-fit: cover;
-      border-radius: 50%;
-    }
-    .actions {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-  }
-  .nick-row {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    margin-bottom: 5px;
-    gap: 10px;
-    .nick-input-line {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      width: 100%;
-      :deep(.profile-input) {
-        flex: 1 1 auto;
-        max-width: 300px;
-        width: 100%;
-        --ui-input-label-bg: #{$soft-purple-900};
-      }
-    }
-  }
-  .nickname-history {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  .avatar {
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
-    width: 100%;
-    max-width: 480px;
-    margin-top: 24px;
+    width: calc(40% - 5px);
     padding: 24px;
-    gap: 16px;
+    gap: 24px;
     border-radius: 24px;
     background-color: $soft-purple-900;
-    color: $neutral-100;
-    font-size: 14px;
-    line-height: 18px;
-    .nickname-history-header {
+    .title {
+      color: $neutral-white;
+      font-family: Involve-Medium;
+      font-size: 24px;
+      line-height: 26px;
+      letter-spacing: -0.48px;
+    }
+    .avatar-row {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      .nickname-history-title {
+      gap: 24px;
+      .avatar-img {
+        flex: 0 0 auto;
+        width: 150px;
+        height: 150px;
+        border-radius: 50%;
+        object-fit: cover;
+      }
+      .actions {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+        .hint {
+          color: $neutral-300;
+          font-family: Hauora-Regular;
+          font-size: 14px;
+          line-height: 14px;
+          letter-spacing: -0.28px;
+        }
+      }
+    }
+  }
+  .profile-details {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: calc(60% - 5px);
+    .nickname {
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
+      padding: 24px;
+      gap: 24px;
+      border-radius: 24px;
+      background-color: $soft-purple-900;
+      --ui-input-label-bg: #{$soft-purple-900};
+      .title {
+        color: $neutral-white;
         font-family: Involve-Medium;
         font-size: 24px;
         line-height: 26px;
         letter-spacing: -0.48px;
       }
-      .nickname-history-clear {
-        flex: 0 0 auto;
-        min-height: 30px;
-        font-size: 14px;
-      }
-    }
-    .nickname-history-access-text {
-      color: $neutral-300;
-      overflow-wrap: anywhere;
-      &.disabled {
-        color: $neutral-500;
-      }
-    }
-    .nickname-history-divider {
-      width: 100%;
-      height: 1px;
-      background-color: rgba($neutral-white, 0.1);
-    }
-    > .nickname-history-state {
-      color: $neutral-300;
-    }
-    .nickname-history-error {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      .nickname-history-state {
-        color: $neutral-300;
-        &.danger {
-          color: $red-500;
+      .nick-row {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+        width: 100%;
+        .nick-input-line {
+          display: flex;
+          align-items: center;
+          width: 100%;
+          :deep(.profile-input) {
+            width: 100%;
+          }
+        }
+        .hint {
+          color: $neutral-300;
+          font-family: Hauora-Regular;
+          font-size: 14px;
+          line-height: 14px;
+          letter-spacing: -0.28px;
+          &.red {
+            color: $red-500;
+          }
         }
       }
-      .nickname-history-retry {
-        flex: 0 0 auto;
-        min-height: 30px;
-        font-size: 14px;
-      }
     }
-    .nickname-history-list {
+    .nickname-history {
       display: flex;
       flex-direction: column;
-      max-height: 250px;
-      gap: 5px;
-      overflow-y: auto;
-      scrollbar-width: thin;
-      span {
+      box-sizing: border-box;
+      width: 100%;
+      padding: 24px;
+      gap: 16px;
+      border-radius: 24px;
+      background-color: $soft-purple-900;
+      color: $neutral-100;
+      font-size: 14px;
+      line-height: 18px;
+      .nickname-history-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        .nickname-history-title {
+          font-family: Involve-Medium;
+          font-size: 24px;
+          line-height: 26px;
+          letter-spacing: -0.48px;
+        }
+        .nickname-history-clear {
+          flex: 0 0 auto;
+          min-height: 30px;
+          font-size: 14px;
+        }
+      }
+      .nickname-history-access-text {
         color: $neutral-300;
         overflow-wrap: anywhere;
-        &.current {
-          color: $neutral-100;
-          font-family: Hauora-SemiBold;
+        &.disabled {
+          color: $neutral-500;
+        }
+      }
+      .nickname-history-divider {
+        width: 100%;
+        height: 1px;
+        background-color: rgba($neutral-white, 0.1);
+      }
+      > .nickname-history-state {
+        color: $neutral-300;
+      }
+      .nickname-history-error {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        .nickname-history-state {
+          color: $neutral-300;
+          &.danger {
+            color: $red-500;
+          }
+        }
+        .nickname-history-retry {
+          flex: 0 0 auto;
+          min-height: 30px;
+          font-size: 14px;
+        }
+      }
+      .nickname-history-list {
+        display: flex;
+        flex-direction: column;
+        max-height: 250px;
+        gap: 5px;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        span {
+          color: $neutral-300;
+          overflow-wrap: anywhere;
+          &.current {
+            color: $neutral-100;
+            font-family: Hauora-SemiBold;
+          }
         }
       }
     }
