@@ -103,71 +103,75 @@
       </div>
     </div>
 
-    <div v-if="crop.show" ref="modalEl" class="modal" @keydown.esc="cancelCrop" tabindex="0" aria-modal="true" aria-label="Кадрирование аватара" >
-      <div class="modal-body">
-        <header>
-          <span class="title">Масштабирование аватара</span>
-          <button class="close-btn" type="button" aria-label="Закрыть" @click="cancelCrop">
-            <UiIcon class="close-icon" :icon="iconClose" />
-          </button>
-        </header>
-        <canvas ref="canvasEl" @mousedown="dragStart" @mousemove="dragMove" @mouseup="dragStop" @mouseleave="dragStop" @wheel.passive="onWheel" />
-        <div class="range">
-          <span>Масштаб</span>
-          <UiSlider
-            :model-value="crop.scale"
-            :min="crop.min"
-            :max="crop.max"
-            :step="0.01"
-            :disabled="isBanned"
-            aria-label="Масштаб"
-            @update:modelValue="scaleTo"
-          />
-        </div>
-        <div class="modal-actions">
-          <button class="btn danger" @click="cancelCrop">Отменить</button>
-          <button class="btn confirm" @click="applyCrop" :disabled="busyAva || isBanned">Загрузить</button>
+    <Transition name="modal-fade">
+      <div v-if="crop.show" ref="modalEl" class="modal" @keydown.esc="cancelCrop" tabindex="0" aria-modal="true" aria-label="Кадрирование аватара" >
+        <div class="modal-body">
+          <header>
+            <span class="title">Масштабирование аватара</span>
+            <button class="close-btn" type="button" aria-label="Закрыть" @click="cancelCrop">
+              <UiIcon class="close-icon" :icon="iconClose" />
+            </button>
+          </header>
+          <canvas ref="canvasEl" @mousedown="dragStart" @mousemove="dragMove" @mouseup="dragStop" @mouseleave="dragStop" @wheel.passive="onWheel" />
+          <div class="range">
+            <span>Масштаб</span>
+            <UiSlider
+              :model-value="crop.scale"
+              :min="crop.min"
+              :max="crop.max"
+              :step="0.01"
+              :disabled="isBanned"
+              aria-label="Масштаб"
+              @update:modelValue="scaleTo"
+            />
+          </div>
+          <div class="modal-actions">
+            <button class="btn danger" @click="cancelCrop">Отменить</button>
+            <button class="btn confirm" @click="applyCrop" :disabled="busyAva || isBanned">Загрузить</button>
+          </div>
         </div>
       </div>
-    </div>
+    </Transition>
 
-    <div v-if="gifPicker.show" ref="gifModalEl" class="modal gif-modal" @keydown.esc="cancelGifPicker" tabindex="0" aria-modal="true" aria-label="Выбор статичного кадра GIF">
-      <div class="modal-body gif-modal-body">
-        <header>
-          <span class="title">Масштабирование аватара</span>
-          <button class="close-btn" type="button" aria-label="Закрыть" @click="cancelGifPicker">
-            <UiIcon class="close-icon" :icon="iconClose" />
-          </button>
-        </header>
-        <div class="gif-preview-row">
-          <div class="gif-preview-block">
-            <span>Анимация</span>
-            <img v-if="gifPicker.animatedUrl" :src="gifPicker.animatedUrl" alt="GIF-анимация" />
+    <Transition name="modal-fade">
+      <div v-if="gifPicker.show" ref="gifModalEl" class="modal gif-modal" @keydown.esc="cancelGifPicker" tabindex="0" aria-modal="true" aria-label="Выбор статичного кадра GIF">
+        <div class="modal-body gif-modal-body">
+          <header>
+            <span class="title">Выбор кадра для аватара</span>
+            <button class="close-btn" type="button" aria-label="Закрыть" @click="cancelGifPicker">
+              <UiIcon class="close-icon" :icon="iconClose" />
+            </button>
+          </header>
+          <div class="gif-preview-row">
+            <div class="gif-preview-block">
+              <span>Анимация</span>
+              <img v-if="gifPicker.animatedUrl" :src="gifPicker.animatedUrl" alt="GIF-анимация" />
+            </div>
+            <div class="gif-preview-block">
+              <span>Статичный кадр</span>
+              <canvas ref="gifCanvasEl" />
+            </div>
           </div>
-          <div class="gif-preview-block">
-            <span>Статичный кадр</span>
-            <canvas ref="gifCanvasEl" />
+          <p v-if="gifPicker.error" class="hint red">{{ gifPicker.error }}</p>
+          <div class="range">
+            <span>Кадр {{ gifFrameLabel }}</span>
+            <UiSlider
+              :model-value="gifPicker.frameIndex"
+              :min="0"
+              :max="Math.max(0, gifPicker.frameCount - 1)"
+              :step="1"
+              :disabled="busyAva || isBanned || gifPicker.frameCount <= 1 || gifPicker.decoding"
+              aria-label="Кадр GIF"
+              @update:modelValue="onGifFrameRange"
+            />
           </div>
-        </div>
-        <p v-if="gifPicker.error" class="hint red">{{ gifPicker.error }}</p>
-        <div class="range">
-          <span>Кадр {{ gifFrameLabel }}</span>
-          <UiSlider
-            :model-value="gifPicker.frameIndex"
-            :min="0"
-            :max="Math.max(0, gifPicker.frameCount - 1)"
-            :step="1"
-            :disabled="busyAva || isBanned || gifPicker.frameCount <= 1 || gifPicker.decoding"
-            aria-label="Кадр GIF"
-            @update:modelValue="onGifFrameRange"
-          />
-        </div>
-        <div class="modal-actions">
-          <button class="btn danger" @click="cancelGifPicker">Отменить</button>
-          <button class="btn confirm" @click="applyGifPicker" :disabled="busyAva || isBanned || gifPicker.loading || gifPicker.decoding || !!gifPicker.error">Загрузить</button>
+          <div class="modal-actions">
+            <button class="btn danger" @click="cancelGifPicker">Отменить</button>
+            <button class="btn confirm" @click="applyGifPicker" :disabled="busyAva || isBanned || gifPicker.loading || gifPicker.decoding || !!gifPicker.error">Загрузить</button>
+          </div>
         </div>
       </div>
-    </div>
+    </Transition>
   </section>
 </template>
 
@@ -1237,6 +1241,21 @@ onBeforeUnmount(() => {
         }
       }
     }
+  }
+}
+
+.modal-fade-enter-active,
+.modal-fade-leave-active {
+  transition: opacity 0.25s ease-in-out;
+  .modal-body {
+    transition: opacity 0.25s ease-in-out;
+  }
+}
+.modal-fade-enter-from,
+.modal-fade-leave-to {
+  opacity: 0;
+  .modal-body {
+    opacity: 0;
   }
 }
 </style>
