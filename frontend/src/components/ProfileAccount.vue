@@ -8,10 +8,14 @@
             <span class="date-text">Дата регистрации: {{ registrationDateLabel }}</span>
           </div>
           <div class="account-btn">
-            <button @click="deleteAccount" :disabled="deleteBusy || isDeleteAccountForbiddenSelf">
-              <UiIcon :icon="iconDelete" />
-              <span>{{ deleteBusy ? '...' : 'Удалить аккаунт' }}</span>
-            </button>
+            <UiButton
+              variant="red"
+              size="middle"
+              :icon="iconDelete"
+              :text="deleteBusy ? '...' : 'Удалить аккаунт'"
+              @click="deleteAccount"
+              :disabled="deleteBusy || isDeleteAccountForbiddenSelf"
+            />
             <span class="hint">Удаление произойдет навсегда без возможности его восстановления.</span>
           </div>
         </div>
@@ -23,12 +27,23 @@
             <span v-if="telegramVerified" class="hint">Если отвязать TG-аккаунт верификация будет снята.</span>
             <span v-else class="hint">В чате с ботом сначала введите никнейм, затем пароль. После успешной верификации ограничения будут сняты.</span>
           </div>
-          <button v-if="telegramVerified" @click="unlinkTelegram" :disabled="unlinkTgBusy">
-            {{ unlinkTgBusy ? '...' : 'Отвязать TG-аккаунт' }}
-          </button>
-          <a v-else-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">
-            Пройти верификацию
-          </a>
+          <UiButton
+            v-if="telegramVerified"
+            variant="red"
+            size="middle"
+            :text="unlinkTgBusy ? '...' : 'Отвязать TG-аккаунт'"
+            @click="unlinkTelegram"
+            :disabled="unlinkTgBusy"
+          />
+          <UiButton
+            v-else-if="botName"
+            variant="green"
+            size="middle"
+            text="Пройти верификацию"
+            :href="botLink"
+            target="_blank"
+            rel="noopener noreferrer"
+          />
         </div>
       </div>
 
@@ -120,7 +135,7 @@ import { useAuthStore, useUserStore } from '@/store'
 
 import UiInput from '@/components/UiInput.vue'
 import UiSwitch from '@/components/UiSwitch.vue'
-import UiIcon from '@/components/UiIcon.vue'
+import UiButton from '@/components/UiButton.vue'
 
 import iconDelete from '@/assets/svg/iconDelete.svg'
 import iconTickCircle from '@/assets/svg/iconTickCircle.svg'
