@@ -70,29 +70,30 @@
       </div>
 
       <div class="nickname-history">
-        <div class="nickname-history-header">
-          <span class="nickname-history-title">История никнеймов</span>
-          <UiTooltip
-            text="Обнуление истории никнеймов доступно только при наличии подписки."
-            placement="bottom-right"
-          />
+        <div class="nickname-history-div">
+          <div class="nickname-history-header">
+            <span class="nickname-history-title">История никнеймов</span>
+            <UiTooltip
+              text="Обнуление истории никнеймов доступно только при наличии подписки."
+              placement="bottom-right"
+            />
+          </div>
+          <span v-if="nicknameHistoryLoading" class="nickname-history-item">Загрузка...</span>
+          <span v-else-if="nicknameHistoryError" class="nickname-history-item danger">{{ nicknameHistoryError }}</span>
+          <div v-else class="nickname-history-list">
+            <span class="nickname-history-item" v-for="(nicknameItem, index) in nicknameHistoryItems" :key="`${nicknameItem}-${index}`" :class="{ current: index === 0 }">
+              {{ nicknameItem }}
+            </span>
+          </div>
         </div>
-        <span class="nickname-history-access-text" :class="{ disabled: !canEditProfileTheme }">{{ nicknameHistoryAccessText }}</span>
-        <span class="nickname-history-divider" aria-hidden="true"></span>
-        <span v-if="nicknameHistoryLoading" class="nickname-history-state">Загрузка...</span>
-        <div v-else-if="nicknameHistoryError" class="nickname-history-error">
-          <span class="nickname-history-state danger">{{ nicknameHistoryError }}</span>
-          <button class="btn dark nickname-history-retry" type="button" @click="loadNicknameHistory(true)">Повторить</button>
-        </div>
-        <div v-else class="nickname-history-list">
-          <span v-for="(nicknameItem, index) in nicknameHistoryItems" :key="`${nicknameItem}-${index}`" :class="{ current: index === 0 }">
-            {{ nicknameItem }}
-          </span>
-          <span v-if="!nicknameHistoryItems.length" class="nickname-history-state">-</span>
-        </div>
-        <button class="btn danger nickname-history-clear" type="button" :disabled="nicknameHistoryClearDisabled" @click="clearNicknameHistory">
-          {{ nicknameHistoryClearBusy ? '...' : 'Очистить историю' }}
-        </button>
+        <UiButton
+          v-if="nicknameHistoryLoaded"
+          variant="green"
+          size="middle"
+          :text="nicknameHistoryClearBusy ? '...' : 'Очистить историю'"
+          :disabled="nicknameHistoryClearDisabled"
+          @click="clearNicknameHistory"
+        />
       </div>
     </div>
 
@@ -172,6 +173,8 @@ import iconPen from '@/assets/svg/iconPen.svg'
 
 const NICK_MAX = 20
 const NICKNAME_CHANGES_MAX = 30
+const NICKNAME_HISTORY_LOAD_ATTEMPTS = 3
+const NICKNAME_HISTORY_RETRY_DELAY_MS = 300
 const AVATAR_MAX_BYTES = 5 * 1024 * 1024
 const MAX_AVATAR_GIF_FRAMES = 300
 const CROP_CANVAS_DESKTOP_SIZE = 400
@@ -290,18 +293,6 @@ const avatarAccept = computed(() => (
 const avatarFormatHint = computed(() => (
   canUseAnimatedAvatar.value ? 'JPG, PNG или GIF (до 5 Мб)' : 'JPG или PNG (до 5 Мб)'
 ))
-const profileThemeAvailabilityText = computed(() => {
-  const raw = me.subscription_until
-  if (!raw) return 'Доступно, пока активна подписка'
-  const dt = new Date(raw)
-  if (Number.isNaN(dt.getTime())) return 'Доступно, пока активна подписка'
-  return `Доступно для Вас до ${dt.toLocaleDateString('ru-RU')}`
-})
-const nicknameHistoryAccessText = computed(() => (
-  canEditProfileTheme.value
-    ? profileThemeAvailabilityText.value
-    : 'Очистка истории никнеймов доступна только при наличии подписки'
-))
 const nicknameHistoryHasDeletableItems = computed(() => nicknameHistoryItems.value.length > 1)
 const nicknameHistoryClearDisabled = computed(() => (
   nicknameHistoryClearBusy.value
@@ -361,21 +352,31 @@ function resetNicknameHistory() {
   nicknameHistoryLoaded.value = false
 }
 
-async function loadNicknameHistory(force = false) {
+async function loadNicknameHistory() {
   if (me.id <= 0 || nicknameHistoryLoading.value) return
-  if (nicknameHistoryLoaded.value && !force) return
+  if (nicknameHistoryLoaded.value) return
 
   const seq = ++nicknameHistorySeq
   nicknameHistoryLoading.value = true
   nicknameHistoryError.value = ''
   try {
-    const { data } = await api.get<NicknameHistoryResponse>(`/users/${me.id}/nickname_history`)
-    if (seq !== nicknameHistorySeq) return
-    nicknameHistoryItems.value = normalizeNicknameHistoryItems(data?.items)
-    nicknameHistoryLoaded.value = true
-  } catch {
-    if (seq !== nicknameHistorySeq) return
-    nicknameHistoryError.value = 'Не удалось загрузить историю'
+    for (let attempt = 0; attempt < NICKNAME_HISTORY_LOAD_ATTEMPTS; attempt += 1) {
+      try {
+        const { data } = await api.get<NicknameHistoryResponse>(`/users/${me.id}/nickname_history`)
+        if (seq !== nicknameHistorySeq) return
+        nicknameHistoryItems.value = normalizeNicknameHistoryItems(data?.items)
+        nicknameHistoryLoaded.value = true
+        return
+      } catch {
+        if (seq !== nicknameHistorySeq) return
+        if (attempt === NICKNAME_HISTORY_LOAD_ATTEMPTS - 1) {
+          nicknameHistoryError.value = 'Не удалось загрузить историю'
+          return
+        }
+        await new Promise(resolve => window.setTimeout(resolve, NICKNAME_HISTORY_RETRY_DELAY_MS))
+        if (seq !== nicknameHistorySeq) return
+      }
+    }
   } finally {
     if (seq === nicknameHistorySeq) nicknameHistoryLoading.value = false
   }
@@ -1043,75 +1044,44 @@ onBeforeUnmount(() => {
     .nickname-history {
       display: flex;
       box-sizing: border-box;
+      justify-content: space-between;
       flex-direction: column;
       padding: 24px;
-      gap: 16px;
       height: calc(50% - 5px);
       border-radius: 24px;
       background-color: $soft-purple-900;
-      .nickname-history-header {
+      .nickname-history-div {
         display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 16px;
-        .nickname-history-title {
-          font-family: Involve-Medium;
-          font-size: 24px;
-          line-height: 26px;
-          letter-spacing: -0.48px;
+        flex-direction: column;
+        gap: 24px;
+        .nickname-history-header {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          .nickname-history-title {
+            font-family: Involve-Medium;
+            font-size: 24px;
+            line-height: 26px;
+            letter-spacing: -0.48px;
+          }
         }
-        .nickname-history-clear {
-          flex: 0 0 auto;
-          min-height: 30px;
-          font-size: 14px;
-        }
-      }
-      .nickname-history-access-text {
-        color: $neutral-300;
-        overflow-wrap: anywhere;
-        &.disabled {
-          color: $neutral-500;
-        }
-      }
-      .nickname-history-divider {
-        width: 100%;
-        height: 1px;
-        background-color: rgba($neutral-white, 0.1);
-      }
-      > .nickname-history-state {
-        color: $neutral-300;
-      }
-      .nickname-history-error {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 16px;
-        .nickname-history-state {
+        .nickname-history-item {
           color: $neutral-300;
+          font-family: Involve-Medium;
+          font-size: 16px;
+          line-height: 16px;
+          letter-spacing: -0.32px;
           &.danger {
             color: $red-500;
           }
-        }
-        .nickname-history-retry {
-          flex: 0 0 auto;
-          min-height: 30px;
-          font-size: 14px;
-        }
-      }
-      .nickname-history-list {
-        display: flex;
-        flex-direction: column;
-        max-height: 250px;
-        gap: 5px;
-        overflow-y: auto;
-        scrollbar-width: thin;
-        span {
-          color: $neutral-300;
-          overflow-wrap: anywhere;
           &.current {
             color: $neutral-100;
-            font-family: Hauora-SemiBold;
           }
+        }
+        .nickname-history-list {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
         }
       }
     }
