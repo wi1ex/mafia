@@ -12,8 +12,10 @@
         <input ref="fileEl" type="file" :accept="avatarAccept" @change="onPick" :disabled="avatarUploadDisabled" hidden />
         <button class="btn-upload" type="button" :class="{ 'drag-active': avatarDragActive }" :disabled="avatarUploadDisabled" @click="fileEl?.click()"
                 @dragenter.prevent="onAvatarDragEnter" @dragover.prevent="onAvatarDragOver" @dragleave.prevent="onAvatarDragLeave" @drop.prevent="onAvatarDrop">
-          <UiIcon class="btn-img-delete" :icon="iconDownload" />
-          <span class="hint">{{ avatarDragActive ? 'Отпустите изображение' : (me.avatar_name ? 'Изменить' : 'Загрузить') }}</span>
+          <div class="btn-img-div">
+            <UiIcon class="btn-img-upload" :icon="iconDownload" />
+          </div>
+          <span class="text">{{ avatarDragActive ? 'Отпустите изображение' : 'Нажмите или перетащите файл сюда' }}</span>
           <span class="hint">{{ avatarFormatHint }}</span>
         </button>
       </div>
@@ -254,7 +256,7 @@ const avatarAccept = computed(() => (
   canUseAnimatedAvatar.value ? 'image/jpeg,image/png,image/gif' : 'image/jpeg,image/png'
 ))
 const avatarFormatHint = computed(() => (
-  canUseAnimatedAvatar.value ? 'JPG/PNG/GIF, до 5 МБ' : 'JPG/PNG, до 5 МБ'
+  canUseAnimatedAvatar.value ? 'JPG, PNG или GIF (до 5 Мб)' : 'JPG или PNG (до 5 Мб)'
 ))
 const profileThemeAvailabilityText = computed(() => {
   const raw = me.subscription_until
@@ -829,10 +831,10 @@ onBeforeUnmount(() => {
     display: flex;
     box-sizing: border-box;
     flex-direction: column;
+    padding: 24px;
+    gap: 40px;
     width: calc(50% - 5px);
     height: 578px;
-    padding: 24px;
-    gap: 24px;
     border-radius: 24px;
     background-color: $soft-purple-900;
     .title {
@@ -844,37 +846,79 @@ onBeforeUnmount(() => {
     }
     .avatar-row {
       display: flex;
-      align-items: center;
-      gap: 24px;
+      position: relative;
+      align-self: center;
       .avatar-img {
-        width: 150px;
-        height: 150px;
+        width: 256px;
+        height: 256px;
         border-radius: 50%;
         object-fit: cover;
       }
       .btn-delete {
-        width: 30px;
-        height: 30px;
+        position: absolute;
+        top: 0;
+        right: 0;
+        border: 1px solid $neutral-800;
+        border-radius: 999px;
+        background: none;
+        width: 32px;
+        height: 32px;
+        cursor: pointer;
         .btn-img-delete {
-          --ui-icon-width: 24px;
-          --ui-icon-height: 24px;
-          --ui-icon-color: #{$red-500};
+          --ui-icon-width: 20px;
+          --ui-icon-height: 20px;
+          --ui-icon-color: #{$neutral-white};
+        }
+        &:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+        &:not(:disabled):hover,
+        &:not(:disabled):focus-visible,
+        &:not(:disabled):active {
+          .btn-img-delete {
+            --ui-icon-color: #{$green-500};
+          }
         }
       }
     }
-    .avatar-row {
+    .avatar-upload {
       display: flex;
-      align-items: center;
-      gap: 24px;
+      width: 100%;
+      height: 168px;
       .btn-upload {
-        transition: box-shadow 0.25s ease-in-out;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 24px;
+        gap: 8px;
+        width: 100%;
+        height: 100%;
+        border: 2px dashed $neutral-600;
+        border-radius: 20px;
+        background-color: $soft-purple-800;
+        transition: border-color 0.25s ease-in-out;
         &.drag-active {
-          box-shadow: 0 0 0 2px $green-500;
+          border-color: $green-500;
         }
-        .btn-img-upload {
-          --ui-icon-width: 24px;
-          --ui-icon-height: 24px;
-          --ui-icon-color: #{$red-500};
+        .btn-img-div {
+          margin-bottom: 8px;
+          width: 64px;
+          height: 64px;
+          border-radius: 999px;
+          background-color: rgba($soft-purple-800, 0.65);
+          .btn-img-upload {
+            --ui-icon-width: 40px;
+            --ui-icon-height: 40px;
+            --ui-icon-color: #{$green-500};
+          }
+        }
+        .text {
+          color: $neutral-white;
+          font-family: Hauora-Regular;
+          font-size: 16px;
+          line-height: 16px;
+          letter-spacing: -0.32px;
         }
         .hint {
           color: $neutral-300;
