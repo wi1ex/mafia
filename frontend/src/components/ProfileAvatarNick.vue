@@ -2,7 +2,6 @@
   <section class="block-profile">
     <div class="avatar">
       <span class="title">Аватар</span>
-
       <div class="avatar-row">
         <img class="avatar-img" v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false, animated: true }" alt="Текущий аватар" />
         <div class="actions">
@@ -23,7 +22,6 @@
     <div class="profile-details">
       <div class="nickname">
         <span class="title">Никнейм</span>
-
         <div class="nick-row">
           <div class="nick-input-line">
             <UiInput
@@ -784,14 +782,14 @@ onBeforeUnmount(() => {
 <style scoped lang="scss">
 .block-profile {
   display: flex;
-  align-items: flex-start;
   gap: 10px;
   width: 100%;
   .avatar {
     display: flex;
-    flex-direction: column;
     box-sizing: border-box;
-    width: calc(40% - 5px);
+    flex-direction: column;
+    width: calc(50% - 5px);
+    height: fit-content;
     padding: 24px;
     gap: 24px;
     border-radius: 24px;
@@ -833,11 +831,11 @@ onBeforeUnmount(() => {
     display: flex;
     flex-direction: column;
     gap: 10px;
-    width: calc(60% - 5px);
+    width: calc(50% - 5px);
     .nickname {
       display: flex;
-      flex-direction: column;
       box-sizing: border-box;
+      flex-direction: column;
       padding: 24px;
       gap: 24px;
       border-radius: 24px;
@@ -878,16 +876,12 @@ onBeforeUnmount(() => {
     }
     .nickname-history {
       display: flex;
-      flex-direction: column;
       box-sizing: border-box;
-      width: 100%;
+      flex-direction: column;
       padding: 24px;
       gap: 16px;
       border-radius: 24px;
       background-color: $soft-purple-900;
-      color: $neutral-100;
-      font-size: 14px;
-      line-height: 18px;
       .nickname-history-header {
         display: flex;
         align-items: center;

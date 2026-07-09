@@ -467,10 +467,11 @@ onBeforeUnmount(() => {
   }
   .password {
     display: flex;
+    box-sizing: border-box;
     flex-direction: column;
     padding: 24px;
     gap: 24px;
-    width: calc(40% - 53px);
+    width: calc(40% - 5px);
     height: fit-content;
     border-radius: 24px;
     background-color: $soft-purple-900;
