@@ -127,7 +127,7 @@
           <UiButton
             variant="green"
             size="middle"
-            :text="pwdBusy ? '...' : 'Сменить пароль'"
+            :text="pwdBusy ? '...' : 'Изменить пароль'"
             @click="changePassword"
             :disabled="pwdBusy || !canChangePassword"
           />

@@ -10,8 +10,21 @@
             bubble-width="320px"
           />
         </div>
-        <button v-if="canEditProfileTheme" @click="saveProfileTheme" :disabled="themeSaveDisabled">{{ themeSaveBusy ? '...' : 'Сохранить' }}</button>
-        <button v-else type="button" @click="openSubscriptionModal">Оформить подписку</button>
+        <UiButton
+          v-if="canEditProfileTheme"
+          variant="green"
+          size="middle"
+          :text="themeSaveBusy ? '...' : 'Сохранить изменения'"
+          :disabled="themeSaveDisabled"
+          @click="saveProfileTheme"
+        />
+        <UiButton
+          v-else
+          variant="green"
+          size="middle"
+          text="Оформить подписку"
+          @click="openSubscriptionModal"
+        />
       </div>
       <div class="theme-changes">
         <div class="theme-palette">
@@ -64,6 +77,7 @@ import {
 
 import Subscription from '@/components/Subscription.vue'
 import UiTooltip from '@/components/UiTooltip.vue'
+import UiButton from '@/components/UiButton.vue'
 
 import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
 
@@ -253,11 +267,19 @@ onBeforeUnmount(() => {
       }
     }
     .theme-changes {
-
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
       .theme-palette {
-
+        display: inline-grid;
+        grid-template-columns: repeat(10, 1fr);
+        padding: 16px;
+        gap: 10px;
+        border-radius: 20px;
+        background-color: $soft-purple-800;
         .theme-option {
-
+          aspect-ratio: 1;
+          transition: border-color 0.25s ease-in-out;
           &:hover:enabled {
             border-color: rgba($neutral-white, 0.5);
           }
@@ -270,14 +292,14 @@ onBeforeUnmount(() => {
         }
       }
       .theme-icon-palette {
-
+        z-index: 1;
         .theme-icon-option {
-
+          z-index: 2;
           .theme-icon-img {
-
+            z-index: 3;
           }
           .theme-icon-none {
-
+            z-index: 4;
           }
           &:hover:enabled {
             border-color: rgba($neutral-white, 0.5);
@@ -303,18 +325,18 @@ onBeforeUnmount(() => {
     border-radius: 24px;
     background-color: $soft-purple-900;
     .theme-preview-card {
-
+      z-index: 5;
       .theme-preview-avatar {
-
+        z-index: 6;
       }
       .theme-preview-icons {
-
+        z-index: 7;
         .theme-preview-icon {
-
+          z-index: 8;
         }
       }
       .theme-preview-name {
-
+        z-index: 9;
       }
     }
   }
