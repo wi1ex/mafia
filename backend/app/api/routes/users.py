@@ -61,6 +61,7 @@ from ...services.text_moderation import enforce_clean_text
 from ...schemas.common import Identity, Ok
 from ...schemas.user import (
     UserOut,
+    UserProfileDatesOut,
     UsernameUpdateIn,
     AvatarUploadOut,
     ChatImagePresignIn,
@@ -149,6 +150,48 @@ CHAT_MENTION_SEARCH_RATE_WINDOW_S = 10
 @rate_limited(lambda ident, **_: f"rl:profile_info:{ident['id']}", limit=10, window_s=1)
 async def profile_info(ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserOut:
     return await build_user_out_payload(db, user_id=int(ident["id"]), role=str(ident["role"]))
+
+
+@router.get("/profile_dates", response_model=UserProfileDatesOut)
+@log_route("users.profile_dates")
+@rate_limited(lambda ident, **_: f"rl:profile_dates:{ident['id']}", limit=10, window_s=1)
+async def profile_dates(ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserProfileDatesOut:
+    uid = int(ident["id"])
+    user = await db.get(User, uid)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+
+    last_game_id: int | None = None
+    last_game_at = None
+    last_game_row = await db.execute(
+        select(Game.id, Game.finished_at)
+        .where(Game.roles.has_key(str(uid)))
+        .order_by(Game.finished_at.desc(), Game.id.desc())
+        .limit(1)
+    )
+    last_game_rec = last_game_row.first()
+    if last_game_rec:
+        last_game_id = int(last_game_rec[0])
+        last_game_at = last_game_rec[1]
+
+    online = False
+    with suppress(Exception):
+        redis = get_redis()
+        base_online_ids = set(await fetch_online_user_ids(redis))
+        online_ids = await fetch_effective_online_user_ids(
+            redis,
+            [uid],
+            base_online_ids=base_online_ids,
+        )
+        online = uid in online_ids
+
+    return UserProfileDatesOut(
+        registered_at=user.registered_at,
+        last_visit_at=user.last_visit_at,
+        last_game_at=last_game_at,
+        last_game_id=last_game_id,
+        online=online,
+    )
 
 
 @router.get("/payments/subscriptions", response_model=UserSubscriptionPaymentsOut)

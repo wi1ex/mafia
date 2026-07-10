@@ -173,7 +173,7 @@
                   <span class="date-time">{{ lastGameAtLabel }}</span>
                 </div>
                 <div class="date-row">
-                  <span class="date-title">Последний онлайн</span>
+                  <span class="date-title">Был в сети</span>
                   <span class="date-time">{{ lastOnlineLabel }}</span>
                 </div>
               </div>

@@ -316,7 +316,7 @@ const nicknameChangesLeft = computed(() => normalizeNicknameChangesLeft(me.nickn
 const nicknameChangesText = computed(() => {
   const value = nicknameChangesLeft.value
   if (value === 0) return 'Лимит исчерпан'
-  return `Лимит: ${value}`
+  return `Лимит изменений: ${value}`
 })
 const saveNickDisabled = computed(() => (
   busyNick.value

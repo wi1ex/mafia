@@ -33,6 +33,14 @@ class UserOut(BaseModel):
     chat_unread_count: int = 0
 
 
+class UserProfileDatesOut(BaseModel):
+    registered_at: Optional[datetime] = None
+    last_visit_at: Optional[datetime] = None
+    last_game_at: Optional[datetime] = None
+    last_game_id: Optional[int] = None
+    online: bool = False
+
+
 class UserMiniProfileSanctionOut(BaseModel):
     kind: Literal["timeout", "ban", "suspend"]
     expires_at: Optional[datetime] = None

@@ -4,10 +4,10 @@
       <div class="account-verif">
         <div class="account">
           <div class="account-div">
-            <span class="title">Аккаунт</span>
-            <span class="date-text">Дата регистрации: {{ registrationDateLabel }}</span>
-          </div>
-          <div class="account-btn">
+            <div class="account-header">
+              <span class="title">Аккаунт</span>
+              <span class="hint">Удаление произойдет навсегда без возможности его восстановления.</span>
+            </div>
             <UiButton
               variant="red"
               size="middle"
@@ -16,7 +16,20 @@
               @click="deleteAccount"
               :disabled="deleteBusy || isDeleteAccountForbiddenSelf"
             />
-            <span class="hint">Удаление произойдет навсегда без возможности его восстановления.</span>
+          </div>
+          <div class="profile-dates" aria-label="Даты профиля">
+            <div class="date-row">
+              <span class="date-title">Дата регистрации</span>
+              <span class="date-time">{{ registeredAtLabel }}</span>
+            </div>
+            <div class="date-row">
+              <span class="date-title">Последняя игра</span>
+              <span class="date-time">{{ lastGameAtLabel }}</span>
+            </div>
+            <div class="date-row">
+              <span class="date-title">Был в сети</span>
+              <span class="date-time">{{ lastOnlineLabel }}</span>
+            </div>
           </div>
         </div>
 
@@ -30,7 +43,6 @@
           <UiButton
             v-if="telegramVerified"
             variant="red"
-            size="middle"
             :text="unlinkTgBusy ? '...' : 'Отвязать TG-аккаунт'"
             @click="unlinkTelegram"
             :disabled="unlinkTgBusy"
@@ -38,7 +50,6 @@
           <UiButton
             v-if="!telegramVerified && botName"
             variant="green"
-            size="middle"
             text="Пройти верификацию"
             :href="botLink"
             target="_blank"
@@ -168,8 +179,16 @@ const PASSWORD_SPACE_RE = /\s/
 
 const userStore = useUserStore()
 const auth = useAuthStore()
-const { tgInvitesEnabled } = storeToRefs(userStore)
+const { tgInvitesEnabled, now } = storeToRefs(userStore)
 const { setTgInvitesEnabled } = userStore
+
+type ProfileDatesResponse = {
+  registered_at?: string | null
+  last_visit_at?: string | null
+  last_game_at?: string | null
+  last_game_id?: number | null
+  online?: boolean
+}
 
 const me = reactive({
   id: 0,
@@ -177,6 +196,13 @@ const me = reactive({
   registered_at: null as string | null,
   has_password: false,
   protected_user: false,
+})
+const profileDates = reactive({
+  registered_at: null as string | null,
+  last_visit_at: null as string | null,
+  last_game_at: null as string | null,
+  last_game_id: null as number | null,
+  online: false,
 })
 const tgInvitesTogglePending = ref(false)
 const pwd = reactive({ current: '', next: '', confirm: '' })
@@ -193,13 +219,14 @@ const isDeleteAccountForbiddenSelf = computed(() => {
   const role = String(me.role || '').trim().toLowerCase()
   return role === 'moder'
 })
-const registrationDateLabel = computed(() => {
-  const raw = me.registered_at
-  if (!raw) return '-'
-  const dt = new Date(raw)
-  if (Number.isNaN(dt.getTime())) return '-'
-  return dt.toLocaleDateString('ru-RU')
+const registeredAtLabel = computed(() => formatDateWithMonthName(profileDates.registered_at || me.registered_at))
+const lastGameAtLabel = computed(() => {
+  const dateLabel = formatDateOnly(profileDates.last_game_at)
+  if (dateLabel === '-') return '-'
+  const gameId = Number(profileDates.last_game_id || 0)
+  return Number.isFinite(gameId) && gameId > 0 ? `Игра #${Math.trunc(gameId)} от ${dateLabel}` : dateLabel
 })
+const lastOnlineLabel = computed(() => formatLastOnline(profileDates.last_visit_at, profileDates.online, now.value))
 const canChangePassword = computed(() =>
   pwd.current.length >= PASSWORD_MIN &&
   pwd.current.length <= PASSWORD_MAX &&
@@ -231,6 +258,63 @@ function hasPasswordWhitespace(value: string) {
   return PASSWORD_SPACE_RE.test(value)
 }
 
+function parseDate(value?: string | number | Date | null): Date | null {
+  if (!value) return null
+  const dt = value instanceof Date ? value : new Date(value)
+  return Number.isNaN(dt.getTime()) ? null : dt
+}
+
+function pad2(value: number): string {
+  return String(value).padStart(2, '0')
+}
+
+const RU_MONTHS_GENITIVE = [
+  'января',
+  'февраля',
+  'марта',
+  'апреля',
+  'мая',
+  'июня',
+  'июля',
+  'августа',
+  'сентября',
+  'октября',
+  'ноября',
+  'декабря',
+]
+
+function formatDateOnly(value?: string | number | Date | null): string {
+  const dt = parseDate(value)
+  if (!dt) return '-'
+  return `${pad2(dt.getDate())}.${pad2(dt.getMonth() + 1)}.${dt.getFullYear()}`
+}
+
+function formatDateWithMonthName(value?: string | number | Date | null): string {
+  const dt = parseDate(value)
+  if (!dt) return '-'
+  return `${dt.getDate()} ${RU_MONTHS_GENITIVE[dt.getMonth()]} ${dt.getFullYear()}`
+}
+
+function formatLastOnline(value?: string | number | Date | null, online = false, nowMs = Date.now()): string {
+  if (online) return 'Онлайн'
+  const dt = parseDate(value)
+  if (!dt) return '-'
+  const diffMs = nowMs - dt.getTime()
+  if (diffMs < 0) return 'Только что'
+  const totalMinutes = Math.floor(diffMs / 60000)
+  const minutesInDay = 24 * 60
+  const minutesInMonth = 30 * minutesInDay
+  if (totalMinutes < 1) return 'Только что'
+  if (totalMinutes < 60) return `${totalMinutes}м назад`
+  if (totalMinutes < minutesInDay) {
+    const hours = Math.floor(totalMinutes / 60)
+    const minutes = totalMinutes % 60
+    return `${hours}ч ${minutes}м назад`
+  }
+  if (totalMinutes < minutesInMonth) return `${Math.floor(totalMinutes / minutesInDay)}д назад`
+  return formatDateOnly(dt)
+}
+
 function applyMePayload(data: any) {
   me.id = Number(data?.id || 0)
   me.role = data?.role || ''
@@ -239,10 +323,25 @@ function applyMePayload(data: any) {
   me.protected_user = Boolean(data?.protected_user)
 }
 
+function applyProfileDatesPayload(data: ProfileDatesResponse) {
+  profileDates.registered_at = data?.registered_at || null
+  profileDates.last_visit_at = data?.last_visit_at || null
+  profileDates.last_game_at = data?.last_game_at || null
+  profileDates.last_game_id = Number.isFinite(Number(data?.last_game_id)) ? Math.trunc(Number(data.last_game_id)) : null
+  profileDates.online = Boolean(data?.online)
+}
+
 async function loadMe() {
   const { data } = await api.get('/users/profile_info')
   applyMePayload(data)
   userStore.applyProfile(data)
+}
+
+async function loadProfileDates() {
+  try {
+    const { data } = await api.get<ProfileDatesResponse>('/users/profile_dates')
+    applyProfileDatesPayload(data)
+  } catch {}
 }
 
 async function onToggleTgInvites(next: boolean) {
@@ -330,6 +429,7 @@ async function deleteAccount() {
 
 onMounted(() => {
   void loadMe()
+  void loadProfileDates()
   onProfileSync = (e: Event) => {
     const payload = (e as CustomEvent)?.detail
     if (!payload) return
@@ -360,55 +460,74 @@ onBeforeUnmount(() => {
       width: calc(50% - 5px);
       .account {
         display: flex;
+        box-sizing: border-box;
         flex-direction: column;
         padding: 24px;
         gap: 24px;
+        height: calc(50% - 5px);
         border-radius: 24px;
         background-color: $soft-purple-900;
         .account-div {
           display: flex;
-          flex-direction: column;
-          gap: 24px;
-          .title {
-            color: $neutral-white;
-            font-family: Involve-Medium;
-            font-size: 24px;
-            line-height: 26px;
-            letter-spacing: -0.48px;
-          }
-          .date-text {
-            padding: 16px;
-            width: fit-content;
-            border-radius: 20px;
-            background-color: $soft-purple-800;
-            color: $neutral-white;
-            font-family: Hauora-Bold;
-            font-size: 16px;
-            line-height: 18px;
-            letter-spacing: -0.32px;
+          justify-content: space-between;
+          .account-header {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            .title {
+              color: $neutral-white;
+              font-family: Involve-Medium;
+              font-size: 24px;
+              line-height: 26px;
+              letter-spacing: -0.48px;
+            }
+            .hint {
+              color: $neutral-300;
+              font-family: Hauora-Regular;
+              font-size: 14px;
+              line-height: 14px;
+              letter-spacing: -0.28px;
+            }
           }
         }
-        .account-btn {
+        .profile-dates {
           display: flex;
           flex-direction: column;
-          gap: 16px;
-          .hint {
-            color: $neutral-300;
-            font-family: Hauora-Regular;
-            font-size: 14px;
-            line-height: 14px;
-            letter-spacing: -0.28px;
+          padding: 16px;
+          gap: 12px;
+          border-radius: 20px;
+          background-color: rgba($soft-purple-900, 0.65);
+          .date-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            .date-title {
+              color: $neutral-300;
+              font-family: Hauora-Regular;
+              font-size: 16px;
+              line-height: 16px;
+              letter-spacing: -0.32px;
+            }
+            .date-time {
+              color: $neutral-100;
+              font-family: Hauora-Regular;
+              font-size: 16px;
+              line-height: 16px;
+              letter-spacing: -0.32px;
+            }
           }
         }
       }
       .verif {
         display: flex;
+        box-sizing: border-box;
         position: relative;
         flex-direction: column;
         justify-content: space-between;
         padding: 24px;
+        height: calc(50% - 5px);
         border-radius: 24px;
-        background-color: $soft-purple-900;
+        background: linear-gradient(261deg, $green-700 0%, $soft-purple-800 100%);
         .verif-icon {
           position: absolute;
           top: 24px;
@@ -429,6 +548,7 @@ onBeforeUnmount(() => {
             letter-spacing: -0.48px;
           }
           .hint {
+            max-width: 420px;
             color: $neutral-100;
             font-family: Hauora-Regular;
             font-size: 16px;
