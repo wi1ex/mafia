@@ -279,8 +279,8 @@ onBeforeUnmount(() => {
         background-color: $soft-purple-800;
         .theme-option {
           position: relative;
-          border: 2px solid transparent;
-          border-radius: 8px;
+          border: 2px solid $soft-purple-800;
+          border-radius: 10px;
           cursor: pointer;
           aspect-ratio: 1;
           transition: border-color 0.25s ease-in-out, opacity 0.25s ease-in-out;
@@ -289,7 +289,7 @@ onBeforeUnmount(() => {
             position: absolute;
             inset: -2px;
             padding: 2px;
-            border-radius: calc(8px + 2px);
+            border-radius: 8px;
             background: linear-gradient(90deg, rgba(91, 0, 255, 1) 0%, rgba(255, 19, 97, 1) 50%, rgba(255, 248, 0, 1) 100%);
             -webkit-mask-image: -webkit-linear-gradient($neutral-white, $neutral-white), -webkit-linear-gradient($neutral-white, $neutral-white);
             -webkit-mask-clip: content, border;
@@ -304,10 +304,59 @@ onBeforeUnmount(() => {
             opacity: 0.5;
             cursor: not-allowed;
           }
-          &:not(:disabled):hover,
-          &:not(:disabled):focus-visible,
-          &:not(:disabled):active {
+          &.active {
+            border-color: transparent;
+            &::before {
+              opacity: 1;
+            }
+          }
+          &:not(:disabled):not(.active):hover,
+          &:not(:disabled):not(.active):focus-visible,
+          &:not(:disabled):not(.active):active {
             border-color: $neutral-white;
+          }
+        }
+      }
+      .theme-icon-palette {
+        display: inline-grid;
+        grid-template-columns: repeat(10, 1fr);
+        padding: 16px;
+        gap: 10px;
+        border-radius: 20px;
+        background-color: $soft-purple-800;
+        .theme-icon-option {
+          position: relative;
+          border: 2px solid $soft-purple-800;
+          border-radius: 10px;
+          cursor: pointer;
+          aspect-ratio: 1;
+          transition: border-color 0.25s ease-in-out, opacity 0.25s ease-in-out;
+          &::before {
+            content: "";
+            position: absolute;
+            inset: -2px;
+            padding: 2px;
+            border-radius: 8px;
+            background: linear-gradient(90deg, rgba(91, 0, 255, 1) 0%, rgba(255, 19, 97, 1) 50%, rgba(255, 248, 0, 1) 100%);
+            -webkit-mask-image: -webkit-linear-gradient($neutral-white, $neutral-white), -webkit-linear-gradient($neutral-white, $neutral-white);
+            -webkit-mask-clip: content, border;
+            -webkit-mask-composite: xor;
+            mask: linear-gradient($neutral-white, $neutral-white) content-box, linear-gradient($neutral-white, $neutral-white);
+            mask-composite: exclude;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s ease-in-out;
+          }
+          .theme-icon-img {
+            width: 40px;
+            height: 40px;
+          }
+          .theme-icon-none {
+            font-size: 40px;
+          }
+          &:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
           }
           &.active {
             border-color: transparent;
@@ -315,26 +364,10 @@ onBeforeUnmount(() => {
               opacity: 1;
             }
           }
-        }
-      }
-      .theme-icon-palette {
-        z-index: 1;
-        .theme-icon-option {
-          z-index: 2;
-          .theme-icon-img {
-            z-index: 3;
-          }
-          .theme-icon-none {
-            z-index: 4;
-          }
-          &:hover:enabled {
-            border-color: rgba($neutral-white, 0.5);
-          }
-          &.active {
-            border-color: $neutral-100;
-          }
-          &:disabled {
-            cursor: not-allowed;
+          &:not(:disabled):not(.active):hover,
+          &:not(:disabled):not(.active):focus-visible,
+          &:not(:disabled):not(.active):active {
+            border-color: $neutral-white;
           }
         }
       }
