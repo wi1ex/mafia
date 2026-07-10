@@ -63,10 +63,6 @@
           <span class="password-title">Пароль</span>
           <span v-if="passwordTemp" class="password-temp">Замените временный пароль</span>
         </div>
-        <span class="hint">
-          Сбросить пароль можно через
-          <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">TG-бота</a>
-        </span>
         <div class="password-div">
           <span class="password-text">Текущий пароль</span>
           <UiInput
@@ -127,14 +123,19 @@
             </template>
           </UiInput>
         </div>
-        <UiButton
-          class="password-btn"
-          variant="green"
-          size="middle"
-          :text="pwdBusy ? '...' : 'Сменить пароль'"
-          @click="changePassword"
-          :disabled="pwdBusy || !canChangePassword"
-        />
+        <div class="password-action">
+          <UiButton
+            variant="green"
+            size="middle"
+            :text="pwdBusy ? '...' : 'Сменить пароль'"
+            @click="changePassword"
+            :disabled="pwdBusy || !canChangePassword"
+          />
+          <span class="hint">
+            Сбросить пароль можно через
+            <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">TG-бота</a>
+          </span>
+        </div>
       </div>
     </div>
 
@@ -616,17 +617,6 @@ onBeforeUnmount(() => {
           letter-spacing: -0.28px;
         }
       }
-      .hint {
-        margin: -8px 0;
-        color: $neutral-300;
-        font-family: Hauora-Regular;
-        font-size: 14px;
-        line-height: 14px;
-        letter-spacing: -0.28px;
-        a {
-          color: $neutral-white;
-        }
-      }
       .password-div {
         display: flex;
         flex-direction: column;
@@ -639,8 +629,20 @@ onBeforeUnmount(() => {
           letter-spacing: -0.32px;
         }
       }
-      .password-btn {
-        margin-top: 16px;
+      .password-action {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        .hint {
+          color: $neutral-300;
+          font-family: Hauora-Regular;
+          font-size: 14px;
+          line-height: 14px;
+          letter-spacing: -0.28px;
+          a {
+            color: $neutral-white;
+          }
+        }
       }
     }
   }
@@ -662,8 +664,7 @@ onBeforeUnmount(() => {
       display: flex;
       flex-direction: column;
       gap: 8px;
-      .params-div {
-        display: flex;
+      .params-switch {
         padding: 16px;
         border-radius: 20px;
         background-color: $soft-purple-800;

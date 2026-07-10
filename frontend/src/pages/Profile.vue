@@ -246,7 +246,7 @@ onBeforeUnmount(() => {
 <style scoped lang="scss">
 .profile {
   display: flex;
-  padding: 40px 40px 10px;
+  padding: 30px 40px 10px;
   gap: 10px;
   height: 100%;
   overflow: auto;
