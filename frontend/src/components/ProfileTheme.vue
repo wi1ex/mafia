@@ -389,11 +389,12 @@ onBeforeUnmount(() => {
         box-sizing: border-box;
         flex-direction: column;
         padding: 24px;
-        gap: 40px;
+        gap: 24px;
         width: 100%;
         min-width: 0;
         border-radius: 24px;
         background-color: var(--user-theme-bg, $neutral-black);
+        box-shadow: 0 2px 16px rgba($neutral-black, 0.20);
         overflow: hidden;
         .profile-top {
           display: flex;
@@ -511,9 +512,12 @@ onBeforeUnmount(() => {
         width: fit-content;
         height: 64px;
         border-radius: 16px;
+        box-shadow: 0 2px 16px rgba($neutral-black, 0.20);
         .theme-preview-avatar {
           width: 24px;
           height: 24px;
+          border-radius: 50%;
+          object-fit: cover;
         }
         .theme-preview-icons {
           display: flex;
