@@ -141,28 +141,30 @@
     <div class="params">
       <span class="title">Настройки</span>
       <div class="params-div">
-        <UiSwitch
-          class="profile-switch"
-          :model-value="tgInvitesEnabled"
-          label="Уведомления в TG о приглашениях в комнату"
-          off-label="Запретить"
-          on-label="Разрешить"
-          size="low"
-          :width="256"
-          :disabled="tgInvitesTogglePending || !telegramVerified"
-          @update:modelValue="onToggleTgInvites"
-        />
-        <UiSwitch
-          class="profile-switch"
-          :model-value="allowFriendRequests"
-          label="Запросы в мой список друзей"
-          off-label="Запретить"
-          on-label="Разрешить"
-          size="low"
-          :width="256"
-          :disabled="friendRequestsTogglePending"
-          @update:modelValue="onToggleFriendRequests"
-        />
+        <div class="params-switch">
+          <UiSwitch
+            :model-value="tgInvitesEnabled"
+            label="Уведомления в TG о приглашениях в комнату"
+            off-label="Запретить"
+            on-label="Разрешить"
+            size="low"
+            :width="256"
+            :disabled="tgInvitesTogglePending || !telegramVerified"
+            @update:modelValue="onToggleTgInvites"
+          />
+        </div>
+        <div class="params-switch">
+          <UiSwitch
+            :model-value="allowFriendRequests"
+            label="Запросы в мой список друзей"
+            off-label="Запретить"
+            on-label="Разрешить"
+            size="low"
+            :width="256"
+            :disabled="friendRequestsTogglePending"
+            @update:modelValue="onToggleFriendRequests"
+          />
+        </div>
       </div>
     </div>
   </section>
@@ -659,10 +661,13 @@ onBeforeUnmount(() => {
     .params-div {
       display: flex;
       flex-direction: column;
-      padding: 16px;
       gap: 8px;
-      border-radius: 20px;
-      background-color: $soft-purple-800;
+      .params-div {
+        display: flex;
+        padding: 16px;
+        border-radius: 20px;
+        background-color: $soft-purple-800;
+      }
     }
   }
 }
