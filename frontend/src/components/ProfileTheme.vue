@@ -44,9 +44,6 @@
     <div class="theme-preview">
       <div class="theme-preview-div">
         <span class="theme-title">Предпросмотр</span>
-
-
-
         <div class="theme-preview-profile" :style="themePreviewStyle">
           <header class="profile-top">
             <div class="profile-identity">
@@ -76,9 +73,6 @@
           <div class="profile-dates"></div>
           <div class="profile-preview-action">Пример кнопки</div>
         </div>
-
-
-
       </div>
       <div class="theme-preview-div">
         <span class="theme-title">Бейджик</span>
@@ -119,11 +113,11 @@ import {
 import Subscription from '@/components/Subscription.vue'
 import UiTooltip from '@/components/UiTooltip.vue'
 import UiButton from '@/components/UiButton.vue'
+import UiIcon from '@/components/UiIcon.vue'
 
 import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
 import iconDush from '@/assets/svg/iconDush.svg'
 import iconClose from '@/assets/svg/iconClose.svg'
-import UiIcon from '@/components/UiIcon.vue'
 
 type SubscriptionSite = {
   id: string
@@ -383,136 +377,140 @@ onBeforeUnmount(() => {
       display: flex;
       flex-direction: column;
       gap: 24px;
-      .avatar-title {
+      .theme-title {
         color: $neutral-white;
         font-family: Involve-Medium;
         font-size: 24px;
         line-height: 26px;
         letter-spacing: -0.48px;
       }
-                              .theme-preview-profile {
-                                display: flex;
-                                box-sizing: border-box;
-                                flex-direction: column;
-                                padding: 24px;
-                                gap: 24px;
-                                width: 100%;
-                                min-width: 0;
-                                border-radius: 24px;
-                                background-color: var(--user-theme-bg, $neutral-black);
-                                overflow: hidden;
-                                .profile-top {
-                                  display: flex;
-                                  align-items: flex-start;
-                                  justify-content: space-between;
-                                  gap: 16px;
-                                  .profile-identity {
-                                    display: flex;
-                                    align-items: flex-start;
-                                    gap: 16px;
-                                    min-width: 0;
-                                    .theme-preview-avatar {
-                                      flex: 0 0 auto;
-                                      width: 182px;
-                                      height: 182px;
-                                      border-radius: 50%;
-                                      object-fit: cover;
-                                    }
-                                    .profile-block {
-                                      display: flex;
-                                      flex-direction: column;
-                                      gap: 8px;
-                                      min-width: 0;
-                                      height: 182px;
-                                      .profile-div {
-                                        display: flex;
-                                        flex-direction: column;
-                                        gap: 8px;
-                                        min-width: 0;
-                                        .profile-title {
-                                          display: flex;
-                                          align-items: center;
-                                          gap: 8px;
-                                          height: 30px;
-                                          min-width: 0;
-                                          .theme-preview-icons {
-                                            display: inline-flex;
-                                            align-items: center;
-                                            flex: 0 0 auto;
-                                            height: 30px;
-                                            .theme-preview-icon {
-                                              width: 28px;
-                                              height: 28px;
-                                              object-fit: contain;
-                                            }
-                                          }
-                                          .theme-preview-name {
-                                            max-width: 240px;
-                                            color: $neutral-white;
-                                            font-family: Involve-Medium;
-                                            font-size: 24px;
-                                            line-height: 26px;
-                                            letter-spacing: -0.48px;
-                                            white-space: nowrap;
-                                            overflow: hidden;
-                                            text-overflow: ellipsis;
-                                          }
-                                        }
-                                        .profile-meta {
-                                          display: flex;
-                                          align-items: center;
-                                          flex-wrap: wrap;
-                                          gap: 4px;
-                                          .profile-friends,
-                                          .profile-history,
-                                          .profile-nomination {
-                                            height: 32px;
-                                            border-radius: 8px;
-                                            background-color: rgba($soft-purple-900, 0.65);
-                                          }
-                                          .profile-friends {
-                                            width: 88px;
-                                          }
-                                          .profile-history,
-                                          .profile-nomination {
-                                            width: 32px;
-                                          }
-                                        }
-                                      }
-                                    }
-                                  }
-                                  .close-icon {
-                                    flex: 0 0 auto;
-                                    --ui-icon-width: 24px;
-                                    --ui-icon-height: 24px;
-                                    --ui-icon-color: #{$neutral-white};
-                                  }
-                                }
-                                .profile-dates {
-                                  height: 96px;
-                                  border-radius: 20px;
-                                  background-color: rgba($soft-purple-900, 0.65);
-                                }
-                                .profile-preview-action {
-                                  display: flex;
-                                  align-items: center;
-                                  justify-content: center;
-                                  padding: 0 16px;
-                                  width: 100%;
-                                  height: 40px;
-                                  border-radius: 12px;
-                                  color: $neutral-900;
-                                  background-color: $neutral-100;
-                                  font-family: Hauora-Regular;
-                                  font-size: 18px;
-                                  line-height: 20px;
-                                  letter-spacing: -0.36px;
-                                }
-                              }
+      .theme-preview-profile {
+        display: flex;
+        box-sizing: border-box;
+        flex-direction: column;
+        padding: 24px;
+        gap: 40px;
+        width: 100%;
+        min-width: 0;
+        border-radius: 24px;
+        background-color: var(--user-theme-bg, $neutral-black);
+        overflow: hidden;
+        .profile-top {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 16px;
+          .profile-identity {
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+            min-width: 0;
+            .theme-preview-avatar {
+              flex: 0 0 auto;
+              width: 182px;
+              height: 182px;
+              border-radius: 50%;
+              object-fit: cover;
+            }
+            .profile-block {
+              display: flex;
+              flex-direction: column;
+              gap: 8px;
+              min-width: 0;
+              height: 182px;
+              .profile-div {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                min-width: 0;
+                .profile-title {
+                  display: flex;
+                  align-items: center;
+                  gap: 8px;
+                  height: 30px;
+                  min-width: 0;
+                  .theme-preview-icons {
+                    display: inline-flex;
+                    align-items: center;
+                    flex: 0 0 auto;
+                    height: 30px;
+                    .theme-preview-icon {
+                      width: 28px;
+                      height: 28px;
+                      object-fit: contain;
+                    }
+                  }
+                  .theme-preview-name {
+                    max-width: 240px;
+                    color: $neutral-white;
+                    font-family: Involve-Medium;
+                    font-size: 24px;
+                    line-height: 26px;
+                    letter-spacing: -0.48px;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                  }
+                }
+                .profile-meta {
+                  display: flex;
+                  align-items: center;
+                  flex-wrap: wrap;
+                  gap: 4px;
+                  .profile-friends,
+                  .profile-history,
+                  .profile-nomination {
+                    height: 32px;
+                    border-radius: 8px;
+                    background-color: rgba($soft-purple-900, 0.65);
+                  }
+                  .profile-friends {
+                    width: 97px;
+                  }
+                  .profile-history,
+                  .profile-nomination {
+                    width: 32px;
+                  }
+                }
+              }
+            }
+          }
+          .close-icon {
+            flex: 0 0 auto;
+            --ui-icon-width: 24px;
+            --ui-icon-height: 24px;
+            --ui-icon-color: #{$neutral-white};
+          }
+        }
+        .profile-dates {
+          height: 96px;
+          border-radius: 20px;
+          background-color: rgba($soft-purple-900, 0.65);
+        }
+        .profile-preview-action {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0 16px;
+          width: calc(100% - 32px);
+          height: 40px;
+          border-radius: 12px;
+          color: $neutral-900;
+          background-color: $green-500;
+          font-family: Hauora-Regular;
+          font-size: 18px;
+          line-height: 20px;
+          letter-spacing: -0.36px;
+        }
+      }
       .theme-preview-card {
         display: flex;
         align-items: center;
+        padding: 0 16px;
         gap: 8px;
+        width: fit-content;
+        height: 64px;
+        border-radius: 16px;
         .theme-preview-avatar {
           width: 24px;
           height: 24px;
