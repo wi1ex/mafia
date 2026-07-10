@@ -112,9 +112,7 @@
               <UiIcon class="close-icon" :icon="iconClose" />
             </button>
           </header>
-
           <canvas ref="canvasEl" @mousedown="dragStart" @mousemove="dragMove" @mouseup="dragStop" @mouseleave="dragStop" @wheel.passive="onWheel" />
-
           <UiSlider
             class="modal-slider"
             theme="light"
@@ -126,7 +124,6 @@
             aria-label="Масштаб"
             @update:modelValue="scaleTo"
           />
-
           <div class="modal-actions">
             <UiButton
               variant="white"
@@ -155,7 +152,6 @@
               <UiIcon class="close-icon" :icon="iconClose" />
             </button>
           </header>
-
           <div class="gif-preview-row">
             <div class="gif-preview-block">
               <span>Анимация</span>
@@ -166,9 +162,7 @@
               <canvas ref="gifCanvasEl" />
             </div>
           </div>
-
           <span v-if="gifPicker.error" class="hint">{{ gifPicker.error }}</span>
-
           <UiSlider
             class="modal-slider"
             theme="light"
@@ -180,7 +174,6 @@
             aria-label="Кадр GIF"
             @update:modelValue="onGifFrameRange"
           />
-
           <div class="modal-actions">
             <UiButton
               variant="white"
