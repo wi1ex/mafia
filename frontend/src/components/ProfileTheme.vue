@@ -36,7 +36,7 @@
           <button class="theme-icon-option" v-for="item in profileThemeIconOptions" :key="item.key" @click="pickProfileThemeIcon(item.key)"
                   type="button" :class="{ active: selectedProfileThemeIcon === item.key }" :disabled="themeSaveBusy || isBanned || !item.available">
             <img v-if="themeIconSrc(item.key)" class="theme-icon-img" :src="themeIconSrc(item.key) || ''" alt="" aria-hidden="true" />
-            <span v-else class="theme-icon-none" aria-hidden="true"></span>
+            <span v-else class="theme-icon-none" aria-hidden="true">—</span>
           </button>
         </div>
       </div>
@@ -245,7 +245,7 @@ onBeforeUnmount(() => {
     padding: 24px;
     gap: 24px;
     width: calc(50% - 5px);
-    height: 706px;
+    height: fit-content;
     border-radius: 24px;
     background-color: $soft-purple-900;
     .theme-header {
@@ -328,6 +328,7 @@ onBeforeUnmount(() => {
           position: relative;
           border: 2px solid $soft-purple-800;
           border-radius: 10px;
+          background: none;
           cursor: pointer;
           aspect-ratio: 1;
           transition: border-color 0.25s ease-in-out, opacity 0.25s ease-in-out;
@@ -348,8 +349,7 @@ onBeforeUnmount(() => {
             transition: opacity 0.25s ease-in-out;
           }
           .theme-icon-img {
-            width: 40px;
-            height: 40px;
+            width: 100%;
           }
           .theme-icon-none {
             font-size: 40px;
@@ -380,7 +380,7 @@ onBeforeUnmount(() => {
     padding: 24px;
     gap: 24px;
     width: calc(50% - 5px);
-    height: 706px;
+    height: fit-content;
     border-radius: 24px;
     background-color: $soft-purple-900;
     .theme-preview-card {
