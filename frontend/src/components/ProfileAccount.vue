@@ -27,7 +27,7 @@
               <span class="date-time">{{ lastGameAtLabel }}</span>
             </div>
             <div class="date-row">
-              <span class="date-title">Был в сети</span>
+              <span class="date-title">Последний раз в сети</span>
               <span class="date-time">{{ lastOnlineLabel }}</span>
             </div>
           </div>
@@ -482,6 +482,7 @@ onBeforeUnmount(() => {
               letter-spacing: -0.48px;
             }
             .hint {
+              max-width: 250px;
               color: $neutral-300;
               font-family: Hauora-Regular;
               font-size: 14px;
@@ -496,7 +497,7 @@ onBeforeUnmount(() => {
           padding: 16px;
           gap: 12px;
           border-radius: 20px;
-          background-color: rgba($soft-purple-900, 0.65);
+          background-color: $soft-purple-800;
           .date-row {
             display: flex;
             align-items: center;
@@ -596,6 +597,7 @@ onBeforeUnmount(() => {
         }
       }
       .hint {
+        margin: -8px 0;
         color: $neutral-300;
         font-family: Hauora-Regular;
         font-size: 14px;
