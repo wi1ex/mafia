@@ -47,7 +47,7 @@
 
 
 
-        <div class="theme-preview-profile">
+        <div class="theme-preview-profile" :style="themePreviewStyle">
           <header class="profile-top">
             <div class="profile-identity">
               <img class="theme-preview-avatar" v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false, animated: true }" alt="avatar" />
@@ -74,7 +74,7 @@
             <UiIcon class="close-icon" :icon="iconClose" />
           </header>
           <div class="profile-dates"></div>
-          <div>Пример кнопки</div>
+          <div class="profile-preview-action">Пример кнопки</div>
         </div>
 
 
@@ -390,9 +390,125 @@ onBeforeUnmount(() => {
         line-height: 26px;
         letter-spacing: -0.48px;
       }
-      .theme-preview-profile {
-
-      }
+                              .theme-preview-profile {
+                                display: flex;
+                                box-sizing: border-box;
+                                flex-direction: column;
+                                padding: 24px;
+                                gap: 24px;
+                                width: 100%;
+                                min-width: 0;
+                                border-radius: 24px;
+                                background-color: var(--user-theme-bg, $neutral-black);
+                                overflow: hidden;
+                                .profile-top {
+                                  display: flex;
+                                  align-items: flex-start;
+                                  justify-content: space-between;
+                                  gap: 16px;
+                                  .profile-identity {
+                                    display: flex;
+                                    align-items: flex-start;
+                                    gap: 16px;
+                                    min-width: 0;
+                                    .theme-preview-avatar {
+                                      flex: 0 0 auto;
+                                      width: 182px;
+                                      height: 182px;
+                                      border-radius: 50%;
+                                      object-fit: cover;
+                                    }
+                                    .profile-block {
+                                      display: flex;
+                                      flex-direction: column;
+                                      gap: 8px;
+                                      min-width: 0;
+                                      height: 182px;
+                                      .profile-div {
+                                        display: flex;
+                                        flex-direction: column;
+                                        gap: 8px;
+                                        min-width: 0;
+                                        .profile-title {
+                                          display: flex;
+                                          align-items: center;
+                                          gap: 8px;
+                                          height: 30px;
+                                          min-width: 0;
+                                          .theme-preview-icons {
+                                            display: inline-flex;
+                                            align-items: center;
+                                            flex: 0 0 auto;
+                                            height: 30px;
+                                            .theme-preview-icon {
+                                              width: 28px;
+                                              height: 28px;
+                                              object-fit: contain;
+                                            }
+                                          }
+                                          .theme-preview-name {
+                                            max-width: 240px;
+                                            color: $neutral-white;
+                                            font-family: Involve-Medium;
+                                            font-size: 24px;
+                                            line-height: 26px;
+                                            letter-spacing: -0.48px;
+                                            white-space: nowrap;
+                                            overflow: hidden;
+                                            text-overflow: ellipsis;
+                                          }
+                                        }
+                                        .profile-meta {
+                                          display: flex;
+                                          align-items: center;
+                                          flex-wrap: wrap;
+                                          gap: 4px;
+                                          .profile-friends,
+                                          .profile-history,
+                                          .profile-nomination {
+                                            height: 32px;
+                                            border-radius: 8px;
+                                            background-color: rgba($soft-purple-900, 0.65);
+                                          }
+                                          .profile-friends {
+                                            width: 88px;
+                                          }
+                                          .profile-history,
+                                          .profile-nomination {
+                                            width: 32px;
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                  .close-icon {
+                                    flex: 0 0 auto;
+                                    --ui-icon-width: 24px;
+                                    --ui-icon-height: 24px;
+                                    --ui-icon-color: #{$neutral-white};
+                                  }
+                                }
+                                .profile-dates {
+                                  height: 96px;
+                                  border-radius: 20px;
+                                  background-color: rgba($soft-purple-900, 0.65);
+                                }
+                                .profile-preview-action {
+                                  display: flex;
+                                  align-items: center;
+                                  justify-content: center;
+                                  padding: 0 16px;
+                                  width: 100%;
+                                  height: 40px;
+                                  border-radius: 12px;
+                                  color: $neutral-900;
+                                  background-color: $neutral-100;
+                                  font-family: Hauora-Regular;
+                                  font-size: 18px;
+                                  line-height: 20px;
+                                  letter-spacing: -0.36px;
+                                }
+                              }
       .theme-preview-card {
         display: flex;
         align-items: center;
