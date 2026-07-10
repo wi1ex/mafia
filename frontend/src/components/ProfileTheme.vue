@@ -32,8 +32,8 @@
                   :style="themeOptionStyle(item.key)" :disabled="themeSaveBusy || isBanned" @click="pickProfileTheme(item.key)">
           </button>
         </div>
-        <div class="theme-icon-palette">
-          <button class="theme-icon-option" v-for="item in profileThemeIconOptions" :key="item.key" @click="pickProfileThemeIcon(item.key)"
+        <div class="theme-palette">
+          <button class="theme-option icon" v-for="item in profileThemeIconOptions" :key="item.key" @click="pickProfileThemeIcon(item.key)"
                   type="button" :class="{ active: selectedProfileThemeIcon === item.key }" :disabled="themeSaveBusy || isBanned || !item.available">
             <img v-if="themeIconSrc(item.key)" class="theme-icon-img" :src="themeIconSrc(item.key) || ''" alt="" aria-hidden="true" />
             <img v-else class="theme-icon-img" :src="iconDush" alt="" aria-hidden="true" />
@@ -301,6 +301,9 @@ onBeforeUnmount(() => {
             pointer-events: none;
             transition: opacity 0.25s ease-in-out;
           }
+          &.icon {
+            background: none;
+          }
           &:disabled {
             opacity: 0.5;
             cursor: not-allowed;
@@ -315,57 +318,9 @@ onBeforeUnmount(() => {
           &:not(:disabled):not(.active):focus-visible,
           &:not(:disabled):not(.active):active {
             border-color: $neutral-white;
-          }
-        }
-      }
-      .theme-icon-palette {
-        display: inline-grid;
-        grid-template-columns: repeat(10, 1fr);
-        padding: 16px;
-        gap: 10px;
-        border-radius: 20px;
-        background-color: $soft-purple-800;
-        .theme-icon-option {
-          position: relative;
-          border: 2px solid $soft-purple-800;
-          border-radius: 10px;
-          background: none;
-          cursor: pointer;
-          aspect-ratio: 1;
-          transition: border-color 0.25s ease-in-out, opacity 0.25s ease-in-out;
-          &::before {
-            content: "";
-            position: absolute;
-            inset: -2px;
-            padding: 2px;
-            border-radius: 8px;
-            background: linear-gradient(90deg, rgba(91, 0, 255, 1) 0%, rgba(255, 19, 97, 1) 50%, rgba(255, 248, 0, 1) 100%);
-            -webkit-mask-image: -webkit-linear-gradient($neutral-white, $neutral-white), -webkit-linear-gradient($neutral-white, $neutral-white);
-            -webkit-mask-clip: content, border;
-            -webkit-mask-composite: xor;
-            mask: linear-gradient($neutral-white, $neutral-white) content-box, linear-gradient($neutral-white, $neutral-white);
-            mask-composite: exclude;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.25s ease-in-out;
           }
           .theme-icon-img {
             width: 100%;
-          }
-          &:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-          }
-          &.active {
-            border-color: transparent;
-            &::before {
-              opacity: 1;
-            }
-          }
-          &:not(:disabled):not(.active):hover,
-          &:not(:disabled):not(.active):focus-visible,
-          &:not(:disabled):not(.active):active {
-            border-color: $neutral-white;
           }
         }
       }
