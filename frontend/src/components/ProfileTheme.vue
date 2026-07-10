@@ -15,12 +15,12 @@
       </div>
       <div class="theme-changes">
         <div class="theme-palette">
-          <button v-for="item in profileThemeOptions" :key="item.key" class="theme-option" type="button" :class="{ active: selectedProfileThemeColor === item.key }"
+          <button class="theme-option" v-for="item in profileThemeOptions" :key="item.key" type="button" :class="{ active: selectedProfileThemeColor === item.key }"
                   :style="themeOptionStyle(item.key)" :disabled="themeSaveBusy || isBanned" @click="pickProfileTheme(item.key)">
           </button>
         </div>
         <div class="theme-icon-palette">
-          <button v-for="item in profileThemeIconOptions" :key="item.key" @click="pickProfileThemeIcon(item.key)" class="theme-icon-option"
+          <button class="theme-icon-option" v-for="item in profileThemeIconOptions" :key="item.key" @click="pickProfileThemeIcon(item.key)"
                   type="button" :class="{ active: selectedProfileThemeIcon === item.key }" :disabled="themeSaveBusy || isBanned || !item.available">
             <img v-if="themeIconSrc(item.key)" class="theme-icon-img" :src="themeIconSrc(item.key) || ''" alt="" aria-hidden="true" />
             <span v-else class="theme-icon-none" aria-hidden="true"></span>
@@ -28,17 +28,15 @@
         </div>
       </div>
     </div>
-
     <div class="theme-preview">
       <div class="theme-preview-card" :style="themePreviewStyle">
         <img class="theme-preview-avatar" v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false, animated: true }" alt="avatar" />
         <div v-if="themePreviewIconSrcs.length" class="theme-preview-icons" aria-hidden="true">
-          <img v-for="badgeSrc in themePreviewIconSrcs" :key="badgeSrc" class="theme-preview-icon" :src="badgeSrc" alt="" />
+          <img class="theme-preview-icon" v-for="badgeSrc in themePreviewIconSrcs" :key="badgeSrc" :src="badgeSrc" alt="" />
         </div>
         <span class="theme-preview-name">{{ me.username || 'User' }}</span>
       </div>
     </div>
-
     <Subscription v-model:open="subscriptionModalOpen" @select="onSubscriptionPaymentSelect" />
   </div>
 </template>
