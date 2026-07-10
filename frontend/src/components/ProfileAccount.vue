@@ -1,22 +1,5 @@
 <template>
   <section class="block-account">
-    <div class="params">
-          <span class="title">Настройки</span>
-          <div class="params-div">
-            <UiSwitch
-              class="profile-switch"
-              :model-value="tgInvitesEnabled"
-              label="Уведомления в TG о приглашениях в комнату"
-              off-label="Запретить"
-              on-label="Разрешить"
-              size="low"
-              :width="256"
-              :disabled="tgInvitesTogglePending || !telegramVerified"
-              @update:modelValue="onToggleTgInvites"
-            />
-          </div>
-        </div>
-
     <div class="account-verif-password">
       <div class="account-verif">
         <div class="account">
@@ -24,7 +7,6 @@
             <span class="title">Аккаунт</span>
             <span class="date-text">Дата регистрации: {{ registrationDateLabel }}</span>
           </div>
-
           <div class="account-btn">
             <UiButton
               variant="red"
@@ -45,7 +27,6 @@
             <span v-if="telegramVerified" class="hint">Если отвязать TG-аккаунт верификация будет снята.</span>
             <span v-if="!telegramVerified" class="hint">В чате с ботом сначала введите никнейм, затем пароль. После успешной верификации ограничения будут сняты.</span>
           </div>
-
           <UiButton
             v-if="telegramVerified"
             variant="red"
@@ -54,7 +35,6 @@
             @click="unlinkTelegram"
             :disabled="unlinkTgBusy"
           />
-
           <UiButton
             v-if="!telegramVerified && botName"
             variant="green"
@@ -68,15 +48,15 @@
       </div>
 
       <div class="password">
-        <span class="title">Пароль</span>
-        <div class="password-div">
-          <span v-if="passwordTemp" class="password-temp">У вас временный пароль — рекомендуем изменить его</span>
-          <span class="hint">
-            Сбросить пароль можно через
-            <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">TG-бота</a>
-          </span>
+        <div class="password-header">
+          <span class="password-title">Пароль</span>
+          <span class="password-temp">Замените временный пароль</span>
+<!--          <span v-if="passwordTemp" class="password-temp">Замените временный пароль</span>-->
         </div>
-
+        <span class="hint">
+          Сбросить пароль можно через
+          <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">TG-бота</a>
+        </span>
         <div class="password-div">
           <span class="password-text">Текущий пароль</span>
           <UiInput
@@ -97,7 +77,6 @@
             </template>
           </UiInput>
         </div>
-
         <div class="password-div">
           <span class="password-text">Новый пароль</span>
           <UiInput
@@ -118,7 +97,6 @@
             </template>
           </UiInput>
         </div>
-
         <div class="password-div">
           <span class="password-text">Повторите пароль</span>
           <UiInput
@@ -139,7 +117,6 @@
             </template>
           </UiInput>
         </div>
-
         <UiButton
           class="password-btn"
           variant="green"
@@ -147,6 +124,23 @@
           :text="pwdBusy ? '...' : 'Сменить пароль'"
           @click="changePassword"
           :disabled="pwdBusy || !canChangePassword"
+        />
+      </div>
+    </div>
+
+    <div class="params">
+      <span class="title">Настройки</span>
+      <div class="params-div">
+        <UiSwitch
+          class="profile-switch"
+          :model-value="tgInvitesEnabled"
+          label="Уведомления в TG о приглашениях в комнату"
+          off-label="Запретить"
+          on-label="Разрешить"
+          size="low"
+          :width="256"
+          :disabled="tgInvitesTogglePending || !telegramVerified"
+          @update:modelValue="onToggleTgInvites"
         />
       </div>
     </div>
@@ -166,6 +160,7 @@ import UiButton from '@/components/UiButton.vue'
 
 import iconDelete from '@/assets/svg/iconDelete.svg'
 import iconTickCircle from '@/assets/svg/iconTickCircle.svg'
+import UiTooltip from '@/components/UiTooltip.vue'
 
 const PASSWORD_MIN = 8
 const PASSWORD_MAX = 32
@@ -355,26 +350,6 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 10px;
   width: 100%;
-  .params {
-    display: flex;
-    flex-direction: column;
-    padding: 24px;
-    gap: 24px;
-    border-radius: 24px;
-    background-color: $soft-purple-900;
-    .title {
-      color: $neutral-white;
-      font-family: Involve-Medium;
-      font-size: 24px;
-      line-height: 26px;
-      letter-spacing: -0.48px;
-    }
-    .params-div {
-      padding: 16px;
-      border-radius: 20px;
-      background-color: $soft-purple-800;
-    }
-  }
   .account-verif-password {
     display: flex;
     gap: 10px;
@@ -473,39 +448,47 @@ onBeforeUnmount(() => {
       border-radius: 24px;
       background-color: $soft-purple-900;
       --ui-input-label-bg: #{$soft-purple-900};
-      .title {
-        margin-bottom: 16px;
-        color: $neutral-white;
-        font-family: Involve-Medium;
-        font-size: 24px;
-        line-height: 26px;
-        letter-spacing: -0.48px;
+      .password-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        height: 32px;
+        .password-title {
+          color: $neutral-white;
+          font-family: Involve-Medium;
+          font-size: 24px;
+          line-height: 26px;
+          letter-spacing: -0.48px;
+        }
+        .password-temp {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0 16px;
+          height: 32px;
+          border-radius: 12px;
+          background-color: $blue-100;
+          color: $blue-500;
+          font-family: Hauora-Regular;
+          font-size: 14px;
+          line-height: 14px;
+          letter-spacing: -0.28px;
+        }
+      }
+      .hint {
+        color: $neutral-300;
+        font-family: Hauora-Regular;
+        font-size: 14px;
+        line-height: 14px;
+        letter-spacing: -0.28px;
+        a {
+          color: $neutral-white;
+        }
       }
       .password-div {
         display: flex;
         flex-direction: column;
         gap: 16px;
-        .password-temp {
-          padding: 16px;
-          width: fit-content;
-          border-radius: 20px;
-          background-color: $yellow-500;
-          color: $neutral-900;
-          font-family: Hauora-Bold;
-          font-size: 16px;
-          line-height: 18px;
-          letter-spacing: -0.32px;
-        }
-        .hint {
-          color: $neutral-300;
-          font-family: Hauora-Regular;
-          font-size: 14px;
-          line-height: 14px;
-          letter-spacing: -0.28px;
-          a {
-            color: $neutral-white;
-          }
-        }
         .password-text {
           color: $neutral-white;
           font-family: Hauora-Bold;
@@ -517,6 +500,26 @@ onBeforeUnmount(() => {
       .password-btn {
         margin-top: 16px;
       }
+    }
+  }
+  .params {
+    display: flex;
+    flex-direction: column;
+    padding: 24px;
+    gap: 24px;
+    border-radius: 24px;
+    background-color: $soft-purple-900;
+    .title {
+      color: $neutral-white;
+      font-family: Involve-Medium;
+      font-size: 24px;
+      line-height: 26px;
+      letter-spacing: -0.48px;
+    }
+    .params-div {
+      padding: 16px;
+      border-radius: 20px;
+      background-color: $soft-purple-800;
     }
   }
 }

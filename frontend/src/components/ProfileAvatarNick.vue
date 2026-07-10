@@ -35,7 +35,7 @@
                 bubble-width="320px"
               />
             </div>
-            <span v-if="nicknameChangesLeft < 5" class="nickname-changes">{{ nicknameChangesText }}</span>
+            <span class="nickname-changes">{{ nicknameChangesText }}</span>
           </div>
 
           <div class="nick-row">
@@ -315,10 +315,8 @@ const validNick = computed(() => {
 const nicknameChangesLeft = computed(() => normalizeNicknameChangesLeft(me.nickname_changes_left))
 const nicknameChangesText = computed(() => {
   const value = nicknameChangesLeft.value
-  if (value === 0) return 'Изменение никнейма недоступно'
-  if (value === 1) return `Доступно ещё ${value} изменение никнейма`
-  if (value >= 2 && lastDigit <= 4) return `Доступно ещё ${value} изменения никнейма`
-  return `Доступно ещё ${value} изменений никнейма`
+  if (value === 0) return 'Лимит исчерпан'
+  return `Лимит: ${value}`
 })
 const saveNickDisabled = computed(() => (
   busyNick.value
@@ -1074,8 +1072,8 @@ onBeforeUnmount(() => {
             padding: 0 16px;
             height: 32px;
             border-radius: 12px;
-            background-color: $red-100;
-            color: $red-500;
+            background-color: $blue-100;
+            color: $blue-500;
             font-family: Hauora-Regular;
             font-size: 14px;
             line-height: 14px;
