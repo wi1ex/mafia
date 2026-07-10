@@ -36,7 +36,7 @@
           <button class="theme-icon-option" v-for="item in profileThemeIconOptions" :key="item.key" @click="pickProfileThemeIcon(item.key)"
                   type="button" :class="{ active: selectedProfileThemeIcon === item.key }" :disabled="themeSaveBusy || isBanned || !item.available">
             <img v-if="themeIconSrc(item.key)" class="theme-icon-img" :src="themeIconSrc(item.key) || ''" alt="" aria-hidden="true" />
-            <span v-else class="theme-icon-none" aria-hidden="true">—</span>
+            <img v-else class="theme-icon-img" :src="iconDush" alt="" aria-hidden="true" />
           </button>
         </div>
       </div>
@@ -80,6 +80,7 @@ import UiTooltip from '@/components/UiTooltip.vue'
 import UiButton from '@/components/UiButton.vue'
 
 import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
+import iconDush from '@/assets/svg/iconDush.svg'
 
 type SubscriptionSite = {
   id: string
@@ -351,9 +352,6 @@ onBeforeUnmount(() => {
           .theme-icon-img {
             width: 100%;
           }
-          .theme-icon-none {
-            font-size: 40px;
-          }
           &:disabled {
             opacity: 0.5;
             cursor: not-allowed;
@@ -384,18 +382,28 @@ onBeforeUnmount(() => {
     border-radius: 24px;
     background-color: $soft-purple-900;
     .theme-preview-card {
-      z-index: 5;
+      display: flex;
+      align-items: center;
+      gap: 8px;
       .theme-preview-avatar {
-        z-index: 6;
+        width: 24px;
+        height: 24px;
       }
       .theme-preview-icons {
-        z-index: 7;
+        display: flex;
+        align-items: center;
+        margin-left: -8px;
         .theme-preview-icon {
-          z-index: 8;
+          width: 24px;
+          height: 24px;
         }
       }
       .theme-preview-name {
-        z-index: 9;
+        color: $neutral-100;
+        font-family: Hauora-Regular;
+        font-size: 18px;
+        line-height: 20px;
+        letter-spacing: -0.36px;
       }
     }
   }
