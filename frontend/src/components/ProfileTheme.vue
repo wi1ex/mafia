@@ -278,16 +278,42 @@ onBeforeUnmount(() => {
         border-radius: 20px;
         background-color: $soft-purple-800;
         .theme-option {
+          position: relative;
+          border: 2px solid transparent;
+          border-radius: 8px;
+          cursor: pointer;
           aspect-ratio: 1;
-          transition: border-color 0.25s ease-in-out;
-          &:hover:enabled {
-            border-color: rgba($neutral-white, 0.5);
-          }
-          &.active {
-            border-color: $neutral-100;
+          transition: border-color 0.25s ease-in-out, opacity 0.25s ease-in-out;
+          &::before {
+            content: "";
+            position: absolute;
+            inset: -2px;
+            padding: 2px;
+            border-radius: calc(8px + 2px);
+            background: linear-gradient(90deg, rgba(91, 0, 255, 1) 0%, rgba(255, 19, 97, 1) 50%, rgba(255, 248, 0, 1) 100%);
+            -webkit-mask-image: -webkit-linear-gradient($neutral-white, $neutral-white), -webkit-linear-gradient($neutral-white, $neutral-white);
+            -webkit-mask-clip: content, border;
+            -webkit-mask-composite: xor;
+            mask: linear-gradient($neutral-white, $neutral-white) content-box, linear-gradient($neutral-white, $neutral-white);
+            mask-composite: exclude;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s ease-in-out;
           }
           &:disabled {
+            opacity: 0.5;
             cursor: not-allowed;
+          }
+          &:not(:disabled):hover,
+          &:not(:disabled):focus-visible,
+          &:not(:disabled):active {
+            border-color: $neutral-white;
+          }
+          &.active {
+            border-color: transparent;
+            &::before {
+              opacity: 1;
+            }
           }
         }
       }
