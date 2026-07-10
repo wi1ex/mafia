@@ -42,12 +42,53 @@
       </div>
     </div>
     <div class="theme-preview">
-      <div class="theme-preview-card" :style="themePreviewStyle">
-        <img class="theme-preview-avatar" v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false, animated: true }" alt="avatar" />
-        <div v-if="themePreviewIconSrcs.length" class="theme-preview-icons" aria-hidden="true">
-          <img class="theme-preview-icon" v-for="badgeSrc in themePreviewIconSrcs" :key="badgeSrc" :src="badgeSrc" alt="" />
+      <div class="theme-preview-div">
+        <span class="theme-title">Предпросмотр</span>
+
+
+
+        <div class="theme-preview-profile">
+          <header class="profile-top">
+            <div class="profile-identity">
+              <img class="theme-preview-avatar" v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false, animated: true }" alt="avatar" />
+              <div class="profile-block">
+                <div class="profile-div">
+                  <div class="profile-title">
+                    <div v-if="themePreviewIconSrcs.length" class="theme-preview-icons" aria-hidden="true">
+                      <img class="theme-preview-icon" v-for="badgeSrc in themePreviewIconSrcs" :key="badgeSrc" :src="badgeSrc" alt="" />
+                    </div>
+                    <span class="theme-preview-name">{{ me.username || 'User' }}</span>
+                  </div>
+                  <div class="profile-meta">
+                    <div class="profile-friends"></div>
+                    <div class="profile-history"></div>
+                    <div class="profile-nomination"></div>
+                    <div class="profile-nomination"></div>
+                    <div class="profile-nomination"></div>
+                    <div class="profile-nomination"></div>
+                    <div class="profile-nomination"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <UiIcon class="close-icon" :icon="iconClose" />
+          </header>
+          <div class="profile-dates"></div>
+          <div>Пример кнопки</div>
         </div>
-        <span class="theme-preview-name">{{ me.username || 'User' }}</span>
+
+
+
+      </div>
+      <div class="theme-preview-div">
+        <span class="theme-title">Бейджик</span>
+        <div class="theme-preview-card" :style="themePreviewStyle">
+          <img class="theme-preview-avatar" v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false, animated: true }" alt="avatar" />
+          <div v-if="themePreviewIconSrcs.length" class="theme-preview-icons" aria-hidden="true">
+            <img class="theme-preview-icon" v-for="badgeSrc in themePreviewIconSrcs" :key="badgeSrc" :src="badgeSrc" alt="" />
+          </div>
+          <span class="theme-preview-name">{{ me.username || 'User' }}</span>
+        </div>
       </div>
     </div>
     <Subscription v-model:open="subscriptionModalOpen" @select="onSubscriptionPaymentSelect" />
@@ -81,6 +122,8 @@ import UiButton from '@/components/UiButton.vue'
 
 import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
 import iconDush from '@/assets/svg/iconDush.svg'
+import iconClose from '@/assets/svg/iconClose.svg'
+import UiIcon from '@/components/UiIcon.vue'
 
 type SubscriptionSite = {
   id: string
@@ -331,34 +374,49 @@ onBeforeUnmount(() => {
     box-sizing: border-box;
     flex-direction: column;
     padding: 24px;
-    gap: 24px;
+    gap: 40px;
     width: calc(50% - 5px);
     height: fit-content;
     border-radius: 24px;
     background-color: $soft-purple-900;
-    .theme-preview-card {
+    .theme-preview-div {
       display: flex;
-      align-items: center;
-      gap: 8px;
-      .theme-preview-avatar {
-        width: 24px;
-        height: 24px;
+      flex-direction: column;
+      gap: 24px;
+      .avatar-title {
+        color: $neutral-white;
+        font-family: Involve-Medium;
+        font-size: 24px;
+        line-height: 26px;
+        letter-spacing: -0.48px;
       }
-      .theme-preview-icons {
+      .theme-preview-profile {
+
+      }
+      .theme-preview-card {
         display: flex;
         align-items: center;
-        margin-left: -8px;
-        .theme-preview-icon {
+        gap: 8px;
+        .theme-preview-avatar {
           width: 24px;
           height: 24px;
         }
-      }
-      .theme-preview-name {
-        color: $neutral-100;
-        font-family: Hauora-Regular;
-        font-size: 18px;
-        line-height: 20px;
-        letter-spacing: -0.36px;
+        .theme-preview-icons {
+          display: flex;
+          align-items: center;
+          margin-left: -8px;
+          .theme-preview-icon {
+            width: 24px;
+            height: 24px;
+          }
+        }
+        .theme-preview-name {
+          color: $neutral-100;
+          font-family: Hauora-Regular;
+          font-size: 18px;
+          line-height: 20px;
+          letter-spacing: -0.36px;
+        }
       }
     }
   }
