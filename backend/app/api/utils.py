@@ -1511,6 +1511,7 @@ async def build_user_out_payload(session: AsyncSession, *, user_id: int, role: s
         protected_user=is_protected_admin(uid),
         hotkeys_visible=bool(user.hotkeys_visible),
         tg_invites_enabled=bool(user.tg_invites_enabled),
+        allow_friend_requests=bool(user.allow_friend_requests),
         subscription_active=theme_state.subscription_active,
         subscription_started_at=theme_state.subscription_started_at,
         subscription_until=theme_state.subscription_until,

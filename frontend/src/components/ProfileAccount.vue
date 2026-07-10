@@ -61,8 +61,7 @@
       <div class="password">
         <div class="password-header">
           <span class="password-title">Пароль</span>
-          <span class="password-temp">Замените временный пароль</span>
-<!--          <span v-if="passwordTemp" class="password-temp">Замените временный пароль</span>-->
+          <span v-if="passwordTemp" class="password-temp">Замените временный пароль</span>
         </div>
         <span class="hint">
           Сбросить пароль можно через
@@ -153,6 +152,17 @@
           :disabled="tgInvitesTogglePending || !telegramVerified"
           @update:modelValue="onToggleTgInvites"
         />
+        <UiSwitch
+          class="profile-switch"
+          :model-value="allowFriendRequests"
+          label="Запросы в мой список друзей"
+          off-label="Запретить"
+          on-label="Разрешить"
+          size="low"
+          :width="256"
+          :disabled="friendRequestsTogglePending"
+          @update:modelValue="onToggleFriendRequests"
+        />
       </div>
     </div>
   </section>
@@ -179,8 +189,8 @@ const PASSWORD_SPACE_RE = /\s/
 
 const userStore = useUserStore()
 const auth = useAuthStore()
-const { tgInvitesEnabled, now } = storeToRefs(userStore)
-const { setTgInvitesEnabled } = userStore
+const { tgInvitesEnabled, allowFriendRequests, now } = storeToRefs(userStore)
+const { setTgInvitesEnabled, setAllowFriendRequests } = userStore
 
 type ProfileDatesResponse = {
   registered_at?: string | null
@@ -205,6 +215,7 @@ const profileDates = reactive({
   online: false,
 })
 const tgInvitesTogglePending = ref(false)
+const friendRequestsTogglePending = ref(false)
 const pwd = reactive({ current: '', next: '', confirm: '' })
 const pwdBusy = ref(false)
 const unlinkTgBusy = ref(false)
@@ -349,6 +360,13 @@ async function onToggleTgInvites(next: boolean) {
   tgInvitesTogglePending.value = true
   try { await setTgInvitesEnabled(next) }
   finally { tgInvitesTogglePending.value = false }
+}
+
+async function onToggleFriendRequests(next: boolean) {
+  if (friendRequestsTogglePending.value) return
+  friendRequestsTogglePending.value = true
+  try { await setAllowFriendRequests(next) }
+  finally { friendRequestsTogglePending.value = false }
 }
 
 async function changePassword() {
@@ -639,7 +657,10 @@ onBeforeUnmount(() => {
       letter-spacing: -0.48px;
     }
     .params-div {
+      display: flex;
+      flex-direction: column;
       padding: 16px;
+      gap: 8px;
       border-radius: 20px;
       background-color: $soft-purple-800;
     }

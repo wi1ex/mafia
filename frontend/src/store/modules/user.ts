@@ -15,6 +15,7 @@ export interface UserProfile {
   protected_user?: boolean
   hotkeys_visible?: boolean
   tg_invites_enabled?: boolean
+  allow_friend_requests?: boolean
   subscription_active?: boolean
   subscription_started_at?: string | null
   subscription_until?: string | null
@@ -49,11 +50,20 @@ export const useUserStore = defineStore('user', () => {
     applyProfile(data)
   }
 
-  async function updateUiPrefs(payload: { hotkeys_visible?: boolean; tg_invites_enabled?: boolean }): Promise<void> {
-    const { data } = await api.patch<{ hotkeys_visible: boolean; tg_invites_enabled: boolean }>('/users/ui_prefs', payload)
+  async function updateUiPrefs(payload: {
+    hotkeys_visible?: boolean
+    tg_invites_enabled?: boolean
+    allow_friend_requests?: boolean
+  }): Promise<void> {
+    const { data } = await api.patch<{
+      hotkeys_visible: boolean
+      tg_invites_enabled: boolean
+      allow_friend_requests: boolean
+    }>('/users/ui_prefs', payload)
     if (!user.value) return
     user.value.hotkeys_visible = data.hotkeys_visible
     user.value.tg_invites_enabled = data.tg_invites_enabled
+    user.value.allow_friend_requests = data.allow_friend_requests
   }
 
   function updateStoredRoomTitle(id: number, name: string) {
@@ -148,6 +158,7 @@ export const useUserStore = defineStore('user', () => {
   const roomRestricted = computed(() => banActive.value || timeoutActive.value)
   const hotkeysVisible = computed(() => user.value?.hotkeys_visible ?? true)
   const tgInvitesEnabled = computed(() => user.value?.tg_invites_enabled ?? true)
+  const allowFriendRequests = computed(() => user.value?.allow_friend_requests ?? true)
 
   async function setHotkeysVisible(next: boolean): Promise<void> {
     const prev = user.value?.hotkeys_visible
@@ -164,6 +175,15 @@ export const useUserStore = defineStore('user', () => {
     try { await updateUiPrefs({ tg_invites_enabled: next }) }
     catch {
       if (user.value && prev !== undefined) user.value.tg_invites_enabled = prev
+    }
+  }
+
+  async function setAllowFriendRequests(next: boolean): Promise<void> {
+    const prev = user.value?.allow_friend_requests
+    if (user.value) user.value.allow_friend_requests = next
+    try { await updateUiPrefs({ allow_friend_requests: next }) }
+    catch {
+      if (user.value && prev !== undefined) user.value.allow_friend_requests = prev
     }
   }
 
@@ -202,6 +222,7 @@ export const useUserStore = defineStore('user', () => {
     roomRestricted,
     hotkeysVisible,
     tgInvitesEnabled,
+    allowFriendRequests,
     applyProfile,
     fetchMe,
     updateUiPrefs,
@@ -215,6 +236,7 @@ export const useUserStore = defineStore('user', () => {
     setTelegramVerified,
     setHotkeysVisible,
     setTgInvitesEnabled,
+    setAllowFriendRequests,
     ensureClock,
     clear,
   }

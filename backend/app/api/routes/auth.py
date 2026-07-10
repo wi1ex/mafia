@@ -57,6 +57,7 @@ async def register(payload: PasswordRegisterIn, resp: Response, request: Request
         password_temp=False,
         telegram_id=None,
         tg_invites_enabled=True,
+        allow_friend_requests=True,
         nickname_changes_left=FREE_NICKNAME_CHANGE_LIMIT,
     )
     db.add(user)

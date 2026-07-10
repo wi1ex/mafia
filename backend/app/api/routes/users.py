@@ -1121,14 +1121,18 @@ async def update_ui_prefs(payload: UserUiPrefsIn, ident: Identity = Depends(get_
 
     old_hotkeys_visible = bool(user.hotkeys_visible)
     old_tg_invites_enabled = bool(user.tg_invites_enabled)
+    old_allow_friend_requests = bool(user.allow_friend_requests)
 
     if payload.hotkeys_visible is not None:
         user.hotkeys_visible = bool(payload.hotkeys_visible)
     if payload.tg_invites_enabled is not None:
         user.tg_invites_enabled = bool(payload.tg_invites_enabled)
+    if payload.allow_friend_requests is not None:
+        user.allow_friend_requests = bool(payload.allow_friend_requests)
 
     new_hotkeys_visible = bool(user.hotkeys_visible)
     new_tg_invites_enabled = bool(user.tg_invites_enabled)
+    new_allow_friend_requests = bool(user.allow_friend_requests)
     await db.commit()
 
     changes: list[str] = []
@@ -1136,6 +1140,11 @@ async def update_ui_prefs(payload: UserUiPrefsIn, ident: Identity = Depends(get_
         changes.append(f"hotkeys_visible: {int(old_hotkeys_visible)} -> {int(new_hotkeys_visible)}")
     if old_tg_invites_enabled != new_tg_invites_enabled:
         changes.append(f"tg_invites_enabled: {int(old_tg_invites_enabled)} -> {int(new_tg_invites_enabled)}")
+    if old_allow_friend_requests != new_allow_friend_requests:
+        changes.append(
+            "allow_friend_requests: "
+            f"{int(old_allow_friend_requests)} -> {int(new_allow_friend_requests)}"
+        )
 
     if changes:
         await log_action(
@@ -1149,6 +1158,7 @@ async def update_ui_prefs(payload: UserUiPrefsIn, ident: Identity = Depends(get_
     return UserUiPrefsOut(
         hotkeys_visible=new_hotkeys_visible,
         tg_invites_enabled=new_tg_invites_enabled,
+        allow_friend_requests=new_allow_friend_requests,
     )
 
 

@@ -109,10 +109,17 @@ async def lifespan(app) -> AsyncIterator[None]:
     try:
         async with engine.begin() as conn:
             await conn.execute(text("SELECT 1"))
+
             # AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
             await _rename_legacy_payment_table(conn)
             # AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+
+
+
             await conn.run_sync(Base.metadata.create_all)
+
+
+
             # AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
             await conn.execute(text(
                 "ALTER TABLE friend_closeness "
@@ -147,6 +154,23 @@ async def lifespan(app) -> AsyncIterator[None]:
             await conn.execute(text(
                 "ALTER TABLE users "
                 "ALTER COLUMN nickname_changes_left SET NOT NULL"
+            ))
+            await conn.execute(text(
+                "ALTER TABLE users "
+                "ADD COLUMN IF NOT EXISTS allow_friend_requests BOOLEAN"
+            ))
+            await conn.execute(text(
+                "UPDATE users "
+                "SET allow_friend_requests = TRUE "
+                "WHERE allow_friend_requests IS NULL"
+            ))
+            await conn.execute(text(
+                "ALTER TABLE users "
+                "ALTER COLUMN allow_friend_requests SET DEFAULT TRUE"
+            ))
+            await conn.execute(text(
+                "ALTER TABLE users "
+                "ALTER COLUMN allow_friend_requests SET NOT NULL"
             ))
             await conn.execute(text(
                 "CREATE TABLE IF NOT EXISTS contact_requests ("

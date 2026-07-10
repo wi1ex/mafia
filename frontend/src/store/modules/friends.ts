@@ -101,6 +101,7 @@ export function resolveFriendsApiError(error: any, action: FriendApiAction = 'un
   if (detail === 'friend_remove_too_early') return 'Удалить из друзей можно только через 10 минут после принятия заявки'
   if (detail === 'target_blacklisted_by_me') return 'Запрос отменен: пользователь находится у Вас в ЧС'
   if (detail === 'requester_blacklisted_by_target') return 'Запрос отменен: Вы находитесь в ЧС у пользователя'
+  if (detail === 'target_friend_requests_disabled') return 'Этот пользователь не принимает заявки в друзья'
   if (detail === 'subscription_required') return 'Действие доступно только при активной подписке'
 
   if (st === 429) return 'Слишком много запросов. Попробуйте через несколько секунд'
