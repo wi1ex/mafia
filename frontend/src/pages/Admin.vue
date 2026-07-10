@@ -128,7 +128,10 @@
               <div v-if="updateNoticeForm.title.trim() || updateNoticeTextPreview" class="update-notice-preview">
                 <article class="update-notice-preview-item">
                   <div class="update-notice-preview-header">
-                    <span>{{ updateNoticePreviewTitle }}</span>
+                    <div class="update-notice-preview-title">
+                      <UiIcon class="update-notice-preview-icon" :icon="iconNotifBell" />
+                      <span>{{ updateNoticePreviewTitle }}</span>
+                    </div>
                     <time>{{ updateNoticePreviewDate }}</time>
                   </div>
                   <div v-if="updateNoticePreviewBlocks.length" class="update-notice-preview-text">
@@ -859,17 +862,20 @@ import { SANCTION_REASONS } from '@/constants/sanctionReasons'
 import { canOpenMiniProfileTarget, normalizeMiniProfileUserId } from '@/services/miniProfile'
 import { useSettingsStore, useUserStore } from '@/store'
 
-import Sanction from '@/components/Sanction.vue'
-import SubscriptionModal from '@/components/SubscriptionModal.vue'
-import MiniProfile from '@/components/MiniProfile.vue'
-import UiSwitch from '@/components/UiSwitch.vue'
-import UiInput from '@/components/UiInput.vue'
-
-import defaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
-import iconDelete from '@/assets/svg/iconDelete.svg'
 import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
 import { getProfileThemeBadgeSources } from '@/constants/profileIcons'
 import { normalizeNotificationText, parseNotificationText } from '@/services/notificationText'
+
+import SubscriptionModal from '@/components/SubscriptionModal.vue'
+import MiniProfile from '@/components/MiniProfile.vue'
+import Sanction from '@/components/Sanction.vue'
+import UiSwitch from '@/components/UiSwitch.vue'
+import UiInput from '@/components/UiInput.vue'
+import UiIcon from '@/components/UiIcon.vue'
+
+import defaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
+import iconDelete from '@/assets/svg/iconDelete.svg'
+import iconNotifBell from '@/assets/svg/iconNotifBell.svg'
 
 const UPDATE_NOTICE_PREVIEW_DATE_OPTIONS: Intl.DateTimeFormatOptions = {
   year: 'numeric',
@@ -3042,50 +3048,72 @@ onMounted(() => {
       min-height: 200px;
     }
     .update-notice-preview {
-      display: flex;
-      flex-direction: column;
       margin-top: 15px;
-      width: 400px;
+      padding: 8px 0;
+      width: 440px;
       max-width: 100%;
-      padding: 10px;
       box-sizing: border-box;
-      border-radius: 5px;
-      background-color: $neutral-800;
-      box-shadow: 3px 3px 5px rgba(black, 0.25);
-      color: $neutral-100;
+      border-radius: 24px;
+      background-color: $neutral-100;
+      box-shadow: 0 0 16px 0 rgba($neutral-black, 0.16);
     }
     .update-notice-preview-item {
       display: flex;
       flex-direction: column;
-      align-items: center;
-      padding: 10px;
-      gap: 15px;
-      border-radius: 5px;
-      background-color: $neutral-700;
-      box-shadow: 0 3px 5px rgba(black, 0.25);
+      margin: 0 8px;
+      padding: 16px;
+      gap: 8px;
+      border-radius: 20px;
+      box-sizing: border-box;
+      transition: background-color 0.25s ease-in-out;
+      &:hover {
+        background-color: $neutral-white;
+      }
     }
     .update-notice-preview-header {
       display: flex;
       align-items: flex-start;
       justify-content: space-between;
+      gap: 16px;
       width: 100%;
-      span {
-        margin: 0;
-        max-width: 240px;
-        font-size: 18px;
-        font-weight: bold;
+      .update-notice-preview-title {
+        display: flex;
+        gap: 8px;
+        min-width: 0;
+        .update-notice-preview-icon {
+          flex: 0 0 auto;
+          --ui-icon-width: 20px;
+          --ui-icon-height: 20px;
+          --ui-icon-color: #{$neutral-400};
+        }
+        span {
+          max-width: 280px;
+          color: $neutral-black;
+          font-family: Hauora-Bold;
+          font-size: 16px;
+          line-height: 18px;
+          letter-spacing: -0.32px;
+          overflow-wrap: anywhere;
+          word-break: break-word;
+        }
       }
       time {
-        margin-top: 3px;
+        flex: 0 0 auto;
         color: $neutral-500;
-        font-size: 12px;
+        font-family: Hauora-Regular;
+        font-size: 14px;
+        line-height: 14px;
+        letter-spacing: -0.28px;
       }
     }
     .update-notice-preview-text {
-      margin: 0;
-      width: 100%;
-      color: $neutral-100;
-      line-height: 1.35;
+      margin-left: 28px;
+      width: calc(100% - 28px);
+      color: $neutral-900;
+      font-family: Hauora-Regular;
+      font-size: 16px;
+      line-height: 22px;
+      letter-spacing: -0.32px;
       overflow-wrap: anywhere;
       word-break: break-word;
       .notification-text-paragraph,
