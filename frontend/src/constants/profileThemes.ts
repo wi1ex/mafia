@@ -30,6 +30,7 @@ const PROFILE_THEME_PRESETS = [
 
 type ProfileThemePreset = typeof PROFILE_THEME_PRESETS[number]
 export type ProfileThemeColor = ProfileThemePreset['key']
+const PROFILE_THEME_ADMIN_HIDDEN_COLORS = new Set<ProfileThemeColor>(['mulberry'])
 type ProfileThemePresetBase = {
   key: ProfileThemeColor
   title: string
@@ -73,7 +74,9 @@ export function isAdminProfileThemeRole(role: unknown): boolean {
 }
 
 export function getProfileThemeOptions(role?: unknown): readonly ProfileThemeOption[] {
-  if (isAdminProfileThemeRole(role)) return PROFILE_THEME_OPTIONS
+  if (isAdminProfileThemeRole(role)) {
+    return PROFILE_THEME_OPTIONS.filter((item) => !PROFILE_THEME_ADMIN_HIDDEN_COLORS.has(item.key))
+  }
   return PROFILE_THEME_OPTIONS.filter((item) => !item.adminOnly)
 }
 

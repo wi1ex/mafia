@@ -31,6 +31,7 @@ PROFILE_THEME_COLORS: tuple[str, ...] = (
     "plum",
 )
 PROFILE_THEME_ADMIN_COLORS: tuple[str, ...] = ("onyx",)
+PROFILE_THEME_ADMIN_HIDDEN_COLORS: tuple[str, ...] = ("mulberry",)
 PROFILE_THEME_DEFAULT = "terracotta"
 PROFILE_THEME_ICON_NONE = "none"
 PROFILE_THEME_ICON_COUNT = 49
@@ -72,7 +73,10 @@ def _is_admin_role(role: object) -> bool:
 
 def profile_theme_colors_for_role(role: object) -> tuple[str, ...]:
     if _is_admin_role(role):
-        return *PROFILE_THEME_COLORS, *PROFILE_THEME_ADMIN_COLORS
+        return (
+            *(color for color in PROFILE_THEME_COLORS if color not in PROFILE_THEME_ADMIN_HIDDEN_COLORS),
+            *PROFILE_THEME_ADMIN_COLORS,
+        )
 
     return PROFILE_THEME_COLORS
 
