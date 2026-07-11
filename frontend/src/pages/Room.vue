@@ -3877,8 +3877,7 @@ onBeforeUnmount(() => {
       //&:not(:disabled):active {
       //  background-color: $soft-purple-800;
       //}
-      &:not(:disabled):hover,
-      &:not(:disabled):active {
+      &:not(:disabled):hover {
         background-color: $soft-purple-800;
       }
     }
