@@ -1614,6 +1614,15 @@ onBeforeUnmount(() => {
           font-size: 14px;
           line-height: 16px;
         }
+        .create-room-button.ui-button {
+          --ui-button-height: 32px;
+          --ui-button-gap: 4px;
+          --ui-button-radius: 12px;
+          --ui-button-icon-size: 14px;
+          --ui-button-font-size: 12px;
+          --ui-button-line-height: 14px;
+          --ui-button-padding-x: 12px;
+        }
       }
       .muted-rooms {
         img {
