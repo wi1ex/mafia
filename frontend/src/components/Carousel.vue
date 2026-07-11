@@ -2,11 +2,11 @@
   <section class="home-carousel" role="region" aria-roledescription="carousel" aria-label="Информационная карусель" tabindex="0" :class="{ 'is-paused': isPaused }"
            :style="carouselProgressStyle" @mouseenter="hovered = true" @mouseleave="hovered = false" @focusin="focused = true" @focusout="onFocusOut" @keydown="onKeydown" >
     <Transition :name="slideTransitionName">
-      <article v-if="activeIndex === 0" key="slide-1" class="slide slide-one">
+      <article v-if="activeIndex === 0" key="slide-1" class="slide">
         <img class="background-image" :src="imageSlide1" alt="" aria-hidden="true" />
       </article>
 
-      <article v-else-if="activeIndex === 1" key="slide-2" class="slide slide-two">
+      <article v-else-if="activeIndex === 1" key="slide-2" class="slide">
         <img class="background-image" :src="imageSlide2" alt="" aria-hidden="true" />
         <div class="slide-div">
           <div class="slide-top">
@@ -21,7 +21,7 @@
         </div>
       </article>
 
-      <article v-else-if="activeIndex === 2" key="slide-3" class="slide slide-three">
+      <article v-else-if="activeIndex === 2" key="slide-3" class="slide">
         <img class="background-image" :src="imageSlide3" alt="" aria-hidden="true" />
         <div class="slide-div">
           <div class="slide-top">
@@ -36,7 +36,7 @@
         </div>
       </article>
 
-      <article v-else-if="activeIndex === 3" key="slide-4" class="slide slide-four">
+      <article v-else-if="activeIndex === 3" key="slide-4" class="slide">
         <img class="background-image" :src="imageSlide4" alt="" aria-hidden="true" />
         <div class="slide-div">
           <div class="slide-top">
@@ -51,7 +51,7 @@
         </div>
       </article>
 
-      <article v-else key="install" class="slide slide-five">
+      <article v-else key="install" class="slide">
         <img class="background-image" :src="imageSlide5" alt="" aria-hidden="true" />
         <div class="slide-div">
           <div class="slide-top">
@@ -310,15 +310,6 @@ onBeforeUnmount(() => {
       .slide-bottom {
         display: flex;
       }
-    }
-    &.slide-three {
-      background-color: rgba(20, 29, 33, 1);
-      .background-image {
-        height: 421px;
-      }
-    }
-    &.slide-five {
-      background: linear-gradient(180deg, rgba(17, 18, 27, 0.00) 52.18%, rgba(17, 18, 27, 0.30) 100%), #151621;
     }
   }
   .carousel-controls {
