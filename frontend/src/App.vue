@@ -201,8 +201,8 @@ onBeforeUnmount(() => {
   backdrop-filter: blur(12px);
   color: $neutral-100;
   font-family: Hauora-Regular;
-  font-size: 16px;
-  line-height: 22px;
+  font-size: 40px;
+  line-height: 44px;
   letter-spacing: -0.32px;
   z-index: 9999;
 }
