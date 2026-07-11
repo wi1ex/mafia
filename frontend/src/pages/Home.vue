@@ -58,7 +58,7 @@
               <span class="text-center">{{ r.occupancy }}/{{ r.user_limit }}</span>
             </li>
           </ul>
-          <UiScrollbar :target="roomsList" theme="dark" :inset-bottom="24" />
+          <UiScrollbar class="rooms-scrollbar" :target="roomsList" theme="dark" :inset-bottom="24" />
         </div>
       </div>
     </div>
@@ -1609,7 +1609,7 @@ onBeforeUnmount(() => {
         height: calc(var(--app-viewport-height) - 80px);
       }
       header {
-        padding: 12px 12px 8px;
+        padding: 8px 12px 8px;
         .left-title {
           font-size: 14px;
           line-height: 16px;
@@ -1618,9 +1618,9 @@ onBeforeUnmount(() => {
           --ui-button-height: 32px;
           --ui-button-gap: 4px;
           --ui-button-radius: 12px;
-          --ui-button-icon-size: 14px;
-          --ui-button-font-size: 12px;
-          --ui-button-line-height: 14px;
+          --ui-button-icon-size: 12px;
+          --ui-button-font-size: 10px;
+          --ui-button-line-height: 12px;
           --ui-button-padding-x: 12px;
         }
       }
@@ -1631,27 +1631,28 @@ onBeforeUnmount(() => {
         }
       }
       .list {
-        padding: 8px 12px 0;
+        padding: 4px 12px 0;
         gap: 8px;
-        height: calc(100% - 70px);
+        height: calc(100% - 60px);
         .text-center {
-          font-size: 10px;
+          font-size: 9px;
         }
         .list-header {
-          grid-template-columns: 15% 47% 30% 8%;
           padding: 0 8px;
           span {
             font-size: 10px;
           }
         }
         .list-body-shell {
+          margin-right: -8px;
         }
         .list-body {
+          padding: 0 8px 8px 0;
+          gap: 6px;
           &::-webkit-scrollbar {
           }
           .item {
-            grid-template-columns: 15% 47% 30% 8%;
-            padding: 0 8px;
+            padding: 4px 8px;
             min-height: 20px;
             border-radius: 12px;
             &.active {
@@ -1670,8 +1671,8 @@ onBeforeUnmount(() => {
             .cell {
               gap: 4px;
               .item-text {
-                font-size: 10px;
-                line-height: 10px;
+                font-size: 9px;
+                line-height: 9px;
                 &.ellipsis {
                 }
                 &.margin {
@@ -1680,7 +1681,7 @@ onBeforeUnmount(() => {
               .status-room {
                 padding: 4px;
                 gap: 4px;
-                min-width: 40px;
+                min-width: 34px;
                 &.duo {
                 }
                 &.runned {
@@ -1688,24 +1689,30 @@ onBeforeUnmount(() => {
                 &.hide {
                 }
                 .dot-img {
+                  --ui-icon-width: 3px;
+                  --ui-icon-height: 3px;
                 }
               }
               img {
               }
               .lock-icon {
-                --ui-icon-width: 14px;
-                --ui-icon-height: 14px;
+                --ui-icon-width: 12px;
+                --ui-icon-height: 12px;
                 &--private {
                 }
                 &--open {
                 }
               }
               .user-avatar {
-                width: 14px;
-                height: 14px;
+                width: 12px;
+                height: 12px;
               }
             }
           }
+        }
+        .rooms-scrollbar.scrollbar {
+          bottom: 12px;
+          width: 4px;
         }
       }
     }
