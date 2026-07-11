@@ -7,7 +7,8 @@ COPY pyproject.toml poetry.lock* /app/
 RUN pip install --upgrade pip && pip install poetry && poetry config virtualenvs.create false && poetry install --no-interaction --no-ansi --only main --no-root
 COPY . /app
 
-RUN useradd -u 999 -r -s /usr/sbin/nologin appuser && chown -R appuser:appuser /app
+RUN useradd -u 999 -r -m -d /home/appuser -s /usr/sbin/nologin appuser && chown -R appuser:appuser /app /home/appuser
+ENV HOME=/home/appuser
 USER appuser
 
 CMD ["gunicorn","app.main:app","-k","uvicorn.workers.UvicornWorker"]

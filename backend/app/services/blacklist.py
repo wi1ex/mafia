@@ -12,7 +12,6 @@ from ..models.friend import FriendLink, UserBlacklist
 from ..models.subscription import UserSubscription
 from ..models.user import User
 from ..realtime.sio import sio
-from ..security.parameters import get_cached_settings
 from ..services.user_cache import get_user_profiles_cached
 
 log = structlog.get_logger()
@@ -200,6 +199,8 @@ async def _cleanup_private_room_access_for_blacklist(owner_id: int, target_id: i
 
 
 async def add_user_to_blacklist(session: AsyncSession, *, owner_id: int, target_id: int) -> tuple[bool, tuple[int, ...]]:
+    from ..security.parameters import get_cached_settings
+
     owner = _positive_int(owner_id)
     target = _positive_int(target_id)
     if owner <= 0 or target <= 0:
