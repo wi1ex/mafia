@@ -212,7 +212,7 @@
         </div>
       </div>
       </div>
-      <UiScrollbar class="right-column-scrollbar" :target="rightColumn" theme="dark" :inset-top="16" :inset-bottom="16" right="6px" />
+      <UiScrollbar class="right-column-scrollbar" :target="rightColumn" theme="dark" :inset-top="16" :inset-bottom="16" right="-12px" />
     </div>
   </section>
   <MiniProfile
@@ -959,7 +959,7 @@ onBeforeUnmount(() => {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 607px;
   align-items: flex-start;
-  margin: 0 40px 10px;
+  padding: 0 40px 10px;
   gap: 10px;
   height: 100%;
   overflow: auto;
