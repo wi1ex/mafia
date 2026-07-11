@@ -63,7 +63,8 @@
       </div>
     </div>
 
-    <div class="right-column">
+    <div class="right-column-shell">
+      <div ref="rightColumn" class="right-column">
       <aside class="right" :aria-live="selectedId ? 'polite' : 'off'" @pointerdown.self="selArmed = true"
              @pointerup.self="selArmed && clearSelection()" @pointerleave.self="selArmed = false" @pointercancel.self="selArmed = false">
         <Transition name="room-panel" mode="out-in">
@@ -210,6 +211,8 @@
           </button>
         </div>
       </div>
+      </div>
+      <UiScrollbar class="right-column-scrollbar" :target="rightColumn" theme="dark" :inset-top="16" :inset-bottom="16" right="6px" />
     </div>
   </section>
   <MiniProfile
@@ -319,6 +322,7 @@ const canAdminSpectateRoom = computed(() => {
 
 const roomsMap = reactive(new Map<number, Room>())
 const roomsList = ref<HTMLElement | null>(null)
+const rightColumn = ref<HTMLElement | null>(null)
 const sio = ref<Socket | null>(null)
 const suppressedAutoselect = ref(true)
 
@@ -1153,19 +1157,31 @@ onBeforeUnmount(() => {
       }
     }
   }
-  .right-column {
-    display: flex;
+  .right-column-shell {
     position: sticky;
     top: 0;
-    flex-direction: column;
-    gap: 10px;
     width: 607px;
     min-width: 607px;
     max-width: 607px;
     height: 100%;
     min-height: 0;
-    overflow: auto;
-    scrollbar-width: none;
+    .right-column {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      width: 100%;
+      height: 100%;
+      min-height: 0;
+      overflow: auto;
+      scrollbar-width: none;
+      &::-webkit-scrollbar {
+        width: 0;
+        height: 0;
+      }
+    }
+    .right-column-scrollbar.scrollbar {
+      right: 0;
+    }
     .right {
       flex: 0 0 auto;
       display: flex;
