@@ -410,7 +410,7 @@ const topBannerActive = computed(() => {
 })
 const blockedLabel = computed(() => {
   if (access.value === 'blacklisted') return 'Вход запрещен: Вы находитесь в ЧС'
-  if (access.value === 'hidden') return 'Вход только по приглашению'
+  if (access.value === 'hidden') return 'Вход запрещен: комната скрытая'
   if (selectedRoom.value?.entry_closed) return 'Вход в комнату закрыт'
   if (!canEnterRooms.value) return 'Вход в комнаты отключен'
   if (userStore.banActive) return 'Вход запрещен: аккаунт забанен'
@@ -640,7 +640,7 @@ async function onApply() {
     }
     if (detail === 'hidden_room') {
       access.value = 'hidden'
-      void alertDialog('Заявка отменена: скрытая комната доступна только по приглашению')
+      void alertDialog('Заявка отменена: в скрытую комнату заявки недоступны')
       return
     }
     if (detail === 'room_not_found') {
@@ -1170,7 +1170,7 @@ onBeforeUnmount(() => {
       width: 100%;
       min-width: 0;
       max-width: none;
-      height: 510px;
+      height: 494px;
       border-radius: 24px;
       overflow: hidden;
       .loading-overlay {
@@ -1325,7 +1325,7 @@ onBeforeUnmount(() => {
                 gap: 8px;
                 width: 100%;
                 &.dead {
-                  opacity: 0.4;
+                  opacity: 0.5;
                 }
                 .user-numb {
                   min-width: 27px;
@@ -1595,6 +1595,221 @@ onBeforeUnmount(() => {
 .room-info.room-panel-enter-to,
 .room-info.room-panel-leave-from {
   transform: translateX(0);
+}
+
+@media (max-width: 1700px) {
+  .card {
+    .left {
+      &.left--top-banner {
+      }
+      header {
+        .left-title {
+        }
+      }
+      .muted-rooms {
+        img {
+        }
+        span {
+        }
+      }
+      .list {
+        .text-center {
+        }
+        .list-header {
+          span {
+          }
+        }
+        .list-body-shell {
+        }
+        .list-body {
+          &::-webkit-scrollbar {
+          }
+          .item {
+            &.active {
+            }
+            &::after {
+            }
+            > * {
+            }
+            &:not(:disabled):hover,
+            &:not(:disabled):focus-visible,
+            &:not(:disabled):active,
+            &:not(:disabled).active {
+              &::after {
+              }
+            }
+            .cell {
+              .item-text {
+                &.ellipsis {
+                }
+                &.margin {
+                }
+              }
+              .status-room {
+                &.duo {
+                }
+                &.runned {
+                }
+                &.hide {
+                }
+                .dot-img {
+                }
+              }
+              img {
+              }
+              .lock-icon {
+                &--private {
+                }
+                &--open {
+                }
+              }
+              .user-avatar {
+              }
+            }
+          }
+        }
+      }
+    }
+    .right-column {
+      .right {
+        .loading-overlay {
+        }
+        .room-info {
+          header {
+            span {
+            }
+            .room-actions {
+              button {
+                .room-icon {
+                }
+                &:disabled {
+                  .room-icon {
+                  }
+                }
+                &:not(:disabled):hover,
+                &:not(:disabled):focus-visible,
+                &:not(:disabled):active {
+                  .room-icon {
+                  }
+                }
+              }
+            }
+          }
+          .ri-info {
+            .mini-profile-user-trigger {
+              &:disabled {
+              }
+            }
+            .ri-members {
+              &.solo {
+              }
+              .ri-members-div {
+                .ri-members-title {
+                }
+                .ri-members-count {
+                }
+              }
+              .muted-members {
+                img {
+                }
+                span {
+                }
+              }
+              .ri-users {
+                .ri-user {
+                  &.dead {
+                  }
+                  .user-numb {
+                  }
+                  img {
+                  }
+                  .screen-icon {
+                  }
+                  .user-mini-avatar {
+                  }
+                  .mini-profile-name {
+                  }
+                }
+              }
+            }
+            .ri-meta-game {
+              .ri-meta-title {
+              }
+              .ri-game-div {
+                .ri-meta-text,
+                .ri-meta-value {
+                }
+                .ri-meta-text {
+                }
+                .ri-meta-value {
+                }
+                .spectators-wrap {
+                  .spectators-btn {
+                    .spectators-icon {
+                    }
+                    &:not(:disabled):hover,
+                    &:not(:disabled):focus-visible,
+                    &:not(:disabled):active,
+                    &.is-open {
+                      .spectators-icon {
+                      }
+                    }
+                  }
+                  .spectators-tooltip {
+                    .spectators-list {
+                      .spectators-row {
+                        .mini-profile-name {
+                        }
+                        img {
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+          .ri-actions {
+            .ri-action {
+            }
+          }
+        }
+      }
+      .right-extra {
+        .right-extra-content {
+          .right-extra-copy-subscription {
+            .right-extra-copy-accent {
+            }
+          }
+          .right-extra-copy-connect {
+          }
+          .right-extra-btn {
+            .btn-icon {
+            }
+            &:not(:disabled):hover,
+            &:not(:disabled):focus-visible,
+            &:not(:disabled):active,
+            &.is-open {
+              .btn-icon {
+              }
+            }
+          }
+        }
+        &--primary {
+          .background-image-6 {
+          }
+        }
+        &--secondary {
+          .background-image-7 {
+          }
+        }
+      }
+    }
+  }
+}
+
+@media (max-width: 1200px) {
+
 }
 
 </style>

@@ -1,7 +1,7 @@
 <template>
   <Header v-if="!isRoom" />
   <div class="rotate-overlay">
-    <div class="rotate-box" data-nosnippet>Поверните устройство</div>
+    <div data-nosnippet>Поверните устройство</div>
   </div>
   <router-view :key="routerViewKey" />
   <Chat />
@@ -18,6 +18,7 @@ import { useNotifStore } from '@/store'
 import { useGlobalChatStore } from '@/store'
 import { useSettingsStore } from '@/store'
 import { alertDialog } from '@/services/confirm'
+
 import Header from '@/components/Header.vue'
 import Toast from '@/components/Toasts.vue'
 import Confirms from '@/components/Confirms.vue'
@@ -61,9 +62,11 @@ watchEffect(() => {
     router.replace({ name: 'home' }).catch(() => {})
   }
 })
+
 watchEffect(() => {
   if (auth.isAuthed) user.ensureClock()
 })
+
 watch(() => auth.isAuthed, (isAuthed) => {
   if (!isAuthed) {
     chat.clearUnreadCount()
@@ -124,7 +127,6 @@ onMounted(async () => {
     if (auth.isAuthed) user.fetchMe().catch(() => {})
   }
   window.addEventListener('auth-notify', onAdminNotify)
-
   settings.ensureWS()
   try { await settings.fetchPublic() } catch {}
   await auth.init()
@@ -162,12 +164,12 @@ onBeforeUnmount(() => {
   inset: 0;
   background-color: rgba($neutral-800, 0.2);
   backdrop-filter: blur(12px);
-  text-align: center;
-  color: $neutral-white;
+  color: $neutral-100;
+  font-family: Hauora-Regular;
+  font-size: 16px;
+  line-height: 22px;
+  letter-spacing: -0.32px;
   z-index: 9999;
-}
-.rotate-box {
-  max-width: 600px;
 }
 
 @media (orientation: portrait) {
@@ -176,11 +178,11 @@ onBeforeUnmount(() => {
   }
 }
 
-@media (max-width: 1439px) {
+@media (max-width: 1700px) {
 
 }
 
-@media (max-width: 959px) {
+@media (max-width: 1200px) {
 
 }
 

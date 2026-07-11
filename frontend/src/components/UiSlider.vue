@@ -259,7 +259,7 @@ function onDeadZoneClick(): void {
     cursor: not-allowed;
   }
   &.disabled {
-    opacity: 0.65;
+    opacity: 0.5;
   }
 }
 </style>

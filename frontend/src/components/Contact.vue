@@ -352,7 +352,6 @@ onBeforeUnmount(() => {
         gap: 12px;
         border: none;
         background: none;
-        cursor: pointer;
         .contact-email-img-1 {
           --ui-icon-width: 24px;
           --ui-icon-height: 24px;
@@ -365,6 +364,7 @@ onBeforeUnmount(() => {
           gap: 4px;
           border: none;
           background: none;
+          cursor: pointer;
           .contact-email-text {
             color: $neutral-900;
             font-family: Hauora-Regular;
