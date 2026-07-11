@@ -733,4 +733,10 @@ onBeforeUnmount(() => {
   transform: translateY(30px);
 }
 
+@media (max-width: 1000px) {
+  .friends-panel {
+    max-height: 408px;
+  }
+}
+
 </style>

@@ -2,8 +2,8 @@
   <Teleport to="#desktop-teleport-root">
     <Transition name="contact-drawer">
       <div v-if="open" class="contact-drawer-overlay" @pointerdown.self="armed = true" @pointerup.self="armed && requestClose()" @pointerleave.self="armed = false" @pointercancel.self="armed = false">
-        <form @submit.prevent="submit">
-          <div class="contact-drawer-panel" role="dialog" aria-modal="true" aria-labelledby="contact-request-title">
+        <form class="contact-drawer-form" @submit.prevent="submit">
+          <div ref="contactDrawerPanel" class="contact-drawer-panel" role="dialog" aria-modal="true" aria-labelledby="contact-request-title">
             <header>
               <span id="contact-request-title" class="header-title">Связаться с администрацией</span>
               <button type="button" aria-label="Закрыть" @click="requestClose">
@@ -89,6 +89,15 @@
               />
             </div>
           </div>
+          <UiScrollbar
+            class="contact-drawer-scrollbar"
+            :target="contactDrawerPanel"
+            :active="open"
+            theme="light"
+            :inset-top="24"
+            :inset-bottom="24"
+            right="8px"
+          />
         </form>
       </div>
     </Transition>
@@ -104,6 +113,7 @@ import UiIcon from '@/components/UiIcon.vue'
 import UiDropdown from '@/components/UiDropdown.vue'
 import UiInput from '@/components/UiInput.vue'
 import UiButton from '@/components/UiButton.vue'
+import UiScrollbar from '@/components/UiScrollbar.vue'
 
 import iconClose from '@/assets/svg/iconClose.svg'
 import iconMail from '@/assets/svg/iconMail.svg'
@@ -144,6 +154,7 @@ const messageText = ref('')
 const replyContact = ref('')
 const emailCopied = ref(false)
 const contactEmailTextEl = ref<HTMLElement | null>(null)
+const contactDrawerPanel = ref<HTMLElement | null>(null)
 
 let prevOverflow = ''
 
@@ -283,17 +294,28 @@ onBeforeUnmount(() => {
   background-color: rgba($neutral-800, 0.2);
   backdrop-filter: blur(12px);
   z-index: 1000;
+  .contact-drawer-form {
+    position: relative;
+    width: 482px;
+    height: 100%;
+  }
   .contact-drawer-panel {
     display: flex;
     flex-direction: column;
     padding: 24px;
     gap: 40px;
-    width: 482px;
+    width: 100%;
     height: 100%;
     border-radius: 24px;
     background-color: $neutral-100;
     box-shadow: 0 0 16px 0 rgba($neutral-black, 0.16);
     box-sizing: border-box;
+    overflow: auto;
+    scrollbar-width: none;
+    &::-webkit-scrollbar {
+      width: 0;
+      height: 0;
+    }
     header {
       display: flex;
       align-items: flex-start;

@@ -471,4 +471,10 @@ onBeforeUnmount(() => {
   transform: translateY(-30px);
 }
 
+@media (max-width: 1000px) {
+  .panel {
+    max-height: 408px;
+  }
+}
+
 </style>

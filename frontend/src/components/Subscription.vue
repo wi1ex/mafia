@@ -773,4 +773,19 @@ onBeforeUnmount(() => {
   transform: translateY(0);
 }
 
+@media (max-width: 1000px) {
+  .subscription-purchase-overlay .subscription-purchase-modal {
+    height: 512px;
+  }
+  .subscription-purchase-overlay .subscription-purchase-modal .subscription-purchase-content .subscription-purchase-track .subscription-purchase-slide .subscribe-switch {
+    display: none;
+  }
+  .subscription-purchase-overlay .subscription-purchase-modal .subscription-purchase-content .subscription-purchase-track .subscription-purchase-slide .subscribe {
+    margin: 20px 0;
+  }
+  .subscription-purchase-overlay .subscription-purchase-modal .subscription-purchase-content .subscription-purchase-track .subscription-purchase-slide .kassa-form {
+    margin: 20px 0;
+  }
+}
+
 </style>
