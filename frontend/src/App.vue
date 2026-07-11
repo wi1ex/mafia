@@ -1,4 +1,5 @@
 <template>
+  <div id="desktop-teleport-root" class="desktop-teleport-root" :style="desktopScaleStyle"></div>
   <div id="desktop-scale-root" class="desktop-scale-root" :style="desktopScaleStyle">
     <Header v-if="!isRoom" />
     <div class="rotate-overlay">
@@ -190,6 +191,20 @@ onBeforeUnmount(() => {
   overflow: hidden;
   transform: scale(var(--desktop-scale));
   transform-origin: top left;
+}
+.desktop-teleport-root {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  width: var(--app-viewport-width);
+  height: var(--app-viewport-height);
+  transform: scale(var(--desktop-scale));
+  transform-origin: top left;
+  pointer-events: none;
+}
+:global(#desktop-teleport-root > *) {
+  pointer-events: auto;
 }
 .rotate-overlay {
   display: none;

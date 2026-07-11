@@ -1,5 +1,5 @@
 <template>
-  <Teleport to="#desktop-scale-root">
+  <Teleport to="#desktop-teleport-root">
     <Transition name="overlay">
       <div v-if="open" class="overlay" :style="{ zIndex }" @pointerdown.stop.self="armed = true"
            @pointerup.stop.self="armed && requestClose()" @pointerleave.stop.self="armed = false" @pointercancel.stop.self="armed = false" @click.stop>

@@ -1,5 +1,5 @@
 <template>
-  <Teleport to="#desktop-scale-root">
+  <Teleport to="#desktop-teleport-root">
     <Transition name="user-mini-profile-fade">
       <div v-if="canRenderOpen" class="user-mini-profile-overlay" role="presentation" @pointerdown.stop.self @click.stop.self="close">
         <section ref="profilePanelEl" class="user-mini-profile-panel" :class="{ 'stats-mode': view !== 'profile' && !panelStateVisible && !avatarPreviewOpen, 'state-mode': panelStateVisible, 'avatar-mode': avatarPreviewOpen }" :style="profilePanelStyle"

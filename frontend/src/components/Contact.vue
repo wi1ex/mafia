@@ -1,5 +1,5 @@
 <template>
-  <Teleport to="#desktop-scale-root">
+  <Teleport to="#desktop-teleport-root">
     <Transition name="contact-drawer">
       <div v-if="open" class="contact-drawer-overlay" @pointerdown.self="armed = true" @pointerup.self="armed && requestClose()" @pointerleave.self="armed = false" @pointercancel.self="armed = false">
         <form @submit.prevent="submit">

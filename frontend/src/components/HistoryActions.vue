@@ -3,7 +3,7 @@
     Подробности
   </span>
 
-  <Teleport to="#desktop-scale-root">
+  <Teleport to="#desktop-teleport-root">
     <Transition name="overlay">
       <div v-if="open" class="overlay" @pointerdown.self="armed = true"
            @pointerup.self="armed && closeModal()" @pointerleave.self="armed = false" @pointercancel.self="armed = false">
