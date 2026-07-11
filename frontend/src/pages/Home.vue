@@ -1726,15 +1726,29 @@ onBeforeUnmount(() => {
       min-width: 250px;
       max-width: 250px;
       .right {
+        height: 100%;
+        border-radius: 12px;
         .loading-overlay {
         }
         .room-info {
+          padding: 8px 12px;
+          gap: 8px;
+          width: calc(100% - 24px);
+          height: calc(100% - 16px);
           header {
             span {
+              max-width: 95px;
+              font-size: 14px;
+              line-height: 18px;
             }
             .room-actions {
+              gap: 4px;
               button {
+                width: 16px;
+                height: 16px;
                 .room-icon {
+                  --ui-icon-width: 16px;
+                  --ui-icon-height: 16px;
                 }
                 &:disabled {
                   .room-icon {
@@ -1830,6 +1844,7 @@ onBeforeUnmount(() => {
         }
       }
       .right-extra {
+        display: none;
         .right-extra-content {
           .right-extra-copy-subscription {
             .right-extra-copy-accent {
