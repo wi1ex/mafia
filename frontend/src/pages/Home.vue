@@ -1626,8 +1626,12 @@ onBeforeUnmount(() => {
       }
       .muted-rooms {
         img {
+          width: 100px;
+          height: auto;
         }
         span {
+          font-size: 10px;
+          line-height: 14px;
         }
       }
       .list {
