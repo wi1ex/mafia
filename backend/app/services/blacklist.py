@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import Any, Iterable
 import structlog
 from fastapi import HTTPException, status
-from sqlalchemy import and_, delete, or_, select
+from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.clients import get_redis
@@ -12,6 +12,7 @@ from ..models.friend import FriendLink, UserBlacklist
 from ..models.subscription import UserSubscription
 from ..models.user import User
 from ..realtime.sio import sio
+from ..security.parameters import get_cached_settings
 from ..services.user_cache import get_user_profiles_cached
 
 log = structlog.get_logger()
@@ -212,6 +213,31 @@ async def add_user_to_blacklist(session: AsyncSession, *, owner_id: int, target_
     target_user = await session.get(User, target)
     if target_user is None or target_user.deleted_at is not None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user_not_found")
+
+    owner_exists = await session.scalar(
+        select(User.id).where(User.id == owner).with_for_update()
+    )
+    if owner_exists is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user_not_found")
+
+    already_blacklisted = await session.scalar(
+        select(UserBlacklist.id)
+        .where(UserBlacklist.owner_id == owner, UserBlacklist.target_id == target)
+        .limit(1)
+    )
+    if already_blacklisted is None:
+        blacklist_count = int(
+            await session.scalar(
+                select(func.count(UserBlacklist.id)).where(UserBlacklist.owner_id == owner)
+            )
+            or 0
+        )
+        blacklist_limit = max(0, int(get_cached_settings().blacklist_users_limit))
+        if blacklist_count >= blacklist_limit:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="blacklist_limit_reached",
+            )
 
     deleted_friend_ids: set[int] = set()
     link = await session.scalar(

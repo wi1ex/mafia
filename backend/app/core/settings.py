@@ -69,6 +69,8 @@ class Settings(BaseSettings):
     SEASON_START_GAME_NUMBER: str = "1"
     TEXT_MODERATION_WHITELIST: str = "0"
     TEXT_MODERATION_BLACKLIST: str = "0"
+    BLACKLIST_USERS_LIMIT: int = 30
+    SELF_SPEECH_FINISH_ENABLED: bool = True
 
     ROLE_DECK: tuple[str, ...] = ("citizen", "citizen", "citizen", "citizen", "citizen", "citizen", "sheriff", "mafia", "mafia", "don")
     GAME_MIN_READY_PLAYERS: int = 10

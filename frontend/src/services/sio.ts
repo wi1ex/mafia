@@ -152,6 +152,10 @@ export function startAuthSocket(opts?: { onForceLogout?: () => void }): Socket {
     }
   })
 
+  authSocket.on('notifs_marked_read_all', () => {
+    window.dispatchEvent(new CustomEvent('auth-notifs_marked_read_all'))
+  })
+
   authSocket.on('friends_update', (p:any) => {
     window.dispatchEvent(new CustomEvent('auth-friends_update', { detail: p }))
   })

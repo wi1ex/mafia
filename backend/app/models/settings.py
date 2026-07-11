@@ -31,6 +31,8 @@ class AppSettings(Base):
     season_start_game_number: Mapped[str] = mapped_column(String(255), nullable=False, server_default=str(settings.SEASON_START_GAME_NUMBER))
     text_moderation_whitelist: Mapped[str] = mapped_column(String(4096), nullable=False, server_default=str(settings.TEXT_MODERATION_WHITELIST))
     text_moderation_blacklist: Mapped[str] = mapped_column(String(4096), nullable=False, server_default=str(settings.TEXT_MODERATION_BLACKLIST))
+    blacklist_users_limit: Mapped[int] = mapped_column(Integer, nullable=False, server_default=str(settings.BLACKLIST_USERS_LIMIT))
+    self_speech_finish_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.SELF_SPEECH_FINISH_ENABLED))
     game_min_ready_players: Mapped[int] = mapped_column(Integer, nullable=False, server_default=str(settings.GAME_MIN_READY_PLAYERS))
     role_pick_seconds: Mapped[int] = mapped_column(Integer, nullable=False, server_default=str(settings.ROLE_PICK_SECONDS))
     mafia_talk_seconds: Mapped[int] = mapped_column(Integer, nullable=False, server_default=str(settings.MAFIA_TALK_SECONDS))

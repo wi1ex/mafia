@@ -548,6 +548,7 @@ def build_app_settings_snapshot_defaults(core_settings_obj: Any, *, default_star
     text_moderation_blacklist = normalize_text_moderation_blacklist(
         getattr(core_settings_obj, "TEXT_MODERATION_BLACKLIST", "0"),
     )
+    blacklist_users_limit = max(0, int(getattr(core_settings_obj, "BLACKLIST_USERS_LIMIT", 30)))
     return snapshot_cls(
         registration_enabled=getattr(core_settings_obj, "REGISTRATION_ENABLED"),
         rooms_can_create=getattr(core_settings_obj, "ROOMS_CAN_CREATE"),
@@ -570,6 +571,8 @@ def build_app_settings_snapshot_defaults(core_settings_obj: Any, *, default_star
         text_moderation_whitelist_words=parse_text_moderation_whitelist(text_moderation_whitelist),
         text_moderation_blacklist=text_moderation_blacklist,
         text_moderation_blacklist_words=parse_text_moderation_blacklist(text_moderation_blacklist),
+        blacklist_users_limit=blacklist_users_limit,
+        self_speech_finish_enabled=bool(getattr(core_settings_obj, "SELF_SPEECH_FINISH_ENABLED", True)),
         game_min_ready_players=getattr(core_settings_obj, "GAME_MIN_READY_PLAYERS"),
         role_pick_seconds=getattr(core_settings_obj, "ROLE_PICK_SECONDS"),
         mafia_talk_seconds=getattr(core_settings_obj, "MAFIA_TALK_SECONDS"),
@@ -595,6 +598,7 @@ def build_app_settings_snapshot_from_row(row: Any, *, default_starts: Sequence[i
     text_moderation_blacklist = normalize_text_moderation_blacklist(
         getattr(row, "text_moderation_blacklist", "0"),
     )
+    blacklist_users_limit = max(0, int(getattr(row, "blacklist_users_limit", 30)))
     return snapshot_cls(
         registration_enabled=bool(getattr(row, "registration_enabled")),
         rooms_can_create=bool(getattr(row, "rooms_can_create")),
@@ -617,6 +621,8 @@ def build_app_settings_snapshot_from_row(row: Any, *, default_starts: Sequence[i
         text_moderation_whitelist_words=parse_text_moderation_whitelist(text_moderation_whitelist),
         text_moderation_blacklist=text_moderation_blacklist,
         text_moderation_blacklist_words=parse_text_moderation_blacklist(text_moderation_blacklist),
+        blacklist_users_limit=blacklist_users_limit,
+        self_speech_finish_enabled=bool(getattr(row, "self_speech_finish_enabled", True)),
         game_min_ready_players=int(getattr(row, "game_min_ready_players")),
         role_pick_seconds=int(getattr(row, "role_pick_seconds")),
         mafia_talk_seconds=int(getattr(row, "mafia_talk_seconds")),
@@ -3473,6 +3479,8 @@ def site_settings_out(row) -> SiteSettingsOut:
         season_start_game_number=str(row.season_start_game_number),
         text_moderation_whitelist=normalize_text_moderation_whitelist(getattr(row, "text_moderation_whitelist", "0")),
         text_moderation_blacklist=normalize_text_moderation_blacklist(getattr(row, "text_moderation_blacklist", "0")),
+        blacklist_users_limit=max(0, int(getattr(row, "blacklist_users_limit", 30))),
+        self_speech_finish_enabled=bool(getattr(row, "self_speech_finish_enabled", True)),
     )
 
 
@@ -3496,6 +3504,7 @@ def public_settings_out(settings) -> "PublicSettingsOut":
         knocks_limit=int(settings.knocks_limit),
         wink_spot_chance_percent=int(settings.wink_spot_chance_percent),
         season_start_game_number=str(settings.season_start_game_number),
+        self_speech_finish_enabled=bool(getattr(settings, "self_speech_finish_enabled", True)),
     )
 
 

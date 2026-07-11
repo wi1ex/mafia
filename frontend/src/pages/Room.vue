@@ -651,7 +651,7 @@ const {
   canFinishSpeechHead,
   canShowPassSpeechHead,
   canPassSpeechHead,
-  canFinishSpeechSelf,
+  canFinishSpeechSelf: canFinishSpeechSelfBase,
   canShowTakeFoulSelf,
   canTakeFoulSelf,
   canStartVote,
@@ -676,6 +676,10 @@ const {
   canRestartVoteForLeaders,
   canShowNight,
 } = game
+
+const canFinishSpeechSelf = computed(() => (
+  settings.selfSpeechFinishEnabled && canFinishSpeechSelfBase.value
+))
 
 const navUserAgent = navigator.userAgent || ''
 const isUaDataMobile = (navigator as any).userAgentData?.mobile === true
@@ -859,7 +863,8 @@ const ACTION_PHASES = ['day', 'vote', 'night'] as const
 const canShowLeaveGameButton = computed(() =>
   myGameRole.value === 'player' &&
   amIAlive.value &&
-  ACTION_PHASES.includes(gamePhase.value as (typeof ACTION_PHASES)[number])
+  ACTION_PHASES.includes(gamePhase.value as (typeof ACTION_PHASES)[number]) &&
+  (isHead.value || !isCurrentSpeaker.value || settings.selfSpeechFinishEnabled)
 )
 const leaveGameActsAsFinishSpeech = computed(() => currentFarewellSpeech.value && isCurrentSpeaker.value)
 const leaveGameButtonLabel = computed(() => leaveGameActsAsFinishSpeech.value ? 'Завершить речь' : 'Выйти из игры')

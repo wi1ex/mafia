@@ -1913,6 +1913,8 @@ async function toggleBlacklist() {
     if (st === 403 && detail === 'subscription_required') {
       void userStore.fetchMe().catch(() => {})
       void alertDialog('Черный список доступен только при активной подписке')
+    } else if (detail === 'blacklist_limit_reached') {
+      void alertDialog('Не удалось добавить пользователя в ЧС: достигнут лимит пользователей')
     } else if (detail === 'user_not_found') {
       void alertDialog('Пользователь не найден')
     } else if (detail === 'self_blacklist') {

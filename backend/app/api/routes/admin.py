@@ -6,7 +6,7 @@ from contextlib import suppress
 from time import time
 from datetime import date, datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select, func, or_, delete
+from sqlalchemy import select, update, func, or_, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...core.clients import get_redis
 from ...core.db import get_session
@@ -1204,6 +1204,35 @@ async def clear_global_chat(ident: Identity = Depends(get_identity), session: As
 
     with suppress(Exception):
         await emit_global_chat_cleared()
+
+    return Ok()
+
+
+@router.post("/notifs/mark-all-read", response_model=Ok, dependencies=ADMIN_GUARD)
+@log_route("admin.notifs.mark_all_read")
+async def mark_all_notifications_read(ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
+    marked = await session.execute(
+        update(Notif)
+        .where(Notif.read_at.is_(None))
+        .values(read_at=func.now())
+        .returning(Notif.user_id)
+    )
+    marked_user_ids = [int(user_id) for user_id in marked.scalars().all() if int(user_id) > 0]
+    user_ids = set(marked_user_ids)
+
+    await log_action(
+        session,
+        user_id=int(ident["id"]),
+        username=ident["username"],
+        action="admin_notifs_mark_all_read",
+        details=f"Отмечены прочитанными все уведомления count={len(marked_user_ids)}",
+        commit=False,
+    )
+    await session.commit()
+
+    for user_id in user_ids:
+        with suppress(Exception):
+            await sio.emit("notifs_marked_read_all", {}, room=f"user:{user_id}", namespace="/auth")
 
     return Ok()
 

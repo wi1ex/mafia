@@ -19,6 +19,7 @@ export interface PublicSettings {
   knocks_limit: number
   wink_spot_chance_percent: number
   season_start_game_number: string
+  self_speech_finish_enabled: boolean
 }
 
 const PUBLIC_SETTINGS_KEYS: readonly (keyof PublicSettings)[] = [
@@ -38,6 +39,7 @@ const PUBLIC_SETTINGS_KEYS: readonly (keyof PublicSettings)[] = [
   'knocks_limit',
   'wink_spot_chance_percent',
   'season_start_game_number',
+  'self_speech_finish_enabled',
 ]
 
 export const useSettingsStore = defineStore('settings', () => {
@@ -57,6 +59,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const knocksLimit = ref(0)
   const winkSpotChancePercent = ref(25)
   const seasonStartGameNumber = ref('1')
+  const selfSpeechFinishEnabled = ref(true)
   const seasonStartGameNumbers = computed<number[]>(() => parseSeasonStartNumbers(seasonStartGameNumber.value))
   const ready = ref(false)
   let inited = false
@@ -105,6 +108,7 @@ export const useSettingsStore = defineStore('settings', () => {
     const winkSpotChance = Number(data.wink_spot_chance_percent)
     if (Number.isFinite(winkSpotChance)) winkSpotChancePercent.value = Math.max(0, Math.min(100, Math.round(winkSpotChance)))
     seasonStartGameNumber.value = normalizeSeasonStart(data.season_start_game_number)
+    selfSpeechFinishEnabled.value = Boolean(data.self_speech_finish_enabled)
     ready.value = true
   }
 
@@ -159,6 +163,7 @@ export const useSettingsStore = defineStore('settings', () => {
     knocksLimit,
     winkSpotChancePercent,
     seasonStartGameNumber,
+    selfSpeechFinishEnabled,
     seasonStartGameNumbers,
     ready,
 

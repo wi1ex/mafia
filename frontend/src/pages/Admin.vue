@@ -45,15 +45,19 @@
               <UiSwitch class="switch-item" :width="250" size="low" v-model="site.rooms_can_create" label="Создание комнат" :disabled="savingSettings" />
               <UiSwitch class="switch-item" :width="250" size="low" v-model="site.rooms_can_enter" label="Вход в комнату" :disabled="savingSettings" />
               <UiSwitch class="switch-item" :width="250" size="low" v-model="site.games_can_start" label="Запуск игр" :disabled="savingSettings" />
+              <UiSwitch class="switch-item" :width="250" size="low" v-model="site.self_speech_finish_enabled" label="Завершение своей речи" :disabled="savingSettings" />
               <UiSwitch class="switch-item" :width="250" size="low" v-model="site.streams_can_start" label="Запуск трансляций" :disabled="savingSettings" />
               <UiSwitch class="switch-item" :width="250" size="low" v-model="site.chat_open_enabled" label="Открытие чата" :disabled="savingSettings" />
               <UiSwitch class="switch-item" :width="250" size="low" v-model="site.chat_messages_enabled" label="Сообщения в чат" :disabled="savingSettings" />
               <div class="bulk-admin-actions">
-                <button class="btn danger width-full" :disabled="kickRoomsBusy || clearChatBusy" @click="kickAllRooms">
+                <button class="btn danger width-full" :disabled="kickRoomsBusy || clearChatBusy || markAllNotifsBusy" @click="kickAllRooms">
                   Кик из комнат
                 </button>
-                <button class="btn danger width-full" :disabled="kickRoomsBusy || clearChatBusy" @click="clearGlobalChat">
+                <button class="btn danger width-full" :disabled="kickRoomsBusy || clearChatBusy || markAllNotifsBusy" @click="clearGlobalChat">
                   Очистить чат
+                </button>
+                <button class="btn danger width-full" :disabled="kickRoomsBusy || clearChatBusy || markAllNotifsBusy" @click="markAllNotificationsRead">
+                  Прочитать все уведомления
                 </button>
               </div>
             </div>
@@ -80,6 +84,8 @@
                          autocomplete="off" inputmode="text" :disabled="savingSettings" label="Белый список слов (через запятую)" />
                 <UiInput id="text-moderation-blacklist" v-model="site.text_moderation_blacklist"
                          autocomplete="off" inputmode="text" :disabled="savingSettings" label="Чёрный список слов (через запятую)" />
+                <UiInput id="blacklist-users-limit" v-model.number="site.blacklist_users_limit" type="number" min="0" step="1"
+                         autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Лимит чёрного списка" />
               </div>
             </div>
 
@@ -904,6 +910,8 @@ type SiteSettings = {
   season_start_game_number: string
   text_moderation_whitelist: string
   text_moderation_blacklist: string
+  blacklist_users_limit: number
+  self_speech_finish_enabled: boolean
 }
 
 type GameSettings = {
@@ -1141,6 +1149,8 @@ const site = reactive<SiteSettings>({
   season_start_game_number: '1',
   text_moderation_whitelist: '0',
   text_moderation_blacklist: '0',
+  blacklist_users_limit: 30,
+  self_speech_finish_enabled: true,
 })
 
 const game = reactive<GameSettings>({
@@ -1293,6 +1303,7 @@ const sanctionAdjustTitle = computed(() => {
 })
 const kickRoomsBusy = ref(false)
 const clearChatBusy = ref(false)
+const markAllNotifsBusy = ref(false)
 let logsUserTimer: number | undefined
 let roomsUserTimer: number | undefined
 let usersUserTimer: number | undefined
@@ -1369,6 +1380,10 @@ function normalizeInt(value: number): number {
   return Number.isFinite(value) ? value : 0
 }
 
+function normalizeNonNegativeInt(value: number): number {
+  return Math.max(0, Math.trunc(normalizeInt(value)))
+}
+
 function normalizePercent(value: number): number {
   const n = normalizeInt(value)
   if (n < 0) return 0
@@ -1422,6 +1437,8 @@ function snapshotSite(): string {
     season_start_game_number: normalizeSeasonStartNumbers(site.season_start_game_number),
     text_moderation_whitelist: normalizeTextModerationWhitelist(site.text_moderation_whitelist),
     text_moderation_blacklist: normalizeTextModerationBlacklist(site.text_moderation_blacklist),
+    blacklist_users_limit: normalizeNonNegativeInt(site.blacklist_users_limit),
+    self_speech_finish_enabled: Boolean(site.self_speech_finish_enabled),
   })
 }
 
@@ -1921,6 +1938,7 @@ async function loadSettings(): Promise<void> {
     site.season_start_game_number = normalizeSeasonStartNumbers(site.season_start_game_number)
     site.text_moderation_whitelist = normalizeTextModerationWhitelist(site.text_moderation_whitelist)
     site.text_moderation_blacklist = normalizeTextModerationBlacklist(site.text_moderation_blacklist)
+    site.blacklist_users_limit = normalizeNonNegativeInt(site.blacklist_users_limit)
     siteSnapshot.value = snapshotSite()
     gameSnapshot.value = snapshotGame()
   } catch {
@@ -1962,6 +1980,8 @@ async function saveSettings(): Promise<void> {
         season_start_game_number: normalizedSeasonStarts,
         text_moderation_whitelist: normalizeTextModerationWhitelist(site.text_moderation_whitelist),
         text_moderation_blacklist: normalizeTextModerationBlacklist(site.text_moderation_blacklist),
+        blacklist_users_limit: normalizeNonNegativeInt(site.blacklist_users_limit),
+        self_speech_finish_enabled: Boolean(site.self_speech_finish_enabled),
       },
       game: {
         game_min_ready_players: normalizeInt(game.game_min_ready_players),
@@ -1986,6 +2006,7 @@ async function saveSettings(): Promise<void> {
     site.season_start_game_number = normalizeSeasonStartNumbers(site.season_start_game_number)
     site.text_moderation_whitelist = normalizeTextModerationWhitelist(site.text_moderation_whitelist)
     site.text_moderation_blacklist = normalizeTextModerationBlacklist(site.text_moderation_blacklist)
+    site.blacklist_users_limit = normalizeNonNegativeInt(site.blacklist_users_limit)
     siteSnapshot.value = snapshotSite()
     gameSnapshot.value = snapshotGame()
     settingsStore.applyPublic({
@@ -2005,6 +2026,7 @@ async function saveSettings(): Promise<void> {
       knocks_limit: game.knocks_limit,
       wink_spot_chance_percent: normalizePercent(game.wink_spot_chance_percent),
       season_start_game_number: site.season_start_game_number,
+      self_speech_finish_enabled: site.self_speech_finish_enabled,
     })
     void alertDialog('Настройки сохранены')
   } catch {
@@ -2454,6 +2476,28 @@ async function clearGlobalChat(): Promise<void> {
     void alertDialog('Не удалось очистить общий чат')
   } finally {
     clearChatBusy.value = false
+  }
+}
+
+async function markAllNotificationsRead(): Promise<void> {
+  if (markAllNotifsBusy.value) return
+  const ok = await confirmDialog({
+    title: 'Прочитать все уведомления',
+    text: 'Все непрочитанные уведомления у пользователей будут отмечены как прочитанные. Продолжить?',
+    confirmText: 'Прочитать все',
+    cancelText: 'Отмена',
+    checkboxLabel: 'Подтверждаю',
+    checkboxRequired: true,
+  })
+  if (!ok) return
+  markAllNotifsBusy.value = true
+  try {
+    await api.post('/admin/notifs/mark-all-read')
+    void alertDialog('Все уведомления отмечены как прочитанные')
+  } catch {
+    void alertDialog('Не удалось отметить уведомления как прочитанные')
+  } finally {
+    markAllNotifsBusy.value = false
   }
 }
 

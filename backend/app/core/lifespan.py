@@ -206,6 +206,14 @@ async def lifespan(app) -> AsyncIterator[None]:
                 f"ADD COLUMN IF NOT EXISTS donation_url VARCHAR(2048) NOT NULL DEFAULT '{donation_url_default}'"
             ))
             await conn.execute(text(
+                "ALTER TABLE settings "
+                "ADD COLUMN IF NOT EXISTS blacklist_users_limit INTEGER NOT NULL DEFAULT 30"
+            ))
+            await conn.execute(text(
+                "ALTER TABLE settings "
+                "ADD COLUMN IF NOT EXISTS self_speech_finish_enabled BOOLEAN NOT NULL DEFAULT TRUE"
+            ))
+            await conn.execute(text(
                 "ALTER TABLE kassa_payments "
                 "DROP COLUMN IF EXISTS parent_contract_id"
             ))
