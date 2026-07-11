@@ -2821,8 +2821,6 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       } else if (st === 400 && code === 'already_dead') {
         if (id) gameAlive.delete(id)
         void alertDialog('Вы уже выбыли из игры')
-      } else if (st === 403 && code === 'self_speech_finish_disabled') {
-        void alertDialog('Завершить речь может только ведущий')
       } else {
         void alertDialog('Не удалось выйти из игры')
       }

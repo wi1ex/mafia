@@ -26,6 +26,7 @@ from ..utils import (
     safe_int,
     non_empty_str,
     contact_request_rate_key,
+    schedule_contact_request_admin_telegram_message,
     emit_notify,
     normalize_game_result,
     fetch_games_history_page,
@@ -500,6 +501,16 @@ async def contact_request(request: Request, payload: ContactRequestIn, ident: Id
         )
     )
     await db.commit()
+
+    author_label = username or (f"user{uid}" if uid else "Гость")
+    schedule_contact_request_admin_telegram_message(
+        "Новое обращение с сайта\n\n"
+        f"Пользователь: {author_label}\n"
+        f"ID пользователя: {uid or '-'}\n"
+        f"Контакт: {contact}\n"
+        f"Тема: {topic}\n\n"
+        f"Сообщение:\n{text}"
+    )
 
     with suppress(Exception):
         staff_ids = await db.scalars(

@@ -71,7 +71,7 @@ KASSA_IGNORED_EVENTS = {
     "subscription.cancelled",
 }
 KASSA_LOG_ACTION = "kassa_payment"
-KASSA_SUBSCRIPTION_ADMIN_TELEGRAM_ID = 59404714
+KASSA_SUBSCRIPTION_ADMIN_TELEGRAM_ID = int(settings.ADMIN_TELEGRAM_ID)
 
 
 def _clean(value: object, *, max_len: int | None = None) -> str:

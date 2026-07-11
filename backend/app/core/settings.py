@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     BOT_API_TOKEN: str
     BOT_WEBHOOK_PATH: str
     BOT_WEBHOOK_SECRET: str
+    ADMIN_TELEGRAM_ID: int = 59404714
 
     JWT_SECRET_KEY: str
     ACCESS_EXP_MIN: int

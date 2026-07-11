@@ -1178,17 +1178,6 @@ async def game_leave(sid, data):
         if not was_alive:
             return {"ok": False, "error": "already_dead", "status": 400}
 
-        if uid != head_uid and not get_cached_settings().self_speech_finish_enabled:
-            current_speaker_uid = (
-                ctx.gint("day_current_uid")
-                if phase == "day"
-                else ctx.gint("vote_speech_uid")
-                if phase == "vote"
-                else 0
-            )
-            if current_speaker_uid == uid:
-                return {"ok": False, "error": "self_speech_finish_disabled", "status": 403}
-
         if phase == "vote":
             try:
                 ignore_terminal_leave = await should_ignore_terminal_vote_fatal_foul(r, rid, raw_gstate, uid)

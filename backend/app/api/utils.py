@@ -183,6 +183,8 @@ __all__ = [
     "generate_user_id",
     "require_bot_token",
     "contact_request_rate_key",
+    "send_contact_request_admin_telegram_message",
+    "schedule_contact_request_admin_telegram_message",
     "pair",
     "load_link",
     "friend_status_for",
@@ -1723,6 +1725,33 @@ def _schedule_user_telegram_notice(uid: int, telegram_id: int | None, title: str
         return
 
     loop.create_task(_send_user_telegram_notice(uid, telegram_id, title, text, log_event=log_event))
+
+
+async def send_contact_request_admin_telegram_message(text: str) -> None:
+    try:
+        result = await send_text_message(
+            chat_id=int(settings.ADMIN_TELEGRAM_ID),
+            text=text,
+        )
+    except Exception:
+        log.warning("contact_request.admin_telegram_notify_failed", reason="unexpected_error", exc_info=True)
+        return
+
+    if not result.ok:
+        log.warning(
+            "contact_request.admin_telegram_notify_failed",
+            reason=result.reason,
+        )
+
+
+def schedule_contact_request_admin_telegram_message(text: str) -> None:
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        log.warning("contact_request.admin_telegram_notify_failed", reason="event_loop_unavailable")
+        return
+
+    loop.create_task(send_contact_request_admin_telegram_message(text))
 
 
 def _schedule_subscription_telegram_message(uid: int, telegram_id: int, title: str, text: str) -> None:

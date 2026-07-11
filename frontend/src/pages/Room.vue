@@ -863,8 +863,7 @@ const ACTION_PHASES = ['day', 'vote', 'night'] as const
 const canShowLeaveGameButton = computed(() =>
   myGameRole.value === 'player' &&
   amIAlive.value &&
-  ACTION_PHASES.includes(gamePhase.value as (typeof ACTION_PHASES)[number]) &&
-  (isHead.value || !isCurrentSpeaker.value || settings.selfSpeechFinishEnabled)
+  ACTION_PHASES.includes(gamePhase.value as (typeof ACTION_PHASES)[number])
 )
 const leaveGameActsAsFinishSpeech = computed(() => currentFarewellSpeech.value && isCurrentSpeaker.value)
 const leaveGameButtonLabel = computed(() => leaveGameActsAsFinishSpeech.value ? 'Завершить речь' : 'Выйти из игры')
