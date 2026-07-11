@@ -271,7 +271,7 @@ onBeforeUnmount(() => {
       left: 0;
       top: 0;
       width: 607px;
-      height: 510px;
+      height: 494px;
       border-radius: 24px;
     }
     .slide-div {
