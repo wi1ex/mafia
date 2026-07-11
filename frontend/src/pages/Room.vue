@@ -3894,11 +3894,12 @@ onBeforeUnmount(() => {
     perspective: 1000px;
     z-index: 900;
     .role-card {
-      position: relative;
       display: block;
-      width: 100%;
-      aspect-ratio: 4 / 4.7;
+      position: relative;
+      justify-self: center;
       padding: 0;
+      height: 90%;
+      aspect-ratio: 4 / 4.7;
       border: none;
       background: transparent;
       cursor: pointer;

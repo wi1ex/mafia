@@ -212,7 +212,7 @@
         </div>
       </div>
       </div>
-      <UiScrollbar class="right-column-scrollbar" :target="rightColumn" theme="dark" :inset-top="16" :inset-bottom="16" right="-12px" />
+      <UiScrollbar class="right-column-scrollbar" :target="rightColumn" theme="dark" :inset-top="16" :inset-bottom="16" right="-18px" />
     </div>
   </section>
   <MiniProfile
