@@ -1737,7 +1737,7 @@ onBeforeUnmount(() => {
           height: calc(100% - 16px);
           header {
             span {
-              max-width: 95px;
+              max-width: 166px;
               font-size: 14px;
               line-height: 18px;
             }
@@ -1764,17 +1764,28 @@ onBeforeUnmount(() => {
             }
           }
           .ri-info {
+            flex-direction: column;
+            overflow: auto;
+            scrollbar-width: none;
             .mini-profile-user-trigger {
               &:disabled {
               }
             }
             .ri-members {
+              padding: 4px 8px;
+              width: calc(100% - 16px);
+              border-radius: 8px;
               &.solo {
               }
               .ri-members-div {
                 .ri-members-title {
+                  font-size: 12px;
+                  line-height: 18px;
                 }
                 .ri-members-count {
+                  padding: 4px 8px;
+                  font-size: 10px;
+                  line-height: 10px;
                 }
               }
               .muted-members {
@@ -1784,7 +1795,9 @@ onBeforeUnmount(() => {
                 }
               }
               .ri-users {
+                gap: 2px;
                 .ri-user {
+                  gap: 4px;
                   &.dead {
                   }
                   .user-numb {
@@ -1794,18 +1807,30 @@ onBeforeUnmount(() => {
                   .screen-icon {
                   }
                   .user-mini-avatar {
+                    width: 12px;
+                    height: 12px;
                   }
                   .mini-profile-name {
+                    max-width: 165px;
+                    font-size: 10px;
+                    line-height: 12px;
                   }
                 }
               }
             }
             .ri-meta-game {
+              padding: 4px 8px;
+              width: calc(100% - 16px);
+              border-radius: 8px;
               .ri-meta-title {
+                font-size: 12px;
+                line-height: 18px;
               }
               .ri-game-div {
                 .ri-meta-text,
                 .ri-meta-value {
+                  font-size: 10px;
+                  line-height: 12px;
                 }
                 .ri-meta-text {
                 }
