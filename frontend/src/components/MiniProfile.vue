@@ -38,7 +38,7 @@
                         <div v-if="showAdminFriendsTooltip" class="profile-friends-tooltip" role="tooltip">
                           <div ref="profileFriendsList" class="profile-friends-list">
                             <div class="profile-friends-section">
-                              <span class="profile-friends-section-title">Черный список:</span>
+                              <span class="profile-friends-section-title">Черный список: {{ adminBlacklist.length }}</span>
                               <span v-if="adminBlacklist.length === 0" class="profile-friends-empty">Нет пользователей</span>
                               <div v-for="user in adminBlacklist" :key="`blacklist-${user.id}`" class="profile-friend-row">
                                 <img class="profile-friend-avatar" v-minio-img="{key: friendAvatarKey(user), placeholder: iconDefaultAvatarBlack, lazy: false}" alt="avatar" />
@@ -49,7 +49,7 @@
                               </div>
                             </div>
                             <div class="profile-friends-section">
-                              <span class="profile-friends-section-title">Друзья:</span>
+                              <span class="profile-friends-section-title">Друзья: {{ adminFriends.length }}</span>
                               <span v-if="adminFriends.length === 0" class="profile-friends-empty">Нет друзей</span>
                               <div v-for="friend in adminFriends" :key="`friend-${friend.id}`" class="profile-friend-row">
                                 <img class="profile-friend-avatar" v-minio-img="{key: friendAvatarKey(friend), placeholder: iconDefaultAvatarBlack, lazy: false}" alt="avatar" />
