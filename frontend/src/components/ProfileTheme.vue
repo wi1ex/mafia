@@ -58,9 +58,6 @@
                   </div>
                   <div class="profile-meta">
                     <div class="profile-friends"></div>
-                    <div class="profile-history"></div>
-                    <div class="profile-nomination"></div>
-                    <div class="profile-nomination"></div>
                     <div class="profile-nomination"></div>
                     <div class="profile-nomination"></div>
                     <div class="profile-nomination"></div>
@@ -459,7 +456,6 @@ onBeforeUnmount(() => {
                   flex-wrap: wrap;
                   gap: 4px;
                   .profile-friends,
-                  .profile-history,
                   .profile-nomination {
                     height: 32px;
                     border-radius: 8px;
@@ -468,7 +464,6 @@ onBeforeUnmount(() => {
                   .profile-friends {
                     width: 97px;
                   }
-                  .profile-history,
                   .profile-nomination {
                     width: 32px;
                   }

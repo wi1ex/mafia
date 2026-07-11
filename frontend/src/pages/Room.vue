@@ -4124,4 +4124,26 @@ onBeforeUnmount(() => {
   opacity: 1;
 }
 
+@media (max-width: 1000px) {
+  .room {
+    padding: 0 10px;
+  }
+  .room .panel {
+    height: 60px;
+  }
+  .room .panel button {
+    height: 60px;
+  }
+  .room .panel button .panel-icon {
+    --ui-icon-width: 30px;
+    --ui-icon-height: 30px;
+  }
+  .room .panel button .count-total {
+    top: 8px;
+    width: 18px;
+    height: 18px;
+    font-size: 12px;
+  }
+}
+
 </style>
