@@ -34,11 +34,11 @@ const chat = useGlobalChatStore()
 const settings = useSettingsStore()
 
 const DESKTOP_DESIGN_WIDTH = 1700
-const DESKTOP_BREAKPOINT = 1200
+const DESKTOP_BREAKPOINT = 1280
 const viewport = ref({ width: window.innerWidth, height: window.innerHeight })
 const desktopScale = computed(() => (
   viewport.value.width >= DESKTOP_BREAKPOINT
-    ? viewport.value.width / DESKTOP_DESIGN_WIDTH
+    ? Math.min(1, viewport.value.width / DESKTOP_DESIGN_WIDTH)
     : 1
 ))
 const desktopScaleStyle = computed(() => {
