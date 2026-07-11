@@ -592,7 +592,6 @@ function openAuth(mode: 'login' | 'register') {
     align-items: center;
     justify-content: center;
     padding: 20px 16px;
-    gap: 8px;
     border: none;
     border-radius: 16px;
     background: var(--user-theme-bg, linear-gradient(261deg, $soft-purple-800 0%, $green-700 100%));
@@ -713,7 +712,6 @@ function openAuth(mode: 'login' | 'register') {
     gap: 4px;
     .bell {
       position: relative;
-      border-radius: 16px;
       button {
         display: flex;
         position: relative;
@@ -832,7 +830,7 @@ function openAuth(mode: 'login' | 'register') {
           }
         }
         .border-line {
-          width: 100%;
+          width: calc(100% - 8px);
           border-bottom: 1px solid $neutral-300;
         }
         .user-menu-items {
@@ -895,9 +893,18 @@ function openAuth(mode: 'login' | 'register') {
 
 @media (max-width: 1279px) {
   .sanction-banner {
+    gap: 4px;
+    height: 24px;
+    min-height: 24px;
+    max-height: 24px;
+    border-radius: 0 0 8px 8px;
     .banner-icon {
+      --ui-icon-width: 16px;
+      --ui-icon-height: 16px;
     }
     span {
+      font-size: 12px;
+      line-height: 12px;
     }
     a {
       .telegram-icon {
@@ -931,16 +938,34 @@ function openAuth(mode: 'login' | 'register') {
     }
   }
   .bar {
+    margin: 8px 0;
+    padding: 0 8px;
+    height: 32px;
+    min-height: 32px;
+    max-height: 32px;
     .links {
+      gap: 8px;
       .home {
+        padding: 6px 8px;
+        border-radius: 8px;
         img {
+          height: 20px;
         }
       }
       .pages {
+        gap: 4px;
         .page {
+          padding: 0 8px;
+          gap: 4px;
+          height: 32px;
+          border-radius: 8px;
           .page-icon {
+            --ui-icon-width: 16px;
+            --ui-icon-height: 16px;
           }
           .page-text {
+            font-size: 12px;
+            line-height: 14px;
           }
           &:not(:disabled):hover,
           &:not(:disabled):focus-visible,
@@ -954,6 +979,8 @@ function openAuth(mode: 'login' | 'register') {
       }
     }
     .profile-no-btn {
+      padding: 8px;
+      border-radius: 8px;
       &::after {
       }
       &:not(:disabled):hover,
@@ -966,9 +993,13 @@ function openAuth(mode: 'login' | 'register') {
       > * {
       }
       span {
+        font-size: 12px;
+        line-height: 16px;
       }
     }
     .profile-btn {
+      padding: 8px 8px;
+      border-radius: 8px;
       &::after {
       }
       &:not(:disabled):hover,
@@ -981,27 +1012,45 @@ function openAuth(mode: 'login' | 'register') {
       > * {
       }
       .nickname {
+        margin-left: 4px;
+        max-width: 150px;
+        font-size: 12px;
+        line-height: 14px;
       }
       img {
+        height: 16px;
       }
       .avatar {
       }
       .profile-theme-icons {
         .profile-theme-icon {
+          width: 16px;
+          height: 16px;
         }
       }
       .arrow {
+        --ui-icon-width: 12px;
+        --ui-icon-height: 12px;
       }
     }
     .user {
       .bell {
         button {
+          padding: 0 8px;
+          gap: 4px;
+          min-width: 32px;
+          height: 32px;
+          border-radius: 8px;
           .bell-icon,
           .bell-arrow {
+            --ui-icon-width: 16px;
+            --ui-icon-height: 16px;
           }
           .bell-text {
+            display: none;
           }
           .bell-arrow {
+            display: none;
           }
           .unread-text {
           }
@@ -1025,20 +1074,41 @@ function openAuth(mode: 'login' | 'register') {
         }
       }
       .user-menu {
+        margin-left: 4px;
         .user-menu-dropdown {
+          top: 40px;
+          padding: 8px 4px;
+          gap: 8px;
+          width: 160px;
+          border-radius: 12px;
           .user-menu-profile {
+            gap: 4px;
             .avatar {
+              width: 40px;
+              height: 40px;
             }
             .user-menu-nickname {
+              max-width: 160px;
+              font-size: 12px;
+              line-height: 16px;
             }
           }
           .border-line {
+            width: calc(100% - 4px);
           }
           .user-menu-items {
             .user-menu-item {
+              padding: 0 8px;
+              gap: 4px;
+              height: 32px;
+              border-radius: 8px;
               .profile-icon {
+                --ui-icon-width: 16px;
+                --ui-icon-height: 16px;
               }
               span {
+                font-size: 12px;
+                line-height: 14px;
               }
               &:not(:disabled):hover,
               &:not(:disabled):focus-visible,

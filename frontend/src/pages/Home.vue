@@ -1599,11 +1599,20 @@ onBeforeUnmount(() => {
 
 @media (max-width: 1279px) {
   .card {
+    grid-template-columns: minmax(0, 1fr) 250px;
+    margin: 0 8px 8px;
+    gap: 8px;
     .left {
+      height: calc(var(--app-viewport-height) - 56px);
+      border-radius: 12px;
       &.left--top-banner {
+        height: calc(var(--app-viewport-height) - 80px);
       }
       header {
+        padding: 12px 12px 8px;
         .left-title {
+          font-size: 14px;
+          line-height: 16px;
         }
       }
       .muted-rooms {
@@ -1613,10 +1622,17 @@ onBeforeUnmount(() => {
         }
       }
       .list {
+        padding: 8px 12px 0;
+        gap: 8px;
+        height: calc(100% - 70px);
         .text-center {
+          font-size: 10px;
         }
         .list-header {
+          grid-template-columns: 15% 47% 30% 8%;
+          padding: 0 8px;
           span {
+            font-size: 10px;
           }
         }
         .list-body-shell {
@@ -1625,6 +1641,10 @@ onBeforeUnmount(() => {
           &::-webkit-scrollbar {
           }
           .item {
+            grid-template-columns: 15% 47% 30% 8%;
+            padding: 0 8px;
+            min-height: 20px;
+            border-radius: 12px;
             &.active {
             }
             &::after {
@@ -1639,13 +1659,19 @@ onBeforeUnmount(() => {
               }
             }
             .cell {
+              gap: 4px;
               .item-text {
+                font-size: 10px;
+                line-height: 10px;
                 &.ellipsis {
                 }
                 &.margin {
                 }
               }
               .status-room {
+                padding: 4px;
+                gap: 4px;
+                min-width: 40px;
                 &.duo {
                 }
                 &.runned {
@@ -1658,12 +1684,16 @@ onBeforeUnmount(() => {
               img {
               }
               .lock-icon {
+                --ui-icon-width: 14px;
+                --ui-icon-height: 14px;
                 &--private {
                 }
                 &--open {
                 }
               }
               .user-avatar {
+                width: 14px;
+                height: 14px;
               }
             }
           }
@@ -1671,6 +1701,10 @@ onBeforeUnmount(() => {
       }
     }
     .right-column {
+      gap: 8px;
+      width: 250px;
+      min-width: 250px;
+      max-width: 250px;
       .right {
         .loading-overlay {
         }
