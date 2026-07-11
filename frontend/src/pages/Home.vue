@@ -958,7 +958,8 @@ onBeforeUnmount(() => {
   margin: 0 40px 10px;
   gap: 10px;
   height: 100%;
-  overflow: hidden;
+  overflow: auto;
+  scrollbar-width: none;
   .left {
     display: flex;
     flex-direction: column;
@@ -1156,13 +1157,15 @@ onBeforeUnmount(() => {
     display: flex;
     position: sticky;
     top: 0;
+    flex-direction: column;
+    gap: 10px;
     width: 607px;
     min-width: 607px;
     max-width: 607px;
     height: 100%;
     min-height: 0;
-    flex-direction: column;
-    gap: 10px;
+    overflow: auto;
+    scrollbar-width: none;
     .right {
       flex: 0 0 auto;
       display: flex;

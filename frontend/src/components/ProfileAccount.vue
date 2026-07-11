@@ -33,7 +33,7 @@
           </div>
         </div>
 
-        <div class="verif">
+        <div class="verif" :class="{ 'verif--verified': telegramVerified }">
           <img class="verif-icon" :src="iconTickCircle" alt="" aria-hidden="true" />
           <div class="verif-div">
             <span class="title">Верификация</span>
@@ -549,7 +549,10 @@ onBeforeUnmount(() => {
         padding: 24px;
         height: calc(50% - 5px);
         border-radius: 24px;
-        background: linear-gradient(261deg, $green-700 0%, $soft-purple-800 100%);
+        background-color: $soft-purple-900;
+        &--verified {
+          background: linear-gradient(261deg, $green-700 0%, $soft-purple-800 100%);
+        }
         .verif-icon {
           position: absolute;
           top: 24px;
