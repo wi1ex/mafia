@@ -3872,13 +3872,14 @@ onBeforeUnmount(() => {
         opacity: 0.5;
         cursor: not-allowed;
       }
-      //&:not(:disabled):hover,
-      //&:not(:disabled):focus-visible,
-      //&:not(:disabled):active {
-      //  background-color: $soft-purple-800;
-      //}
-      &:not(:disabled):hover {
+      &:not(:disabled):focus-visible,
+      &:not(:disabled):active {
         background-color: $soft-purple-800;
+      }
+      @media (hover: hover) {
+        &:not(:disabled):hover {
+          background-color: $soft-purple-800;
+        }
       }
     }
   }
