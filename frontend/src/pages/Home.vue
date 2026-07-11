@@ -1597,309 +1597,309 @@ onBeforeUnmount(() => {
   transform: translateX(0);
 }
 
-@media (max-width: 1279px) {
-  .card {
-    grid-template-columns: minmax(0, 1fr) 250px;
-    margin: 0 8px 8px;
-    gap: 8px;
-    .left {
-      height: calc(var(--app-viewport-height) - 56px);
-      border-radius: 12px;
-      &.left--top-banner {
-        height: calc(var(--app-viewport-height) - 80px);
-      }
-      header {
-        padding: 8px 12px 8px;
-        .left-title {
-          font-size: 14px;
-          line-height: 16px;
-        }
-        .create-room-button.ui-button {
-          --ui-button-height: 32px;
-          --ui-button-gap: 4px;
-          --ui-button-radius: 12px;
-          --ui-button-icon-size: 12px;
-          --ui-button-font-size: 10px;
-          --ui-button-line-height: 12px;
-          --ui-button-padding-x: 12px;
-        }
-      }
-      .muted-rooms {
-        img {
-          width: 100px;
-          height: auto;
-        }
-        span {
-          font-size: 10px;
-          line-height: 14px;
-        }
-      }
-      .list {
-        padding: 4px 12px 0;
-        gap: 8px;
-        height: calc(100% - 60px);
-        .text-center {
-          font-size: 9px;
-        }
-        .list-header {
-          padding: 0 8px;
-          span {
-            font-size: 10px;
-          }
-        }
-        .list-body-shell {
-          margin-right: -8px;
-        }
-        .list-body {
-          padding: 0 8px 8px 0;
-          gap: 6px;
-          &::-webkit-scrollbar {
-          }
-          .item {
-            padding: 4px 8px;
-            min-height: 20px;
-            border-radius: 12px;
-            &.active {
-            }
-            &::after {
-            }
-            > * {
-            }
-            &:not(:disabled):hover,
-            &:not(:disabled):focus-visible,
-            &:not(:disabled):active,
-            &:not(:disabled).active {
-              &::after {
-              }
-            }
-            .cell {
-              gap: 4px;
-              .item-text {
-                font-size: 9px;
-                line-height: 9px;
-                &.ellipsis {
-                }
-                &.margin {
-                }
-              }
-              .status-room {
-                padding: 4px;
-                gap: 4px;
-                min-width: 34px;
-                &.duo {
-                }
-                &.runned {
-                }
-                &.hide {
-                }
-                .dot-img {
-                  --ui-icon-width: 3px;
-                  --ui-icon-height: 3px;
-                }
-              }
-              img {
-              }
-              .lock-icon {
-                --ui-icon-width: 12px;
-                --ui-icon-height: 12px;
-                &--private {
-                }
-                &--open {
-                }
-              }
-              .user-avatar {
-                width: 12px;
-                height: 12px;
-              }
-            }
-          }
-        }
-        .rooms-scrollbar.scrollbar {
-          bottom: 12px;
-          width: 4px;
-        }
-      }
-    }
-    .right-column {
-      gap: 8px;
-      width: 250px;
-      min-width: 250px;
-      max-width: 250px;
-      .right {
-        height: 100%;
-        border-radius: 12px;
-        .loading-overlay {
-        }
-        .room-info {
-          padding: 8px 12px;
-          gap: 8px;
-          width: calc(100% - 24px);
-          height: calc(100% - 16px);
-          header {
-            span {
-              max-width: 166px;
-              font-size: 14px;
-              line-height: 18px;
-            }
-            .room-actions {
-              gap: 4px;
-              button {
-                width: 16px;
-                height: 16px;
-                .room-icon {
-                  --ui-icon-width: 16px;
-                  --ui-icon-height: 16px;
-                }
-                &:disabled {
-                  .room-icon {
-                  }
-                }
-                &:not(:disabled):hover,
-                &:not(:disabled):focus-visible,
-                &:not(:disabled):active {
-                  .room-icon {
-                  }
-                }
-              }
-            }
-          }
-          .ri-info {
-            flex-direction: column;
-            overflow: auto;
-            scrollbar-width: none;
-            .mini-profile-user-trigger {
-              &:disabled {
-              }
-            }
-            .ri-members {
-              padding: 4px 8px;
-              width: calc(100% - 16px);
-              border-radius: 8px;
-              &.solo {
-              }
-              .ri-members-div {
-                .ri-members-title {
-                  font-size: 12px;
-                  line-height: 18px;
-                }
-                .ri-members-count {
-                  padding: 4px 8px;
-                  font-size: 10px;
-                  line-height: 10px;
-                }
-              }
-              .muted-members {
-                img {
-                }
-                span {
-                }
-              }
-              .ri-users {
-                gap: 2px;
-                .ri-user {
-                  gap: 4px;
-                  &.dead {
-                  }
-                  .user-numb {
-                  }
-                  img {
-                  }
-                  .screen-icon {
-                  }
-                  .user-mini-avatar {
-                    width: 12px;
-                    height: 12px;
-                  }
-                  .mini-profile-name {
-                    max-width: 165px;
-                    font-size: 10px;
-                    line-height: 12px;
-                  }
-                }
-              }
-            }
-            .ri-meta-game {
-              padding: 4px 8px;
-              width: calc(100% - 16px);
-              border-radius: 8px;
-              .ri-meta-title {
-                font-size: 12px;
-                line-height: 18px;
-              }
-              .ri-game-div {
-                .ri-meta-text,
-                .ri-meta-value {
-                  font-size: 10px;
-                  line-height: 12px;
-                }
-                .ri-meta-text {
-                }
-                .ri-meta-value {
-                }
-                .spectators-wrap {
-                  .spectators-btn {
-                    .spectators-icon {
-                    }
-                    &:not(:disabled):hover,
-                    &:not(:disabled):focus-visible,
-                    &:not(:disabled):active,
-                    &.is-open {
-                      .spectators-icon {
-                      }
-                    }
-                  }
-                  .spectators-tooltip {
-                    .spectators-list {
-                      .spectators-row {
-                        .mini-profile-name {
-                        }
-                        img {
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-          .ri-actions {
-            .ri-action {
-            }
-          }
-        }
-      }
-      .right-extra {
-        display: none;
-        .right-extra-content {
-          .right-extra-copy-subscription {
-            .right-extra-copy-accent {
-            }
-          }
-          .right-extra-copy-connect {
-          }
-          .right-extra-btn {
-            .btn-icon {
-            }
-            &:not(:disabled):hover,
-            &:not(:disabled):focus-visible,
-            &:not(:disabled):active,
-            &.is-open {
-              .btn-icon {
-              }
-            }
-          }
-        }
-        &--primary {
-          .background-image-6 {
-          }
-        }
-        &--secondary {
-          .background-image-7 {
-          }
-        }
-      }
-    }
-  }
-}
+//@media (max-width: 1279px) {
+//  .card {
+//    grid-template-columns: minmax(0, 1fr) 250px;
+//    margin: 0 8px 8px;
+//    gap: 8px;
+//    .left {
+//      height: calc(var(--app-viewport-height) - 56px);
+//      border-radius: 12px;
+//      &.left--top-banner {
+//        height: calc(var(--app-viewport-height) - 80px);
+//      }
+//      header {
+//        padding: 8px 12px 8px;
+//        .left-title {
+//          font-size: 14px;
+//          line-height: 16px;
+//        }
+//        .create-room-button.ui-button {
+//          --ui-button-height: 32px;
+//          --ui-button-gap: 4px;
+//          --ui-button-radius: 12px;
+//          --ui-button-icon-size: 12px;
+//          --ui-button-font-size: 10px;
+//          --ui-button-line-height: 12px;
+//          --ui-button-padding-x: 12px;
+//        }
+//      }
+//      .muted-rooms {
+//        img {
+//          width: 100px;
+//          height: auto;
+//        }
+//        span {
+//          font-size: 10px;
+//          line-height: 14px;
+//        }
+//      }
+//      .list {
+//        padding: 4px 12px 0;
+//        gap: 8px;
+//        height: calc(100% - 60px);
+//        .text-center {
+//          font-size: 9px;
+//        }
+//        .list-header {
+//          padding: 0 8px;
+//          span {
+//            font-size: 10px;
+//          }
+//        }
+//        .list-body-shell {
+//          margin-right: -8px;
+//        }
+//        .list-body {
+//          padding: 0 8px 8px 0;
+//          gap: 6px;
+//          &::-webkit-scrollbar {
+//          }
+//          .item {
+//            padding: 4px 8px;
+//            min-height: 20px;
+//            border-radius: 12px;
+//            &.active {
+//            }
+//            &::after {
+//            }
+//            > * {
+//            }
+//            &:not(:disabled):hover,
+//            &:not(:disabled):focus-visible,
+//            &:not(:disabled):active,
+//            &:not(:disabled).active {
+//              &::after {
+//              }
+//            }
+//            .cell {
+//              gap: 4px;
+//              .item-text {
+//                font-size: 9px;
+//                line-height: 9px;
+//                &.ellipsis {
+//                }
+//                &.margin {
+//                }
+//              }
+//              .status-room {
+//                padding: 4px;
+//                gap: 4px;
+//                min-width: 34px;
+//                &.duo {
+//                }
+//                &.runned {
+//                }
+//                &.hide {
+//                }
+//                .dot-img {
+//                  --ui-icon-width: 3px;
+//                  --ui-icon-height: 3px;
+//                }
+//              }
+//              img {
+//              }
+//              .lock-icon {
+//                --ui-icon-width: 12px;
+//                --ui-icon-height: 12px;
+//                &--private {
+//                }
+//                &--open {
+//                }
+//              }
+//              .user-avatar {
+//                width: 12px;
+//                height: 12px;
+//              }
+//            }
+//          }
+//        }
+//        .rooms-scrollbar.scrollbar {
+//          bottom: 12px;
+//          width: 4px;
+//        }
+//      }
+//    }
+//    .right-column {
+//      gap: 8px;
+//      width: 250px;
+//      min-width: 250px;
+//      max-width: 250px;
+//      .right {
+//        height: 100%;
+//        border-radius: 12px;
+//        .loading-overlay {
+//        }
+//        .room-info {
+//          padding: 8px 12px;
+//          gap: 8px;
+//          width: calc(100% - 24px);
+//          height: calc(100% - 16px);
+//          header {
+//            span {
+//              max-width: 166px;
+//              font-size: 14px;
+//              line-height: 18px;
+//            }
+//            .room-actions {
+//              gap: 4px;
+//              button {
+//                width: 16px;
+//                height: 16px;
+//                .room-icon {
+//                  --ui-icon-width: 16px;
+//                  --ui-icon-height: 16px;
+//                }
+//                &:disabled {
+//                  .room-icon {
+//                  }
+//                }
+//                &:not(:disabled):hover,
+//                &:not(:disabled):focus-visible,
+//                &:not(:disabled):active {
+//                  .room-icon {
+//                  }
+//                }
+//              }
+//            }
+//          }
+//          .ri-info {
+//            flex-direction: column;
+//            overflow: auto;
+//            scrollbar-width: none;
+//            .mini-profile-user-trigger {
+//              &:disabled {
+//              }
+//            }
+//            .ri-members {
+//              padding: 4px 8px;
+//              width: calc(100% - 16px);
+//              border-radius: 8px;
+//              &.solo {
+//              }
+//              .ri-members-div {
+//                .ri-members-title {
+//                  font-size: 12px;
+//                  line-height: 18px;
+//                }
+//                .ri-members-count {
+//                  padding: 4px 8px;
+//                  font-size: 10px;
+//                  line-height: 10px;
+//                }
+//              }
+//              .muted-members {
+//                img {
+//                }
+//                span {
+//                }
+//              }
+//              .ri-users {
+//                gap: 2px;
+//                .ri-user {
+//                  gap: 4px;
+//                  &.dead {
+//                  }
+//                  .user-numb {
+//                  }
+//                  img {
+//                  }
+//                  .screen-icon {
+//                  }
+//                  .user-mini-avatar {
+//                    width: 12px;
+//                    height: 12px;
+//                  }
+//                  .mini-profile-name {
+//                    max-width: 165px;
+//                    font-size: 10px;
+//                    line-height: 12px;
+//                  }
+//                }
+//              }
+//            }
+//            .ri-meta-game {
+//              padding: 4px 8px;
+//              width: calc(100% - 16px);
+//              border-radius: 8px;
+//              .ri-meta-title {
+//                font-size: 12px;
+//                line-height: 18px;
+//              }
+//              .ri-game-div {
+//                .ri-meta-text,
+//                .ri-meta-value {
+//                  font-size: 10px;
+//                  line-height: 12px;
+//                }
+//                .ri-meta-text {
+//                }
+//                .ri-meta-value {
+//                }
+//                .spectators-wrap {
+//                  .spectators-btn {
+//                    .spectators-icon {
+//                    }
+//                    &:not(:disabled):hover,
+//                    &:not(:disabled):focus-visible,
+//                    &:not(:disabled):active,
+//                    &.is-open {
+//                      .spectators-icon {
+//                      }
+//                    }
+//                  }
+//                  .spectators-tooltip {
+//                    .spectators-list {
+//                      .spectators-row {
+//                        .mini-profile-name {
+//                        }
+//                        img {
+//                        }
+//                      }
+//                    }
+//                  }
+//                }
+//              }
+//            }
+//          }
+//          .ri-actions {
+//            .ri-action {
+//            }
+//          }
+//        }
+//      }
+//      .right-extra {
+//        display: none;
+//        .right-extra-content {
+//          .right-extra-copy-subscription {
+//            .right-extra-copy-accent {
+//            }
+//          }
+//          .right-extra-copy-connect {
+//          }
+//          .right-extra-btn {
+//            .btn-icon {
+//            }
+//            &:not(:disabled):hover,
+//            &:not(:disabled):focus-visible,
+//            &:not(:disabled):active,
+//            &.is-open {
+//              .btn-icon {
+//              }
+//            }
+//          }
+//        }
+//        &--primary {
+//          .background-image-6 {
+//          }
+//        }
+//        &--secondary {
+//          .background-image-7 {
+//          }
+//        }
+//      }
+//    }
+//  }
+//}
 
 </style>

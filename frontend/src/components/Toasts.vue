@@ -26,7 +26,7 @@
               :key="a.label"
               class="action"
               :variant="a.style === 'neutral' ? 'white' : 'green'"
-              size="small"
+              size="middle"
               :text="a.label"
               :disabled="t._actionBusy"
               @click="runAction(t, a)"

@@ -21,7 +21,7 @@ defineOptions({
 })
 
 type ButtonVariant = 'green' | 'white' | 'red'
-type ButtonSize = 'big' | 'middle' | 'small' | 'low'
+type ButtonSize = 'big' | 'middle' | 'low'
 type IconPosition = 'left' | 'right'
 type ButtonType = 'button' | 'submit' | 'reset'
 
@@ -171,17 +171,6 @@ function onAnchorClick(event: MouseEvent) {
   }
   &--middle {
     --ui-button-height: 40px;
-    --ui-button-gap: 4px;
-    --ui-button-radius: 12px;
-    --ui-button-icon-size: 24px;
-    --ui-button-font-family: Hauora-Regular;
-    --ui-button-font-size: 16px;
-    --ui-button-line-height: 20px;
-    --ui-button-letter-spacing: -0.32px;
-    --ui-button-padding-x: 16px;
-  }
-  &--small {
-    --ui-button-height: 32px;
     --ui-button-gap: 4px;
     --ui-button-radius: 12px;
     --ui-button-icon-size: 24px;

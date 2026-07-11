@@ -68,7 +68,7 @@
           <div class="slide-bottom">
             <UiButton
               class="slide-btn"
-              size="small"
+              size="middle"
               :text="installButtonLabel"
               :disabled="installButtonDisabled"
               @click="openInstall"
