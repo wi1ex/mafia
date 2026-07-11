@@ -2408,8 +2408,8 @@ onBeforeUnmount(() => {
   .deleted-preview-modal {
     display: flex;
     flex-direction: column;
-    width: min(600px, 80vw);
-    max-height: min(600px, 80dvh);
+    width: min(600px, 80%);
+    max-height: min(600px, 80%);
     border-radius: 20px;
     background-color: $neutral-800;
     box-shadow: 0 15px 30px rgba(black, 0.25);
@@ -2536,8 +2536,8 @@ onBeforeUnmount(() => {
     }
   }
   .image-lightbox-image {
-    max-width: min(80vw, 1440px);
-    max-height: min(80vh, 960px);
+    max-width: min(80%, 1440px);
+    max-height: min(80%, 960px);
     object-fit: contain;
     box-shadow: 0 15px 30px rgba(black, 0.25);
   }

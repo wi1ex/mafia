@@ -1597,4 +1597,215 @@ onBeforeUnmount(() => {
   transform: translateX(0);
 }
 
+@media (max-width: 1279px) {
+  .card {
+    .left {
+      &.left--top-banner {
+      }
+      header {
+        .left-title {
+        }
+      }
+      .muted-rooms {
+        img {
+        }
+        span {
+        }
+      }
+      .list {
+        .text-center {
+        }
+        .list-header {
+          span {
+          }
+        }
+        .list-body-shell {
+        }
+        .list-body {
+          &::-webkit-scrollbar {
+          }
+          .item {
+            &.active {
+            }
+            &::after {
+            }
+            > * {
+            }
+            &:not(:disabled):hover,
+            &:not(:disabled):focus-visible,
+            &:not(:disabled):active,
+            &:not(:disabled).active {
+              &::after {
+              }
+            }
+            .cell {
+              .item-text {
+                &.ellipsis {
+                }
+                &.margin {
+                }
+              }
+              .status-room {
+                &.duo {
+                }
+                &.runned {
+                }
+                &.hide {
+                }
+                .dot-img {
+                }
+              }
+              img {
+              }
+              .lock-icon {
+                &--private {
+                }
+                &--open {
+                }
+              }
+              .user-avatar {
+              }
+            }
+          }
+        }
+      }
+    }
+    .right-column {
+      .right {
+        .loading-overlay {
+        }
+        .room-info {
+          header {
+            span {
+            }
+            .room-actions {
+              button {
+                .room-icon {
+                }
+                &:disabled {
+                  .room-icon {
+                  }
+                }
+                &:not(:disabled):hover,
+                &:not(:disabled):focus-visible,
+                &:not(:disabled):active {
+                  .room-icon {
+                  }
+                }
+              }
+            }
+          }
+          .ri-info {
+            .mini-profile-user-trigger {
+              &:disabled {
+              }
+            }
+            .ri-members {
+              &.solo {
+              }
+              .ri-members-div {
+                .ri-members-title {
+                }
+                .ri-members-count {
+                }
+              }
+              .muted-members {
+                img {
+                }
+                span {
+                }
+              }
+              .ri-users {
+                .ri-user {
+                  &.dead {
+                  }
+                  .user-numb {
+                  }
+                  img {
+                  }
+                  .screen-icon {
+                  }
+                  .user-mini-avatar {
+                  }
+                  .mini-profile-name {
+                  }
+                }
+              }
+            }
+            .ri-meta-game {
+              .ri-meta-title {
+              }
+              .ri-game-div {
+                .ri-meta-text,
+                .ri-meta-value {
+                }
+                .ri-meta-text {
+                }
+                .ri-meta-value {
+                }
+                .spectators-wrap {
+                  .spectators-btn {
+                    .spectators-icon {
+                    }
+                    &:not(:disabled):hover,
+                    &:not(:disabled):focus-visible,
+                    &:not(:disabled):active,
+                    &.is-open {
+                      .spectators-icon {
+                      }
+                    }
+                  }
+                  .spectators-tooltip {
+                    .spectators-list {
+                      .spectators-row {
+                        .mini-profile-name {
+                        }
+                        img {
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+          .ri-actions {
+            .ri-action {
+            }
+          }
+        }
+      }
+      .right-extra {
+        .right-extra-content {
+          .right-extra-copy-subscription {
+            .right-extra-copy-accent {
+            }
+          }
+          .right-extra-copy-connect {
+          }
+          .right-extra-btn {
+            .btn-icon {
+            }
+            &:not(:disabled):hover,
+            &:not(:disabled):focus-visible,
+            &:not(:disabled):active,
+            &.is-open {
+              .btn-icon {
+              }
+            }
+          }
+        }
+        &--primary {
+          .background-image-6 {
+          }
+        }
+        &--secondary {
+          .background-image-7 {
+          }
+        }
+      }
+    }
+  }
+}
+
 </style>

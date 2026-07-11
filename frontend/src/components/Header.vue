@@ -893,4 +893,167 @@ function openAuth(mode: 'login' | 'register') {
   transform: translateY(-30px);
 }
 
+@media (max-width: 1279px) {
+  .sanction-banner {
+    .banner-icon {
+    }
+    span {
+    }
+    a {
+      .telegram-icon {
+      }
+    }
+    .sanction-duration-unit {
+    }
+    .sanction-timer-badge {
+    }
+    &.sanction-banner--ban {
+    }
+    &.sanction-banner--timeout {
+      .banner-icon {
+      }
+      span {
+      }
+    }
+    &.sanction-banner--suspend {
+      .banner-icon {
+      }
+      span {
+      }
+    }
+    &.sanction-banner--verif {
+      .verification-hour-badge {
+      }
+      .verification-divider {
+      }
+    }
+    &.sanction-banner--admin {
+    }
+  }
+  .bar {
+    .links {
+      .home {
+        img {
+        }
+      }
+      .pages {
+        .page {
+          .page-icon {
+          }
+          .page-text {
+          }
+          &:not(:disabled):hover,
+          &:not(:disabled):focus-visible,
+          &:not(:disabled):active {
+            .page-icon {
+            }
+            .page-text {
+            }
+          }
+        }
+      }
+    }
+    .profile-no-btn {
+      &::after {
+      }
+      &:not(:disabled):hover,
+      &:not(:disabled):focus-visible,
+      &:not(:disabled):active,
+      &:not(:disabled).profile-dropdown-trigger[aria-expanded='true'] {
+        &::after {
+        }
+      }
+      > * {
+      }
+      span {
+      }
+    }
+    .profile-btn {
+      &::after {
+      }
+      &:not(:disabled):hover,
+      &:not(:disabled):focus-visible,
+      &:not(:disabled):active,
+      &:not(:disabled).profile-dropdown-trigger[aria-expanded='true'] {
+        &::after {
+        }
+      }
+      > * {
+      }
+      .nickname {
+      }
+      img {
+      }
+      .avatar {
+      }
+      .profile-theme-icons {
+        .profile-theme-icon {
+        }
+      }
+      .arrow {
+      }
+    }
+    .user {
+      .bell {
+        button {
+          .bell-icon,
+          .bell-arrow {
+          }
+          .bell-text {
+          }
+          .bell-arrow {
+          }
+          .unread-text {
+          }
+          &:disabled {
+            .bell-icon,
+            .bell-arrow {
+            }
+            .bell-text {
+            }
+          }
+          &:not(:disabled):hover,
+          &:not(:disabled):focus-visible,
+          &:not(:disabled):active,
+          &.bell-dropdown-trigger:not(:disabled)[aria-expanded='true'] {
+            .bell-icon,
+            .bell-arrow {
+            }
+            .bell-text {
+            }
+          }
+        }
+      }
+      .user-menu {
+        .user-menu-dropdown {
+          .user-menu-profile {
+            .avatar {
+            }
+            .user-menu-nickname {
+            }
+          }
+          .border-line {
+          }
+          .user-menu-items {
+            .user-menu-item {
+              .profile-icon {
+              }
+              span {
+              }
+              &:not(:disabled):hover,
+              &:not(:disabled):focus-visible,
+              &:not(:disabled):active {
+                .profile-icon {
+                }
+                span {
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
 </style>
