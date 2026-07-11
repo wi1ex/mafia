@@ -15,6 +15,7 @@
   >
     <component
       :is="controlTag"
+      ref="controlEl"
       :id="id"
       :type="resolvedType"
       :value="modelValue ?? ''"
@@ -87,6 +88,7 @@ const showStaticIcon = computed(() => Boolean(props.icon) && !showPasswordToggle
 const hasTrailingContent = computed(() => showPasswordToggle.value || showStaticIcon.value)
 const inputDisabled = computed(() => Boolean(attrs.disabled))
 const passwordVisible = ref(false)
+const controlEl = ref<HTMLInputElement | HTMLTextAreaElement | null>(null)
 const resolvedType = computed(() => {
   if (controlTag.value !== 'input') return undefined
   if (!showPasswordToggle.value) return props.type
@@ -107,6 +109,8 @@ function onInput(e: Event) {
 function togglePasswordVisibility() {
   passwordVisible.value = !passwordVisible.value
 }
+
+defineExpose({ controlEl })
 
 watch(() => [props.id, props.type, props.passwordToggle], () => {
   passwordVisible.value = false

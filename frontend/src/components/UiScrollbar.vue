@@ -46,6 +46,7 @@ let ro: ResizeObserver | null = null
 let mo: MutationObserver | null = null
 let rafId: number | null = null
 let onTargetScroll: (() => void) | null = null
+let onTargetInput: (() => void) | null = null
 let onThumbDragMove: ((e: PointerEvent) => void) | null = null
 let onThumbDragEnd: ((e: PointerEvent) => void) | null = null
 
@@ -111,6 +112,7 @@ function scheduleUpdate() {
 function cleanupTarget() {
   cleanupThumbDrag()
   if (targetEl && onTargetScroll) targetEl.removeEventListener('scroll', onTargetScroll)
+  if (targetEl && onTargetInput) targetEl.removeEventListener('input', onTargetInput)
   try { ro?.disconnect() } catch {}
   try { mo?.disconnect() } catch {}
 
@@ -118,6 +120,7 @@ function cleanupTarget() {
   ro = null
   mo = null
   onTargetScroll = null
+  onTargetInput = null
   reset()
 }
 
@@ -127,7 +130,9 @@ function bindTarget(el?: HTMLElement | null) {
 
   targetEl = el
   onTargetScroll = scheduleUpdate
+  onTargetInput = scheduleUpdate
   targetEl.addEventListener('scroll', onTargetScroll, { passive: true })
+  targetEl.addEventListener('input', onTargetInput)
 
   ro = new ResizeObserver(scheduleUpdate)
   ro.observe(targetEl)

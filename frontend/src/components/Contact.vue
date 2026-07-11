@@ -44,10 +44,12 @@
               />
 
               <span class="contact-body-title">Текст обращения</span>
+              <div class="contact-textarea-shell contact-body-input">
               <UiInput
+                ref="messageTextInput"
                 id="contact-request-text"
                 v-model="messageText"
-                class="contact-textarea contact-body-input"
+                class="contact-textarea"
                 mode="light"
                 label-mode="placeholder"
                 as="textarea"
@@ -61,6 +63,16 @@
                   <span>{{ messageText.length }}/{{ TEXT_MAX }}</span>
                 </template>
               </UiInput>
+                <UiScrollbar
+                  class="contact-textarea-scrollbar"
+                  :target="messageTextarea"
+                  :active="open"
+                  theme="grey"
+                  :inset-top="12"
+                  :inset-bottom="12"
+                  right="12px"
+                />
+              </div>
 
               <span class="contact-body-title">Вы также можете написать нам на email:</span>
               <div class="contact-email-block">
@@ -155,6 +167,8 @@ const replyContact = ref('')
 const emailCopied = ref(false)
 const contactEmailTextEl = ref<HTMLElement | null>(null)
 const contactDrawerPanel = ref<HTMLElement | null>(null)
+const messageTextInput = ref<{ controlEl: HTMLInputElement | HTMLTextAreaElement | null } | null>(null)
+const messageTextarea = computed(() => messageTextInput.value?.controlEl as HTMLTextAreaElement | null)
 
 let prevOverflow = ''
 
@@ -414,6 +428,17 @@ onBeforeUnmount(() => {
       min-height: 200px;
       border-radius: 24px;
       line-height: 22px;
+      scrollbar-width: none;
+    }
+    :deep(.contact-textarea textarea::-webkit-scrollbar) {
+      width: 0;
+      height: 0;
+    }
+    .contact-textarea-shell {
+      position: relative;
+      .contact-textarea-scrollbar.scrollbar {
+        z-index: 1;
+      }
     }
     .contact-actions {
       display: flex;
