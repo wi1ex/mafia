@@ -1,16 +1,18 @@
 <template>
-  <Header v-if="!isRoom" />
-  <div class="rotate-overlay">
-    <div data-nosnippet>Поверните устройство</div>
+  <div id="desktop-scale-root" class="desktop-scale-root" :style="desktopScaleStyle">
+    <Header v-if="!isRoom" />
+    <div class="rotate-overlay">
+      <div data-nosnippet>Поверните устройство</div>
+    </div>
+    <router-view :key="routerViewKey" />
+    <Chat />
+    <Confirms />
+    <Toast />
   </div>
-  <router-view :key="routerViewKey" />
-  <Chat />
-  <Confirms />
-  <Toast />
 </template>
 
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, watch, watchEffect, computed } from 'vue'
+import { onMounted, onBeforeUnmount, watch, watchEffect, computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/store'
 import { useUserStore } from '@/store'
@@ -31,6 +33,24 @@ const user = useUserStore()
 const chat = useGlobalChatStore()
 const settings = useSettingsStore()
 
+const DESKTOP_DESIGN_WIDTH = 1700
+const DESKTOP_BREAKPOINT = 1200
+const viewport = ref({ width: window.innerWidth, height: window.innerHeight })
+const desktopScale = computed(() => (
+  viewport.value.width >= DESKTOP_BREAKPOINT
+    ? viewport.value.width / DESKTOP_DESIGN_WIDTH
+    : 1
+))
+const desktopScaleStyle = computed(() => {
+  const scale = desktopScale.value
+  const { width, height } = viewport.value
+  return {
+    '--desktop-scale': String(scale),
+    '--app-viewport-width': `${width / scale}px`,
+    '--app-viewport-height': `${height / scale}px`,
+  }
+})
+
 let onSanctionsUpdate: ((e: any) => void) | null = null
 let onTelegramVerified: ((e: any) => void) | null = null
 let onAdminNotify: ((e: any) => void) | null = null
@@ -42,6 +62,10 @@ const routerViewKey = computed(() => {
   if (route.name === 'room') return `room:${String(route.params.id ?? '')}`
   return route.name ? `route:${String(route.name)}` : route.fullPath
 })
+
+function updateViewport() {
+  viewport.value = { width: window.innerWidth, height: window.innerHeight }
+}
 
 watchEffect(() => {
   document.body.classList.toggle('room-touch-manipulation', isRoom.value)
@@ -77,6 +101,7 @@ watch(() => auth.isAuthed, (isAuthed) => {
 })
 
 onMounted(async () => {
+  window.addEventListener('resize', updateViewport)
   onSanctionsUpdate = (e: any) => {
     const p = e?.detail || {}
     user.setSanctions({
@@ -146,6 +171,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('resize', updateViewport)
   document.body.classList.remove('room-touch-manipulation')
   if (onSanctionsUpdate) window.removeEventListener('auth-sanctions_update', onSanctionsUpdate)
   if (onUserGameParticipationChanged) window.removeEventListener('auth-user_game_participation_changed', onUserGameParticipationChanged)
@@ -156,6 +182,15 @@ onBeforeUnmount(() => {
 </script>
 
 <style lang="scss" scoped>
+.desktop-scale-root {
+  display: flex;
+  flex-direction: column;
+  width: var(--app-viewport-width);
+  height: var(--app-viewport-height);
+  overflow: hidden;
+  transform: scale(var(--desktop-scale));
+  transform-origin: top left;
+}
 .rotate-overlay {
   display: none;
   position: fixed;

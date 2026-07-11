@@ -3634,15 +3634,15 @@ onBeforeUnmount(() => {
   }
   .grid {
     display: grid;
-    width: calc(100vw - 20px);
-    height: calc(100dvh - 70px);
+    width: calc(var(--app-viewport-width) - 20px);
+    height: calc(var(--app-viewport-height) - 70px);
     gap: 2px;
   }
   .theater {
     display: grid;
     grid-template-columns: 1fr 328px;
-    width: calc(100vw - 20px);
-    height: calc(100dvh - 70px);
+    width: calc(var(--app-viewport-width) - 20px);
+    height: calc(var(--app-viewport-height) - 70px);
     gap: 6px;
     .stage {
       position: relative;
@@ -3735,7 +3735,7 @@ onBeforeUnmount(() => {
     position: relative;
     align-items: center;
     justify-content: space-between;
-    width: calc(100vw - 20px);
+    width: calc(var(--app-viewport-width) - 20px);
     height: 40px;
     .controls-side {
       display: flex;
@@ -3883,8 +3883,8 @@ onBeforeUnmount(() => {
     display: grid;
     position: fixed;
     box-sizing: border-box;
-    grid-template-columns: repeat(5, minmax(0, calc((100vw - 193px) / 5)));
-    grid-template-rows: repeat(2, minmax(0, calc((100dvh - 121px) / 2)));
+    grid-template-columns: repeat(5, minmax(0, calc((var(--app-viewport-width) - 193px) / 5)));
+    grid-template-rows: repeat(2, minmax(0, calc((var(--app-viewport-height) - 121px) / 2)));
     align-items: center;
     justify-content: center;
     inset: 0;

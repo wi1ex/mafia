@@ -962,11 +962,11 @@ onBeforeUnmount(() => {
   .left {
     display: flex;
     flex-direction: column;
-    height: calc(100dvh - 94px);
+    height: calc(var(--app-viewport-height) - 94px);
     border-radius: 24px;
     background-color: $soft-purple-900;
     &.left--top-banner {
-      height: calc(100dvh - 134px);
+      height: calc(var(--app-viewport-height) - 134px);
     }
     header {
       display: flex;

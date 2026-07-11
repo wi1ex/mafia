@@ -1663,7 +1663,7 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   width: 400px;
-  height: min(600px, calc(100dvh - 85px));
+  height: min(600px, calc(var(--app-viewport-height) - 85px));
   border-radius: 10px;
   border: 3px solid $neutral-700;
   background-color: $neutral-900;

@@ -1,5 +1,5 @@
 <template>
-  <Teleport to="body">
+  <Teleport to="#desktop-scale-root">
     <Transition name="user-mini-profile-fade">
       <div v-if="canRenderOpen" class="user-mini-profile-overlay" role="presentation" @pointerdown.stop.self @click.stop.self="close">
         <section ref="profilePanelEl" class="user-mini-profile-panel" :class="{ 'stats-mode': view !== 'profile' && !panelStateVisible && !avatarPreviewOpen, 'state-mode': panelStateVisible, 'avatar-mode': avatarPreviewOpen }" :style="profilePanelStyle"
@@ -2027,8 +2027,8 @@ onBeforeUnmount(() => {
     scrollbar-width: none;
     transition: width 0.25s ease-in-out, height 0.25s ease-in-out;
     &.stats-mode {
-      width: min(1350px, calc(100vw - 96px));
-      height: calc(100dvh - 96px);
+      width: min(1350px, calc(var(--app-viewport-width) - 96px));
+      height: calc(var(--app-viewport-height) - 96px);
     }
     &.state-mode {
       align-items: center;
@@ -2040,8 +2040,8 @@ onBeforeUnmount(() => {
       align-items: center;
       justify-content: center;
       padding: 0;
-      width: min(659px, calc(100dvh - 96px));
-      height: min(659px, calc(100dvh - 96px));
+      width: min(659px, calc(var(--app-viewport-height) - 96px));
+      height: min(659px, calc(var(--app-viewport-height) - 96px));
       overflow: hidden;
     }
     .avatar-preview-image {

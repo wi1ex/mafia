@@ -1,5 +1,5 @@
 <template>
-  <Teleport to="body">
+  <Teleport to="#desktop-scale-root">
     <Transition name="subscription-purchase-overlay">
       <div v-if="open" class="subscription-purchase-overlay" @pointerdown.self="armed = true" @pointerup.self="armed && requestClose()" @pointerleave.self="armed = false" @pointercancel.self="armed = false">
         <div class="subscription-purchase-modal" role="dialog" aria-modal="true">

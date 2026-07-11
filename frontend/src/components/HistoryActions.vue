@@ -3,7 +3,7 @@
     Подробности
   </span>
 
-  <Teleport to="body">
+  <Teleport to="#desktop-scale-root">
     <Transition name="overlay">
       <div v-if="open" class="overlay" @pointerdown.self="armed = true"
            @pointerup.self="armed && closeModal()" @pointerleave.self="armed = false" @pointercancel.self="armed = false">
@@ -625,7 +625,7 @@ watch(
     flex-direction: column;
     gap: 10px;
     width: min(980px, calc(100% - 30px));
-    max-height: calc(100vh - 40px);
+    max-height: calc(var(--app-viewport-height) - 40px);
     padding: 10px;
     border-radius: 5px;
     background-color: $neutral-800;
