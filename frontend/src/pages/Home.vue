@@ -102,7 +102,7 @@
                       <img v-minio-img="{ key: m.avatar_name ? `avatars/${m.avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false }" alt="avatar" class="user-mini-avatar" />
                       <span class="mini-profile-name">{{ m.username || ('user' + m.id) }}</span>
                     </button>
-                    <UiIcon v-if="m.screen" class="screen-icon" :icon="iconScreenOn" label="Стриминг" />
+                    <UiIcon v-if="m.screen" class="screen-icon" :icon="iconScreenOn" label="Трансляция" />
                   </li>
                 </ul>
               </div>
@@ -1362,7 +1362,7 @@ onBeforeUnmount(() => {
                 .screen-icon {
                   --ui-icon-width: 20px;
                   --ui-icon-height: 20px;
-                  --ui-icon-color: #{$neutral-white};
+                  --ui-icon-color: #{$green-500};
                 }
                 .user-mini-avatar {
                   border-radius: 50%;
