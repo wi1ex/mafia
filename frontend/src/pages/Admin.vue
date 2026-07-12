@@ -44,11 +44,11 @@
               <UiSwitch class="switch-item" :width="250" size="low" v-model="site.verification_restrictions" label="Ограничения верификации" :disabled="savingSettings" />
               <UiSwitch class="switch-item" :width="250" size="low" v-model="site.rooms_can_create" label="Создание комнат" :disabled="savingSettings" />
               <UiSwitch class="switch-item" :width="250" size="low" v-model="site.rooms_can_enter" label="Вход в комнату" :disabled="savingSettings" />
-              <UiSwitch class="switch-item" :width="250" size="low" v-model="site.games_can_start" label="Запуск игр" :disabled="savingSettings" />
-              <UiSwitch class="switch-item" :width="250" size="low" v-model="site.self_speech_finish_enabled" label="Завершение своей речи" :disabled="savingSettings" />
-              <UiSwitch class="switch-item" :width="250" size="low" v-model="site.streams_can_start" label="Запуск трансляций" :disabled="savingSettings" />
               <UiSwitch class="switch-item" :width="250" size="low" v-model="site.chat_open_enabled" label="Открытие чата" :disabled="savingSettings" />
               <UiSwitch class="switch-item" :width="250" size="low" v-model="site.chat_messages_enabled" label="Сообщения в чат" :disabled="savingSettings" />
+              <UiSwitch class="switch-item" :width="250" size="low" v-model="site.streams_can_start" label="Запуск трансляций" :disabled="savingSettings" />
+              <UiSwitch class="switch-item" :width="250" size="low" v-model="site.games_can_start" label="Запуск игр" :disabled="savingSettings" />
+              <UiSwitch class="switch-item" :width="250" size="low" v-model="site.self_speech_finish_enabled" label="Завершение своей речи" :disabled="savingSettings" />
               <div class="bulk-admin-actions">
                 <button class="btn danger width-full" :disabled="kickRoomsBusy || clearChatBusy || markAllNotifsBusy" @click="kickAllRooms">
                   Кик из комнат

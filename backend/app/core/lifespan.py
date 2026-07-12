@@ -18,14 +18,9 @@ from ..api.utils import (
 from ..security.admin_guard import assert_protected_admin_invariants
 from ..security.parameters import ensure_app_settings, refresh_app_settings
 from ..services.minio import ensure_bucket
-from ..realtime.utils import recalculate_all_friend_closeness
 from .clients import close_clients, get_redis, init_clients
 from .logging import configure_logging
-from ..services.nickname_limits import (
-    FREE_NICKNAME_CHANGE_LIMIT,
-    SUBSCRIPTION_NICKNAME_CHANGE_LIMIT,
-    reset_monthly_nickname_change_limits,
-)
+from ..services.nickname_limits import reset_monthly_nickname_change_limits
 
 
 def _next_local_daily_run_at(*, hour: int, minute: int = 0) -> datetime:
@@ -34,68 +29,6 @@ def _next_local_daily_run_at(*, hour: int, minute: int = 0) -> datetime:
     if next_run <= now:
         next_run += timedelta(days=1)
     return next_run
-
-
-# AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-async def _rename_legacy_payment_table(conn) -> None:
-    legacy_table_name = "lava_payments"
-    legacy_exists = bool(
-        await conn.scalar(
-            text("SELECT to_regclass(:name) IS NOT NULL"),
-            {"name": f"public.{legacy_table_name}"},
-        )
-    )
-    current_exists = bool(
-        await conn.scalar(text("SELECT to_regclass('public.kassa_payments') IS NOT NULL"))
-    )
-    if legacy_exists and current_exists:
-        raise RuntimeError(
-            "Both legacy and current payment tables exist; refusing to choose one automatically"
-        )
-
-    if not legacy_exists:
-        return
-
-    await conn.execute(
-        text(f'ALTER TABLE "{legacy_table_name}" RENAME TO kassa_payments')
-    )
-
-    constraint_renames = (
-        (f"uq_{legacy_table_name}_contract_id", "uq_kassa_payments_contract_id"),
-        (f"pk_{legacy_table_name}", "pk_kassa_payments"),
-        (f"{legacy_table_name}_pkey", "kassa_payments_pkey"),
-    )
-    for old_name, new_name in constraint_renames:
-        exists = bool(
-            await conn.scalar(
-                text(
-                    "SELECT EXISTS ("
-                    "SELECT 1 FROM pg_constraint "
-                    "WHERE conrelid = 'kassa_payments'::regclass AND conname = :name"
-                    ")"
-                ),
-                {"name": old_name},
-            )
-        )
-        if exists:
-            await conn.execute(
-                text(
-                    f'ALTER TABLE kassa_payments RENAME CONSTRAINT "{old_name}" TO "{new_name}"'
-                )
-            )
-
-    for column_name in ("contract_id", "user_id", "metadata_token", "offer_id"):
-        old_name = f"ix_{legacy_table_name}_{column_name}"
-        new_name = f"ix_kassa_payments_{column_name}"
-        exists = bool(
-            await conn.scalar(
-                text("SELECT to_regclass(:name) IS NOT NULL"),
-                {"name": f"public.{old_name}"},
-            )
-        )
-        if exists:
-            await conn.execute(text(f'ALTER INDEX "{old_name}" RENAME TO "{new_name}"'))
-# AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 
 
 @asynccontextmanager
@@ -109,132 +42,11 @@ async def lifespan(app) -> AsyncIterator[None]:
     try:
         async with engine.begin() as conn:
             await conn.execute(text("SELECT 1"))
-
-            # AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-            await _rename_legacy_payment_table(conn)
-            # AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-
-
-
             await conn.run_sync(Base.metadata.create_all)
-
-
-
-            # AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-            await conn.execute(text(
-                "ALTER TABLE friend_closeness "
-                "ADD COLUMN IF NOT EXISTS room_seconds_together INTEGER NOT NULL DEFAULT 0"
-            ))
-            await conn.execute(text(
-                "ALTER TABLE user_sanctions "
-                "ADD COLUMN IF NOT EXISTS description VARCHAR(2048)"
-            ))
-            await conn.execute(text(
-                "ALTER TABLE users "
-                "ADD COLUMN IF NOT EXISTS nickname_changes_left INTEGER"
-            ))
-            await conn.execute(text(
-                "UPDATE users u "
-                "SET nickname_changes_left = CASE "
-                "WHEN EXISTS ("
-                "SELECT 1 FROM user_subscriptions s "
-                "WHERE s.user_id = u.id AND s.starts_at <= NOW() AND s.ends_at > NOW()"
-                f") THEN {SUBSCRIPTION_NICKNAME_CHANGE_LIMIT} ELSE {FREE_NICKNAME_CHANGE_LIMIT} END "
-                "WHERE u.nickname_changes_left IS NULL"
-            ))
-            await conn.execute(text(
-                "UPDATE users "
-                f"SET nickname_changes_left = LEAST(GREATEST(nickname_changes_left, 0), {SUBSCRIPTION_NICKNAME_CHANGE_LIMIT}) "
-                f"WHERE nickname_changes_left < 0 OR nickname_changes_left > {SUBSCRIPTION_NICKNAME_CHANGE_LIMIT}"
-            ))
-            await conn.execute(text(
-                "ALTER TABLE users "
-                "ALTER COLUMN nickname_changes_left SET DEFAULT 1"
-            ))
-            await conn.execute(text(
-                "ALTER TABLE users "
-                "ALTER COLUMN nickname_changes_left SET NOT NULL"
-            ))
-            await conn.execute(text(
-                "ALTER TABLE users "
-                "ADD COLUMN IF NOT EXISTS allow_friend_requests BOOLEAN"
-            ))
-            await conn.execute(text(
-                "UPDATE users "
-                "SET allow_friend_requests = TRUE "
-                "WHERE allow_friend_requests IS NULL"
-            ))
-            await conn.execute(text(
-                "ALTER TABLE users "
-                "ALTER COLUMN allow_friend_requests SET DEFAULT TRUE"
-            ))
-            await conn.execute(text(
-                "ALTER TABLE users "
-                "ALTER COLUMN allow_friend_requests SET NOT NULL"
-            ))
-            await conn.execute(text(
-                "CREATE TABLE IF NOT EXISTS contact_requests ("
-                "id SERIAL PRIMARY KEY, "
-                "user_id BIGINT, "
-                "contact VARCHAR(160) NOT NULL, "
-                "topic VARCHAR(120) NOT NULL, "
-                "text TEXT NOT NULL, "
-                "created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()"
-                ")"
-            ))
-            await conn.execute(text(
-                "CREATE TABLE IF NOT EXISTS user_blacklist ("
-                "id SERIAL PRIMARY KEY, "
-                "owner_id BIGINT NOT NULL, "
-                "target_id BIGINT NOT NULL, "
-                "created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), "
-                "CONSTRAINT uq_user_blacklist_pair UNIQUE (owner_id, target_id), "
-                "CONSTRAINT ck_user_blacklist_self CHECK (owner_id <> target_id)"
-                ")"
-            ))
-            await conn.execute(text(
-                "CREATE INDEX IF NOT EXISTS ix_user_blacklist_owner_id "
-                "ON user_blacklist (owner_id)"
-            ))
-            await conn.execute(text(
-                "CREATE INDEX IF NOT EXISTS ix_user_blacklist_target_id "
-                "ON user_blacklist (target_id)"
-            ))
-            donation_url_default = settings.DONATION_URL.replace("'", "''")
-            await conn.execute(text(
-                "ALTER TABLE settings "
-                f"ADD COLUMN IF NOT EXISTS donation_url VARCHAR(2048) NOT NULL DEFAULT '{donation_url_default}'"
-            ))
-            await conn.execute(text(
-                "ALTER TABLE settings "
-                "ADD COLUMN IF NOT EXISTS blacklist_users_limit INTEGER NOT NULL DEFAULT 30"
-            ))
-            await conn.execute(text(
-                "ALTER TABLE settings "
-                "ADD COLUMN IF NOT EXISTS self_speech_finish_enabled BOOLEAN NOT NULL DEFAULT TRUE"
-            ))
-            await conn.execute(text(
-                "ALTER TABLE kassa_payments "
-                "DROP COLUMN IF EXISTS parent_contract_id"
-            ))
-            await conn.execute(text(
-                "ALTER TABLE kassa_payments "
-                "DROP COLUMN IF EXISTS offer_title"
-            ))
-            await conn.execute(text("DROP TABLE IF EXISTS update_reads"))
-            await conn.execute(text("DROP TABLE IF EXISTS updates"))
-            # AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 
         async with SessionLocal() as session:
             await ensure_app_settings(session)
             await assert_protected_admin_invariants(session)
-
-        # AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-        async with SessionLocal() as session:
-            await recalculate_all_friend_closeness(session)
-            await session.commit()
-            log.info("app.friends.closeness_rebuild.done")
-        # AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 
     except Exception:
         log.exception("app.startup.db_failed")

@@ -188,7 +188,6 @@ __all__ = [
     "cancel_host_blur_auto_task",
     "schedule_host_blur_auto_off",
     "apply_host_blur_state",
-    "recalculate_all_friend_closeness",
 ]
 
 log = structlog.get_logger()
@@ -6170,85 +6169,6 @@ async def increment_friend_closeness_from_deleted_room(session: AsyncSession, *,
         changed_user_ids.add(hi)
 
     return changed_user_ids
-
-
-async def recalculate_all_friend_closeness(session: AsyncSession) -> None:
-    game_counts: dict[tuple[int, int], int] = {}
-    room_seconds: dict[tuple[int, int], int] = {}
-
-    game_rows = await session.execute(
-        select(Game.roles)
-        .join(Room, Room.id == Game.room_id)
-        .where(Room.deleted_at.is_not(None))
-    )
-    for roles_raw in game_rows.scalars().all():
-        players = _players_from_game_roles(roles_raw)
-        if len(players) < 2:
-            continue
-
-        for i in range(0, len(players)):
-            for j in range(i + 1, len(players)):
-                key = (players[i], players[j])
-                game_counts[key] = game_counts.get(key, 0) + 1
-
-    room_rows = await session.execute(
-        select(
-            Room.created_at,
-            Room.deleted_at,
-            Room.visitors,
-        ).where(Room.deleted_at.is_not(None))
-    )
-    for created_at, deleted_at, visitors_raw in room_rows.all():
-        lifetime_seconds = _room_lifetime_seconds(created_at, deleted_at)
-        if lifetime_seconds <= 0:
-            continue
-
-        activity = _activity_seconds_by_user(visitors_raw)
-        users = sorted(activity.keys())
-        if len(users) < 2:
-            continue
-
-        for i in range(0, len(users)):
-            for j in range(i + 1, len(users)):
-                lo, hi = users[i], users[j]
-                overlap = _guaranteed_room_overlap_seconds(
-                    activity[lo],
-                    activity[hi],
-                    lifetime_seconds,
-                )
-                if overlap <= 0:
-                    continue
-
-                key = (lo, hi)
-                room_seconds[key] = room_seconds.get(key, 0) + overlap
-
-    await session.execute(delete(FriendCloseness))
-
-    keys = sorted(set(game_counts.keys()) | set(room_seconds.keys()))
-    values = [
-        {
-            "user_low": lo,
-            "user_high": hi,
-            "games_together": max(0, int(game_counts.get((lo, hi), 0))),
-            "room_seconds_together": max(0, int(room_seconds.get((lo, hi), 0))),
-        }
-        for lo, hi in keys
-        if game_counts.get((lo, hi), 0) > 0 or room_seconds.get((lo, hi), 0) > 0
-    ]
-
-    if not values:
-        return
-
-    stmt = insert(FriendCloseness).values(values)
-    stmt = stmt.on_conflict_do_update(
-        index_elements=["user_low", "user_high"],
-        set_={
-            "games_together": stmt.excluded.games_together,
-            "room_seconds_together": stmt.excluded.room_seconds_together,
-            "updated_at": func.now(),
-        },
-    )
-    await session.execute(stmt)
 
 
 async def emit_friends_closeness_update(user_ids: Iterable[int]) -> None:
