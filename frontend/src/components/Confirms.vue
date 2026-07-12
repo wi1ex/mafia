@@ -1,7 +1,8 @@
 <template>
-  <Transition name="confirm">
-    <div v-if="state.open" class="overlay" @pointerdown.stop @click.stop>
-      <div class="modal" :role="dialogRole" aria-modal="true" :aria-labelledby="titleId" @pointerdown.stop @click.stop>
+  <Teleport to="#desktop-teleport-root">
+    <Transition name="confirm">
+      <div v-if="state.open" class="overlay" @pointerdown.stop @click.stop>
+        <div class="modal" :role="dialogRole" aria-modal="true" :aria-labelledby="titleId" @pointerdown.stop @click.stop>
         <header :id="titleId">
           <div class="header-div">
             <span class="header-title">{{ state.title }}</span>
@@ -56,9 +57,10 @@
             @click.stop="onConfirm"
           />
         </div>
+        </div>
       </div>
-    </div>
-  </Transition>
+    </Transition>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
