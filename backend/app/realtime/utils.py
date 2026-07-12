@@ -179,7 +179,6 @@ __all__ = [
     "maybe_end_game_if_room_presence_low",
     "finish_game",
     "record_spectator_leave",
-    "recalculate_all_friend_closeness",
     "maybe_emit_vote_presence_break",
     "smembers_ints",
     "hkeys_ints",
@@ -203,8 +202,6 @@ HOST_BLUR_AUTO_OFF_SECONDS = 120
 _host_blur_auto_tasks: dict[int, asyncio.Task[None]] = {}
 SPEECH_FINISH_MIN_SECONDS = 3
 SPEECH_ACTION_LOCK_TTL_SECONDS = 5
-FRIEND_CLOSENESS_ADVISORY_LOCK_KEY = 424_260_001
-FRIEND_CLOSENESS_RECALCULATION_BATCH_SIZE = 1_000
 SCREEN_QUALITY_LOW = "low"
 SCREEN_QUALITY_MEDIUM = "medium"
 SCREEN_QUALITY_HIGH = "high"
@@ -6100,103 +6097,10 @@ def _players_from_game_roles(roles_raw: Any) -> list[int]:
     return sorted(players)
 
 
-async def _acquire_friend_closeness_lock(session: AsyncSession) -> None:
-    """Serialize full recalculations and incremental closeness updates.
-
-    The lock is transaction-scoped, so PostgreSQL releases it automatically on
-    both commit and rollback.  This prevents a room deletion committed while a
-    full recalculation is replacing the aggregate table from being lost.
-    """
-    await session.execute(select(func.pg_advisory_xact_lock(FRIEND_CLOSENESS_ADVISORY_LOCK_KEY)))
-
-
-async def recalculate_all_friend_closeness(session: AsyncSession) -> int:
-    """Rebuild friend closeness from all deleted rooms without committing.
-
-    Inserts are deliberately split into small batches: PostgreSQL/asyncpg
-    limits one query to 32,767 bind parameters, which the previous one-shot
-    insert could exceed on a populated project.
-    """
-    await _acquire_friend_closeness_lock(session)
-
-    game_counts: dict[tuple[int, int], int] = {}
-    room_seconds: dict[tuple[int, int], int] = {}
-
-    game_rows = await session.execute(
-        select(Game.roles)
-        .join(Room, Room.id == Game.room_id)
-        .where(Room.deleted_at.is_not(None))
-    )
-    for roles_raw in game_rows.scalars().all():
-        players = _players_from_game_roles(roles_raw)
-        if len(players) < 2:
-            continue
-
-        for index, low in enumerate(players):
-            for high in players[index + 1:]:
-                key = (low, high)
-                game_counts[key] = game_counts.get(key, 0) + 1
-
-    room_rows = await session.execute(
-        select(Room.created_at, Room.deleted_at, Room.visitors)
-        .where(Room.deleted_at.is_not(None))
-    )
-    for created_at, deleted_at, visitors in room_rows.all():
-        lifetime_seconds = _room_lifetime_seconds(created_at, deleted_at)
-        if lifetime_seconds <= 0:
-            continue
-
-        activity = _activity_seconds_by_user(visitors)
-        users = sorted(activity)
-        for index, low in enumerate(users):
-            for high in users[index + 1:]:
-                overlap = _guaranteed_room_overlap_seconds(
-                    activity[low],
-                    activity[high],
-                    lifetime_seconds,
-                )
-                if overlap <= 0:
-                    continue
-
-                key = (low, high)
-                room_seconds[key] = room_seconds.get(key, 0) + overlap
-
-    keys = sorted(set(game_counts) | set(room_seconds))
-    await session.execute(delete(FriendCloseness))
-
-    for start in range(0, len(keys), FRIEND_CLOSENESS_RECALCULATION_BATCH_SIZE):
-        values = [
-            {
-                "user_low": low,
-                "user_high": high,
-                "games_together": max(0, int(game_counts.get((low, high), 0))),
-                "room_seconds_together": max(0, int(room_seconds.get((low, high), 0))),
-            }
-            for low, high in keys[start:start + FRIEND_CLOSENESS_RECALCULATION_BATCH_SIZE]
-        ]
-        if not values:
-            continue
-
-        stmt = insert(FriendCloseness).values(values)
-        stmt = stmt.on_conflict_do_update(
-            index_elements=["user_low", "user_high"],
-            set_={
-                "games_together": stmt.excluded.games_together,
-                "room_seconds_together": stmt.excluded.room_seconds_together,
-                "updated_at": func.now(),
-            },
-        )
-        await session.execute(stmt)
-
-    return len(keys)
-
-
 async def increment_friend_closeness_from_deleted_room(session: AsyncSession, *, room_id: int, created_at: datetime | None, deleted_at: datetime | None, visitors: Any) -> set[int]:
     rid = int(room_id or 0)
     if rid <= 0:
         return set()
-
-    await _acquire_friend_closeness_lock(session)
 
     game_counts: dict[tuple[int, int], int] = {}
     room_seconds: dict[tuple[int, int], int] = {}
