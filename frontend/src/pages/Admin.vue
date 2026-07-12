@@ -2483,7 +2483,7 @@ async function markAllNotificationsRead(): Promise<void> {
   if (markAllNotifsBusy.value) return
   const ok = await confirmDialog({
     title: 'Прочитать все уведомления',
-    text: 'Все непрочитанные уведомления у пользователей будут отмечены как прочитанные. Продолжить?',
+    text: 'Все непрочитанные уведомления у пользователей будут отмечены как прочитанные. Вторым действием будет пересчитана близость друзей; это может занять некоторое время. Продолжить?',
     confirmText: 'Прочитать все',
     cancelText: 'Отмена',
     checkboxLabel: 'Подтверждаю',
@@ -2493,9 +2493,9 @@ async function markAllNotificationsRead(): Promise<void> {
   markAllNotifsBusy.value = true
   try {
     await api.post('/admin/notifs/mark-all-read')
-    void alertDialog('Все уведомления отмечены как прочитанные')
+    void alertDialog('Все уведомления отмечены как прочитанные, близость друзей пересчитана')
   } catch {
-    void alertDialog('Не удалось отметить уведомления как прочитанные')
+    void alertDialog('Не удалось выполнить действие: уведомления и близость друзей не изменены')
   } finally {
     markAllNotifsBusy.value = false
   }

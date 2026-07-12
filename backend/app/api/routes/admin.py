@@ -26,6 +26,7 @@ from ...realtime.utils import (
     stop_screen_for_user,
     emit_rooms_occupancy_safe,
     record_spectator_leave,
+    recalculate_all_friend_closeness,
 )
 from ...security.decorators import log_route, require_protected_admin_dep
 from ...security.auth_tokens import get_identity
@@ -1211,28 +1212,40 @@ async def clear_global_chat(ident: Identity = Depends(get_identity), session: As
 @router.post("/notifs/mark-all-read", response_model=Ok, dependencies=ADMIN_GUARD)
 @log_route("admin.notifs.mark_all_read")
 async def mark_all_notifications_read(ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
-    marked = await session.execute(
-        update(Notif)
-        .where(Notif.read_at.is_(None))
-        .values(read_at=func.now())
-        .returning(Notif.user_id)
-    )
-    marked_user_ids = [int(user_id) for user_id in marked.scalars().all() if int(user_id) > 0]
-    user_ids = set(marked_user_ids)
+    try:
+        marked = await session.execute(
+            update(Notif)
+            .where(Notif.read_at.is_(None))
+            .values(read_at=func.now())
+            .returning(Notif.user_id)
+        )
+        marked_user_ids = [int(user_id) for user_id in marked.scalars().all() if int(user_id) > 0]
+        user_ids = set(marked_user_ids)
 
-    await log_action(
-        session,
-        user_id=int(ident["id"]),
-        username=ident["username"],
-        action="admin_notifs_mark_all_read",
-        details=f"Отмечены прочитанными все уведомления count={len(marked_user_ids)}",
-        commit=False,
-    )
-    await session.commit()
+        closeness_pairs = await recalculate_all_friend_closeness(session)
+
+        await log_action(
+            session,
+            user_id=int(ident["id"]),
+            username=ident["username"],
+            action="admin_notifs_mark_all_read",
+            details=(
+                "Отмечены прочитанными все уведомления "
+                f"count={len(marked_user_ids)}; пересчитана близость друзей pairs={closeness_pairs}"
+            ),
+            commit=False,
+        )
+        await session.commit()
+    except Exception as exc:
+        await session.rollback()
+        log.exception("admin.notifs.mark_all_read.friend_closeness_recalculation_failed")
+        raise HTTPException(status_code=500, detail="friend_closeness_recalculation_failed") from exc
 
     for user_id in user_ids:
         with suppress(Exception):
             await sio.emit("notifs_marked_read_all", {}, room=f"user:{user_id}", namespace="/auth")
+    with suppress(Exception):
+        await sio.emit("friends_closeness_update", {"recalculated": True}, namespace="/auth")
 
     return Ok()
 
