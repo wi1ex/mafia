@@ -22,9 +22,9 @@
 
     <div v-if="gameRole" class="icon-badge right" :class="[gameRoleClass, { finish: finishRoleBadge }]" aria-hidden="true">
       <div v-if="finishRoleBadge" class="icon-badge-role-block">
-        <UiIcon class="icon-badge-role-icon" :icon="gameRole" />
+        <img :src="gameRole" class="icon-badge-role-icon" alt="gamerole" />
       </div>
-      <UiIcon v-else class="icon-badge-role-icon" :icon="gameRole" />
+      <img v-else :src="gameRole" class="icon-badge-role-icon" alt="gamerole" />
     </div>
 
     <UiButton
@@ -144,7 +144,7 @@
 
     <div v-if="hasVoted" class="icon-voted">
       <div class="icon-voted-block">
-        <UiIcon class="icon-voted-img" :icon="iconLike" />
+        <img :src="iconLikeVoted" class="icon-voted-img" alt="voted" />
       </div>
     </div>
 
@@ -182,6 +182,7 @@ import UiButton from '@/components/UiButton.vue'
 
 import iconReady from '@/assets/svg/iconCheckMark.svg'
 import iconLike from '@/assets/svg/iconLike.svg'
+import iconLikeVoted from '@/assets/svg/iconLikeVoted.svg'
 import iconPen from '@/assets/svg/iconPen.svg'
 import iconCheck from '@/assets/svg/iconCheck.svg'
 import iconKill from '@/assets/svg/iconKill.svg'
@@ -491,7 +492,7 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
     }
     .avatar {
       aspect-ratio: 1;
-      height: 35%;
+      height: 40%;
       border-radius: 50%;
       object-fit: cover;
     }
@@ -606,9 +607,8 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
       background-color: var(--icon-badge-role-bg);
     }
     .icon-badge-role-icon {
-      --ui-icon-width: 24px;
-      --ui-icon-height: 24px;
-      --ui-icon-color: #{$neutral-white};
+      width: 24px;
+      height: 24px;
     }
     span {
       margin: 0 -1px 0 2px;
@@ -659,8 +659,8 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
       cursor: default;
       pointer-events: none;
       .icon-badge-role-icon {
-        --ui-icon-width: 64px;
-        --ui-icon-height: 64px;
+        aspect-ratio: 1;
+        height: 40%;
       }
     }
     &:disabled {
@@ -821,14 +821,9 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 96px;
-      height: 96px;
-      border-radius: 999px;
-      background-color: $soft-purple-800;
       .icon-voted-img {
-        --ui-icon-width: 64px;
-        --ui-icon-height: 64px;
-        --ui-icon-color: #{$green-500};
+        aspect-ratio: 1;
+        height: 60%;
       }
     }
   }

@@ -538,13 +538,13 @@ function openAuth(mode: 'login' | 'register') {
     gap: 24px;
     .home {
       display: flex;
-      align-items: flex-start;
-      justify-content: center;
-      padding: 16px;
+      align-items: center;
+      padding: 0 16px;
+      height: 64px;
       border-radius: 16px;
       background-color: $soft-purple-900;
       img {
-        height: 32px;
+        height: 48px;
       }
     }
     .pages {
