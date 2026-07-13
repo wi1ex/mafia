@@ -142,12 +142,6 @@
       <img v-else class="avatar" v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar, lazy: false }" alt="avatar" />
     </div>
 
-    <div v-if="hasVoted" class="icon-voted">
-      <div class="icon-voted-block">
-        <img :src="iconLikeVoted" class="icon-voted-img" alt="voted" />
-      </div>
-    </div>
-
     <div class="user-card" :style="userCardStyle" @click.stop>
       <button class="card-head" :disabled="!canOpenProfile" aria-haspopup="dialog" @click.stop="$emit('open-profile', id)">
         <span v-if="seatLabel" class="seat-label">{{ seatLabel }}</span>
@@ -165,8 +159,15 @@
         </div>
       </button>
     </div>
+
     <div v-if="showTimeline && timelineDurationSec > 0" class="role-timer">
       <div class="role-timer-bar" :style="{ animationDuration: timelineDurationSec + 's', animationPlayState: timelinePaused ? 'paused' : 'running' }" />
+    </div>
+
+    <div v-if="hasVoted" class="icon-voted">
+      <div class="icon-voted-block">
+        <img :src="iconLikeVoted" class="icon-voted-img" alt="voted" />
+      </div>
     </div>
   </div>
 </template>
@@ -464,7 +465,7 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
     border: none;
     border-radius: 12px;
     background-color: rgba($soft-purple-950, 0.8);
-    z-index: 3;
+    z-index: 10;
     .ready-icon {
       --ui-icon-width: 20px;
       --ui-icon-height: 20px;
@@ -485,7 +486,7 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
     justify-content: center;
     inset: 0;
     background-color: $soft-purple-900;
-    z-index: 1;
+    z-index: 5;
     img {
       height: 100%;
       user-select: none;
@@ -503,7 +504,7 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
     top: 8px;
     border-radius: 12px;
     background-color: var(--user-theme-bg, rgba($soft-purple-950, 0.8));
-    z-index: 20;
+    z-index: 10;
     .card-head {
       display: flex;
       align-items: center;
@@ -591,7 +592,7 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
     border: none;
     border-radius: 12px;
     background-color: var(--icon-badge-role-bg);
-    z-index: 3;
+    z-index: 10;
     .icon-badge-icon {
       --ui-icon-width: 16px;
       --ui-icon-height: 16px;
@@ -601,9 +602,9 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 96px;
-      height: 96px;
-      border-radius: 32px;
+      aspect-ratio: 1;
+      height: 40%;
+      border-radius: calc(100% / 3);
       background-color: var(--icon-badge-role-bg);
     }
     .icon-badge-role-icon {
@@ -655,12 +656,13 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
       width: 100%;
       height: 100%;
       background-color: rgba($neutral-black, 0.6);
-      z-index: 25;
+      z-index: 15;
       cursor: default;
       pointer-events: none;
       .icon-badge-role-icon {
         aspect-ratio: 1;
-        height: 40%;
+        width: auto;
+        height: calc(100% * 2 / 3);
       }
     }
     &:disabled {
@@ -712,7 +714,7 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
     left: 50%;
     bottom: 8px;
     transform: translate(-50%);
-    z-index: 20;
+    z-index: 15;
     &.nominate-btn--pick {
       --ui-button-disabled-bg: #{$green-500};
       --ui-button-disabled-color: #{$neutral-900};
@@ -731,7 +733,7 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
     bottom: 8px;
     transform: translate(-50%);
     gap: 2px;
-    z-index: 15;
+    z-index: 10;
     button {
       display: flex;
       align-items: center;
@@ -758,7 +760,7 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
     bottom: 8px;
     transform: translate(-50%);
     gap: 2px;
-    z-index: 15;
+    z-index: 10;
     .farewell-summary-badge {
       display: flex;
       align-items: center;
@@ -783,7 +785,7 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
     top: 50%;
     transform: translate(-50%, -50%);
     touch-action: manipulation;
-    z-index: 3;
+    z-index: 15;
     :deep(.ui-button__text) {
       overflow: visible;
     }
