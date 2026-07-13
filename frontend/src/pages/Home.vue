@@ -116,18 +116,19 @@
                       <UiIcon class="spectators-icon" :icon="iconVisOn" />
                     </button>
                     <span class="ri-meta-value">{{ spectatorsLabel }}</span>
-                    <div v-if="spectatorsTooltipVisible" class="spectators-tooltip">
-                      <div v-if="spectatorsError">{{ spectatorsError }}</div>
-                      <div v-else-if="spectators.length === 0">Нет зрителей</div>
-                      <div v-else class="spectators-list">
-                        <div v-for="s in spectators" :key="`spectator-${s.id}`" class="spectators-row">
-                          <button class="mini-profile-user-trigger" type="button" :disabled="!canOpenRoomInfoMiniProfileForUser(s)" @click="openMiniProfileFromRoomInfo(s)">
-                            <img v-minio-img="{ key: s.avatar_name ? `avatars/${s.avatar_name}` : '', placeholder: iconDefaultAvatarBlack, lazy: false }" alt="avatar" />
-                            <span class="mini-profile-name">{{ s.username || ('user' + s.id) }}</span>
-                          </button>
+                    <Transition name="spectators-tooltip">
+                      <div v-if="spectatorsTooltipVisible && (spectatorsError || spectators.length > 0)" class="spectators-tooltip">
+                        <span v-if="spectatorsError" class="spectators-list-title">{{ spectatorsError }}</span>
+                        <div v-else class="spectators-list">
+                          <div v-for="s in spectators" :key="`spectator-${s.id}`" class="spectators-row">
+                            <button class="mini-profile-user-trigger" type="button" :disabled="!canOpenRoomInfoMiniProfileForUser(s)" @click="openMiniProfileFromRoomInfo(s)">
+                              <img v-minio-img="{ key: s.avatar_name ? `avatars/${s.avatar_name}` : '', placeholder: iconDefaultAvatarBlack, lazy: false }" alt="avatar" />
+                              <span class="mini-profile-name">{{ s.username || ('user' + s.id) }}</span>
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    </Transition>
                   </span>
                 </div>
                 <div class="ri-game-div">
@@ -471,15 +472,16 @@ const spectatorsLabel = computed(() => {
   const limit = game.value.spectators_limit
   if (limit <= 0) return 'Без зрителей'
   if (selectedRoom.value?.in_game) {
-    const count = info.value?.spectators_count ?? 0
+    const count = spectatorsCount.value
     return `${count}/${limit}`
   }
   return `до ${limit}`
 })
+const spectatorsCount = computed(() => info.value?.spectators_count ?? 0)
 const spectatorsTooltipEnabled = computed(() => {
   const limit = game.value.spectators_limit
   if (settings.verificationRestrictions && !userStore.telegramVerified) return false
-  return auth.isAuthed && !!selectedRoom.value?.in_game && limit > 0
+  return auth.isAuthed && !!selectedRoom.value?.in_game && limit > 0 && spectatorsCount.value > 0
 })
 const spectatorsTooltipVisible = computed(() => spectatorsOpen.value && spectatorsTooltipEnabled.value)
 
@@ -902,6 +904,10 @@ watch(selectedId, () => {
   spectators.value = []
   spectatorsLoading.value = false
   spectatorsError.value = ''
+})
+
+watch(spectatorsTooltipEnabled, (enabled) => {
+  if (!enabled) spectatorsOpen.value = false
 })
 
 watch(() => selectedRoom.value?.in_game, (inGame) => {
@@ -1460,6 +1466,21 @@ onBeforeUnmount(() => {
                   box-shadow: 0 2px 16px rgba($neutral-black, 0.20);
                   z-index: 5;
                   pointer-events: auto;
+                  &.spectators-tooltip-enter-active,
+                  &.spectators-tooltip-leave-active {
+                    transition: opacity 0.25s ease-in-out;
+                  }
+                  &.spectators-tooltip-enter-from,
+                  &.spectators-tooltip-leave-to {
+                    opacity: 0;
+                  }
+                  .spectators-list-title {
+                    color: $neutral-black;
+                    font-family: Hauora-Regular;
+                    font-size: 14px;
+                    line-height: 16px;
+                    letter-spacing: -0.28px;
+                  }
                   .spectators-list {
                     display: flex;
                     flex-direction: column;
