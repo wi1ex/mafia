@@ -5084,7 +5084,7 @@ async def finish_game(r, rid: int, *, result: str, head_uid: int | None = None, 
 
 
 async def schedule_auto_game_end(rid: int, *, reason: str) -> None:
-    await asyncio.sleep(5)
+    await asyncio.sleep(1000)
 
     r = get_redis()
     try:

@@ -544,7 +544,7 @@ function openAuth(mode: 'login' | 'register') {
       border-radius: 16px;
       background-color: $soft-purple-900;
       img {
-        height: 48px;
+        height: 40px;
       }
     }
     .pages {

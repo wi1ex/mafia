@@ -821,6 +821,8 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
       display: flex;
       align-items: center;
       justify-content: center;
+      width: 100%;
+      height: 100%;
       .icon-voted-img {
         aspect-ratio: 1;
         height: 60%;

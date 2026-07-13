@@ -2,7 +2,6 @@ from __future__ import annotations
 import structlog
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.exceptions import RequestValidationError
-from starlette.status import HTTP_422_UNPROCESSABLE_ENTITY
 from fastapi.responses import JSONResponse
 from ..schemas.common import ErrorOut
 
@@ -41,4 +40,4 @@ def setup_exception_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(RequestValidationError)
     async def _val(_: Request, exc: RequestValidationError):
-        return JSONResponse(ErrorOut(detail="validation_error").model_dump(), status_code=HTTP_422_UNPROCESSABLE_ENTITY)
+        return JSONResponse(ErrorOut(detail="validation_error").model_dump(), status_code=422)
