@@ -66,21 +66,28 @@ export const useUserStore = defineStore('user', () => {
     user.value.allow_friend_requests = data.allow_friend_requests
   }
 
-  function updateStoredRoomTitle(id: number, name: string) {
+  function defaultRoomTitle(id: number, name: string): string {
     const trimmed = (name || '').trim()
     const nick = trimmed || (Number.isFinite(id) ? `user${id}` : 'user')
-    const title = `Комната ${nick}`
+    return `Комната ${nick}`
+  }
+
+  function updateStoredRoomTitle(id: number, previousName: string, nextName: string) {
     try {
       const raw = localStorage.getItem('room:lastRoom')
-      const payload = raw ? JSON.parse(raw) as Record<string, unknown> : {}
-      payload.title = title
+      if (!raw) return
+      const payload = JSON.parse(raw) as Record<string, unknown>
+      if (payload.title !== defaultRoomTitle(id, previousName)) return
+      payload.title = defaultRoomTitle(id, nextName)
       localStorage.setItem('room:lastRoom', JSON.stringify(payload))
     } catch {}
   }
+
   function setUsername(name: string) {
     if (!user.value) return
+    const previousName = user.value.username || ''
     user.value.username = name
-    updateStoredRoomTitle(user.value.id, name)
+    updateStoredRoomTitle(user.value.id, previousName, name)
   }
 
   function setAvatarName(name: string | null) { if (user.value) user.value.avatar_name = name }
