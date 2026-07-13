@@ -68,7 +68,7 @@
       <aside class="right" :aria-live="selectedId ? 'polite' : 'off'" @pointerdown.self="selArmed = true"
              @pointerup.self="selArmed && clearSelection()" @pointerleave.self="selArmed = false" @pointercancel.self="selArmed = false">
         <Transition name="room-panel" mode="out-in">
-          <div v-if="selectedId" key="info" class="room-info">
+          <div v-if="selectedId" :key="`info-${selectedId}`" class="room-info">
             <header>
               <span>{{ selectedRoom?.title }}</span>
               <div class="room-actions">
@@ -770,7 +770,7 @@ function onGlobalPointerDown(e: PointerEvent) {
     }
   }
   if (target instanceof Element) {
-    if (target.closest('.item.active')) return
+    if (target.closest('.item')) return
     if (target.closest('.room-info')) return
   }
   clearSelection()

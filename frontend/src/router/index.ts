@@ -2,7 +2,7 @@ import { createRouter, createWebHistory, type RouteLocationNormalized, type Rout
 import { useAuthStore, useSettingsStore, useUserStore } from '@/store'
 import { BASE_TITLE, ROOM_FALLBACK_TITLE, setPageTitle } from '@/services/pwa'
 
-const BASE_DESCRIPTION = 'Играйте в мафию онлайн бесплатно, общайтесь в комнатах с трансляциями'
+const BASE_DESCRIPTION = 'Играйте в мафию онлайн бесплатно, общайтесь в чате и комнатах с трансляциями'
 
 const routes: RouteRecordRaw[] = [
   {
