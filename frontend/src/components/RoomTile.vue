@@ -526,11 +526,11 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
         width: 20px;
         height: 20px;
         border-radius: 4px;
-        background-color: $soft-purple-800;
-        color: $neutral-white;
-        font-family: Hauora-Regular;
-        font-size: 12px;
-        line-height: 12px;
+        background-color: $neutral-white;
+        color: $soft-purple-900;
+        font-family: Hauora-Bold;
+        font-size: 14px;
+        line-height: 14px;
         letter-spacing: -0.24px;
       }
       .user-avatar {
