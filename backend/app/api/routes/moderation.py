@@ -459,7 +459,7 @@ async def moderation_apply_user_timeout(user_id: int, payload: AdminSanctionTime
             duration_label=duration_label,
         )
     with suppress(Exception):
-        await force_leave_user_from_rooms(uid, reason="sanction_timeout")
+        await force_leave_user_from_rooms(uid, reason="sanction_timeout", session=session)
 
     details = f"TIMEOUT user_id={uid}"
     if user.username:

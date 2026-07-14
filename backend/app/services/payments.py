@@ -31,7 +31,7 @@ from .profile_theme import (
     ensure_profile_theme_defaults,
     resolve_profile_theme_state,
 )
-from .user_cache import refresh_user_profile_cache
+from .user_cache import get_user_profile_cached, refresh_user_profile_cache
 from ..api.utils import (
     emit_auth_profile_sync,
     emit_room_profile_theme_sync,
@@ -280,8 +280,14 @@ def _user_log_username(user: User, fallback: object = None) -> str:
     return str(user.username or fallback or f"user{user.id}")
 
 
-def _payment_log_username(payment: KassaPayment) -> str | None:
-    return f"user{payment.user_id}" if payment.user_id else None
+async def _payment_log_username(session: AsyncSession, payment: KassaPayment) -> str | None:
+    user_id = int(payment.user_id or 0)
+    if user_id <= 0:
+        return None
+
+    profile = await get_user_profile_cached(session, user_id)
+    username = str((profile or {}).get("username") or "").strip()
+    return username or f"user{user_id}"
 
 
 def _kassa_payment_amount_text(payment: KassaPayment) -> str:
@@ -1253,7 +1259,7 @@ async def process_kassa_webhook(
             session,
             event="payment_result",
             user_id=payment.user_id,
-            username=_payment_log_username(payment),
+            username=await _payment_log_username(session, payment),
             email=payment.email,
             plan=payment.plan,
             currency=payment.currency,
@@ -1276,7 +1282,7 @@ async def process_kassa_webhook(
             session,
             event="payment_result",
             user_id=payment.user_id,
-            username=_payment_log_username(payment),
+            username=await _payment_log_username(session, payment),
             email=payment.email,
             plan=payment.plan,
             currency=payment.currency,
@@ -1311,7 +1317,7 @@ async def process_kassa_webhook(
                 session,
                 event="payment_result",
                 user_id=payment.user_id,
-                username=_payment_log_username(payment),
+                username=await _payment_log_username(session, payment),
                 email=payment.email,
                 plan=payment.plan,
                 currency=payment.currency,
@@ -1328,7 +1334,7 @@ async def process_kassa_webhook(
                 session,
                 event="payment_result",
                 user_id=payment.user_id,
-                username=_payment_log_username(payment),
+                username=await _payment_log_username(session, payment),
                 email=payment.email,
                 plan=payment.plan,
                 currency=payment.currency,
@@ -1343,7 +1349,7 @@ async def process_kassa_webhook(
         session,
         event="payment_result",
         user_id=payment.user_id,
-        username=_payment_log_username(payment),
+        username=await _payment_log_username(session, payment),
         email=payment.email,
         plan=payment.plan,
         currency=payment.currency,

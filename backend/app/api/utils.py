@@ -31,6 +31,7 @@ from ..security.admin_guard import is_protected_admin_uid
 from ..security.auth_tokens import get_identity
 from ..services.minio import delete_avatars_async
 from ..services.user_cache import (
+    get_user_profile_cached,
     get_user_profiles_cached,
     refresh_user_profile_cache,
     write_user_profile_cache,
@@ -2610,7 +2611,7 @@ async def delete_stale_unverified_accounts(*, batch_limit: int = 100, min_age_mi
     return deleted
 
 
-async def force_leave_user_from_rooms(user_id: int, *, reason: str) -> None:
+async def force_leave_user_from_rooms(user_id: int, *, reason: str, session: AsyncSession | None = None) -> None:
     uid = int(user_id or 0)
     if uid <= 0:
         return
@@ -2632,7 +2633,12 @@ async def force_leave_user_from_rooms(user_id: int, *, reason: str) -> None:
     if not rooms:
         return
 
-    actor_username = f"user{uid}"
+    if session is None:
+        async with SessionLocal() as profile_session:
+            profile = await get_user_profile_cached(profile_session, uid, redis_client=r)
+    else:
+        profile = await get_user_profile_cached(session, uid, redis_client=r)
+    actor_username = str((profile or {}).get("username") or f"user{uid}")
     for rid, was_member, was_spectator in rooms:
         with suppress(Exception):
             await sio.emit(

@@ -2016,7 +2016,7 @@ async def apply_user_timeout(user_id: int, payload: AdminSanctionTimedIn, ident:
             duration_label=duration_label,
         )
     with suppress(Exception):
-        await force_leave_user_from_rooms(uid, reason="sanction_timeout")
+        await force_leave_user_from_rooms(uid, reason="sanction_timeout", session=session)
 
     details = f"Таймаут user_id={uid}"
     if user.username:
@@ -2180,7 +2180,7 @@ async def apply_user_ban(user_id: int, payload: AdminSanctionBanIn, ident: Ident
             duration_label=None,
         )
     with suppress(Exception):
-        await force_leave_user_from_rooms(uid, reason="sanction_ban")
+        await force_leave_user_from_rooms(uid, reason="sanction_ban", session=session)
 
     details = f"Бан user_id={uid}"
     if user.username:
