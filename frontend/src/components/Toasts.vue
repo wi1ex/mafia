@@ -384,16 +384,6 @@ onBeforeUnmount(() => {
             border-radius: 50%;
             object-fit: cover;
           }
-          span {
-            color: $neutral-900;
-            font-family: Hauora-Regular;
-            font-size: 16px;
-            line-height: 22px;
-            letter-spacing: -0.32px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-          }
           .profile-theme-icons {
             display: inline-flex;
             align-items: center;
@@ -402,6 +392,17 @@ onBeforeUnmount(() => {
               border-radius: 0;
               object-fit: contain;
             }
+          }
+          span {
+            max-width: 170px;
+            color: $neutral-900;
+            font-family: Hauora-Regular;
+            font-size: 16px;
+            line-height: 22px;
+            letter-spacing: -0.32px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
           }
           p {
             margin: 0;

@@ -3,7 +3,7 @@
   <div id="desktop-scale-root" class="desktop-scale-root" :style="desktopScaleStyle">
     <Header v-if="!isRoom" />
     <div class="rotate-overlay">
-      <video class="rotate-overlay__video" :src="rotateDeviceVideo" autoplay loop muted playsinline preload="auto" aria-label="Поверните устройство" />
+      <video ref="rotateVideo" class="rotate-overlay__video" :src="rotateVideoVisible ? rotateDeviceVideo : undefined" loop muted playsinline preload="none" aria-label="Поверните устройство" />
     </div>
     <router-view :key="routerViewKey" />
     <Chat />
@@ -13,7 +13,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, watch, watchEffect, computed, ref } from 'vue'
+import { onMounted, onBeforeUnmount, watch, watchEffect, computed, nextTick, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/store'
 import { useUserStore } from '@/store'
@@ -34,6 +34,8 @@ const auth = useAuthStore()
 const user = useUserStore()
 const chat = useGlobalChatStore()
 const settings = useSettingsStore()
+const rotateVideo = ref<HTMLVideoElement | null>(null)
+const rotateVideoVisible = ref(false)
 
 const DESKTOP_DESIGN_WIDTH = 1600
 const DESKTOP_BREAKPOINT = 160
@@ -58,6 +60,18 @@ let onTelegramVerified: ((e: any) => void) | null = null
 let onAdminNotify: ((e: any) => void) | null = null
 let onUserGameParticipationChanged: ((e: any) => void) | null = null
 let onProfileSync: ((e: any) => void) | null = null
+let rotateVideoObserver: IntersectionObserver | null = null
+
+function setRotateVideoVisible(visible: boolean) {
+  rotateVideoVisible.value = visible
+  if (!visible) {
+    rotateVideo.value?.pause()
+    return
+  }
+  void nextTick(() => {
+    void rotateVideo.value?.play().catch(() => {})
+  })
+}
 
 const isRoom = computed(() => route.name === 'room')
 const routerViewKey = computed(() => {
@@ -103,6 +117,11 @@ watch(() => auth.isAuthed, (isAuthed) => {
 })
 
 onMounted(async () => {
+  rotateVideoObserver = new IntersectionObserver(([entry]) => {
+    setRotateVideoVisible(Boolean(entry?.isIntersecting))
+  })
+  if (rotateVideo.value) rotateVideoObserver.observe(rotateVideo.value)
+
   window.addEventListener('resize', updateViewport)
   onSanctionsUpdate = (e: any) => {
     const p = e?.detail || {}
@@ -173,6 +192,9 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  rotateVideoObserver?.disconnect()
+  rotateVideoObserver = null
+  rotateVideo.value?.pause()
   window.removeEventListener('resize', updateViewport)
   document.body.classList.remove('room-touch-manipulation')
   if (onSanctionsUpdate) window.removeEventListener('auth-sanctions_update', onSanctionsUpdate)
