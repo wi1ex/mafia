@@ -28,26 +28,14 @@
           </template>
         </UiInput>
 
-        <div class="range" :style="rangeStyle">
-          <div class="range-label">
-            <span class="limit-text">Лимит участников</span>
-            <span class="limit-badge" aria-label="Лимит участников">{{ limit }}</span>
-          </div>
-          <UiSlider
-            v-model="limit"
-            theme="light"
-            :min="RANGE_MIN"
-            :max="RANGE_MAX"
-            :step="1"
-            :dead-zone-until="DEAD_MIN"
-            :dead-zone-value="DEAD_MIN"
-            aria-label="Лимит участников"
-          />
-          <div class="range-marks" aria-hidden="true">
-            <span class="range-mark" :style="rangeMarkStyle(2)">DUO HD</span>
-            <span class="range-mark" :style="rangeMarkStyle(gameLimitMin)">MAFIA</span>
-          </div>
-        </div>
+        <UiTripleSwitch
+          v-model="limit"
+          label="Лимит участников"
+          theme="light"
+          :width="274"
+          :options="roomLimitOptions"
+          aria-label="Лимит участников: 2, 11 или 20"
+        />
 
         <UiSwitch
           v-model="isPrivate"
@@ -96,37 +84,29 @@ import {
   type RoomGameParams,
 } from '@/services/gameParams'
 import { formatModerationAlert } from '@/services/moderation'
-import { useUserStore, useSettingsStore } from '@/store'
+import { useUserStore } from '@/store'
 
-import UiSlider from '@/components/UiSlider.vue'
 import UiInput from '@/components/UiInput.vue'
 import UiSwitch from '@/components/UiSwitch.vue'
+import UiTripleSwitch from '@/components/UiTripleSwitch.vue'
 import UiButton from '@/components/UiButton.vue'
 import UiIcon from '@/components/UiIcon.vue'
 
 import iconClose from '@/assets/svg/iconClose.svg'
 
 const user = useUserStore()
-const settings = useSettingsStore()
 
 const armed = ref(false)
 const busy = ref(false)
 let prevOverflow = ''
 
-const RANGE_MIN = 0
-const RANGE_MAX = 12
-const DEAD_MIN = 2
-const RANGE_THUMB_SIZE = 26
 const TITLE_MAX = 32
-
-const gameLimitMin = computed(() => {
-  const minReady = Number(settings.gameMinReadyPlayers)
-  return Number.isFinite(minReady) && minReady > 0 ? minReady + 1 : 11
-})
-const rangeStyle = computed<Record<string, string>>(() => ({
-  '--range-thumb-size': `${RANGE_THUMB_SIZE}px`,
-  '--ui-slider-filled-thumb-size': `${RANGE_THUMB_SIZE}px`,
-}))
+type RoomLimit = 2 | 11 | 20
+const roomLimitOptions = [
+  { value: 2, label: '2' },
+  { value: 11, label: '11' },
+  { value: 20, label: '20' },
+] as const
 
 const emit = defineEmits<{
   (e: 'close'): void
@@ -182,10 +162,9 @@ const title = computed({
 const titleInvalid = computed(() => title.value.length > TITLE_MAX)
 
 const initialLimit = (() => {
-  const value = Number(initialBasic.user_limit)
-  return Number.isFinite(value) ? clamp(value, 2, 12) : 11
+  return normalizeRoomLimit(initialBasic.user_limit)
 })()
-const limit = ref<number>(initialLimit)
+const limit = ref<RoomLimit>(initialLimit)
 const hiddenRoomHint = 'Создание скрытых комнат доступно только при наличии подписки'
 
 const privacy = ref<'open' | 'private'>(initialBasic.privacy === 'private' ? 'private' : 'open')
@@ -193,7 +172,7 @@ const initialAnonymity = initialBasic.anonymity === 'hidden' && canCreateHiddenR
 const anonymity = ref<'visible' | 'hidden'>(initialAnonymity)
 if (anonymity.value === 'hidden') privacy.value = 'private'
 
-const ok = computed(() => title.value.length > 0 && limit.value >= 2 && limit.value <= 12)
+const ok = computed(() => title.value.length > 0)
 
 const isPrivate = computed<boolean>({
   get: () => privacy.value === 'private',
@@ -216,16 +195,10 @@ const isAnonymous = computed<boolean>({
 
 const isPrivacyLocked = computed(() => anonymity.value === 'hidden')
 
-function clamp(n: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, n))
-}
-
-function rangeMarkStyle(value: number): Record<string, string> {
-  const span = RANGE_MAX - RANGE_MIN
-  const ratio = span > 0 ? (clamp(value, RANGE_MIN, RANGE_MAX) - RANGE_MIN) / span : 0
-  const pct = Number((ratio * 100).toFixed(4))
-  const thumbOffset = Number((RANGE_THUMB_SIZE * (0.5 - ratio)).toFixed(4))
-  return { left: `calc(${pct}% + ${thumbOffset}px)` }
+function normalizeRoomLimit(value: unknown): RoomLimit {
+  const parsed = Number(value)
+  if (parsed === 2 || parsed === 11 || parsed === 20) return parsed
+  return 11
 }
 
 function normalizeGame(value: unknown): RoomGameParams {
@@ -238,7 +211,7 @@ function saveBasic() {
   try {
     const payload: RoomBasic = {
       title: title.value,
-      user_limit: clamp(limit.value, 2, 12),
+      user_limit: limit.value,
       privacy: privacy.value,
       anonymity: anonymity.value,
     }
@@ -301,10 +274,6 @@ function sanitizeTitle(s: string, max = 32): string {
 }
 
 watch([title, limit, privacy, anonymity], saveBasic, { flush: 'post' })
-
-watch(limit, (value) => {
-  if (value < 2) limit.value = 2
-}, { flush: 'sync' })
 
 watch(anonymity, (next) => {
   if (next === 'hidden' && privacy.value !== 'private') privacy.value = 'private'
@@ -402,75 +371,6 @@ onBeforeUnmount(() => {
       flex-direction: column;
       gap: 24px;
       background-color: $neutral-100;
-      .range {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        .range-label {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 12px;
-          .limit-text {
-            color: $neutral-black;
-            font-family: Hauora-Bold;
-            font-size: 16px;
-            line-height: 18px;
-            letter-spacing: -0.32px;
-          }
-          .limit-badge {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 28px;
-            height: 28px;
-            border-radius: 8px;
-            background-color: $neutral-900;
-            color: $neutral-white;
-            font-family: Hauora-Bold;
-            font-size: 16px;
-            line-height: 18px;
-            letter-spacing: -0.32px;
-          }
-        }
-        .range-marks {
-          position: relative;
-          height: 38px;
-          pointer-events: none;
-          .range-mark {
-            display: inline-flex;
-            position: absolute;
-            align-items: center;
-            justify-content: center;
-            top: 7px;
-            height: 32px;
-            padding: 0 8px;
-            border-radius: 12px;
-            background-color: $neutral-black;
-            color: $neutral-white;
-            font-family: Hauora-Regular;
-            font-size: 16px;
-            line-height: 16px;
-            letter-spacing: -0.3px;
-            white-space: nowrap;
-            transform: translateX(-50%);
-            isolation: isolate;
-          }
-          .range-mark::before {
-            content: "";
-            position: absolute;
-            top: -5px;
-            left: 50%;
-            width: 10px;
-            height: 10px;
-            border-radius: 3px 0 0;
-            background-color: inherit;
-            transform: translateX(-50%) scaleX(0.7) rotate(45deg);
-            transform-origin: center;
-            z-index: -1;
-          }
-        }
-      }
     }
   }
 }

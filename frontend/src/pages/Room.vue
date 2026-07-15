@@ -1773,8 +1773,8 @@ const gridStyle = computed(() => {
   const limit = roomUserLimit.value
   const isTwoSeatRoom = Number.isFinite(limit) && limit === 2
   const count = sortedPeerIds.value.length
-  const cols = count <= 2 ? (isTwoSeatRoom ? 2 : 3) : count <= 6 ? 3 : 4
-  const rows = count <= 2 ? (isTwoSeatRoom ? 1 : 2) : count <= 6 ? 2 : 3
+  const cols = count <= 2 ? (isTwoSeatRoom ? 2 : 3) : count <= 6 ? 3 : count <= 12 ? 4 : 5
+  const rows = count <= 2 ? (isTwoSeatRoom ? 1 : 2) : count <= 6 ? 2 : count <= 12 ? 3 : 4
   return getIdleGridStyle(cols, rows)
 })
 

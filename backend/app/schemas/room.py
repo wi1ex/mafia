@@ -21,7 +21,7 @@ class GameParams(BaseModel):
 
 class RoomCreateIn(BaseModel):
     title: Title = Field(min_length=1, max_length=32)
-    user_limit: int = Field(ge=2, le=12, default=12)
+    user_limit: Literal[2, 11, 20] = 11
     privacy: Literal["open", "private"] = Field(default="open")
     anonymity: Literal["visible", "hidden"] = Field(default="visible")
     game: Optional[GameParams] = Field(default_factory=GameParams)

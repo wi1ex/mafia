@@ -13,7 +13,7 @@ class Room(Base):
     creator: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
     creator_name: Mapped[str] = mapped_column(String(20), nullable=False)
     title: Mapped[str] = mapped_column(String(32), nullable=False)
-    user_limit: Mapped[int] = mapped_column(Integer, nullable=False, default=12)
+    user_limit: Mapped[int] = mapped_column(Integer, nullable=False, default=11)
     privacy: Mapped[str] = mapped_column(String(8), nullable=False, server_default="open")
     anonymity: Mapped[str] = mapped_column(String(8), nullable=False, server_default="visible")
     game: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
