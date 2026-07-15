@@ -623,13 +623,6 @@ onBeforeUnmount(() => {
             --ui-icon-height: 24px;
             --ui-icon-color: #{$neutral-black};
           }
-          &:disabled {
-            background-color: $neutral-200;
-            border-color: $neutral-200;
-            .action-icon {
-              --ui-icon-color: #{$neutral-400};
-            }
-          }
           &.invite-btn {
             background-color: $soft-purple-100;
             .action-icon {
@@ -665,6 +658,13 @@ onBeforeUnmount(() => {
             &:not(:disabled):focus-visible,
             &:not(:disabled):active {
               border-color: $red-600;
+            }
+          }
+          &:disabled {
+            background-color: $neutral-200;
+            border-color: $neutral-200;
+            .action-icon {
+              --ui-icon-color: #{$neutral-400};
             }
           }
         }
