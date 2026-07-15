@@ -230,8 +230,8 @@ const kassaPaymentPrices: Record<KassaCurrency, Record<KassaPlan, string>> = {
 
 const subscriptionBenefits: readonly string[] = [
   'GIF-аватары',
-  'выбор цвета профиля',
-  'выбор иконки профиля',
+  'выбор цвета и иконки профиля',
+  'создание комнат на 20 человек',
   'создание скрытых комнат',
   'отключение зрителей в игре',
   'трансляции в высоком качестве',

@@ -466,6 +466,7 @@ onBeforeUnmount(() => {
               }
             }
             .room-limit-button--disabled {
+              overflow: visible;
               color: $neutral-300;
               cursor: not-allowed;
               .room-limit-tooltip {
