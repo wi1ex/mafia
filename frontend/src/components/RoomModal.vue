@@ -28,14 +28,22 @@
           </template>
         </UiInput>
 
-        <UiTripleSwitch
-          v-model="limit"
-          label="Лимит участников"
-          theme="light"
-          :width="274"
-          :options="roomLimitOptions"
-          aria-label="Лимит участников: 2, 11 или 20"
-        />
+        <div class="room-limit-field">
+          <span class="room-limit-text">Лимит участников</span>
+          <div class="room-limit-segmented" role="radiogroup" aria-label="Лимит участников">
+            <button
+              v-for="option in roomLimitOptions"
+              :key="option.value"
+              type="button"
+              role="radio"
+              :class="{ active: limit === option.value }"
+              :aria-checked="limit === option.value"
+              @click="limit = option.value"
+            >
+              <span>{{ option.label }}</span>
+            </button>
+          </div>
+        </div>
 
         <UiSwitch
           v-model="isPrivate"
@@ -88,7 +96,6 @@ import { useUserStore, useSettingsStore } from '@/store'
 
 import UiInput from '@/components/UiInput.vue'
 import UiSwitch from '@/components/UiSwitch.vue'
-import UiTripleSwitch from '@/components/UiTripleSwitch.vue'
 import UiButton from '@/components/UiButton.vue'
 import UiIcon from '@/components/UiIcon.vue'
 
@@ -381,6 +388,71 @@ onBeforeUnmount(() => {
       flex-direction: column;
       gap: 24px;
       background-color: $neutral-100;
+      .room-limit-field {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        .room-limit-text {
+          color: $neutral-black;
+          font-family: Hauora-Bold;
+          font-size: 16px;
+          line-height: 18px;
+          letter-spacing: -0.32px;
+        }
+        .room-limit-segmented {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          width: 274px;
+          button {
+            display: flex;
+            position: relative;
+            flex: 1 1 0;
+            align-items: center;
+            justify-content: center;
+            padding: 0 8px;
+            min-width: 0;
+            height: 48px;
+            border: none;
+            border-radius: 999px;
+            background-color: $neutral-white;
+            color: $neutral-400;
+            font-family: Hauora-Regular;
+            font-size: 18px;
+            line-height: 20px;
+            letter-spacing: -0.36px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: color 0.25s ease-in-out;
+            &::before {
+              content: "";
+              position: absolute;
+              inset: 0;
+              border-radius: inherit;
+              background: linear-gradient(261deg, $soft-purple-800 0%, $green-700 100%);
+              opacity: 0;
+              pointer-events: none;
+              transition: opacity 0.25s ease-in-out;
+            }
+            span {
+              position: relative;
+              z-index: 1;
+            }
+            &.active {
+              color: $neutral-white;
+              &::before {
+                opacity: 1;
+              }
+            }
+            &:not(.active):hover,
+            &:not(.active):focus-visible,
+            &:not(.active):active {
+              color: $neutral-black;
+            }
+          }
+        }
+      }
     }
   }
 }
