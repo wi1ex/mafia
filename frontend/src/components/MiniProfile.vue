@@ -2699,6 +2699,7 @@ onBeforeUnmount(() => {
             display: flex;
             flex-direction: column;
             gap: 8px;
+            min-width: 300px;
             .profile-room-admin {
               display: grid;
               grid-template-columns: repeat(5, minmax(0, 1fr));
