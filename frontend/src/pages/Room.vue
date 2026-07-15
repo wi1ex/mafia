@@ -4052,8 +4052,8 @@ onBeforeUnmount(() => {
       align-items: center;
       justify-content: center;
       gap: 8px;
-      width: 178px;
-      height: 178px;
+      width: 217px;
+      height: 217px;
       border-radius: 24px;
       background-color: $neutral-100;
       .pause-img {

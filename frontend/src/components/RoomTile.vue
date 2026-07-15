@@ -32,21 +32,11 @@
       class="nominate-btn nominate-btn--pick"
       size="low"
       variant="green"
+      :icon="pickKind === 'check' ? iconCheck : iconKill"
+      icon-position="left"
       disabled
     >
       {{ pickKind === 'check' ? 'Проверил' : 'Выстрелил в' }} {{ pickNumber }}
-    </UiButton>
-    <UiButton
-      v-if="showUnnominate"
-      class="nominate-btn"
-      size="low"
-      variant="red"
-      :icon="iconCloseCircle"
-      icon-position="left"
-      aria-label="Отменить"
-      @click="$emit('unnominate', id)"
-    >
-      Отменить
     </UiButton>
     <UiButton
       v-if="showNominate"
@@ -59,6 +49,18 @@
       @click="$emit('nominate', id)"
     >
       Выставить
+    </UiButton>
+    <UiButton
+      v-if="showUnnominate"
+      class="nominate-btn"
+      size="low"
+      variant="red"
+      :icon="iconCloseCircle"
+      icon-position="left"
+      aria-label="Отменить"
+      @click="$emit('unnominate', id)"
+    >
+      Отменить
     </UiButton>
     <UiButton
       v-if="showShoot"
@@ -824,11 +826,14 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 100%;
-      height: 100%;
+      aspect-ratio: 1;
+      width: auto;
+      height: calc(100% / 3 * 2);
+      border-radius: 999px;
+      background-color: $soft-purple-800;
       .icon-voted-img {
         aspect-ratio: 1;
-        height: 60%;
+        height: 80%;
       }
     }
   }
