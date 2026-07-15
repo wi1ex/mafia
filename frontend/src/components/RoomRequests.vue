@@ -379,7 +379,7 @@ onBeforeUnmount(() => {
         }
         .username {
           color: $neutral-black;
-          font-family: Hauora-Regular;
+          font-family: Hauora-Medium;
           font-size: 16px;
           line-height: 20px;
           letter-spacing: -0.32px;

@@ -213,13 +213,13 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   inset: 0;
-  background-color: rgba($neutral-800, 0.2);
+  background-color: rgba($neutral-black, 0.6);
   backdrop-filter: blur(12px);
   z-index: 9999;
   &__video {
     display: block;
-    max-width: 80vw;
-    max-height: 80vh;
+    width: 60%;
+    border-radius: 10%;
   }
 }
 

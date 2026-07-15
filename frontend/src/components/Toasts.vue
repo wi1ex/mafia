@@ -11,9 +11,12 @@
         </header>
 
         <div class="user">
-          <div class="meta">
+          <div class="meta" :class="{ 'has-theme-color': hasToastUserThemeColor(t.user) }" :style="toastUserNickStyle(t.user)">
             <img v-if="t.user" v-minio-img="{ key: t.user.avatar_name ? `avatars/${t.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
-            <span v-if="t.user">{{ t.user.username || ('user' + t.user.id) }}</span>
+            <div v-if="t.user && toastUserThemeIconSrcs(t.user).length" class="profile-theme-icons" aria-hidden="true">
+              <img v-for="badgeSrc in toastUserThemeIconSrcs(t.user)" :key="`${t.user.id}-${badgeSrc}`" class="profile-theme-icon" :src="badgeSrc" alt="" />
+            </div>
+            <span v-if="t.user" class="nick">{{ t.user.username || ('user' + t.user.id) }}</span>
             <div v-if="t.sanctionText" class="sanction-text">
               <p class="sanction-text__lead">{{ t.sanctionText.lead }}</p>
               <p class="sanction-text__details">{{ t.sanctionText.details }}</p>
@@ -44,6 +47,8 @@ import { useRouter } from 'vue-router'
 import { useNotifStore, inferFriendApiAction, resolveFriendsApiError } from '@/store'
 import { api } from '@/services/axios'
 import { alertDialog } from '@/services/confirm'
+import { getProfileThemeOption } from '@/constants/profileThemes'
+import { getProfileThemeBadgeSources } from '@/constants/profileIcons'
 
 import UiIcon from '@/components/UiIcon.vue'
 import UiButton from '@/components/UiButton.vue'
@@ -77,6 +82,9 @@ type ToastUser = {
   id: number
   username?: string
   avatar_name?: string|null
+  role?: string | null
+  theme_color?: string | null
+  theme_icon?: string | null
 }
 type ToastSanctionText = {
   lead: string
@@ -104,6 +112,15 @@ type ToastToneClass = 'tone-yellow' | 'tone-orange' | 'tone-red' | 'tone-green' 
 type ToastIconVariant = 'success' | 'neutral' | 'attention'
 
 const items = ref<ToastItem[]>([])
+
+const hasToastUserThemeColor = (user?: ToastUser) => Boolean(getProfileThemeOption(user?.theme_color))
+const toastUserNickStyle = (user?: ToastUser) => {
+  const option = getProfileThemeOption(user?.theme_color)
+  return option ? { '--toast-user-nick-theme': option.bg } : {}
+}
+const toastUserThemeIconSrcs = (user: ToastUser) => (
+  getProfileThemeBadgeSources(user.theme_icon, user.role, { roleBadgeVariant: 'black' })
+)
 
 async function close(target: ToastItem | number) {
   const key = typeof target === 'number' ? target : target.key
@@ -354,6 +371,13 @@ onBeforeUnmount(() => {
           align-items: center;
           gap: 8px;
           min-width: 0;
+          &.has-theme-color .nick {
+            background: var(--toast-user-nick-theme);
+            background-clip: text;
+            color: transparent;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+          }
           img {
             width: 24px;
             height: 24px;
@@ -369,6 +393,15 @@ onBeforeUnmount(() => {
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+          }
+          .profile-theme-icons {
+            display: inline-flex;
+            align-items: center;
+            margin-left: -8px;
+            .profile-theme-icon {
+              border-radius: 0;
+              object-fit: contain;
+            }
           }
           p {
             margin: 0;
