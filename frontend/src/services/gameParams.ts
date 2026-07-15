@@ -1,6 +1,5 @@
 export type RoomGameParams = {
   mode: 'normal' | 'rating'
-  format: 'hosted' | 'nohost'
   spectators_limit: number
   nominate_mode: 'head' | 'players'
   break_at_zero: boolean
@@ -20,7 +19,6 @@ export const SPECTATORS_ENABLED_LIMIT = 10
 
 export const roomGameDefault: RoomGameParams = {
   mode: 'normal',
-  format: 'hosted',
   spectators_limit: SPECTATORS_ENABLED_LIMIT,
   nominate_mode: 'players',
   break_at_zero: true,
@@ -52,7 +50,6 @@ export function normalizeRoomGameParams(
 
   const value = raw as LegacyRoomGameParams
   if (value.mode === 'normal' || value.mode === 'rating') merged.mode = value.mode
-  if (value.format === 'hosted' || value.format === 'nohost') merged.format = value.format
   if (value.nominate_mode === 'head' || value.nominate_mode === 'players') merged.nominate_mode = value.nominate_mode
 
   merged.spectators_limit = normalizeSpectatorsLimit(value.spectators_limit, {

@@ -3426,7 +3426,6 @@ def serialize_game_for_redis(game_dict: Dict[str, Any]) -> Dict[str, str]:
         nominate_mode = "players"
     return {
         "mode": str(game_dict["mode"]),
-        "format": str(game_dict["format"]),
         "spectators_limit": str(normalize_spectators_limit(game_dict.get("spectators_limit"))),
         "nominate_mode": nominate_mode,
         "break_at_zero": "1" if raw_bool(game_dict.get("break_at_zero"), True) else "0",
@@ -3452,7 +3451,6 @@ def game_from_redis_to_model(raw_game: Dict[str, Any]) -> GameParams:
         nominate_mode = "players"
     return GameParams(
         mode=(raw_game.get("mode") or "normal"),
-        format=(raw_game.get("format") or "hosted"),
         spectators_limit=normalize_spectators_limit(raw_game.get("spectators_limit")),
         nominate_mode=nominate_mode,
         break_at_zero=raw_bool(raw_game.get("break_at_zero"), True),
@@ -4745,7 +4743,6 @@ async def fetch_live_room_stats(r, room_ids: list[int]) -> dict[int, dict[str, A
                 model = game_from_redis_to_model(game_raw)
                 game_payload = {
                     "mode": model.mode,
-                    "format": model.format,
                     "spectators_limit": model.spectators_limit,
                     "nominate_mode": model.nominate_mode,
                     "break_at_zero": model.break_at_zero,

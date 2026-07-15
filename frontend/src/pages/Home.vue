@@ -136,10 +136,6 @@
                   <span class="ri-meta-value">{{ game.mode === 'normal' ? 'Обычный' : 'Рейтинг' }}</span>
                 </div>
                 <div class="ri-game-div">
-                  <span class="ri-meta-text">Судья</span>
-                  <span class="ri-meta-value">{{ game.format === 'hosted' ? 'Ведущий' : 'Без ведущего' }}</span>
-                </div>
-                <div class="ri-game-div">
                   <span class="ri-meta-text">Выставления</span>
                   <span class="ri-meta-value">{{ game.nominate_mode === 'head' ? 'От ведущего' : 'От игроков' }}</span>
                 </div>

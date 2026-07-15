@@ -86,7 +86,6 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
     privacy = "private" if anonymity == "hidden" else payload.privacy
     game_dict = {
         "mode": gp.mode,
-        "format": gp.format,
         "spectators_limit": spectators_limit,
         "nominate_mode": gp.nominate_mode,
         "break_at_zero": bool(gp.break_at_zero),
@@ -296,7 +295,6 @@ async def update_game(room_id: int, payload: GameParams, ident: Identity = Depen
 
     game_dict = {
         "mode": payload.mode,
-        "format": payload.format,
         "spectators_limit": spectators_limit,
         "nominate_mode": payload.nominate_mode,
         "break_at_zero": bool(payload.break_at_zero),

@@ -38,17 +38,6 @@
               :disabled="true"
             />
             <UiSwitch
-              v-model="isNoHost"
-              label="Ведущий:"
-              theme="light"
-              size="low"
-              :width="256"
-              off-label="Ведущий"
-              on-label="Авто"
-              aria-label="Ведущий: с ведущим/авто"
-              :disabled="true"
-            />
-            <UiSwitch
               v-model="isPlayersNomination"
               label="Выставления:"
               theme="light"
@@ -168,11 +157,6 @@ const isRating = computed<boolean>({
   set: v => { game.value.mode = v ? 'rating' : 'normal' },
 })
 
-const isNoHost = computed<boolean>({
-  get: () => game.value.format === 'nohost',
-  set: v => { game.value.format = v ? 'nohost' : 'hosted' },
-})
-
 const isPlayersNomination = computed<boolean>({
   get: () => game.value.nominate_mode === 'players',
   set: v => { game.value.nominate_mode = v ? 'players' : 'head' },
@@ -207,7 +191,6 @@ function normalizeSaveGame(raw: unknown): RoomGameParams {
 
 function isSameGame(a: RoomGameParams, b: RoomGameParams) {
   return a.mode === b.mode &&
-    a.format === b.format &&
     a.spectators_limit === b.spectators_limit &&
     a.nominate_mode === b.nominate_mode &&
     a.break_at_zero === b.break_at_zero &&
