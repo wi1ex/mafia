@@ -3,7 +3,7 @@
   <div id="desktop-scale-root" class="desktop-scale-root" :style="desktopScaleStyle">
     <Header v-if="!isRoom" />
     <div class="rotate-overlay">
-      <div data-nosnippet>Поверните устройство</div>
+      <video class="rotate-overlay__video" :src="rotateDeviceVideo" autoplay loop muted playsinline preload="auto" aria-label="Поверните устройство" />
     </div>
     <router-view :key="routerViewKey" />
     <Chat />
@@ -21,6 +21,7 @@ import { useNotifStore } from '@/store'
 import { useGlobalChatStore } from '@/store'
 import { useSettingsStore } from '@/store'
 import { alertDialog } from '@/services/confirm'
+import rotateDeviceVideo from '@/assets/video/rotate-device.mp4'
 
 import Header from '@/components/Header.vue'
 import Toast from '@/components/Toasts.vue'
@@ -214,12 +215,12 @@ onBeforeUnmount(() => {
   inset: 0;
   background-color: rgba($neutral-800, 0.2);
   backdrop-filter: blur(12px);
-  color: $neutral-100;
-  font-family: Hauora-Regular;
-  font-size: 40px;
-  line-height: 44px;
-  letter-spacing: -0.32px;
   z-index: 9999;
+  &__video {
+    display: block;
+    max-width: 80vw;
+    max-height: 80vh;
+  }
 }
 
 @media (orientation: portrait) {

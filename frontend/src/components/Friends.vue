@@ -28,19 +28,10 @@
                   <img v-for="badgeSrc in friendThemeIconSrcs(f)" :key="`${f.id}-${badgeSrc}`" class="profile-theme-icon" :src="badgeSrc" alt="" />
                 </div>
                 <span class="nick">{{ f.username || ('user' + f.id) }}</span>
-              </div>
-              <div class="info">
-                <template v-if="isAccepted(f)">
-                  <div v-if="f.room_id" class="room-info">
-                    <span class="room">{{ f.room_title || ('Комната #' + f.room_id) }}</span>
-                    <span class="game" :class="{ active: f.room_in_game }">{{ f.room_in_game ? 'Игра' : 'Лобби' }}</span>
-                  </div>
-                  <div v-if="shouldShowInviteButton(f)" class="invite-select">
-                    <button type="button" class="icon-btn invite-btn" :disabled="isInviteDisabled(f) || Boolean(inviteBusy[f.id])" @click="invite(f)" aria-label="Пригласить в комнату">
-                      <UiIcon class="invite-icon" :icon="inviteIcon(f)" />
-                    </button>
-                  </div>
-                </template>
+                <div v-if="f.room_id && isAccepted(f)" class="room-info">
+                  <span class="room">{{ f.room_title || ('Комната #' + f.room_id) }}</span>
+                  <span class="game" :class="{ active: f.room_in_game }">{{ f.room_in_game ? 'Игра' : 'Лобби' }}</span>
+                </div>
               </div>
               <div v-if="f.kind === 'incoming'" class="actions">
                 <button class="icon-btn accept" :disabled="isActionBusy(f.id)" @click="accept(f.id)" aria-label="Принять заявку">
@@ -56,6 +47,9 @@
                 </button>
               </div>
               <div v-else-if="isAccepted(f)" class="actions">
+                <button v-if="shouldShowInviteButton(f)" type="button" class="icon-btn invite-btn" :disabled="isInviteDisabled(f) || Boolean(inviteBusy[f.id])" @click="invite(f)" aria-label="Пригласить в комнату">
+                  <UiIcon class="invite-icon" :icon="inviteIcon(f)" />
+                </button>
                 <button class="icon-btn danger" :disabled="isActionBusy(f.id)" @click="remove(f.id)" aria-label="Удалить из друзей">
                   <UiIcon class="action-icon" :icon="iconRemove" />
                 </button>
@@ -577,11 +571,6 @@ onBeforeUnmount(() => {
           overflow: hidden;
           text-overflow: ellipsis;
         }
-      }
-      .info {
-        display: flex;
-        align-items: center;
-        gap: 16px;
         .room-info {
           display: flex;
           flex-direction: column;
@@ -605,39 +594,6 @@ onBeforeUnmount(() => {
             letter-spacing: -0.24px;
             &.active {
               color: $green-700;
-            }
-          }
-        }
-        .invite-select {
-          position: relative;
-          .invite-btn {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0;
-            width: 28px;
-            height: 28px;
-            border-radius: 8px;
-            border: 1px solid transparent;
-            background-color: $soft-purple-100;
-            cursor: pointer;
-            transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out;
-            .invite-icon {
-              --ui-icon-width: 20px;
-              --ui-icon-height: 20px;
-              --ui-icon-color: #{$neutral-black};
-            }
-            &:disabled {
-              background-color: $neutral-200;
-              border-color: $neutral-200;
-              .invite-icon {
-                --ui-icon-color: #{$neutral-400};
-              }
-            }
-            &:not(:disabled):hover,
-            &:not(:disabled):focus-visible,
-            &:not(:disabled):active {
-              border-color: $neutral-black;
             }
           }
         }
@@ -668,6 +624,19 @@ onBeforeUnmount(() => {
             border-color: $neutral-200;
             .action-icon {
               --ui-icon-color: #{$neutral-400};
+            }
+          }
+          &.invite-icon {
+            background-color: $soft-purple-100;
+            .action-icon {
+              --ui-icon-width: 20px;
+              --ui-icon-height: 20px;
+              --ui-icon-color: #{$neutral-black};
+            }
+            &:not(:disabled):hover,
+            &:not(:disabled):focus-visible,
+            &:not(:disabled):active {
+              border-color: $neutral-black;
             }
           }
           &.accept {
