@@ -32,18 +32,20 @@
           <span class="room-limit-text">Лимит участников</span>
           <div class="room-limit-segmented" role="radiogroup" aria-label="Лимит участников">
             <span v-for="option in roomLimitOptions" :key="option.value" class="room-limit-option">
-              <button type="button" role="radio" :class="{ active: limit === option.value }"
-                :aria-checked="limit === option.value" :disabled="option.value === 20 && !hasSubscription" @click="limit = option.value">
+              <button v-if="option.value !== 20 || hasSubscription" class="room-limit-button" type="button" role="radio"
+                :class="{ active: limit === option.value }" :aria-checked="limit === option.value" @click="limit = option.value">
                 <span>{{ option.label }}</span>
               </button>
-              <UiTooltip
-                v-if="option.value === 20 && !hasSubscription"
-                class="room-limit-tooltip"
-                :text="premiumRoomLimitHint"
-                placement="top-left"
-                :icon-size="20"
-                bubble-width="320px"
-              />
+              <span v-else class="room-limit-button room-limit-button--disabled" role="radio" aria-checked="false" aria-disabled="true">
+                <span>{{ option.label }}</span>
+                <UiTooltip
+                  class="room-limit-tooltip"
+                  :text="premiumRoomLimitHint"
+                  placement="top-left"
+                  :icon-size="20"
+                  bubble-width="320px"
+                />
+              </span>
             </span>
           </div>
         </div>
@@ -416,11 +418,10 @@ onBeforeUnmount(() => {
           width: 274px;
           .room-limit-option {
             display: flex;
-            position: relative;
             flex: 1 1 0;
             min-width: 0;
-            button {
-              display: flex;
+            .room-limit-button {
+              display: inline-flex;
               position: relative;
               align-items: center;
               justify-content: center;
@@ -448,7 +449,7 @@ onBeforeUnmount(() => {
                 pointer-events: none;
                 transition: opacity 0.25s ease-in-out;
               }
-              span {
+              > span:not(.room-limit-tooltip) {
                 position: relative;
                 z-index: 1;
               }
@@ -458,22 +459,20 @@ onBeforeUnmount(() => {
                   opacity: 1;
                 }
               }
-              &:disabled {
-                color: $neutral-300;
-                cursor: not-allowed;
-              }
-              &:not(.active):not(:disabled):hover,
-              &:not(.active):not(:disabled):focus-visible,
-              &:not(.active):not(:disabled):active {
+              &:not(.active):hover,
+              &:not(.active):focus-visible,
+              &:not(.active):active {
                 color: $neutral-black;
               }
             }
-            .room-limit-tooltip {
-              position: absolute;
-              top: 50%;
-              right: 6px;
-              transform: translateY(-50%);
-              z-index: 2;
+            .room-limit-button--disabled {
+              color: $neutral-300;
+              cursor: not-allowed;
+              .room-limit-tooltip {
+                position: relative;
+                z-index: 1;
+                margin-left: 4px;
+              }
             }
           }
         }
