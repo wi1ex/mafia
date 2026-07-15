@@ -31,17 +31,20 @@
         <div class="room-limit-field">
           <span class="room-limit-text">Лимит участников</span>
           <div class="room-limit-segmented" role="radiogroup" aria-label="Лимит участников">
-            <button
-              v-for="option in roomLimitOptions"
-              :key="option.value"
-              type="button"
-              role="radio"
-              :class="{ active: limit === option.value }"
-              :aria-checked="limit === option.value"
-              @click="limit = option.value"
-            >
-              <span>{{ option.label }}</span>
-            </button>
+            <span v-for="option in roomLimitOptions" :key="option.value" class="room-limit-option">
+              <button type="button" role="radio" :class="{ active: limit === option.value }"
+                :aria-checked="limit === option.value" :disabled="option.value === 20 && !hasSubscription" @click="limit = option.value">
+                <span>{{ option.label }}</span>
+              </button>
+              <UiTooltip
+                v-if="option.value === 20 && !hasSubscription"
+                class="room-limit-tooltip"
+                :text="premiumRoomLimitHint"
+                placement="top-left"
+                :icon-size="20"
+                bubble-width="320px"
+              />
+            </span>
           </div>
         </div>
 
@@ -98,6 +101,7 @@ import UiInput from '@/components/UiInput.vue'
 import UiSwitch from '@/components/UiSwitch.vue'
 import UiButton from '@/components/UiButton.vue'
 import UiIcon from '@/components/UiIcon.vue'
+import UiTooltip from '@/components/UiTooltip.vue'
 
 import iconClose from '@/assets/svg/iconClose.svg'
 
@@ -110,6 +114,9 @@ let prevOverflow = ''
 
 const TITLE_MAX = 32
 type RoomLimit = number
+const hasSubscription = computed(() => Boolean(user.subscriptionActive))
+const canCreateHiddenRoom = hasSubscription
+const canDisableSpectators = hasSubscription
 const gameLimitMin = computed(() => {
   if (!settings.ready) return 11
   const minReady = Number(settings.gameMinReadyPlayers)
@@ -125,10 +132,6 @@ const emit = defineEmits<{
   (e: 'close'): void
   (e: 'created', room: any): void
 }>()
-
-const hasSubscription = computed(() => Boolean(user.subscriptionActive))
-const canCreateHiddenRoom = hasSubscription
-const canDisableSpectators = hasSubscription
 
 const initialGame: RoomGameParams = (() => {
   try {
@@ -179,6 +182,7 @@ const initialLimit = (() => {
 })()
 const limit = ref<RoomLimit>(initialLimit)
 const hiddenRoomHint = 'Создание скрытых комнат доступно только при наличии подписки'
+const premiumRoomLimitHint = 'Комната на 20 участников доступна только при наличии подписки'
 
 const privacy = ref<'open' | 'private'>(initialBasic.privacy === 'private' ? 'private' : 'open')
 const initialAnonymity = initialBasic.anonymity === 'hidden' && canCreateHiddenRoom.value ? 'hidden' : 'visible'
@@ -210,7 +214,8 @@ const isPrivacyLocked = computed(() => anonymity.value === 'hidden')
 
 function normalizeRoomLimit(value: unknown): RoomLimit {
   const parsed = Number(value)
-  if (parsed === 2 || parsed === gameLimitMin.value || parsed === 20) return parsed
+  if (parsed === 2 || parsed === gameLimitMin.value) return parsed
+  if (parsed === 20 && hasSubscription.value) return parsed
   return gameLimitMin.value
 }
 
@@ -263,7 +268,7 @@ async function create() {
     else if (st === 403 && d === 'user_timeout') void alertDialog('Вам выдан таймаут, создание комнаты недоступно')
     else if (st === 403 && d === 'user_banned') void alertDialog('Аккаунт забанен, создание комнаты недоступно')
     else if (st === 403 && d === 'not_verified') void alertDialog('Для создания комнаты требуется верификация')
-    else if (st === 403 && d === 'subscription_required') void alertDialog('Скрытые комнаты доступны только обладателям подписки')
+    else if (st === 403 && d === 'subscription_required') void alertDialog(limit.value === 20 ? premiumRoomLimitHint : hiddenRoomHint)
     else if (st === 409 && d === 'rooms_limit_global') void alertDialog('Достигнут общий лимит комнат')
     else if (st === 409 && d === 'rooms_limit_user') void alertDialog('Достигнут личный лимит комнат')
     else if (st === 422 && moderationText) void alertDialog({ title: 'Отказ в создании', text: moderationText })
@@ -290,6 +295,10 @@ watch([title, limit, privacy, anonymity], saveBasic, { flush: 'post' })
 
 watch(gameLimitMin, (nextLimit) => {
   if (limit.value !== 2 && limit.value !== 20) limit.value = nextLimit
+}, { flush: 'sync' })
+
+watch(hasSubscription, (hasActiveSubscription) => {
+  if (!hasActiveSubscription && limit.value === 20) limit.value = gameLimitMin.value
 }, { flush: 'sync' })
 
 watch(anonymity, (next) => {
@@ -405,50 +414,66 @@ onBeforeUnmount(() => {
           align-items: center;
           gap: 10px;
           width: 274px;
-          button {
+          .room-limit-option {
             display: flex;
             position: relative;
             flex: 1 1 0;
-            align-items: center;
-            justify-content: center;
-            padding: 0 8px;
             min-width: 0;
-            height: 48px;
-            border: none;
-            border-radius: 999px;
-            background-color: $neutral-white;
-            color: $neutral-400;
-            font-family: Hauora-Regular;
-            font-size: 18px;
-            line-height: 20px;
-            letter-spacing: -0.36px;
-            overflow: hidden;
-            cursor: pointer;
-            transition: color 0.25s ease-in-out;
-            &::before {
-              content: "";
-              position: absolute;
-              inset: 0;
-              border-radius: inherit;
-              background: linear-gradient(261deg, $soft-purple-800 0%, $green-700 100%);
-              opacity: 0;
-              pointer-events: none;
-              transition: opacity 0.25s ease-in-out;
-            }
-            span {
+            button {
+              display: flex;
               position: relative;
-              z-index: 1;
-            }
-            &.active {
-              color: $neutral-white;
+              align-items: center;
+              justify-content: center;
+              padding: 0 8px;
+              width: 100%;
+              height: 48px;
+              border: none;
+              border-radius: 999px;
+              background-color: $neutral-white;
+              color: $neutral-400;
+              font-family: Hauora-Regular;
+              font-size: 18px;
+              line-height: 20px;
+              letter-spacing: -0.36px;
+              overflow: hidden;
+              cursor: pointer;
+              transition: color 0.25s ease-in-out;
               &::before {
-                opacity: 1;
+                content: "";
+                position: absolute;
+                inset: 0;
+                border-radius: inherit;
+                background: linear-gradient(261deg, $soft-purple-800 0%, $green-700 100%);
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 0.25s ease-in-out;
+              }
+              span {
+                position: relative;
+                z-index: 1;
+              }
+              &.active {
+                color: $neutral-white;
+                &::before {
+                  opacity: 1;
+                }
+              }
+              &:disabled {
+                color: $neutral-300;
+                cursor: not-allowed;
+              }
+              &:not(.active):not(:disabled):hover,
+              &:not(.active):not(:disabled):focus-visible,
+              &:not(.active):not(:disabled):active {
+                color: $neutral-black;
               }
             }
-            &:not(.active):hover,
-            &:not(.active):focus-visible,
-            &:not(.active):active {
-              color: $neutral-black;
+            .room-limit-tooltip {
+              position: absolute;
+              top: 50%;
+              right: 6px;
+              transform: translateY(-50%);
+              z-index: 2;
             }
           }
         }

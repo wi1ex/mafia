@@ -83,7 +83,7 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
     gp = payload.game
     anonymity = payload.anonymity
     spectators_limit = normalize_spectators_limit(gp.spectators_limit)
-    if anonymity == "hidden" or spectators_limit <= 0:
+    if anonymity == "hidden" or spectators_limit <= 0 or user_limit == 20:
         theme_state = await resolve_profile_theme_state(session, uid)
         if not theme_state.subscription_active:
             raise HTTPException(status_code=403, detail="subscription_required")
