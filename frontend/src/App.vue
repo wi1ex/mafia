@@ -1,10 +1,12 @@
 <template>
   <div id="desktop-teleport-root" class="desktop-teleport-root" :style="desktopScaleStyle"></div>
-  <div id="desktop-scale-root" class="desktop-scale-root" :style="desktopScaleStyle">
-    <Header v-if="!isRoom" />
+  <Teleport to="#desktop-teleport-root">
     <div class="rotate-overlay">
       <video ref="rotateVideo" class="rotate-overlay__video" :src="rotateVideoVisible ? rotateDeviceVideo : undefined" loop muted playsinline preload="none" aria-label="Поверните устройство" />
     </div>
+  </Teleport>
+  <div id="desktop-scale-root" class="desktop-scale-root" :style="desktopScaleStyle">
+    <Header v-if="!isRoom" />
     <router-view :key="routerViewKey" />
     <Chat />
     <Confirms />
