@@ -198,6 +198,7 @@ function onKeydown(event: KeyboardEvent): void {
   .triple-switch-control {
     display: flex;
     position: relative;
+    box-sizing: border-box;
     width: var(--triple-switch-width);
     height: var(--triple-switch-height);
     overflow: hidden;

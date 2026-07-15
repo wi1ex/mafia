@@ -84,7 +84,7 @@ import {
   type RoomGameParams,
 } from '@/services/gameParams'
 import { formatModerationAlert } from '@/services/moderation'
-import { useUserStore } from '@/store'
+import { useUserStore, useSettingsStore } from '@/store'
 
 import UiInput from '@/components/UiInput.vue'
 import UiSwitch from '@/components/UiSwitch.vue'
@@ -95,18 +95,24 @@ import UiIcon from '@/components/UiIcon.vue'
 import iconClose from '@/assets/svg/iconClose.svg'
 
 const user = useUserStore()
+const settings = useSettingsStore()
 
 const armed = ref(false)
 const busy = ref(false)
 let prevOverflow = ''
 
 const TITLE_MAX = 32
-type RoomLimit = 2 | 11 | 20
-const roomLimitOptions = [
+type RoomLimit = number
+const gameLimitMin = computed(() => {
+  if (!settings.ready) return 11
+  const minReady = Number(settings.gameMinReadyPlayers)
+  return Number.isFinite(minReady) && minReady > 0 ? Math.trunc(minReady) + 1 : 11
+})
+const roomLimitOptions = computed(() => [
   { value: 2, label: '2' },
-  { value: 11, label: '11' },
+  { value: gameLimitMin.value, label: String(gameLimitMin.value) },
   { value: 20, label: '20' },
-] as const
+] as const)
 
 const emit = defineEmits<{
   (e: 'close'): void
@@ -197,8 +203,8 @@ const isPrivacyLocked = computed(() => anonymity.value === 'hidden')
 
 function normalizeRoomLimit(value: unknown): RoomLimit {
   const parsed = Number(value)
-  if (parsed === 2 || parsed === 11 || parsed === 20) return parsed
-  return 11
+  if (parsed === 2 || parsed === gameLimitMin.value || parsed === 20) return parsed
+  return gameLimitMin.value
 }
 
 function normalizeGame(value: unknown): RoomGameParams {
@@ -274,6 +280,10 @@ function sanitizeTitle(s: string, max = 32): string {
 }
 
 watch([title, limit, privacy, anonymity], saveBasic, { flush: 'post' })
+
+watch(gameLimitMin, (nextLimit) => {
+  if (limit.value !== 2 && limit.value !== 20) limit.value = nextLimit
+}, { flush: 'sync' })
 
 watch(anonymity, (next) => {
   if (next === 'hidden' && privacy.value !== 'private') privacy.value = 'private'

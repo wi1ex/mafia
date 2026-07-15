@@ -75,6 +75,11 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
     if mine >= app_settings.rooms_limit_per_user:
         raise HTTPException(status_code=409, detail="rooms_limit_user")
 
+    game_limit = int(app_settings.game_min_ready_players) + 1
+    user_limit = game_limit if payload.user_limit is None else int(payload.user_limit)
+    if user_limit not in {2, game_limit, 20}:
+        raise HTTPException(status_code=422, detail="invalid_user_limit")
+
     gp = payload.game
     anonymity = payload.anonymity
     spectators_limit = normalize_spectators_limit(gp.spectators_limit)
@@ -98,7 +103,7 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
 
     room = Room(
         title=title,
-        user_limit=payload.user_limit,
+        user_limit=user_limit,
         privacy=privacy,
         anonymity=anonymity,
         creator=uid,
