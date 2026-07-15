@@ -78,7 +78,7 @@
     <footer class="history-pager">
       <button class="btn" type="button" :disabled="loading || page <= 1" @click="prevPage">Назад</button>
       <span>Страница {{ page }} из {{ pages }} · Игр: {{ total }}</span>
-      <button class="btn" type="button" :disabled="loading || page >= pages" @click="nextPage">Вперёд</button>
+      <button class="btn" type="button" :disabled="loading || page >= pages" @click="nextPage">Вперед</button>
     </footer>
   </section>
 </template>

@@ -1962,7 +1962,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       if (st === 400 && code === 'bad_phase') void alertDialog('Сейчас нельзя продолжить голосование')
       else if (st === 403 && code === 'forbidden') void alertDialog('Только ведущий может продолжить')
       else if (st === 409 && code === 'lift_not_ready') void alertDialog('Продолжение недоступно')
-      else if (st === 409 && code === 'vote_not_ready') void alertDialog('Результаты голосования ещё не готовы')
+      else if (st === 409 && code === 'vote_not_ready') void alertDialog('Результаты голосования еще не готовы')
       else void alertDialog('Не удалось продолжить голосование')
       return
     }
@@ -1973,11 +1973,11 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (!resp?.ok) {
       const st = resp?.status
       const code = resp?.error
-      if (st === 400 && code === 'bad_phase') void alertDialog('Сейчас нельзя начать голосование за подъём')
-      else if (st === 403 && code === 'forbidden') void alertDialog('Только ведущий может начать голосование за подъём')
-      else if (st === 409 && code === 'lift_not_ready') void alertDialog('Голосование за подъём недоступно')
+      if (st === 400 && code === 'bad_phase') void alertDialog('Сейчас нельзя начать голосование за подъем')
+      else if (st === 403 && code === 'forbidden') void alertDialog('Только ведущий может начать голосование за подъем')
+      else if (st === 409 && code === 'lift_not_ready') void alertDialog('Голосование за подъем недоступно')
       else if (st === 409 && code === 'no_nominees') void alertDialog('Нет кандидатов для голосования')
-      else void alertDialog('Не удалось начать голосование за подъём')
+      else void alertDialog('Не удалось начать голосование за подъем')
       return
     }
     voteResultShown.value = false
@@ -2613,7 +2613,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       if (st === 409 && code === 'best_move_unavailable') {
         void alertDialog('Лучший ход недоступен')
       } else if (st === 409 && code === 'night_not_finished') {
-        void alertDialog('Ночь ещё не завершена')
+        void alertDialog('Ночь еще не завершена')
       } else {
         void alertDialog('Не удалось начать лучший ход')
       }
@@ -2706,7 +2706,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       } else if (st === 409 && code === 'no_nominees') {
         void alertDialog('Нет кандидатов для голосования')
       } else if (st === 409 && code === 'lift_in_progress') {
-        void alertDialog('Идёт голосование за подъём — переголосование недоступно')
+        void alertDialog('Идет голосование за подъем — переголосование недоступно')
       } else {
         void alertDialog('Не удалось перезапустить голосование по текущему кандидату')
       }
@@ -2827,7 +2827,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       return
     }
     if (isTrueLike(resp?.ignored) && resp?.ignore_reason === 'terminal_vote_result') {
-      void alertDialog('Действие отменено - исход игры уже определён')
+      void alertDialog('Действие отменено - исход игры уже определен')
       return
     }
     const id = localId.value
@@ -3029,7 +3029,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (!uidNum) return
     const alertIgnoredFatalFoul = (resp: any): boolean => {
       if (!isTrueLike(resp?.ignored) || resp?.ignore_reason !== 'terminal_vote_result') return false
-      void alertDialog('Действие отменено - исход игры уже определён')
+      void alertDialog('Действие отменено - исход игры уже определен')
       return true
     }
     const resp = await sendAck('game_foul_set', { user_id: uidNum })

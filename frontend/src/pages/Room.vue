@@ -282,7 +282,7 @@
             <span v-if="showSpaceHotkeyHint('prepareVoteLift')" class="hot-btn">_</span>
           </button>
           <button v-if="canStartVoteLift" class="btn-text" :disabled="hostBlurLocksControls || hasOfflineAlivePlayers" @click="startVoteLiftUi">
-            Голосование за подъём
+            Голосование за подъем
             <span v-if="showSpaceHotkeyHint('startVoteLift')" class="hot-btn">_</span>
           </button>
           <button v-if="canShowStartLeaderSpeech" class="btn-text" :disabled="hostBlurLocksControls || !canStartLeaderSpeech" @click="startLeaderSpeechUi">
@@ -2162,7 +2162,7 @@ socket.value?.on('connect', async () => {
     if (reason === 'replaced') {
       void alertDialog('Сессия завершена: вход выполнен с другого устройства')
     } else if (reason === 'account_deleted') {
-      void alertDialog('Сессия завершена: аккаунт удалён')
+      void alertDialog('Сессия завершена: аккаунт удален')
     } else {
       void alertDialog('Сессия завершена, войдите снова')
     }
@@ -2872,7 +2872,7 @@ const toggleScreen = async () => {
       if (!resp || !resp.ok) {
         if (resp?.status === 409 && resp?.owner) setScreenOwner(String(resp.owner), resp?.quality)
         else if (resp?.status === 403 && resp?.error === 'streams_start_disabled') void alertDialog('Запуск трансляций отключен')
-        else if (resp?.status === 403 && resp?.error === 'blocked') void alertDialog('Стрим запрещён администратором')
+        else if (resp?.status === 403 && resp?.error === 'blocked') void alertDialog('Стрим запрещен администратором')
         else void alertDialog('Не удалось запустить трансляцию')
         return
       }

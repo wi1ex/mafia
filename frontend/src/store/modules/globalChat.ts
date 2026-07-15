@@ -838,7 +838,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
 
   function describeSendError(status: number, error: string, detail: unknown): string {
     if (error === 'text_moderation') {
-      return formatModerationAlert(detail) || 'Текст сообщения не прошёл модерацию.'
+      return formatModerationAlert(detail) || 'Текст сообщения не прошел модерацию.'
     }
     switch (error) {
       case 'empty_message':

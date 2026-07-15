@@ -518,7 +518,7 @@ async function onPpkChange(): Promise<void> {
     if (status === 404) {
       ppkSaveError.value = 'Игра не найдена'
     } else if (status === 409 && code === 'ppk_target_not_foul_removed') {
-      ppkSaveError.value = 'ППК можно переназначить только игроку, удалённому по фолам'
+      ppkSaveError.value = 'ППК можно переназначить только игроку, удаленному по фолам'
     } else {
       ppkSaveError.value = 'Не удалось изменить ППК'
     }

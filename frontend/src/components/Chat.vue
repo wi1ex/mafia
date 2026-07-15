@@ -13,7 +13,7 @@
 
         <div ref="listEl" class="panel-list" @scroll="onListScroll" @wheel.passive="markUserScrollIntent" @touchstart.passive="markUserScrollIntent" @pointerdown="markUserScrollIntent">
           <button v-if="showLoadMore" class="load-more" type="button" :disabled="loadingMore" @click="onLoadMore">
-            {{ loadingMore ? 'Загрузка…' : 'Загрузить ещё сообщения' }}
+            {{ loadingMore ? 'Загрузка…' : 'Загрузить еще сообщения' }}
           </button>
 
           <p v-if="!loadingInitial && messages.length === 0" class="empty-state">Сообщений пока нет.</p>

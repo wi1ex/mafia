@@ -102,7 +102,7 @@
             <strong>{{ formatDonSheriffSplit(game.vote_out_don_day12_citizen_count, game.vote_out_sheriff_day12_citizen_count) }}</strong>
           </article>
           <article class="metric-card">
-            <span>Удалён по фолам (с ППК)</span>
+            <span>Удален по фолам (с ППК)</span>
             <strong>{{ formatFoulRemovedWithPpk(game.foul_removed_count, game.ppk_removed_count) }}</strong>
           </article>
           <article class="metric-card">

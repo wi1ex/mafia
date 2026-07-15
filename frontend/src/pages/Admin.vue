@@ -83,9 +83,9 @@
                 <UiInput id="text-moderation-whitelist" v-model="site.text_moderation_whitelist"
                          autocomplete="off" inputmode="text" :disabled="savingSettings" label="Белый список слов (через запятую)" />
                 <UiInput id="text-moderation-blacklist" v-model="site.text_moderation_blacklist"
-                         autocomplete="off" inputmode="text" :disabled="savingSettings" label="Чёрный список слов (через запятую)" />
+                         autocomplete="off" inputmode="text" :disabled="savingSettings" label="Черный список слов (через запятую)" />
                 <UiInput id="blacklist-users-limit" v-model.number="site.blacklist_users_limit" type="number" min="0" step="1"
-                         autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Лимит чёрного списка" />
+                         autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Лимит черного списка" />
               </div>
             </div>
 

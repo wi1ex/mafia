@@ -166,7 +166,7 @@
       <footer class="history-pager">
         <button class="btn" type="button" :disabled="loading || page <= 1" @click="prevPage">Назад</button>
         <span>Страница {{ page }} из {{ pages }} · Игр: {{ total }}</span>
-        <button class="btn" type="button" :disabled="loading || page >= pages" @click="nextPage">Вперёд</button>
+        <button class="btn" type="button" :disabled="loading || page >= pages" @click="nextPage">Вперед</button>
       </footer>
     </section>
   </main>
@@ -301,7 +301,7 @@ const DATE_OPTIONS: Intl.DateTimeFormatOptions = {
 const resultFilterOptions: ResultFilterOption[] = [
   { value: 'all', label: 'Все результаты' },
   { value: 'red', label: 'Победа красных' },
-  { value: 'black', label: 'Победа чёрных' },
+  { value: 'black', label: 'Победа черных' },
   { value: 'draw', label: 'Ничья' },
 ]
 

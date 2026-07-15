@@ -77,20 +77,20 @@
             />
             <UiSwitch
               v-model="game.lift_at_zero"
-              label="Подъём в нуле:"
+              label="Подъем в нуле:"
               theme="light"
               size="low"
               :width="256"
-              aria-label="Подъём в нуле"
+              aria-label="Подъем в нуле"
               :disabled="gameParamsDisabled"
             />
             <UiSwitch
               v-model="game.lift_3x"
-              label="Подъём 3х при 9х:"
+              label="Подъем 3х при 9х:"
               theme="light"
               size="low"
               :width="256"
-              aria-label="Подъём 3х при 9х"
+              aria-label="Подъем 3х при 9х"
               :disabled="gameParamsDisabled"
             />
             <UiSwitch
