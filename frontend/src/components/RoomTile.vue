@@ -528,8 +528,8 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
         width: 20px;
         height: 20px;
         border-radius: 4px;
-        background-color: $neutral-white;
-        color: $soft-purple-900;
+        background-color: $soft-purple-100;
+        color: $neutral-900;
         font-family: Hauora-Bold;
         font-size: 14px;
         line-height: 14px;
@@ -783,6 +783,7 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
     position: absolute;
     left: 50%;
     top: 50%;
+    height: 96px;
     transform: translate(-50%, -50%);
     touch-action: manipulation;
     z-index: 15;
