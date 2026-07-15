@@ -21,6 +21,10 @@
                   <img v-for="badgeSrc in friendThemeIconSrcs(f)" :key="`${f.id}-${badgeSrc}`" class="profile-theme-icon" :src="badgeSrc" alt="" />
                 </div>
                 <span class="nick">{{ f.username || ('user' + f.id) }}</span>
+                <div v-if="f.room_id && isAccepted(f)" class="room-info">
+                  <span class="room">{{ f.room_title || ('Комната #' + f.room_id) }}</span>
+                  <span class="game" :class="{ active: f.room_in_game }">{{ f.room_in_game ? 'Игра' : 'Лобби' }}</span>
+                </div>
               </button>
               <div v-else class="left profile-trigger">
                 <img v-minio-img="{ key: f.avatar_name ? `avatars/${f.avatar_name}` : '', placeholder: iconDefaultAvatarBlack, lazy: false, animated: true }" alt="avatar" />
@@ -28,10 +32,6 @@
                   <img v-for="badgeSrc in friendThemeIconSrcs(f)" :key="`${f.id}-${badgeSrc}`" class="profile-theme-icon" :src="badgeSrc" alt="" />
                 </div>
                 <span class="nick">{{ f.username || ('user' + f.id) }}</span>
-                <div v-if="f.room_id && isAccepted(f)" class="room-info">
-                  <span class="room">{{ f.room_title || ('Комната #' + f.room_id) }}</span>
-                  <span class="game" :class="{ active: f.room_in_game }">{{ f.room_in_game ? 'Игра' : 'Лобби' }}</span>
-                </div>
               </div>
               <div v-if="f.kind === 'incoming'" class="actions">
                 <button class="icon-btn accept" :disabled="isActionBusy(f.id)" @click="accept(f.id)" aria-label="Принять заявку">
