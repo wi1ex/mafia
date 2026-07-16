@@ -561,8 +561,7 @@ onBeforeUnmount(() => {
         }
         .nick {
           text-align: start;
-          min-width: 145px;
-          max-width: 145px;
+          min-width: 164px;
           color: $neutral-black;
           font-family: Hauora-Medium;
           font-size: 16px;
@@ -575,11 +574,9 @@ onBeforeUnmount(() => {
         .room-info {
           display: flex;
           flex-direction: column;
-          margin-left: 8px;
-          width: 94px;
           .room {
             text-align: start;
-            max-width: 94px;
+            max-width: 100px;
             color: $neutral-500;
             font-family: Hauora-Regular;
             font-size: 12px;
@@ -605,7 +602,6 @@ onBeforeUnmount(() => {
       .actions {
         display: flex;
         align-items: center;
-        margin-left: -12px;
         gap: 4px;
         button {
           display: flex;
