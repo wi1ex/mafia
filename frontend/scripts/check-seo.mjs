@@ -75,8 +75,27 @@ if (!router.includes("{ path: '/:pathMatch(.*)*', redirect: { name: 'home' } }")
 
 const home = read(resolve(frontendRoot, 'src/pages/Home.vue'))
 const header = read(resolve(frontendRoot, 'src/components/Header.vue'))
+const carousel = read(resolve(frontendRoot, 'src/components/Carousel.vue'))
 if (home.includes('home-seo-summary') || header.includes('href="/mafia-online/"')) {
   fail('visitor-visible SEO content or navigation must not be added')
+}
+if (!home.includes('<main class="card">') || !home.includes('<h1 class="left-title">Список комнат</h1>')) {
+  fail('the existing room-list heading must be exposed as the page H1')
+}
+for (const alt of [
+  'deceit — место, где игра превращается в общение: собирайтесь в комнаты, играйте в мафию и не только, общайтесь, смотрите и проводите время вместе.',
+  'Проводите время вместе — от игр до фильмов.',
+  'Следи за своим уровнем игры и становись сильнее!',
+  'Пространство для общения и новых знакомств!',
+  'Запусти платформу как отдельное приложение.',
+]) {
+  if (!carousel.includes('alt="' + alt + '"')) fail('missing faithful text alternative: ' + alt)
+}
+for (const heading of ['Трансляции', 'Статистика', 'Комьюнити', 'Web App']) {
+  if (!carousel.includes('<h2 class="slide-title">' + heading + '</h2>')) fail('missing carousel H2: ' + heading)
+}
+if (carousel.includes('alt="" aria-hidden="true"')) {
+  fail('text-bearing carousel images must not remain marked as decorative')
 }
 
 for (const path of [

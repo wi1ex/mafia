@@ -3,14 +3,14 @@
            :style="carouselProgressStyle" @mouseenter="hovered = true" @mouseleave="hovered = false" @focusin="focused = true" @focusout="onFocusOut" @keydown="onKeydown" >
     <Transition :name="slideTransitionName">
       <article v-if="activeIndex === 0" key="slide-1" class="slide">
-        <img class="background-image" :src="imageSlide1" alt="" aria-hidden="true" />
+        <img class="background-image" :src="imageSlide1" alt="deceit — место, где игра превращается в общение: собирайтесь в комнаты, играйте в мафию и не только, общайтесь, смотрите и проводите время вместе." />
       </article>
 
       <article v-else-if="activeIndex === 1" key="slide-2" class="slide">
-        <img class="background-image" :src="imageSlide2" alt="" aria-hidden="true" />
+        <img class="background-image" :src="imageSlide2" alt="Проводите время вместе — от игр до фильмов." />
         <div class="slide-div">
           <div class="slide-top">
-            <span class="slide-title">Стриминг</span>
+            <h2 class="slide-title">Трансляции</h2>
             <UiTooltip
               text="Платформа для тех, кто хочет не только играть. Общайтесь, смотрите фильмы,
               проводите стримы и собирайте свое сообщество в одном месте. Бесплатно, без ограничений
@@ -22,10 +22,10 @@
       </article>
 
       <article v-else-if="activeIndex === 2" key="slide-3" class="slide">
-        <img class="background-image" :src="imageSlide3" alt="" aria-hidden="true" />
+        <img class="background-image" :src="imageSlide3" alt="Следи за своим уровнем игры и становись сильнее!" />
         <div class="slide-div">
           <div class="slide-top">
-            <span class="slide-title">Статистика</span>
+            <h2 class="slide-title">Статистика</h2>
             <UiTooltip
               text="Каждая партия влияет на ваш прогресс. Изучайте статистику,
               зарабатывайте достижения, повышайте рейтинг и наблюдайте, как растет ваш уровень игры.
@@ -37,10 +37,10 @@
       </article>
 
       <article v-else-if="activeIndex === 3" key="slide-4" class="slide">
-        <img class="background-image" :src="imageSlide4" alt="" aria-hidden="true" />
+        <img class="background-image" :src="imageSlide4" alt="Пространство для общения и новых знакомств!" />
         <div class="slide-div">
           <div class="slide-top">
-            <span class="slide-title">Комьюнити</span>
+            <h2 class="slide-title">Комьюнити</h2>
             <UiTooltip
               text="Игра — это только начало. Общайтесь в общем чате, находите единомышленников,
               собирайте команды для новых партий и знакомьтесь с людьми, которые разделяют ваши интересы.
@@ -52,10 +52,10 @@
       </article>
 
       <article v-else key="install" class="slide">
-        <img class="background-image" :src="imageSlide5" alt="" aria-hidden="true" />
+        <img class="background-image" :src="imageSlide5" alt="Запусти платформу как отдельное приложение." />
         <div class="slide-div">
           <div class="slide-top">
-            <span class="slide-title">Web App</span>
+            <h2 class="slide-title">Web App</h2>
             <UiTooltip
               text="Платформу можно установить на смартфон и запускать как обычное приложение.
               После установки она появится на главном экране устройства, будет открываться
@@ -291,6 +291,7 @@ onBeforeUnmount(() => {
           display: flex;
           align-items: center;
           justify-content: center;
+          margin: 0;
           padding: 8px 12px;
           border-radius: 12px;
           background:
@@ -302,6 +303,7 @@ onBeforeUnmount(() => {
             inset 1px 1px 1px -1px $neutral-white;
           color: $neutral-300;
           font-family: Hauora-Regular;
+          font-weight: 400;
           font-size: 16px;
           line-height: 16px;
           letter-spacing: -0.32px;

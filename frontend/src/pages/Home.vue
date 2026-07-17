@@ -1,8 +1,8 @@
 <template>
-  <section class="card">
+  <main class="card">
     <div class="left" :class="{ 'left--top-banner': topBannerActive }">
       <header>
-        <span class="left-title">Список комнат</span>
+        <h1 class="left-title">Список комнат</h1>
         <UiButton
           class="create-room-button"
           text="Создать комнату"
@@ -211,7 +211,7 @@
       </div>
       <UiScrollbar class="right-column-scrollbar" :target="rightColumn" theme="dark" :inset-top="16" :inset-bottom="16" right="-18px" />
     </div>
-  </section>
+  </main>
   <MiniProfile
     v-model:open="miniProfileOpen"
     :user-id="miniProfileUserId"
@@ -981,8 +981,10 @@ onBeforeUnmount(() => {
       justify-content: space-between;
       padding: 24px 24px 16px;
       .left-title {
+        margin: 0;
         color: $neutral-white;
         font-family: Involve-Medium;
+        font-weight: 500;
         font-size: 24px;
         line-height: 26px;
         letter-spacing: -0.48px;
