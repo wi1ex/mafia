@@ -4,6 +4,9 @@ import { resolve } from 'node:path'
 const frontendRoot = resolve(import.meta.dirname, '..')
 const publicRoot = resolve(frontendRoot, 'public')
 const siteUrl = 'https://deceit.games'
+const pwaIcon192 = '/pwa-192-v20260717.png'
+const pwaIcon512 = '/pwa-512-v20260717.png'
+const socialPreview = '/og/deceit-preview-v20260717.png'
 
 function fail(message) {
   throw new Error(`SEO check failed: ${message}`)
@@ -32,7 +35,15 @@ if (!/index, follow/i.test(findMeta(rootHtml, 'name', 'robots'))) fail('root rob
 if (!findMeta(rootHtml, 'property', 'og:title') || !findMeta(rootHtml, 'property', 'og:description')) {
   fail('root document is missing Open Graph metadata')
 }
-if (!rootHtml.includes(`${siteUrl}/pwa-512.png`)) fail('root document must use the existing social-preview image')
+if (findMeta(rootHtml, 'property', 'og:image') !== `${siteUrl}${socialPreview}`) {
+  fail('root document must use the versioned social-preview image')
+}
+if (findMeta(rootHtml, 'name', 'twitter:image') !== `${siteUrl}${socialPreview}`) {
+  fail('root document must use the versioned Twitter image')
+}
+if (!rootHtml.includes(`rel="apple-touch-icon" href="${pwaIcon192}"`)) {
+  fail('root document must use the versioned Apple touch icon')
+}
 if (/<noscript\b/i.test(rootHtml)) fail('root document must not add visible no-JavaScript content')
 
 const jsonLdBlocks = Array.from(
@@ -48,6 +59,25 @@ for (const jsonLd of jsonLdBlocks) {
   }
 }
 
+let manifest
+try {
+  manifest = JSON.parse(read(resolve(publicRoot, 'manifest.webmanifest')))
+} catch {
+  fail('manifest.webmanifest must contain valid JSON')
+}
+const manifestIconSources = manifest.icons?.map((icon) => icon.src) || []
+if (!manifestIconSources.includes(pwaIcon192) || !manifestIconSources.includes(pwaIcon512)) {
+  fail('manifest must use the versioned PWA icons')
+}
+for (const asset of [pwaIcon192, pwaIcon512, socialPreview]) {
+  if (!existsSync(resolve(publicRoot, `.${asset}`))) fail(`missing versioned asset: ${asset}`)
+}
+
+const main = read(resolve(frontendRoot, 'src/main.ts'))
+if (!main.includes("updateViaCache: 'none'")) {
+  fail('service worker registration must bypass the HTTP cache for updates')
+}
+
 const sitemap = read(resolve(publicRoot, 'sitemap.xml'))
 const sitemapUrls = Array.from(sitemap.matchAll(/<loc>([^<]+)<\/loc>/g), ([, url]) => url)
 if (sitemapUrls.length !== 1 || sitemapUrls[0] !== `${siteUrl}/`) {
@@ -61,7 +91,15 @@ if (/Disallow:\s+\/(?:admin|moderation|profile|history|rules|room)/i.test(robots
 }
 
 const nginx = read(resolve(frontendRoot, '../nginx/nginx.conf.template'))
-for (const expected of ['map $request_uri $seo_robots_tag', 'X-Robots-Tag $seo_robots_tag', 'try_files $uri /index.html;']) {
+for (const expected of [
+  'map $request_uri $seo_robots_tag',
+  'X-Robots-Tag $seo_robots_tag',
+  'try_files $uri /index.html;',
+  'location = /manifest.webmanifest',
+  'default_type application/manifest+json;',
+  'location = /sw.js',
+  'expires -1;',
+]) {
   if (!nginx.includes(expected)) fail(`nginx config is missing ${expected}`)
 }
 for (const unwanted of ['error_page 404 /404.html;', 'try_files $uri $uri/ =404;', 'location = /mafia-online']) {
@@ -111,6 +149,8 @@ for (const path of [
   if (existsSync(resolve(publicRoot, path))) fail(`visitor-visible SEO artifact remains: ${path}`)
 }
 if (existsSync(resolve(frontendRoot, 'src/pages/NotFound.vue'))) fail('visitor-visible NotFound page remains')
-if (!existsSync(resolve(publicRoot, 'pwa-512.png'))) fail('existing social-preview image is missing')
+for (const asset of ['pwa-192.png', 'pwa-512.png']) {
+  if (!existsSync(resolve(publicRoot, asset))) fail(`previous PWA asset must remain available: ${asset}`)
+}
 
 console.log('SEO source validation passed for the existing public URL without UI additions.')

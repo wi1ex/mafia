@@ -167,6 +167,23 @@ server {
     try_files $uri =404;
   }
 
+  # These control PWA updates and must be revalidated instead of cached for a year.
+  location = /manifest.webmanifest {
+    if ($request_method !~ ^(GET|HEAD)$) { return 405; }
+    access_log off;
+    default_type application/manifest+json;
+    expires -1;
+    try_files $uri =404;
+  }
+
+  location = /sw.js {
+    if ($request_method !~ ^(GET|HEAD)$) { return 405; }
+    access_log off;
+    default_type application/javascript;
+    expires -1;
+    try_files $uri =404;
+  }
+
   # SPA fallback
   location / {
     try_files $uri /index.html;
