@@ -84,7 +84,7 @@ export async function requestPwaInstall(): Promise<'accepted' | 'dismissed' | 'i
   }
 }
 
-export const BASE_TITLE = 'Deceit'
+export const BASE_TITLE = 'deceit.games — играйте в мафию онлайн и общайтесь в комнатах с трансляциями'
 export const ROOM_FALLBACK_TITLE = 'Комната'
 
 function ensureMeta(name: string, content: string): void {

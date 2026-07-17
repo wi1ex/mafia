@@ -2,7 +2,8 @@ import { createRouter, createWebHistory, type RouteLocationNormalized, type Rout
 import { useAuthStore, useSettingsStore, useUserStore } from '@/store'
 import { BASE_TITLE, ROOM_FALLBACK_TITLE, setPageTitle } from '@/services/pwa'
 
-const BASE_DESCRIPTION = 'Играйте в мафию онлайн бесплатно, общайтесь в чате и комнатах с трансляциями'
+const PUBLIC_SITE_URL = String('https://deceit.games').replace(/\/+$/, '')
+const BASE_DESCRIPTION = 'Играйте в рейтинговую мафию и улучшайте свою статистику. Смотрите совместные трансляции и общайтесь в чате. Играйте в настольные игры и заводите новых друзей'
 
 const routes: RouteRecordRaw[] = [
   {
@@ -14,37 +15,37 @@ const routes: RouteRecordRaw[] = [
     path: '/rules',
     name: 'rules',
     component: () => import('@/pages/Rules.vue'),
-    meta: { title: 'Правила', robots: 'noindex, nofollow' },
+    meta: { title: 'Правила', robots: 'noindex, nofollow, noarchive' },
   },
   {
     path: '/history',
     name: 'history',
     component: () => import('@/pages/History.vue'),
-    meta: { requiresAuth: true, requiresVerification: true, title: 'История игр', robots: 'noindex, nofollow' },
+    meta: { requiresAuth: true, requiresVerification: true, title: 'История игр', robots: 'noindex, nofollow, noarchive' },
   },
   {
     path: '/profile',
     name: 'profile',
     component: () => import('@/pages/Profile.vue'),
-    meta: { requiresAuth: true, title: 'Личный кабинет', robots: 'noindex, nofollow' },
+    meta: { requiresAuth: true, title: 'Личный кабинет', robots: 'noindex, nofollow, noarchive' },
   },
   {
     path: '/admin',
     name: 'admin',
     component: () => import('@/pages/Admin.vue'),
-    meta: { requiresAuth: true, requiresAdmin: true, title: 'Админ-панель', robots: 'noindex, nofollow' },
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'Админ-панель', robots: 'noindex, nofollow, noarchive' },
   },
   {
     path: '/moderation',
     name: 'moderation',
     component: () => import('@/pages/Moderation.vue'),
-    meta: { requiresAuth: true, requiresModeration: true, title: 'Модерация', robots: 'noindex, nofollow' },
+    meta: { requiresAuth: true, requiresModeration: true, title: 'Модерация', robots: 'noindex, nofollow, noarchive' },
   },
   {
     path: '/room/:id(\\d+)',
     name: 'room',
     component: () => import('@/pages/Room.vue'),
-    meta: { requiresAuth: true, title: 'Комната', robots: 'noindex, nofollow' },
+    meta: { requiresAuth: true, title: 'Комната', robots: 'noindex, nofollow, noarchive' },
   },
   { path: '/:pathMatch(.*)*', redirect: { name: 'home' } },
 ]
@@ -71,6 +72,16 @@ function ensureMeta(name: string, content: string): void {
   el.setAttribute('content', content)
 }
 
+function ensureProperty(property: string, content: string): void {
+  let el = document.querySelector(`meta[property="${property}"]`) as HTMLMetaElement | null
+  if (!el) {
+    el = document.createElement('meta')
+    el.setAttribute('property', property)
+    document.head.appendChild(el)
+  }
+  el.setAttribute('content', content)
+}
+
 function ensureCanonical(href: string): void {
   let el = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null
   if (!el) {
@@ -84,10 +95,16 @@ function ensureCanonical(href: string): void {
 function setMeta(to: RouteLocationNormalized): void {
   const description = (to.meta?.description as string | undefined) ?? BASE_DESCRIPTION
   const robots = (to.meta?.robots as string | undefined) ?? 'index, follow'
+  const title = (to.meta?.title as string | undefined) ?? (to.name === 'room' ? ROOM_FALLBACK_TITLE : BASE_TITLE)
+  const canonical = `${PUBLIC_SITE_URL}${to.path}`
   ensureMeta('description', description)
   ensureMeta('robots', robots)
-  const base = window.location?.origin || ''
-  ensureCanonical(base ? `${base}${to.path}` : to.path)
+  ensureMeta('twitter:title', title)
+  ensureMeta('twitter:description', description)
+  ensureProperty('og:title', title)
+  ensureProperty('og:description', description)
+  ensureProperty('og:url', canonical)
+  ensureCanonical(canonical)
 }
 
 router.beforeEach(async (to, from) => {

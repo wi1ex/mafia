@@ -14,6 +14,11 @@ resolver 127.0.0.11 valid=30s;
 limit_req_zone $binary_remote_addr zone=api_limit:10m rate=100r/s;
 limit_req_zone $binary_remote_addr zone=media_presign_limit:10m rate=150r/s;
 map $http_upgrade $connection_upgrade { default upgrade; '' close; }
+map $request_uri $seo_robots_tag {
+  default "";
+  ~^/(?:admin|moderation|profile|history|rules)(?:[/?]|$) "noindex, nofollow, noarchive";
+  ~^/room/[0-9]+(?:[/?]|$) "noindex, nofollow, noarchive";
+}
 
 upstream backend { server backend:8000; }
 upstream bot { server bot:8081; }
@@ -49,6 +54,7 @@ server {
   add_header X-Frame-Options DENY always;
   add_header Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https: wss:; media-src 'self' blob:; frame-src 'self'; frame-ancestors 'none'; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests" always;
   add_header Cross-Origin-Resource-Policy same-origin always;
+  add_header X-Robots-Tag $seo_robots_tag always;
 
   root /usr/share/nginx/html;
   index index.html;
@@ -163,14 +169,14 @@ server {
 
   # SPA fallback
   location / {
-    try_files $uri /index.html; 
+    try_files $uri /index.html;
   }
 
   location = /index.html {
     add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+    add_header X-Robots-Tag $seo_robots_tag always;
     expires -1;
   }
-
   location = /version.txt {
     default_type text/plain;
     etag on;
