@@ -483,9 +483,10 @@ const spectatorsTooltipVisible = computed(() => spectatorsOpen.value && spectato
 
 function roomStatusLabel(room: Room): string {
   if (room.anonymity === 'hidden') return 'HIDE'
-  if (room.in_game) return 'GAME'
   const limit = Number(room.user_limit)
   if (limit === 2) return 'DUO'
+  if (limit === 20) return 'ROOM'
+  if (room.in_game) return 'GAME'
   return 'LOBBY'
 }
 

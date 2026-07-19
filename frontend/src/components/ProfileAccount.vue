@@ -617,6 +617,7 @@ onBeforeUnmount(() => {
             line-height: 14px;
             letter-spacing: -0.28px;
             a {
+              text-decoration: none;
               color: $neutral-white;
             }
           }
@@ -683,6 +684,7 @@ onBeforeUnmount(() => {
           line-height: 14px;
           letter-spacing: -0.28px;
           a {
+            text-decoration: none;
             color: $neutral-white;
           }
         }
