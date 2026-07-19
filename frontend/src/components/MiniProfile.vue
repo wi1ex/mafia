@@ -342,7 +342,7 @@ type StaffSubscriptionMode = 'grant' | 'extend' | 'reduce'
 type StaffActionKey = 'suspend' | 'timeout' | 'avatar' | 'nickname' | 'ban' | 'account' | 'role' | 'subscription' | 'subscription_extend' | 'subscription_reduce'
 type StaffActionScope = 'admin' | 'moderation'
 type MiniProfileRoomControlKey = 'mic' | 'cam' | 'speakers' | 'screen'
-type NominationLevel = 1 | 2 | 3 | 4 | 5 | 6
+type NominationLevel = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
 type NominationStatKey = 'games_played' | 'games_hosted' | 'room_minutes' | 'stream_minutes' | 'spectator_minutes'
 
 type StaffActionItem = {
@@ -386,9 +386,9 @@ type ProfileNominationDefinition = {
   icon: string
   statKey: NominationStatKey
   unit: 'count' | 'minutes'
-  levelStarts: readonly [number, number, number, number, number, number]
-  startLabels: readonly [string, string, string, string, string, string]
-  nextLabels: readonly [string, string, string, string, string]
+  levelStarts: readonly [number, number, number, number, number, number, number, number]
+  startLabels: readonly [string, string, string, string, string, string, string, string]
+  nextLabels: readonly [string, string, string, string, string, string, string]
 }
 
 type ProfileNomination = {
@@ -562,9 +562,9 @@ const PROFILE_NOMINATION_DEFINITIONS: readonly ProfileNominationDefinition[] = [
     icon: nominationGames,
     statKey: 'games_played',
     unit: 'count',
-    levelStarts: [0, 50, 200, 500, 1000, 2000],
-    startLabels: ['0', '50 игр', '200 игр', '500 игр', '1000 игр', '2000 игр'],
-    nextLabels: ['50 игр', '200 игр', '500 игр', '1000 игр', '2000 игр'],
+    levelStarts: [0, 50, 100, 250, 500, 1000, 2500, 5000],
+    startLabels: ['0', '50 игр', '100 игр', '250 игр', '500 игр', '1000 игр', '2500 игр', '5000 игр'],
+    nextLabels: ['50 игр', '100 игр', '250 игр', '500 игр', '1000 игр', '2500 игр', '5000 игр'],
   },
   {
     key: 'games-hosted',
@@ -572,9 +572,9 @@ const PROFILE_NOMINATION_DEFINITIONS: readonly ProfileNominationDefinition[] = [
     icon: nominationHead,
     statKey: 'games_hosted',
     unit: 'count',
-    levelStarts: [0, 10, 30, 100, 250, 500],
-    startLabels: ['0', '10 игр', '30 игр', '100 игр', '250 игр', '500 игр'],
-    nextLabels: ['10 игр', '30 игр', '100 игр', '250 игр', '500 игр'],
+    levelStarts: [0, 10, 25, 50, 100, 250, 500, 1000],
+    startLabels: ['0', '10 игр', '25 игр', '50 игр', '100 игр', '250 игр', '500 игр', '1000 игр'],
+    nextLabels: ['10 игр', '25 игр', '50 игр', '100 игр', '250 игр', '500 игр', '1000 игр'],
   },
   {
     key: 'room-time',
@@ -582,9 +582,9 @@ const PROFILE_NOMINATION_DEFINITIONS: readonly ProfileNominationDefinition[] = [
     icon: nominationRoom,
     statKey: 'room_minutes',
     unit: 'minutes',
-    levelStarts: [0, 3 * MINUTES_IN_DAY, 10 * MINUTES_IN_DAY, 30 * MINUTES_IN_DAY, 60 * MINUTES_IN_DAY, 120 * MINUTES_IN_DAY],
-    startLabels: ['0', '3 дня', '10 дней', '1 месяц', '2 месяца', '4 месяца'],
-    nextLabels: ['3 дня', '10 дней', '1 месяц', '2 месяца', '4 месяца'],
+    levelStarts: [0, 3 * MINUTES_IN_DAY, 7 * MINUTES_IN_DAY, 14 * MINUTES_IN_DAY, 30 * MINUTES_IN_DAY, 90 * MINUTES_IN_DAY, 180 * MINUTES_IN_DAY, 360 * MINUTES_IN_DAY],
+    startLabels: ['0', '3 дня', '1 неделя', '2 недели', '1 месяц', '3 месяца', '6 месяцев', '1 год'],
+    nextLabels: ['3 дня', '1 неделя', '2 недели', '1 месяц', '3 месяца', '6 месяцев', '1 год'],
   },
   {
     key: 'stream-time',
@@ -592,9 +592,9 @@ const PROFILE_NOMINATION_DEFINITIONS: readonly ProfileNominationDefinition[] = [
     icon: nominationStream,
     statKey: 'stream_minutes',
     unit: 'minutes',
-    levelStarts: [0, Math.round(0.25 * MINUTES_IN_DAY), MINUTES_IN_DAY, 3 * MINUTES_IN_DAY, 7 * MINUTES_IN_DAY, 14 * MINUTES_IN_DAY],
-    startLabels: ['0', '6 часов', '1 день', '3 дня', '1 неделя', '2 недели'],
-    nextLabels: ['6 часов', '1 день', '3 дня', '1 неделя', '2 недели'],
+    levelStarts: [0, Math.round(0.5 * MINUTES_IN_DAY), MINUTES_IN_DAY, 3 * MINUTES_IN_DAY, 7 * MINUTES_IN_DAY, 14 * MINUTES_IN_DAY, 30 * MINUTES_IN_DAY, 90 * MINUTES_IN_DAY],
+    startLabels: ['0', '12 часов', '1 день', '3 дня', '1 неделя', '2 недели', '1 месяц', '3 месяца'],
+    nextLabels: ['12 часов', '1 день', '3 дня', '1 неделя', '2 недели', '1 месяц', '3 месяца'],
   },
   {
     key: 'spectator-time',
@@ -602,9 +602,9 @@ const PROFILE_NOMINATION_DEFINITIONS: readonly ProfileNominationDefinition[] = [
     icon: nominationSpectator,
     statKey: 'spectator_minutes',
     unit: 'minutes',
-    levelStarts: [0, 2 * MINUTES_IN_DAY, 7 * MINUTES_IN_DAY, 14 * MINUTES_IN_DAY, 30 * MINUTES_IN_DAY, 60 * MINUTES_IN_DAY],
-    startLabels: ['0', '2 дня', '1 неделя', '2 недели', '1 месяц', '2 месяца'],
-    nextLabels: ['2 дня', '1 неделя', '2 недели', '1 месяц', '2 месяца'],
+    levelStarts: [0, MINUTES_IN_DAY, 3 * MINUTES_IN_DAY, 7 * MINUTES_IN_DAY, 14 * MINUTES_IN_DAY, 30 * MINUTES_IN_DAY, 90 * MINUTES_IN_DAY, 180 * MINUTES_IN_DAY],
+    startLabels: ['0', '1 день', '3 дня', '1 неделя', '2 недели', '1 месяц', '3 месяца', '6 месяцев'],
+    nextLabels: ['1 день', '3 дня', '1 неделя', '2 недели', '1 месяц', '3 месяца', '6 месяцев'],
   },
 ]
 
@@ -1032,7 +1032,9 @@ function safeNonNegativeInt(raw: unknown): number {
   return Math.max(0, Math.trunc(value))
 }
 
-function resolveNominationLevel(value: number, levelStarts: readonly [number, number, number, number, number, number]): NominationLevel {
+function resolveNominationLevel(value: number, levelStarts: readonly [number, number, number, number, number, number, number, number]): NominationLevel {
+  if (value >= levelStarts[7]) return 8
+  if (value >= levelStarts[6]) return 7
   if (value >= levelStarts[5]) return 6
   if (value >= levelStarts[4]) return 5
   if (value >= levelStarts[3]) return 4
@@ -1041,9 +1043,9 @@ function resolveNominationLevel(value: number, levelStarts: readonly [number, nu
   return 1
 }
 
-function nominationProgressPct(value: number, level: NominationLevel, levelStarts: readonly [number, number, number, number, number, number]): number {
-  if (level >= 6) return 100
-  const progressLevel = level as 1 | 2 | 3 | 4 | 5
+function nominationProgressPct(value: number, level: NominationLevel, levelStarts: readonly [number, number, number, number, number, number, number, number]): number {
+  if (level >= 8) return 100
+  const progressLevel = level as 1 | 2 | 3 | 4 | 5 | 6 | 7
   const start = levelStarts[progressLevel - 1]
   const next = levelStarts[progressLevel]
   if (next <= start) return 100
@@ -1083,7 +1085,7 @@ function buildProfileNomination(definition: ProfileNominationDefinition, stats: 
     valueLabel: formatNominationValue(value, definition.unit),
     progressPct: nominationProgressPct(value, level, definition.levelStarts),
     progressStartLabel: definition.startLabels[levelIndex],
-    progressNextLabel: level >= 6 ? 'макс.' : definition.nextLabels[levelIndex],
+    progressNextLabel: level >= 8 ? 'макс.' : definition.nextLabels[levelIndex],
   }
 }
 
@@ -2603,13 +2605,33 @@ onBeforeUnmount(() => {
                   }
                 }
                 &.level-6 {
-                  background: linear-gradient(261deg, $blue-500 0%, $purple-300 100%);
+                  background: linear-gradient(261deg, $red-500 0%, $purple-300 100%);
                   .nomination-level-badge {
-                    background: linear-gradient(261deg, $blue-500 0%, $purple-300 100%);
-                    color: rgba(240, 230, 255, 1);
+                    background: linear-gradient(261deg, $red-500 0%, $purple-300 100%);
+                    color: rgba(255, 230, 240, 1);
                   }
                   .profile-nomination-icon {
-                    --ui-icon-color: rgba(240, 230, 255, 1);
+                    --ui-icon-color: rgba(255, 230, 240, 1);
+                  }
+                }
+                &.level-7 {
+                  background: linear-gradient(261deg, $yellow-500 0%, $green-500 100%);
+                  .nomination-level-badge {
+                    background: linear-gradient(261deg, $yellow-500 0%, $green-500 100%);
+                    color: rgba(245, 255, 230, 1);
+                  }
+                  .profile-nomination-icon {
+                    --ui-icon-color: rgba(245, 255, 230, 1);
+                  }
+                }
+                &.level-8 {
+                  background: linear-gradient(261deg, $orange-400 0%, $red-400 100%);
+                  .nomination-level-badge {
+                    background: linear-gradient(261deg, $orange-400 0%, $red-400 100%);
+                    color: rgba(240, 230, 230, 1);
+                  }
+                  .profile-nomination-icon {
+                    --ui-icon-color: rgba(240, 230, 230, 1);
                   }
                 }
                 .profile-nomination-icon {
