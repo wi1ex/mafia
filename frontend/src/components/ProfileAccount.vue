@@ -40,21 +40,27 @@
             <span v-if="telegramVerified" class="hint">Если отвязать TG-аккаунт верификация будет снята.</span>
             <span v-if="!telegramVerified" class="hint">В чате с ботом сначала введите никнейм, затем пароль. После успешной верификации ограничения будут сняты.</span>
           </div>
-          <UiButton
-            v-if="telegramVerified"
-            variant="red"
-            :text="unlinkTgBusy ? '...' : 'Отвязать TG-аккаунт'"
-            @click="unlinkTelegram"
-            :disabled="unlinkTgBusy"
-          />
-          <UiButton
-            v-if="!telegramVerified && botName"
-            variant="green"
-            text="Пройти верификацию"
-            :href="botLink"
-            target="_blank"
-            rel="noopener noreferrer"
-          />
+          <div class="verif-action">
+            <UiButton
+              v-if="telegramVerified"
+              variant="red"
+              :text="unlinkTgBusy ? '...' : 'Отвязать TG-аккаунт'"
+              @click="unlinkTelegram"
+              :disabled="unlinkTgBusy"
+            />
+            <UiButton
+              v-if="!telegramVerified && botName"
+              variant="green"
+              text="Пройти верификацию"
+              :href="botLink"
+              target="_blank"
+              rel="noopener noreferrer"
+            />
+            <span class="hint-url">
+              Или найдите в Telegram
+              <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer"> @{{ botName }}</a>
+            </span>
+          </div>
         </div>
       </div>
 
@@ -131,9 +137,9 @@
             @click="changePassword"
             :disabled="pwdBusy || !canChangePassword"
           />
-          <span class="hint">
-            Сбросить пароль можно через
-            <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer">TG-бота</a>
+          <span class="hint-url">
+            Сбросить пароль можно через TG-бота
+            <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer"> @{{ botName }}</a>
           </span>
         </div>
       </div>
@@ -145,7 +151,7 @@
         <div class="params-switch">
           <UiSwitch
             :model-value="tgInvitesEnabled"
-            label="Уведомления в TG о приглашениях в комнату"
+            label="Уведомления в Telegram о приглашениях в комнату"
             off-label="Запретить"
             on-label="Разрешить"
             size="low"
@@ -600,6 +606,21 @@ onBeforeUnmount(() => {
             letter-spacing: -0.32px;
           }
         }
+        .verif-action {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          .hint-url {
+            color: $neutral-300;
+            font-family: Hauora-Regular;
+            font-size: 14px;
+            line-height: 14px;
+            letter-spacing: -0.28px;
+            a {
+              color: $neutral-white;
+            }
+          }
+        }
       }
     }
     .password {
@@ -655,7 +676,7 @@ onBeforeUnmount(() => {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        .hint {
+        .hint-url {
           color: $neutral-300;
           font-family: Hauora-Regular;
           font-size: 14px;

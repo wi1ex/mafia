@@ -16,13 +16,12 @@
               <UiInput id="sanction-days" v-model.number="form.days" type="number" min="0" max="31" step="1" autocomplete="off" label="Дни" />
               <UiInput id="sanction-hours" v-model.number="form.hours" type="number" min="0" max="23" step="1" autocomplete="off" label="Часы" />
             </div>
-            <UiDropdown
-              v-if="showReason"
-              id="sanction-reason"
-              v-model="form.reason"
-              label="Причина"
-              :options="reasons"
-            />
+            <div v-if="showReason">
+              <label for="sanction-reason">Причина</label>
+              <select id="sanction-reason" v-model="form.reason">
+                <option v-for="option in reasons" :key="option.value" :value="option.value">{{ option.label }}</option>
+              </select>
+            </div>
             <UiInput
               v-if="showDescription"
               id="sanction-description"
@@ -49,7 +48,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 
-import UiDropdown from '@/components/UiDropdown.vue'
 import UiInput from '@/components/UiInput.vue'
 
 import iconClose from '@/assets/svg/iconClose.svg'
