@@ -560,8 +560,6 @@ onBeforeUnmount(() => {
           }
         }
         .nick {
-          text-align: start;
-          min-width: 164px;
           color: $neutral-black;
           font-family: Hauora-Medium;
           font-size: 16px;
@@ -579,6 +577,7 @@ onBeforeUnmount(() => {
         .room-info {
           display: flex;
           flex-direction: column;
+          min-width: 100px;
           .room {
             text-align: start;
             max-width: 100px;
