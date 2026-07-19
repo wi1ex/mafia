@@ -21,10 +21,6 @@
                   <img v-for="badgeSrc in friendThemeIconSrcs(f)" :key="`${f.id}-${badgeSrc}`" class="profile-theme-icon" :src="badgeSrc" alt="" />
                 </div>
                 <span class="nick">{{ f.username || ('user' + f.id) }}</span>
-                <div v-if="f.room_id && isAccepted(f)" class="room-info">
-                  <span class="room">{{ f.room_title || ('Комната #' + f.room_id) }}</span>
-                  <span class="game" :class="{ active: f.room_in_game }">{{ f.room_in_game ? 'Игра' : 'Лобби' }}</span>
-                </div>
               </button>
               <div v-else class="left profile-trigger">
                 <img v-minio-img="{ key: f.avatar_name ? `avatars/${f.avatar_name}` : '', placeholder: iconDefaultAvatarBlack, lazy: false, animated: true }" alt="avatar" />
@@ -47,6 +43,10 @@
                 </button>
               </div>
               <div v-else-if="isAccepted(f)" class="actions">
+                <div v-if="f.room_id && isAccepted(f)" class="room-info">
+                  <span class="room">{{ f.room_title || ('Комната #' + f.room_id) }}</span>
+                  <span class="game" :class="{ active: f.room_in_game }">{{ f.room_in_game ? 'Игра' : 'Лобби' }}</span>
+                </div>
                 <button v-if="shouldShowInviteButton(f)" type="button" class="icon-btn invite-btn" :disabled="isInviteDisabled(f) || Boolean(inviteBusy[f.id])" @click="invite(f)" aria-label="Пригласить в комнату">
                   <UiIcon class="action-icon" :icon="inviteIcon(f)" />
                 </button>
@@ -571,6 +571,11 @@ onBeforeUnmount(() => {
           overflow: hidden;
           text-overflow: ellipsis;
         }
+      }
+      .actions {
+        display: flex;
+        align-items: center;
+        gap: 4px;
         .room-info {
           display: flex;
           flex-direction: column;
@@ -598,11 +603,6 @@ onBeforeUnmount(() => {
             }
           }
         }
-      }
-      .actions {
-        display: flex;
-        align-items: center;
-        gap: 4px;
         button {
           display: flex;
           align-items: center;

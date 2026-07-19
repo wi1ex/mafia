@@ -512,7 +512,7 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
       align-items: center;
       padding: 8px;
       gap: 4px;
-      max-width: 288px;
+      max-width: 291px;
       border: none;
       background: none;
       cursor: pointer;
@@ -520,6 +520,8 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
         cursor: default;
       }
       img {
+        min-width: 20px;
+        min-height: 20px;
         width: 20px;
         height: 20px;
       }
@@ -527,6 +529,8 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
         display: inline-flex;
         align-items: center;
         justify-content: center;
+        min-width: 20px;
+        min-height: 20px;
         width: 20px;
         height: 20px;
         border-radius: 4px;
@@ -797,8 +801,8 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
       align-items: center;
       justify-content: center;
       position: absolute;
-      bottom: 7.5px;
-      right: 7.5px;
+      bottom: 13px;
+      right: 13px;
       width: 14px;
       height: 14px;
       border-radius: 999px;
