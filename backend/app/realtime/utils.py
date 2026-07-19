@@ -3509,11 +3509,14 @@ async def get_public_spectators_count(r, rid: int) -> int:
         async with SessionLocal() as s:
             profiles = await get_user_profiles_cached(s, spectator_ids)
     except Exception:
-        profiles = {}
+        log.warning("spectators.public_count.profile_lookup_failed", rid=rid)
+        return 0
 
     count = 0
     for uid in spectator_ids:
-        profile = profiles.get(uid) or {}
+        profile = profiles.get(uid)
+        if not profile:
+            continue
         if str(profile.get("role") or "user") == "admin":
             continue
         count += 1
