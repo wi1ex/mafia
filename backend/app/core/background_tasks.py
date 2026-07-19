@@ -177,13 +177,15 @@ class LifespanBackgroundTasks:
     async def stale_chat_uploads_loop(self) -> None:
         try:
             while True:
+                next_run = _next_local_daily_run_at(hour=3, minute=0)
+                delay_s = max(0.0, (next_run - datetime.now(next_run.tzinfo)).total_seconds())
+                await asyncio.sleep(delay_s)
                 try:
                     deleted = await delete_stale_pending_chat_images_async()
                     if deleted:
                         self._log.info("app.chat.pending_uploads_cleaned", deleted=deleted)
                 except Exception:
                     self._log.exception("app.chat.pending_upload_cleanup_failed")
-                await asyncio.sleep(15 * 60)
         except asyncio.CancelledError:
             pass
 
