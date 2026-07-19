@@ -188,8 +188,8 @@
         <img class="background-image-6" :src="imageSlide6" alt="" aria-hidden="true" />
         <div class="right-extra-content">
           <div class="right-extra-copy-subscription">
-            <span>Оформи подписку и получи</span>
-            <span class="right-extra-copy-accent">бонусы!</span>
+            <span>Оформи подписку и открой</span>
+            <span class="right-extra-copy-accent">новые функции!</span>
           </div>
           <button type="button" class="right-extra-btn" @click="openSubscriptionModal">
             <UiIcon class="btn-icon" :icon="iconArrowNext" />
@@ -1538,7 +1538,7 @@ onBeforeUnmount(() => {
         max-width: calc(100% - 48px);
         z-index: 1;
         .right-extra-copy-subscription {
-          width: 220px;
+          width: 275px;
           color: $neutral-white;
           font-family: Involve-Medium;
           font-size: 24px;

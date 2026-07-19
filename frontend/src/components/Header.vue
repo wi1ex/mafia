@@ -57,7 +57,7 @@
     <button v-if="!auth.isAuthed && !auth.foreignActive" class="profile-no-btn" type="button" @click="openAuth('login')">
       <span>Вход / Регистрация</span>
     </button>
-    <div v-else-if="!auth.isAuthed && auth.foreignActive" class="profile-no-btn">
+    <div v-else-if="!auth.isAuthed && auth.foreignActive" class="info-no-btn">
       <span>Вы авторизованы в другой вкладке</span>
     </div>
     <div v-else class="user">
@@ -623,6 +623,23 @@ function openAuth(mode: 'login' | 'register') {
       position: relative;
       z-index: 2;
     }
+    span {
+      color: $neutral-white;
+      font-family: Hauora-Regular;
+      font-size: 18px;
+      line-height: 20px;
+      letter-spacing: -0.36px;
+    }
+  }
+  .info-no-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 16px;
+    border: none;
+    border-radius: 16px;
+    background: $soft-purple-900;
+    cursor: default;
     span {
       color: $neutral-white;
       font-family: Hauora-Regular;
