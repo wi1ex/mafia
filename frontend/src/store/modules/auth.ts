@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { startAuthSocket, stopAuthSocket } from '@/services/sio'
 import {
   api,
+  AUTH_SESSION_SID_HEADER,
   setAuthHeader,
   addAuthExpiredListener,
   refreshAccessTokenFull,
@@ -10,6 +11,7 @@ import {
 import { isPwaMode } from '@/services/pwa'
 import { alertDialog } from '@/services/confirm'
 import { formatModerationAlert } from '@/services/moderation'
+import { hasAuthCookieMutex, withAuthCookieLock } from '@/services/refreshCoordination'
 import { useUserStore } from './user'
 import {
   initSessionBus,
@@ -28,7 +30,7 @@ export const useAuthStore = defineStore('auth', () => {
   const foreign = ref(false)
   const loginCooldownUntil = ref(0)
   const registerCooldownUntil = ref(0)
-  const sessionStorageKeepKeys = ['auth:tabId']
+  const sessionStorageKeepKeys = ['auth:tabId', 'auth:sessionSid']
 
   const isAuthed = computed(() => Boolean(sessionId.value))
   const loginCooldownActive = computed(() => loginCooldownUntil.value > Date.now())
@@ -161,12 +163,14 @@ export const useAuthStore = defineStore('auth', () => {
     initSessionBus()
     unsubFA = onForeignActive((on) => { foreign.value = on })
     unsubINC = onInconsistency(async () => { await localSignOut() })
+    foreign.value = isForeignActive()
     busInited = true
   }
   function unbindBus() {
     unsubFA?.()
     unsubINC?.()
     unsubFA = unsubINC = null
+    busInited = false
   }
 
   async function applySession(data: { access_token?: string; sid?: string }, { connect = true } = {}) {
@@ -180,11 +184,11 @@ export const useAuthStore = defineStore('auth', () => {
     ready.value = true
   }
 
-  async function clearSession() {
+  async function clearSession({ preservePublishedSid = false }: { preservePublishedSid?: boolean } = {}) {
     sessionId.value = ''
     setAuthHeader('')
     stopAuthSocket()
-    clearSid()
+    clearSid({ preservePublished: preservePublishedSid })
     unbindBus()
     stopSessionBus()
     foreign.value = isForeignActive()
@@ -194,7 +198,18 @@ export const useAuthStore = defineStore('auth', () => {
     } catch {}
   }
 
-  async function localSignOut(): Promise<void> { await clearSession() }
+  async function localSignOut(expectedSid: string = sessionId.value): Promise<void> {
+    try {
+      await withAuthCookieLock(async () => {
+        if (sessionId.value !== expectedSid) return
+        await clearSession()
+      })
+    } catch {
+      if (sessionId.value === expectedSid) {
+        await clearSession({ preservePublishedSid: true })
+      }
+    }
+  }
 
   async function init(): Promise<void> {
     if (ready.value) return
@@ -213,12 +228,31 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const data = await refreshAccessTokenFull(false)
       if (!data) {
-        await clearSession()
+        await localSignOut()
         return
       }
-      await applySession(data)
+      const returnedSid = String(data.sid || '')
+      let applied = false
+      try {
+        await withAuthCookieLock(async () => {
+          let publishedSid = returnedSid
+          let scopeReadable = false
+          try {
+            publishedSid = localStorage.getItem('auth:sid') || ''
+            scopeReadable = true
+          } catch {}
+          if (!returnedSid || (scopeReadable && publishedSid !== returnedSid)) return
+          await applySession(data)
+          applied = true
+        })
+      } catch {}
+      if (!applied) {
+        await localSignOut()
+        return
+      }
+      return
     } catch {
-      await clearSession()
+      await localSignOut()
     }
   }
 
@@ -228,8 +262,6 @@ export const useAuthStore = defineStore('auth', () => {
       scanAndDelContains(['apps_seen'])
       if (!opts?.userChanged) return
       delLS([
-        'auth:sid',
-        'auth:lock',
         'room:lastRoom',
         'room:lastGame',
       ])
@@ -249,21 +281,47 @@ export const useAuthStore = defineStore('auth', () => {
     } catch {}
   }
 
+  function publishedSessionMatches(expectedSid: string): boolean {
+    if (!expectedSid || sessionId.value !== expectedSid || !hasAuthCookieMutex()) return false
+    try {
+      return (localStorage.getItem('auth:sid') || '') === expectedSid
+    } catch {
+      return typeof navigator !== 'undefined' && Boolean((navigator as Navigator & { locks?: unknown }).locks)
+    }
+  }
+
+  async function finalizeAuthorizedUser(expectedSid: string, userId?: number): Promise<boolean> {
+    if (!expectedSid) return false
+    try {
+      return await withAuthCookieLock(async () => {
+        if (!publishedSessionMatches(expectedSid)) return false
+        onAuthorizedUserResolved(userId)
+        return true
+      })
+    } catch {
+      return false
+    }
+  }
+
   async function signInWithPassword(payload: { username: string; password: string }): Promise<void> {
     const retryIn = remainingCooldownSeconds('login')
     if (retryIn > 0) {
       void alertDialog(`Попробуйте снова через ${formatRetryAfter(retryIn)}.`)
       return
     }
+    let loginSid = ''
     try {
       const headers = isPwaMode() ? { 'X-PWA': '1' } : undefined
-      const { data } = await api.post('/auth/login', payload, headers ? { headers } : undefined)
+      await withAuthCookieLock(async () => {
+        const { data } = await api.post('/auth/login', payload, headers ? { headers } : undefined)
+        loginSid = String(data?.sid || '')
+        await applySession(data)
+      })
       clearCooldown('login')
-      await applySession(data)
       const userStore = useUserStore()
       await userStore.fetchMe()
-      onAuthorizedUserResolved(userStore.user?.id)
-      if (userStore.passwordTemp) {
+      const stillCurrent = await finalizeAuthorizedUser(loginSid, userStore.user?.id)
+      if (stillCurrent && userStore.passwordTemp) {
         const { default: router } = await import('@/router')
         router.push({ name: 'profile', query: { tab: 'profile' } }).catch(() => {})
       }
@@ -289,11 +347,15 @@ export const useAuthStore = defineStore('auth', () => {
       void alertDialog(`Попробуйте снова через ${formatRetryAfter(retryIn)}.`)
       return
     }
-    let data: { access_token?: string; sid?: string } | null = null
+    let registrationSid = ''
     try {
       const headers = isPwaMode() ? { 'X-PWA': '1' } : undefined
-      const res = await api.post('/auth/register', payload, headers ? { headers } : undefined)
-      data = res.data
+      await withAuthCookieLock(async () => {
+        const res = await api.post('/auth/register', payload, headers ? { headers } : undefined)
+        const next = res.data as { access_token?: string; sid?: string }
+        registrationSid = String(next.sid || '')
+        await applySession(next)
+      })
       clearCooldown('register')
     } catch (e: any) {
       const st = e?.response?.status
@@ -320,7 +382,6 @@ export const useAuthStore = defineStore('auth', () => {
       return
     }
 
-    await applySession(data || {})
     const userStore = useUserStore()
     try {
       await userStore.fetchMe()
@@ -333,12 +394,24 @@ export const useAuthStore = defineStore('auth', () => {
         return
       }
     }
-    onAuthorizedUserResolved(userStore.user?.id)
+    await finalizeAuthorizedUser(registrationSid, userStore.user?.id)
   }
 
   async function logout(): Promise<void> {
-    try { await api.post('/auth/logout', undefined, { __skipAuth: true }) } catch {}
-    finally { await clearSession() }
+    const expectedSid = sessionId.value
+    try {
+      await withAuthCookieLock(async () => {
+        if (!publishedSessionMatches(expectedSid)) return
+        await api.post('/auth/logout', undefined, {
+          __skipAuth: true,
+          headers: { [AUTH_SESSION_SID_HEADER]: expectedSid },
+        })
+        await clearSession()
+      })
+    } catch {}
+    finally {
+      if (sessionId.value === expectedSid) await localSignOut(expectedSid)
+    }
   }
 
   return {

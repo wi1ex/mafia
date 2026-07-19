@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import List
 from urllib.parse import quote
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -86,9 +87,21 @@ class Settings(BaseSettings):
     KNOCKS_LIMIT: int = 4
     WINK_SPOT_CHANCE_PERCENT: int = 10
 
+    @field_validator("BACKEND_CORS_ORIGINS")
+    @classmethod
+    def reject_credentialed_cors_wildcard(cls, origins: List[str]) -> List[str]:
+        cleaned = [str(origin).strip().rstrip("/") for origin in origins if str(origin).strip()]
+        if "*" in cleaned:
+            raise ValueError("BACKEND_CORS_ORIGINS must list explicit origins when credentials are enabled")
+
+        return cleaned
+
     @property
     def pg_dsn(self) -> str:
-        return f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+        user = quote(self.POSTGRES_USER, safe="")
+        password = quote(self.POSTGRES_PASSWORD, safe="")
+        database = quote(self.POSTGRES_DB, safe="")
+        return f"postgresql+asyncpg://{user}:{password}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{database}"
 
     @property
     def redis_url(self) -> str:

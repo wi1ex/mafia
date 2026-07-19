@@ -56,6 +56,7 @@
 #     пережить потерю диска/инстанса.
 #
 set -euo pipefail
+umask 077
 
 log() { echo "$(date '+%F %T') [INFO] $*"; }
 error() { echo "$(date '+%F %T') [ERROR] $*" >&2; }
@@ -86,6 +87,13 @@ esac
 : "${DB_USER:?POSTGRES_USER (or DB_USER) not set}"
 : "${DB_PASSWORD:?POSTGRES_PASSWORD (or DB_PASSWORD) not set}"
 : "${MINIO_BUCKET:?MINIO_BUCKET not set}"
+[[ "$DB_NAME" =~ ^[A-Za-z_][A-Za-z0-9_.-]{0,62}$ ]] || { error "Invalid PostgreSQL database name"; exit 1; }
+[[ "$DB_USER" =~ ^[A-Za-z_][A-Za-z0-9_.-]{0,62}$ ]] || { error "Invalid PostgreSQL user name"; exit 1; }
+if [[ ! "$MINIO_BUCKET" =~ ^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$ ]] ||
+   [[ "$MINIO_BUCKET" == *..* ]]; then
+  error "Invalid MinIO bucket name"
+  exit 1
+fi
 if [ "$ENABLE_REDIS_BACKUP" = "1" ]; then
   : "${REDIS_PASSWORD:?REDIS_PASSWORD not set (required when ENABLE_REDIS_BACKUP=1)}"
 fi
@@ -116,8 +124,12 @@ LOCKFILE="$LOCK_DIR/backup_all.lock"
 exec 200>"$LOCKFILE"
 flock -n 200 || { error "Backup already running"; exit 1; }
 
+TMP=""
 cleanup() {
   local rc=$?
+  if [ -n "${TMP:-}" ] && [ -d "$TMP" ]; then
+    rm -rf -- "$TMP" || true
+  fi
   flock -u 200 || true
   rm -f "$LOCKFILE" || true
   if [ "$rc" -ne 0 ]; then
@@ -140,15 +152,16 @@ PG_CONTAINER="$(compose ps -q db)"
 
 TMP="$(mktemp -d)"
 PG_DUMP="$TMP/${DB_NAME}.dump"
-docker exec "$PG_CONTAINER" \
-  sh -c "export PGPASSWORD='$DB_PASSWORD'; pg_dump -U '$DB_USER' -F c '$DB_NAME'" \
+docker exec -e PGPASSWORD="$DB_PASSWORD" "$PG_CONTAINER" \
+  pg_dump -U "$DB_USER" -F c "$DB_NAME" \
   > "$PG_DUMP"
 (cd "$TMP" && sha256sum "${DB_NAME}.dump" > "${DB_NAME}.sha256")
 
 PG_ARCHIVE="$BACKUP_ROOT/postgres/${DB_NAME}_${TIMESTAMP}.tar.gz"
 tar czf "$PG_ARCHIVE" -C "$TMP" "${DB_NAME}.dump" "${DB_NAME}.sha256"
 log "-> $PG_ARCHIVE"
-rm -rf "$TMP"
+rm -rf -- "$TMP"
+TMP=""
 
 if [ "$ENABLE_REDIS_BACKUP" = "1" ]; then
   log "Redis: dump + checksum + archive"
@@ -157,15 +170,16 @@ if [ "$ENABLE_REDIS_BACKUP" = "1" ]; then
 
   TMP="$(mktemp -d)"
   REDIS_DUMP="$TMP/dump.rdb"
-  docker exec "$REDIS_CONTAINER" \
-    sh -c "redis-cli --no-auth-warning -a '$REDIS_PASSWORD' SAVE >/dev/null"
+  docker exec -e REDISCLI_AUTH="$REDIS_PASSWORD" "$REDIS_CONTAINER" \
+    redis-cli --no-auth-warning SAVE >/dev/null
   docker exec "$REDIS_CONTAINER" cat /data/dump.rdb > "$REDIS_DUMP"
   (cd "$TMP" && sha256sum "dump.rdb" > "dump.sha256")
 
   REDIS_ARCHIVE="$BACKUP_ROOT/redis/redis_${TIMESTAMP}.tar.gz"
   tar czf "$REDIS_ARCHIVE" -C "$TMP" "dump.rdb" "dump.sha256"
   log "-> $REDIS_ARCHIVE"
-  rm -rf "$TMP"
+  rm -rf -- "$TMP"
+  TMP=""
 else
   log "Redis backup skipped (ENABLE_REDIS_BACKUP=0)"
 fi
@@ -184,7 +198,8 @@ tar czf "$MINIO_TAR" -C "$TMP" "$MINIO_BUCKET"
 MINIO_ARCHIVE="$BACKUP_ROOT/minio/${MINIO_BUCKET}_${TIMESTAMP}.tar.gz"
 tar czf "$MINIO_ARCHIVE" -C "$TMP" "${MINIO_BUCKET}.tar.gz" "${MINIO_BUCKET}.sha256"
 log "-> $MINIO_ARCHIVE"
-rm -rf "$TMP"
+rm -rf -- "$TMP"
+TMP=""
 
 log "Cleaning backups older than $BACKUP_RETENTION_DAYS days"
 find "$BACKUP_ROOT" -type f -mtime +"$BACKUP_RETENTION_DAYS" -delete

@@ -8,7 +8,7 @@ from contextlib import suppress
 import structlog
 from time import time
 from datetime import date, datetime, timezone, timedelta
-from typing import Optional, Dict, Any, Literal, Sequence, Iterable, cast, TYPE_CHECKING
+from typing import Optional, Dict, Any, Literal, Sequence, Iterable, Mapping, cast, TYPE_CHECKING
 from fastapi import Depends, HTTPException, status, Header, Request
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from sqlalchemy import update, func, select, or_, and_, delete, literal_column
@@ -46,8 +46,10 @@ from ..services.blacklist import clear_user_blacklist_if_subscription_inactive
 from ..services.telegram import send_text_message
 from ..schemas.common import Ok, Identity
 if TYPE_CHECKING:
+    from ..schemas.auth import BotResetIn, BotStatusIn, BotVerifyIn
     from ..schemas.admin import SiteSettingsOut, GameSettingsOut, PublicSettingsOut, RegistrationsPoint, AdminRoomUserStat, AdminSanctionDurationAdjustIn, AdminGameActionFieldOut
-    from ..schemas.room import GameParams
+    from ..schemas.friend import FriendsListItemOut
+    from ..schemas.room import GameParams, RoomBriefOut
     from ..schemas.user import UserGamesHistoryOut, GameHistoryItemOut, GameHistoryHostOut, UserMiniProfileNominationStatsOut, UserStatsOut
 
 __all__ = [
@@ -60,6 +62,7 @@ __all__ = [
     "serialize_game_for_redis",
     "game_from_redis_to_model",
     "normalize_spectators_limit",
+    "ensure_room_view_allowed",
     "emit_rooms_upsert",
     "broadcast_creator_rooms",
     "emit_room_profile_theme_sync",
@@ -105,6 +108,7 @@ __all__ = [
     "build_room_user_stats",
     "sum_room_stream_seconds",
     "fetch_live_room_stats",
+    "has_live_room_snapshot",
     "redis_hash",
     "int_or_zero",
     "game_slot_digit",
@@ -183,10 +187,16 @@ __all__ = [
     "find_user_by_username",
     "generate_user_id",
     "require_bot_token",
+    "bot_verify_telegram_rate_key",
+    "bot_verify_account_rate_key",
+    "bot_reset_rate_key",
+    "bot_status_rate_key",
     "contact_request_rate_key",
     "send_contact_request_admin_telegram_message",
     "schedule_contact_request_admin_telegram_message",
     "pair",
+    "friend_profile_text",
+    "build_friend_list_item",
     "load_link",
     "friend_status_for",
     "raise_missing_incoming_request_error",
@@ -199,7 +209,6 @@ __all__ = [
     "emit_friends_profile_sync",
     "emit_role_change_friend_profile_syncs",
     "emit_room_role_sync",
-    "sanitize_username_for_schema",
     "sanitize_title_for_schema",
     "parse_season_starts",
     "season_starts_csv",
@@ -289,6 +298,32 @@ def normalize_spectators_limit(value: Any) -> int:
     return 0 if parsed <= 0 else 10
 
 
+async def ensure_room_view_allowed(
+    r,
+    room_id: int,
+    params: Mapping[str, object],
+    ident: Identity | None,
+) -> None:
+    if str(params.get("anonymity") or "visible") != "hidden":
+        return
+
+    if not ident:
+        raise HTTPException(status_code=404, detail="room_not_found")
+
+    from ..realtime.utils import filter_rooms_for_viewer
+
+    visible = await filter_rooms_for_viewer(
+        r,
+        [{**dict(params), "id": room_id}],
+        str(ident.get("role") or "user"),
+        int(ident["id"]),
+    )
+    if visible:
+        return
+
+    raise HTTPException(status_code=404, detail="room_not_found")
+
+
 def schedule_user_game_stats_cache_invalidation(log_event: str, **log_kwargs: object) -> None:
     async def _task() -> None:
         try:
@@ -327,10 +362,6 @@ async def invalidate_game_stats_cache_for_game_users(user_ids: set[int], log_eve
         await invalidate_user_game_stats_cache_for_users(user_ids)
     except Exception:
         log.warning(log_event, game_id=game_id, users=len(user_ids))
-
-
-def sanitize_username_for_schema(v: Any) -> str:
-    return unicodedata.normalize("NFKC", str(v or "")).strip()
 
 
 def sanitize_title_for_schema(v: Any) -> str:
@@ -1433,9 +1464,26 @@ async def generate_user_id(db: AsyncSession) -> int:
 
 
 def require_bot_token(x_bot_token: str = Header(default="")) -> None:
-    secret = settings.BOT_API_TOKEN or settings.TG_BOT_TOKEN
-    if not x_bot_token or x_bot_token != secret:
+    secret = settings.BOT_API_TOKEN
+    if not x_bot_token or not secret or not secrets.compare_digest(x_bot_token, secret):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="bot_forbidden")
+
+
+def bot_verify_telegram_rate_key(payload: BotVerifyIn, **_: object) -> str:
+    return f"rl:bot:verify:telegram:{int(payload.telegram_id)}"
+
+
+def bot_verify_account_rate_key(payload: BotVerifyIn, **_: object) -> str:
+    account = str(payload.username or "").strip().casefold()
+    return f"rl:bot:verify:account:{account}"
+
+
+def bot_reset_rate_key(payload: BotResetIn, **_: object) -> str:
+    return f"rl:bot:reset:telegram:{int(payload.telegram_id)}"
+
+
+def bot_status_rate_key(payload: BotStatusIn, **_: object) -> str:
+    return f"rl:bot:status:telegram:{int(payload.telegram_id)}"
 
 
 async def emit_sanctions_update(session: AsyncSession, user_id: int) -> None:
@@ -2408,7 +2456,7 @@ async def delete_user_account_as_admin_action(session: AsyncSession, user_id: in
     )
 
     await session.commit()
-    await force_logout_user(uid)
+    await force_logout_user(uid, reason="account_deleted")
     return user
 
 
@@ -2440,22 +2488,10 @@ async def delete_friend_links_for_user(session: AsyncSession, user_id: int) -> t
     return removed_count, tuple(sorted(affected_user_ids))
 
 
-async def force_logout_user(user_id: int) -> None:
-    r = get_redis()
-    try:
-        sid = await r.get(f"user:{user_id}:sid")
-    except Exception:
-        sid = None
-    if sid:
-        try:
-            await r.delete(f"session:{sid}:rjti")
-            await r.delete(f"user:{user_id}:sid")
-        except Exception:
-            pass
+async def force_logout_user(user_id: int, *, reason: str = "session_revoked") -> None:
+    from ..realtime.connections import revoke_user_session
 
-    with suppress(Exception):
-        await sio.emit("force_logout", {"reason": "account_deleted"}, room=f"user:{user_id}", namespace="/auth")
-        await sio.emit("force_logout", {"reason": "account_deleted"}, room=f"user:{user_id}", namespace="/room")
+    await revoke_user_session(int(user_id), reason=reason)
 
 
 async def _user_has_recorded_games(session: AsyncSession, user_id: int) -> bool:
@@ -4193,6 +4229,69 @@ def pair(uid: int, other: int) -> tuple[int, int]:
     return (uid, other) if uid < other else (other, uid)
 
 
+def friend_profile_text(
+    users_map: Mapping[int, Mapping[str, object]],
+    user_id: int,
+    field: str,
+) -> str | None:
+    raw = (users_map.get(user_id) or {}).get(field)
+    return str(raw) if isinstance(raw, str) else None
+
+
+def build_friend_list_item(
+    friend_id: int,
+    *,
+    viewer_id: int,
+    invite_room_id: int,
+    users_map: Mapping[int, Mapping[str, object]],
+    online_ids: set[int],
+    closeness_map: Mapping[tuple[int, int], int],
+    room_by_uid: Mapping[int, int],
+    visible_room_ids: set[int],
+    rooms_map: Mapping[int, RoomBriefOut],
+    active_alive_game_room_by_uid: Mapping[int, int],
+    active_head_game_room_by_uid: Mapping[int, int],
+    active_sanctions_by_uid: Mapping[int, Mapping[str, object]],
+    in_current_room_ids: set[int],
+    invited_to_room_ids: set[int],
+    tg_invite_cooldown_ids: set[int],
+) -> FriendsListItemOut:
+    from ..schemas.friend import FriendsListItemOut
+
+    user_data = users_map.get(friend_id) or {}
+    online = friend_id in online_ids
+    closeness = closeness_map.get(pair(viewer_id, friend_id), 0)
+    room_id = room_by_uid.get(friend_id) if online else None
+    visible_room_id = int(room_id) if room_id and int(room_id) in visible_room_ids else None
+    room_info = rooms_map.get(visible_room_id) if visible_room_id else None
+    active_room_id = active_alive_game_room_by_uid.get(friend_id)
+    active_head_room_id = active_head_game_room_by_uid.get(friend_id)
+    active_sanctions = active_sanctions_by_uid.get(friend_id) or {}
+    return FriendsListItemOut(
+        kind="online" if online else "offline",
+        id=int(friend_id),
+        username=friend_profile_text(users_map, friend_id, "username"),
+        avatar_name=friend_profile_text(users_map, friend_id, "avatar_name"),
+        role=friend_profile_text(users_map, friend_id, "role"),
+        theme_color=friend_profile_text(users_map, friend_id, "theme_color"),
+        theme_icon=friend_profile_text(users_map, friend_id, "theme_icon"),
+        online=online,
+        closeness=closeness,
+        room_id=visible_room_id,
+        room_title=room_info.title if room_info else None,
+        room_in_game=bool(room_info.in_game) if room_info else None,
+        in_current_room=(friend_id in in_current_room_ids) if invite_room_id > 0 else None,
+        in_active_game_as_alive_player=bool(online and active_room_id),
+        in_active_game_as_host=bool(active_head_room_id) if invite_room_id > 0 else None,
+        telegram_verified=bool(user_data.get("telegram_verified")),
+        tg_invites_enabled=bool(user_data.get("tg_invites_enabled")),
+        room_invited=(friend_id in invited_to_room_ids) if invite_room_id > 0 else None,
+        tg_invite_cooldown_active=(friend_id in tg_invite_cooldown_ids) if invite_room_id > 0 else None,
+        ban_active=bool(active_sanctions.get(SANCTION_BAN)) if invite_room_id > 0 else None,
+        timeout_active=bool(active_sanctions.get(SANCTION_TIMEOUT)) if invite_room_id > 0 else None,
+    )
+
+
 async def load_link(db: AsyncSession, uid: int, other: int) -> FriendLink | None:
     return await db.scalar(
         select(FriendLink).where(
@@ -4679,6 +4778,33 @@ async def fetch_active_room_game_numbers(room_ids: list[int]) -> dict[int, int]:
             out[int(rid)] = number
 
     return out
+
+
+def has_live_room_snapshot(stats: object) -> bool:
+    if not isinstance(stats, dict):
+        return False
+
+    required = (
+        "visitors",
+        "spectators",
+        "streams",
+        "visitors_count",
+        "spectators_count",
+        "stream_seconds",
+        "has_stream",
+        "title",
+        "user_limit",
+        "creator",
+        "creator_name",
+        "created_at",
+        "privacy",
+        "anonymity",
+    )
+    for key in required:
+        if key not in stats:
+            return False
+
+    return True
 
 
 async def fetch_live_room_stats(r, room_ids: list[int]) -> dict[int, dict[str, Any]]:

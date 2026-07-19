@@ -1,6 +1,7 @@
 import axios,{
   AxiosError, AxiosHeaders, AxiosResponse, InternalAxiosRequestConfig,
 } from 'axios'
+import { coordinateRefresh } from './refreshCoordination'
 
 declare module 'axios' {
   export interface AxiosRequestConfig<D = any> {
@@ -67,52 +68,46 @@ function setReqAuthHeader(cfg: InternalAxiosRequestConfig, tok: string): void {
   cfg.headers.set('Authorization', `Bearer ${tok}`)
 }
 
-async function doRefreshWithTimeout(): Promise<RefreshResult> {
+export const AUTH_SESSION_SID_HEADER = 'X-Auth-Session-Sid'
+
+async function doRefreshWithTimeout(expectedSid: string): Promise<RefreshResult> {
   const ctrl = new AbortController()
-  let resolveTimeout: (value: string | null) => void = () => {}
-  const timeoutPromise = new Promise<string | null>((resolve) => {
-    resolveTimeout = resolve
-  })
   const tid = setTimeout(() => {
     try { ctrl.abort() } catch {}
-    resolveTimeout(null)
   }, 10_000)
-  const refreshPromise = (async () => {
-    try {
-      const headers = AxiosHeaders.from({ Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' })
-      const { data } = await api.post('/auth/refresh', undefined, { signal: ctrl.signal, headers, __skipAuth: true })
-      const tok = (data?.access_token as string | undefined) ?? null
-      setAuthHeader(tok ?? '')
-      if (tok) notifyTokenRefreshed(tok)
-      return { token: tok, data }
-    } catch {
-      setAuthHeader('')
-      return { token: null }
-    } finally {
-      clearTimeout(tid)
-    }
-  })()
-  const res = await Promise.race([refreshPromise, timeoutPromise])
-  return (res && typeof res === 'object' && 'token' in res) ? res as RefreshResult : { token: res as string | null }
+  try {
+    const headers = AxiosHeaders.from({ Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' })
+    headers.set(AUTH_SESSION_SID_HEADER, expectedSid)
+    const { data } = await api.post('/auth/refresh', undefined, { signal: ctrl.signal, headers, __skipAuth: true })
+    const tok = (data?.access_token as string | undefined) ?? null
+    return { token: tok, data }
+  } catch {
+    return { token: null }
+  } finally {
+    clearTimeout(tid)
+  }
 }
 
-async function doRefreshWithRetry(): Promise<RefreshResult> {
-  let out = await doRefreshWithTimeout()
-  if (out.token) return out
+function applyCoordinatedRefreshResult(result: RefreshResult): void {
+  const tok = result.token || ''
+  setAuthHeader(tok)
+  if (!tok) return
 
-  await new Promise<void>((resolve) => {
-    window.setTimeout(resolve, 250)
-  })
-  out = await doRefreshWithTimeout()
-  return out
+  const sid = String(result.data?.sid || '')
+  if (sid && typeof window !== 'undefined') {
+    try { window.localStorage.setItem('auth:sid', sid) } catch {}
+  }
+  notifyTokenRefreshed(tok)
 }
 
 async function startRefresh(): Promise<RefreshResult> {
   if (!refreshInFlight) {
-    refreshInFlight = (async () => {
-      const out = await doRefreshWithRetry()
-      refreshInFlight = null
-      return out
+    refreshInFlight = (async (): Promise<RefreshResult> => {
+      try {
+        return await coordinateRefresh(doRefreshWithTimeout, applyCoordinatedRefreshResult)
+      } finally {
+        refreshInFlight = null
+      }
     })()
   }
   return refreshInFlight

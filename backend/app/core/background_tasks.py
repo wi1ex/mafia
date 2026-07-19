@@ -13,7 +13,7 @@ from ..api.utils import (
     sync_expired_profile_subscriptions,
 )
 from ..security.parameters import refresh_app_settings
-from ..services.minio import ensure_bucket
+from ..services.minio import delete_stale_pending_chat_images_async, ensure_bucket
 from ..services.nickname_limits import reset_monthly_nickname_change_limits
 from .clients import get_redis
 from .db import SessionLocal
@@ -44,6 +44,7 @@ class LifespanBackgroundTasks:
         self._expired_subscriptions_task: asyncio.Task[None] | None = None
         self._stale_unverified_accounts_task: asyncio.Task[None] | None = None
         self._empty_rooms_gc_task: asyncio.Task[None] | None = None
+        self._stale_chat_uploads_task: asyncio.Task[None] | None = None
         self._empty_room_gc_tasks: dict[int, asyncio.Task[None]] = {}
 
     def start(self) -> None:
@@ -52,6 +53,7 @@ class LifespanBackgroundTasks:
         self._expired_subscriptions_task = asyncio.create_task(self.expired_profile_subscriptions_loop())
         self._stale_unverified_accounts_task = asyncio.create_task(self.stale_unverified_accounts_loop())
         self._empty_rooms_gc_task = asyncio.create_task(self.empty_rooms_gc_loop())
+        self._stale_chat_uploads_task = asyncio.create_task(self.stale_chat_uploads_loop())
 
     async def stop(self) -> None:
         try:
@@ -61,6 +63,7 @@ class LifespanBackgroundTasks:
                 self._expired_subscriptions_task,
                 self._stale_unverified_accounts_task,
                 self._empty_rooms_gc_task,
+                self._stale_chat_uploads_task,
             )
             for managed_task in managed_tasks:
                 await self._cancel_and_wait(managed_task)
@@ -168,6 +171,19 @@ class LifespanBackgroundTasks:
                 except Exception:
                     self._log.exception("app.rooms.empty_gc.recovery_loop_failed")
                 await asyncio.sleep(EMPTY_ROOM_GC_SCAN_INTERVAL_SECONDS)
+        except asyncio.CancelledError:
+            pass
+
+    async def stale_chat_uploads_loop(self) -> None:
+        try:
+            while True:
+                try:
+                    deleted = await delete_stale_pending_chat_images_async()
+                    if deleted:
+                        self._log.info("app.chat.pending_uploads_cleaned", deleted=deleted)
+                except Exception:
+                    self._log.exception("app.chat.pending_upload_cleanup_failed")
+                await asyncio.sleep(15 * 60)
         except asyncio.CancelledError:
             pass
 

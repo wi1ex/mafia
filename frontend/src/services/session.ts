@@ -10,6 +10,7 @@ const LS_SID_KEY    = 'auth:sid'
 const LS_LOCK_KEY   = 'auth:lock'
 const LS_DEVICE_KEY = 'auth:deviceId'
 const SS_TAB_KEY    = 'auth:tabId'
+const SS_SID_KEY    = 'auth:sessionSid'
 const BC_NAME       = 'auth_lock'
 
 type Lock = {
@@ -30,7 +31,20 @@ let visHandler: (()=>void) | null = null
 let pageHideHandler: (()=>void) | null = null
 let pageShowHandler: (()=>void) | null = null
 
-let currentSid = ''
+function readTabSid(): string {
+  if (typeof window === 'undefined') return ''
+  try { return window.sessionStorage.getItem(SS_SID_KEY) || '' } catch { return '' }
+}
+
+function writeTabSid(value: string): void {
+  if (typeof window === 'undefined') return
+  try {
+    if (value) window.sessionStorage.setItem(SS_SID_KEY, value)
+    else window.sessionStorage.removeItem(SS_SID_KEY)
+  } catch {}
+}
+
+let currentSid = readTabSid()
 let foreignActive = false
 
 const foreignSubs = new Set<ForeignActiveCb>()
@@ -124,6 +138,15 @@ function acquireOrTakeover(): boolean {
     setForeign(false)
     return true
   }
+  if (
+    currentSid
+    && readSid() === currentSid
+    && String(lock.sid || '') !== currentSid
+  ) {
+    writeLock({ owner: { deviceId: DEVICE_ID, tabId: TAB_ID }, hb: now(), sid: currentSid })
+    setForeign(false)
+    return true
+  }
   if (isOwner(lock)) {
     writeLock({ ...lock, hb: now(), sid: currentSid || lock.sid })
     setForeign(false)
@@ -160,6 +183,11 @@ async function checkConsistency(): Promise<void> {
   const globalSid = readSid()
   const lock = readLock()
   if (!currentSid && globalSid) {
+    if (isOwner(lock) && String(lock?.sid || '') !== globalSid) {
+      deleteLock()
+      setForeign(true)
+      return
+    }
     if (!lock || isStale(lock)) {
       deleteLock()
       setForeign(false)
@@ -252,20 +280,50 @@ export function stopSessionBus(): void {
 
 export function setSid(sid: string): void {
   currentSid = sid || ''
+  writeTabSid(currentSid)
   writeSid(currentSid)
   acquireOrTakeover()
   startHeartbeat()
 }
 
-export function clearSid(): void {
+export function clearSid({ preservePublished = false }: { preservePublished?: boolean } = {}): void {
+  const previousSid = currentSid
+  const globalSid = readSid()
   currentSid = ''
-  writeSid('')
-  const lock = readLock()
-  if (isOwner(lock)) deleteLock()
+  writeTabSid('')
+  if (!preservePublished) {
+    if (!globalSid || (previousSid && globalSid === previousSid)) writeSid('')
+    const lock = readLock()
+    if (isOwner(lock)) deleteLock()
+  }
   setForeign(false)
 }
 
 export function isForeignActive(): boolean { return foreignActive }
+
+export function getRefreshExpectedSid(): string {
+  if (currentSid) return currentSid
+  const publishedSid = readSid()
+  return canRefreshPublishedSid(publishedSid) ? publishedSid : ''
+}
+
+export function canRefreshPublishedSid(publishedSid: string): boolean {
+  const scope = String(publishedSid || '')
+  if (!scope) return !currentSid
+  if (currentSid) return currentSid === scope
+
+  const lock = readLock()
+  return Boolean(
+    isOwner(lock)
+    && !isStale(lock)
+    && String(lock?.sid || '') === scope
+  )
+}
+
+export function canAcceptRefreshSid(returnedSid: string): boolean {
+  const scope = String(returnedSid || '')
+  return Boolean(scope) && (!currentSid || currentSid === scope)
+}
 
 export async function checkConsistencyNow(): Promise<boolean> {
   await checkConsistency()

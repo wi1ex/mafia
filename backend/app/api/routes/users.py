@@ -56,7 +56,12 @@ from ...core.roles import ROLE_ADMIN, ROLE_MODER, normalize_user_role
 from ...core.settings import settings
 from ...core.clients import get_redis
 from ...core.logging import log_action
-from ...security.auth_tokens import get_identity, get_identity_optional
+from ...security.auth_tokens import (
+    AUTH_SESSION_SID_HEADER,
+    get_identity,
+    get_identity_optional,
+    refresh_cookie_matches_scope,
+)
 from ...security.decorators import log_route, rate_limited
 from ...services.text_moderation import enforce_clean_text
 from ...schemas.common import Identity, Ok
@@ -94,7 +99,7 @@ from ...schemas.user import (
     UserSubscriptionPaymentOut,
     UserSubscriptionPaymentsOut,
 )
-from ...security.passwords import hash_password, verify_password
+from ...security.passwords import hash_password_async, verify_password_async
 from ...services.global_chat import global_chat_send_error, resolve_global_chat_permissions
 from ...services.global_chat import (
     emit_global_chat_messages_refresh,
@@ -1284,11 +1289,11 @@ async def change_password(payload: PasswordChangeIn, ident: Identity = Depends(g
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="password_not_set")
 
     password_hash = str(user.password_hash)
-    if not verify_password(payload.current_password, password_hash):
+    if not await verify_password_async(payload.current_password, password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid_credentials")
 
     new_password = normalize_password(payload.new_password)
-    user.password_hash = hash_password(new_password)
+    user.password_hash = await hash_password_async(new_password)
     user.password_temp = False
     await db.commit()
 
@@ -1344,6 +1349,7 @@ async def unverify_telegram(ident: Identity = Depends(get_identity), db: AsyncSe
 @router.post("/avatar", response_model=AvatarUploadOut)
 @log_route("users.upload_avatar")
 @rate_limited(lambda ident, **_: f"rl:upload_avatar:{ident['id']}", limit=1, window_s=1)
+@rate_limited(lambda ident, **_: f"rl:upload_avatar_hour:{ident['id']}", limit=10, window_s=3600)
 async def upload_avatar(file: UploadFile = File(...), static_frame_index: int | None = Form(None), ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> AvatarUploadOut:
     uid = int(ident["id"])
     await ensure_profile_changes_allowed(db, uid)
@@ -1406,6 +1412,7 @@ async def upload_avatar(file: UploadFile = File(...), static_frame_index: int | 
 @router.post("/chat/image/presign", response_model=ChatImagePresignOut)
 @log_route("users.presign_chat_image")
 @rate_limited(lambda ident, **_: f"rl:presign_chat_image:{ident['id']}", limit=5, window_s=10)
+@rate_limited(lambda ident, **_: f"rl:presign_chat_image_daily:{ident['id']}", limit=100, window_s=86400)
 async def presign_chat_image(payload: ChatImagePresignIn, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> ChatImagePresignOut:
     uid = int(ident["id"])
     permissions = await resolve_global_chat_permissions(db, uid)
@@ -1434,6 +1441,7 @@ async def presign_chat_image(payload: ChatImagePresignIn, ident: Identity = Depe
 @router.post("/chat/image", response_model=ChatImageUploadOut)
 @log_route("users.upload_chat_image")
 @rate_limited(lambda ident, **_: f"rl:upload_chat_image:{ident['id']}", limit=3, window_s=10)
+@rate_limited(lambda ident, **_: f"rl:presign_chat_image_daily:{ident['id']}", limit=100, window_s=86400)
 async def upload_chat_image(file: UploadFile = File(...), ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> ChatImageUploadOut:
     uid = int(ident["id"])
     permissions = await resolve_global_chat_permissions(db, uid)
@@ -1514,7 +1522,7 @@ async def delete_avatar(ident: Identity = Depends(get_identity), db: AsyncSessio
 @router.delete("/account", response_model=Ok)
 @log_route("users.delete_account")
 @rate_limited(lambda ident, **_: f"rl:delete_account:{ident['id']}", limit=1, window_s=5)
-async def delete_account(resp: Response, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
+async def delete_account(request: Request, resp: Response, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
     uid = int(ident["id"])
     user = await db.get(User, uid)
     if not user:
@@ -1526,6 +1534,16 @@ async def delete_account(resp: Response, ident: Identity = Depends(get_identity)
     if normalize_user_role(getattr(user, "role", None)) == ROLE_MODER:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="staff_self_delete_forbidden")
 
+    expected_sid = request.headers.get(AUTH_SESSION_SID_HEADER, "").strip()
+    current_sid = str(await get_redis().get(f"user:{uid}:sid") or "")
+    raw_refresh = request.cookies.get("rt")
+    if (
+        not expected_sid
+        or current_sid != expected_sid
+        or (raw_refresh and not refresh_cookie_matches_scope(raw_refresh, expected_sid, expected_user_id=uid))
+    ):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="session_changed")
+
     await set_user_deleted(db, uid, deleted=True)
 
     await log_action(
@@ -1536,6 +1554,6 @@ async def delete_account(resp: Response, ident: Identity = Depends(get_identity)
         details=f"Удаление аккаунта user_id={uid} username={ident['username']}",
     )
 
-    await force_logout_user(uid)
+    await force_logout_user(uid, reason="account_deleted")
     resp.delete_cookie("rt", path="/api", domain=settings.DOMAIN, samesite="strict", secure=True)
     return Ok()

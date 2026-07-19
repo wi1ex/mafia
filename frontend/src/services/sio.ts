@@ -39,10 +39,12 @@ function wireAuthedSocket(s: Socket) {
     if (triedRefreshOnThisCycle) return
     triedRefreshOnThisCycle = true
     const tok = await refreshAccessToken(false)
+    if (disposed) return
     if (tok) {
       applyAuth()
       try { s.connect() } catch {}
     } else {
+      dispose()
       try { (s.io.opts as any).reconnection = false } catch {}
       try { s.close() } catch {}
     }
@@ -51,8 +53,22 @@ function wireAuthedSocket(s: Socket) {
   const onConnect = () => { triedRefreshOnThisCycle = false }
 
   const onRefreshed = (_: string) => applyAuth()
-  const onDisconnect = (reason: string) => {
-    if (reason === 'io client disconnect') dispose()
+  const onDisconnect = async (reason: string) => {
+    if (reason === 'io client disconnect') {
+      dispose()
+      return
+    }
+    if (reason !== 'io server disconnect' || disposed) return
+
+    const tok = await refreshAccessToken(false)
+    if (!tok || disposed) {
+      dispose()
+      try { s.close() } catch {}
+      return
+    }
+    applyAuth()
+    triedRefreshOnThisCycle = true
+    try { s.connect() } catch {}
   }
 
   const onExpired = () => {
@@ -92,7 +108,8 @@ export function createAuthedSocket(namespace: string, opts?: IoOpts): Socket {
 
 export function createPublicSocket(namespace: string, opts?: IoOpts): Socket {
   const tok = getAccessToken()
-  return io(namespace, { ...opts, auth: tok ? { token: tok } : undefined })
+  const s = io(namespace, { ...opts, auth: tok ? { token: tok } : undefined })
+  return tok ? wireAuthedSocket(s) : s
 }
 
 export function disposeAuthedSocket(socket: Socket | null | undefined): void {

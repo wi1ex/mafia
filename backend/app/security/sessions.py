@@ -4,7 +4,7 @@ import structlog
 from fastapi import Response
 from ..core.clients import get_redis
 from ..security.auth_tokens import create_access_token, create_refresh_token, parse_refresh_token
-from ..realtime.sio import sio
+from ..realtime.connections import disconnect_user_sockets, revoke_user_session
 from ..realtime.utils import cleanup_user_from_room
 from ..core.settings import settings
 
@@ -73,29 +73,34 @@ async def new_login_session(resp: Response, *, user_id: int, username: str, role
         jti = secrets.token_urlsafe(16)
 
         rt = create_refresh_token(sub=user_id, sid=sid, jti=jti, ttl_days=settings.REFRESH_EXP_DAY)
-        prev_sid = await r.get(f"user:{user_id}:sid")
-        async with r.pipeline() as p:
-            await p.setex(f"session:{sid}:rjti", settings.REFRESH_EXP_DAY * 86400, jti)
-            await p.set(f"user:{user_id}:sid", sid)
-            if prev_sid and prev_sid != sid:
-                await p.delete(f"session:{prev_sid}:rjti")
-            await p.execute()
+        replace_script = """
+        local previous_sid = redis.call('GET', KEYS[1])
+        redis.call('SETEX', KEYS[2], tonumber(ARGV[3]), ARGV[2])
+        redis.call('SET', KEYS[1], ARGV[1])
+        if previous_sid and previous_sid ~= ARGV[1] then
+            redis.call('DEL', 'session:' .. previous_sid .. ':rjti')
+        end
+        return previous_sid or ''
+        """
+        prev_sid = await r.eval(
+            replace_script,
+            2,
+            f"user:{user_id}:sid",
+            f"session:{sid}:rjti",
+            sid,
+            jti,
+            settings.REFRESH_EXP_DAY * 86400,
+        )
 
         _set_refresh_cookie(resp, rt)
         at = create_access_token(sub=user_id, username=username, role=role, sid=sid, ttl_minutes=settings.ACCESS_EXP_MIN)
 
         if prev_sid and prev_sid != sid:
-            try:
-                await sio.emit("force_logout",
-                               {"reason": "replaced"},
-                               room=f"user:{user_id}",
-                               namespace="/auth")
-                await sio.emit("force_logout",
-                               {"reason": "replaced"},
-                               room=f"user:{user_id}",
-                               namespace="/room")
-            except Exception:
-                log.warning("session.force_logout.emit_failed", user_id=user_id)
+            await disconnect_user_sockets(
+                user_id,
+                reason="replaced",
+                only_auth_sid=str(prev_sid),
+            )
         try:
             await cleanup_user_rooms_on_login(r, user_id)
         except Exception:
@@ -113,34 +118,63 @@ async def rotate_refresh(resp: Response, *, raw_refresh_jwt: str) -> tuple[bool,
     if not ok:
         return False, 0, None
 
-    current_sid = await r.get(f"user:{uid}:sid")
-    if not current_sid or current_sid != sid:
+    new_jti = secrets.token_urlsafe(16)
+    rotate_script = """
+    local current_sid = redis.call('GET', KEYS[1])
+    if not current_sid or current_sid ~= ARGV[1] then return -1 end
+    local current_jti = redis.call('GET', KEYS[2])
+    if not current_jti then return -2 end
+    if current_jti ~= ARGV[2] then return -3 end
+    redis.call('SETEX', KEYS[2], tonumber(ARGV[4]), ARGV[3])
+    for i = 3, #KEYS do
+        redis.call('EXPIRE', KEYS[i], tonumber(ARGV[5]))
+    end
+    return 1
+    """
+    result = int(await r.eval(
+        rotate_script,
+        6,
+        f"user:{uid}:sid",
+        f"session:{sid}:rjti",
+        f"sio:user:{uid}:auth",
+        f"sio:user:{uid}:chat",
+        f"sio:user:{uid}:room",
+        f"sio:user:{uid}:rooms",
+        sid,
+        jti,
+        new_jti,
+        settings.REFRESH_EXP_DAY * 86400,
+        settings.REFRESH_EXP_DAY * 86400 + 3600,
+    ))
+
+    if result == -1:
         await logout(resp, user_id=uid, sid=sid)
-        log.warning("session.refresh.not_current", user_id=uid, sid=sid, current=current_sid)
+        log.warning("session.refresh.not_current", user_id=uid, sid=sid)
         return False, 0, None
 
-    current = await r.get(f"session:{sid}:rjti")
-    if current is None:
+    if result == -2:
         await logout(resp, user_id=uid, sid=sid)
         log.warning("session.refresh.missing_jti", user_id=uid, sid=sid)
         return False, 0, None
 
-    if current != jti:
+    if result == -3:
+        await logout(resp, user_id=uid, sid=sid)
         log.warning("session.refresh.stale_jti", user_id=uid, sid=sid)
         return False, 0, None
 
-    new_jti = secrets.token_urlsafe(16)
+    if result != 1:
+        log.error("session.refresh.unexpected_cas_result", user_id=uid, result=result)
+        return False, 0, None
+
     rt = create_refresh_token(sub=uid, sid=sid, jti=new_jti, ttl_days=settings.REFRESH_EXP_DAY)
-    await r.setex(f"session:{sid}:rjti", settings.REFRESH_EXP_DAY * 86400, new_jti)
     _set_refresh_cookie(resp, rt)
     return True, uid, sid
 
 
 async def logout(resp: Response, *, user_id: int, sid: str | None = None) -> None:
     resp.delete_cookie(key="rt", path="/api", domain=settings.DOMAIN, samesite="strict", secure=True)
-    r = get_redis()
-    if sid:
-        await r.delete(f"session:{sid}:rjti")
-    cur = await r.get(f"user:{user_id}:sid")
-    if cur == sid:
-        await r.delete(f"user:{user_id}:sid")
+    await revoke_user_session(
+        user_id,
+        reason="logout",
+        expected_auth_sid=sid,
+    )

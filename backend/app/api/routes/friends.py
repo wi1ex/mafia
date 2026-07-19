@@ -44,6 +44,8 @@ from ...api.utils import (
     fetch_effective_online_user_ids,
     get_room_params_or_404,
     pair,
+    friend_profile_text,
+    build_friend_list_item,
     load_link,
     raise_missing_incoming_request_error,
     raise_missing_outgoing_request_error,
@@ -288,67 +290,30 @@ async def friends_list(room_id: int | None = None, ident: Identity = Depends(get
             except Exception:
                 continue
 
-    def user_username(user_id: int) -> str | None:
-        raw = (users_map.get(user_id) or {}).get("username")
-        return str(raw) if isinstance(raw, str) else None
-
-    def user_avatar_name(user_id: int) -> str | None:
-        raw = (users_map.get(user_id) or {}).get("avatar_name")
-        return str(raw) if isinstance(raw, str) else None
-
-    def user_theme_color(user_id: int) -> str | None:
-        raw = (users_map.get(user_id) or {}).get("theme_color")
-        return str(raw) if isinstance(raw, str) else None
-
-    def user_role(user_id: int) -> str | None:
-        raw = (users_map.get(user_id) or {}).get("role")
-        return str(raw) if isinstance(raw, str) else None
-
-    def user_theme_icon(user_id: int) -> str | None:
-        raw = (users_map.get(user_id) or {}).get("theme_icon")
-        return str(raw) if isinstance(raw, str) else None
-
-    def build_friend_item(fid: int) -> FriendsListItemOut:
-        user_data = users_map.get(fid) or {}
-        name = user_username(fid)
-        avatar = user_avatar_name(fid)
-        online = fid in online_ids
-        closeness = closeness_map.get(pair(uid, fid), 0)
-        rid = room_by_uid.get(fid) if online else None
-        visible_rid = int(rid) if rid and int(rid) in visible_room_ids else None
-        info = rooms_map.get(visible_rid) if visible_rid else None
-        active_room_id = active_alive_game_room_by_uid.get(fid)
-        active_head_room_id = active_head_game_room_by_uid.get(fid)
-        active_sanctions = active_sanctions_by_uid.get(fid) or {}
-        return FriendsListItemOut(
-            kind="online" if online else "offline",
-            id=int(fid),
-            username=name,
-            avatar_name=avatar,
-            role=user_role(fid),
-            theme_color=user_theme_color(fid),
-            theme_icon=user_theme_icon(fid),
-            online=online,
-            closeness=closeness,
-            room_id=visible_rid,
-            room_title=info.title if info else None,
-            room_in_game=bool(info.in_game) if info else None,
-            in_current_room=(fid in in_current_room_ids) if invite_room_id > 0 else None,
-            in_active_game_as_alive_player=bool(online and active_room_id),
-            in_active_game_as_host=bool(active_head_room_id) if invite_room_id > 0 else None,
-            telegram_verified=bool(user_data.get("telegram_verified")),
-            tg_invites_enabled=bool(user_data.get("tg_invites_enabled")),
-            room_invited=(fid in invited_to_room_ids) if invite_room_id > 0 else None,
-            tg_invite_cooldown_active=(fid in tg_invite_cooldown_ids) if invite_room_id > 0 else None,
-            ban_active=bool(active_sanctions.get(SANCTION_BAN)) if invite_room_id > 0 else None,
-            timeout_active=bool(active_sanctions.get(SANCTION_TIMEOUT)) if invite_room_id > 0 else None,
-        )
-
     friends_items: list[FriendsListItemOut] = []
     online_items: list[FriendsListItemOut] = []
     offline_items: list[FriendsListItemOut] = []
     if friend_ids:
-        friends_items = [build_friend_item(fid) for fid in friend_ids]
+        friends_items = [
+            build_friend_list_item(
+                fid,
+                viewer_id=uid,
+                invite_room_id=invite_room_id,
+                users_map=users_map,
+                online_ids=online_ids,
+                closeness_map=closeness_map,
+                room_by_uid=room_by_uid,
+                visible_room_ids=visible_room_ids,
+                rooms_map=rooms_map,
+                active_alive_game_room_by_uid=active_alive_game_room_by_uid,
+                active_head_game_room_by_uid=active_head_game_room_by_uid,
+                active_sanctions_by_uid=active_sanctions_by_uid,
+                in_current_room_ids=in_current_room_ids,
+                invited_to_room_ids=invited_to_room_ids,
+                tg_invite_cooldown_ids=tg_invite_cooldown_ids,
+            )
+            for fid in friend_ids
+        ]
         online_items = [f for f in friends_items if f.online]
         offline_items = [f for f in friends_items if not f.online]
         online_items.sort(key=lambda x: (-(x.closeness or 0), (x.username or f"user{x.id}").lower()))
@@ -358,11 +323,11 @@ async def friends_list(room_id: int | None = None, ident: Identity = Depends(get
         FriendsListItemOut(
             kind="incoming",
             id=int(link.requester_id),
-            username=user_username(int(link.requester_id)),
-            avatar_name=user_avatar_name(int(link.requester_id)),
-            role=user_role(int(link.requester_id)),
-            theme_color=user_theme_color(int(link.requester_id)),
-            theme_icon=user_theme_icon(int(link.requester_id)),
+            username=friend_profile_text(users_map, int(link.requester_id), "username"),
+            avatar_name=friend_profile_text(users_map, int(link.requester_id), "avatar_name"),
+            role=friend_profile_text(users_map, int(link.requester_id), "role"),
+            theme_color=friend_profile_text(users_map, int(link.requester_id), "theme_color"),
+            theme_icon=friend_profile_text(users_map, int(link.requester_id), "theme_icon"),
             requested_at=link.created_at,
         )
         for link in incoming
@@ -373,11 +338,11 @@ async def friends_list(room_id: int | None = None, ident: Identity = Depends(get
         FriendsListItemOut(
             kind="outgoing",
             id=int(link.addressee_id),
-            username=user_username(int(link.addressee_id)),
-            avatar_name=user_avatar_name(int(link.addressee_id)),
-            role=user_role(int(link.addressee_id)),
-            theme_color=user_theme_color(int(link.addressee_id)),
-            theme_icon=user_theme_icon(int(link.addressee_id)),
+            username=friend_profile_text(users_map, int(link.addressee_id), "username"),
+            avatar_name=friend_profile_text(users_map, int(link.addressee_id), "avatar_name"),
+            role=friend_profile_text(users_map, int(link.addressee_id), "role"),
+            theme_color=friend_profile_text(users_map, int(link.addressee_id), "theme_color"),
+            theme_icon=friend_profile_text(users_map, int(link.addressee_id), "theme_icon"),
             requested_at=link.created_at,
         )
         for link in outgoing

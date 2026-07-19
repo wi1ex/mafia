@@ -1,6 +1,7 @@
 from __future__ import annotations
 import asyncio
 import json
+import random
 import structlog
 from math import ceil
 from time import time
@@ -12,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from redis.exceptions import ResponseError
 from jwt import ExpiredSignatureError
 from datetime import datetime, timezone
-from typing import Any, Tuple, Dict, Mapping, cast, Optional, List, Iterable
+from typing import Any, Dict, Mapping, cast, Optional, List, Iterable
 from dataclasses import dataclass
 from .sio import sio
 from ..core.db import SessionLocal
@@ -23,6 +24,7 @@ from ..models.room import Room
 from ..models.sanction import UserSanction
 from ..models.game import Game
 from ..models.friend import FriendCloseness
+from ..schemas.realtime import GameStartAck
 from ..core.clients import get_redis
 from ..core.logging import log_action
 from ..security.admin_guard import normalize_protected_admin_role
@@ -60,8 +62,8 @@ __all__ = [
     "GameActionContext",
     "build_game_context",
     "validate_auth",
+    "SocketIdentity",
     "remove_admin_spectator_livekit",
-    "soft_leave_admin_spectators_for_game_start",
     "emit_user_game_participation_changed",
     "mark_users_in_active_alive_game",
     "clear_users_in_active_alive_game",
@@ -71,9 +73,12 @@ __all__ = [
     "active_alive_room_conflict",
     "SPEECH_FINISH_MIN_SECONDS",
     "refresh_game_context",
+    "acquire_room_action_lock",
+    "release_room_action_lock",
     "acquire_speech_action_lock",
     "release_speech_action_lock",
     "speech_min_duration_error",
+    "norm01",
     "to_bool01",
     "apply_state",
     "apply_bg_state_on_join",
@@ -93,6 +98,7 @@ __all__ = [
     "get_moderation_roles_snapshot",
     "get_profiles_snapshot",
     "join_room_atomic",
+    "join_spectator_atomic",
     "leave_room_atomic",
     "leave_room_atomic_if_epoch",
     "leave_spectator_atomic_if_epoch",
@@ -103,6 +109,7 @@ __all__ = [
     "cancel_disconnect_cleanup_task",
     "set_disconnect_cleanup_task",
     "clear_disconnect_cleanup_task_if_current",
+    "schedule_guarded_disconnect_cleanup",
     "reset_room_session",
     "finalize_guarded_disconnect_cleanup",
     "gc_empty_room",
@@ -114,6 +121,7 @@ __all__ = [
     "emit_rooms_remove_safe",
     "init_roles_deck",
     "assign_role_for_user",
+    "claim_night_check",
     "advance_roles_turn",
     "emit_rooms_occupancy_safe",
     "emit_rooms_spectators_safe",
@@ -175,6 +183,8 @@ __all__ = [
     "get_positive_setting_int",
     "wink_spot_chance",
     "randomize_limit",
+    "game_start_unlocked",
+    "game_phase_next_unlocked",
     "perform_game_end",
     "maybe_end_game_if_room_presence_low",
     "finish_game",
@@ -192,6 +202,34 @@ __all__ = [
 
 log = structlog.get_logger()
 
+
+@dataclass(frozen=True)
+class SocketIdentity:
+    user_id: int
+    role: str
+    username: str
+    avatar_name: Optional[str]
+    theme_color: Optional[str]
+    theme_icon: Optional[str]
+    auth_sid: str
+    expires_at: int
+
+    def _legacy_values(self) -> tuple[int, str, str, Optional[str], Optional[str], Optional[str]]:
+        return (
+            self.user_id,
+            self.role,
+            self.username,
+            self.avatar_name,
+            self.theme_color,
+            self.theme_icon,
+        )
+
+    def __iter__(self):
+        return iter(self._legacy_values())
+
+    def __getitem__(self, index: int):
+        return self._legacy_values()[index]
+
 _join_sha: str | None = None
 _leave_sha: str | None = None
 _leave_if_epoch_sha: str | None = None
@@ -202,79 +240,145 @@ HOST_BLUR_AUTO_OFF_SECONDS = 120
 _host_blur_auto_tasks: dict[int, asyncio.Task[None]] = {}
 SPEECH_FINISH_MIN_SECONDS = 3
 SPEECH_ACTION_LOCK_TTL_SECONDS = 5
+ROOM_ACTION_LOCK_TTL_SECONDS = 45
 SCREEN_QUALITY_LOW = "low"
 SCREEN_QUALITY_MEDIUM = "medium"
 SCREEN_QUALITY_HIGH = "high"
 SCREEN_QUALITIES = {SCREEN_QUALITY_LOW, SCREEN_QUALITY_MEDIUM, SCREEN_QUALITY_HIGH}
 
+LOCK_RELEASE_LUA = r"""
+if redis.call('GET', KEYS[1]) == ARGV[1] then
+    return redis.call('DEL', KEYS[1])
+end
+return 0
+"""
+
+ROLE_ASSIGN_LUA = r"""
+local phase = redis.call('HGET', KEYS[1], 'phase') or 'idle'
+if phase ~= 'roles_pick' then
+    return {0, 'bad_phase', ''}
+end
+
+if redis.call('HGET', KEYS[1], 'roles_done') == '1' then
+    return {0, 'roles_done', ''}
+end
+
+local uid = ARGV[1]
+if ARGV[4] == '1' then
+    local turn_uid = redis.call('HGET', KEYS[1], 'roles_turn_uid') or '0'
+    if turn_uid ~= uid then
+        return {0, 'not_your_turn', ''}
+    end
+end
+
+if redis.call('HEXISTS', KEYS[2], uid) == 1 then
+    return {0, 'already_has_role', ''}
+end
+
+local deck_size = redis.call('HLEN', KEYS[3])
+if deck_size <= 0 then
+    return {0, 'no_deck', ''}
+end
+
+local requested = tonumber(ARGV[2]) or 0
+local idx = requested
+if requested < 0 then
+    return {0, 'bad_card', ''}
+end
+
+if requested == 0 then
+    idx = 0
+    for candidate = 1, deck_size do
+        local candidate_key = tostring(candidate)
+        if redis.call('HEXISTS', KEYS[3], candidate_key) == 1
+            and redis.call('HEXISTS', KEYS[4], candidate_key) == 0 then
+            idx = candidate
+            break
+        end
+    end
+    if idx == 0 then
+        return {0, 'no_free_cards', ''}
+    end
+else
+    local idx_key = tostring(idx)
+    if idx < 1 or idx > deck_size or redis.call('HEXISTS', KEYS[3], idx_key) == 0 then
+        return {0, 'bad_card', ''}
+    end
+    if redis.call('HEXISTS', KEYS[4], idx_key) == 1 then
+        return {0, 'card_taken', ''}
+    end
+end
+
+local idx_key = tostring(idx)
+local role = redis.call('HGET', KEYS[3], idx_key)
+if not role then
+    return {0, 'bad_card', ''}
+end
+
+redis.call('HSET', KEYS[4], idx_key, uid)
+redis.call('HSET', KEYS[2], uid, role)
+redis.call(
+    'HSET',
+    KEYS[1],
+    'roles_last_pick_user', uid,
+    'roles_last_pick_at', ARGV[3]
+)
+return {1, role, idx_key}
+"""
+
+NIGHT_CHECK_CLAIM_LUA = r"""
+local phase = redis.call('HGET', KEYS[1], 'phase') or 'idle'
+if phase ~= 'night' then
+    return {0, 'bad_phase'}
+end
+
+if (redis.call('HGET', KEYS[1], 'night_stage') or 'sleep') ~= 'checks' then
+    return {0, 'bad_stage'}
+end
+
+local started = tonumber(redis.call('HGET', KEYS[1], 'night_check_started') or '0')
+local duration = tonumber(redis.call('HGET', KEYS[1], 'night_check_duration') or '0')
+local now_ts = tonumber(ARGV[3]) or 0
+if started <= 0 or duration <= 0 or now_ts > started + duration then
+    return {0, 'window_closed'}
+end
+
+if redis.call('HEXISTS', KEYS[2], ARGV[1]) == 1 then
+    return {0, 'already_chosen'}
+end
+
+if redis.call('SISMEMBER', KEYS[3], ARGV[2]) == 1 then
+    return {0, 'already_checked'}
+end
+
+redis.call('HSET', KEYS[2], ARGV[1], ARGV[2])
+redis.call('SADD', KEYS[3], ARGV[2])
+return {1, ''}
+"""
+
+GAME_FINISH_CLAIM_LUA = r"""
+local phase = redis.call('HGET', KEYS[1], 'phase')
+if not phase or phase == 'idle' then
+    return 0
+end
+if redis.call('HGET', KEYS[1], 'game_finished') == '1' then
+    return 0
+end
+redis.call(
+    'HSET',
+    KEYS[1],
+    'game_finished', '1',
+    'game_result', ARGV[1],
+    'finished_at', ARGV[2]
+)
+return 1
+"""
 
 async def remove_admin_spectator_livekit(rid: int, uid: int) -> None:
     try:
         await remove_livekit_participant(rid=rid, uid=uid, timeout_seconds=0.35, retry_rounds=1)
     except Exception:
         log.exception("sio.admin_spectator.livekit_remove_failed", rid=rid, uid=uid)
-
-
-async def soft_leave_admin_spectators_for_game_start(rid: int) -> int:
-    try:
-        participants = tuple(sio.manager.get_participants("/room", f"room:{rid}"))
-    except Exception:
-        log.exception("sio.game_start.admin_spectator_list_failed", rid=rid)
-        return 0
-
-    if not participants:
-        return 0
-
-    payload = {"room_id": int(rid), "reason": "admin_spectator_game_start"}
-    seen_sids: set[str] = set()
-    left_count = 0
-
-    for raw_sid, _ in participants:
-        sid_i = str(raw_sid or "")
-        if not sid_i or sid_i in seen_sids:
-            continue
-        seen_sids.add(sid_i)
-
-        try:
-            sess_i = await sio.get_session(sid_i, namespace="/room")
-        except Exception:
-            log.warning("sio.game_start.admin_spectator_session_failed", rid=rid, sid=sid_i)
-            continue
-
-        if not sess_i or not sess_i.get("admin_spectator"):
-            continue
-
-        try:
-            sess_rid = int(sess_i.get("rid") or 0)
-            uid_i = int(sess_i.get("uid") or 0)
-        except Exception:
-            continue
-
-        if sess_rid != int(rid) or uid_i <= 0:
-            continue
-
-        try:
-            await sio.emit("force_leave", payload, room=sid_i, namespace="/room")
-        except Exception:
-            log.warning("sio.game_start.admin_spectator_force_leave_failed", rid=rid, uid=uid_i, sid=sid_i)
-
-        try:
-            await sio.leave_room(sid_i, f"room:{rid}", namespace="/room")
-        except Exception:
-            log.warning("sio.game_start.admin_spectator_leave_room_failed", rid=rid, uid=uid_i, sid=sid_i)
-
-        try:
-            await reset_room_session(sid_i, sess_i, uid=uid_i)
-        except Exception:
-            log.warning("sio.game_start.admin_spectator_reset_session_failed", rid=rid, uid=uid_i, sid=sid_i)
-
-        asyncio.create_task(remove_admin_spectator_livekit(rid, uid_i))
-        left_count += 1
-
-    if left_count:
-        log.info("sio.game_start.admin_spectators_soft_left", rid=rid, count=left_count)
-
-    return left_count
 
 
 def normalize_uid_set(values: object) -> set[int]:
@@ -369,6 +473,65 @@ def clear_disconnect_cleanup_task_if_current(rid: int, uid: int, task: asyncio.T
         _disconnect_cleanup_tasks.pop(key, None)
 
 
+async def _run_guarded_disconnect_cleanup(
+    *,
+    delay_seconds: int,
+    rid: int,
+    uid: int,
+    expected_epoch: int,
+    expected_sid: str,
+    actor_username: str,
+    sess: dict[str, Any],
+) -> None:
+    task = asyncio.current_task()
+    try:
+        await asyncio.sleep(delay_seconds)
+        await finalize_guarded_disconnect_cleanup(
+            rid=rid,
+            uid=uid,
+            expected_epoch=expected_epoch,
+            expected_sid=expected_sid,
+            actor_username=actor_username,
+            sid=expected_sid,
+            sess=sess,
+        )
+    except asyncio.CancelledError:
+        raise
+
+    except Exception:
+        log.exception("sio.disconnect.cleanup_failed", rid=rid, uid=uid, epoch=expected_epoch)
+
+    finally:
+        if task is not None:
+            clear_disconnect_cleanup_task_if_current(rid, uid, task)
+
+
+def schedule_guarded_disconnect_cleanup(
+    *,
+    delay_seconds: int,
+    rid: int,
+    uid: int,
+    expected_epoch: int,
+    expected_sid: str,
+    actor_username: str,
+    sess: dict[str, Any],
+) -> asyncio.Task[None]:
+    cancel_disconnect_cleanup_task(rid, uid)
+    task = asyncio.create_task(
+        _run_guarded_disconnect_cleanup(
+            delay_seconds=delay_seconds,
+            rid=rid,
+            uid=uid,
+            expected_epoch=expected_epoch,
+            expected_sid=expected_sid,
+            actor_username=actor_username,
+            sess=sess,
+        )
+    )
+    set_disconnect_cleanup_task(rid, uid, task)
+    return task
+
+
 async def reset_room_session(sid: str, sess: dict[str, Any], *, uid: int | None = None) -> None:
     actual_uid = int(uid if uid is not None else sess["uid"])
     base_role = str(sess.get("base_role") or "user")
@@ -383,6 +546,8 @@ async def reset_room_session(sid: str, sess: dict[str, Any], *, uid: int | None 
             "avatar_name": sess.get("avatar_name"),
             "theme_color": sess.get("theme_color"),
             "theme_icon": sess.get("theme_icon"),
+            "auth_sid": sess.get("auth_sid"),
+            "auth_expires_at": sess.get("auth_expires_at"),
         },
         namespace="/room",
     )
@@ -402,10 +567,13 @@ async def _evict_livekit_after_epoch_cleanup(r, rid: int, uid: int, expected_epo
         if cur_epoch != int(expected_epoch):
             return
 
+    removed_from_livekit = False
     try:
-        await remove_livekit_participant(rid=rid, uid=uid)
+        removed_from_livekit = await remove_livekit_participant(rid=rid, uid=uid)
     except Exception:
         log.exception("livekit.participant.disconnect_cleanup_failed", rid=rid, uid=uid)
+    if not removed_from_livekit:
+        log.warning("livekit.participant.disconnect_cleanup_incomplete", rid=rid, uid=uid)
 
 
 async def finalize_guarded_disconnect_cleanup(*, rid: int, uid: int, expected_epoch: int, expected_sid: str, actor_username: str | None, sid: str, sess: dict[str, Any]) -> bool:
@@ -967,13 +1135,14 @@ KEYS_STATE: tuple[str, ...] = ("mic", "cam", "speakers", "visibility", "mirror")
 KEYS_BLOCK: tuple[str, ...] = (*KEYS_STATE, "screen")
 
 JOIN_LUA = r"""
--- KEYS: params, members, positions, info, empty_since, single_since
+-- KEYS: params, members, positions, info, empty_since, single_since, allow
 local params       = KEYS[1]
 local members      = KEYS[2]
 local positions    = KEYS[3]
 local info         = KEYS[4]
 local empty_since  = KEYS[5]
 local single_since = KEYS[6]
+local allow         = KEYS[7]
 
 local rid       = ARGV[1]
 local uid       = tonumber(ARGV[2])
@@ -982,11 +1151,16 @@ local now       = tonumber(ARGV[4])
 
 local lim = tonumber(redis.call('HGET', params, 'user_limit') or '0')
 if not lim or lim <= 0 then return {-3,0,0,0} end
+if redis.call('HGET', params, 'entry_closed') == '1' then return {-3,0,0,0} end
 
 local creator = tonumber(redis.call('HGET', params, 'creator') or '0')
+local privacy = redis.call('HGET', params, 'privacy') or 'open'
+local already = redis.call('SISMEMBER', members, uid)
+if privacy == 'private' and uid ~= creator and already == 0 and redis.call('SISMEMBER', allow, uid) == 0 then
+  return {-5,0,0,0}
+end
 local eff_role = (uid == creator) and 'host' or base_role
 
-local already = redis.call('SISMEMBER', members, uid)
 local size = tonumber(redis.call('SCARD', members) or '0')
 
 if already == 1 then
@@ -1036,6 +1210,39 @@ else
   redis.call('DEL', single_since)
 end
 return {new_pos, new_pos, 0, 0}
+"""
+
+SPECTATOR_JOIN_LUA = r"""
+-- KEYS: params, game_state, game_players, spectators, allow, spectators_join
+local params          = KEYS[1]
+local game_state      = KEYS[2]
+local game_players    = KEYS[3]
+local spectators      = KEYS[4]
+local allow            = KEYS[5]
+local spectators_join = KEYS[6]
+local uid              = ARGV[1]
+local hidden_role_bypass = ARGV[3]
+
+if redis.call('EXISTS', params) == 0 then return {-3, 0} end
+if redis.call('HGET', params, 'entry_closed') == '1' then return {-3, 0} end
+
+local creator = redis.call('HGET', params, 'creator') or '0'
+local anonymity = redis.call('HGET', params, 'anonymity') or 'visible'
+if anonymity == 'hidden' and uid ~= creator and hidden_role_bypass ~= '1' and redis.call('SISMEMBER', allow, uid) == 0 then
+    return {-5, 0}
+end
+
+local phase = redis.call('HGET', game_state, 'phase') or 'idle'
+if phase == 'idle' then return {-6, 0} end
+
+local head = redis.call('HGET', game_state, 'head') or '0'
+if uid == head or redis.call('SISMEMBER', game_players, uid) == 1 then
+    return {-7, 0}
+end
+
+local added = redis.call('SADD', spectators, uid)
+redis.call('HSET', spectators_join, uid, ARGV[2])
+return {1, added}
 """
 
 LEAVE_LUA = r"""
@@ -1357,6 +1564,30 @@ async def refresh_game_context(ctx: GameActionContext) -> tuple[GameActionContex
     return fresh, raw_gstate
 
 
+async def acquire_room_action_lock(
+    r,
+    rid: int,
+    action: str,
+    *,
+    ttl_seconds: int = ROOM_ACTION_LOCK_TTL_SECONDS,
+) -> tuple[str, str] | None:
+    key = f"room:{int(rid)}:action_lock:{str(action)}"
+    token = f"{int(time() * 1000)}:{randint(0, 2**63 - 1)}"
+    ttl = max(1, int(ttl_seconds))
+    ok = await r.set(key, token, nx=True, ex=ttl)
+    if not ok:
+        return None
+
+    return key, token
+
+
+async def release_room_action_lock(r, key: str, token: str) -> None:
+    try:
+        await r.eval(LOCK_RELEASE_LUA, 1, key, token)
+    except Exception:
+        log.warning("room_action_lock.release_failed", key=key)
+
+
 async def acquire_speech_action_lock(r, rid: int, action: str) -> tuple[str, str] | None:
     key = f"room:{rid}:speech_action_lock:{action}"
     token = f"{int(time() * 1000)}:{randint(0, 2**63 - 1)}"
@@ -1368,14 +1599,7 @@ async def acquire_speech_action_lock(r, rid: int, action: str) -> tuple[str, str
 
 
 async def release_speech_action_lock(r, key: str, token: str) -> None:
-    try:
-        current = await r.get(key)
-        if isinstance(current, bytes):
-            current = current.decode("utf-8", errors="ignore")
-        if current is not None and str(current) == token:
-            await r.delete(key)
-    except Exception:
-        log.warning("speech_action_lock.release_failed", key=key)
+    await release_room_action_lock(r, key, token)
 
 
 def speech_min_duration_error(ctx: GameActionContext, started_at: int, unlock_key: str) -> dict[str, Any] | None:
@@ -1826,6 +2050,10 @@ async def _can_use_room_admin_actions(r, rid: int, actor_uid: int, sess: Mapping
     if not bool(sess.get("admin_spectator")):
         return False
 
+    phase = str(await r.hget(f"room:{rid}:game_state", "phase") or "idle")
+    if phase != "idle":
+        return False
+
     base_role = normalize_user_role(sess.get("base_role") or sess.get("role"))
     return base_role == ROLE_ADMIN
 
@@ -1964,7 +2192,7 @@ def hash_keys_to_int_list(raw: Mapping[Any, Any] | None) -> list[int]:
     return out
 
 
-async def validate_auth(auth: Any) -> Tuple[int, str, str, Optional[str], Optional[str], Optional[str]] | None:
+async def validate_auth(auth: Any) -> SocketIdentity | None:
     token = auth.get("token") if isinstance(auth, dict) else None
     if not token:
         log.warning("sio.connect.no_token")
@@ -1972,8 +2200,17 @@ async def validate_auth(auth: Any) -> Tuple[int, str, str, Optional[str], Option
 
     try:
         p = decode_token(token)
+        if str(p.get("typ") or "") != "access":
+            log.warning("sio.connect.bad_token_type", typ=p.get("typ"))
+            return None
+
         uid = int(p["sub"])
         sid = str(p.get("sid") or "")
+        expires_at = int(p.get("exp") or 0)
+        if uid <= 0 or not sid or expires_at <= int(time()):
+            log.warning("sio.connect.missing_claims")
+            return None
+
         cur = await get_redis().get(f"user:{uid}:sid")
         if not cur or cur != sid:
             log.warning("sio.connect.replaced_session")
@@ -1991,7 +2228,20 @@ async def validate_auth(auth: Any) -> Tuple[int, str, str, Optional[str], Option
         avatar_name = cast(Optional[str], profile.get("avatar_name"))
         theme_color = cast(Optional[str], profile.get("theme_color"))
         theme_icon = cast(Optional[str], profile.get("theme_icon"))
-        return uid, role, username, avatar_name, theme_color, theme_icon
+        if profile.get("deleted_at"):
+            log.warning("sio.connect.deleted_user", user_id=uid)
+            return None
+
+        return SocketIdentity(
+            user_id=uid,
+            role=role,
+            username=username,
+            avatar_name=avatar_name,
+            theme_color=theme_color,
+            theme_icon=theme_icon,
+            auth_sid=sid,
+            expires_at=expires_at,
+        )
 
     except ExpiredSignatureError:
         log.warning("sio.connect.expired_token")
@@ -2436,7 +2686,8 @@ async def claim_screen(r, rid: int, uid: int) -> tuple[bool, int]:
         return True, uid
 
     cur2 = await r.get(f"room:{rid}:screen_owner")
-    return (int(cur2 or 0) == uid), (int(cur2) if cur2 else 0)
+    is_owner = int(cur2 or 0) == uid
+    return is_owner, (int(cur2) if cur2 else 0)
 
 
 async def account_screen_time(r, rid: int, uid: int) -> None:
@@ -2803,13 +3054,14 @@ async def join_room_atomic(r, rid: int, uid: int, role: str):
     await ensure_scripts(r)
     now_ts = int(time())
     args = (
-        6,
+        7,
         f"room:{rid}:params",
         f"room:{rid}:members",
         f"room:{rid}:positions",
         f"room:{rid}:user:{uid}:info",
         f"room:{rid}:empty_since",
         f"room:{rid}:single_since",
+        f"room:{rid}:allow",
         str(rid),
         str(uid),
         role,
@@ -2834,6 +3086,34 @@ async def join_room_atomic(r, rid: int, uid: int, role: str):
     tail = list(map(int, res[4: 4 + 2*k]))
     updates = [(tail[i], tail[i + 1]) for i in range(0, 2*k, 2)]
     return occ, pos, already, updates
+
+
+async def join_spectator_atomic(
+    r,
+    rid: int,
+    uid: int,
+    *,
+    hidden_role_bypass: bool = False,
+) -> tuple[int, bool]:
+    result = await r.eval(
+        SPECTATOR_JOIN_LUA,
+        6,
+        f"room:{rid}:params",
+        f"room:{rid}:game_state",
+        f"room:{rid}:game_players",
+        f"room:{rid}:spectators",
+        f"room:{rid}:allow",
+        f"room:{rid}:spectators_join",
+        str(uid),
+        str(int(time())),
+        "1" if hidden_role_bypass else "0",
+    )
+    if not isinstance(result, (list, tuple)) or not result:
+        return -3, False
+
+    code = int(result[0] or 0)
+    added = bool(int(result[1] or 0)) if len(result) > 1 else False
+    return code, added
 
 
 async def set_user_current_room(r, uid: int, rid: int) -> None:
@@ -3056,10 +3336,6 @@ async def cleanup_user_from_room(r, rid: int, uid: int, *, was_member: bool, was
 
     if was_spectator:
         try:
-            await remove_livekit_participant(rid=rid, uid=uid)
-        except Exception:
-            log.exception("livekit.participant.spectator_cleanup_failed", rid=rid, uid=uid)
-        try:
             await record_spectator_leave(r, rid, uid, int(time()))
             cleaned = True
         except Exception:
@@ -3117,10 +3393,13 @@ async def cleanup_user_from_room(r, rid: int, uid: int, *, was_member: bool, was
                     asyncio.create_task(_gc())
 
     if cleaned:
+        removed_from_livekit = False
         try:
-            await remove_livekit_participant(rid=rid, uid=uid)
+            removed_from_livekit = await remove_livekit_participant(rid=rid, uid=uid)
         except Exception:
             log.exception("livekit.participant.cleanup_failed", rid=rid, uid=uid)
+        if not removed_from_livekit:
+            log.warning("livekit.participant.cleanup_incomplete", rid=rid, uid=uid)
 
     if sid:
         try:
@@ -3967,52 +4246,72 @@ async def ensure_farewell_limit(r, rid: int, speaker_uid: int, *, mode: str = "k
     return limit
 
 
-async def assign_role_for_user(r, rid: int, uid: int, *, card_index: int | None) -> tuple[bool, str | None, str | None]:
-    existing = await r.hget(f"room:{rid}:game_roles", str(uid))
-    if existing:
-        return False, None, "already_has_role"
+async def assign_role_for_user(
+    r,
+    rid: int,
+    uid: int,
+    *,
+    card_index: int | None,
+    require_turn: bool = False,
+) -> tuple[bool, str | None, str | None]:
+    requested_card = int(card_index) if card_index is not None else 0
+    result = await r.eval(
+        ROLE_ASSIGN_LUA,
+        4,
+        f"room:{rid}:game_state",
+        f"room:{rid}:game_roles",
+        f"room:{rid}:roles_cards",
+        f"room:{rid}:roles_taken",
+        str(uid),
+        str(requested_card),
+        str(int(time())),
+        "1" if require_turn else "0",
+    )
+    if not isinstance(result, (list, tuple)) or not result:
+        return False, None, "failed"
 
-    cards = await r.hgetall(f"room:{rid}:roles_cards")
-    if not cards:
-        return False, None, "no_deck"
+    if int(result[0] or 0) != 1:
+        error = str(result[1] or "failed") if len(result) > 1 else "failed"
+        return False, None, error
 
-    taken = await r.hgetall(f"room:{rid}:roles_taken")
-    taken_idx = {int(i) for i in (taken or {}).keys()}
-
-    idx: int
-    if card_index is not None:
-        idx = int(card_index)
-        if idx < 1 or idx > len(cards):
-            return False, None, "bad_card"
-
-        if idx in taken_idx:
-            return False, None, "card_taken"
-
-    else:
-        free = [i for i in range(1, len(cards) + 1) if i not in taken_idx]
-        if not free:
-            return False, None, "no_free_cards"
-
-        idx = free[0]
-
-    role = cards.get(str(idx))
+    role = str(result[1] or "") if len(result) > 1 else ""
     if not role:
-        return False, None, "bad_card"
+        return False, None, "failed"
 
-    now_ts = int(time())
-    async with r.pipeline() as p:
-        await p.hset(f"room:{rid}:roles_taken", str(idx), str(uid))
-        await p.hset(f"room:{rid}:game_roles", str(uid), role)
-        await p.hset(
-            f"room:{rid}:game_state",
-            mapping={
-                "roles_last_pick_user": str(uid),
-                "roles_last_pick_at": str(now_ts),
-            },
-        )
-        await p.execute()
+    return True, role, None
 
-    return True, str(role), None
+
+async def claim_night_check(
+    r,
+    rid: int,
+    uid: int,
+    target_uid: int,
+    *,
+    checker_role: str,
+    now_ts: int,
+) -> tuple[bool, str | None]:
+    role = str(checker_role or "")
+    if role not in {"don", "sheriff"}:
+        return False, "forbidden"
+
+    result = await r.eval(
+        NIGHT_CHECK_CLAIM_LUA,
+        3,
+        f"room:{rid}:game_state",
+        f"room:{rid}:night_checks",
+        f"room:{rid}:game_checked:{role}",
+        str(uid),
+        str(target_uid),
+        str(int(now_ts)),
+    )
+    if not isinstance(result, (list, tuple)) or not result:
+        return False, "failed"
+
+    if int(result[0] or 0) != 1:
+        error = str(result[1] or "failed") if len(result) > 1 else "failed"
+        return False, error
+
+    return True, None
 
 
 def _role_card_indexes(cards: Mapping[Any, Any] | None, taken: Mapping[Any, Any] | None) -> list[int]:
@@ -4882,7 +5181,15 @@ async def finish_game(r, rid: int, *, result: str, head_uid: int | None = None, 
             head_uid = 0
 
     finished_ts = int(time())
-    await r.hset(f"room:{rid}:game_state", mapping={"game_finished": "1", "game_result": result, "finished_at": str(finished_ts)})
+    claimed = await r.eval(
+        GAME_FINISH_CLAIM_LUA,
+        1,
+        f"room:{rid}:game_state",
+        result,
+        str(finished_ts),
+    )
+    if int(claimed or 0) != 1:
+        return False
 
     try:
         raw_roles = await r.hgetall(f"room:{rid}:game_roles")
@@ -5071,14 +5378,17 @@ async def finish_game(r, rid: int, *, result: str, head_uid: int | None = None, 
         except Exception:
             log.exception("game_finish.auto_state_enable_failed", rid=rid, target=target_uid)
 
-    await sio.emit("game_finished",
-                   {"room_id": rid,
-                    "result": result,
-                    "roles": roles_map},
-                   room=f"room:{rid}",
-                   namespace="/room")
-
     asyncio.create_task(schedule_auto_game_end(rid, reason=reason))
+
+    try:
+        await sio.emit("game_finished",
+                       {"room_id": rid,
+                        "result": result,
+                        "roles": roles_map},
+                       room=f"room:{rid}",
+                       namespace="/room")
+    except Exception:
+        log.exception("game_finish.emit_failed", rid=rid, result=result)
 
     return True
 
@@ -6177,7 +6487,930 @@ async def emit_friends_closeness_update(user_ids: Iterable[int]) -> None:
             await sio.emit("friends_closeness_update", {"user_id": uid}, room=f"user:{uid}", namespace="/auth")
 
 
-async def perform_game_end(ctx, sess: Optional[dict[str, Any]], *, confirm: bool, allow_non_head: bool = False, reason: str = "manual") -> dict[str, Any]:
+async def game_start_unlocked(sid, data) -> GameStartAck:
+    try:
+        data = data or {}
+        confirm = bool(data.get("confirm"))
+        sess = await sio.get_session(sid, namespace="/room")
+        ctx, err = await require_ctx(sid)
+        if err:
+            return err
+
+        uid = ctx.uid
+        rid = ctx.rid
+        r = ctx.r
+        params = await r.hgetall(f"room:{rid}:params")
+        if not params:
+            return {"ok": False, "error": "room_not_found", "status": 404}
+
+        cur_phase = ctx.phase
+        if cur_phase != "idle":
+            return {"ok": False, "error": "already_started", "status": 409}
+
+        if not await r.sismember(f"room:{rid}:members", str(uid)):
+            return {"ok": False, "error": "not_in_room", "status": 403}
+
+        app_settings = get_cached_settings()
+        actor_base_role = str(sess.get("base_role") or "user")
+        if normalize_user_role(actor_base_role) != ROLE_ADMIN and not app_settings.games_can_start:
+            return {"ok": False, "error": "game_start_disabled", "status": 403}
+
+        min_ready = app_settings.game_min_ready_players
+        members = await smembers_ints(r, f"room:{rid}:members")
+        ready_ids = await smembers_ints(r, f"room:{rid}:ready")
+        not_ready_raw = [mid for mid in members if mid not in ready_ids]
+        ready_cnt = len(ready_ids)
+        if ready_cnt != min_ready or len(not_ready_raw) != 1:
+            return {"ok": False, "error": "not_enough_ready", "status": 400}
+
+        try:
+            head_uid = int(not_ready_raw[0])
+        except Exception:
+            return {"ok": False, "error": "not_enough_ready", "status": 400}
+
+        if uid != head_uid:
+            return {"ok": False, "error": "forbidden", "status": 403}
+
+        ready_member_ids = set(ready_ids)
+        if ready_member_ids:
+            async with SessionLocal() as s:
+                suspended_ids = await fetch_active_users_by_kind(s, ready_member_ids, SANCTION_SUSPEND)
+            if suspended_ids:
+                return {
+                    "ok": False,
+                    "status": 409,
+                    "error": "suspend_present",
+                    "blocking_users": sorted(suspended_ids),
+                }
+
+        streaming_owner_raw = await r.get(f"room:{rid}:screen_owner")
+        streaming_owner = int(streaming_owner_raw) if streaming_owner_raw else 0
+        blocking_users: list[int] = []
+        members_for_block_check = await smembers_ints(r, f"room:{rid}:members")
+        if members_for_block_check:
+            async with r.pipeline() as p:
+                for pid in members_for_block_check:
+                    await p.hmget(f"room:{rid}:user:{pid}:block", *KEYS_BLOCK)
+                rows = await p.execute()
+            for pid, row in zip(members_for_block_check, rows):
+                if any((v or "0") == "1" for v in (row or [])):
+                    try:
+                        blocking_users.append(int(pid))
+                    except Exception:
+                        continue
+
+        if streaming_owner or blocking_users:
+            return {
+                "ok": False,
+                "status": 409,
+                "error": "streaming_present" if streaming_owner else "blocked_params",
+                "room_id": rid,
+                "streaming_owner": streaming_owner,
+                "blocking_users": blocking_users
+            }
+
+        participant_ids: set[int] = {head_uid}
+        participant_ids.update(ready_ids)
+
+        off_cams: list[int] = []
+        off_speakers: list[int] = []
+        off_visibility: list[int] = []
+        if participant_ids:
+            async with r.pipeline() as p:
+                for pid in participant_ids:
+                    await p.hmget(f"room:{rid}:user:{pid}:state", "cam", "speakers", "visibility")
+                rows = await p.execute()
+
+            for pid, row in zip(participant_ids, rows):
+                if not row:
+                    continue
+                cam = row[0] if len(row) > 0 else None
+                sp = row[1] if len(row) > 1 else None
+                vis = row[2] if len(row) > 2 else None
+                if pid != head_uid and cam != "1" and cam != b"1":
+                    off_cams.append(pid)
+                if sp == "0" or sp == b"0":
+                    off_speakers.append(pid)
+                if vis == "0" or vis == b"0":
+                    off_visibility.append(pid)
+        if off_cams:
+            return {
+                "ok": False,
+                "status": 409,
+                "error": "camera_off",
+                "room_id": rid,
+                "off_cams": off_cams,
+            }
+        if off_speakers or off_visibility:
+            return {
+                "ok": False,
+                "status": 409,
+                "error": "media_off",
+                "room_id": rid,
+                "off_speakers": off_speakers,
+                "off_visibility": off_visibility,
+            }
+
+        conflict_users: set[int] = set()
+        participants = participant_ids
+        other_ids = [int(x) for x in (await r.zrange("rooms:index", 0, -1) or []) if int(x) != rid]
+        if other_ids:
+            async with r.pipeline() as p:
+                for other in other_ids:
+                    await p.hgetall(f"room:{other}:game_state")
+                    await p.smembers(f"room:{other}:game_alive")
+                rows = await p.execute()
+
+            idx = 0
+            for _ in other_ids:
+                raw_state = rows[idx] or {}
+                raw_alive = rows[idx + 1] or []
+                idx += 2
+                phase_other = str(raw_state.get("phase") or "idle")
+                if phase_other == "idle":
+                    continue
+
+                try:
+                    head_other = int(raw_state.get("head") or 0)
+                except Exception:
+                    head_other = 0
+
+                if head_other in participants:
+                    conflict_users.add(head_other)
+                for v in raw_alive:
+                    try:
+                        u = int(v)
+                    except Exception:
+                        continue
+                    if u in participants:
+                        conflict_users.add(u)
+
+                if conflict_users:
+                    break
+
+        if conflict_users:
+            return {"ok": False, "status": 409, "error": "already_in_other_game", "room_id": rid, "conflict_users": list(conflict_users)}
+
+        if not confirm:
+            return {"ok": True, "status": 200, "room_id": rid, "can_start": True, "min_ready": min_ready}
+
+        try:
+            raw_game = await r.hgetall(f"room:{rid}:game")
+        except Exception:
+            raw_game = {}
+        nominate_mode = str(raw_game.get("nominate_mode") or "players")
+        if nominate_mode not in ("players", "head"):
+            nominate_mode = "players"
+        wink_knock = game_flag(raw_game, "wink_knock", True)
+        farewell_wills = game_flag(raw_game, "farewell_wills", True)
+        music_enabled = game_flag(raw_game, "music", True)
+        try:
+            winks_limit = int(app_settings.winks_limit)
+        except Exception:
+            winks_limit = 0
+        try:
+            knocks_limit = int(app_settings.knocks_limit)
+        except Exception:
+            knocks_limit = 0
+        if winks_limit < 0:
+            winks_limit = 0
+        if knocks_limit < 0:
+            knocks_limit = 0
+        if not wink_knock:
+            winks_limit = 0
+            knocks_limit = 0
+
+        try:
+            await sio.emit("game_starting",
+                           {"room_id": rid, "delay_ms": 1000},
+                           room=f"room:{rid}",
+                           namespace="/room")
+        except Exception:
+            log.exception("sio.game_start.game_starting_emit_failed", rid=rid)
+
+        await asyncio.sleep(0.5)
+
+        player_ids = [str(x) for x in ready_ids if str(x) != str(head_uid)]
+        random.shuffle(player_ids)
+        winks_left_map = {pid: str(randomize_limit(winks_limit)) for pid in player_ids}
+        knocks_left_map = {pid: str(randomize_limit(knocks_limit)) for pid in player_ids}
+        seats: dict[str, int] = {}
+        slot = 1
+        for pid in player_ids:
+            seats[pid] = slot
+            slot += 1
+        seats[str(head_uid)] = 11
+        now_ts = int(time())
+        bgm_seed = random.randint(1, 2**31 - 1) if music_enabled else 0
+
+        room_request_remove_allow: set[int] = set()
+        room_request_remove_pending: set[int] = set()
+        room_request_remove_requests: set[int] = set()
+        room_request_removed_ids: set[int] = set()
+        if str(params.get("privacy") or "open") == "private":
+            (
+                room_request_remove_allow,
+                room_request_remove_pending,
+                room_request_remove_requests,
+                room_request_removed_ids,
+            ) = await room_request_cleanup_for_game_start(r, rid, participant_ids)
+
+        await clear_game_dynamic_keys(r, rid)
+        async with r.pipeline() as p:
+            await p.delete(
+                f"room:{rid}:game_state",
+                f"room:{rid}:game_seats",
+                f"room:{rid}:foul_active",
+            )
+            await p.hset(f"room:{rid}:game_state",
+                         mapping={
+                             "phase": "roles_pick",
+                             "started_at": str(now_ts),
+                             "bgm_seed": str(bgm_seed),
+                             "started_by": str(uid),
+                             "head": str(head_uid),
+                             "game_finished": "0",
+                             "game_result": "",
+                             "draw_base_day": "0",
+                             "draw_base_alive": "0",
+                             "host_blur": "0",
+                             "host_blur_started_at": "0",
+                             "vote_blocked": "0",
+                             "vote_blocked_next": "0",
+                             "vote_round_index": "0",
+                             "best_move_uid": "0",
+                             "best_move_active": "0",
+                             "best_move_targets": "",
+                         })
+            if seats:
+                await p.hset(f"room:{rid}:game_seats", mapping={k: str(v) for k, v in seats.items()})
+
+            if player_ids:
+                await p.delete(
+                    f"room:{rid}:game_players",
+                    f"room:{rid}:game_alive",
+                    f"room:{rid}:game_fouls",
+                    f"room:{rid}:game_deaths",
+                    f"room:{rid}:game_short_speech_used",
+                    f"room:{rid}:game_nominees",
+                    f"room:{rid}:game_nom_speakers",
+                    f"room:{rid}:game_votes",
+                    f"room:{rid}:game_actions",
+                    f"room:{rid}:game_votes_last",
+                    f"room:{rid}:game_checked:don",
+                    f"room:{rid}:game_checked:sheriff",
+                    f"room:{rid}:game_farewell_wills",
+                    f"room:{rid}:game_farewell_limits",
+                    f"room:{rid}:game_winks_left",
+                    f"room:{rid}:game_knocks_left",
+                    f"room:{rid}:roles_cards",
+                    f"room:{rid}:roles_taken",
+                    f"room:{rid}:game_roles",
+                    f"room:{rid}:night_shots",
+                    f"room:{rid}:night_checks",
+                )
+                await p.sadd(f"room:{rid}:game_players", *player_ids)
+                await p.sadd(f"room:{rid}:game_alive", *player_ids)
+                await p.hset(f"room:{rid}:game_winks_left", mapping=winks_left_map)
+                await p.hset(f"room:{rid}:game_knocks_left", mapping=knocks_left_map)
+            await p.delete(f"room:{rid}:ready")
+            if room_request_remove_allow:
+                await p.srem(f"room:{rid}:allow", *[str(uid) for uid in room_request_remove_allow])
+            if room_request_remove_pending:
+                await p.srem(f"room:{rid}:pending", *[str(uid) for uid in room_request_remove_pending])
+            if room_request_remove_requests:
+                await p.zrem(f"room:{rid}:requests", *[str(uid) for uid in room_request_remove_requests])
+            await p.execute()
+
+        if room_request_removed_ids:
+            try:
+                owner_uid = int(params.get("creator") or 0)
+            except Exception:
+                owner_uid = 0
+            try:
+                await emit_room_requests_pruned_for_game_start(rid, room_request_removed_ids, owner_uid)
+            except Exception:
+                log.exception("sio.game_start.room_requests_pruned_emit_failed", rid=rid)
+
+        await init_roles_deck(r, rid)
+
+        if player_ids and head_uid:
+            for pid in player_ids:
+                try:
+                    target_uid = int(pid)
+                except Exception:
+                    continue
+                try:
+                    await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=target_uid, changes_bool={"mic": True, "visibility": True})
+                except Exception:
+                    log.exception("sio.game_start.autoblock_failed", rid=rid, head=head_uid, target=pid)
+                    continue
+
+        payload: GameStartAck = {
+            "ok": True,
+            "status": 200,
+            "room_id": rid,
+            "phase": "roles_pick",
+            "min_ready": min_ready,
+            "seats": {k: int(v) for k, v in seats.items()},
+            "bgm_seed": bgm_seed,
+            "nominate_mode": nominate_mode,
+            "wink_knock": wink_knock,
+            "winks_limit": winks_limit,
+            "knocks_limit": knocks_limit,
+            "farewell_wills": farewell_wills,
+            "music": music_enabled,
+        }
+
+        try:
+            await mark_users_in_active_alive_game(player_ids, rid)
+        except Exception:
+            log.exception("sio.game_start.active_alive_mark_failed", rid=rid)
+        try:
+            await mark_users_in_active_game(player_ids, rid)
+        except Exception:
+            log.exception("sio.game_start.active_game_mark_failed", rid=rid)
+
+        await sio.emit("game_started",
+                       payload,
+                       room=f"room:{rid}",
+                       namespace="/room")
+
+        if player_ids:
+            for pid in player_ids:
+                try:
+                    await sio.emit(
+                        "game_limits",
+                        {
+                            "room_id": rid,
+                            "winks_left": int(winks_left_map.get(pid) or 0),
+                            "knocks_left": int(knocks_left_map.get(pid) or 0),
+                        },
+                        room=f"user:{pid}",
+                        namespace="/room",
+                    )
+                except Exception:
+                    log.exception("sio.game_limits.emit_failed", rid=rid, uid=pid)
+
+        alive_cnt = len(player_ids)
+        await emit_rooms_occupancy_safe(r, rid, alive_cnt)
+
+        try:
+            briefs = await get_rooms_brief(r, [rid])
+            if briefs:
+                await emit_rooms_upsert_safe(r, rid, briefs[0])
+        except Exception:
+            log.exception("sio.game_start.rooms_upsert_failed", rid=rid)
+
+        try:
+            async with SessionLocal() as s:
+                await log_action(
+                    s,
+                    user_id=uid,
+                    username=str(sess.get("username") or f"user{uid}"),
+                    action="game_start",
+                    details=f"Запуск игры room_id={rid}",
+                )
+        except Exception:
+            log.exception("sio.game_start.log_failed", rid=rid, uid=uid)
+
+        await advance_roles_turn(r, rid, auto=False)
+
+        return payload
+
+    except Exception:
+        log.exception("sio.game_start.error", sid=sid)
+        return {"ok": False, "error": "internal", "status": 500}
+
+
+
+async def game_phase_next_unlocked(sid, data):
+    try:
+        data = data or {}
+        want_from = str(data.get("from") or "")
+        want_to = str(data.get("to") or "")
+        ctx, err = await require_ctx(sid)
+        if err:
+            return err
+
+        uid = ctx.uid
+        rid = ctx.rid
+        r = ctx.r
+        raw_gstate = ctx.gstate
+        cur_phase = ctx.phase
+        if cur_phase == "idle":
+            return {"ok": False, "error": "no_game", "status": 400}
+
+        try:
+            raw_game = await r.hgetall(f"room:{rid}:game")
+        except Exception:
+            raw_game = {}
+        music_enabled = game_flag(raw_game, "music", True)
+
+        head_uid = ctx.head_uid
+        if not head_uid or uid != head_uid:
+            return {"ok": False, "error": "forbidden", "status": 403}
+
+        if want_from and want_from != cur_phase:
+            return {"ok": False, "error": "bad_phase_from", "status": 400}
+
+        if cur_phase == "roles_pick" and want_to == "mafia_talk_start":
+            roles_done = str(raw_gstate.get("roles_done") or "0") == "1"
+            if not roles_done:
+                return {"ok": False, "error": "roles_not_done", "status": 400}
+
+            raw_roles = await r.hgetall(f"room:{rid}:game_roles")
+            roles_map: dict[int, str] = {}
+            for k, v in (raw_roles or {}).items():
+                try:
+                    uid_i = int(k)
+                except Exception:
+                    continue
+                if v is None:
+                    continue
+                roles_map[uid_i] = str(v)
+
+            mafia_targets = [u for u, role in roles_map.items() if role in ("mafia", "don")]
+
+            for target_uid in mafia_targets:
+                try:
+                    await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=target_uid, changes_bool={"visibility": False}, phase_override="mafia_talk_start")
+                except Exception:
+                    log.exception("sio.game_phase_next.mafia_unblock_failed", rid=rid, head=head_uid, target=target_uid)
+                    continue
+
+            if mafia_targets:
+                async with r.pipeline() as p:
+                    for target_uid in mafia_targets:
+                        await p.hset(f"room:{rid}:user:{target_uid}:state", mapping={"visibility": "1"})
+                    await p.execute()
+
+                for target_uid in mafia_targets:
+                    await emit_state_changed_filtered(r, rid, target_uid, {"visibility": "1"}, phase_override="mafia_talk_start")
+
+            now_ts = int(time())
+            duration = get_cached_settings().mafia_talk_seconds
+            async with r.pipeline() as p:
+                await p.hset(
+                    f"room:{rid}:game_state",
+                    mapping={
+                        "phase": "mafia_talk_start",
+                        "mafia_talk_started": str(now_ts),
+                        "mafia_talk_duration": str(duration),
+                    },
+                )
+                await p.execute()
+
+            remaining = duration
+            payload = {
+                "ok": True,
+                "status": 200,
+                "room_id": rid,
+                "from": cur_phase,
+                "to": "mafia_talk_start",
+                "mafia_talk_start": {"deadline": remaining},
+            }
+
+            await sio.emit("game_phase_change",
+                           {"room_id": rid,
+                            "from": cur_phase,
+                            "to": "mafia_talk_start",
+                            "mafia_talk_start": {"deadline": remaining}},
+                           room=f"room:{rid}",
+                           namespace="/room")
+
+            return payload
+
+        if cur_phase == "mafia_talk_start" and want_to == "mafia_talk_end":
+            raw_roles = await r.hgetall(f"room:{rid}:game_roles")
+            roles_map: dict[int, str] = {}
+            for k, v in (raw_roles or {}).items():
+                try:
+                    uid_i = int(k)
+                except Exception:
+                    continue
+                if v is None:
+                    continue
+                roles_map[uid_i] = str(v)
+
+            mafia_targets = [u for u, role in roles_map.items() if role in ("mafia", "don")]
+
+            if mafia_targets:
+                async with r.pipeline() as p:
+                    for target_uid in mafia_targets:
+                        await p.hset(f"room:{rid}:user:{target_uid}:state", mapping={"visibility": "0"})
+                    await p.execute()
+
+                for target_uid in mafia_targets:
+                    await emit_state_changed_filtered(r, rid, target_uid, {"visibility": "0"})
+
+            for target_uid in mafia_targets:
+                try:
+                    applied, forced_off = await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=target_uid, changes_bool={"visibility": True})
+                except Exception:
+                    log.exception("sio.game_phase_next.mafia_reblock_failed", rid=rid, head=head_uid, target=target_uid)
+                    continue
+
+                if "__error__" in forced_off:
+                    continue
+
+            async with r.pipeline() as p:
+                await p.hset(f"room:{rid}:game_state", mapping={"phase": "mafia_talk_end"})
+                await p.hdel(f"room:{rid}:game_state", "mafia_talk_started", "mafia_talk_duration")
+                await p.execute()
+
+            payload = {
+                "ok": True,
+                "status": 200,
+                "room_id": rid,
+                "from": cur_phase,
+                "to": "mafia_talk_end",
+            }
+
+            await sio.emit("game_phase_change",
+                           {"room_id": rid,
+                            "from": cur_phase,
+                            "to": "mafia_talk_end"},
+                           room=f"room:{rid}",
+                           namespace="/room")
+
+            return payload
+
+        if cur_phase == "mafia_talk_end" and want_to == "day":
+            day_number = ctx.gint("day_number")
+            last_opening_uid = ctx.gint("day_last_opening_uid")
+            opening_uid, closing_uid, alive_order = await compute_day_opening_and_closing(r, rid, last_opening_uid)
+            new_day_number = day_number + 1 if opening_uid else day_number
+            vote_blocked_next = str(raw_gstate.get("vote_blocked_next") or "0") == "1"
+            vote_blocked_val = "1" if vote_blocked_next else "0"
+            alive_ids = list(await smembers_ints(r, f"room:{rid}:game_alive"))
+
+            if alive_ids and head_uid:
+                for target_uid in alive_ids:
+                    try:
+                        await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=target_uid, changes_bool={"visibility": False})
+                    except Exception:
+                        log.exception("sio.game_phase_next.day_unblock_visibility_failed", rid=rid, head=head_uid, target=target_uid)
+                        continue
+
+                async with r.pipeline() as p:
+                    for target_uid in alive_ids:
+                        await p.hset(f"room:{rid}:user:{target_uid}:state", mapping={"visibility": "1"})
+                    await p.execute()
+
+                for target_uid in alive_ids:
+                    await emit_state_changed_filtered(r, rid, target_uid, {"visibility": "1"})
+
+            mapping = {
+                "phase": "day",
+                "day_number": str(new_day_number),
+                "day_opening_uid": str(opening_uid or 0),
+                "day_closing_uid": str(closing_uid or 0),
+                "day_current_uid": "0",
+                "day_speech_started": "0",
+                "day_speech_duration": "0",
+                "day_speeches_done": "0",
+                "vote_blocked": vote_blocked_val,
+                "vote_blocked_next": "0",
+            }
+            async with r.pipeline() as p:
+                await p.hset(f"room:{rid}:game_state", mapping=mapping)
+                await p.delete(
+                    f"room:{rid}:game_nominees",
+                    f"room:{rid}:game_nom_speakers",
+                )
+                if vote_blocked_next:
+                    await p.delete(f"room:{rid}:game_votes")
+                await p.execute()
+
+            payload = {
+                "ok": True,
+                "status": 200,
+                "room_id": rid,
+                "from": cur_phase,
+                "to": "day",
+                "day": {
+                    "number": new_day_number,
+                    "opening_uid": opening_uid,
+                    "closing_uid": closing_uid,
+                    "vote_blocked": vote_blocked_next,
+                },
+            }
+
+            await sio.emit("game_phase_change",
+                           {"room_id": rid,
+                            "from": cur_phase,
+                            "to": "day",
+                            "day": {"number": new_day_number,
+                                    "opening_uid": opening_uid,
+                                    "closing_uid": closing_uid,
+                                    "vote_blocked": vote_blocked_next}},
+                           room=f"room:{rid}",
+                           namespace="/room")
+
+            return payload
+
+        if cur_phase == "day" and want_to == "vote":
+            if str(raw_gstate.get("vote_blocked") or "0") == "1":
+                return {"ok": False, "error": "vote_blocked", "status": 409}
+
+            speeches_done = str(raw_gstate.get("day_speeches_done") or "0") == "1"
+            if not speeches_done:
+                return {"ok": False, "error": "speeches_not_done", "status": 400}
+
+            ordered = await get_nominees_in_order(r, rid)
+            if not ordered:
+                return {"ok": False, "error": "no_nominees", "status": 409}
+
+            if ctx.gint("day_number") == 1 and len(ordered) == 1:
+                return {"ok": False, "error": "single_nominee_first_day", "status": 409}
+
+            first_uid = ordered[0]
+            vote_duration = get_positive_setting_int("VOTE_SECONDS", 3)
+            async with r.pipeline() as p:
+                await p.hset(
+                    f"room:{rid}:game_state",
+                    mapping={
+                        "phase": "vote",
+                        "vote_current_uid": str(first_uid or 0),
+                        "vote_started": "0",
+                        "vote_duration": str(vote_duration),
+                        "vote_done": "0",
+                        "vote_results_ready": "0",
+                        "vote_speeches_done": "0",
+                        "vote_prev_leaders": "",
+                        "vote_lift_state": "",
+                        "vote_blocked": "0",
+                        "vote_blocked_next": "0",
+                        "vote_round_index": "0",
+                    },
+                )
+                await p.delete(f"room:{rid}:game_votes")
+                await p.execute()
+
+            payload = {
+                "ok": True,
+                "status": 200,
+                "room_id": rid,
+                "from": cur_phase,
+                "to": "vote",
+                "vote": {
+                    "nominees": ordered,
+                    "current_uid": first_uid,
+                    "deadline": 0,
+                    "done": False,
+                },
+            }
+
+            await sio.emit("game_phase_change",
+                           {"room_id": rid,
+                            "from": cur_phase,
+                            "to": "vote",
+                            "vote": {"nominees": ordered,
+                                     "current_uid": first_uid,
+                                     "deadline": 0,
+                                     "done": False}},
+                           room=f"room:{rid}",
+                           namespace="/room")
+
+            return payload
+
+        if cur_phase == "day" and want_to == "night":
+            speeches_done = str(raw_gstate.get("day_speeches_done") or "0") == "1"
+            if not speeches_done:
+                return {"ok": False, "error": "speeches_not_done", "status": 400}
+
+            ordered = await get_nominees_in_order(r, rid)
+            vote_blocked = str(raw_gstate.get("vote_blocked") or "0") == "1"
+            can_skip_vote = vote_blocked or not ordered or (ctx.gint("day_number") == 1 and len(ordered) == 1)
+            if not can_skip_vote:
+                return {"ok": False, "error": "vote_required", "status": 409}
+
+            draw_base_day = ctx.gint("draw_base_day")
+            draw_mapping: dict[str, str] = {}
+            if draw_base_day <= 0:
+                try:
+                    alive_cnt = int(await r.scard(f"room:{rid}:game_alive") or 0)
+                except Exception:
+                    alive_cnt = 0
+                draw_mapping = {"draw_base_day": str(ctx.gint("day_number")),
+                                "draw_base_alive": str(alive_cnt)}
+
+            bgm_seed = random.randint(1, 2**31 - 1) if music_enabled else 0
+            async with r.pipeline() as p:
+                mapping = build_night_reset_mapping(include_vote_meta=True)
+                mapping["bgm_seed"] = str(bgm_seed)
+                if draw_mapping:
+                    mapping.update(draw_mapping)
+                await p.hset(f"room:{rid}:game_state", mapping=mapping)
+                await p.delete(f"room:{rid}:night_shots", f"room:{rid}:night_checks")
+                await p.execute()
+
+            await apply_night_start_blocks(r, rid, head_uid=head_uid, emit_safe=True)
+
+            await sio.emit("game_phase_change",
+                           {"room_id": rid,
+                            "from": cur_phase,
+                            "to": "night",
+                            "night": {"stage": "sleep", "deadline": 0},
+                            "bgm_seed": bgm_seed},
+                           room=f"room:{rid}",
+                           namespace="/room")
+            return {"ok": True, "status": 200, "room_id": rid, "from": cur_phase, "to": "night", "bgm_seed": bgm_seed}
+
+        if cur_phase == "vote" and want_to == "night":
+            vote_done = str(raw_gstate.get("vote_done") or "0") == "1"
+            vote_aborted = str(raw_gstate.get("vote_aborted") or "0") == "1"
+            vote_speeches_done = str(raw_gstate.get("vote_speeches_done") or "0") == "1"
+            vote_results_ready = str(raw_gstate.get("vote_results_ready") or "0") == "1"
+
+            if not vote_done:
+                return {"ok": False, "error": "vote_not_done", "status": 400}
+
+            if not vote_aborted and vote_results_ready and not vote_speeches_done:
+                return {"ok": False, "error": "speeches_not_done", "status": 400}
+
+            draw_base_day = ctx.gint("draw_base_day")
+            draw_mapping: dict[str, str] = {}
+            if draw_base_day <= 0:
+                try:
+                    alive_cnt = int(await r.scard(f"room:{rid}:game_alive") or 0)
+                except Exception:
+                    alive_cnt = 0
+                draw_mapping = {"draw_base_day": str(ctx.gint("day_number")),
+                                "draw_base_alive": str(alive_cnt)}
+
+            bgm_seed = random.randint(1, 2**31 - 1) if music_enabled else 0
+            async with r.pipeline() as p:
+                mapping = build_night_reset_mapping(include_vote_meta=False)
+                mapping["bgm_seed"] = str(bgm_seed)
+                if draw_mapping:
+                    mapping.update(draw_mapping)
+                await p.hset(f"room:{rid}:game_state", mapping=mapping)
+                await p.delete(f"room:{rid}:night_shots", f"room:{rid}:night_checks")
+                await p.execute()
+
+            await apply_night_start_blocks(r, rid, head_uid=head_uid, emit_safe=False)
+
+            await sio.emit("game_phase_change",
+                           {"room_id": rid,
+                            "from": cur_phase,
+                            "to": "night",
+                            "night": {"stage": "sleep", "deadline": 0},
+                            "bgm_seed": bgm_seed},
+                           room=f"room:{rid}",
+                           namespace="/room")
+            return {"ok": True, "status": 200, "room_id": rid, "from": cur_phase, "to": "night", "bgm_seed": bgm_seed}
+
+        if cur_phase == "night" and want_to == "day":
+            stage = str(raw_gstate.get("night_stage") or "sleep")
+            if stage != "checks_done":
+                return {"ok": False, "error": "night_not_finished", "status": 409, "night_stage": stage}
+
+            best_move_uid = ctx.gint("best_move_uid")
+            best_move_active = ctx.gbool("best_move_active")
+            if best_move_uid and not best_move_active:
+                return {"ok": False, "error": "best_move_required", "status": 409, "user_id": best_move_uid}
+
+            killed_uid, ok = await compute_night_kill(r, rid)
+            draw_base_day = ctx.gint("draw_base_day")
+            draw_base_alive = ctx.gint("draw_base_alive")
+            try:
+                alive_cnt = int(await r.scard(f"room:{rid}:game_alive") or 0)
+            except Exception:
+                alive_cnt = 0
+
+            draw_should_reset = bool(ok and killed_uid)
+            day_number = ctx.gint("day_number")
+            last_opening_uid = ctx.gint("day_last_opening_uid")
+            exclude_ids = [killed_uid] if ok and killed_uid else None
+            opening_uid, closing_uid, alive_order = await compute_day_opening_and_closing(r, rid, last_opening_uid, exclude_ids)
+            new_day_number = day_number + 1 if opening_uid else day_number
+            vote_blocked_next = str(raw_gstate.get("vote_blocked_next") or "0") == "1"
+            vote_blocked_val = "1" if vote_blocked_next else "0"
+            await apply_day_visibility_unblock(r, rid, head_uid=head_uid)
+
+            mapping = {
+                "phase": "day",
+                "day_number": str(new_day_number),
+                "day_opening_uid": str(opening_uid or 0),
+                "day_closing_uid": str(closing_uid or 0),
+                "day_current_uid": "0",
+                "day_speech_started": "0",
+                "day_speech_duration": "0",
+                "day_speeches_done": "0",
+                "night_kill_uid": str(killed_uid or 0),
+                "night_kill_ok": "1" if ok else "0",
+                "day_prelude_uid": str(killed_uid or 0),
+                "day_prelude_pending": "1" if ok and killed_uid else "0",
+                "day_prelude_active": "0",
+                "day_prelude_done": "0",
+                "night_stage": "",
+                "night_shoot_started": "0",
+                "night_shoot_duration": "0",
+                "night_check_started": "0",
+                "night_check_duration": "0",
+                "vote_blocked": vote_blocked_val,
+                "vote_blocked_next": "0",
+            }
+            if draw_should_reset:
+                mapping["draw_base_day"] = "0"
+                mapping["draw_base_alive"] = "0"
+
+            async with r.pipeline() as p:
+                await p.hset(f"room:{rid}:game_state", mapping=mapping)
+                await p.delete(f"room:{rid}:game_nominees", f"room:{rid}:game_nom_speakers", f"room:{rid}:game_votes")
+                await p.execute()
+
+            payload = {
+                "ok": True,
+                "status": 200,
+                "room_id": rid,
+                "from": cur_phase,
+                "to": "day",
+                "day": {"number": new_day_number,
+                        "opening_uid": opening_uid,
+                        "closing_uid": closing_uid,
+                        "vote_blocked": vote_blocked_next},
+                "night": {"kill_uid": killed_uid or 0, "kill_ok": bool(ok)},
+            }
+            await sio.emit("game_phase_change",
+                           {"room_id": rid,
+                            "from": cur_phase,
+                            "to": "day",
+                            "day": payload["day"],
+                            "night": payload["night"]},
+                           room=f"room:{rid}",
+                           namespace="/room")
+            if not draw_should_reset and draw_base_day > 0 and alive_cnt == draw_base_alive and new_day_number >= draw_base_day + 3:
+                try:
+                    await finish_game(r, rid, result="draw", head_uid=head_uid, reason="draw")
+                except Exception:
+                    log.exception("sio.game_finish.draw_failed", rid=rid)
+
+            return payload
+
+        return {"ok": False, "error": "bad_transition", "status": 400, "from": cur_phase, "to": want_to}
+    except Exception:
+        log.exception("sio.game_phase_next.error", sid=sid, data=bool(data))
+        return {"ok": False, "error": "internal", "status": 500}
+
+
+
+
+async def perform_game_end(
+    ctx,
+    sess: Optional[dict[str, Any]],
+    *,
+    confirm: bool,
+    allow_non_head: bool = False,
+    reason: str = "manual",
+) -> dict[str, Any]:
+    if not confirm:
+        return await _perform_game_end_unlocked(
+            ctx,
+            sess,
+            confirm=False,
+            allow_non_head=allow_non_head,
+            reason=reason,
+        )
+
+    lock = await acquire_room_action_lock(
+        ctx.r,
+        ctx.rid,
+        "game_end",
+        ttl_seconds=300,
+    )
+    if lock is None:
+        return {
+            "ok": False,
+            "error": "game_end_in_progress",
+            "status": 409,
+            "retry_after": 1,
+        }
+
+    lock_key, lock_token = lock
+    try:
+        raw_state = await ctx.r.hgetall(f"room:{ctx.rid}:game_state") or {}
+        fresh_ctx = GameActionContext.from_raw_state(
+            uid=ctx.uid,
+            rid=ctx.rid,
+            r=ctx.r,
+            raw_state=raw_state,
+        )
+        return await _perform_game_end_unlocked(
+            fresh_ctx,
+            sess,
+            confirm=True,
+            allow_non_head=allow_non_head,
+            reason=reason,
+        )
+
+    finally:
+        await release_room_action_lock(ctx.r, lock_key, lock_token)
+
+
+async def _perform_game_end_unlocked(ctx, sess: Optional[dict[str, Any]], *, confirm: bool, allow_non_head: bool = False, reason: str = "manual") -> dict[str, Any]:
     uid = ctx.uid
     rid = ctx.rid
     r = ctx.r
@@ -6197,7 +7430,7 @@ async def perform_game_end(ctx, sess: Optional[dict[str, Any]], *, confirm: bool
         return {"ok": False, "error": "forbidden", "status": 403}
 
     if not confirm:
-        return {"ok": True, "status": 200, "room_id": rid, "can_end": True}     
+        return {"ok": True, "status": 200, "room_id": rid, "can_end": True}
 
     game_result = ctx.gstr("game_result")
     black_alive: int | None = None
@@ -6812,7 +8045,7 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
                                 deleted_at=now_dt,
                                 visitors=merged_visitors,
                             )
-                        
+
                         await r.srem(f"user:{rm_creator}:rooms", str(rid))
                         details = f"Удаление комнаты room_id={rid} title={rm_title} count_users={unique_visitors}"
                         if lifetime_sec is not None:

@@ -8,6 +8,7 @@ gzip_types text/plain text/css application/json application/javascript applicati
 
 access_log off;
 error_log /dev/stderr error;
+log_format edge_security escape=json '{"time":"$time_iso8601","request_id":"$request_id","remote_addr":"$remote_addr","method":"$request_method","uri":"$uri","status":"$status","bytes":"$body_bytes_sent","duration":"$request_time","upstream_status":"$upstream_status","user_agent":"$http_user_agent"}';
 
 resolver 127.0.0.11 valid=30s;
 
@@ -30,7 +31,7 @@ server {
   listen 80;
   listen [::]:80;
   server_name ${DOMAIN};
-  return 301 https://$host$request_uri;
+  return 301 https://${DOMAIN}$request_uri;
 }
 
 # HTTPS
@@ -39,6 +40,7 @@ server {
   listen [::]:443 ssl;
   http2 on;
   server_name ${DOMAIN};
+  access_log /dev/stdout edge_security;
   client_max_body_size 5m;
   large_client_header_buffers 4 16k;
 
@@ -71,6 +73,11 @@ server {
   location ~* \.(env|ya?ml|toml|ini|log|bak|old)(\..*)?$ { return 404; }
   location ~* (^|/)\.(git|hg|svn)(/|$) { return 404; }
 
+  # Internal bot endpoints are reachable only over the Docker edge network.
+  # Telegram calls /bot/webhook; no browser needs direct /api/bot access.
+  location = /api/bot { return 404; }
+  location ^~ /api/bot/ { return 404; }
+
   # Presign media URLs can spike on page load when many avatars render at once.
   location = /api/media/presign {
     limit_req zone=media_presign_limit burst=60 nodelay;
@@ -101,6 +108,8 @@ server {
 
   # Telegram bot webhook
   location = /bot/webhook {
+    limit_req zone=api_limit burst=20 nodelay;
+    client_max_body_size 1m;
     proxy_pass http://bot;
     proxy_http_version 1.1;
     proxy_set_header Host              $host;
@@ -161,6 +170,17 @@ server {
   # статика SPA
   location ~* \.(?:js|css|png|jpg|jpeg|gif|svg|ico|webp|avif|mp3|ogg|wav|webm|m4a|woff2?|ttf|otf)$ {
     if ($request_method !~ ^(GET|HEAD)$) { return 405; }
+    # This location defines Cache-Control, so nginx no longer inherits the
+    # server-level add_header directives. Repeat them here deliberately.
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
+    add_header X-Permitted-Cross-Domain-Policies none always;
+    add_header Permissions-Policy "camera=(self), microphone=(self), display-capture=(self), geolocation=()" always;
+    add_header Referrer-Policy strict-origin-when-cross-origin always;
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-Frame-Options DENY always;
+    add_header Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https: wss:; media-src 'self' blob:; frame-src 'self'; frame-ancestors 'none'; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests" always;
+    add_header Cross-Origin-Resource-Policy same-origin always;
+    add_header X-Robots-Tag $seo_robots_tag always;
     access_log off;
     expires 1y;
     add_header Cache-Control "public, max-age=31536000, immutable";
@@ -190,11 +210,30 @@ server {
   }
 
   location = /index.html {
-    add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+    # Cache-Control below overrides add_header inheritance.
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
+    add_header X-Permitted-Cross-Domain-Policies none always;
+    add_header Permissions-Policy "camera=(self), microphone=(self), display-capture=(self), geolocation=()" always;
+    add_header Referrer-Policy strict-origin-when-cross-origin always;
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-Frame-Options DENY always;
+    add_header Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https: wss:; media-src 'self' blob:; frame-src 'self'; frame-ancestors 'none'; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests" always;
+    add_header Cross-Origin-Resource-Policy same-origin always;
     add_header X-Robots-Tag $seo_robots_tag always;
+    add_header Cache-Control "no-cache, no-store, must-revalidate" always;
     expires -1;
   }
   location = /version.txt {
+    # Cache-Control below overrides add_header inheritance.
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
+    add_header X-Permitted-Cross-Domain-Policies none always;
+    add_header Permissions-Policy "camera=(self), microphone=(self), display-capture=(self), geolocation=()" always;
+    add_header Referrer-Policy strict-origin-when-cross-origin always;
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-Frame-Options DENY always;
+    add_header Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https: wss:; media-src 'self' blob:; frame-src 'self'; frame-ancestors 'none'; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests" always;
+    add_header Cross-Origin-Resource-Policy same-origin always;
+    add_header X-Robots-Tag $seo_robots_tag always;
     default_type text/plain;
     etag on;
     add_header Cache-Control "no-store" always;

@@ -136,6 +136,7 @@ from ..utils import (
     close_room_as_staff,
     sum_room_stream_seconds,
     fetch_live_room_stats,
+    has_live_room_snapshot,
     fetch_active_room_game_numbers,
     build_user_stats_out,
     fetch_games_history_page,
@@ -184,6 +185,7 @@ from ..utils import (
     delete_user_avatar,
     broadcast_creator_rooms,
     force_leave_user_from_rooms,
+    force_logout_user,
     ensure_admin_target_allowed,
     ensure_admin_target_not_deleted,
     emit_rooms_upsert,
@@ -563,35 +565,9 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
         except Exception:
             log.warning("admin.rooms.active_games_fetch_failed", rooms=len(active_ids))
 
-    def has_live_snapshot(stats) -> bool:
-        if not isinstance(stats, dict):
-            return False
-
-        required = (
-            "visitors",
-            "spectators",
-            "streams",
-            "visitors_count",
-            "spectators_count",
-            "stream_seconds",
-            "has_stream",
-            "title",
-            "user_limit",
-            "creator",
-            "creator_name",
-            "created_at",
-            "privacy",
-            "anonymity",
-        )
-        for key in required:
-            if key not in stats:
-                return False
-
-        return True
-
     user_ids = collect_room_user_ids(rooms)
     for stats in live_stats.values():
-        if not has_live_snapshot(stats):
+        if not has_live_room_snapshot(stats):
             continue
 
         try:
@@ -636,7 +612,7 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
     items: list[AdminRoomOut] = []
     for room in rooms:
         stats = live_stats.get(int(room.id)) if room.deleted_at is None else None
-        if not has_live_snapshot(stats):
+        if not has_live_room_snapshot(stats):
             stats = None
 
         visitors_map = stats["visitors"] if stats else (room.visitors or {})
@@ -1477,7 +1453,12 @@ async def subscriptions_upsert(payload: AdminSubscriptionCreateIn, ident: Identi
     if months <= 0 and days <= 0:
         raise HTTPException(status_code=422, detail="duration_required")
 
-    user = await session.get(User, int(payload.user_id))
+    user = await session.scalar(
+        select(User)
+        .where(User.id == int(payload.user_id))
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
     if not user:
         raise HTTPException(status_code=404, detail="user_not_found")
 
@@ -1486,7 +1467,11 @@ async def subscriptions_upsert(payload: AdminSubscriptionCreateIn, ident: Identi
     uid = int(user.id)
     now = datetime.now(timezone.utc)
     subscription = await session.scalar(
-        select(UserSubscription).where(UserSubscription.user_id == uid).limit(1)
+        select(UserSubscription)
+        .where(UserSubscription.user_id == uid)
+        .limit(1)
+        .with_for_update()
+        .execution_options(populate_existing=True)
     )
 
     had_subscription = subscription is not None
@@ -1575,7 +1560,12 @@ async def subscriptions_reduce(user_id: int, payload: AdminSubscriptionDurationI
         raise HTTPException(status_code=422, detail="duration_required")
 
     uid = int(user_id)
-    user = await session.get(User, uid)
+    user = await session.scalar(
+        select(User)
+        .where(User.id == uid)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
     if not user:
         raise HTTPException(status_code=404, detail="user_not_found")
 
@@ -1583,7 +1573,11 @@ async def subscriptions_reduce(user_id: int, payload: AdminSubscriptionDurationI
 
     now = datetime.now(timezone.utc)
     subscription = await session.scalar(
-        select(UserSubscription).where(UserSubscription.user_id == uid).limit(1)
+        select(UserSubscription)
+        .where(UserSubscription.user_id == uid)
+        .limit(1)
+        .with_for_update()
+        .execution_options(populate_existing=True)
     )
     if subscription is None:
         raise HTTPException(status_code=404, detail="subscription_not_found")
@@ -1647,12 +1641,21 @@ async def subscriptions_reduce(user_id: int, payload: AdminSubscriptionDurationI
 @log_route("admin.subscriptions.delete")
 async def subscriptions_delete(user_id: int, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
     uid = int(user_id)
-    user = await session.get(User, uid)
+    user = await session.scalar(
+        select(User)
+        .where(User.id == uid)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
     if not user:
         raise HTTPException(status_code=404, detail="user_not_found")
 
     subscription = await session.scalar(
-        select(UserSubscription).where(UserSubscription.user_id == uid).limit(1)
+        select(UserSubscription)
+        .where(UserSubscription.user_id == uid)
+        .limit(1)
+        .with_for_update()
+        .execution_options(populate_existing=True)
     )
     if subscription is None:
         raise HTTPException(status_code=404, detail="subscription_not_found")
@@ -1801,6 +1804,7 @@ async def update_user_role(user_id: int, payload: AdminUserRoleIn, ident: Identi
             await emit_global_chat_role_sync(uid, role=str(user.role))
         with suppress(Exception):
             await emit_role_change_friend_profile_syncs(session, uid, role=str(user.role))
+        await force_logout_user(uid, reason="role_changed")
 
     return AdminUserRoleOut(id=uid, role=user.role)
 

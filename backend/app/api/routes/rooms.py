@@ -9,7 +9,7 @@ from ...core.clients import get_redis
 from ...core.roles import ROLE_ADMIN, normalize_user_role
 from ...security.decorators import log_route, rate_limited, require_room_creator
 from ...core.logging import log_action
-from ...security.auth_tokens import get_identity
+from ...security.auth_tokens import get_identity, get_identity_optional
 from ...core.db import get_session
 from ...models.room import Room
 from ...realtime.sio import sio
@@ -38,6 +38,7 @@ from ..utils import (
     normalize_spectators_limit,
     build_room_members_for_info,
     get_room_params_or_404,
+    ensure_room_view_allowed,
     ensure_room_access_allowed,
     ensure_verification_allowed,
     schedule_room_gc,
@@ -184,9 +185,13 @@ async def list_active_rooms(ident: Identity = Depends(get_identity)) -> list[Roo
 
 @router.get("/{room_id}/info", response_model=RoomInfoOut, response_model_exclude_none=True)
 @log_route("rooms.room_info")
-async def room_info(room_id: int) -> RoomInfoOut:
+async def room_info(
+    room_id: int,
+    ident: Identity | None = Depends(get_identity_optional),
+) -> RoomInfoOut:
     r = get_redis()
-    await get_room_params_or_404(r, room_id)
+    params = await get_room_params_or_404(r, room_id)
+    await ensure_room_view_allowed(r, room_id, params, ident)
 
     raw_members = await build_room_members_for_info(r, room_id)
     raw_game = await r.hgetall(f"room:{room_id}:game")
@@ -218,7 +223,8 @@ async def room_spectators(room_id: int, ident: Identity = Depends(get_identity),
     await ensure_verification_allowed(session, int(ident["id"]))
 
     r = get_redis()
-    await get_room_params_or_404(r, room_id)
+    params = await get_room_params_or_404(r, room_id)
+    await ensure_room_view_allowed(r, room_id, params, ident)
 
     try:
         raw_ids = await r.smembers(f"room:{room_id}:spectators")
@@ -379,6 +385,17 @@ async def access(room_id: int, ident: Identity = Depends(get_identity), db: Asyn
         return RoomAccessOut(access="approved")
 
     if str(params.get("anonymity") or "visible") == "hidden":
+        phase = str(await r.hget(f"room:{room_id}:game_state", "phase") or "idle")
+        if phase != "idle":
+            visible = await filter_rooms_for_viewer(
+                r,
+                [{**dict(params), "id": room_id}],
+                str(ident.get("role") or "user"),
+                uid,
+            )
+            if visible:
+                return RoomAccessOut(access="approved")
+
         return RoomAccessOut(access="hidden")
 
     if await r.sismember(f"room:{room_id}:pending", str(uid)):

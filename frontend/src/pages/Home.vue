@@ -226,7 +226,7 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Socket } from 'socket.io-client'
-import { createPublicSocket } from '@/services/sio'
+import { createPublicSocket, disposeAuthedSocket } from '@/services/sio'
 import { alertDialog, confirmDialog } from '@/services/confirm'
 import { api } from '@/services/axios'
 import { canOpenMiniProfileTarget, normalizeMiniProfileUserId } from '@/services/miniProfile'
@@ -695,7 +695,7 @@ async function fetchRoomInfo(id: number, opts?: { silent?: boolean }): Promise<(
   if (infoInFlight.has(id)) return null
   infoInFlight.add(id)
   try {
-    const { data } = await api.get<RoomMembers & { game?: Game }>(`/rooms/${id}/info`, { __skipAuth: true },)
+    const { data } = await api.get<RoomMembers & { game?: Game }>(`/rooms/${id}/info`)
     if (!opts?.silent && selectedId.value === id) info.value = data
     return data
   } catch {
@@ -863,8 +863,10 @@ function startWS() {
 }
 
 function stopWS() {
-  try { sio.value?.off?.() } catch {}
-  try { sio.value?.close?.() } catch {}
+  const socket = sio.value as unknown as Socket | null
+  disposeAuthedSocket(socket)
+  try { socket?.off?.() } catch {}
+  try { socket?.close?.() } catch {}
   sio.value = null
 }
 

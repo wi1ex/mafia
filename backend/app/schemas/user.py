@@ -1,8 +1,12 @@
 from datetime import datetime
-from typing import Annotated, Optional, List, Literal
+from typing import Annotated, Any, Optional, List, Literal
+import unicodedata
 from pydantic import BaseModel, Field
 from pydantic.functional_validators import BeforeValidator
-from ..api.utils import sanitize_username_for_schema
+
+
+def sanitize_username_for_schema(value: Any) -> str:
+    return unicodedata.normalize("NFKC", str(value or "")).strip()
 
 UsernameClean = Annotated[str, BeforeValidator(sanitize_username_for_schema)]
 

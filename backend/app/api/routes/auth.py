@@ -9,8 +9,13 @@ from ...core.settings import settings
 from ...security.parameters import get_cached_settings
 from ...core.logging import log_action
 from ...security.decorators import log_route
-from ...security.auth_tokens import create_access_token, parse_refresh_token
-from ...security.passwords import hash_password, verify_password
+from ...security.auth_tokens import (
+    AUTH_SESSION_SID_HEADER,
+    create_access_token,
+    parse_refresh_token,
+    refresh_cookie_matches_scope,
+)
+from ...security.passwords import hash_password_async, password_needs_rehash, verify_password_async
 from ...security.sessions import new_login_session, rotate_refresh, logout as sess_logout
 from ...services.user_cache import refresh_user_profile_cache
 from ...services.text_moderation import enforce_clean_text
@@ -53,7 +58,7 @@ async def register(payload: PasswordRegisterIn, resp: Response, request: Request
         id=user_id,
         username=username,
         role="user",
-        password_hash=hash_password(password),
+        password_hash=await hash_password_async(password),
         password_temp=False,
         telegram_id=None,
         tg_invites_enabled=True,
@@ -99,8 +104,12 @@ async def login(payload: PasswordLoginIn, resp: Response, request: Request, db: 
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="user_deleted")
     if not user.password_hash:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="password_not_set")
-    if not verify_password(password, user.password_hash):
+    if not await verify_password_async(password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid_credentials")
+
+    if password_needs_rehash(user.password_hash):
+        user.password_hash = await hash_password_async(password)
+        await db.commit()
 
     raw_pwa = (request.headers.get("x-pwa") or "").strip().lower()
     is_pwa = raw_pwa in {"1", "true", "yes", "pwa"}
@@ -127,6 +136,11 @@ async def refresh(resp: Response, request: Request, db: AsyncSession = Depends(g
     if not raw:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No refresh cookie")
 
+    token_ok, _, _, _ = parse_refresh_token(raw)
+    expected_sid = request.headers.get(AUTH_SESSION_SID_HEADER, "")
+    if token_ok and not refresh_cookie_matches_scope(raw, expected_sid):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="session_changed")
+
     ok, user_id, sid = await rotate_refresh(resp, raw_refresh_jwt=raw)
     if not ok:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh")
@@ -150,6 +164,10 @@ async def logout(resp: Response, request: Request) -> Ok:
     if raw:
         ok, user_id, sid, _ = parse_refresh_token(raw)
         if ok:
+            expected_sid = request.headers.get(AUTH_SESSION_SID_HEADER, "")
+            if not refresh_cookie_matches_scope(raw, expected_sid):
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="session_changed")
+
             await sess_logout(resp, user_id=user_id, sid=sid or None)
             return Ok()
 

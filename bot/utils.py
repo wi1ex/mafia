@@ -179,6 +179,9 @@ async def backend_request(session: aiohttp.ClientSession, path: str, payload: Di
 
 
 def map_verify_error(detail: str | None, status_code: int | None) -> str:
+    if status_code == 429 or detail == "rate_limited":
+        return "Слишком много попыток. Повторите позже."
+
     if status_code == 404 or detail == "user_not_found":
         return "Аккаунт не найден."
 
@@ -207,6 +210,9 @@ def map_verify_error(detail: str | None, status_code: int | None) -> str:
 
 
 def map_reset_error(detail: str | None, status_code: int | None) -> str:
+    if status_code == 429 or detail == "rate_limited":
+        return "Слишком много сбросов пароля. Повторите позже."
+
     if status_code == 404 or detail == "user_not_found":
         return "Аккаунт не найден."
 

@@ -1,7 +1,19 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "50m"
+    max-file: "5"
+
 networks:
   edge:
     driver: bridge
-  internal:
+  database:
+    driver: bridge
+    internal: true
+  cache:
+    driver: bridge
+    internal: true
+  media:
     driver: bridge
     internal: true
 
@@ -14,18 +26,21 @@ services:
   db:
     image: postgres:17-alpine
     container_name: db
-    env_file: .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes: ["pg_data:/var/lib/postgresql/data"]
 #    ports:
 #      - "5432:5432"
 #    networks: [edge, internal]
-    networks: [internal]
+    networks: [database]
+    logging: *default-logging
     restart: always
 
   redis:
     image: redis:7.2-alpine
     container_name: redis
-    env_file: .env
     command:
       - redis-server
       - --requirepass
@@ -40,16 +55,20 @@ services:
 #    ports:
 #      - "6379:6379"
 #    networks: [edge, internal]
-    networks: [internal]
+    networks: [cache]
+    logging: *default-logging
     restart: always
 
   minio:
     image: minio/minio:RELEASE.2025-07-18T21-56-31Z
     container_name: minio
-    env_file: .env
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     command: server /data
     volumes: ["minio_data:/data"]
-    networks: [internal]
+    networks: [media]
+    logging: *default-logging
     restart: always
 
   backend:
@@ -68,32 +87,37 @@ services:
         --forwarded-allow-ips=*
         --log-level info
         --access-logfile -
+        --access-logformat '%({x-request-id}i)s %(h)s %(t)s "%(m)s %(U)s %(H)s" %(s)s %(b)s %(L)s'
         --error-logfile -
     depends_on:
       - db
       - redis
       - minio
-    networks: [edge, internal]
+    networks: [edge, database, cache, media]
+    logging: *default-logging
     restart: always
 
   bot:
     build: ./bot
     container_name: bot
-    env_file: .env
     environment:
+      TG_BOT_TOKEN: ${TG_BOT_TOKEN}
       BACKEND_URL: http://backend:8000/api
       BOT_API_TOKEN: ${BOT_API_TOKEN}
       WEBHOOK_HOST: https://${DOMAIN}
       WEBHOOK_PATH: ${BOT_WEBHOOK_PATH}
       WEBHOOK_SECRET: ${BOT_WEBHOOK_SECRET}
       WEBHOOK_PORT: 8081
-      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:${REDIS_PORT}/1
+      REDIS_HOST: redis
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
     depends_on:
       - backend
       - redis
     expose:
       - "8081"
-    networks: [edge, internal]
+    networks: [edge, cache]
+    logging: *default-logging
     restart: always
 
   nginx:
@@ -104,7 +128,11 @@ services:
         VITE_TG_BOT_NAME: "${TG_BOT_NAME}"
         VITE_BUILD_ID: "${BUILD_ID}"
     container_name: nginx
-    env_file: .env
+    environment:
+      DOMAIN: ${DOMAIN}
+      SSL_CERT_PATH: ${SSL_CERT_PATH}
+      SSL_KEY_PATH: ${SSL_KEY_PATH}
+      LIVEKIT_UPSTREAM: ${LIVEKIT_UPSTREAM}
     volumes:
       - /etc/letsencrypt:/etc/letsencrypt:ro
     ports:
@@ -112,5 +140,6 @@ services:
       - "443:443/tcp"
     depends_on:
       - backend
-    networks: [edge, internal]
+    networks: [edge, media]
+    logging: *default-logging
     restart: always

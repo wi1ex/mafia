@@ -1,4 +1,5 @@
 from __future__ import annotations
+import asyncio
 import base64
 import hashlib
 import hmac
@@ -6,7 +7,7 @@ import secrets
 from typing import Tuple
 
 PBKDF2_ALGO = "sha256"
-PBKDF2_ITER = 200_000
+PBKDF2_ITER = 600_000
 SALT_BYTES = 16
 KEY_BYTES = 32
 
@@ -23,6 +24,10 @@ def hash_password(password: str) -> str:
     salt = secrets.token_bytes(SALT_BYTES)
     dk = hashlib.pbkdf2_hmac(PBKDF2_ALGO, password.encode("utf-8"), salt, PBKDF2_ITER, dklen=KEY_BYTES)
     return f"pbkdf2_{PBKDF2_ALGO}${PBKDF2_ITER}${_b64e(salt)}${_b64e(dk)}"
+
+
+async def hash_password_async(password: str) -> str:
+    return await asyncio.to_thread(hash_password, password)
 
 
 def _parse_hash(encoded: str) -> Tuple[str, int, bytes, bytes] | None:
@@ -58,7 +63,25 @@ def verify_password(password: str, encoded: str) -> bool:
     return hmac.compare_digest(dk, ref)
 
 
-def make_temp_password(length: int = 8) -> str:
+async def verify_password_async(password: str, encoded: str) -> bool:
+    return await asyncio.to_thread(verify_password, password, encoded)
+
+
+def password_needs_rehash(encoded: str) -> bool:
+    parsed = _parse_hash(encoded)
+    if not parsed:
+        return True
+
+    algo, iters, salt, ref = parsed
+    return (
+        algo != PBKDF2_ALGO
+        or iters < PBKDF2_ITER
+        or len(salt) < SALT_BYTES
+        or len(ref) != KEY_BYTES
+    )
+
+
+def make_temp_password(length: int = 12) -> str:
     alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
     length = max(8, min(32, int(length)))
     return "".join(secrets.choice(alphabet) for _ in range(length))

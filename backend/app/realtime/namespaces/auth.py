@@ -2,7 +2,9 @@ from __future__ import annotations
 import structlog
 from ..sio import sio
 from ..utils import validate_auth
+from ..connections import register_user_socket, unregister_user_socket
 from ...api.utils import check_sanctions_expired, emit_auth_profile_sync
+from ...security.decorators import rate_limited_sio
 from ...services.presence import touch_user_activity
 from ...services.global_chat import emit_global_chat_unread_count
 
@@ -16,11 +18,22 @@ async def connect(sid, environ, auth):
         log.warning("auth.connect.denied", sid=sid)
         return False
 
-    uid = vr[0]
+    uid = vr.user_id
     await touch_user_activity(uid, force_db=True)
     await sio.save_session(sid,
-                           {"uid": uid},
+                           {
+                               "uid": uid,
+                               "role": vr.role,
+                               "auth_sid": vr.auth_sid,
+                               "auth_expires_at": vr.expires_at,
+                           },
                            namespace="/auth")
+    await register_user_socket(
+        user_id=uid,
+        socket_sid=sid,
+        namespace="/auth",
+        auth_sid=vr.auth_sid,
+    )
     await sio.enter_room(sid,
                          f"user:{uid}",
                          namespace="/auth")
@@ -35,6 +48,12 @@ async def connect(sid, environ, auth):
 
 
 @sio.event(namespace="/auth")
+@rate_limited_sio(
+    lambda *, uid=None, **__: f"rl:sio:online_ping:{uid or 'nouid'}",
+    limit=30,
+    window_s=60,
+    session_ns="/auth",
+)
 async def online_ping(sid, data=None):
     try:
         sess = await sio.get_session(sid, namespace="/auth")
@@ -63,6 +82,7 @@ async def disconnect(sid):
     if not uid:
         return
 
+    await unregister_user_socket(user_id=uid, socket_sid=sid, namespace="/auth")
     await touch_user_activity(uid, force_db=True)
 
     return

@@ -174,8 +174,9 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { storeToRefs } from 'pinia'
-import { api } from '@/services/axios'
+import { api, AUTH_SESSION_SID_HEADER } from '@/services/axios'
 import { alertDialog, confirmDialog } from '@/services/confirm'
+import { hasAuthCookieMutex, withAuthCookieLock } from '@/services/refreshCoordination'
 import { useAuthStore, useUserStore } from '@/store'
 
 import UiInput from '@/components/UiInput.vue'
@@ -433,8 +434,26 @@ async function deleteAccount() {
   if (!ok) return
   deleteBusy.value = true
   try {
-    await api.delete('/users/account')
-    await auth.logout()
+    const expectedSid = String(auth.sessionId || '')
+    const deleted = await withAuthCookieLock(async () => {
+      let samePublishedSession = String(auth.sessionId || '') === expectedSid
+        && hasAuthCookieMutex()
+      try {
+        samePublishedSession = samePublishedSession
+          && (localStorage.getItem('auth:sid') || '') === expectedSid
+      } catch {
+        samePublishedSession = samePublishedSession
+          && typeof navigator !== 'undefined'
+          && Boolean((navigator as Navigator & { locks?: unknown }).locks)
+      }
+      if (!expectedSid || !samePublishedSession) return false
+      await api.delete('/users/account', {
+        headers: { [AUTH_SESSION_SID_HEADER]: expectedSid },
+      })
+      return true
+    })
+    if (!deleted) throw new Error('session_changed')
+    if (String(auth.sessionId || '') === expectedSid) await auth.localSignOut(expectedSid)
   } catch (e: any) {
     const st = e?.response?.status
     const d = e?.response?.data?.detail

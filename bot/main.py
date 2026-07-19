@@ -2,6 +2,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+from urllib.parse import quote
+
 import aiohttp
 from aiohttp import web
 from aiogram import Bot, Dispatcher, Router, F, types
@@ -46,8 +48,8 @@ REDIS_URL = os.getenv("REDIS_URL", "").strip()
 if not REDIS_URL:
     r_host = os.getenv("REDIS_HOST", "redis").strip()
     r_port = os.getenv("REDIS_PORT", "6379").strip()
-    r_pass = os.getenv("REDIS_PASSWORD", "").strip()
-    auth = f":{r_pass}@" if r_pass else ""
+    r_pass = os.getenv("REDIS_PASSWORD", "")
+    auth = f":{quote(r_pass, safe='')}@" if r_pass else ""
     REDIS_URL = f"redis://{auth}{r_host}:{r_port}/1"
 
 BACKEND_REQUEST_KWARGS = {
@@ -138,10 +140,10 @@ async def verify_username(message: types.Message, state: FSMContext) -> None:
 @router.message(VerifyState.password, F.text)
 @guarded_handler
 async def verify_password(message: types.Message, state: FSMContext, session: aiohttp.ClientSession) -> None:
-    password = (message.text or "").strip()
+    password = message.text or ""
     await safe_message_delete(message)
 
-    if not password:
+    if not password.strip():
         await safe_message_answer(message, "Введите пароль.")
         return
 

@@ -31,9 +31,12 @@ MAX_BYTES = 5 * 1024 * 1024
 MAX_PIXELS = 4096 * 4096
 MAX_SIDE = 1024
 MAX_AVATAR_GIF_FRAMES = 300
+MAX_AVATAR_GIF_TOTAL_PIXELS = MAX_SIDE * MAX_SIDE * MAX_AVATAR_GIF_FRAMES
 CHAT_IMAGE_MAX_BYTES = MAX_BYTES
 CHAT_IMAGE_MAX_SIDE = MAX_SIDE
 CHAT_IMAGE_PREFIX = "chat/global/images"
+CHAT_IMAGE_PENDING_SEGMENT = "pending"
+CHAT_IMAGE_PENDING_TTL_SECONDS = 60 * 60
 BUCKET_CHECK_TTL_S = 60.0
 _bucket_checked_until = 0.0
 _bucket_check_lock = threading.Lock()
@@ -44,8 +47,11 @@ def _normalize_content_type(content_type: str | None) -> str:
 
 
 def _reencode_safe(content: bytes, ct_hint: Optional[str], *, max_side: int = MAX_SIDE) -> tuple[bytes, str] | None:
-    im = Image.open(io.BytesIO(content))
-    im = ImageOps.exif_transpose(im)
+    with Image.open(io.BytesIO(content)) as source:
+        if source.width * source.height > MAX_PIXELS:
+            return None
+
+        im = ImageOps.exif_transpose(source)
     if im.width * im.height > MAX_PIXELS:
         return None
 
@@ -85,12 +91,18 @@ def _validate_gif_avatar(content: bytes, *, max_side: int = MAX_SIDE, preview_fr
 
             preview: bytes | None = None
             frame_seen = False
+            total_frame_pixels = 0
             for idx, frame in enumerate(ImageSequence.Iterator(im)):
                 if idx >= MAX_AVATAR_GIF_FRAMES:
                     return None
 
                 frame.load()
-                if frame.width * frame.height > MAX_PIXELS:
+                frame_pixels = frame.width * frame.height
+                if frame_pixels > MAX_PIXELS:
+                    return None
+
+                total_frame_pixels += frame_pixels
+                if total_frame_pixels > MAX_AVATAR_GIF_TOTAL_PIXELS:
                     return None
 
                 if frame.width > max_side or frame.height > max_side:
@@ -248,7 +260,10 @@ def put_chat_image(user_id: int, content: bytes, content_type: str | None) -> Op
     minio = get_minio_private()
     ensure_bucket(minio)
     ext = ALLOWED_CT[ct]
-    object_name = f"{CHAT_IMAGE_PREFIX}/{int(user_id)}/{int(time.time())}-{uuid4().hex}{ext}"
+    object_name = (
+        f"{CHAT_IMAGE_PREFIX}/{CHAT_IMAGE_PENDING_SEGMENT}/{int(user_id)}/"
+        f"{int(time.time())}-{uuid4().hex}{ext}"
+    )
 
     try:
         minio.put_object(
@@ -272,7 +287,10 @@ def put_chat_image(user_id: int, content: bytes, content_type: str | None) -> Op
 def build_chat_image_object_name(user_id: int, content_type: str | None) -> str:
     ct = _normalize_content_type(content_type)
     ext = ALLOWED_CT.get(ct) or ".jpg"
-    return f"{CHAT_IMAGE_PREFIX}/{int(user_id)}/{int(time.time())}-{uuid4().hex}{ext}"
+    return (
+        f"{CHAT_IMAGE_PREFIX}/{CHAT_IMAGE_PENDING_SEGMENT}/{int(user_id)}/"
+        f"{int(time.time())}-{uuid4().hex}{ext}"
+    )
 
 
 def get_prefix_storage_stats(prefix: str) -> tuple[int, int]:
@@ -410,16 +428,70 @@ def validate_chat_image_object(key: str) -> str:
         _delete_object_quietly(minio, key_value)
         raise ValueError("file_too_large")
 
-    if normalized_content != data or normalized_ct != ct_hdr:
+    prefix_parts = CHAT_IMAGE_PREFIX.split("/")
+    key_parts = key_value.split("/")
+    is_pending = (
+        len(key_parts) == len(prefix_parts) + 3
+        and key_parts[:len(prefix_parts)] == prefix_parts
+        and key_parts[len(prefix_parts)] == CHAT_IMAGE_PENDING_SEGMENT
+    )
+    target_key = key_value
+    if is_pending:
+        try:
+            owner_id = int(key_parts[len(prefix_parts) + 1])
+        except (TypeError, ValueError):
+            owner_id = 0
+        if owner_id <= 0:
+            _delete_object_quietly(minio, key_value)
+            raise ValueError("bad_image_key")
+
+        target_key = "/".join((*prefix_parts, str(owner_id), key_parts[-1]))
+
+    if target_key != key_value or normalized_content != data or normalized_ct != ct_hdr:
         minio.put_object(
             bucket_name=_bucket,
-            object_name=key_value,
+            object_name=target_key,
             data=io.BytesIO(normalized_content),
             length=len(normalized_content),
             content_type=normalized_ct,
         )
+    if target_key != key_value:
+        _delete_object_quietly(minio, key_value)
 
-    return key_value
+    return target_key
+
+
+def delete_stale_pending_chat_images(*, older_than_seconds: int = CHAT_IMAGE_PENDING_TTL_SECONDS) -> int:
+    minio = get_minio_private()
+    ensure_bucket(minio)
+    cutoff = datetime.now(timezone.utc) - timedelta(seconds=max(60, int(older_than_seconds)))
+    to_delete: list[DeleteObject] = []
+
+    try:
+        for obj in minio.list_objects(
+            bucket_name=_bucket,
+            prefix=f"{CHAT_IMAGE_PREFIX}/{CHAT_IMAGE_PENDING_SEGMENT}/",
+            recursive=True,
+        ):
+            object_name = str(getattr(obj, "object_name", "") or "")
+            modified_at = getattr(obj, "last_modified", None)
+            if not isinstance(modified_at, datetime):
+                continue
+            if modified_at.tzinfo is None:
+                modified_at = modified_at.replace(tzinfo=timezone.utc)
+            if modified_at <= cutoff:
+                to_delete.append(DeleteObject(object_name))
+    except Exception:
+        log.exception("chat_image.pending_cleanup.list_failed")
+        return 0
+
+    if not to_delete:
+        return 0
+
+    errors = list(minio.remove_objects(bucket_name=_bucket, delete_object_list=to_delete))
+    if errors:
+        log.warning("chat_image.pending_cleanup.remove_errors", count=len(errors))
+    return max(0, len(to_delete) - len(errors))
 
 
 def delete_avatars(user_id: int) -> int:
@@ -496,6 +568,10 @@ async def delete_avatars_async(user_id: int) -> int:
 
 async def delete_chat_images_async() -> int:
     return await asyncio.to_thread(delete_chat_images)
+
+
+async def delete_stale_pending_chat_images_async() -> int:
+    return await asyncio.to_thread(delete_stale_pending_chat_images)
 
 
 async def presign_key_async(key: str, *, expires_hours: int = 1) -> tuple[str, int]:

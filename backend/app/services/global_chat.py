@@ -31,7 +31,12 @@ from ..realtime.sio import sio
 from ..security.parameters import get_cached_settings
 from ..api.utils import is_user_in_active_game
 from ..services.blacklist import filter_notification_targets_for_actor, is_user_blacklisted_by
-from ..services.minio import CHAT_IMAGE_PREFIX, delete_object_async, validate_chat_image_object_async
+from ..services.minio import (
+    CHAT_IMAGE_PENDING_SEGMENT,
+    CHAT_IMAGE_PREFIX,
+    delete_object_async,
+    validate_chat_image_object_async,
+)
 from ..services.user_cache import get_user_profiles_cached
 
 log = structlog.get_logger()
@@ -1333,7 +1338,10 @@ def is_global_chat_image_owned_by_user(user_id: int, key: str | None) -> bool:
     if uid <= 0 or not key_value:
         return False
 
-    return key_value.startswith(f"{CHAT_IMAGE_PREFIX}/{uid}/")
+    return (
+        key_value.startswith(f"{CHAT_IMAGE_PREFIX}/{uid}/")
+        or key_value.startswith(f"{CHAT_IMAGE_PREFIX}/{CHAT_IMAGE_PENDING_SEGMENT}/{uid}/")
+    )
 
 
 def ensure_global_chat_image_owned_by_user(user_id: int, key: str | None) -> None:
@@ -2184,6 +2192,26 @@ async def validate_global_chat_send_input(*, user_id: int, text: object, reply_t
 
     if image_key:
         ensure_global_chat_image_owned_by_user(user_id, image_key)
-        image_key = await validate_chat_image_object_async(image_key)
 
     return normalized_text, reply_id, image_key
+
+
+async def finalize_global_chat_image(*, user_id: int, image_object_key: str | None) -> str | None:
+    image_key = normalize_global_chat_image_object_key(image_object_key)
+    if not image_key:
+        return None
+
+    ensure_global_chat_image_owned_by_user(user_id, image_key)
+    return await validate_chat_image_object_async(image_key)
+
+
+async def delete_global_chat_image_if_unreferenced(image_object_key: str | None) -> None:
+    key = normalize_global_chat_image_object_key(image_object_key)
+    if not key:
+        return
+
+    async with SessionLocal() as session:
+        if await is_global_chat_image_referenced(session, key):
+            return
+
+    await delete_object_async(key)

@@ -12,6 +12,7 @@ from ..core.settings import settings
 
 log = structlog.get_logger()
 _preferred_livekit_api_url: str | None = None
+DEFAULT_LIVEKIT_TOKEN_TTL_MINUTES = 60
 
 
 def get_livekit_room_name(rid: int) -> str:
@@ -55,9 +56,24 @@ def _iter_livekit_api_urls() -> Iterable[str]:
             yield domain_url
 
 
-def make_livekit_token(*, identity: str, name: str, room: str, ttl_minutes: int = 60, can_publish: bool = True) -> str:
+def make_livekit_token(
+    *,
+    identity: str,
+    name: str,
+    room: str,
+    ttl_minutes: int = DEFAULT_LIVEKIT_TOKEN_TTL_MINUTES,
+    can_publish: bool = True,
+    hidden: bool = False,
+) -> str:
     try:
-        publish_sources = ["camera", "microphone", "screen_share", "screen_share_audio"] if can_publish else []
+        effective_ttl_minutes = max(1, int(ttl_minutes))
+        effective_can_publish = bool(can_publish)
+        publish_sources = [
+            "camera",
+            "microphone",
+            "screen_share",
+            "screen_share_audio",
+        ] if effective_can_publish else []
         tok = (
             AccessToken(api_key=settings.LIVEKIT_API_KEY, api_secret=settings.LIVEKIT_API_SECRET)
             .with_identity(identity)
@@ -65,16 +81,17 @@ def make_livekit_token(*, identity: str, name: str, room: str, ttl_minutes: int 
             .with_grants(VideoGrants(
                 room_join=True,
                 room=room,
-                can_publish=can_publish,
+                can_publish=effective_can_publish,
                 can_subscribe=True,
-                can_publish_data=can_publish,
+                can_publish_data=effective_can_publish,
                 can_update_own_metadata=True,
                 can_publish_sources=publish_sources,
+                hidden=bool(hidden),
             ))
-            .with_ttl(timedelta(minutes=ttl_minutes))
+            .with_ttl(timedelta(minutes=effective_ttl_minutes))
             .to_jwt()
         )
-        log.info("livekit.token.issued", identity=identity, room=room, ttl_minutes=ttl_minutes)
+        log.info("livekit.token.issued", identity=identity, room=room, ttl_minutes=effective_ttl_minutes)
         return tok
 
     except Exception:
@@ -91,6 +108,7 @@ async def remove_livekit_participant(*, rid: int, uid: int, timeout_seconds: flo
     attempted_urls: list[str] = []
     last_err: str | None = None
     rounds = max(1, int(retry_rounds))
+    not_found_only = True
 
     for round_idx in range(rounds):
         for url in urls:
@@ -110,13 +128,13 @@ async def remove_livekit_participant(*, rid: int, uid: int, timeout_seconds: flo
 
             except TwirpError as err:
                 if err.code == "not_found":
-                    _preferred_livekit_api_url = url
-                    log.info("livekit.participant.already_absent", rid=rid, uid=uid, room=room, url=url, round=round_idx + 1)
-                    return True
+                    continue
 
+                not_found_only = False
                 last_err = f"{type(err).__name__}:{err.code}"
 
             except Exception as err:
+                not_found_only = False
                 last_err = type(err).__name__
 
             finally:
@@ -128,6 +146,17 @@ async def remove_livekit_participant(*, rid: int, uid: int, timeout_seconds: flo
 
         if round_idx + 1 < rounds:
             await asyncio.sleep(min(0.25 * (round_idx + 1), 1.0))
+
+    if not_found_only:
+        log.info(
+            "livekit.participant.already_absent",
+            rid=rid,
+            uid=uid,
+            room=room,
+            urls=attempted_urls,
+            rounds=rounds,
+        )
+        return True
 
     log.warning("livekit.participant.remove_failed", rid=rid, uid=uid, room=room, urls=attempted_urls, err=last_err, rounds=rounds)
     return False

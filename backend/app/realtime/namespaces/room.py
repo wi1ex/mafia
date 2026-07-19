@@ -6,6 +6,7 @@ from typing import Any, Mapping
 import structlog
 from sqlalchemy import select
 from ..sio import sio
+from ..connections import register_user_socket, unregister_user_socket
 from ...core.clients import get_redis
 from ...core.roles import ROLE_ADMIN, ROLE_MODER, normalize_user_role
 from ...core.settings import settings
@@ -23,13 +24,13 @@ from ..utils import (
     SANCTION_BAN,
     SANCTION_SUSPEND,
     fetch_active_sanctions,
-    fetch_active_users_by_kind,
 )
 from ..utils import (
     KEYS_STATE,
     KEYS_BLOCK,
     normalize_screen_quality,
     resolve_screen_quality,
+    norm01,
     to_bool01,
     apply_state,
     apply_bg_state_on_join,
@@ -52,25 +53,21 @@ from ..utils import (
     get_moderation_roles_snapshot,
     get_profiles_snapshot,
     join_room_atomic,
+    join_spectator_atomic,
     leave_room_atomic,
     set_user_current_room,
     find_user_rooms,
     cleanup_user_from_room,
     cancel_disconnect_cleanup_task,
-    set_disconnect_cleanup_task,
-    clear_disconnect_cleanup_task_if_current,
+    schedule_guarded_disconnect_cleanup,
     reset_room_session,
-    finalize_guarded_disconnect_cleanup,
     validate_auth,
     remove_admin_spectator_livekit,
-    soft_leave_admin_spectators_for_game_start,
     claim_screen,
-    get_rooms_brief,
-    init_roles_deck,
     advance_roles_turn,
     assign_role_for_user,
+    claim_night_check,
     emit_rooms_event_safe,
-    emit_rooms_upsert_safe,
     emit_rooms_occupancy_safe,
     emit_rooms_spectators_safe,
     get_public_spectators_count,
@@ -98,9 +95,6 @@ from ..utils import (
     compute_night_kill,
     get_night_check_completion_error,
     best_move_payload_from_state,
-    build_night_reset_mapping,
-    apply_night_start_blocks,
-    apply_day_visibility_unblock,
     finish_day_prelude_speech,
     emit_night_head_picks,
     process_player_death,
@@ -117,12 +111,10 @@ from ..utils import (
     block_vote_and_clear,
     decide_vote_blocks_on_death,
     should_ignore_terminal_vote_fatal_foul,
-    clear_game_dynamic_keys,
-    room_request_cleanup_for_game_start,
-    emit_room_requests_pruned_for_game_start,
     get_positive_setting_int,
     wink_spot_chance,
-    randomize_limit,
+    game_start_unlocked,
+    game_phase_next_unlocked,
     compute_farewell_allowed,
     perform_game_end,
     maybe_end_game_if_room_presence_low,
@@ -132,12 +124,12 @@ from ..utils import (
     finish_game,
     maybe_emit_vote_presence_break,
     maybe_finish_game_after_death,
-    mark_users_in_active_alive_game,
-    mark_users_in_active_game,
     sync_user_active_alive_game_marker,
     active_alive_room_conflict,
     SPEECH_FINISH_MIN_SECONDS,
     refresh_game_context,
+    acquire_room_action_lock,
+    release_room_action_lock,
     acquire_speech_action_lock,
     release_speech_action_lock,
     speech_min_duration_error,
@@ -166,15 +158,23 @@ async def connect(sid, environ, auth):
                             "username": username,
                             "avatar_name": avatar_name,
                             "theme_color": theme_color,
-                            "theme_icon": theme_icon},
+                            "theme_icon": theme_icon,
+                            "auth_sid": vr.auth_sid,
+                            "auth_expires_at": vr.expires_at},
                            namespace="/room")
+    await register_user_socket(
+        user_id=uid,
+        socket_sid=sid,
+        namespace="/room",
+        auth_sid=vr.auth_sid,
+    )
     await sio.enter_room(sid,
                          f"user:{uid}",
                          namespace="/room")
 
 
-@rate_limited_sio(lambda *, uid=None, **__: f"rl:sio:join:{uid or 'nouid'}", limit=10, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
+@rate_limited_sio(lambda *, uid=None, **__: f"rl:sio:join:{uid or 'nouid'}", limit=15, window_s=1, session_ns="/room")
 async def join(sid, data) -> JoinAck:
     try:
         sess = await sio.get_session(sid, namespace="/room")
@@ -209,14 +209,18 @@ async def join(sid, data) -> JoinAck:
         if str(params.get("entry_closed") or "0") == "1":
             return {"ok": False, "error": "room_closed", "status": 410}
 
+        raw_gstate = await r.hgetall(f"room:{rid}:game_state")
+        phase = str(raw_gstate.get("phase") or "idle")
+        admin_spectator_mode = admin_spectator_requested and phase == "idle"
+
         room_creator_id = int(params.get("creator") or 0)
         is_private = (params.get("privacy") or "open") == "private"
         is_hidden_room = str(params.get("anonymity") or "visible") == "hidden"
 
-        if not admin_spectator_requested and base_role_normalized != ROLE_ADMIN and not get_cached_settings().rooms_can_enter:
+        if not admin_spectator_mode and base_role_normalized != ROLE_ADMIN and not get_cached_settings().rooms_can_enter:
             return {"ok": False, "error": "rooms_entry_disabled", "status": 403}
 
-        if not admin_spectator_requested:
+        if not admin_spectator_mode:
             async with SessionLocal() as s:
                 active = await fetch_active_sanctions(s, uid)
                 if active.get(SANCTION_BAN):
@@ -241,14 +245,19 @@ async def join(sid, data) -> JoinAck:
             allowed = await r.sismember(f"room:{rid}:allow", str(uid))
             if not allowed:
                 pending = await r.sismember(f"room:{rid}:pending", str(uid))
+        creator_role_normalized = normalize_user_role(params.get("creator_role"))
+        hidden_role_bypass = base_role_normalized == ROLE_ADMIN or (
+            base_role_normalized == ROLE_MODER and creator_role_normalized != ROLE_ADMIN
+        )
+        hidden_visible_to_user = is_creator or bool(allowed) or hidden_role_bypass
 
-        raw_gstate = await r.hgetall(f"room:{rid}:game_state")
-        phase = str(raw_gstate.get("phase") or "idle")
-        admin_spectator_mode = admin_spectator_requested and phase == "idle"
-        if admin_spectator_requested and not admin_spectator_mode:
-            return {"ok": False, "error": "admin_spectator_unavailable", "status": 409}
-
-        if is_private and not is_creator and not allowed and phase == "idle" and not admin_spectator_mode:
+        if (
+            is_private
+            and not is_creator
+            and not allowed
+            and not admin_spectator_mode
+            and (phase == "idle" or (is_hidden_room and not hidden_visible_to_user))
+        ):
             if is_hidden_room:
                 return {"ok": False, "error": "hidden_room", "status": 403, "pending": bool(pending)}
 
@@ -281,13 +290,35 @@ async def join(sid, data) -> JoinAck:
                         if spectators_count >= spectators_limit:
                             return {"ok": False, "error": "spectators_full", "status": 409}
 
-                    spectator_added = bool(await r.sadd(f"room:{rid}:spectators", str(uid)))
+                spectator_code, spectator_added = await join_spectator_atomic(
+                    r,
+                    rid,
+                    uid,
+                    hidden_role_bypass=hidden_role_bypass,
+                )
+                if spectator_code == -3:
+                    return {"ok": False, "error": "room_closed", "status": 410}
+
+                if spectator_code == -5:
+                    return {
+                        "ok": False,
+                        "error": "hidden_room" if is_hidden_room else "private_room",
+                        "status": 403,
+                        "pending": bool(pending),
+                    }
+
+                if spectator_code in {-6, -7}:
+                    return {
+                        "ok": False,
+                        "error": "room_state_changed",
+                        "status": 409,
+                        "retry_after": 1,
+                    }
+
+                if spectator_code != 1:
+                    return {"ok": False, "error": "internal", "status": 500}
 
                 spectator_mode = True
-                try:
-                    await r.hset(f"room:{rid}:spectators_join", mapping={str(uid): str(int(time()))})
-                except Exception:
-                    log.warning("spectator.join_time_failed", rid=rid, uid=uid)
                 if spectator_added:
                     await emit_rooms_spectators_safe(r, rid)
 
@@ -300,6 +331,14 @@ async def join(sid, data) -> JoinAck:
             if occ == -3:
                 log.warning("sio.join.room_closed", rid=rid, uid=uid)
                 return {"ok": False, "error": "room_closed", "status": 410}
+
+            if occ == -5:
+                return {
+                    "ok": False,
+                    "error": "hidden_room" if is_hidden_room else "private_room",
+                    "status": 403,
+                    "pending": bool(pending),
+                }
 
             if occ == -1:
                 log.warning("sio.join.room_full", rid=rid, uid=uid)
@@ -336,6 +375,25 @@ async def join(sid, data) -> JoinAck:
         await sio.enter_room(sid,
                              f"room:{rid}",
                              namespace="/room")
+
+        if admin_spectator_mode:
+            latest_gstate = await r.hgetall(f"room:{rid}:game_state")
+            latest_phase = str(latest_gstate.get("phase") or "idle")
+            if latest_phase != "idle":
+                downgraded_payload = dict(payload)
+                downgraded_payload["admin_spectator"] = False
+                downgraded_ack = await join(sid, downgraded_payload)
+                if not downgraded_ack.get("ok") and prev_rid != rid:
+                    try:
+                        await sio.leave_room(sid, f"room:{rid}", namespace="/room")
+                    except Exception:
+                        log.warning(
+                            "sio.join.admin_spectator_downgrade_leave_failed",
+                            rid=rid,
+                            uid=uid,
+                            sid=sid,
+                        )
+                return downgraded_ack
 
         if not admin_spectator_mode:
             await set_user_current_room(r, uid, rid)
@@ -435,19 +493,31 @@ async def join(sid, data) -> JoinAck:
             except Exception:
                 log.warning("sio.join.sid_store_failed", rid=rid, uid=uid)
 
-        await sio.save_session(sid,
-                               {"uid": uid,
-                                "rid": rid,
-                                "role": eff_role,
-                                "base_role": base_role,
-                                "username": ev_username,
-                                "avatar_name": ev_avatar,
-                                "theme_color": ev_theme_color,
-                                "theme_icon": ev_theme_icon,
-                                "epoch": epoch,
-                                "spectator": spectator_mode or admin_spectator_mode,
-                                "admin_spectator": admin_spectator_mode},
-                               namespace="/room")
+        joined_session = {"uid": uid,
+                          "rid": rid,
+                          "role": eff_role,
+                          "base_role": base_role,
+                          "username": ev_username,
+                          "avatar_name": ev_avatar,
+                          "theme_color": ev_theme_color,
+                          "theme_icon": ev_theme_icon,
+                          "auth_sid": sess.get("auth_sid"),
+                          "auth_expires_at": sess.get("auth_expires_at"),
+                          "epoch": epoch,
+                          "spectator": spectator_mode or admin_spectator_mode,
+                          "admin_spectator": admin_spectator_mode}
+        await sio.save_session(sid, joined_session, namespace="/room")
+
+        if prev_rid and prev_rid != rid and bool(sess.get("admin_spectator")):
+            try:
+                asyncio.create_task(remove_admin_spectator_livekit(prev_rid, uid))
+            except Exception:
+                log.warning(
+                    "sio.join.admin_spectator_previous_cleanup_schedule_failed",
+                    rid=prev_rid,
+                    uid=uid,
+                    sid=sid,
+                )
         if not admin_spectator_mode:
             cancel_disconnect_cleanup_task(rid, uid)
 
@@ -541,7 +611,13 @@ async def join(sid, data) -> JoinAck:
         screen_quality_raw = await r.get(f"room:{rid}:screen_quality") if owner else None
         screen_quality = normalize_screen_quality(screen_quality_raw)
         livekit_room = get_livekit_room_name(rid)
-        token = make_livekit_token(identity=str(uid), name=ev_username, room=livekit_room, can_publish=not (spectator_mode or admin_spectator_mode))
+        token = make_livekit_token(
+            identity=str(uid),
+            name=ev_username,
+            room=livekit_room,
+            can_publish=not (spectator_mode or admin_spectator_mode),
+            hidden=admin_spectator_mode,
+        )
         game_runtime, game_roles_view, my_game_role = await get_game_runtime_and_roles_view(r, rid, uid)
         game_runtime = await enrich_game_runtime_with_vote(r, rid, game_runtime, raw_gstate)
         game_fouls = await get_game_fouls(r, rid)
@@ -582,8 +658,8 @@ async def join(sid, data) -> JoinAck:
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:leave:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:leave:{uid or 'nouid'}:{rid or 0}", limit=15, window_s=1, session_ns="/room")
 async def leave(sid, data):
     try:
         sess = await sio.get_session(sid, namespace="/room")
@@ -633,8 +709,8 @@ async def leave(sid, data):
         return {"ok": False}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:state:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:state:{uid or 'nouid'}:{rid or 0}", limit=20, window_s=1, session_ns="/room")
 async def state(sid, data) -> StateAck:
     try:
         sess = await sio.get_session(sid, namespace="/room")
@@ -719,8 +795,8 @@ async def state(sid, data) -> StateAck:
         return {"ok": False}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:bg_state:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:bg_state:{uid or 'nouid'}:{rid or 0}", limit=15, window_s=1, session_ns="/room")
 async def bg_state(sid, data):
     try:
         ctx, err = await require_ctx(sid, allowed_phases="idle")
@@ -736,17 +812,10 @@ async def bg_state(sid, data):
         if not isinstance(states, dict):
             return {"ok": False, "error": "bad_state", "status": 400}
 
-        def to01(var: Any) -> str:
-            if isinstance(var, bool):
-                return "1" if var else "0"
-
-            s = str(var).strip().lower()
-            return "1" if s in {"1", "true"} else "0"
-
         mapping: dict[str, str] = {}
         for k, v in states.items():
             if k in KEYS_STATE:
-                mapping[k] = to01(v)
+                mapping[k] = norm01(v)
 
         if not mapping:
             return {"ok": True, "saved": False}
@@ -763,8 +832,8 @@ async def bg_state(sid, data):
         return {"ok": False}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:bg_restore:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:bg_restore:{uid or 'nouid'}:{rid or 0}", limit=15, window_s=1, session_ns="/room")
 async def bg_restore(sid, data):
     try:
         ctx, err = await require_ctx(sid, allowed_phases="idle")
@@ -798,8 +867,8 @@ async def bg_restore(sid, data):
         return {"ok": False}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:self_state:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:self_state:{uid or 'nouid'}:{rid or 0}", limit=15, window_s=1, session_ns="/room")
 async def self_state(sid, data):
     try:
         ctx, err = await require_ctx(sid, allowed_phases=("day", "vote", "idle"))
@@ -819,8 +888,8 @@ async def self_state(sid, data):
         return {"ok": False}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_host_blur:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_host_blur:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 async def game_host_blur(sid, data) -> GameHostBlurAck:
     try:
         ctx, err = await require_ctx(sid, allowed_phases=("day", "vote"), require_head=True)
@@ -853,8 +922,8 @@ async def game_host_blur(sid, data) -> GameHostBlurAck:
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:screen:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:screen:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 async def screen(sid, data) -> ScreenAck:
     try:
         sess = await sio.get_session(sid, namespace="/room")
@@ -891,24 +960,56 @@ async def screen(sid, data) -> ScreenAck:
             if err:
                 return err
 
-        if want_on and target == actor_uid:
-            bl = await r.hget(f"room:{rid}:user:{actor_uid}:block", "screen")
+        if want_on:
+            bl = await r.hget(f"room:{rid}:user:{target}:block", "screen")
             if (bl or "0") == "1":
                 return {"ok": False, "error": "blocked", "status": 403}
 
         if want_on:
+            raw_gstate = await r.hgetall(f"room:{rid}:game_state") or {}
+            phase = str(raw_gstate.get("phase") or "idle")
+            if not await is_visibility_allowed_now(
+                r,
+                rid,
+                target,
+                phase=phase,
+                raw_gstate=raw_gstate,
+            ):
+                return {
+                    "ok": False,
+                    "error": "screen_not_allowed_in_phase",
+                    "status": 403,
+                }
+
             ok, owner = await claim_screen(r, rid, target)
             if not ok and owner and owner != target:
                 return {"ok": False, "error": "busy", "status": 409, "owner": owner}
 
             screen_quality = await resolve_screen_quality(target, (data or {}).get("quality"))
             await r.set(f"room:{rid}:screen_quality", screen_quality)
-            await sio.emit("screen_owner",
-                           {"user_id": target, "quality": screen_quality},
-                           room=f"room:{rid}",
-                           namespace="/room")
+            await sio.emit(
+                "screen_owner",
+                {"user_id": target, "quality": screen_quality},
+                room=f"room:{rid}",
+                namespace="/room",
+            )
             await emit_rooms_event_safe(r, rid, "rooms_stream", {"id": rid, "owner": target})
             await r.set(f"room:{rid}:screen_started_at", str(int(time())), nx=True, ex=86400)
+        else:
+            canceled = bool((data or {}).get("canceled"))
+            await stop_screen_for_user(
+                r,
+                rid,
+                target,
+                canceled=canceled,
+                actor_uid=actor_uid,
+                actor_username=actor_user_name,
+                actor_role=actor_role,
+            )
+            return {"ok": True, "on": False}
+
+
+        if want_on:
             try:
                 try:
                     target_username = await r.hget(f"room:{rid}:user:{target}:info", "username")
@@ -935,18 +1036,13 @@ async def screen(sid, data) -> ScreenAck:
                 log.exception("sio.stream_start.log_failed", rid=rid, uid=actor_uid, target=target)
             return {"ok": True, "on": True, "quality": screen_quality}
 
-        canceled = bool((data or {}).get("canceled"))
-        await stop_screen_for_user(r, rid, target, canceled=canceled, actor_uid=actor_uid, actor_username=actor_user_name, actor_role=actor_role)
-
-        return {"ok": True, "on": False}
-
     except Exception:
         log.exception("sio.screen.error", sid=sid)
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:moderate:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:moderate:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 async def moderate(sid, data) -> ModerateAck:
     try:
         sess = await sio.get_session(sid, namespace="/room")
@@ -1042,8 +1138,8 @@ async def moderate(sid, data) -> ModerateAck:
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:kick:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:kick:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 async def kick(sid, data):
     try:
         sess = await sio.get_session(sid, namespace="/room")
@@ -1089,7 +1185,14 @@ async def kick(sid, data):
                        room=f"user:{target}",
                        namespace="/room")
 
-        await stop_screen_for_user(r, rid, target, actor_uid=actor_uid, actor_username=actor_user_name, actor_role=actor_role)
+        await stop_screen_for_user(
+            r,
+            rid,
+            target,
+            actor_uid=actor_uid,
+            actor_username=actor_user_name,
+            actor_role=actor_role,
+        )
 
         occ, _, pos_updates = await leave_room_atomic(r, rid, target)
         try:
@@ -1152,8 +1255,8 @@ async def kick(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_leave:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_leave:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 async def game_leave(sid, data):
     try:
         sess = await sio.get_session(sid, namespace="/room")
@@ -1325,408 +1428,45 @@ async def game_leave(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_start:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_start:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 async def game_start(sid, data) -> GameStartAck:
+    payload = data if isinstance(data, dict) else {}
+    if not bool(payload.get("confirm")):
+        return await game_start_unlocked(sid, payload)
+
     try:
-        data = data or {}
-        confirm = bool(data.get("confirm"))
         sess = await sio.get_session(sid, namespace="/room")
-        ctx, err = await require_ctx(sid)
-        if err:
-            return err
+        rid = int(sess.get("rid") or 0)
+        if rid <= 0:
+            return {"ok": False, "error": "no_room", "status": 400}
 
-        uid = ctx.uid
-        rid = ctx.rid
-        r = ctx.r
-        params = await r.hgetall(f"room:{rid}:params")
-        if not params:
-            return {"ok": False, "error": "room_not_found", "status": 404}
-
-        cur_phase = ctx.phase
-        if cur_phase != "idle":
-            return {"ok": False, "error": "already_started", "status": 409}
-
-        if not await r.sismember(f"room:{rid}:members", str(uid)):
-            return {"ok": False, "error": "not_in_room", "status": 403}
-
-        app_settings = get_cached_settings()
-        actor_base_role = str(sess.get("base_role") or "user")
-        if normalize_user_role(actor_base_role) != ROLE_ADMIN and not app_settings.games_can_start:
-            return {"ok": False, "error": "game_start_disabled", "status": 403}
-
-        min_ready = app_settings.game_min_ready_players
-        members = await smembers_ints(r, f"room:{rid}:members")
-        ready_ids = await smembers_ints(r, f"room:{rid}:ready")
-        not_ready_raw = [mid for mid in members if mid not in ready_ids]
-        ready_cnt = len(ready_ids)
-        if ready_cnt != min_ready or len(not_ready_raw) != 1:
-            return {"ok": False, "error": "not_enough_ready", "status": 400}
-
-        try:
-            head_uid = int(not_ready_raw[0])
-        except Exception:
-            return {"ok": False, "error": "not_enough_ready", "status": 400}
-
-        if uid != head_uid:
-            return {"ok": False, "error": "forbidden", "status": 403}
-
-        ready_member_ids = set(ready_ids)
-        if ready_member_ids:
-            async with SessionLocal() as s:
-                suspended_ids = await fetch_active_users_by_kind(s, ready_member_ids, SANCTION_SUSPEND)
-            if suspended_ids:
-                return {
-                    "ok": False,
-                    "status": 409,
-                    "error": "suspend_present",
-                    "blocking_users": sorted(suspended_ids),
-                }
-
-        streaming_owner_raw = await r.get(f"room:{rid}:screen_owner")
-        streaming_owner = int(streaming_owner_raw) if streaming_owner_raw else 0
-        blocking_users: list[int] = []
-        members_for_block_check = await smembers_ints(r, f"room:{rid}:members")
-        if members_for_block_check:
-            async with r.pipeline() as p:
-                for pid in members_for_block_check:
-                    await p.hmget(f"room:{rid}:user:{pid}:block", *KEYS_BLOCK)
-                rows = await p.execute()
-            for pid, row in zip(members_for_block_check, rows):
-                if any((v or "0") == "1" for v in (row or [])):
-                    try:
-                        blocking_users.append(int(pid))
-                    except Exception:
-                        continue
-
-        if streaming_owner or blocking_users:
+        r = get_redis()
+        lock = await acquire_room_action_lock(r, rid, "game_start", ttl_seconds=60)
+        if lock is None:
             return {
                 "ok": False,
+                "error": "game_start_in_progress",
                 "status": 409,
-                "error": "streaming_present" if streaming_owner else "blocked_params",
-                "room_id": rid,
-                "streaming_owner": streaming_owner,
-                "blocking_users": blocking_users
+                "retry_after": 1,
             }
 
-        participant_ids: set[int] = {head_uid}
-        participant_ids.update(ready_ids)
-
-        off_cams: list[int] = []
-        off_speakers: list[int] = []
-        off_visibility: list[int] = []
-        if participant_ids:
-            async with r.pipeline() as p:
-                for pid in participant_ids:
-                    await p.hmget(f"room:{rid}:user:{pid}:state", "cam", "speakers", "visibility")
-                rows = await p.execute()
-
-            for pid, row in zip(participant_ids, rows):
-                if not row:
-                    continue
-                cam = row[0] if len(row) > 0 else None
-                sp = row[1] if len(row) > 1 else None
-                vis = row[2] if len(row) > 2 else None
-                if pid != head_uid and cam != "1" and cam != b"1":
-                    off_cams.append(pid)
-                if sp == "0" or sp == b"0":
-                    off_speakers.append(pid)
-                if vis == "0" or vis == b"0":
-                    off_visibility.append(pid)
-        if off_cams:
-            return {
-                "ok": False,
-                "status": 409,
-                "error": "camera_off",
-                "room_id": rid,
-                "off_cams": off_cams,
-            }
-        if off_speakers or off_visibility:
-            return {
-                "ok": False,
-                "status": 409,
-                "error": "media_off",
-                "room_id": rid,
-                "off_speakers": off_speakers,
-                "off_visibility": off_visibility,
-            }
-
-        conflict_users: set[int] = set()
-        participants = participant_ids
-        other_ids = [int(x) for x in (await r.zrange("rooms:index", 0, -1) or []) if int(x) != rid]
-        if other_ids:
-            async with r.pipeline() as p:
-                for other in other_ids:
-                    await p.hgetall(f"room:{other}:game_state")
-                    await p.smembers(f"room:{other}:game_alive")
-                rows = await p.execute()
-
-            idx = 0
-            for _ in other_ids:
-                raw_state = rows[idx] or {}
-                raw_alive = rows[idx + 1] or []
-                idx += 2
-                phase_other = str(raw_state.get("phase") or "idle")
-                if phase_other == "idle":
-                    continue
-
-                try:
-                    head_other = int(raw_state.get("head") or 0)
-                except Exception:
-                    head_other = 0
-
-                if head_other in participants:
-                    conflict_users.add(head_other)
-                for v in raw_alive:
-                    try:
-                        u = int(v)
-                    except Exception:
-                        continue
-                    if u in participants:
-                        conflict_users.add(u)
-
-                if conflict_users:
-                    break
-
-        if conflict_users:
-            return {"ok": False, "status": 409, "error": "already_in_other_game", "room_id": rid, "conflict_users": list(conflict_users)}
-
-        if not confirm:
-            return {"ok": True, "status": 200, "room_id": rid, "can_start": True, "min_ready": min_ready}
-
-        await soft_leave_admin_spectators_for_game_start(rid)
-
+        lock_key, lock_token = lock
         try:
-            raw_game = await r.hgetall(f"room:{rid}:game")
-        except Exception:
-            raw_game = {}
-        nominate_mode = str(raw_game.get("nominate_mode") or "players")
-        if nominate_mode not in ("players", "head"):
-            nominate_mode = "players"
-        wink_knock = game_flag(raw_game, "wink_knock", True)
-        farewell_wills = game_flag(raw_game, "farewell_wills", True)
-        music_enabled = game_flag(raw_game, "music", True)
-        try:
-            winks_limit = int(app_settings.winks_limit)
-        except Exception:
-            winks_limit = 0
-        try:
-            knocks_limit = int(app_settings.knocks_limit)
-        except Exception:
-            knocks_limit = 0
-        if winks_limit < 0:
-            winks_limit = 0
-        if knocks_limit < 0:
-            knocks_limit = 0
-        if not wink_knock:
-            winks_limit = 0
-            knocks_limit = 0
+            return await game_start_unlocked(sid, payload)
 
-        try:
-            await sio.emit("game_starting",
-                           {"room_id": rid, "delay_ms": 1000},
-                           room=f"room:{rid}",
-                           namespace="/room")
-        except Exception:
-            log.exception("sio.game_start.game_starting_emit_failed", rid=rid)
-
-        await asyncio.sleep(0.5)
-
-        player_ids = [str(x) for x in ready_ids if str(x) != str(head_uid)]
-        random.shuffle(player_ids)
-        winks_left_map = {pid: str(randomize_limit(winks_limit)) for pid in player_ids}
-        knocks_left_map = {pid: str(randomize_limit(knocks_limit)) for pid in player_ids}
-        seats: dict[str, int] = {}
-        slot = 1
-        for pid in player_ids:
-            seats[pid] = slot
-            slot += 1
-        seats[str(head_uid)] = 11
-        now_ts = int(time())
-        bgm_seed = random.randint(1, 2**31 - 1) if music_enabled else 0
-
-        room_request_remove_allow: set[int] = set()
-        room_request_remove_pending: set[int] = set()
-        room_request_remove_requests: set[int] = set()
-        room_request_removed_ids: set[int] = set()
-        if str(params.get("privacy") or "open") == "private":
-            (
-                room_request_remove_allow,
-                room_request_remove_pending,
-                room_request_remove_requests,
-                room_request_removed_ids,
-            ) = await room_request_cleanup_for_game_start(r, rid, participant_ids)
-
-        await clear_game_dynamic_keys(r, rid)
-        async with r.pipeline() as p:
-            await p.delete(
-                f"room:{rid}:game_state",
-                f"room:{rid}:game_seats",
-                f"room:{rid}:foul_active",
-            )
-            await p.hset(f"room:{rid}:game_state",
-                         mapping={
-                             "phase": "roles_pick",
-                             "started_at": str(now_ts),
-                             "bgm_seed": str(bgm_seed),
-                             "started_by": str(uid),
-                             "head": str(head_uid),
-                             "game_finished": "0",
-                             "game_result": "",
-                             "draw_base_day": "0",
-                             "draw_base_alive": "0",
-                             "host_blur": "0",
-                             "host_blur_started_at": "0",
-                             "vote_blocked": "0",
-                             "vote_blocked_next": "0",
-                             "vote_round_index": "0",
-                             "best_move_uid": "0",
-                             "best_move_active": "0",
-                             "best_move_targets": "",
-                         })
-            if seats:
-                await p.hset(f"room:{rid}:game_seats", mapping={k: str(v) for k, v in seats.items()})
-
-            if player_ids:
-                await p.delete(
-                    f"room:{rid}:game_players",
-                    f"room:{rid}:game_alive",
-                    f"room:{rid}:game_fouls",
-                    f"room:{rid}:game_deaths",
-                    f"room:{rid}:game_short_speech_used",
-                    f"room:{rid}:game_nominees",
-                    f"room:{rid}:game_nom_speakers",
-                    f"room:{rid}:game_votes",
-                    f"room:{rid}:game_actions",
-                    f"room:{rid}:game_votes_last",
-                    f"room:{rid}:game_checked:don",
-                    f"room:{rid}:game_checked:sheriff",
-                    f"room:{rid}:game_farewell_wills",
-                    f"room:{rid}:game_farewell_limits",
-                    f"room:{rid}:game_winks_left",
-                    f"room:{rid}:game_knocks_left",
-                    f"room:{rid}:roles_cards",
-                    f"room:{rid}:roles_taken",
-                    f"room:{rid}:game_roles",
-                    f"room:{rid}:night_shots",
-                    f"room:{rid}:night_checks",
-                )
-                await p.sadd(f"room:{rid}:game_players", *player_ids)
-                await p.sadd(f"room:{rid}:game_alive", *player_ids)
-                await p.hset(f"room:{rid}:game_winks_left", mapping=winks_left_map)
-                await p.hset(f"room:{rid}:game_knocks_left", mapping=knocks_left_map)
-            await p.delete(f"room:{rid}:ready")
-            if room_request_remove_allow:
-                await p.srem(f"room:{rid}:allow", *[str(uid) for uid in room_request_remove_allow])
-            if room_request_remove_pending:
-                await p.srem(f"room:{rid}:pending", *[str(uid) for uid in room_request_remove_pending])
-            if room_request_remove_requests:
-                await p.zrem(f"room:{rid}:requests", *[str(uid) for uid in room_request_remove_requests])
-            await p.execute()
-
-        if room_request_removed_ids:
-            try:
-                owner_uid = int(params.get("creator") or 0)
-            except Exception:
-                owner_uid = 0
-            try:
-                await emit_room_requests_pruned_for_game_start(rid, room_request_removed_ids, owner_uid)
-            except Exception:
-                log.exception("sio.game_start.room_requests_pruned_emit_failed", rid=rid)
-
-        await init_roles_deck(r, rid)
-
-        if player_ids and head_uid:
-            for pid in player_ids:
-                try:
-                    target_uid = int(pid)
-                except Exception:
-                    continue
-                try:
-                    await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=target_uid, changes_bool={"mic": True, "visibility": True})
-                except Exception:
-                    log.exception("sio.game_start.autoblock_failed", rid=rid, head=head_uid, target=pid)
-                    continue
-
-        payload: GameStartAck = {
-            "ok": True,
-            "status": 200,
-            "room_id": rid,
-            "phase": "roles_pick",
-            "min_ready": min_ready,
-            "seats": {k: int(v) for k, v in seats.items()},
-            "bgm_seed": bgm_seed,
-            "nominate_mode": nominate_mode,
-            "wink_knock": wink_knock,
-            "winks_limit": winks_limit,
-            "knocks_limit": knocks_limit,
-            "farewell_wills": farewell_wills,
-            "music": music_enabled,
-        }
-
-        try:
-            await mark_users_in_active_alive_game(player_ids, rid)
-        except Exception:
-            log.exception("sio.game_start.active_alive_mark_failed", rid=rid)
-        try:
-            await mark_users_in_active_game(player_ids, rid)
-        except Exception:
-            log.exception("sio.game_start.active_game_mark_failed", rid=rid)
-
-        await sio.emit("game_started",
-                       payload,
-                       room=f"room:{rid}",
-                       namespace="/room")
-
-        if player_ids:
-            for pid in player_ids:
-                try:
-                    await sio.emit(
-                        "game_limits",
-                        {
-                            "room_id": rid,
-                            "winks_left": int(winks_left_map.get(pid) or 0),
-                            "knocks_left": int(knocks_left_map.get(pid) or 0),
-                        },
-                        room=f"user:{pid}",
-                        namespace="/room",
-                    )
-                except Exception:
-                    log.exception("sio.game_limits.emit_failed", rid=rid, uid=pid)
-
-        alive_cnt = len(player_ids)
-        await emit_rooms_occupancy_safe(r, rid, alive_cnt)
-
-        try:
-            briefs = await get_rooms_brief(r, [rid])
-            if briefs:
-                await emit_rooms_upsert_safe(r, rid, briefs[0])
-        except Exception:
-            log.exception("sio.game_start.rooms_upsert_failed", rid=rid)
-
-        try:
-            async with SessionLocal() as s:
-                await log_action(
-                    s,
-                    user_id=uid,
-                    username=str(sess.get("username") or f"user{uid}"),
-                    action="game_start",
-                    details=f"Запуск игры room_id={rid}",
-                )
-        except Exception:
-            log.exception("sio.game_start.log_failed", rid=rid, uid=uid)
-
-        await advance_roles_turn(r, rid, auto=False)
-
-        return payload
+        finally:
+            await release_room_action_lock(r, lock_key, lock_token)
 
     except Exception:
-        log.exception("sio.game_start.error", sid=sid)
+        log.exception("sio.game_start.lock_error", sid=sid)
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_roles_pick:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
+
+
 @sio.event(namespace="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_roles_pick:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 async def game_roles_pick(sid, data) -> GameRolePickAck:
     try:
         data = data or {}
@@ -1754,10 +1494,20 @@ async def game_roles_pick(sid, data) -> GameRolePickAck:
         if card <= 0:
             return {"ok": False, "error": "bad_card", "status": 400}
 
-        ok, role, err = await assign_role_for_user(r, rid, uid, card_index=card)
+        ok, role, err = await assign_role_for_user(
+            r,
+            rid,
+            uid,
+            card_index=card,
+            require_turn=True,
+        )
         if not ok or role is None:
             status = 400
             if err in ("bad_card", "card_taken", "already_has_role"):
+                status = 409
+            elif err == "not_your_turn":
+                status = 403
+            elif err in ("bad_phase", "roles_done"):
                 status = 409
             error_msg = err if err is not None else "failed"
             return {"ok": False, "error": error_msg, "status": status}
@@ -1785,482 +1535,42 @@ async def game_roles_pick(sid, data) -> GameRolePickAck:
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_phase_next:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_phase_next:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 async def game_phase_next(sid, data):
     try:
-        data = data or {}
-        want_from = str(data.get("from") or "")
-        want_to = str(data.get("to") or "")
-        ctx, err = await require_ctx(sid)
-        if err:
-            return err
+        sess = await sio.get_session(sid, namespace="/room")
+        rid = int(sess.get("rid") or 0)
+        if rid <= 0:
+            return {"ok": False, "error": "no_room", "status": 400}
 
-        uid = ctx.uid
-        rid = ctx.rid
-        r = ctx.r
-        raw_gstate = ctx.gstate
-        cur_phase = ctx.phase
-        if cur_phase == "idle":
-            return {"ok": False, "error": "no_game", "status": 400}
+        r = get_redis()
+        lock = await acquire_room_action_lock(r, rid, "game_phase_next", ttl_seconds=60)
+        if lock is None:
+            return {
+                "ok": False,
+                "error": "phase_transition_in_progress",
+                "status": 409,
+                "retry_after": 1,
+            }
 
+        lock_key, lock_token = lock
         try:
-            raw_game = await r.hgetall(f"room:{rid}:game")
-        except Exception:
-            raw_game = {}
-        music_enabled = game_flag(raw_game, "music", True)
+            return await game_phase_next_unlocked(sid, data)
 
-        head_uid = ctx.head_uid
-        if not head_uid or uid != head_uid:
-            return {"ok": False, "error": "forbidden", "status": 403}
+        finally:
+            await release_room_action_lock(r, lock_key, lock_token)
 
-        if want_from and want_from != cur_phase:
-            return {"ok": False, "error": "bad_phase_from", "status": 400}
-
-        if cur_phase == "roles_pick" and want_to == "mafia_talk_start":
-            roles_done = str(raw_gstate.get("roles_done") or "0") == "1"
-            if not roles_done:
-                return {"ok": False, "error": "roles_not_done", "status": 400}
-
-            raw_roles = await r.hgetall(f"room:{rid}:game_roles")
-            roles_map: dict[int, str] = {}
-            for k, v in (raw_roles or {}).items():
-                try:
-                    uid_i = int(k)
-                except Exception:
-                    continue
-                if v is None:
-                    continue
-                roles_map[uid_i] = str(v)
-
-            mafia_targets = [u for u, role in roles_map.items() if role in ("mafia", "don")]
-
-            for target_uid in mafia_targets:
-                try:
-                    await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=target_uid, changes_bool={"visibility": False}, phase_override="mafia_talk_start")
-                except Exception:
-                    log.exception("sio.game_phase_next.mafia_unblock_failed", rid=rid, head=head_uid, target=target_uid)
-                    continue
-
-            if mafia_targets:
-                async with r.pipeline() as p:
-                    for target_uid in mafia_targets:
-                        await p.hset(f"room:{rid}:user:{target_uid}:state", mapping={"visibility": "1"})
-                    await p.execute()
-
-                for target_uid in mafia_targets:
-                    await emit_state_changed_filtered(r, rid, target_uid, {"visibility": "1"}, phase_override="mafia_talk_start")
-
-            now_ts = int(time())
-            duration = get_cached_settings().mafia_talk_seconds
-            async with r.pipeline() as p:
-                await p.hset(
-                    f"room:{rid}:game_state",
-                    mapping={
-                        "phase": "mafia_talk_start",
-                        "mafia_talk_started": str(now_ts),
-                        "mafia_talk_duration": str(duration),
-                    },
-                )
-                await p.execute()
-
-            remaining = duration
-            payload = {
-                "ok": True,
-                "status": 200,
-                "room_id": rid,
-                "from": cur_phase,
-                "to": "mafia_talk_start",
-                "mafia_talk_start": {"deadline": remaining},
-            }
-
-            await sio.emit("game_phase_change",
-                           {"room_id": rid,
-                            "from": cur_phase,
-                            "to": "mafia_talk_start",
-                            "mafia_talk_start": {"deadline": remaining}},
-                           room=f"room:{rid}",
-                           namespace="/room")
-
-            return payload
-
-        if cur_phase == "mafia_talk_start" and want_to == "mafia_talk_end":
-            raw_roles = await r.hgetall(f"room:{rid}:game_roles")
-            roles_map: dict[int, str] = {}
-            for k, v in (raw_roles or {}).items():
-                try:
-                    uid_i = int(k)
-                except Exception:
-                    continue
-                if v is None:
-                    continue
-                roles_map[uid_i] = str(v)
-
-            mafia_targets = [u for u, role in roles_map.items() if role in ("mafia", "don")]
-
-            if mafia_targets:
-                async with r.pipeline() as p:
-                    for target_uid in mafia_targets:
-                        await p.hset(f"room:{rid}:user:{target_uid}:state", mapping={"visibility": "0"})
-                    await p.execute()
-
-                for target_uid in mafia_targets:
-                    await emit_state_changed_filtered(r, rid, target_uid, {"visibility": "0"})
-
-            for target_uid in mafia_targets:
-                try:
-                    applied, forced_off = await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=target_uid, changes_bool={"visibility": True})
-                except Exception:
-                    log.exception("sio.game_phase_next.mafia_reblock_failed", rid=rid, head=head_uid, target=target_uid)
-                    continue
-
-                if "__error__" in forced_off:
-                    continue
-
-            async with r.pipeline() as p:
-                await p.hset(f"room:{rid}:game_state", mapping={"phase": "mafia_talk_end"})
-                await p.hdel(f"room:{rid}:game_state", "mafia_talk_started", "mafia_talk_duration")
-                await p.execute()
-
-            payload = {
-                "ok": True,
-                "status": 200,
-                "room_id": rid,
-                "from": cur_phase,
-                "to": "mafia_talk_end",
-            }
-
-            await sio.emit("game_phase_change",
-                           {"room_id": rid,
-                            "from": cur_phase,
-                            "to": "mafia_talk_end"},
-                           room=f"room:{rid}",
-                           namespace="/room")
-
-            return payload
-
-        if cur_phase == "mafia_talk_end" and want_to == "day":
-            day_number = ctx.gint("day_number")
-            last_opening_uid = ctx.gint("day_last_opening_uid")
-            opening_uid, closing_uid, alive_order = await compute_day_opening_and_closing(r, rid, last_opening_uid)
-            new_day_number = day_number + 1 if opening_uid else day_number
-            vote_blocked_next = str(raw_gstate.get("vote_blocked_next") or "0") == "1"
-            vote_blocked_val = "1" if vote_blocked_next else "0"
-            alive_ids = list(await smembers_ints(r, f"room:{rid}:game_alive"))
-
-            if alive_ids and head_uid:
-                for target_uid in alive_ids:
-                    try:
-                        await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=target_uid, changes_bool={"visibility": False})
-                    except Exception:
-                        log.exception("sio.game_phase_next.day_unblock_visibility_failed", rid=rid, head=head_uid, target=target_uid)
-                        continue
-
-                async with r.pipeline() as p:
-                    for target_uid in alive_ids:
-                        await p.hset(f"room:{rid}:user:{target_uid}:state", mapping={"visibility": "1"})
-                    await p.execute()
-
-                for target_uid in alive_ids:
-                    await emit_state_changed_filtered(r, rid, target_uid, {"visibility": "1"})
-
-            mapping = {
-                "phase": "day",
-                "day_number": str(new_day_number),
-                "day_opening_uid": str(opening_uid or 0),
-                "day_closing_uid": str(closing_uid or 0),
-                "day_current_uid": "0",
-                "day_speech_started": "0",
-                "day_speech_duration": "0",
-                "day_speeches_done": "0",
-                "vote_blocked": vote_blocked_val,
-                "vote_blocked_next": "0",
-            }
-            async with r.pipeline() as p:
-                await p.hset(f"room:{rid}:game_state", mapping=mapping)
-                await p.delete(
-                    f"room:{rid}:game_nominees",
-                    f"room:{rid}:game_nom_speakers",
-                )
-                if vote_blocked_next:
-                    await p.delete(f"room:{rid}:game_votes")
-                await p.execute()
-
-            payload = {
-                "ok": True,
-                "status": 200,
-                "room_id": rid,
-                "from": cur_phase,
-                "to": "day",
-                "day": {
-                    "number": new_day_number,
-                    "opening_uid": opening_uid,
-                    "closing_uid": closing_uid,
-                    "vote_blocked": vote_blocked_next,
-                },
-            }
-
-            await sio.emit("game_phase_change",
-                           {"room_id": rid,
-                            "from": cur_phase,
-                            "to": "day",
-                            "day": {"number": new_day_number,
-                                    "opening_uid": opening_uid,
-                                    "closing_uid": closing_uid,
-                                    "vote_blocked": vote_blocked_next}},
-                           room=f"room:{rid}",
-                           namespace="/room")
-
-            return payload
-
-        if cur_phase == "day" and want_to == "vote":
-            if str(raw_gstate.get("vote_blocked") or "0") == "1":
-                return {"ok": False, "error": "vote_blocked", "status": 409}
-
-            speeches_done = str(raw_gstate.get("day_speeches_done") or "0") == "1"
-            if not speeches_done:
-                return {"ok": False, "error": "speeches_not_done", "status": 400}
-
-            ordered = await get_nominees_in_order(r, rid)
-            if not ordered:
-                return {"ok": False, "error": "no_nominees", "status": 409}
-
-            if ctx.gint("day_number") == 1 and len(ordered) == 1:
-                return {"ok": False, "error": "single_nominee_first_day", "status": 409}
-
-            first_uid = ordered[0]
-            vote_duration = get_positive_setting_int("VOTE_SECONDS", 3)
-            async with r.pipeline() as p:
-                await p.hset(
-                    f"room:{rid}:game_state",
-                    mapping={
-                        "phase": "vote",
-                        "vote_current_uid": str(first_uid or 0),
-                        "vote_started": "0",
-                        "vote_duration": str(vote_duration),
-                        "vote_done": "0",
-                        "vote_results_ready": "0",
-                        "vote_speeches_done": "0",
-                        "vote_prev_leaders": "",
-                        "vote_lift_state": "",
-                        "vote_blocked": "0",
-                        "vote_blocked_next": "0",
-                        "vote_round_index": "0",
-                    },
-                )
-                await p.delete(f"room:{rid}:game_votes")
-                await p.execute()
-
-            payload = {
-                "ok": True,
-                "status": 200,
-                "room_id": rid,
-                "from": cur_phase,
-                "to": "vote",
-                "vote": {
-                    "nominees": ordered,
-                    "current_uid": first_uid,
-                    "deadline": 0,
-                    "done": False,
-                },
-            }
-
-            await sio.emit("game_phase_change",
-                           {"room_id": rid,
-                            "from": cur_phase,
-                            "to": "vote",
-                            "vote": {"nominees": ordered,
-                                     "current_uid": first_uid,
-                                     "deadline": 0,
-                                     "done": False}},
-                           room=f"room:{rid}",
-                           namespace="/room")
-
-            return payload
-
-        if cur_phase == "day" and want_to == "night":
-            speeches_done = str(raw_gstate.get("day_speeches_done") or "0") == "1"
-            if not speeches_done:
-                return {"ok": False, "error": "speeches_not_done", "status": 400}
-
-            ordered = await get_nominees_in_order(r, rid)
-            vote_blocked = str(raw_gstate.get("vote_blocked") or "0") == "1"
-            can_skip_vote = vote_blocked or not ordered or (ctx.gint("day_number") == 1 and len(ordered) == 1)
-            if not can_skip_vote:
-                return {"ok": False, "error": "vote_required", "status": 409}
-
-            draw_base_day = ctx.gint("draw_base_day")
-            draw_mapping: dict[str, str] = {}
-            if draw_base_day <= 0:
-                try:
-                    alive_cnt = int(await r.scard(f"room:{rid}:game_alive") or 0)
-                except Exception:
-                    alive_cnt = 0
-                draw_mapping = {"draw_base_day": str(ctx.gint("day_number")),
-                                "draw_base_alive": str(alive_cnt)}
-
-            bgm_seed = random.randint(1, 2**31 - 1) if music_enabled else 0
-            async with r.pipeline() as p:
-                mapping = build_night_reset_mapping(include_vote_meta=True)
-                mapping["bgm_seed"] = str(bgm_seed)
-                if draw_mapping:
-                    mapping.update(draw_mapping)
-                await p.hset(f"room:{rid}:game_state", mapping=mapping)
-                await p.delete(f"room:{rid}:night_shots", f"room:{rid}:night_checks")
-                await p.execute()
-
-            await apply_night_start_blocks(r, rid, head_uid=head_uid, emit_safe=True)
-
-            await sio.emit("game_phase_change",
-                           {"room_id": rid,
-                            "from": cur_phase,
-                            "to": "night",
-                            "night": {"stage": "sleep", "deadline": 0},
-                            "bgm_seed": bgm_seed},
-                           room=f"room:{rid}",
-                           namespace="/room")
-            return {"ok": True, "status": 200, "room_id": rid, "from": cur_phase, "to": "night", "bgm_seed": bgm_seed}
-
-        if cur_phase == "vote" and want_to == "night":
-            vote_done = str(raw_gstate.get("vote_done") or "0") == "1"
-            vote_aborted = str(raw_gstate.get("vote_aborted") or "0") == "1"
-            vote_speeches_done = str(raw_gstate.get("vote_speeches_done") or "0") == "1"
-            vote_results_ready = str(raw_gstate.get("vote_results_ready") or "0") == "1"
-
-            if not vote_done:
-                return {"ok": False, "error": "vote_not_done", "status": 400}
-
-            if not vote_aborted and vote_results_ready and not vote_speeches_done:
-                return {"ok": False, "error": "speeches_not_done", "status": 400}
-
-            draw_base_day = ctx.gint("draw_base_day")
-            draw_mapping: dict[str, str] = {}
-            if draw_base_day <= 0:
-                try:
-                    alive_cnt = int(await r.scard(f"room:{rid}:game_alive") or 0)
-                except Exception:
-                    alive_cnt = 0
-                draw_mapping = {"draw_base_day": str(ctx.gint("day_number")),
-                                "draw_base_alive": str(alive_cnt)}
-
-            bgm_seed = random.randint(1, 2**31 - 1) if music_enabled else 0
-            async with r.pipeline() as p:
-                mapping = build_night_reset_mapping(include_vote_meta=False)
-                mapping["bgm_seed"] = str(bgm_seed)
-                if draw_mapping:
-                    mapping.update(draw_mapping)
-                await p.hset(f"room:{rid}:game_state", mapping=mapping)
-                await p.delete(f"room:{rid}:night_shots", f"room:{rid}:night_checks")
-                await p.execute()
-
-            await apply_night_start_blocks(r, rid, head_uid=head_uid, emit_safe=False)
-
-            await sio.emit("game_phase_change",
-                           {"room_id": rid,
-                            "from": cur_phase,
-                            "to": "night",
-                            "night": {"stage": "sleep", "deadline": 0},
-                            "bgm_seed": bgm_seed},
-                           room=f"room:{rid}",
-                           namespace="/room")
-            return {"ok": True, "status": 200, "room_id": rid, "from": cur_phase, "to": "night", "bgm_seed": bgm_seed}
-
-        if cur_phase == "night" and want_to == "day":
-            stage = str(raw_gstate.get("night_stage") or "sleep")
-            if stage != "checks_done":
-                return {"ok": False, "error": "night_not_finished", "status": 409, "night_stage": stage}
-
-            best_move_uid = ctx.gint("best_move_uid")
-            best_move_active = ctx.gbool("best_move_active")
-            if best_move_uid and not best_move_active:
-                return {"ok": False, "error": "best_move_required", "status": 409, "user_id": best_move_uid}
-
-            killed_uid, ok = await compute_night_kill(r, rid)
-            draw_base_day = ctx.gint("draw_base_day")
-            draw_base_alive = ctx.gint("draw_base_alive")
-            try:
-                alive_cnt = int(await r.scard(f"room:{rid}:game_alive") or 0)
-            except Exception:
-                alive_cnt = 0
-
-            draw_should_reset = bool(ok and killed_uid)
-            day_number = ctx.gint("day_number")
-            last_opening_uid = ctx.gint("day_last_opening_uid")
-            exclude_ids = [killed_uid] if ok and killed_uid else None
-            opening_uid, closing_uid, alive_order = await compute_day_opening_and_closing(r, rid, last_opening_uid, exclude_ids)
-            new_day_number = day_number + 1 if opening_uid else day_number
-            vote_blocked_next = str(raw_gstate.get("vote_blocked_next") or "0") == "1"
-            vote_blocked_val = "1" if vote_blocked_next else "0"
-            await apply_day_visibility_unblock(r, rid, head_uid=head_uid)
-
-            mapping = {
-                "phase": "day",
-                "day_number": str(new_day_number),
-                "day_opening_uid": str(opening_uid or 0),
-                "day_closing_uid": str(closing_uid or 0),
-                "day_current_uid": "0",
-                "day_speech_started": "0",
-                "day_speech_duration": "0",
-                "day_speeches_done": "0",
-                "night_kill_uid": str(killed_uid or 0),
-                "night_kill_ok": "1" if ok else "0",
-                "day_prelude_uid": str(killed_uid or 0),
-                "day_prelude_pending": "1" if ok and killed_uid else "0",
-                "day_prelude_active": "0",
-                "day_prelude_done": "0",
-                "night_stage": "",
-                "night_shoot_started": "0",
-                "night_shoot_duration": "0",
-                "night_check_started": "0",
-                "night_check_duration": "0",
-                "vote_blocked": vote_blocked_val,
-                "vote_blocked_next": "0",
-            }
-            if draw_should_reset:
-                mapping["draw_base_day"] = "0"
-                mapping["draw_base_alive"] = "0"
-
-            async with r.pipeline() as p:
-                await p.hset(f"room:{rid}:game_state", mapping=mapping)
-                await p.delete(f"room:{rid}:game_nominees", f"room:{rid}:game_nom_speakers", f"room:{rid}:game_votes")
-                await p.execute()
-
-            payload = {
-                "ok": True,
-                "status": 200,
-                "room_id": rid,
-                "from": cur_phase,
-                "to": "day",
-                "day": {"number": new_day_number,
-                        "opening_uid": opening_uid,
-                        "closing_uid": closing_uid,
-                        "vote_blocked": vote_blocked_next},
-                "night": {"kill_uid": killed_uid or 0, "kill_ok": bool(ok)},
-            }
-            await sio.emit("game_phase_change",
-                           {"room_id": rid,
-                            "from": cur_phase,
-                            "to": "day",
-                            "day": payload["day"],
-                            "night": payload["night"]},
-                           room=f"room:{rid}",
-                           namespace="/room")
-            if not draw_should_reset and draw_base_day > 0 and alive_cnt == draw_base_alive and new_day_number >= draw_base_day + 3:
-                try:
-                    await finish_game(r, rid, result="draw", head_uid=head_uid, reason="draw")
-                except Exception:
-                    log.exception("sio.game_finish.draw_failed", rid=rid)
-
-            return payload
-
-        return {"ok": False, "error": "bad_transition", "status": 400, "from": cur_phase, "to": want_to}
     except Exception:
-        log.exception("sio.game_phase_next.error", sid=sid, data=bool(data))
+        log.exception("sio.game_phase_next.lock_error", sid=sid)
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_speech_next:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
+
+
+
 @sio.event(namespace="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_speech_next:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 async def game_speech_next(sid, data):
     try:
         data = data or {}
@@ -2488,8 +1798,8 @@ async def game_speech_next(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_foul:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_foul:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 async def game_foul(sid, data):
     try:
         data = data or {}
@@ -2569,8 +1879,8 @@ async def game_foul(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_foul_set:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_foul_set:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 async def game_foul_set(sid, data):
     try:
         data = data or {}
@@ -2751,8 +2061,8 @@ async def game_foul_set(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_wink:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_wink:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 async def game_wink(sid, data):
     try:
         data = data or {}
@@ -2888,8 +2198,8 @@ async def game_wink(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_knock:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_knock:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 async def game_knock(sid, data):
     try:
         data = data or {}
@@ -3005,8 +2315,8 @@ async def game_knock(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_nominate:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_nominate:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 async def game_nominate(sid, data):
     try:
         data = data or {}
@@ -3125,8 +2435,8 @@ async def game_nominate(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_nominee_remove:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_nominee_remove:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 async def game_nominee_remove(sid, data):
     try:
         data = data or {}
@@ -3209,8 +2519,8 @@ async def game_nominee_remove(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_farewell_mark:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_farewell_mark:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 async def game_farewell_mark(sid, data):
     try:
         data = data or {}
@@ -3328,8 +2638,8 @@ async def game_farewell_mark(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_best_move_start:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_best_move_start:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 async def game_best_move_start(sid, data):
     try:
         data = data or {}
@@ -3380,8 +2690,8 @@ async def game_best_move_start(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_best_move_mark:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_best_move_mark:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 async def game_best_move_mark(sid, data):
     try:
         data = data or {}
@@ -3459,8 +2769,8 @@ async def game_best_move_mark(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_vote_control:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_vote_control:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 async def game_vote_control(sid, data):
     try:
         data = data or {}
@@ -3653,8 +2963,8 @@ async def game_vote_control(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_vote:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_vote:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 async def game_vote(sid, data):
     try:
         data = data or {}
@@ -3736,8 +3046,8 @@ async def game_vote(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_vote_finish:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_vote_finish:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 async def game_vote_finish(sid, data):
     try:
         data = data or {}
@@ -3967,8 +3277,8 @@ async def game_vote_finish(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_vote_restart_current:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_vote_restart_current:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 async def game_vote_restart_current(sid, data):
     try:
         data = data or {}
@@ -4060,8 +3370,8 @@ async def game_vote_restart_current(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_vote_lift_prepare:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_vote_lift_prepare:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 async def game_vote_lift_prepare(sid, data):
     try:
         data = data or {}
@@ -4120,8 +3430,8 @@ async def game_vote_lift_prepare(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_vote_lift_start:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_vote_lift_start:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 async def game_vote_lift_start(sid, data):
     try:
         data = data or {}
@@ -4198,8 +3508,8 @@ async def game_vote_lift_start(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_speech_finish:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_speech_finish:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 async def game_speech_finish(sid, data):
     try:
         data = data or {}
@@ -4283,8 +3593,8 @@ async def game_speech_finish(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_vote_speech_next:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_vote_speech_next:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 async def game_vote_speech_next(sid, data):
     try:
         data = data or {}
@@ -4494,8 +3804,8 @@ async def game_vote_speech_next(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_vote_restart:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_vote_restart:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 async def game_vote_restart(sid, data):
     try:
         data = data or {}
@@ -4583,8 +3893,8 @@ async def game_vote_restart(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:night_shoot_start:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:night_shoot_start:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 async def game_night_shoot_start(sid, data):
     try:
         ctx, err = await require_ctx(sid, allowed_phases="night", require_head=True)
@@ -4640,8 +3950,8 @@ async def game_night_shoot_start(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:night_shoot:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:night_shoot:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 async def game_night_shoot(sid, data):
     try:
         data = data or {}
@@ -4712,8 +4022,8 @@ async def game_night_shoot(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:night_checks_start:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:night_checks_start:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 async def game_night_checks_start(sid, data):
     try:
         ctx, err = await require_ctx(sid, allowed_phases="night", require_head=True)
@@ -4769,8 +4079,8 @@ async def game_night_checks_start(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:night_check:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:night_check:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 async def game_night_check(sid, data):
     try:
         data = data or {}
@@ -4826,12 +4136,22 @@ async def game_night_check(sid, data):
             if tr in ("mafia", "don"):
                 return {"ok": False, "error": "bad_target", "status": 400}
 
-        existing = await r.hget(f"room:{rid}:night_checks", str(uid))
-        if existing is not None:
-            return {"ok": False, "error": "already_chosen", "status": 409}
+        claimed, claim_error = await claim_night_check(
+            r,
+            rid,
+            uid,
+            target_uid,
+            checker_role=my_role,
+            now_ts=now_ts,
+        )
+        if not claimed:
+            status = 403 if claim_error == "forbidden" else 409
+            return {
+                "ok": False,
+                "error": claim_error or "failed",
+                "status": status,
+            }
 
-        await r.hset(f"room:{rid}:night_checks", str(uid), str(target_uid))
-        await r.sadd(checked_key, str(target_uid))
         try:
             seat = int((await r.hget(f"room:{rid}:game_seats", str(target_uid))) or 0)
         except Exception:
@@ -4884,8 +4204,8 @@ async def game_night_check(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_end:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 @sio.event(namespace="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_end:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 async def game_end(sid, data):
     try:
         data = data or {}
@@ -4906,16 +4226,26 @@ async def game_end(sid, data):
 async def disconnect(sid):
     try:
         sess = await sio.get_session(sid, namespace="/room")
+        uid = int((sess or {}).get("uid") or 0)
+        if uid > 0:
+            await unregister_user_socket(
+                user_id=uid,
+                socket_sid=sid,
+                namespace="/room",
+            )
         if not sess or "uid" not in sess:
             return
 
-        uid = int(sess["uid"])
         actor_user_name = str(sess.get("username") or f"user{uid}")
         rid = int(sess.get("rid") or 0)
         if not rid:
             return
 
         r = get_redis()
+        if sess.get("admin_spectator"):
+            asyncio.create_task(remove_admin_spectator_livekit(rid, uid))
+            return
+
         try:
             sess_epoch = int(sess.get("epoch") or 0)
         except Exception:
@@ -4958,29 +4288,15 @@ async def disconnect(sid):
             if has_bg_state:
                 delay_seconds = BG_DISCONNECT_DELAY_SECONDS
 
-        cancel_disconnect_cleanup_task(rid, uid)
-
-        async def _runner() -> None:
-            try:
-                await asyncio.sleep(delay_seconds)
-                await finalize_guarded_disconnect_cleanup(
-                    rid=rid,
-                    uid=uid,
-                    expected_epoch=sess_epoch,
-                    expected_sid=sid,
-                    actor_username=actor_user_name,
-                    sid=sid,
-                    sess=sess,
-                )
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                log.exception("sio.disconnect.cleanup_failed", rid=rid, uid=uid, epoch=sess_epoch)
-            finally:
-                clear_disconnect_cleanup_task_if_current(rid, uid, task)
-
-        task = asyncio.create_task(_runner())
-        set_disconnect_cleanup_task(rid, uid, task)
+        schedule_guarded_disconnect_cleanup(
+            delay_seconds=delay_seconds,
+            rid=rid,
+            uid=uid,
+            expected_epoch=sess_epoch,
+            expected_sid=sid,
+            actor_username=actor_user_name,
+            sess=sess,
+        )
 
     except Exception:
         log.exception("sio.disconnect.error", sid=sid)

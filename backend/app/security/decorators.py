@@ -12,7 +12,7 @@ from fastapi.routing import APIRoute
 from ..core.clients import get_redis
 from ..security.admin_guard import get_protected_admin_user_id, is_protected_admin_uid
 from ..security.auth_tokens import get_identity, decode_token, parse_refresh_token
-from ..realtime.sio import sio
+from ..realtime.connections import validate_socket_session
 from ..schemas.common import Identity
 
 log = structlog.get_logger()
@@ -602,26 +602,41 @@ def rate_limited(key: Union[str, Callable[..., str]], *, limit: int, window_s: i
     return deco
 
 
-def rate_limited_sio(key: Union[str, KeyBuilder], *, limit: int, window_s: int, session_ns: Optional[str] = None, fail_open: bool = True) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+def rate_limited_sio(
+    key: Union[str, KeyBuilder],
+    *,
+    limit: int,
+    window_s: int,
+    session_ns: Optional[str] = None,
+    auth_optional: bool = False,
+    fail_open: bool = False,
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     def deco(fn: Callable[..., Any]) -> Callable[..., Any]:
         if not asyncio.iscoroutinefunction(fn):
             raise TypeError("rate_limited_sio может оборачивать только async-функции")
 
         @functools.wraps(fn)
         async def wrap(sid: str, *a, **kw):
-            try:
-                uid: Optional[int] = None
-                rid: Optional[int] = None
-                if session_ns:
-                    try:
-                        sess = await sio.get_session(sid, namespace=session_ns)
-                        uid = int(sess.get("uid") or 0) or None
-                        rid = int(sess.get("rid") or 0) or None
-                    except Exception:
-                        uid = rid = None
+            uid: Optional[int] = None
+            rid: Optional[int] = None
+            if session_ns:
+                sess = await validate_socket_session(
+                    sid,
+                    namespace=session_ns,
+                    auth_optional=auth_optional,
+                )
+                if sess is None:
+                    return {"ok": False, "error": "unauthorized", "status": 401}
 
+                try:
+                    uid = int(sess.get("uid") or 0) or None
+                    rid = int(sess.get("rid") or 0) or None
+                except Exception:
+                    uid = rid = None
+
+            try:
                 r = get_redis()
-                k = key(sid=sid, *a, **kw, uid=uid, rid=rid) if callable(key) else str(key)
+                k = key(sid=sid, uid=uid, rid=rid) if callable(key) else str(key)
                 created = await r.set(k, 1, ex=window_s, nx=True)
                 cnt = 1 if created else int(await r.incr(k))
 
@@ -647,6 +662,7 @@ def rate_limited_sio(key: Union[str, KeyBuilder], *, limit: int, window_s: int, 
 
             return await fn(sid, *a, **kw)
 
+        setattr(wrap, "__sio_guard__", "rate_limited_sio")
         return wrap
 
     return deco

@@ -153,7 +153,7 @@ import UiSwitch from '@/components/UiSwitch.vue'
 import UiButton from '@/components/UiButton.vue'
 import { api } from '@/services/axios'
 import { alertDialog } from '@/services/confirm'
-import { useAuthStore, useSettingsStore } from '@/store'
+import { useAuthStore, useSettingsStore, useUserStore } from '@/store'
 
 import imageSlide8 from '@/assets/images/carousel-image8.png'
 import iconClose from '@/assets/svg/iconClose.svg'
@@ -183,11 +183,36 @@ const emit = defineEmits<{
 
 const auth = useAuthStore()
 const settings = useSettingsStore()
+const userStore = useUserStore()
 const kassaBusy = ref(false)
 const kassaFormOpen = ref(false)
-const kassaEmailStorageKey = 'kassa:buyerEmail'
+const legacyKassaEmailStorageKey = 'kassa:buyerEmail'
 const emailRe = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$/i
 const promoCodeRe = /^[A-Z0-9_-]{3,36}$/
+
+try { localStorage.removeItem(legacyKassaEmailStorageKey) } catch {}
+
+function kassaEmailStorageKey(userId = Number(userStore.user?.id || 0)): string {
+  return userId > 0 ? `kassa:buyerEmail:${userId}` : ''
+}
+
+function readSavedKassaEmail(): string {
+  const key = kassaEmailStorageKey()
+  if (!key) return ''
+  try { return sessionStorage.getItem(key) || '' } catch { return '' }
+}
+
+function saveKassaEmail(email: string): void {
+  const key = kassaEmailStorageKey()
+  if (!key) return
+  try { sessionStorage.setItem(key, email) } catch {}
+}
+
+function clearSavedKassaEmail(userId: number): void {
+  const key = kassaEmailStorageKey(userId)
+  if (!key) return
+  try { sessionStorage.removeItem(key) } catch {}
+}
 
 type KassaPlan = 'month' | 'year'
 type KassaCurrency = 'RUB' | 'USD' | 'EUR'
@@ -313,7 +338,7 @@ function openKassaForm(): void {
     return
   }
 
-  const saved = localStorage.getItem(kassaEmailStorageKey) || ''
+  const saved = readSavedKassaEmail()
   kassaForm.value.email = kassaForm.value.email || saved
   kassaFormOpen.value = true
 }
@@ -340,7 +365,7 @@ function normalizedKassaEmail(): string | null {
   }
 
   kassaForm.value.email = email
-  localStorage.setItem(kassaEmailStorageKey, email)
+  saveKassaEmail(email)
   return email
 }
 
@@ -426,6 +451,8 @@ async function onKassaPay(): Promise<void> {
     else if (st === 503 && detail === 'kassa_yearly_offer_missing') void alertDialog('Оплата сервиса не настроена: не указан годовой тариф')
     else if (st === 502 && detail === 'kassa_contract_id_missing') void alertDialog('Сервис создал платеж без номера договора. Повторите попытку позже')
     else if (st === 502 && detail === 'kassa_payment_url_missing') void alertDialog('Сервис не вернул ссылку на оплату. Повторите попытку позже')
+    else if (st === 502 && detail === 'kassa_payment_url_invalid') void alertDialog('Сервис вернул некорректную ссылку на оплату. Повторите попытку позже')
+    else if (st === 502 && detail === 'kassa_subscription_grant_failed') void alertDialog('Оплата подтверждена, но подписка не активировалась. Не повторяйте платёж и обратитесь в поддержку')
     else if (st === 502 && detail === 'kassa_invoice_invalid_response') void alertDialog('Сервис вернул некорректный ответ. Повторите попытку позже')
     else if (st === 502 && detail === 'kassa_invoice_request_failed') void alertDialog('Не удалось подключиться к сервису. Повторите попытку позже')
     else if (st === 502 && detail === 'kassa_invoice_failed') void alertDialog('Сервис отклонил создание платежа. Проверьте параметры или повторите попытку позже')
@@ -453,10 +480,17 @@ watch(() => kassaForm.value.currency, () => {
   }
 })
 
+watch(() => Number(userStore.user?.id || 0), (nextUserId, previousUserId) => {
+  if (previousUserId > 0 && previousUserId !== nextUserId) {
+    clearSavedKassaEmail(previousUserId)
+  }
+  if (previousUserId !== nextUserId) kassaForm.value.email = ''
+})
+
 watch(() => props.open, (open) => {
   armed.value = false
   if (open) {
-    kassaForm.value.email = kassaForm.value.email || localStorage.getItem(kassaEmailStorageKey) || ''
+    kassaForm.value.email = kassaForm.value.email || readSavedKassaEmail()
     document.addEventListener('keydown', onKeydown)
   } else {
     kassaFormOpen.value = false

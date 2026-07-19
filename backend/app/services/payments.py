@@ -13,7 +13,8 @@ from urllib.parse import urlsplit
 import httpx
 import structlog
 from fastapi import HTTPException, Request
-from sqlalchemy import select
+from sqlalchemy import select, text
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.logging import log_action
 from ..core.settings import settings
@@ -80,6 +81,23 @@ def _clean(value: object, *, max_len: int | None = None) -> str:
         return text[:max_len]
 
     return text
+
+
+def _is_safe_kassa_payment_url(value: str) -> bool:
+    if not value or len(value) > 2048 or any(char.isspace() for char in value):
+        return False
+
+    try:
+        parsed = urlsplit(value)
+    except ValueError:
+        return False
+
+    return bool(
+        parsed.scheme.lower() == "https"
+        and parsed.hostname
+        and parsed.username is None
+        and parsed.password is None
+    )
 
 
 def _normalize_status(value: object) -> str:
@@ -155,6 +173,8 @@ KASSA_LOG_REASON_LABELS = {
     "kassa_invoice_invalid_response": "сервис вернул некорректный ответ",
     "kassa_contract_id_missing": "сервис не вернул номер договора",
     "kassa_payment_url_missing": "сервис не вернул ссылку на оплату",
+    "kassa_payment_url_invalid": "сервис вернул небезопасную ссылку на оплату",
+    "kassa_subscription_grant_failed": "оплата подтверждена, но подписка не выдана",
     "kassa_free_invoice_not_processed": (
         "нулевой счет создан, но подписка не активировалась"
     ),
@@ -554,6 +574,13 @@ def _is_kassa_payment_success(event_type: str, status_value: str) -> bool:
     return _normalized_event(event_type) == KASSA_PAYMENT_SUCCESS_EVENT
 
 
+def _is_terminal_kassa_rejection(event_type: str, status_value: str) -> bool:
+    return (
+        _is_kassa_payment_failure(event_type, status_value)
+        or _normalize_status(status_value) == "product-mismatch"
+    )
+
+
 def _configured_product_url() -> str:
     product_url = _clean(settings.KASSA_PRODUCT_URL)
     if not product_url:
@@ -902,31 +929,45 @@ def _product_matches_expected(product_id: str) -> bool:
     return not expected or not product_id or product_id == expected
 
 
-async def _find_payment_by_contract(session: AsyncSession, contract_id: str) -> KassaPayment | None:
-    if not contract_id:
-        return None
-
-    return await session.scalar(
-        select(KassaPayment).where(KassaPayment.contract_id == contract_id).limit(1)
+async def _lock_payment_contract(session: AsyncSession, contract_id: str) -> None:
+    await session.execute(
+        text("SELECT pg_advisory_xact_lock(hashtextextended(:contract_id, 0))"),
+        {"contract_id": contract_id},
     )
 
 
-async def _find_or_create_payment_for_webhook(session: AsyncSession, *, contract_id: str, token: str, user_id: int | None, payload: dict[str, Any]) -> KassaPayment:
-    payment = await _find_payment_by_contract(session, contract_id)
-    if payment is not None:
-        payment.metadata_token = payment.metadata_token or token or None
-        payment.user_id = payment.user_id or user_id
-        return payment
-
-    payment = KassaPayment(
-        contract_id=contract_id,
-        user_id=user_id,
-        metadata_token=token or None,
-        status="webhook_received",
-        raw_payload=_json_dumps(payload),
+async def _upsert_and_lock_payment(
+    session: AsyncSession,
+    *,
+    contract_id: str,
+    user_id: int | None,
+    metadata_token: str,
+    status: str,
+    raw_payload: str,
+) -> KassaPayment:
+    statement = (
+        pg_insert(KassaPayment)
+        .values(
+            contract_id=contract_id,
+            user_id=user_id,
+            metadata_token=metadata_token or None,
+            status=status,
+            subscription_months=0,
+            raw_payload=raw_payload,
+        )
+        .on_conflict_do_nothing(index_elements=[KassaPayment.contract_id])
     )
-    session.add(payment)
-    await session.flush()
+    await session.execute(statement)
+    payment = await session.scalar(
+        select(KassaPayment)
+        .where(KassaPayment.contract_id == contract_id)
+        .limit(1)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if payment is None:
+        raise RuntimeError("kassa payment upsert did not return a contract row")
+
     return payment
 
 
@@ -936,13 +977,22 @@ async def _grant_subscription_for_payment(session: AsyncSession, payment: KassaP
     if uid <= 0 or months <= 0:
         return False
 
-    user = await session.get(User, uid)
+    user = await session.scalar(
+        select(User)
+        .where(User.id == uid)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
     if not user or user.deleted_at is not None:
         return False
 
     now = datetime.now(timezone.utc)
     subscription = await session.scalar(
-        select(UserSubscription).where(UserSubscription.user_id == uid).limit(1)
+        select(UserSubscription)
+        .where(UserSubscription.user_id == uid)
+        .limit(1)
+        .with_for_update()
+        .execution_options(populate_existing=True)
     )
 
     had_active_subscription = bool(
@@ -1104,6 +1154,28 @@ async def create_kassa_payment_link(
         raise HTTPException(status_code=502, detail="kassa_contract_id_missing")
 
     amount, invoice_currency = _extract_amount_and_currency(invoice)
+    if payment_url and not _is_safe_kassa_payment_url(payment_url):
+        log.warning(
+            "kassa.invoice.payment_url_invalid",
+            contract_id=contract_id,
+        )
+        await _log_kassa_event(
+            session,
+            event="payment_link",
+            user_id=uid,
+            username=log_username,
+            email=email,
+            plan=plan,
+            currency=requested_currency,
+            payment_method=payment_method,
+            promo_code=promo_code,
+            reason="kassa_payment_url_invalid",
+            amount=amount,
+            result="payment_link_failed",
+            status="failed",
+        )
+        raise HTTPException(status_code=502, detail="kassa_payment_url_invalid")
+
     if not payment_url and not _is_zero_amount(amount):
         log.warning(
             "kassa.invoice.payment_url_missing",
@@ -1127,52 +1199,124 @@ async def create_kassa_payment_link(
         )
         raise HTTPException(status_code=502, detail="kassa_payment_url_missing")
 
-    payment = KassaPayment(
+    invoice_record = _json_dumps(
+        {
+            "kind": "kassa_invoice",
+            "request": {**invoice_request, "email": email},
+            "response": invoice,
+        }
+    )
+    await _lock_payment_contract(session, contract_id)
+    payment = await _upsert_and_lock_payment(
+        session,
         contract_id=contract_id,
         user_id=uid,
         metadata_token=token,
-        email=email,
         status=_normalize_status(invoice.get("status")) or "invoice_created",
-        offer_id=offer_id,
-        plan=plan,
-        amount=amount,
-        currency=invoice_currency or requested_currency,
-        subscription_months=months,
-        payment_url=payment_url,
-        raw_payload=_json_dumps(
-            {
-                "kind": "kassa_invoice",
-                "request": {**invoice_request, "email": email},
-                "response": invoice,
-            }
-        ),
+        raw_payload=invoice_record,
     )
-    session.add(payment)
-    processed = False
-    if payment_url:
+    existing_uid = int(payment.user_id or 0)
+    existing_token = _clean(payment.metadata_token)
+    if (existing_uid and existing_uid != uid) or (
+        existing_token and existing_token != token
+    ):
+        log.error(
+            "kassa.invoice.contract_identity_conflict",
+            contract_id=contract_id,
+            existing_user_id=existing_uid or None,
+            requested_user_id=uid,
+        )
+        raise HTTPException(status_code=502, detail="kassa_invoice_invalid_response")
+
+    stored_event_type = _clean(payment.event_type)
+    stored_status = _clean(payment.status)
+    early_webhook_rejected = _is_terminal_kassa_rejection(
+        stored_event_type,
+        stored_status,
+    )
+    early_webhook_success = (
+        not early_webhook_rejected
+        and _is_kassa_payment_success(stored_event_type, stored_status)
+    )
+    payment.user_id = uid
+    payment.metadata_token = token
+    payment.email = email
+    if not payment.event_type and payment.processed_at is None:
+        payment.status = _normalize_status(invoice.get("status")) or "invoice_created"
+    payment.offer_id = offer_id
+    payment.plan = plan
+    payment.amount = amount
+    payment.currency = invoice_currency or requested_currency
+    payment.subscription_months = months
+    payment.payment_url = payment_url
+    payment.raw_payload = invoice_record
+    await session.flush()
+
+    if early_webhook_rejected:
+        await _log_kassa_event(
+            session,
+            event="payment_link",
+            user_id=uid,
+            username=log_username,
+            email=email,
+            plan=plan,
+            currency=requested_currency,
+            payment_method=payment_method,
+            promo_code=promo_code,
+            reason=(
+                "product_mismatch"
+                if _normalize_status(stored_status) == "product-mismatch"
+                else "payment_failed"
+            ),
+            amount=payment.amount,
+            result="payment_link_failed",
+            status="failed",
+            commit=False,
+        )
         await session.commit()
-    else:
-        await session.flush()
+        raise HTTPException(status_code=502, detail="kassa_invoice_failed")
+
+    processed = payment.processed_at is not None
+    should_grant_now = early_webhook_success or (
+        not payment_url and not payment.event_type
+    )
+    grant_attempted = not processed and should_grant_now
+    if grant_attempted:
         processed = await _grant_subscription_for_payment(session, payment)
-        if not processed:
-            await _log_kassa_event(
-                session,
-                event="payment_link",
-                user_id=uid,
-                username=log_username,
-                email=email,
-                plan=plan,
-                currency=requested_currency,
-                payment_method=payment_method,
-                promo_code=promo_code,
-                reason="free_invoice_not_processed",
-                amount=payment.amount,
-                result="payment_link_failed",
-                status="failed",
-                commit=False,
-            )
-            await session.commit()
-            raise HTTPException(status_code=502, detail="kassa_free_invoice_not_processed")
+    else:
+        await session.commit()
+
+    if not processed and (grant_attempted or not payment_url):
+        failure_reason = (
+            "kassa_subscription_grant_failed"
+            if early_webhook_success
+            else "free_invoice_not_processed"
+        )
+        await _log_kassa_event(
+            session,
+            event="payment_link",
+            user_id=uid,
+            username=log_username,
+            email=email,
+            plan=plan,
+            currency=requested_currency,
+            payment_method=payment_method,
+            promo_code=promo_code,
+            reason=failure_reason,
+            amount=payment.amount,
+            result="payment_link_failed",
+            status="failed",
+            commit=False,
+        )
+        await session.commit()
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "kassa_subscription_grant_failed"
+                if early_webhook_success
+                else "kassa_free_invoice_not_processed"
+            ),
+        )
 
     await _log_kassa_event(
         session,
@@ -1194,7 +1338,7 @@ async def create_kassa_payment_link(
     )
 
     return KassaPaymentLinkCreateOut(
-        payment_url=payment_url,
+        payment_url="" if processed else payment_url,
         contract_id=contract_id,
         processed=processed,
     )
@@ -1224,13 +1368,17 @@ async def process_kassa_webhook(
     if not contract_id:
         raise HTTPException(status_code=400, detail="contract_id_missing")
 
-    payment = await _find_or_create_payment_for_webhook(
+    await _lock_payment_contract(session, contract_id)
+
+    payment = await _upsert_and_lock_payment(
         session,
         contract_id=contract_id,
-        token=token,
         user_id=tracking_user_id,
-        payload=payload,
+        metadata_token=token,
+        status="webhook_received",
+        raw_payload=_json_dumps(payload),
     )
+    already_processed = payment.processed_at is not None
     payment_method = _extract_payment_method_for_log(payment, payload)
     amount, currency = _extract_amount_and_currency(payload)
     product_id = _extract_product_id(payload)
@@ -1238,8 +1386,9 @@ async def process_kassa_webhook(
 
     payment.metadata_token = token or payment.metadata_token
     payment.email = _extract_buyer_email(payload) or payment.email
-    payment.event_type = event_type or payment.event_type
-    payment.status = status_value or event_type or payment.status
+    if not already_processed:
+        payment.event_type = event_type or payment.event_type
+        payment.status = status_value or event_type or payment.status
     payment.product_id = product_id or payment.product_id
     payment.product_title = product_title or payment.product_title
     payment.amount = amount if amount is not None else payment.amount
@@ -1247,7 +1396,8 @@ async def process_kassa_webhook(
     payment.raw_payload = _json_dumps(payload)
 
     if not _product_matches_expected(product_id):
-        payment.status = "product_mismatch"
+        if not already_processed:
+            payment.status = "product_mismatch"
         expected_product_id = _configured_product_id()
         log.warning(
             "kassa.webhook.product_mismatch",
@@ -1273,6 +1423,10 @@ async def process_kassa_webhook(
         await session.commit()
         return
 
+    if already_processed:
+        await session.commit()
+        return
+
     if _is_ignored_kassa_event(event_type):
         await session.commit()
         return
@@ -1293,10 +1447,6 @@ async def process_kassa_webhook(
             status=status_value or "failed",
             commit=False,
         )
-        await session.commit()
-        return
-
-    if payment.processed_at is not None:
         await session.commit()
         return
 

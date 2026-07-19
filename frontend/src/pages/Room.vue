@@ -2159,7 +2159,9 @@ socket.value?.on('connect', async () => {
   socket.value.on('force_logout', async (p: any) => {
     const reason = String(p?.reason || '')
     try { await onLeave() } finally { await auth.localSignOut?.() }
-    if (reason === 'replaced') {
+    if (reason === 'logout') {
+      return
+    } else if (reason === 'replaced') {
       void alertDialog('Сессия завершена: вход выполнен с другого устройства')
     } else if (reason === 'account_deleted') {
       void alertDialog('Сессия завершена: аккаунт удален')
@@ -2274,9 +2276,7 @@ socket.value?.on('connect', async () => {
   socket.value.on('force_leave', async (p:any) => {
     const reason = String(p?.reason || '')
     try { await onLeave() } catch {}
-    if (reason === 'admin_spectator_game_start') {
-      return
-    } else if (reason === 'admin_kick_all') {
+    if (reason === 'admin_kick_all') {
       void alertDialog('Упс, кажется пришло обновление! Перезагрузка серверов займет ~5 минут')
     } else if (reason === 'room_kick') {
       void alertDialog(roomKickAlertText(p))
@@ -2314,6 +2314,7 @@ socket.value?.on('connect', async () => {
   })
 
   socket.value?.on('game_started', (p: any) => {
+    const convertHiddenAdmin = adminSpectator.value
     game.handleGameStarted(p)
     if (musicEnabled.value) {
       rtc.setBgmSeed(p?.bgm_seed, rid)
@@ -2323,6 +2324,7 @@ socket.value?.on('connect', async () => {
     })
     enforceMinGameVolumes()
     void enforceInitialGameControls()
+    if (convertHiddenAdmin) void convertAdminSpectatorAfterStart()
   })
 
   socket.value?.on('game_limits', (p: any) => {
@@ -2514,6 +2516,56 @@ async function safeJoin() {
     return await p
   } finally {
     if (joinInFlight.value === p) joinInFlight.value = null
+  }
+}
+
+const ADMIN_SPECTATOR_CONVERT_RETRY_DELAYS_MS = [0, 250, 750, 1500] as const
+let adminSpectatorConversionInFlight: Promise<void> | null = null
+
+async function convertAdminSpectatorAfterStart(): Promise<void> {
+  if (!adminSpectator.value || leaving.value) return
+  if (adminSpectatorConversionInFlight) return adminSpectatorConversionInFlight
+
+  const task = (async () => {
+    for (const delayMs of ADMIN_SPECTATOR_CONVERT_RETRY_DELAYS_MS) {
+      if (!adminSpectator.value || leaving.value) return
+      if (delayMs > 0) {
+        await new Promise<void>(resolve => window.setTimeout(resolve, delayMs))
+      }
+
+      if (joinInFlight.value) {
+        try { await joinInFlight.value } catch {}
+      }
+      if (!socket.value?.connected) return
+
+      const response = await sendAck('join', {
+        room_id: rid,
+        state: { ...local },
+        admin_spectator: false,
+      }, 5000)
+
+      if (response?.ok) {
+        applyJoinAck(response)
+        if (String(route.query.spectator || '').toLowerCase() === 'admin') {
+          const query = { ...route.query }
+          delete query.spectator
+          void router.replace({ query }).catch(() => undefined)
+        }
+        return
+      }
+
+      const status = Number(response?.status || 0)
+      if ([403, 404, 410].includes(status)) break
+    }
+
+    console.warn('[ROOM] admin spectator conversion deferred until reconnect', { roomId: rid })
+  })()
+
+  adminSpectatorConversionInFlight = task
+  try {
+    await task
+  } finally {
+    if (adminSpectatorConversionInFlight === task) adminSpectatorConversionInFlight = null
   }
 }
 
@@ -2969,7 +3021,6 @@ function joinFailureMessage(j: any): string {
   if (st === 404) return 'Комната не найдена'
   if (st === 410) return 'Комната закрыта'
   if (st === 409 && code === 'active_alive_game_conflict') return 'Вы живой игрок в другой активной игре'
-  if (st === 409 && code === 'admin_spectator_unavailable') return 'Игра уже началась'
   if (st === 409 && code === 'game_in_progress') return 'В комнате нет мест для зрителей'
   if (st === 409 && code === 'spectators_full') return 'В комнате нет мест для зрителей'
   if (st === 409) return 'Комната заполнена'
@@ -3043,11 +3094,6 @@ async function handleJoinFailure(j: any) {
     } else {
       await router.replace({ name: 'home', query: { focus: String(rid) } })
     }
-    return
-  }
-  if (j?.status === 409 && j?.error === 'admin_spectator_unavailable') {
-    void alertDialog('Игра уже началась')
-    await router.replace({ name: 'home', query: { focus: String(rid) } })
     return
   }
   if (j?.status === 409 && (j?.error === 'game_in_progress' || j?.error === 'spectators_full')) {

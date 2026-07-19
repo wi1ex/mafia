@@ -1,4 +1,5 @@
 from __future__ import annotations
+import secrets
 import time
 import jwt
 import structlog
@@ -9,12 +10,15 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from ..core.clients import get_redis
 from ..core.db import SessionLocal
 from ..core.settings import settings
+from ..core.roles import ROLE_ADMIN, ROLE_MODER, normalize_user_role
 from ..security.admin_guard import normalize_protected_admin_role
 from ..services.presence import touch_user_activity
 from ..services.user_cache import read_user_profile_cache, refresh_user_profile_cache
 from ..schemas.common import Identity
 
 log = structlog.get_logger()
+
+AUTH_SESSION_SID_HEADER = "X-Auth-Session-Sid"
 
 
 def _encode(kind: str, *, sub: int | str, exp_s: int, extra: Dict[str, Any] | None = None) -> str:
@@ -64,6 +68,23 @@ def parse_refresh_token(raw: str) -> tuple[bool, int, str, str]:
         return False, 0, "", ""
 
 
+def refresh_cookie_matches_scope(
+    raw: str,
+    expected_sid: str,
+    *,
+    expected_user_id: int | None = None,
+) -> bool:
+    expected = str(expected_sid or "").strip()
+    if not expected or len(expected) > 256:
+        return False
+
+    ok, user_id, cookie_sid, _ = parse_refresh_token(raw)
+    if not ok or (expected_user_id is not None and user_id != int(expected_user_id)):
+        return False
+
+    return secrets.compare_digest(cookie_sid, expected)
+
+
 def create_access_token(*, sub: int, username: str, role: str, sid: str, ttl_minutes: int) -> str:
     return _encode("access", sub=sub, exp_s=ttl_minutes * 60, extra={"role": role, "sid": sid, "username": username})
 
@@ -103,10 +124,17 @@ async def get_identity(creds: HTTPAuthorizationCredentials = Depends(HTTPBearer(
                 profile = None
 
         if profile:
+            if profile.get("deleted_at"):
+                log.warning("auth.deleted_user", uid=uid)
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+
             if profile.get("role"):
                 role = str(profile["role"])
             if profile.get("username"):
                 username = str(profile["username"])
+        elif normalize_user_role(role_from_token) in {ROLE_ADMIN, ROLE_MODER}:
+            log.warning("auth.privileged_profile_unavailable", uid=uid, token_role=role_from_token)
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
         normalized_role = normalize_protected_admin_role(uid, role, fallback_role=role_from_token)
         if str(role or "").strip().lower() == "admin" and normalized_role != "admin":

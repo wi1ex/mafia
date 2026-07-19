@@ -4,6 +4,7 @@ from uuid import UUID
 import structlog
 from ..sio import sio
 from ..utils import payload_dict, permissions_status, positive_int, public_reactions, validate_auth
+from ..connections import register_user_socket, unregister_user_socket
 from ...core.roles import (
     can_moderate_chat_message,
     can_purge_deleted_chat_message,
@@ -23,6 +24,7 @@ from ...services.global_chat import (
     delete_global_chat_message,
     emit_global_chat_unread_state,
     emit_global_chat_unread_states,
+    finalize_global_chat_image,
     fetch_global_chat_reaction_participants,
     fetch_global_chat_context,
     fetch_global_chat_page,
@@ -31,6 +33,7 @@ from ...services.global_chat import (
     global_chat_send_error,
     global_chat_open_user_room,
     get_global_chat_message,
+    get_global_chat_message_by_client_id,
     mark_global_chat_alert_read,
     mark_global_chat_alert_read_for_open_users,
     mark_global_chat_seen,
@@ -39,6 +42,7 @@ from ...services.global_chat import (
     resolve_global_chat_permissions,
     toggle_global_chat_reaction,
     validate_global_chat_send_input,
+    delete_global_chat_image_if_unreferenced,
 )
 from ...services.user_cache import get_user_profiles_cached
 
@@ -60,14 +64,33 @@ async def connect(sid, environ, auth):
             "role": role,
             "username": username,
             "avatar_name": avatar_name,
+            "auth_sid": vr.auth_sid,
+            "auth_expires_at": vr.expires_at,
         },
         namespace="/chat",
+    )
+    await register_user_socket(
+        user_id=uid,
+        socket_sid=sid,
+        namespace="/chat",
+        auth_sid=vr.auth_sid,
     )
     await sio.enter_room(sid, f"user:{uid}", namespace="/chat")
 
 
-@rate_limited_sio(lambda *, uid=None, **__: f"rl:sio:chat_open:{uid or 'nouid'}", limit=5, window_s=1, session_ns="/chat")
 @sio.event(namespace="/chat")
+async def disconnect(sid):
+    try:
+        sess = await sio.get_session(sid, namespace="/chat")
+        uid = int((sess or {}).get("uid") or 0)
+    except Exception:
+        uid = 0
+    if uid > 0:
+        await unregister_user_socket(user_id=uid, socket_sid=sid, namespace="/chat")
+
+
+@sio.event(namespace="/chat")
+@rate_limited_sio(lambda *, uid=None, **__: f"rl:sio:chat_open:{uid or 'nouid'}", limit=10, window_s=1, session_ns="/chat")
 async def chat_open(sid, data):
     joined_global_room = False
     joined_user_room = False
@@ -123,8 +146,8 @@ async def chat_open(sid, data):
         return {"ok": False, "status": 500, "error": "internal"}
 
 
-@rate_limited_sio(lambda *, uid=None, **__: f"rl:sio:chat_permissions:{uid or 'nouid'}", limit=5, window_s=1, session_ns="/chat")
 @sio.event(namespace="/chat")
+@rate_limited_sio(lambda *, uid=None, **__: f"rl:sio:chat_permissions:{uid or 'nouid'}", limit=10, window_s=1, session_ns="/chat")
 async def chat_permissions(sid, data=None):
     try:
         sess = await sio.get_session(sid, namespace="/chat")
@@ -150,8 +173,8 @@ async def chat_permissions(sid, data=None):
         return {"ok": False, "status": 500, "error": "internal"}
 
 
-@rate_limited_sio(lambda *, uid=None, **__: f"rl:sio:chat_history:{uid or 'nouid'}", limit=5, window_s=1, session_ns="/chat")
 @sio.event(namespace="/chat")
+@rate_limited_sio(lambda *, uid=None, **__: f"rl:sio:chat_history:{uid or 'nouid'}", limit=10, window_s=1, session_ns="/chat")
 async def chat_history(sid, data):
     try:
         sess = await sio.get_session(sid, namespace="/chat")
@@ -186,8 +209,8 @@ async def chat_history(sid, data):
         return {"ok": False, "status": 500, "error": "internal"}
 
 
-@rate_limited_sio(lambda *, uid=None, **__: f"rl:sio:chat_mark_seen:{uid or 'nouid'}", limit=10, window_s=2, session_ns="/chat")
 @sio.event(namespace="/chat")
+@rate_limited_sio(lambda *, uid=None, **__: f"rl:sio:chat_mark_seen:{uid or 'nouid'}", limit=20, window_s=2, session_ns="/chat")
 async def chat_mark_seen(sid, data=None):
     try:
         sess = await sio.get_session(sid, namespace="/chat")
@@ -214,8 +237,8 @@ async def chat_mark_seen(sid, data=None):
         return {"ok": False, "status": 500, "error": "internal"}
 
 
-@rate_limited_sio(lambda *, uid=None, **__: f"rl:sio:chat_mark_alert_read:{uid or 'nouid'}", limit=10, window_s=2, session_ns="/chat")
 @sio.event(namespace="/chat")
+@rate_limited_sio(lambda *, uid=None, **__: f"rl:sio:chat_mark_alert_read:{uid or 'nouid'}", limit=20, window_s=2, session_ns="/chat")
 async def chat_mark_alert_read(sid, data=None):
     try:
         sess = await sio.get_session(sid, namespace="/chat")
@@ -249,9 +272,10 @@ async def chat_mark_alert_read(sid, data=None):
         return {"ok": False, "status": 500, "error": "internal"}
 
 
-@rate_limited_sio(lambda *, uid=None, **__: f"rl:sio:chat_send:{uid or 'nouid'}", limit=5, window_s=10, session_ns="/chat")
 @sio.event(namespace="/chat")
+@rate_limited_sio(lambda *, uid=None, **__: f"rl:sio:chat_send:{uid or 'nouid'}", limit=10, window_s=10, session_ns="/chat")
 async def chat_send(sid, data):
+    promoted_orphan_key: str | None = None
     try:
         sess = await sio.get_session(sid, namespace="/chat")
         uid = int(sess.get("uid") or 0)
@@ -288,14 +312,34 @@ async def chat_send(sid, data):
                 if reply_message is None:
                     return {"ok": False, "status": 404, "error": "reply_not_found"}
 
-            message, created = await create_global_chat_message(
+            message = await get_global_chat_message_by_client_id(
                 db,
                 user_id=uid,
                 client_message_id=client_message_id,
-                text=text,
-                reply_to_message_id=reply_to_message_id,
-                image_object_key=image_object_key,
             )
+            created = False
+            if message is None:
+                original_image_key = image_object_key
+                try:
+                    image_object_key = await finalize_global_chat_image(
+                        user_id=uid,
+                        image_object_key=image_object_key,
+                    )
+                except ValueError as exc:
+                    return {"ok": False, "status": 422, "error": str(exc) or "bad_image"}
+                if image_object_key and image_object_key != original_image_key:
+                    promoted_orphan_key = image_object_key
+
+                message, created = await create_global_chat_message(
+                    db,
+                    user_id=uid,
+                    client_message_id=client_message_id,
+                    text=text,
+                    reply_to_message_id=reply_to_message_id,
+                    image_object_key=image_object_key,
+                )
+                if created:
+                    promoted_orphan_key = None
             ack_message = await build_global_chat_message_payload(
                 db,
                 message_id=int(message.id),
@@ -326,9 +370,16 @@ async def chat_send(sid, data):
         log.exception("chat.send.error", sid=sid)
         return {"ok": False, "status": 500, "error": "internal"}
 
+    finally:
+        if promoted_orphan_key:
+            try:
+                await delete_global_chat_image_if_unreferenced(promoted_orphan_key)
+            except Exception:
+                log.exception("chat.send.orphan_cleanup_failed", key=promoted_orphan_key)
 
-@rate_limited_sio(lambda *, uid=None, **__: f"rl:sio:chat_react:{uid or 'nouid'}", limit=20, window_s=10, session_ns="/chat")
+
 @sio.event(namespace="/chat")
+@rate_limited_sio(lambda *, uid=None, **__: f"rl:sio:chat_react:{uid or 'nouid'}", limit=30, window_s=10, session_ns="/chat")
 async def chat_react_toggle(sid, data):
     try:
         sess = await sio.get_session(sid, namespace="/chat")
@@ -406,8 +457,8 @@ async def chat_react_toggle(sid, data):
         return {"ok": False, "status": 500, "error": "internal"}
 
 
-@rate_limited_sio(lambda *, uid=None, **__: f"rl:sio:chat_reaction_participants:{uid or 'nouid'}", limit=10, window_s=10, session_ns="/chat")
 @sio.event(namespace="/chat")
+@rate_limited_sio(lambda *, uid=None, **__: f"rl:sio:chat_reaction_participants:{uid or 'nouid'}", limit=20, window_s=10, session_ns="/chat")
 async def chat_reaction_participants(sid, data):
     try:
         sess = await sio.get_session(sid, namespace="/chat")
@@ -447,8 +498,8 @@ async def chat_reaction_participants(sid, data):
         return {"ok": False, "status": 500, "error": "internal"}
 
 
-@rate_limited_sio(lambda *, uid=None, **__: f"rl:sio:chat_delete:{uid or 'nouid'}", limit=10, window_s=10, session_ns="/chat")
 @sio.event(namespace="/chat")
+@rate_limited_sio(lambda *, uid=None, **__: f"rl:sio:chat_delete:{uid or 'nouid'}", limit=10, window_s=10, session_ns="/chat")
 async def chat_delete(sid, data):
     try:
         sess = await sio.get_session(sid, namespace="/chat")
@@ -553,8 +604,8 @@ async def chat_delete(sid, data):
         return {"ok": False, "status": 500, "error": "internal"}
 
 
-@rate_limited_sio(lambda *, uid=None, **__: f"rl:sio:chat_deleted_preview:{uid or 'nouid'}", limit=10, window_s=10, session_ns="/chat")
 @sio.event(namespace="/chat")
+@rate_limited_sio(lambda *, uid=None, **__: f"rl:sio:chat_deleted_preview:{uid or 'nouid'}", limit=10, window_s=10, session_ns="/chat")
 async def chat_deleted_message_preview(sid, data):
     try:
         sess = await sio.get_session(sid, namespace="/chat")
@@ -585,8 +636,8 @@ async def chat_deleted_message_preview(sid, data):
         return {"ok": False, "status": 500, "error": "internal"}
 
 
-@rate_limited_sio(lambda *, uid=None, **__: f"rl:sio:chat_purge:{uid or 'nouid'}", limit=5, window_s=10, session_ns="/chat")
 @sio.event(namespace="/chat")
+@rate_limited_sio(lambda *, uid=None, **__: f"rl:sio:chat_purge:{uid or 'nouid'}", limit=5, window_s=10, session_ns="/chat")
 async def chat_message_purge(sid, data):
     try:
         sess = await sio.get_session(sid, namespace="/chat")
@@ -658,8 +709,8 @@ async def chat_message_purge(sid, data):
         return {"ok": False, "status": 500, "error": "internal"}
 
 
-@rate_limited_sio(lambda *, uid=None, **__: f"rl:sio:chat_context:{uid or 'nouid'}", limit=5, window_s=1, session_ns="/chat")
 @sio.event(namespace="/chat")
+@rate_limited_sio(lambda *, uid=None, **__: f"rl:sio:chat_context:{uid or 'nouid'}", limit=10, window_s=1, session_ns="/chat")
 async def chat_message_context(sid, data):
     try:
         sess = await sio.get_session(sid, namespace="/chat")
