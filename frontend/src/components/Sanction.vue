@@ -175,6 +175,9 @@ function close() {
         grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 10px;
       }
+      #sanction-reason {
+        width: 100%;
+      }
       :deep(.sanction-description-textarea textarea) {
         min-height: 100px;
       }
