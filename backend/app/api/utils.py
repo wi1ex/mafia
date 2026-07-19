@@ -3568,6 +3568,7 @@ def public_settings_out(settings) -> "PublicSettingsOut":
         admin_banner_text=normalize_admin_banner_text(getattr(settings, "admin_banner_text", "0")),
         admin_banner_link=normalize_admin_banner_link(getattr(settings, "admin_banner_link", "0")),
         donation_url=normalize_donation_url(getattr(settings, "donation_url", "")),
+        rooms_limit_global=int(settings.rooms_limit_global),
         game_min_ready_players=int(settings.game_min_ready_players),
         winks_limit=int(settings.winks_limit),
         knocks_limit=int(settings.knocks_limit),

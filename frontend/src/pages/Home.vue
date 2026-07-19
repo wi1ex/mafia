@@ -314,7 +314,7 @@ const canCreateRooms = computed(() => settings.roomsCanCreate || isAdmin.value)
 const canEnterRooms = computed(() => settings.roomsCanEnter || isAdmin.value)
 const canAdminSpectateRoom = computed(() => {
   const room = selectedRoom.value
-  return isAdmin.value && !!room && !room.in_game && !room.entry_closed
+  return isAdmin.value && settings.roomsLimitGlobal !== 22 && !!room && !room.in_game && !room.entry_closed
 })
 
 const roomsMap = reactive(new Map<number, Room>())

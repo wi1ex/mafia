@@ -118,6 +118,7 @@ class PublicSettingsOut(BaseModel):
     admin_banner_text: str
     admin_banner_link: str
     donation_url: str
+    rooms_limit_global: int
     game_min_ready_players: int
     winks_limit: int
     knocks_limit: int

@@ -495,7 +495,7 @@
                     </div>
                   </td>
                   <td>
-                    <div class="tooltip" tabindex="0">
+                    <div v-if="roomGamesTooltipEnabled" class="tooltip" tabindex="0">
                       <span class="tooltip-value">{{ row.games.length }}</span>
                       <div class="tooltip-body">
                         <div v-if="row.games.length === 0" class="tooltip-empty">Нет данных</div>
@@ -509,6 +509,7 @@
                         </div>
                       </div>
                     </div>
+                    <span v-else class="tooltip-value">{{ row.games.length }}</span>
                   </td>
                   <td>
                     <div class="tooltip" tabindex="0">
@@ -1170,6 +1171,7 @@ const game = reactive<GameSettings>({
 const settingsStore = useSettingsStore()
 const userStore = useUserStore()
 const viewerUserId = computed(() => normalizeMiniProfileUserId(userStore.user?.id))
+const roomGamesTooltipEnabled = computed(() => settingsStore.roomsLimitGlobal !== 22)
 const siteSnapshot = ref('')
 const gameSnapshot = ref('')
 
@@ -2021,6 +2023,7 @@ async function saveSettings(): Promise<void> {
       admin_banner_text: site.admin_banner_text,
       admin_banner_link: site.admin_banner_link,
       donation_url: site.donation_url,
+      rooms_limit_global: site.rooms_limit_global,
       game_min_ready_players: game.game_min_ready_players,
       winks_limit: game.winks_limit,
       knocks_limit: game.knocks_limit,
