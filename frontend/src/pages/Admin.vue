@@ -51,10 +51,10 @@
               <UiSwitch class="switch-item" :width="250" size="low" v-model="site.self_speech_finish_enabled" label="Завершение своей речи" :disabled="savingSettings" />
               <div class="bulk-admin-actions">
                 <button class="btn danger width-full" :disabled="kickRoomsBusy || clearChatBusy || markAllNotifsBusy" @click="kickAllRooms">
-                  Кик из комнат
+                  Кик всех из комнат
                 </button>
                 <button class="btn danger width-full" :disabled="kickRoomsBusy || clearChatBusy || markAllNotifsBusy" @click="clearGlobalChat">
-                  Очистить чат
+                  Очистить сообщения чата
                 </button>
                 <button class="btn danger width-full" :disabled="kickRoomsBusy || clearChatBusy || markAllNotifsBusy" @click="markAllNotificationsRead">
                   Прочитать все уведомления
@@ -286,6 +286,23 @@
                   </div>
                 </div>
               </div>
+            </div>
+
+            <div class="nomination-leaderboards">
+              <section v-for="board in stats.nomination_leaderboards" :key="board.key" class="nomination-leaderboard">
+                <div class="stats-mini-title">{{ board.label }} — топ-5</div>
+                <div v-if="board.leaders.length === 0" class="muted">Нет данных</div>
+                <ol v-else class="nomination-leader-list">
+                  <li v-for="(leader, index) in board.leaders" :key="`${board.key}-${leader.id}`" class="nomination-leader-row">
+                    <span class="nomination-leader-rank">{{ index + 1 }}.</span>
+                    <button class="user-link nomination-leader-user" type="button" :disabled="!canOpenNominationLeaderMiniProfile(leader)" @click="openNominationLeaderMiniProfile(leader)">
+                      <img v-minio-img="{ key: leader.avatar_name ? `avatars/${leader.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                      <span>{{ leader.username || `user${leader.id}` }}</span>
+                    </button>
+                    <span class="nomination-leader-score">{{ leader.level }} ур. ({{ formatNominationLeaderboardValue(board.key, leader.value) }})</span>
+                  </li>
+                </ol>
+              </section>
             </div>
 
             <div class="stats-monthly-grid">
@@ -946,6 +963,21 @@ type PeriodStats = {
   stream_minutes: number
 }
 
+type NominationLeaderboardLeader = {
+  id: number
+  username?: string | null
+  avatar_name?: string | null
+  role?: string | null
+  value: number
+  level: number
+}
+
+type NominationLeaderboard = {
+  key: string
+  label: string
+  leaders: NominationLeaderboardLeader[]
+}
+
 type SiteStats = {
   total_users: number
   avatars_count: number
@@ -965,6 +997,7 @@ type SiteStats = {
   online_users: number
   online_users_list: OnlineUser[]
   last_month: PeriodStats
+  nomination_leaderboards: NominationLeaderboard[]
 }
 
 type LogRow = {
@@ -1199,6 +1232,7 @@ const stats = reactive<SiteStats>({
     rooms: 0,
     stream_minutes: 0,
   },
+  nomination_leaderboards: [],
 })
 
 const logActions = ref<string[]>([])
@@ -1616,6 +1650,13 @@ function formatMinutes(value: number): string {
   return parts.join(' ')
 }
 
+function formatNominationLeaderboardValue(key: string, value: number): string {
+  if (key === 'room_minutes' || key === 'stream_minutes' || key === 'spectator_minutes') {
+    return formatMinutes(value)
+  }
+  return Math.max(0, Math.floor(Number(value) || 0)).toLocaleString('ru-RU')
+}
+
 function formatRoomIdLabel(value?: number | null): string {
   const roomId = Number(value)
   return Number.isFinite(roomId) && roomId > 0 ? `Комната ${Math.trunc(roomId)}` : '-'
@@ -1673,6 +1714,21 @@ function sanctionStatusClass(status: SanctionListStatus): string {
 function openUserMiniProfile(row: UserMiniProfileTarget): void {
   userMiniProfileTarget.value = row
   userMiniProfileOpen.value = true
+}
+
+function canOpenNominationLeaderMiniProfile(row: NominationLeaderboardLeader): boolean {
+  return canOpenMiniProfileOnAdminPage(row)
+}
+
+function openNominationLeaderMiniProfile(row: NominationLeaderboardLeader): void {
+  if (!canOpenNominationLeaderMiniProfile(row)) return
+  openUserMiniProfile({
+    id: row.id,
+    username: row.username ?? null,
+    avatar_name: row.avatar_name ?? null,
+    role: row.role ?? null,
+    deleted_at: null,
+  })
 }
 
 function canOpenMiniProfileOnAdminPage(value: {
@@ -2060,6 +2116,7 @@ async function loadStats(): Promise<void> {
       total_rooms: data?.total_rooms ?? 0,
       total_games: data?.total_games ?? 0,
       total_stream_minutes: data?.total_stream_minutes ?? 0,
+      nomination_leaderboards: normalizeNominationLeaderboards(data?.nomination_leaderboards),
       active_room_users: data?.active_room_users ?? 0,
       online_users: data?.online_users ?? 0,
       online_users_list: Array.isArray(data?.online_users_list)
@@ -2080,6 +2137,34 @@ async function loadStats(): Promise<void> {
   } finally {
     statsLoading.value = false
   }
+}
+
+function normalizeNominationLeaderboards(value: unknown): NominationLeaderboard[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((rawBoard): NominationLeaderboard[] => {
+    if (!rawBoard || typeof rawBoard !== 'object') return []
+    const board = rawBoard as Record<string, unknown>
+    const key = typeof board.key === 'string' ? board.key : ''
+    const label = typeof board.label === 'string' ? board.label : ''
+    if (!key || !label) return []
+    const leaders = Array.isArray(board.leaders)
+      ? board.leaders.flatMap((rawLeader): NominationLeaderboardLeader[] => {
+        if (!rawLeader || typeof rawLeader !== 'object') return []
+        const leader = rawLeader as Record<string, unknown>
+        const id = Number(leader.id)
+        if (!Number.isFinite(id) || id <= 0) return []
+        return [{
+          id: Math.trunc(id),
+          username: typeof leader.username === 'string' ? leader.username : null,
+          avatar_name: typeof leader.avatar_name === 'string' ? leader.avatar_name : null,
+          role: typeof leader.role === 'string' ? leader.role : null,
+          value: Math.max(0, Math.floor(Number(leader.value) || 0)),
+          level: Math.max(1, Math.floor(Number(leader.level) || 1)),
+        }]
+      })
+      : []
+    return [{ key, label, leaders }]
+  })
 }
 
 async function loadLogActions(): Promise<void> {
@@ -2441,7 +2526,7 @@ async function sendUpdateNotice(): Promise<void> {
 async function kickAllRooms(): Promise<void> {
   if (kickRoomsBusy.value) return
   const ok = await confirmDialog({
-    title: 'Кик из комнат',
+    title: 'Кик всех из комнат',
     text: 'Вы уверены, что хотите кикнуть всех пользователей из всех активных комнат?',
     confirmText: 'Кикнуть',
     cancelText: 'Отмена',
@@ -2463,7 +2548,7 @@ async function kickAllRooms(): Promise<void> {
 async function clearGlobalChat(): Promise<void> {
   if (clearChatBusy.value) return
   const ok = await confirmDialog({
-    title: 'Очистить чат',
+    title: 'Очистить сообщения чата',
     text: 'Вы уверены, что хотите полностью очистить общий чат?',
     confirmText: 'Очистить',
     cancelText: 'Отмена',
@@ -2956,6 +3041,63 @@ onMounted(() => {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 10px;
+      }
+      .nomination-leaderboards {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 10px;
+      }
+      .nomination-leaderboard {
+        min-width: 0;
+        padding: 10px;
+        border-radius: 5px;
+        background-color: $neutral-800;
+        .stats-mini-title {
+          color: $neutral-100;
+        }
+      }
+      .nomination-leader-list {
+        display: flex;
+        flex-direction: column;
+        margin: 0;
+        padding: 0;
+        gap: 6px;
+        list-style: none;
+      }
+      .nomination-leader-row {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+        font-size: 12px;
+      }
+      .nomination-leader-rank,
+      .nomination-leader-score {
+        color: $neutral-500;
+        white-space: nowrap;
+      }
+      .nomination-leader-score {
+        font-size: 11px;
+      }
+      .nomination-leader-user {
+        display: flex;
+        min-width: 0;
+        align-items: center;
+        gap: 5px;
+        overflow: hidden;
+        img {
+          width: 18px;
+          height: 18px;
+          border-radius: 50%;
+          object-fit: cover;
+          flex: 0 0 auto;
+        }
+        span {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
       }
       .chart {
         padding: 10px;

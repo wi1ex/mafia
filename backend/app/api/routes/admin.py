@@ -138,6 +138,7 @@ from ..utils import (
     fetch_live_room_stats,
     has_live_room_snapshot,
     fetch_active_room_game_numbers,
+    build_nomination_leaderboards,
     build_user_stats_out,
     fetch_games_history_page,
     fetch_users_last_room_id,
@@ -302,6 +303,7 @@ async def site_stats(month: str | None = None, session: AsyncSession = Depends(g
     active_users_monthly = await build_active_users_monthly_series(session)
     total_stream_seconds = await calc_total_stream_seconds(session)
     month_stream_seconds = await calc_room_stream_seconds_in_range(session, month_start, month_end)
+    nomination_leaderboards = await build_nomination_leaderboards(session)
 
     r = get_redis()
     active_room_users = await fetch_active_rooms_stats(r)
@@ -370,6 +372,7 @@ async def site_stats(month: str | None = None, session: AsyncSession = Depends(g
             rooms=month_rooms,
             stream_minutes=month_stream_seconds // 60,
         ),
+        nomination_leaderboards=nomination_leaderboards,
     )
 
 

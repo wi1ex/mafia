@@ -144,6 +144,21 @@ class PeriodStatsOut(BaseModel):
     stream_minutes: int
 
 
+class AdminNominationLeaderOut(BaseModel):
+    id: int
+    username: Optional[str] = None
+    avatar_name: Optional[str] = None
+    role: Optional[str] = None
+    value: int
+    level: int
+
+
+class AdminNominationLeaderboardOut(BaseModel):
+    key: str
+    label: str
+    leaders: List[AdminNominationLeaderOut]
+
+
 class SiteStatsOut(BaseModel):
     total_users: int
     avatars_count: int
@@ -163,6 +178,7 @@ class SiteStatsOut(BaseModel):
     online_users: int
     online_users_list: List[OnlineUserOut]
     last_month: PeriodStatsOut
+    nomination_leaderboards: List[AdminNominationLeaderboardOut]
 
 
 class AdminLogOut(BaseModel):
