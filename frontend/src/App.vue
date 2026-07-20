@@ -242,10 +242,11 @@ onBeforeUnmount(() => {
   z-index: 9999;
   &__video {
     display: block;
-    width: 40%;
     border-radius: 10%;
-    object-fit: none;
-    transform: scale(1.5);
+    width: 60%;
+    //width: 40%;
+    //object-fit: none;
+    //transform: scale(1.5);
   }
 }
 
