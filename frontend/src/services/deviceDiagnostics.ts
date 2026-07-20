@@ -274,10 +274,10 @@ export async function logDeviceDiagnostics(source: 'login_completed' | 'home_ope
       },
     }
 
-    console.groupCollapsed(`[device-diagnostics] ${source}`)
-    console.log(report)
-    console.log(JSON.stringify(report, null, 2))
-    console.groupEnd()
+    // Do not use a collapsed console group here: Firefox and some Chromium
+    // console exporters omit records nested inside one. A warning is also
+    // visible when the Console's ordinary "log" level is filtered out.
+    console.warn(`[device-diagnostics] ${source} JSON: ${JSON.stringify(report)}`)
   } catch (error) {
     console.warn('[device-diagnostics] collection failed', error)
   }
