@@ -94,7 +94,7 @@
                   <img :src="iconNoMembers" alt="nomembers" />
                   <span>Пока никого нет...</span>
                 </div>
-                <ul v-else class="ri-users">
+                <ul v-else class="ri-users" :class="{ 'ri-users--two-columns': selectedRoom?.user_limit === 20 }">
                   <li class="ri-user" v-for="m in sortedMembers" :key="m.id" :class="{ dead: m.role === 'player' && m.alive === false }">
                     <span v-if="m.role === 'head'" class="user-numb">Вед.</span>
                     <span v-else-if="m.role === 'player' && m.slot != null" class="user-numb">{{ formatSeatNumber(m.slot) }}.</span>
@@ -1345,6 +1345,12 @@ onBeforeUnmount(() => {
               padding: 0;
               gap: 4px;
               list-style: none;
+              &.ri-users--two-columns {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                grid-template-rows: repeat(12, auto);
+                grid-auto-flow: column;
+              }
               .ri-user {
                 display: flex;
                 align-items: center;
