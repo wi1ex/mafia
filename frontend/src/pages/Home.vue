@@ -231,6 +231,7 @@ import { alertDialog, confirmDialog } from '@/services/confirm'
 import { api } from '@/services/axios'
 import { canOpenMiniProfileTarget, normalizeMiniProfileUserId } from '@/services/miniProfile'
 import { roomGameDefault, type RoomGameParams } from '@/services/gameParams'
+import { logDeviceDiagnostics } from '@/services/deviceDiagnostics'
 import { useAuthStore, useSettingsStore, useUserStore } from '@/store'
 import Carousel from '@/components/Carousel.vue'
 import RoomModal from '@/components/RoomModal.vue'
@@ -941,6 +942,7 @@ watch(() => route.query.focus, (v) => {
 })
 
 onMounted(() => {
+  void logDeviceDiagnostics('home_opened')
   startWS()
   document.addEventListener('pointerdown', onGlobalPointerDown, { capture: true })
   const f = Number(route.query.focus)
