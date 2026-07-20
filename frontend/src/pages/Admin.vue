@@ -3116,9 +3116,13 @@ onMounted(() => {
       }
       .nomination-leader-user {
         display: flex;
-        min-width: 0;
         align-items: center;
         gap: 5px;
+        min-width: 0;
+        border: none;
+        background: none;
+        color: white;
+        cursor: pointer;
         overflow: hidden;
         img {
           width: 18px;
