@@ -50,13 +50,16 @@
               <UiSwitch class="switch-item" :width="250" size="low" v-model="site.games_can_start" label="Запуск игр" :disabled="savingSettings" />
               <UiSwitch class="switch-item" :width="250" size="low" v-model="site.self_speech_finish_enabled" label="Завершение своей речи" :disabled="savingSettings" />
               <div class="bulk-admin-actions">
-                <button class="btn danger width-full" :disabled="kickRoomsBusy || clearChatBusy || markAllNotifsBusy" @click="kickAllRooms">
+                <button class="btn danger width-full" :disabled="kickRoomsBusy || clearChatBusy || endGamesBusy || markAllNotifsBusy" @click="kickAllRooms">
                   Кик всех из комнат
                 </button>
-                <button class="btn danger width-full" :disabled="kickRoomsBusy || clearChatBusy || markAllNotifsBusy" @click="clearGlobalChat">
+                <button class="btn danger width-full" :disabled="kickRoomsBusy || clearChatBusy || endGamesBusy || markAllNotifsBusy" @click="clearGlobalChat">
                   Очистить сообщения чата
                 </button>
-                <button class="btn danger width-full" :disabled="kickRoomsBusy || clearChatBusy || markAllNotifsBusy" @click="markAllNotificationsRead">
+                <button class="btn danger width-full" :disabled="kickRoomsBusy || clearChatBusy || endGamesBusy || markAllNotifsBusy" @click="endAllGames">
+                  Завершить все игры
+                </button>
+                <button class="btn danger width-full" :disabled="kickRoomsBusy || clearChatBusy || endGamesBusy || markAllNotifsBusy" @click="markAllNotificationsRead">
                   Прочитать все уведомления
                 </button>
               </div>
@@ -1339,6 +1342,7 @@ const sanctionAdjustTitle = computed(() => {
 })
 const kickRoomsBusy = ref(false)
 const clearChatBusy = ref(false)
+const endGamesBusy = ref(false)
 const markAllNotifsBusy = ref(false)
 let logsUserTimer: number | undefined
 let roomsUserTimer: number | undefined
@@ -2564,6 +2568,36 @@ async function clearGlobalChat(): Promise<void> {
     void alertDialog('Не удалось очистить общий чат')
   } finally {
     clearChatBusy.value = false
+  }
+}
+
+async function endAllGames(): Promise<void> {
+  if (endGamesBusy.value) return
+  const ok = await confirmDialog({
+    title: 'Завершить все игры',
+    text: 'Все незавершенные игры в активных комнатах будут завершены. Продолжить?',
+    confirmText: 'Завершить',
+    cancelText: 'Отмена',
+    checkboxLabel: 'Подтверждаю',
+    checkboxRequired: true,
+  })
+  if (!ok) return
+  endGamesBusy.value = true
+  try {
+    const { data } = await api.post('/admin/games/end-all')
+    const ended = Math.max(0, Math.floor(Number(data?.ended) || 0))
+    const failed = Math.max(0, Math.floor(Number(data?.failed) || 0))
+    if (failed > 0) {
+      void alertDialog(`Завершено игр: ${ended}. Не удалось завершить: ${failed}.`)
+    } else if (ended > 0) {
+      void alertDialog(`Завершено игр: ${ended}.`)
+    } else {
+      void alertDialog('Активных игр нет')
+    }
+  } catch {
+    void alertDialog('Не удалось завершить игры')
+  } finally {
+    endGamesBusy.value = false
   }
 }
 

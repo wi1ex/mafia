@@ -159,6 +159,12 @@ class AdminNominationLeaderboardOut(BaseModel):
     leaders: List[AdminNominationLeaderOut]
 
 
+class AdminGamesEndAllOut(BaseModel):
+    ended: int
+    skipped: int
+    failed: int
+
+
 class SiteStatsOut(BaseModel):
     total_users: int
     avatars_count: int

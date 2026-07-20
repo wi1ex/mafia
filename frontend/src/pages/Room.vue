@@ -3664,7 +3664,7 @@ onBeforeUnmount(() => {
     pointer-events: none;
     z-index: 1000;
     &.media-gate {
-      background-color: rgba($neutral-black, 0.5);
+      background-color: rgba($neutral-black, 0.6);
       backdrop-filter: blur(12px);
       pointer-events: auto;
       cursor: pointer;

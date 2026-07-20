@@ -22,9 +22,11 @@ from ...models.global_chat import GlobalChatMessage, GlobalChatMessageReaction
 from ...core.logging import log_action
 from ...realtime.sio import sio
 from ...realtime.utils import (
+    GameActionContext,
     leave_room_atomic,
     stop_screen_for_user,
     emit_rooms_occupancy_safe,
+    perform_game_end,
     record_spectator_leave,
 )
 from ...security.decorators import log_route, require_protected_admin_dep
@@ -66,6 +68,7 @@ from ...schemas.admin import (
     AdminSettingsUpdateIn,
     AdminUpdateNotificationIn,
     AdminUpdateNotificationOut,
+    AdminGamesEndAllOut,
     PublicSettingsOut,
     SiteStatsOut,
     PeriodStatsOut,
@@ -1185,6 +1188,82 @@ async def clear_global_chat(ident: Identity = Depends(get_identity), session: As
         await emit_global_chat_cleared()
 
     return Ok()
+
+
+@router.post("/games/end-all", response_model=AdminGamesEndAllOut, dependencies=ADMIN_GUARD)
+@log_route("admin.games.end_all")
+async def games_end_all(ident: Identity = Depends(require_protected_admin_dep), session: AsyncSession = Depends(get_session)) -> AdminGamesEndAllOut:
+    r = get_redis()
+    try:
+        room_ids_raw = await r.zrange("rooms:index", 0, -1)
+    except Exception:
+        room_ids_raw = []
+
+    room_ids: list[int] = []
+    for raw_room_id in room_ids_raw or []:
+        try:
+            room_id = int(raw_room_id)
+        except (TypeError, ValueError):
+            continue
+        if room_id > 0:
+            room_ids.append(room_id)
+
+    actor_id = int(ident["id"])
+    actor_session = {"username": str(ident["username"] or f"user{actor_id}")}
+    limiter = asyncio.Semaphore(10)
+
+    async def end_room_game(room_id: int) -> str:
+        async with limiter:
+            try:
+                raw_state = await r.hgetall(f"room:{room_id}:game_state") or {}
+            except Exception:
+                log.exception("admin.games.end_all.load_state_failed", rid=room_id)
+                return "failed"
+            if not raw_state:
+                return "skipped"
+            if str(raw_state.get("phase") or "idle") == "idle" or str(raw_state.get("game_finished") or "0") == "1":
+                return "skipped"
+
+            context = GameActionContext.from_raw_state(
+                uid=actor_id,
+                rid=room_id,
+                r=r,
+                raw_state=raw_state,
+            )
+            try:
+                result = await perform_game_end(
+                    context,
+                    actor_session,
+                    confirm=True,
+                    allow_non_head=True,
+                    reason="manual",
+                )
+            except Exception:
+                log.exception("admin.games.end_all.end_failed", rid=room_id)
+                return "failed"
+
+            if result.get("ok"):
+                return "ended"
+
+            return "skipped" if result.get("error") == "no_game" else "failed"
+
+    results = await asyncio.gather(*(end_room_game(room_id) for room_id in room_ids))
+    ended = results.count("ended")
+    skipped = results.count("skipped")
+    failed = results.count("failed")
+
+    try:
+        await log_action(
+            session,
+            user_id=actor_id,
+            username=actor_session["username"],
+            action="admin_games_end_all",
+            details=f"Принудительное завершение игр ended={ended} skipped={skipped} failed={failed}",
+        )
+    except Exception:
+        log.exception("admin.games.end_all.log_failed")
+
+    return AdminGamesEndAllOut(ended=ended, skipped=skipped, failed=failed)
 
 
 @router.post("/notifs/mark-all-read", response_model=Ok, dependencies=ADMIN_GUARD)
