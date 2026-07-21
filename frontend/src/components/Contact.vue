@@ -83,6 +83,17 @@
                   <UiIcon v-else class="contact-email-img-3" :icon="iconCheckMark" />
                 </button>
               </div>
+              <UiCheckbox
+                v-if="!auth.isAuthed"
+                v-model="personalDataConsent"
+                class="contact-legal-checkbox"
+                :disabled="busy"
+                required
+              >
+                <span>
+                  С <a href="/files/privacy-policy.pdf" target="_blank" rel="noopener noreferrer">Политикой обработки ПД</a> ознакомлен(а)
+                </span>
+              </UiCheckbox>
             </div>
 
             <div class="contact-actions">
@@ -120,11 +131,13 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { api } from '@/services/axios'
 import { alertDialog } from '@/services/confirm'
+import { useAuthStore } from '@/store'
 
 import UiIcon from '@/components/UiIcon.vue'
 import UiDropdown from '@/components/UiDropdown.vue'
 import UiInput from '@/components/UiInput.vue'
 import UiButton from '@/components/UiButton.vue'
+import UiCheckbox from '@/components/UiCheckbox.vue'
 import UiScrollbar from '@/components/UiScrollbar.vue'
 
 import iconClose from '@/assets/svg/iconClose.svg'
@@ -135,6 +148,8 @@ import iconCheckMark from '@/assets/svg/iconCheckMark.svg'
 const props = defineProps<{
   open: boolean
 }>()
+
+const auth = useAuthStore()
 
 const emit = defineEmits<{
   'update:open': [boolean]
@@ -164,6 +179,7 @@ const submitAttempted = ref(false)
 const topic = ref('')
 const messageText = ref('')
 const replyContact = ref('')
+const personalDataConsent = ref(false)
 const emailCopied = ref(false)
 const contactEmailTextEl = ref<HTMLElement | null>(null)
 const contactDrawerPanel = ref<HTMLElement | null>(null)
@@ -178,7 +194,10 @@ const selectedTopicLabel = computed(() => topicOptions.find((option) => option.v
 const contactOk = computed(() => normalizedContact.value.length > 0)
 const topicOk = computed(() => Boolean(selectedTopicLabel.value))
 const textOk = computed(() => normalizedText.value.length > 0)
-const canSubmit = computed(() => topicOk.value && textOk.value && contactOk.value)
+const canSubmit = computed(() => (
+  topicOk.value && textOk.value && contactOk.value &&
+  (auth.isAuthed || personalDataConsent.value)
+))
 const replyContactInvalid = computed(() => submitAttempted.value && !contactOk.value)
 const topicInvalid = computed(() => submitAttempted.value && !topicOk.value)
 const textInvalid = computed(() => submitAttempted.value && !textOk.value)
@@ -211,6 +230,7 @@ function resetForm(): void {
   topic.value = ''
   messageText.value = ''
   replyContact.value = ''
+  personalDataConsent.value = false
   emailCopied.value = false
   submitAttempted.value = false
 }
@@ -259,13 +279,17 @@ async function submit(): Promise<void> {
       topic: selectedTopicLabel.value,
       text: normalizedText.value,
       contact: normalizedContact.value,
+      personal_data_consent: personalDataConsent.value,
     })
     resetForm()
     emit('update:open', false)
     void alertDialog('Обращение отправлено')
   } catch (e: any) {
     const status = Number(e?.response?.status || 0)
-    if (status === 422) {
+    const detail = String(e?.response?.data?.detail || '')
+    if (status === 428 && detail === 'contact_personal_data_consent_required') {
+      void alertDialog('Подтвердите согласие на обработку данных обращения')
+    } else if (status === 422) {
       void alertDialog('Заполните все поля обращения')
     } else {
       void alertDialog('Не удалось отправить обращение')
@@ -422,6 +446,10 @@ onBeforeUnmount(() => {
             }
           }
         }
+      }
+      .contact-legal-checkbox {
+        margin: 0 12px;
+        max-width: 400px;
       }
     }
     :deep(.contact-textarea textarea) {

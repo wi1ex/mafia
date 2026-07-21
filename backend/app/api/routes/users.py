@@ -482,6 +482,12 @@ async def support_link_click(payload: SupportLinkClickIn | None = None, ident: I
 @log_route("users.contact_request")
 @rate_limited(contact_request_rate_key, limit=3, window_s=60)
 async def contact_request(request: Request, payload: ContactRequestIn, ident: Identity | None = Depends(get_identity_optional), db: AsyncSession = Depends(get_session)) -> Ok:
+    if ident is None and payload.personal_data_consent is not True:
+        raise HTTPException(
+            status_code=status.HTTP_428_PRECONDITION_REQUIRED,
+            detail="contact_personal_data_consent_required",
+        )
+
     topic = non_empty_str(payload.topic)
     text = non_empty_str(payload.text)
     contact = non_empty_str(payload.contact)
