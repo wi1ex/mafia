@@ -81,6 +81,9 @@
                     <span>Подтверждаю, что мне есть 18 лет</span>
                   </UiCheckbox>
                   <UiCheckbox v-model="reg.acceptRules" theme="light">
+                    <span>С <router-link to="/rules" target="_blank">правилами платформы</router-link> ознакомлен и согласен</span>
+                  </UiCheckbox>
+                  <UiCheckbox v-model="reg.acceptRules" theme="light">
                     <span>
                       Принимаю <a href="/files/user-agreement.pdf" target="_blank" rel="noopener noreferrer">Пользовательское соглашение</a>
                       и <router-link to="/rules" target="_blank">Правила платформы</router-link>; с
