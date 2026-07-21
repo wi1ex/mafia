@@ -5,10 +5,10 @@
         <section id="intro" class="hero">
           <div class="hero-content">
             <p class="eyebrow">deceit.games</p>
-            <h1>Правила сообщества</h1>
+            <h1>Правила платформы</h1>
             <div class="tags">
               <span class="pill">14+</span>
-              <span class="pill">Редакция от 15.07.2026</span>
+              <span class="pill">Редакция от 21.07.2026</span>
             </div>
           </div>
         </section>
@@ -19,9 +19,9 @@
             <p>Конкретный вид санкции, срок и дополнительные меры определяются Администрацией/Модераторами с учетом характера нарушения, повторяемости, последствий и иных обстоятельств.</p>
           </div>
           <div class="notice-list">
-            <div class="notice-item notice-item--suspend">SUSPEND — временное отстранение от участия в играх.</div>
-            <div class="notice-item notice-item--timeout">TIMEOUT — временное ограничение доступа к комнатам и чату.</div>
-            <div class="notice-item notice-item--ban">BAN — полная блокировка доступа к платформе.</div>
+            <div class="notice-item notice-item--suspend">Отстранение — временное отстранение от участия в играх.</div>
+            <div class="notice-item notice-item--timeout">Таймаут — временное ограничение доступа к комнатам и чату.</div>
+            <div class="notice-item notice-item--ban">Бан — полная блокировка доступа к платформе.</div>
           </div>
         </section>
 
@@ -407,7 +407,7 @@ onBeforeUnmount(() => {
       gap: 10px;
       .eyebrow {
         margin: 0;
-        font-size: 12px;
+        font-size: 18px;
         letter-spacing: 1.5px;
         text-transform: uppercase;
         color: $neutral-300;
@@ -493,6 +493,7 @@ onBeforeUnmount(() => {
       p {
         margin: 0;
         color: $neutral-300;
+        font-size: 14px;
       }
     }
     .notice-list {
