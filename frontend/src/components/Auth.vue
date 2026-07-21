@@ -83,10 +83,10 @@
                   <UiCheckbox v-model="reg.acceptRules" theme="light">
                     <span>С <router-link to="/rules" target="_blank">Правилами платформы</router-link> ознакомлен(а)</span>
                   </UiCheckbox>
-                  <UiCheckbox v-model="reg.acceptLegalDocuments" theme="light">
+                  <UiCheckbox v-model="reg.acceptLegalDocuments" class="auth-legal-checkbox" theme="light">
                     <span>
                       Принимаю <a href="/files/user-agreement.pdf" target="_blank" rel="noopener noreferrer">Пользовательское соглашение</a>,
-                      с <a href="/files/privacy-policy.pdf" target="_blank" rel="noopener noreferrer">Политикой обработки персональных данных</a> ознакомлен(а)
+                      с <a href="/files/privacy-policy.pdf" target="_blank" rel="noopener noreferrer">Политикой обработки ПД</a> ознакомлен(а)
                     </span>
                   </UiCheckbox>
                 </div>
@@ -407,6 +407,9 @@ onMounted(() => {
           flex-direction: column;
           padding-top: 16px;
           gap: 16px;
+          .auth-legal-checkbox {
+            max-width: 310px;
+          }
         }
         .forgot-password {
           display: flex;
