@@ -9,8 +9,8 @@
             <div class="tags">
               <span class="pill">18+</span>
               <span class="pill">Редакция от 21.07.2026</span>
-              <a class="pill" href="/files/user-agreement.pdf" target="_blank" rel="noopener noreferrer">Пользовательское соглашение</a>
-              <a class="pill" href="/files/privacy-policy.pdf" target="_blank" rel="noopener noreferrer">Политика обработки ПД</a>
+              <a class="pill docs" href="/files/user-agreement.pdf" target="_blank" rel="noopener noreferrer">Пользовательское соглашение</a>
+              <a class="pill docs" href="/files/privacy-policy.pdf" target="_blank" rel="noopener noreferrer">Политика обработки ПД</a>
             </div>
           </div>
         </section>
@@ -434,10 +434,12 @@ onBeforeUnmount(() => {
           text-transform: uppercase;
           text-decoration: none;
           transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out, color 0.25s ease-in-out;
-          &:hover {
-            border-color: $orange-500;
-            background-color: $neutral-700;
-            color: $neutral-white;
+          &.docs {
+            &:hover {
+              border-color: $orange-500;
+              background-color: $neutral-700;
+              color: $neutral-white;
+            }
           }
         }
       }
