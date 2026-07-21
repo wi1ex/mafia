@@ -81,13 +81,12 @@
                     <span>Подтверждаю, что мне есть 18 лет</span>
                   </UiCheckbox>
                   <UiCheckbox v-model="reg.acceptRules" theme="light">
-                    <span>С <router-link to="/rules" target="_blank">правилами платформы</router-link> ознакомлен и согласен</span>
+                    <span>С <router-link to="/rules" target="_blank">Правилами платформы</router-link> ознакомлен(а)</span>
                   </UiCheckbox>
-                  <UiCheckbox v-model="reg.acceptRules" theme="light">
+                  <UiCheckbox v-model="reg.acceptLegalDocuments" theme="light">
                     <span>
-                      Принимаю <a href="/files/user-agreement.pdf" target="_blank" rel="noopener noreferrer">Пользовательское соглашение</a>
-                      и <router-link to="/rules" target="_blank">Правила платформы</router-link>; с
-                      <a href="/files/privacy-policy.pdf" target="_blank" rel="noopener noreferrer">Политикой обработки персональных данных</a> ознакомлен(а)
+                      Принимаю <a href="/files/user-agreement.pdf" target="_blank" rel="noopener noreferrer">Пользовательское соглашение</a>,
+                      с <a href="/files/privacy-policy.pdf" target="_blank" rel="noopener noreferrer">Политикой обработки персональных данных</a> ознакомлен(а)
                     </span>
                   </UiCheckbox>
                 </div>
@@ -149,7 +148,14 @@ const loginBusy = ref(false)
 const regBusy = ref(false)
 
 const login = reactive({ username: '', password: '' })
-const reg = reactive({ username: '', password: '', passwordConfirm: '', acceptRules: false, confirmAdult: false })
+const reg = reactive({
+  username: '',
+  password: '',
+  passwordConfirm: '',
+  acceptRules: false,
+  acceptLegalDocuments: false,
+  confirmAdult: false,
+})
 
 const authUsername = computed({
   get: () => isRegisterMode.value ? reg.username : login.username,
@@ -192,6 +198,7 @@ const canRegisterSubmit = computed(() =>
   !hasPasswordWhitespace(reg.passwordConfirm) &&
   passwordsMatch.value &&
   reg.acceptRules &&
+  reg.acceptLegalDocuments &&
   reg.confirmAdult
 )
 
@@ -280,6 +287,7 @@ async function submitRegister() {
       username: reg.username.trim(),
       password: reg.password,
       accept_rules: reg.acceptRules,
+      accept_legal_documents: reg.acceptLegalDocuments,
       confirm_adult: reg.confirmAdult,
     })
     if (auth.isAuthed) close()

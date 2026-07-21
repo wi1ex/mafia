@@ -341,7 +341,13 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function registerWithPassword(payload: { username: string; password: string; accept_rules?: boolean; confirm_adult?: boolean }): Promise<void> {
+  async function registerWithPassword(payload: {
+    username: string
+    password: string
+    accept_rules?: boolean
+    accept_legal_documents?: boolean
+    confirm_adult?: boolean
+  }): Promise<void> {
     const retryIn = remainingCooldownSeconds('register')
     if (retryIn > 0) {
       void alertDialog(`Попробуйте снова через ${formatRetryAfter(retryIn)}.`)
@@ -368,6 +374,10 @@ export const useAuthStore = defineStore('auth', () => {
       }
       if (st === 428 && detail === 'adult_confirmation_required') {
         void alertDialog('Необходимо подтвердить, что вам исполнилось 18 лет')
+        return
+      }
+      if (st === 428 && detail === 'legal_documents_required') {
+        void alertDialog('Необходимо принять Пользовательское соглашение и ознакомиться с Политикой обработки персональных данных')
         return
       }
       if (st === 403 && detail === 'registration_disabled') {
