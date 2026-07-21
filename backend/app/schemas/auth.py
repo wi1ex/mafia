@@ -19,6 +19,7 @@ class PasswordRegisterIn(BaseModel):
     username: UsernameClean = Field(min_length=2, max_length=20)
     password: str = Field(min_length=8, max_length=32)
     accept_rules: Optional[bool] | None = None
+    confirm_adult: Optional[bool] | None = None
 
 
 class BotVerifyIn(BaseModel):

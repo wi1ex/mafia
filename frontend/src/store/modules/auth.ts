@@ -341,7 +341,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function registerWithPassword(payload: { username: string; password: string; accept_rules?: boolean }): Promise<void> {
+  async function registerWithPassword(payload: { username: string; password: string; accept_rules?: boolean; confirm_adult?: boolean }): Promise<void> {
     const retryIn = remainingCooldownSeconds('register')
     if (retryIn > 0) {
       void alertDialog(`Попробуйте снова через ${formatRetryAfter(retryIn)}.`)
@@ -364,6 +364,10 @@ export const useAuthStore = defineStore('auth', () => {
       if (handleAuthRateLimit('register', e)) return
       if (st === 428 && detail === 'rules_required') {
         void alertDialog('Необходимо согласиться с правилами')
+        return
+      }
+      if (st === 428 && detail === 'adult_confirmation_required') {
+        void alertDialog('Необходимо подтвердить, что вам исполнилось 18 лет')
         return
       }
       if (st === 403 && detail === 'registration_disabled') {

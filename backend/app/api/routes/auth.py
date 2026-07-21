@@ -42,6 +42,9 @@ async def register(payload: PasswordRegisterIn, resp: Response, request: Request
     if payload.accept_rules is not True:
         raise HTTPException(status_code=status.HTTP_428_PRECONDITION_REQUIRED, detail="rules_required")
 
+    if payload.confirm_adult is not True:
+        raise HTTPException(status_code=status.HTTP_428_PRECONDITION_REQUIRED, detail="adult_confirmation_required")
+
     username = normalize_username(payload.username)
     password = normalize_password(payload.password)
     if username.lower().startswith(("deleted_", "user_")):
@@ -82,7 +85,10 @@ async def register(payload: PasswordRegisterIn, resp: Response, request: Request
         user_id=user_id,
         username=username,
         action=action,
-        details=f"Регистрация пользователя: user_id={user_id} username={username}",
+        details=(
+            f"Регистрация пользователя: user_id={user_id} username={username}; "
+            "rules_accepted=true; adult_confirmed=true"
+        ),
     )
 
     await refresh_user_profile_cache(db, user_id)

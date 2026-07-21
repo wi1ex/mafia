@@ -77,8 +77,15 @@
                       <span id="auth-reg-password-confirm-hint">{{ reg.passwordConfirm.length }}/{{ PASSWORD_MAX }}</span>
                     </template>
                   </UiInput>
+                  <UiCheckbox v-model="reg.confirmAdult" theme="light">
+                    <span>Подтверждаю, что мне есть 18 лет</span>
+                  </UiCheckbox>
                   <UiCheckbox v-model="reg.acceptRules" theme="light">
-                    <span>С <router-link to="/rules" target="_blank">правилами платформы</router-link> ознакомлен и согласен</span>
+                    <span>
+                      Принимаю <a href="/files/user-agreement.pdf" target="_blank" rel="noopener noreferrer">Пользовательское соглашение</a>
+                      и <router-link to="/rules" target="_blank">Правила платформы</router-link>; с
+                      <a href="/files/privacy-policy.pdf" target="_blank" rel="noopener noreferrer">Политикой обработки персональных данных</a> ознакомлен(а)
+                    </span>
                   </UiCheckbox>
                 </div>
               </div>
@@ -139,7 +146,7 @@ const loginBusy = ref(false)
 const regBusy = ref(false)
 
 const login = reactive({ username: '', password: '' })
-const reg = reactive({ username: '', password: '', passwordConfirm: '', acceptRules: false })
+const reg = reactive({ username: '', password: '', passwordConfirm: '', acceptRules: false, confirmAdult: false })
 
 const authUsername = computed({
   get: () => isRegisterMode.value ? reg.username : login.username,
@@ -181,7 +188,8 @@ const canRegisterSubmit = computed(() =>
   !hasPasswordWhitespace(reg.password) &&
   !hasPasswordWhitespace(reg.passwordConfirm) &&
   passwordsMatch.value &&
-  reg.acceptRules
+  reg.acceptRules &&
+  reg.confirmAdult
 )
 
 const loginUsernameInvalid = computed(() => {
@@ -269,6 +277,7 @@ async function submitRegister() {
       username: reg.username.trim(),
       password: reg.password,
       accept_rules: reg.acceptRules,
+      confirm_adult: reg.confirmAdult,
     })
     if (auth.isAuthed) close()
   } finally { regBusy.value = false }
