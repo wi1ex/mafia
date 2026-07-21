@@ -2657,7 +2657,6 @@ async function restoreAfterGameEnd() {
   if (!id) return
   optimisticUnblockSelfAfterGame()
   if (micOn.value) await toggleMic()
-  if (!camOn.value) await toggleCam()
   if (!speakersOn.value) await toggleSpeakers()
   if (!visibilityOn.value) await toggleVisibility()
 }

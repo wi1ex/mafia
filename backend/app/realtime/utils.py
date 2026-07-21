@@ -5375,7 +5375,7 @@ async def finish_game(r, rid: int, *, result: str, head_uid: int | None = None, 
 
     for target_uid in target_ids:
         try:
-            new_state = await apply_state(r, rid, target_uid, {"mic": True, "cam": True, "speakers": True, "visibility": True})
+            new_state = await apply_state(r, rid, target_uid, {"mic": False, "speakers": True, "visibility": True})
             if new_state:
                 await emit_state_changed_filtered(r, rid, target_uid, new_state, phase_override="idle")
         except Exception:
@@ -7505,7 +7505,7 @@ async def _perform_game_end_unlocked(ctx, sess: Optional[dict[str, Any]], *, con
             continue
 
         try:
-            new_state = await apply_state(r, rid, target_uid, {"mic": False, "cam": True, "speakers": True, "visibility": True})
+            new_state = await apply_state(r, rid, target_uid, {"mic": False, "speakers": True, "visibility": True})
             if new_state:
                 await emit_state_changed_filtered(r, rid, target_uid, new_state, phase_override="idle")
         except Exception:
