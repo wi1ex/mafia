@@ -863,6 +863,7 @@ async def update_game_ppk(game_id: int, payload: AdminGamePpkUpdateIn, ident: Id
     if not game:
         raise HTTPException(status_code=404, detail="game_not_found")
 
+    cache_user_ids = game_stats_cache_user_ids(game)
     original_actions = getattr(game, "actions", None)
     original_actions_list = original_actions if isinstance(original_actions, list) else []
     actions = normalizeGameActionsForUpdate(original_actions_list)
@@ -920,6 +921,11 @@ async def update_game_ppk(game_id: int, payload: AdminGamePpkUpdateIn, ident: Id
             commit=False,
         )
         await session.commit()
+        await invalidate_game_stats_cache_for_game_users(
+            cache_user_ids,
+            "admin.games.ppk_update.invalidate_stats_cache_failed",
+            game_id=gid,
+        )
 
     return AdminGamePpkOut(
         id=gid,
@@ -939,6 +945,7 @@ async def update_game_foul_removals(game_id: int, payload: AdminGameFoulRemovals
     if not game:
         raise HTTPException(status_code=404, detail="game_not_found")
 
+    cache_user_ids = game_stats_cache_user_ids(game)
     valid_user_ids = game_seat_user_ids(getattr(game, "seats", None))
     if not valid_user_ids:
         raise HTTPException(status_code=409, detail="foul_removal_players_not_found")
@@ -1049,6 +1056,11 @@ async def update_game_foul_removals(game_id: int, payload: AdminGameFoulRemovals
             commit=False,
         )
         await session.commit()
+        await invalidate_game_stats_cache_for_game_users(
+            cache_user_ids,
+            "admin.games.foul_removals_update.invalidate_stats_cache_failed",
+            game_id=gid,
+        )
 
     return AdminGameFoulRemovalsOut(
         id=gid,
