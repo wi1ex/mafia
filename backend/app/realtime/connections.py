@@ -1,7 +1,6 @@
 from __future__ import annotations
 import asyncio
 from contextlib import suppress
-from time import time
 from typing import Any, Mapping
 import structlog
 from ..core.clients import get_redis
@@ -246,16 +245,6 @@ async def validate_socket_session(
         auth_sid = str(session.get("auth_sid") or "")
         if not auth_sid:
             raise _SocketSessionRejected("session_expired")
-
-        try:
-            auth_expires_at = int(session.get("auth_expires_at") or 0)
-        except (TypeError, ValueError):
-            auth_expires_at = 0
-        if auth_expires_at <= int(time()):
-            raise _SocketSessionRejected(
-                "access_token_expired",
-                emit_force_logout=False,
-            )
 
         r = get_redis()
         async with r.pipeline() as p:

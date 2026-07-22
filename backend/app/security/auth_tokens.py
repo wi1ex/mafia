@@ -162,11 +162,7 @@ async def get_identity(creds: HTTPAuthorizationCredentials = Depends(HTTPBearer(
 
 
 async def get_identity_optional(creds: HTTPAuthorizationCredentials = Depends(HTTPBearer(auto_error=False))) -> Identity | None:
-    if not creds or creds.scheme.lower() != "bearer":
+    if not creds:
         return None
 
-    try:
-        return await get_identity(creds)
-
-    except HTTPException:
-        return None
+    return await get_identity(creds)
