@@ -387,7 +387,7 @@ onBeforeUnmount(() => {
             --ui-icon-color: #{$neutral-400};
           }
           .bell-title {
-            max-width: 280px;
+            max-width: 310px;
             color: $neutral-black;
             font-family: Hauora-Bold;
             font-size: 16px;

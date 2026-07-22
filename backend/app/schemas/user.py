@@ -309,7 +309,7 @@ class SupportLinkClickIn(BaseModel):
 class ContactRequestIn(BaseModel):
     topic: str = Field(min_length=1, max_length=120)
     text: str = Field(min_length=1, max_length=2000)
-    contact: str = Field(min_length=1, max_length=160)
+    contact: str = Field(default="", max_length=160)
     personal_data_consent: bool = False
 
 

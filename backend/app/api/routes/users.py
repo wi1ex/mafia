@@ -497,8 +497,10 @@ async def contact_request(request: Request, payload: ContactRequestIn, ident: Id
     if not text:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="text_empty")
 
-    if not contact:
+    if ident is None and not contact:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="contact_empty")
+
+    stored_contact = contact or "-"
 
     uid = int(ident["id"]) if ident else None
     username = str(ident.get("username") or "") if ident else None
@@ -506,7 +508,7 @@ async def contact_request(request: Request, payload: ContactRequestIn, ident: Id
     db.add(
         ContactRequestRecord(
             user_id=uid,
-            contact=contact,
+            contact=stored_contact,
             topic=topic,
             text=text,
         )
@@ -518,7 +520,7 @@ async def contact_request(request: Request, payload: ContactRequestIn, ident: Id
         "Новое обращение с сайта\n\n"
         f"Пользователь: {author_label}\n"
         f"ID пользователя: {uid or '-'}\n"
-        f"Контакт: {contact}\n"
+        f"Контакт: {stored_contact}\n"
         f"Тема: {topic}\n\n"
         f"Сообщение:\n{text}"
     )

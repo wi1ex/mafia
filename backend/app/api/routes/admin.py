@@ -531,7 +531,7 @@ async def reply_to_contact_request(contact_request_id: int, payload: AdminContac
 
     note = Notif(
         user_id=target_user_id,
-        title="Ответ администрации",
+        title="Ответ администрации по обращению",
         text=reply_text,
     )
     session.add(note)

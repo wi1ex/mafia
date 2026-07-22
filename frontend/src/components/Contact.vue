@@ -12,23 +12,25 @@
             </header>
 
             <div class="contact-body">
-              <span class="contact-body-title">Контактные данные</span>
-              <UiInput
-                class="contact-body-input"
-                id="contact-request-contact"
-                v-model="replyContact"
-                mode="light"
-                label-mode="placeholder"
-                label="Оставьте email/telegram для обратной связи"
-                :maxlength="CONTACT_MAX"
-                autocomplete="off"
-                :invalid="replyContactInvalid"
-                :disabled="busy"
-              >
-                <template #meta>
-                  <span>{{ replyContact.length }}/{{ CONTACT_MAX }}</span>
-                </template>
-              </UiInput>
+              <template v-if="!auth.isAuthed">
+                <span class="contact-body-title">Контактные данные</span>
+                <UiInput
+                  class="contact-body-input"
+                  id="contact-request-contact"
+                  v-model="replyContact"
+                  mode="light"
+                  label-mode="placeholder"
+                  label="Оставьте email/telegram для обратной связи"
+                  :maxlength="CONTACT_MAX"
+                  autocomplete="off"
+                  :invalid="replyContactInvalid"
+                  :disabled="busy"
+                >
+                  <template #meta>
+                    <span>{{ replyContact.length }}/{{ CONTACT_MAX }}</span>
+                  </template>
+                </UiInput>
+              </template>
 
               <span class="contact-body-title">Тема обращения</span>
               <UiDropdown
@@ -192,14 +194,14 @@ let prevOverflow = ''
 const normalizedContact = computed(() => normalizeInlineText(replyContact.value).slice(0, CONTACT_MAX))
 const normalizedText = computed(() => normalizeMessageText(messageText.value).slice(0, TEXT_MAX))
 const selectedTopicLabel = computed(() => topicOptions.find((option) => option.value === topic.value)?.label || '')
-const contactOk = computed(() => normalizedContact.value.length > 0)
+const contactOk = computed(() => auth.isAuthed || normalizedContact.value.length > 0)
 const topicOk = computed(() => Boolean(selectedTopicLabel.value))
 const textOk = computed(() => normalizedText.value.length > 0)
 const canSubmit = computed(() => (
   topicOk.value && textOk.value && contactOk.value &&
   (auth.isAuthed || personalDataConsent.value)
 ))
-const replyContactInvalid = computed(() => submitAttempted.value && !contactOk.value)
+const replyContactInvalid = computed(() => submitAttempted.value && !auth.isAuthed && !contactOk.value)
 const topicInvalid = computed(() => submitAttempted.value && !topicOk.value)
 const textInvalid = computed(() => submitAttempted.value && !textOk.value)
 
@@ -279,7 +281,7 @@ async function submit(): Promise<void> {
     await api.post('/users/contact_request', {
       topic: selectedTopicLabel.value,
       text: normalizedText.value,
-      contact: normalizedContact.value,
+      contact: auth.isAuthed ? '' : normalizedContact.value,
       personal_data_consent: personalDataConsent.value,
     })
     resetForm()
