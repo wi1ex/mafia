@@ -195,6 +195,7 @@ __all__ = [
     "contact_request_rate_key",
     "send_contact_request_admin_telegram_message",
     "schedule_contact_request_admin_telegram_message",
+    "schedule_user_telegram_notice",
     "pair",
     "friend_profile_text",
     "build_friend_list_item",
@@ -1775,6 +1776,10 @@ def _schedule_user_telegram_notice(uid: int, telegram_id: int | None, title: str
         return
 
     loop.create_task(_send_user_telegram_notice(uid, telegram_id, title, text, log_event=log_event))
+
+
+def schedule_user_telegram_notice(uid: int, telegram_id: int | None, title: str, text: str, *, log_event: str) -> None:
+    _schedule_user_telegram_notice(uid, telegram_id, title, text, log_event=log_event)
 
 
 async def send_contact_request_admin_telegram_message(text: str) -> None:

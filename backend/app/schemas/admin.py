@@ -226,6 +226,10 @@ class AdminContactRequestsOut(BaseModel):
     items: List[AdminContactRequestOut]
 
 
+class AdminContactRequestReplyIn(BaseModel):
+    text: str = Field(min_length=1, max_length=2000)
+
+
 class AdminSanctionOut(BaseModel):
     id: int
     kind: Literal["timeout", "ban", "suspend"]

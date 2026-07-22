@@ -77,6 +77,7 @@ from ...schemas.admin import (
     AdminLogActionsOut,
     AdminContactRequestOut,
     AdminContactRequestsOut,
+    AdminContactRequestReplyIn,
     AdminSanctionListItemOut,
     AdminSanctionsOut,
     AdminRoomOut,
@@ -181,6 +182,7 @@ from ..utils import (
     build_nickname_reset_notice,
     emit_nickname_reset_notice,
     emit_notify,
+    schedule_user_telegram_notice,
     emit_sanctions_update,
     send_sanction_finished_telegram_notice,
     refresh_rooms_after,
@@ -502,6 +504,57 @@ async def delete_contact_request(contact_request_id: int, ident: Identity = Depe
         details=(
             f"Удаление обращения id={request_id} "
             f"user_id={request_user_id or '-'} topic={request_topic}"
+        ),
+    )
+
+    return Ok()
+
+
+@router.post("/contact_requests/{contact_request_id}/reply", response_model=Ok, dependencies=ADMIN_GUARD)
+@log_route("admin.contact_requests.reply")
+async def reply_to_contact_request(contact_request_id: int, payload: AdminContactRequestReplyIn, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
+    row = await session.get(ContactRequestRecord, int(contact_request_id))
+    if not row:
+        raise HTTPException(status_code=404, detail="contact_request_not_found")
+
+    target_user_id = int(row.user_id or 0)
+    if target_user_id <= 0:
+        raise HTTPException(status_code=409, detail="contact_request_guest")
+
+    reply_text = str(payload.text or "").strip()
+    if not reply_text:
+        raise HTTPException(status_code=422, detail="contact_request_reply_empty")
+
+    target_user = await session.get(User, target_user_id)
+    if not target_user:
+        raise HTTPException(status_code=404, detail="contact_request_user_not_found")
+
+    note = Notif(
+        user_id=target_user_id,
+        title="Ответ администрации",
+        text=reply_text,
+    )
+    session.add(note)
+    await session.commit()
+    await session.refresh(note)
+
+    await emit_notify(target_user_id, note, kind="contact_request_reply")
+    schedule_user_telegram_notice(
+        target_user_id,
+        target_user.telegram_id,
+        note.title,
+        note.text,
+        log_event="contact_request.reply_telegram_notify_failed",
+    )
+
+    await log_action(
+        session,
+        user_id=int(ident["id"]),
+        username=ident["username"],
+        action="contact_request_reply",
+        details=(
+            f"Ответ на обращение id={int(row.id)} "
+            f"user_id={target_user_id} topic={str(row.topic or '')}"
         ),
     )
 

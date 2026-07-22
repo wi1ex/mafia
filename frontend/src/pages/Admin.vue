@@ -739,6 +739,7 @@
                   <th>Контактные данные</th>
                   <th>Тема обращения</th>
                   <th>Текст обращения</th>
+                  <th>Связь</th>
                   <th>Действия</th>
                 </tr>
               </thead>
@@ -759,6 +760,12 @@
                   <td class="topic-cell">{{ row.topic }}</td>
                   <td class="text-cell">{{ row.text }}</td>
                   <td>
+                    <button v-if="canReplyToContactRequest(row)" class="btn" type="button" @click="openContactRequestReply(row)" :disabled="contactRequestReplySaving || contactRequestsDeleting[row.id]">
+                      Ответить
+                    </button>
+                    <span v-else>-</span>
+                  </td>
+                  <td>
                     <button class="btn danger" :disabled="contactRequestsDeleting[row.id]" @click="deleteContactRequest(row)">
                       <img class="btn-img" :src="iconDelete" alt="delete" />
                       Удалить
@@ -766,7 +773,7 @@
                   </td>
                 </tr>
                 <tr v-if="contactRequests.length === 0">
-                  <td colspan="7" class="muted">Нет данных</td>
+                  <td colspan="8" class="muted">Нет данных</td>
                 </tr>
               </tbody>
             </table>
@@ -864,6 +871,16 @@
       @update:open="onSubscriptionModalOpenUpdate"
       @save="saveSubscription"
     />
+    <ContactModal
+      :open="contactRequestReplyModalOpen && Boolean(contactRequestReplyTarget)"
+      :saving="contactRequestReplySaving"
+      :can-save="contactRequestReplyCanSave"
+      :target="contactRequestReplyTarget"
+      :message="contactRequestReplyText"
+      @update:open="onContactRequestReplyModalOpenUpdate"
+      @update:message="contactRequestReplyText = $event"
+      @save="sendContactRequestReply"
+    />
 
     <MiniProfile
       :open="userMiniProfileOpen"
@@ -894,6 +911,7 @@ import { getProfileThemeBadgeSources } from '@/constants/profileIcons'
 import { normalizeNotificationText, parseNotificationText } from '@/services/notificationText'
 
 import SubscriptionModal from '@/components/SubscriptionModal.vue'
+import ContactModal from '@/components/ContactModal.vue'
 import MiniProfile from '@/components/MiniProfile.vue'
 import Sanction from '@/components/Sanction.vue'
 import UiSwitch from '@/components/UiSwitch.vue'
@@ -1026,6 +1044,10 @@ type ContactRequestRow = {
   topic: string
   text: string
   created_at: string
+}
+
+type ContactRequestReplyTarget = ContactRequestRow & {
+  user_id: number
 }
 
 type RoomUserStat = {
@@ -1270,6 +1292,10 @@ const contactRequestsPage = ref(1)
 const contactRequestsLimit = ref(20)
 const contactRequestsUser = ref('')
 const contactRequestsDeleting = reactive<Record<number, boolean>>({})
+const contactRequestReplyModalOpen = ref(false)
+const contactRequestReplyTarget = ref<ContactRequestReplyTarget | null>(null)
+const contactRequestReplyText = ref('')
+const contactRequestReplySaving = ref(false)
 const sanctionsDeleting = reactive<Record<number, boolean>>({})
 const sanctionsAdjusting = reactive<Record<string, boolean>>({})
 const subscriptions = ref<SubscriptionRow[]>([])
@@ -1506,6 +1532,9 @@ const roomsPages = computed(() => Math.max(1, Math.ceil(roomsTotal.value / rooms
 const usersPages = computed(() => Math.max(1, Math.ceil(usersTotal.value / usersLimit.value)))
 const sanctionsPages = computed(() => Math.max(1, Math.ceil(sanctionsTotal.value / sanctionsLimit.value)))
 const contactRequestsPages = computed(() => Math.max(1, Math.ceil(contactRequestsTotal.value / contactRequestsLimit.value)))
+const contactRequestReplyCanSave = computed(() => (
+  Boolean(contactRequestReplyTarget.value) && contactRequestReplyText.value.trim().length > 0
+))
 const logActionOptions = computed(() => [
   { value: 'all', label: 'Все' },
   ...logActions.value.map((action) => ({ value: action, label: action })),
@@ -2338,6 +2367,60 @@ async function deleteContactRequest(row: ContactRequestRow): Promise<void> {
   }
 }
 
+function canReplyToContactRequest(row: ContactRequestRow): boolean {
+  return getPositiveUserId(row.user_id) > 0
+}
+
+function clearContactRequestReplyModalState(): void {
+  contactRequestReplyModalOpen.value = false
+  contactRequestReplyTarget.value = null
+  contactRequestReplyText.value = ''
+}
+
+function closeContactRequestReplyModal(): void {
+  if (contactRequestReplySaving.value) return
+  clearContactRequestReplyModalState()
+}
+
+function onContactRequestReplyModalOpenUpdate(open: boolean): void {
+  if (open) {
+    contactRequestReplyModalOpen.value = true
+    return
+  }
+  closeContactRequestReplyModal()
+}
+
+function openContactRequestReply(row: ContactRequestRow): void {
+  const userId = getPositiveUserId(row.user_id)
+  if (userId <= 0 || contactRequestReplySaving.value || contactRequestsDeleting[row.id]) return
+  contactRequestReplyTarget.value = { ...row, user_id: userId }
+  contactRequestReplyText.value = ''
+  contactRequestReplyModalOpen.value = true
+}
+
+async function sendContactRequestReply(): Promise<void> {
+  const target = contactRequestReplyTarget.value
+  const text = contactRequestReplyText.value.trim()
+  if (!target || contactRequestReplySaving.value || !text) return
+
+  contactRequestReplySaving.value = true
+  try {
+    await api.post(`/admin/contact_requests/${target.id}/reply`, { text })
+    clearContactRequestReplyModalState()
+    void alertDialog('Ответ отправлен пользователю')
+  } catch (e: any) {
+    const status = Number(e?.response?.status || 0)
+    const detail = String(e?.response?.data?.detail || '')
+    if (status === 404 && detail === 'contact_request_not_found') void alertDialog('Обращение не найдено')
+    else if (status === 404 && detail === 'contact_request_user_not_found') void alertDialog('Пользователь не найден')
+    else if (status === 409 && detail === 'contact_request_guest') void alertDialog('На обращение гостя ответить через сайт нельзя')
+    else if (status === 422 && detail === 'contact_request_reply_empty') void alertDialog('Введите текст ответа')
+    else void alertDialog('Не удалось отправить ответ')
+  } finally {
+    contactRequestReplySaving.value = false
+  }
+}
+
 async function deleteSanction(row: SanctionsRow): Promise<void> {
   if (!canDeleteSanction(row) || sanctionsDeleting[row.id]) return
   const userLabel = row.username || `user${row.user_id}`
@@ -2732,6 +2815,9 @@ watch(activeTab, (tab) => {
   }
   if (tab !== 'subscriptions' && subscriptionModalOpen.value) {
     closeSubscriptionModal()
+  }
+  if (tab !== 'contact_requests' && contactRequestReplyModalOpen.value) {
+    closeContactRequestReplyModal()
   }
   refreshActiveTab(tab)
 })
