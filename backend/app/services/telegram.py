@@ -17,6 +17,14 @@ class TelegramSendResult:
     reason: str | None = None
 
 
+@dataclass(frozen=True)
+class TelegramNicknameResult:
+    ok: bool
+    nickname: str | None = None
+    reason: str | None = None
+    retry_after_seconds: float = 0.0
+
+
 def _is_chat_unavailable(*, status_code: int, description: str) -> bool:
     text = (description or "").lower()
     if status_code == 403:
@@ -59,6 +67,64 @@ def _extract_retry_after_seconds(payload: object, headers: httpx.Headers) -> flo
         retry_after_header = 0.0
 
     return retry_after_header if retry_after_header > 0 else 0.0
+
+
+def _normalize_telegram_nickname(value: object) -> str | None:
+    if not isinstance(value, str):
+        return None
+
+    nickname = value.strip().lstrip("@").strip()
+    if not nickname or len(nickname) > 32:
+        return None
+
+    return nickname
+
+
+async def get_telegram_nickname(*, chat_id: int) -> TelegramNicknameResult:
+    token = (settings.TG_BOT_TOKEN or "").strip()
+    if not token:
+        log.warning("telegram.nickname.skipped_no_token")
+        return TelegramNicknameResult(ok=False, reason="telegram_not_configured")
+
+    url = f"https://api.telegram.org/bot{token}/getChat"
+    try:
+        async with httpx.AsyncClient(timeout=TELEGRAM_API_TIMEOUT_S) as client:
+            resp = await client.post(url, json={"chat_id": int(chat_id)})
+            try:
+                data = resp.json()
+            except Exception:
+                data = {}
+
+    except httpx.HTTPError:
+        log.warning("telegram.nickname.network_failed", chat_id=int(chat_id), exc_info=True)
+        return TelegramNicknameResult(ok=False, reason="telegram_unavailable")
+
+    except Exception:
+        log.warning("telegram.nickname.failed_unexpected", chat_id=int(chat_id), exc_info=True)
+        return TelegramNicknameResult(ok=False, reason="telegram_unavailable")
+
+    if isinstance(data, dict) and data.get("ok") is True and resp.status_code == 200:
+        result = data.get("result")
+        nickname = _normalize_telegram_nickname(result.get("username") if isinstance(result, dict) else None)
+        return TelegramNicknameResult(ok=True, nickname=nickname)
+
+    description = _extract_description(data)
+    retry_after = _extract_retry_after_seconds(data, resp.headers)
+    log.warning(
+        "telegram.nickname.lookup_failed",
+        chat_id=int(chat_id),
+        status_code=resp.status_code,
+        description=description,
+        retry_after_seconds=retry_after,
+    )
+    return TelegramNicknameResult(
+        ok=False,
+        reason="telegram_chat_unavailable" if _is_chat_unavailable(
+            status_code=resp.status_code,
+            description=description,
+        ) else "telegram_unavailable",
+        retry_after_seconds=retry_after,
+    )
 
 
 async def send_text_message(*, chat_id: int, text: str) -> TelegramSendResult:

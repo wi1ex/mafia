@@ -25,6 +25,18 @@ async def lifespan(app) -> AsyncIterator[None]:
             await conn.execute(text("SELECT 1"))
             await conn.run_sync(Base.metadata.create_all)
 
+            # 11111111111111111111111111111111111111111111111111
+            await conn.execute(
+                text("ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_nickname VARCHAR(32)")
+            )
+            await conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_users_telegram_nickname_ci "
+                    "ON users (lower(telegram_nickname))"
+                )
+            )
+            # 22222222222222222222222222222222222222222222222222
+
         async with SessionLocal() as session:
             await ensure_app_settings(session)
             await assert_protected_admin_invariants(session)

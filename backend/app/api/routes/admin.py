@@ -211,6 +211,7 @@ log = structlog.get_logger()
 
 AdminUserSortKey = Literal[
     "tg_id",
+    "tg_nick",
     "registered_at",
     "last_online",
     "last_game",
@@ -1407,7 +1408,16 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
         "registered_at": User.registered_at,
         "last_online": User.last_visit_at,
     }
-    if sort in database_sort_columns:
+    if sort == "tg_nick":
+        rows = await session.execute(
+            select(User)
+            .where(*filters)
+            .order_by(func.lower(User.telegram_nickname).asc().nulls_last(), User.id.desc())
+            .offset(offset)
+            .limit(limit)
+        )
+        users = list(rows.scalars().all())
+    elif sort in database_sort_columns:
         rows = await session.execute(
             select(User)
             .where(*filters)
@@ -1514,6 +1524,7 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
         items.append(AdminUserOut(
             id=uid,
             tg_id=u.telegram_id,
+            tg_nick=u.telegram_nickname,
             username=u.username,
             avatar_name=u.avatar_name,
             role=u.role,

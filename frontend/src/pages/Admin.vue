@@ -564,6 +564,11 @@
                       TG_ID <span aria-hidden="true">↓</span>
                     </button>
                   </th>
+                  <th>
+                    <button class="table-sort" :class="{ active: usersSort === 'tg_nick' }" type="button" title="Сортировать по алфавиту" @click="sortUsers('tg_nick')">
+                      TG_NICK <span aria-hidden="true">A–Я</span>
+                    </button>
+                  </th>
                   <th>Никнейм</th>
                   <th>
                     <button class="table-sort" :class="{ active: usersSort === 'registered_at' }" type="button" title="Сортировать по убыванию" @click="sortUsers('registered_at')">
@@ -636,6 +641,7 @@
                 <tr v-for="row in users" :key="row.id">
                   <td>{{ row.id }}</td>
                   <td>{{ row.tg_id ?? '-' }}</td>
+                  <td>{{ row.tg_nick ?? '-' }}</td>
                   <td>
                     <div v-if="row.username" class="user-cell">
                       <button class="user-link user-profile-trigger" type="button" :disabled="!canOpenAdminUserMiniProfile(row)" @click="openAdminUserMiniProfile(row)">
@@ -660,7 +666,7 @@
                   <td>{{ row.bans_count }}</td>
                 </tr>
                 <tr v-if="users.length === 0">
-                  <td colspan="16" class="muted">Нет данных</td>
+                  <td colspan="17" class="muted">Нет данных</td>
                 </tr>
               </tbody>
             </table>
@@ -1121,6 +1127,7 @@ type RoomRow = {
 type UserRow = {
   id: number
   tg_id?: number | null
+  tg_nick?: string | null
   username?: string | null
   avatar_name?: string | null
   role: string
@@ -1144,6 +1151,7 @@ type UserRow = {
 
 type UserSortKey =
   | 'tg_id'
+  | 'tg_nick'
   | 'registered_at'
   | 'last_online'
   | 'last_game'
@@ -2320,6 +2328,7 @@ async function loadUsers(): Promise<void> {
     users.value = items.map((item: any) => ({
       ...item,
       tg_id: item?.tg_id ?? null,
+      tg_nick: typeof item?.tg_nick === 'string' ? item.tg_nick : null,
       last_visit_at: item?.last_visit_at ?? null,
       last_game_at: item?.last_game_at ?? null,
       last_game_id: Number.isFinite(item?.last_game_id) ? item.last_game_id : null,

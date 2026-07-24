@@ -1,9 +1,10 @@
 from __future__ import annotations
 import asyncio
 from contextlib import suppress
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from time import time
 from typing import Any
+from sqlalchemy import select
 from ..api.utils import (
     delete_stale_unverified_accounts,
     emit_auth_profile_sync,
@@ -12,9 +13,11 @@ from ..api.utils import (
     notify_expiring_profile_subscriptions,
     sync_expired_profile_subscriptions,
 )
+from ..models.user import User
 from ..security.parameters import refresh_app_settings
 from ..services.minio import delete_stale_pending_chat_images_async, ensure_bucket
 from ..services.nickname_limits import reset_monthly_nickname_change_limits
+from ..services.telegram import get_telegram_nickname
 from .clients import get_redis
 from .db import SessionLocal
 
@@ -22,6 +25,7 @@ __all__ = ["LifespanBackgroundTasks", "verify_runtime_dependencies"]
 
 EMPTY_ROOM_MARKER_TTL_SECONDS = 30 * 24 * 60 * 60
 EMPTY_ROOM_GC_SCAN_INTERVAL_SECONDS = 60
+TELEGRAM_NICKNAME_SYNC_INTERVAL_SECONDS = 1.0
 
 
 def _next_local_daily_run_at(*, hour: int, minute: int = 0) -> datetime:
@@ -29,6 +33,15 @@ def _next_local_daily_run_at(*, hour: int, minute: int = 0) -> datetime:
     next_run = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
     if next_run <= now:
         next_run += timedelta(days=1)
+    return next_run
+
+
+def _next_monday_utc_run_at(*, hour: int, minute: int = 0) -> datetime:
+    now = datetime.now(timezone.utc)
+    next_run = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    next_run += timedelta(days=(0 - next_run.weekday()) % 7)
+    if next_run <= now:
+        next_run += timedelta(days=7)
     return next_run
 
 
@@ -45,6 +58,7 @@ class LifespanBackgroundTasks:
         self._stale_unverified_accounts_task: asyncio.Task[None] | None = None
         self._empty_rooms_gc_task: asyncio.Task[None] | None = None
         self._stale_chat_uploads_task: asyncio.Task[None] | None = None
+        self._telegram_nickname_sync_task: asyncio.Task[None] | None = None
         self._empty_room_gc_tasks: dict[int, asyncio.Task[None]] = {}
 
     def start(self) -> None:
@@ -54,6 +68,7 @@ class LifespanBackgroundTasks:
         self._stale_unverified_accounts_task = asyncio.create_task(self.stale_unverified_accounts_loop())
         self._empty_rooms_gc_task = asyncio.create_task(self.empty_rooms_gc_loop())
         self._stale_chat_uploads_task = asyncio.create_task(self.stale_chat_uploads_loop())
+        self._telegram_nickname_sync_task = asyncio.create_task(self.telegram_nickname_sync_loop())
 
     async def stop(self) -> None:
         try:
@@ -64,6 +79,7 @@ class LifespanBackgroundTasks:
                 self._stale_unverified_accounts_task,
                 self._empty_rooms_gc_task,
                 self._stale_chat_uploads_task,
+                self._telegram_nickname_sync_task,
             )
             for managed_task in managed_tasks:
                 await self._cancel_and_wait(managed_task)
@@ -188,6 +204,91 @@ class LifespanBackgroundTasks:
                     self._log.exception("app.chat.pending_upload_cleanup_failed")
         except asyncio.CancelledError:
             pass
+
+    async def telegram_nickname_sync_loop(self) -> None:
+        try:
+            while True:
+                next_run = _next_monday_utc_run_at(hour=4)
+                delay_s = max(0.0, (next_run - datetime.now(timezone.utc)).total_seconds())
+                self._log.info(
+                    "app.telegram_nicknames.sync_scheduled",
+                    run_at=next_run.isoformat(),
+                    delay_s=int(delay_s),
+                )
+                await asyncio.sleep(delay_s)
+                try:
+                    await self.sync_telegram_nicknames()
+                except Exception:
+                    self._log.exception("app.telegram_nicknames.sync_failed")
+        except asyncio.CancelledError:
+            pass
+
+    async def sync_telegram_nicknames(self) -> None:
+        async with SessionLocal() as session:
+            rows = await session.execute(
+                select(User.id, User.telegram_id)
+                .where(User.telegram_id.is_not(None))
+                .order_by(User.id.asc())
+            )
+            verified_users = [
+                (int(user_id), int(telegram_id))
+                for user_id, telegram_id in rows.all()
+                if telegram_id is not None
+            ]
+
+        updated = 0
+        unchanged = 0
+        missing_nickname = 0
+        failed = 0
+        skipped = 0
+
+        for user_id, telegram_id in verified_users:
+            wait_s = TELEGRAM_NICKNAME_SYNC_INTERVAL_SECONDS
+            try:
+                result = await get_telegram_nickname(chat_id=telegram_id)
+                wait_s = max(wait_s, result.retry_after_seconds)
+                if not result.ok:
+                    failed += 1
+                    continue
+
+                if not result.nickname:
+                    missing_nickname += 1
+                    continue
+
+                async with SessionLocal() as session:
+                    user = await session.get(User, user_id)
+                    if user is None or int(user.telegram_id or 0) != telegram_id:
+                        skipped += 1
+                        continue
+
+                    if user.telegram_nickname == result.nickname:
+                        unchanged += 1
+                        continue
+
+                    user.telegram_nickname = result.nickname
+                    await session.commit()
+                    updated += 1
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                failed += 1
+                self._log.exception(
+                    "app.telegram_nicknames.user_sync_failed",
+                    user_id=user_id,
+                    telegram_id=telegram_id,
+                )
+            finally:
+                await asyncio.sleep(wait_s)
+
+        self._log.info(
+            "app.telegram_nicknames.sync_done",
+            total=len(verified_users),
+            updated=updated,
+            unchanged=unchanged,
+            missing_nickname=missing_nickname,
+            failed=failed,
+            skipped=skipped,
+        )
 
     async def settings_pubsub_loop(self) -> None:
         r = get_redis()

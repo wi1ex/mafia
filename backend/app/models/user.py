@@ -18,6 +18,7 @@ class User(Base):
     profile_theme_color: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
     profile_theme_icon: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
     telegram_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, unique=True, index=True)
+    telegram_nickname: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
     password_hash: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
     password_temp: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
     hotkeys_visible: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")

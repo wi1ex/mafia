@@ -357,6 +357,7 @@ class AdminGameFoulRemovalsOut(BaseModel):
 class AdminUserOut(BaseModel):
     id: int
     tg_id: Optional[int] = None
+    tg_nick: Optional[str] = None
     username: Optional[str] = None
     avatar_name: Optional[str] = None
     role: str

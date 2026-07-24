@@ -31,6 +31,7 @@ from ..utils import (
 )
 from ...realtime.sio import sio
 from ...services.global_chat import emit_global_chat_permissions_updated
+from ...services.telegram import get_telegram_nickname
 
 router = APIRouter()
 
@@ -76,6 +77,14 @@ async def verify(payload: BotVerifyIn, db: AsyncSession = Depends(get_session), 
 
     user.telegram_id = int(payload.telegram_id)
     await db.commit()
+
+    try:
+        telegram_nickname = await get_telegram_nickname(chat_id=int(payload.telegram_id))
+        if telegram_nickname.ok and telegram_nickname.nickname:
+            user.telegram_nickname = telegram_nickname.nickname
+            await db.commit()
+    except Exception:
+        await db.rollback()
 
     await log_action(
         db,

@@ -2277,7 +2277,7 @@ socket.value?.on('connect', async () => {
     const reason = String(p?.reason || '')
     try { await onLeave() } catch {}
     if (reason === 'admin_kick_all') {
-      void alertDialog('Упс, кажется пришло обновление! Перезагрузка серверов займет ~5 минут')
+      void alertDialog('Работа серверов временно приостановлена. Дополнительная информация в шапке сайта')
     } else if (reason === 'room_kick') {
       void alertDialog(roomKickAlertText(p))
     } else if (reason === 'sanction_timeout') {
@@ -2285,7 +2285,7 @@ socket.value?.on('connect', async () => {
     } else if (reason === 'sanction_ban') {
       void alertDialog('Ваш аккаунт забанен: вы кикнуты из комнаты')
     } else if (reason === 'room_deleted') {
-      void alertDialog('Комната была удалена администратором')
+      void alertDialog('Комната была удалена администратором. Пункт правил: 4.5.1.')
     } else if (reason === 'single_timeout') {
       const minutes = Number(p?.minutes || 0)
       if (Number.isFinite(minutes) && minutes > 0) {
