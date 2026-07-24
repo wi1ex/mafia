@@ -2174,6 +2174,33 @@ socket.value?.on('connect', async () => {
     const id = String(p.user_id)
     ensurePeer(id)
     applyPeerState(id, p)
+    if (id !== String(localId.value)) return
+
+    const nextMic = !blockedSelf.value.mic && norm01(p?.mic, local.mic ? 1 : 0) === 1
+    if ('mic' in (p || {}) && (local.mic !== nextMic || desiredMedia.mic !== nextMic)) {
+      local.mic = nextMic
+      desiredMedia.mic = nextMic
+      void applyLocalControlWithRetry('mic', nextMic)
+    }
+
+    const nextCam = !blockedSelf.value.cam && norm01(p?.cam, local.cam ? 1 : 0) === 1
+    if ('cam' in (p || {}) && (local.cam !== nextCam || desiredMedia.cam !== nextCam)) {
+      local.cam = nextCam
+      desiredMedia.cam = nextCam
+      void applyLocalControlWithRetry('cam', nextCam)
+    }
+
+    const nextSpeakers = !blockedSelf.value.speakers && norm01(p?.speakers, local.speakers ? 1 : 0) === 1
+    if ('speakers' in (p || {}) && local.speakers !== nextSpeakers) {
+      local.speakers = nextSpeakers
+      void applyLocalControlWithRetry('speakers', nextSpeakers)
+    }
+
+    const nextVisibility = !blockedSelf.value.visibility && norm01(p?.visibility, local.visibility ? 1 : 0) === 1
+    if ('visibility' in (p || {}) && local.visibility !== nextVisibility) {
+      local.visibility = nextVisibility
+      void applyLocalControlWithRetry('visibility', nextVisibility)
+    }
   })
 
   socket.value.on('member_joined', (p: any) => {
@@ -2243,23 +2270,23 @@ socket.value?.on('connect', async () => {
       if ('cam' in blocks && norm01(blocks.cam, 0) === 1) {
         local.cam = false
         desiredMedia.cam = false
-        try { await rtc.disable('videoinput') } catch {}
+        await applyLocalControlWithRetry('cam', false)
       }
       if ('mic' in blocks && norm01(blocks.mic, 0) === 1) {
         local.mic = false
         desiredMedia.mic = false
-        try { await rtc.disable('audioinput') } catch {}
+        await applyLocalControlWithRetry('mic', false)
       }
       if ('speakers' in blocks && norm01(blocks.speakers, 0) === 1) {
         local.speakers = false
-        rtc.setAudioSubscriptionsForAll(false)
+        await applyLocalControlWithRetry('speakers', false)
       }
       if ('visibility' in blocks && norm01(blocks.visibility, 0) === 1) {
         local.visibility = false
-        rtc.setVideoSubscriptionsForAll(false)
+        await applyLocalControlWithRetry('visibility', false)
       }
       if ('screen' in blocks && norm01(blocks.screen, 0) === 1) {
-        if (screenOwnerId.value === localId.value) { try { await rtc.stopScreenShare() } catch {} }
+        if (screenOwnerId.value === localId.value) await applyLocalControlWithRetry('screen', false)
         setScreenOwner('')
       }
     }
@@ -2619,26 +2646,22 @@ async function enforceNoPublishWhenInactive(): Promise<void> {
   }
   if (!localId.value) return
   const isSpectator = isSpectatorLike.value
-  let changed = false
   if (local.mic) {
     local.mic = false
     desiredMedia.mic = false
-    changed = true
-    try { await rtc.disable('audioinput') } catch {}
+    void publishState({ mic: false }).catch(() => false)
+    await applyLocalControlWithRetry('mic', false)
   }
   if (local.cam) {
     local.cam = false
     desiredMedia.cam = false
-    changed = true
-    try { await rtc.disable('videoinput') } catch {}
+    void publishState({ cam: false }).catch(() => false)
+    await applyLocalControlWithRetry('cam', false)
   }
   if (isSpectator && screenOwnerId.value === localId.value) {
-    try { await rtc.stopScreenShare() } catch {}
-    setScreenOwner('')
     try { await sendAck('screen', { on: false }) } catch {}
-  }
-  if (changed) {
-    try { await publishState({ mic: false, cam: false }) } catch {}
+    await applyLocalControlWithRetry('screen', false)
+    setScreenOwner('')
   }
 }
 
@@ -2820,6 +2843,94 @@ type PublishDelta = Partial<{
 }>
 const pendingDeltas: PublishDelta[] = []
 
+type RetriableLocalControl = 'mic' | 'cam' | 'speakers' | 'visibility' | 'screen'
+
+const LOCAL_CONTROL_RETRY_DELAYS_MS = [0, 200, 700] as const
+const localControlRevision: Record<RetriableLocalControl, number> = {
+  mic: 0,
+  cam: 0,
+  speakers: 0,
+  visibility: 0,
+  screen: 0,
+}
+const localControlTarget: Record<RetriableLocalControl, boolean> = {
+  mic: false,
+  cam: false,
+  speakers: true,
+  visibility: true,
+  screen: false,
+}
+const localControlRun: Record<RetriableLocalControl, { revision: number, task: Promise<boolean> } | null> = {
+  mic: null,
+  cam: null,
+  speakers: null,
+  visibility: null,
+  screen: null,
+}
+
+function waitLocalControlRetry(ms: number): Promise<void> {
+  return new Promise(resolve => window.setTimeout(resolve, ms))
+}
+
+async function applyLocalControlOnce(control: RetriableLocalControl, on: boolean): Promise<boolean> {
+  if (!rtc.lk.value) return false
+  try {
+    if (control === 'mic') return on ? await rtc.enable('audioinput') : await rtc.disable('audioinput')
+    if (control === 'cam') return on ? await rtc.enable('videoinput') : await rtc.disable('videoinput')
+    if (control === 'speakers') {
+      rtc.setAudioSubscriptionsForAll(on)
+      return true
+    }
+    if (control === 'visibility') {
+      rtc.setVideoSubscriptionsForAll(on)
+      return true
+    }
+    return on ? false : await rtc.stopScreenShare()
+  } catch {
+    return false
+  }
+}
+
+function runLocalControlWithRetry(control: RetriableLocalControl, revision: number, on: boolean): Promise<boolean> {
+  const active = localControlRun[control]
+  if (active?.revision === revision) return active.task
+
+  const task = (async () => {
+    for (let attempt = 0; attempt < LOCAL_CONTROL_RETRY_DELAYS_MS.length; attempt += 1) {
+      if (revision !== localControlRevision[control]) {
+        void runLocalControlWithRetry(control, localControlRevision[control], localControlTarget[control])
+        return false
+      }
+      const delay = LOCAL_CONTROL_RETRY_DELAYS_MS[attempt]
+      if (delay > 0) await waitLocalControlRetry(delay)
+      if (revision !== localControlRevision[control]) {
+        void runLocalControlWithRetry(control, localControlRevision[control], localControlTarget[control])
+        return false
+      }
+      const applied = await applyLocalControlOnce(control, on)
+      if (revision !== localControlRevision[control]) {
+        void runLocalControlWithRetry(control, localControlRevision[control], localControlTarget[control])
+        return false
+      }
+      if (applied) return true
+    }
+    return false
+  })()
+  localControlRun[control] = { revision, task }
+  void task.finally(() => {
+    if (localControlRun[control]?.task === task) localControlRun[control] = null
+  })
+  return task
+}
+
+function applyLocalControlWithRetry(control: RetriableLocalControl, on: boolean): Promise<boolean> {
+  const active = localControlRun[control]
+  if (active && localControlTarget[control] === on) return active.task
+  localControlTarget[control] = on
+  const revision = ++localControlRevision[control]
+  return runLocalControlWithRetry(control, revision, on)
+}
+
 async function publishState(delta: PublishDelta) {
   if (!socket.value || !socket.value.connected) {
     pendingDeltas.push(delta)
@@ -2831,7 +2942,7 @@ async function publishState(delta: PublishDelta) {
   return false
 }
 
-const toggleFactory = (k: keyof typeof local, onEnable?: () => Promise<boolean | void>, onDisable?: () => Promise<void>) => async () => {
+const toggleFactory = (k: keyof typeof local, onEnable?: () => Promise<boolean | void>, onDisable?: () => Promise<boolean | void>) => async () => {
   if (adminSpectator.value && (k === 'mic' || k === 'cam')) return
   if (pending[k]) return
   if (blockedSelf.value[k]) return
@@ -2841,40 +2952,34 @@ const toggleFactory = (k: keyof typeof local, onEnable?: () => Promise<boolean |
     const want = !local[k]
     if (k === 'mic') desiredMedia.mic = want
     if (k === 'cam') desiredMedia.cam = want
+    local[k] = want
+    const statePublish = publishState({ [k]: want } as PublishDelta).catch(() => false)
     if (want) {
       const okLocal = (await onEnable?.()) !== false
+      await statePublish
       if (!okLocal) return
-      local[k] = true
-      try { await publishState({ [k]: true } as PublishDelta) } catch {}
     } else {
       await onDisable?.()
-      local[k] = false
-      try { await publishState({ [k]: false } as PublishDelta) } catch {}
+      await statePublish
     }
   } finally { pending[k] = false }
 }
 
 const toggleMic = toggleFactory('mic',
-  async () => await rtc.enable('audioinput'),
-  async () => await rtc.disable('audioinput'),
+  async () => await applyLocalControlWithRetry('mic', true),
+  async () => await applyLocalControlWithRetry('mic', false),
 )
 const toggleCam = toggleFactory('cam',
-  async () => await rtc.enable('videoinput'),
-  async () => await rtc.disable('videoinput'),
+  async () => await applyLocalControlWithRetry('cam', true),
+  async () => await applyLocalControlWithRetry('cam', false),
 )
 const toggleSpeakers = toggleFactory('speakers',
-  async () => {
-    rtc.setAudioSubscriptionsForAll(true)
-    return true
-  },
-  async () => rtc.setAudioSubscriptionsForAll(false),
+  async () => await applyLocalControlWithRetry('speakers', true),
+  async () => await applyLocalControlWithRetry('speakers', false),
 )
 const toggleVisibility = toggleFactory('visibility',
-  async () => {
-    rtc.setVideoSubscriptionsForAll(true)
-    return true
-  },
-  async () => rtc.setVideoSubscriptionsForAll(false),
+  async () => await applyLocalControlWithRetry('visibility', true),
+  async () => await applyLocalControlWithRetry('visibility', false),
 )
 
 const toggleScreen = async () => {
@@ -2940,9 +3045,10 @@ const toggleScreen = async () => {
         void alertDialog(reason === 'canceled' ? 'Трансляция отменена' : 'Ошибка публикации видеопотока')
       }
     } else {
-      await rtc.stopScreenShare()
+      const screenOff = sendAck('screen', { on: false, target: Number(localId.value) }).catch(() => false)
+      await applyLocalControlWithRetry('screen', false)
       setScreenOwner('')
-      try { await sendAck('screen', { on: false, target: Number(localId.value) }) } catch {}
+      await screenOff
     }
   } finally { pendingScreen.value = false }
 }
@@ -2971,25 +3077,15 @@ async function enableInitialMedia(): Promise<boolean> {
   if (isSpectatorInGame.value) return false
   let failed = false
   if (desiredMedia.cam && !blockedSelf.value.cam) {
-    const ok = await rtc.enable('videoinput')
+    const ok = await applyLocalControlWithRetry('cam', true)
     if (!ok) {
       failed = true
-      camOn.value = false
-      try { await publishState({ cam: false }) } catch {}
-    } else if (!camOn.value) {
-      camOn.value = true
-      try { await publishState({ cam: true }) } catch {}
     }
   }
   if (desiredMedia.mic && !blockedSelf.value.mic) {
-    const ok = await rtc.enable('audioinput')
+    const ok = await applyLocalControlWithRetry('mic', true)
     if (!ok) {
       failed = true
-      micOn.value = false
-      try { await publishState({ mic: false }) } catch {}
-    } else if (!micOn.value) {
-      micOn.value = true
-      try { await publishState({ mic: true }) } catch {}
     }
   }
   return failed
@@ -3192,20 +3288,14 @@ async function applyLocalStateFromServer(state: any, blocks: any): Promise<void>
   }
 
   if (mergedBlocks.screen && screenOwnerId.value === lid) {
-    try { await rtc.stopScreenShare() } catch {}
+    await applyLocalControlWithRetry('screen', false)
     setScreenOwner('')
   }
 
-  try {
-    if (nextMic) await rtc.enable('audioinput')
-    else await rtc.disable('audioinput')
-  } catch {}
-  try {
-    if (nextCam) await rtc.enable('videoinput')
-    else await rtc.disable('videoinput')
-  } catch {}
-  try { rtc.setAudioSubscriptionsForAll(nextSpeakers) } catch {}
-  try { rtc.setVideoSubscriptionsForAll(nextVisibility) } catch {}
+  await applyLocalControlWithRetry('mic', nextMic)
+  await applyLocalControlWithRetry('cam', nextCam)
+  await applyLocalControlWithRetry('speakers', nextSpeakers)
+  await applyLocalControlWithRetry('visibility', nextVisibility)
   if (nextSpeakers && !mergedBlocks.speakers) {
     try { void rtc.resumeAudio() } catch {}
   }
@@ -3252,10 +3342,7 @@ async function applyGameReturnState(): Promise<void> {
     desiredMedia.mic = nextMic
     delta.mic = nextMic
     if (canTouchMedia) {
-      try {
-        if (nextMic) await rtc.enable('audioinput')
-        else await rtc.disable('audioinput')
-      } catch {}
+      await applyLocalControlWithRetry('mic', nextMic)
     }
   }
   if (local.cam !== nextCam) {
@@ -3263,10 +3350,7 @@ async function applyGameReturnState(): Promise<void> {
     desiredMedia.cam = nextCam
     delta.cam = nextCam
     if (canTouchMedia) {
-      try {
-        if (nextCam) await rtc.enable('videoinput')
-        else await rtc.disable('videoinput')
-      } catch {}
+      await applyLocalControlWithRetry('cam', nextCam)
     }
   }
   if (local.speakers !== nextSpeakers) {
@@ -3278,8 +3362,8 @@ async function applyGameReturnState(): Promise<void> {
     delta.visibility = nextVisibility
   }
 
-  try { rtc.setAudioSubscriptionsForAll(nextSpeakers) } catch {}
-  try { rtc.setVideoSubscriptionsForAll(nextVisibility) } catch {}
+  await applyLocalControlWithRetry('speakers', nextSpeakers)
+  await applyLocalControlWithRetry('visibility', nextVisibility)
   if (nextSpeakers && !blockedSelf.value.speakers) {
     try { void rtc.resumeAudio() } catch {}
   }
@@ -3329,10 +3413,10 @@ async function reassertForegroundMediaTracks(): Promise<void> {
   if (!IS_MOBILE || leaving.value || backgrounded.value) return
   if (!rtc.lk.value) return
   if (local.cam && desiredMedia.cam && !blockedSelf.value.cam) {
-    try { await rtc.enable('videoinput') } catch {}
+    await applyLocalControlWithRetry('cam', true)
   }
   if (local.mic && desiredMedia.mic && !blockedSelf.value.mic) {
-    try { await rtc.enable('audioinput') } catch {}
+    await applyLocalControlWithRetry('mic', true)
   }
 }
 
@@ -3384,8 +3468,8 @@ async function applyBackgroundMute(): Promise<void> {
     local.visibility = false
     delta.visibility = false
   }
-  try { await rtc.disable('audioinput') } catch {}
-  try { await rtc.disable('videoinput') } catch {}
+  await applyLocalControlWithRetry('mic', false)
+  await applyLocalControlWithRetry('cam', false)
   try { rtc.setVideoSubscriptionsForAll(false) } catch {}
   if (local.speakers && !blockedSelf.value.speakers) {
     try { rtc.setAudioSubscriptionsForAll(true) } catch {}

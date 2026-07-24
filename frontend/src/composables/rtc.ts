@@ -84,7 +84,7 @@ export type UseRTC = {
   prepareScreenShare: (opts?: { audio?: boolean; quality?: ScreenShareQuality }) => Promise<boolean>
   publishPreparedScreen: () => Promise<boolean>
   cancelPreparedScreen: () => Promise<void>
-  stopScreenShare: () => Promise<void>
+  stopScreenShare: () => Promise<boolean>
   screenKey: (id: string) => string
   isScreenKey: (key: string) => boolean
   startScreenShare: (opts?: { audio?: boolean; quality?: ScreenShareQuality }) => Promise<boolean>
@@ -118,7 +118,7 @@ export type UseRTC = {
   clearProbeFlag: () => void
   hasAudioInput: Ref<boolean>
   hasVideoInput: Ref<boolean>
-  disable: (kind: DeviceKind) => Promise<void>
+  disable: (kind: DeviceKind) => Promise<boolean>
   isSpeaking: (id: string) => boolean
   setUserVolume: (id: string, v: number) => number
   getUserVolume: (id: string) => number
@@ -876,11 +876,16 @@ export function useRTC(): UseRTC {
     return needAudio || needVideo
   }
 
-  async function disable(kind: DeviceKind) {
+  async function disable(kind: DeviceKind): Promise<boolean> {
+    const room = lk.value
+    if (!room) return false
     try {
-      if (kind === 'audioinput') await lk.value?.localParticipant.setMicrophoneEnabled(false)
-      else await lk.value?.localParticipant.setCameraEnabled(false)
-    } catch {}
+      if (kind === 'audioinput') await room.localParticipant.setMicrophoneEnabled(false)
+      else await room.localParticipant.setCameraEnabled(false)
+      return true
+    } catch {
+      return false
+    }
   }
 
   async function startScreenShare(opts?: { audio?: boolean; quality?: ScreenShareQuality }): Promise<boolean> {
@@ -969,8 +974,15 @@ export function useRTC(): UseRTC {
     preparedScreen = null
   }
 
-  async function stopScreenShare() {
-    try { await lk.value?.localParticipant.setScreenShareEnabled(false) } catch {}
+  async function stopScreenShare(): Promise<boolean> {
+    const room = lk.value
+    if (!room) return false
+    try {
+      await room.localParticipant.setScreenShareEnabled(false)
+      return true
+    } catch {
+      return false
+    }
   }
 
   function setBaseVideoAttrs(el: HTMLVideoElement, _self: boolean) {
