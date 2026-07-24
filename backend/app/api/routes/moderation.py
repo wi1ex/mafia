@@ -5,6 +5,7 @@ from typing import Literal, cast
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+import structlog
 from ...core.clients import get_redis
 from ...core.db import get_session
 from ...core.logging import log_action
@@ -40,6 +41,7 @@ from ..utils import (
     SANCTION_BAN,
     SANCTION_TIMEOUT,
     SANCTION_SUSPEND,
+    _fetch_admin_user_game_data,
     adjust_active_sanction_duration,
     broadcast_creator_rooms,
     build_avatar_reset_notice,
@@ -55,6 +57,8 @@ from ..utils import (
     emit_sanctions_update,
     fetch_active_sanction,
     fetch_sanction_counts_for_users,
+    fetch_effective_online_user_ids,
+    fetch_online_user_ids,
     fetch_users_last_room_id,
     fetch_users_last_spectator_room_id,
     force_leave_user_from_rooms,
@@ -74,11 +78,23 @@ from ..utils import (
 
 MODERATION_GUARD = (Depends(require_roles_dep("moder")),)
 router = APIRouter(dependencies=MODERATION_GUARD)
+log = structlog.get_logger()
+
+ModerationUserSortKey = Literal[
+    "registered_at",
+    "last_game",
+    "last_online",
+    "last_room",
+    "last_spectator",
+    "suspends_count",
+    "timeouts_count",
+    "bans_count",
+]
 
 
 @router.get("/users", response_model=ModerationUsersOut, dependencies=MODERATION_GUARD)
 @log_route("moderation.users.list")
-async def moderation_users_list(page: int = 1, limit: int = 20, username: str | None = None, session: AsyncSession = Depends(get_session)) -> ModerationUsersOut:
+async def moderation_users_list(page: int = 1, limit: int = 20, username: str | None = None, sort: ModerationUserSortKey = "registered_at", session: AsyncSession = Depends(get_session)) -> ModerationUsersOut:
     limit, page, offset = normalize_pagination(page, limit)
 
     filters = [User.deleted_at.is_(None)]
@@ -90,22 +106,93 @@ async def moderation_users_list(page: int = 1, limit: int = 20, username: str | 
         filters.append(User.id.in_(user_ids))
 
     total = int(await session.scalar(select(func.count(User.id)).where(*filters)) or 0)
-    rows = await session.execute(
-        select(User)
-        .where(*filters)
-        .order_by(User.registered_at.desc(), User.id.desc())
-        .offset(offset)
-        .limit(limit)
-    )
-    users = list(rows.scalars().all())
+    if total == 0:
+        return ModerationUsersOut(total=0, items=[])
+
+    game_data: tuple[
+        dict[int, tuple[int | None, datetime | None]],
+        dict[int, int],
+        dict[int, int],
+    ] | None = None
+    last_room_id: dict[int, int | None] | None = None
+    last_spectator_room_id: dict[int, int | None] | None = None
+    sanction_counts: dict[int, dict[str, int]] | None = None
+
+    database_sort_columns = {
+        "registered_at": User.registered_at,
+        "last_online": User.last_visit_at,
+    }
+    if sort in database_sort_columns:
+        rows = await session.execute(
+            select(User)
+            .where(*filters)
+            .order_by(database_sort_columns[sort].desc().nulls_last(), User.id.desc())
+            .offset(offset)
+            .limit(limit)
+        )
+        users = list(rows.scalars().all())
+    else:
+        rows = await session.execute(select(User).where(*filters))
+        users = list(rows.scalars().all())
+        all_user_ids = [int(user.id) for user in users]
+
+        if sort == "last_game":
+            game_data = await _fetch_admin_user_game_data(session, all_user_ids)
+            sort_values = {
+                user_id: game[0] or 0
+                for user_id, game in game_data[0].items()
+            }
+        elif sort == "last_room":
+            last_room_id = await fetch_users_last_room_id(session, all_user_ids)
+            sort_values = last_room_id
+        elif sort == "last_spectator":
+            last_spectator_room_id = await fetch_users_last_spectator_room_id(session, all_user_ids)
+            sort_values = last_spectator_room_id
+        else:
+            sanction_counts = await fetch_sanction_counts_for_users(session, all_user_ids)
+            sanction_kind = {
+                "suspends_count": SANCTION_SUSPEND,
+                "timeouts_count": SANCTION_TIMEOUT,
+                "bans_count": SANCTION_BAN,
+            }[sort]
+            sort_values = {
+                user_id: int(user_counts.get(sanction_kind, 0) or 0)
+                for user_id, user_counts in sanction_counts.items()
+            }
+
+        users.sort(
+            key=lambda user: (int(sort_values.get(int(user.id), 0) or 0), int(user.id)),
+            reverse=True,
+        )
+        users = users[offset:offset + limit]
+
     ids = [int(u.id) for u in users]
-    last_room_id = await fetch_users_last_room_id(session, ids)
-    last_spectator_room_id = await fetch_users_last_spectator_room_id(session, ids)
-    sanction_counts = await fetch_sanction_counts_for_users(session, ids)
+    if game_data is None:
+        game_data = await _fetch_admin_user_game_data(session, ids)
+    if last_room_id is None:
+        last_room_id = await fetch_users_last_room_id(session, ids)
+    if last_spectator_room_id is None:
+        last_spectator_room_id = await fetch_users_last_spectator_room_id(session, ids)
+    if sanction_counts is None:
+        sanction_counts = await fetch_sanction_counts_for_users(session, ids)
+
+    last_games, _games_played, _games_hosted = game_data
+    online_user_ids: set[int] = set()
+    if ids:
+        try:
+            redis = get_redis()
+            base_online_ids = set(await fetch_online_user_ids(redis))
+            online_user_ids = set(
+                await fetch_effective_online_user_ids(redis, ids, base_online_ids=base_online_ids)
+            )
+        except Exception:
+            log.warning("moderation.users.online_fetch_failed", users=len(ids))
+
     items: list[ModerationUserOut] = []
     for user in users:
         uid = int(user.id)
         user_counts = sanction_counts.get(uid, {})
+        last_game_id, last_game_at = last_games.get(uid, (None, None))
         items.append(
             ModerationUserOut(
                 id=uid,
@@ -113,6 +200,10 @@ async def moderation_users_list(page: int = 1, limit: int = 20, username: str | 
                 avatar_name=user.avatar_name,
                 role=str(user.role),
                 registered_at=user.registered_at,
+                last_visit_at=user.last_visit_at,
+                last_game_at=last_game_at,
+                last_game_id=last_game_id,
+                online=uid in online_user_ids,
                 last_room_id=last_room_id.get(uid),
                 last_spectator_room_id=last_spectator_room_id.get(uid),
                 timeouts_count=int(user_counts.get(SANCTION_TIMEOUT, 0) or 0),

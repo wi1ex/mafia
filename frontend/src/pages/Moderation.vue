@@ -35,12 +35,46 @@
             <thead>
               <tr>
                 <th>Никнейм</th>
-                <th>Регистрация</th>
-                <th>Последнее общение</th>
-                <th>Последний зритель</th>
-                <th>Отстранения</th>
-                <th>Таймауты</th>
-                <th>Баны</th>
+                <th>
+                  <button class="table-sort" :class="{ active: usersSort === 'registered_at' }" type="button" title="Сортировать по убыванию" @click="sortUsers('registered_at')">
+                    Регистрация <span aria-hidden="true">↓</span>
+                  </button>
+                </th>
+                <th>
+                  <button class="table-sort" :class="{ active: usersSort === 'last_game' }" type="button" title="Сортировать по убыванию" @click="sortUsers('last_game')">
+                    Последняя игра <span aria-hidden="true">↓</span>
+                  </button>
+                </th>
+                <th>
+                  <button class="table-sort" :class="{ active: usersSort === 'last_online' }" type="button" title="Сортировать по убыванию" @click="sortUsers('last_online')">
+                    Последний онлайн <span aria-hidden="true">↓</span>
+                  </button>
+                </th>
+                <th>
+                  <button class="table-sort" :class="{ active: usersSort === 'last_room' }" type="button" title="Сортировать по убыванию" @click="sortUsers('last_room')">
+                    Последнее общение <span aria-hidden="true">↓</span>
+                  </button>
+                </th>
+                <th>
+                  <button class="table-sort" :class="{ active: usersSort === 'last_spectator' }" type="button" title="Сортировать по убыванию" @click="sortUsers('last_spectator')">
+                    Последний зритель <span aria-hidden="true">↓</span>
+                  </button>
+                </th>
+                <th>
+                  <button class="table-sort" :class="{ active: usersSort === 'suspends_count' }" type="button" title="Сортировать по убыванию" @click="sortUsers('suspends_count')">
+                    Отстранения <span aria-hidden="true">↓</span>
+                  </button>
+                </th>
+                <th>
+                  <button class="table-sort" :class="{ active: usersSort === 'timeouts_count' }" type="button" title="Сортировать по убыванию" @click="sortUsers('timeouts_count')">
+                    Таймауты <span aria-hidden="true">↓</span>
+                  </button>
+                </th>
+                <th>
+                  <button class="table-sort" :class="{ active: usersSort === 'bans_count' }" type="button" title="Сортировать по убыванию" @click="sortUsers('bans_count')">
+                    Баны <span aria-hidden="true">↓</span>
+                  </button>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -54,6 +88,8 @@
                   </div>
                 </td>
                 <td>{{ formatLocalDateTime(row.registered_at) }}</td>
+                <td>{{ formatModerationLastGame(row) }}</td>
+                <td>{{ formatModerationLastOnline(row.last_visit_at, row.online) }}</td>
                 <td>{{ formatRoomIdLabel(row.last_room_id) }}</td>
                 <td>{{ formatRoomIdLabel(row.last_spectator_room_id) }}</td>
                 <td>{{ row.suspends_count }}</td>
@@ -61,7 +97,7 @@
                 <td>{{ row.bans_count }}</td>
               </tr>
               <tr v-if="users.length === 0">
-                <td colspan="7" class="muted">Нет данных</td>
+                <td colspan="9" class="muted">Нет данных</td>
               </tr>
             </tbody>
           </table>
@@ -289,12 +325,26 @@ type UserRow = {
   avatar_name?: string | null
   role: string
   registered_at: string
+  last_visit_at?: string | null
+  last_game_at?: string | null
+  last_game_id?: number | null
+  online: boolean
   last_room_id?: number | null
   last_spectator_room_id?: number | null
   timeouts_count: number
   bans_count: number
   suspends_count: number
 }
+
+type UserSortKey =
+  | 'registered_at'
+  | 'last_game'
+  | 'last_online'
+  | 'last_room'
+  | 'last_spectator'
+  | 'suspends_count'
+  | 'timeouts_count'
+  | 'bans_count'
 
 type ContactRequestRow = {
   id: number
@@ -331,6 +381,7 @@ const usersTotal = ref(0)
 const usersPage = ref(1)
 const usersLimit = ref(20)
 const usersUser = ref('')
+const usersSort = ref<UserSortKey>('registered_at')
 const sanctions = ref<SanctionsRow[]>([])
 const sanctionsLoading = ref(false)
 const sanctionsTotal = ref(0)
@@ -420,6 +471,10 @@ function setUsersLimit(event: Event): void {
   usersLimit.value = normalizePageLimit(selectValue(event))
 }
 
+function sortUsers(sort: UserSortKey): void {
+  usersSort.value = sort
+}
+
 function setSanctionsLimit(event: Event): void {
   sanctionsLimit.value = normalizePageLimit(selectValue(event))
 }
@@ -431,6 +486,37 @@ function setContactRequestsLimit(event: Event): void {
 function formatRoomIdLabel(value?: number | null): string {
   const roomId = Number(value)
   return Number.isFinite(roomId) && roomId > 0 ? `Комната ${Math.trunc(roomId)}` : '-'
+}
+
+function parseModerationDate(value?: string | number | Date | null): Date | null {
+  if (!value) return null
+  const date = value instanceof Date ? value : new Date(value)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+function formatModerationDateOnly(value?: string | number | Date | null): string {
+  const date = parseModerationDate(value)
+  if (!date) return '-'
+  return `${String(date.getDate()).padStart(2, '0')}.${String(date.getMonth() + 1).padStart(2, '0')}.${date.getFullYear()}`
+}
+
+function formatModerationLastGame(row: UserRow): string {
+  const dateLabel = formatModerationDateOnly(row.last_game_at)
+  if (dateLabel === '-') return '-'
+  const gameId = Number(row.last_game_id || 0)
+  return Number.isFinite(gameId) && gameId > 0 ? `Игра #${Math.trunc(gameId)} от ${dateLabel}` : dateLabel
+}
+
+function formatModerationLastOnline(value?: string | null, online = false): string {
+  if (online) return 'Онлайн'
+  const date = parseModerationDate(value)
+  if (!date) return '-'
+  const totalMinutes = Math.floor((Date.now() - date.getTime()) / 60000)
+  if (totalMinutes < 1) return 'Только что'
+  if (totalMinutes < 60) return `${totalMinutes}м назад`
+  if (totalMinutes < 24 * 60) return `${Math.floor(totalMinutes / 60)}ч ${totalMinutes % 60}м назад`
+  if (totalMinutes < 30 * 24 * 60) return `${Math.floor(totalMinutes / (24 * 60))}д назад`
+  return formatModerationDateOnly(date)
 }
 
 function formatDurationSeconds(seconds?: number | null, zeroLabel = 'без срока'): string {
@@ -576,6 +662,7 @@ async function loadUsers(): Promise<void> {
     const params: Record<string, unknown> = {
       page: usersPage.value,
       limit: usersLimit.value,
+      sort: usersSort.value,
     }
     if (usersUser.value) params.username = usersUser.value
     const { data } = await api.get('/moderation/users', { params })
@@ -584,6 +671,10 @@ async function loadUsers(): Promise<void> {
       ...item,
       avatar_name: item?.avatar_name ?? null,
       role: String(item?.role || ''),
+      last_visit_at: item?.last_visit_at ?? null,
+      last_game_at: item?.last_game_at ?? null,
+      last_game_id: Number.isFinite(item?.last_game_id) ? item.last_game_id : null,
+      online: Boolean(item?.online),
       last_room_id: Number.isFinite(item?.last_room_id) ? item.last_room_id : null,
       last_spectator_room_id: Number.isFinite(item?.last_spectator_room_id) ? item.last_spectator_room_id : null,
     }))
@@ -765,7 +856,7 @@ watch(activeTab, (tab) => {
   refreshActiveTab(tab)
 })
 
-watch(usersLimit, () => {
+watch([usersLimit, usersSort], () => {
   usersPage.value = 1
   if (activeTab.value !== 'users') return
   void loadUsers()
@@ -928,6 +1019,28 @@ onBeforeUnmount(() => {
       font-size: 16px;
       color: $neutral-500;
       text-align: left;
+    }
+    .table-sort {
+      display: inline-flex;
+      align-items: center;
+      padding: 0;
+      gap: 5px;
+      border: none;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      cursor: pointer;
+      span {
+        opacity: 0.5;
+        transition: opacity 0.25s ease-in-out;
+      }
+      &:hover span,
+      &.active span {
+        opacity: 1;
+      }
+      &.active {
+        color: $neutral-100;
+      }
     }
     td {
       padding: 10px;
