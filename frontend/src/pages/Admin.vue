@@ -62,6 +62,9 @@
                 <button class="btn danger width-full" :disabled="kickRoomsBusy || clearChatBusy || endGamesBusy || markAllNotifsBusy" @click="markAllNotificationsRead">
                   Прочитать все уведомления
                 </button>
+                <button class="btn confirm width-full" :disabled="savingSettings || !isSettingsDirty" @click="saveSettings">
+                  Сохранить
+                </button>
               </div>
             </div>
 
@@ -118,12 +121,6 @@
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Вероятность для подмигиваний (%)" />
               </div>
             </div>
-
-            <div class="form-actions">
-              <button class="btn confirm width-full" :disabled="savingSettings || !isSettingsDirty" @click="saveSettings">
-                Сохранить
-              </button>
-            </div>
           </div>
         </div>
 
@@ -159,11 +156,9 @@
                   </div>
                 </article>
               </div>
-              <div class="form-actions">
-                <button class="btn confirm width-full" :disabled="updateNoticeSaving || !canSendUpdateNotice" @click="sendUpdateNotice">
-                  Отправить всем
-                </button>
-              </div>
+              <button class="btn confirm width-full" :disabled="updateNoticeSaving || !canSendUpdateNotice" @click="sendUpdateNotice">
+                Отправить всем
+              </button>
             </div>
           </div>
         </div>
@@ -289,23 +284,6 @@
                   </div>
                 </div>
               </div>
-            </div>
-
-            <div class="nomination-leaderboards">
-              <section v-for="board in stats.nomination_leaderboards" :key="board.key" class="nomination-leaderboard">
-                <div class="stats-mini-title">{{ board.label }} — топ-5</div>
-                <div v-if="board.leaders.length === 0" class="muted">Нет данных</div>
-                <ol v-else class="nomination-leader-list">
-                  <li v-for="(leader, index) in board.leaders" :key="`${board.key}-${leader.id}`" class="nomination-leader-row">
-                    <span class="nomination-leader-rank">{{ index + 1 }}.</span>
-                    <button class="user-link nomination-leader-user" type="button" :disabled="!canOpenNominationLeaderMiniProfile(leader)" @click="openNominationLeaderMiniProfile(leader)">
-                      <img v-minio-img="{ key: leader.avatar_name ? `avatars/${leader.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
-                      <span>{{ leader.username || `user${leader.id}` }}</span>
-                    </button>
-                    <span class="nomination-leader-score">{{ leader.level }} ур. ({{ formatNominationLeaderboardValue(board.key, leader.value) }})</span>
-                  </li>
-                </ol>
-              </section>
             </div>
 
             <div class="stats-monthly-grid">
@@ -581,14 +559,77 @@
               <thead>
                 <tr>
                   <th>ID</th>
-                  <th>TG_ID</th>
+                  <th>
+                    <button class="table-sort" :class="{ active: usersSort === 'tg_id' }" type="button" title="Сортировать по убыванию" @click="sortUsers('tg_id')">
+                      TG_ID <span aria-hidden="true">↓</span>
+                    </button>
+                  </th>
                   <th>Никнейм</th>
-                  <th>Регистрация</th>
-                  <th>Последнее общение</th>
-                  <th>Последний зритель</th>
-                  <th>Отстранения</th>
-                  <th>Таймауты</th>
-                  <th>Баны</th>
+                  <th>
+                    <button class="table-sort" :class="{ active: usersSort === 'registered_at' }" type="button" title="Сортировать по убыванию" @click="sortUsers('registered_at')">
+                      Регистрация <span aria-hidden="true">↓</span>
+                    </button>
+                  </th>
+                  <th>
+                    <button class="table-sort" :class="{ active: usersSort === 'last_game' }" type="button" title="Сортировать по убыванию" @click="sortUsers('last_game')">
+                      Последняя игра <span aria-hidden="true">↓</span>
+                    </button>
+                  </th>
+                  <th>
+                    <button class="table-sort" :class="{ active: usersSort === 'last_online' }" type="button" title="Сортировать по убыванию" @click="sortUsers('last_online')">
+                      Последний онлайн <span aria-hidden="true">↓</span>
+                    </button>
+                  </th>
+                  <th>
+                    <button class="table-sort" :class="{ active: usersSort === 'last_room' }" type="button" title="Сортировать по убыванию" @click="sortUsers('last_room')">
+                      Последнее общение <span aria-hidden="true">↓</span>
+                    </button>
+                  </th>
+                  <th>
+                    <button class="table-sort" :class="{ active: usersSort === 'last_spectator' }" type="button" title="Сортировать по убыванию" @click="sortUsers('last_spectator')">
+                      Последний зритель <span aria-hidden="true">↓</span>
+                    </button>
+                  </th>
+                  <th>
+                    <button class="table-sort" :class="{ active: usersSort === 'games_played' }" type="button" title="Сортировать по убыванию" @click="sortUsers('games_played')">
+                      Игры <span aria-hidden="true">↓</span>
+                    </button>
+                  </th>
+                  <th>
+                    <button class="table-sort" :class="{ active: usersSort === 'games_hosted' }" type="button" title="Сортировать по убыванию" @click="sortUsers('games_hosted')">
+                      Ведущий <span aria-hidden="true">↓</span>
+                    </button>
+                  </th>
+                  <th>
+                    <button class="table-sort" :class="{ active: usersSort === 'room_minutes' }" type="button" title="Сортировать по убыванию" @click="sortUsers('room_minutes')">
+                      В комнатах <span aria-hidden="true">↓</span>
+                    </button>
+                  </th>
+                  <th>
+                    <button class="table-sort" :class="{ active: usersSort === 'stream_minutes' }" type="button" title="Сортировать по убыванию" @click="sortUsers('stream_minutes')">
+                      Трансляции <span aria-hidden="true">↓</span>
+                    </button>
+                  </th>
+                  <th>
+                    <button class="table-sort" :class="{ active: usersSort === 'spectator_minutes' }" type="button" title="Сортировать по убыванию" @click="sortUsers('spectator_minutes')">
+                      Зритель <span aria-hidden="true">↓</span>
+                    </button>
+                  </th>
+                  <th>
+                    <button class="table-sort" :class="{ active: usersSort === 'suspends_count' }" type="button" title="Сортировать по убыванию" @click="sortUsers('suspends_count')">
+                      Отстранения <span aria-hidden="true">↓</span>
+                    </button>
+                  </th>
+                  <th>
+                    <button class="table-sort" :class="{ active: usersSort === 'timeouts_count' }" type="button" title="Сортировать по убыванию" @click="sortUsers('timeouts_count')">
+                      Таймауты <span aria-hidden="true">↓</span>
+                    </button>
+                  </th>
+                  <th>
+                    <button class="table-sort" :class="{ active: usersSort === 'bans_count' }" type="button" title="Сортировать по убыванию" @click="sortUsers('bans_count')">
+                      Баны <span aria-hidden="true">↓</span>
+                    </button>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -605,14 +646,21 @@
                     <span v-else>-</span>
                   </td>
                   <td>{{ formatLocalDateTime(row.registered_at) }}</td>
+                  <td>{{ formatAdminLastGame(row) }}</td>
+                  <td>{{ formatAdminLastOnline(row.last_visit_at, row.online) }}</td>
                   <td>{{ formatRoomIdLabel(row.last_room_id) }}</td>
                   <td>{{ formatRoomIdLabel(row.last_spectator_room_id) }}</td>
+                  <td>{{ formatNominationCount(row.games_played) }}</td>
+                  <td>{{ formatNominationCount(row.games_hosted) }}</td>
+                  <td>{{ formatMinutes(row.room_minutes) }}</td>
+                  <td>{{ formatMinutes(row.stream_minutes) }}</td>
+                  <td>{{ formatMinutes(row.spectator_minutes) }}</td>
                   <td>{{ row.suspends_count }}</td>
                   <td>{{ row.timeouts_count }}</td>
                   <td>{{ row.bans_count }}</td>
                 </tr>
                 <tr v-if="users.length === 0">
-                  <td colspan="9" class="muted">Нет данных</td>
+                  <td colspan="16" class="muted">Нет данных</td>
                 </tr>
               </tbody>
             </table>
@@ -897,7 +945,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '@/services/axios'
 import { alertDialog, confirmDialog } from '@/services/confirm'
@@ -984,21 +1032,6 @@ type PeriodStats = {
   stream_minutes: number
 }
 
-type NominationLeaderboardLeader = {
-  id: number
-  username?: string | null
-  avatar_name?: string | null
-  role?: string | null
-  value: number
-  level: number
-}
-
-type NominationLeaderboard = {
-  key: string
-  label: string
-  leaders: NominationLeaderboardLeader[]
-}
-
 type SiteStats = {
   total_users: number
   avatars_count: number
@@ -1018,7 +1051,6 @@ type SiteStats = {
   online_users: number
   online_users_list: OnlineUser[]
   last_month: PeriodStats
-  nomination_leaderboards: NominationLeaderboard[]
 }
 
 type LogRow = {
@@ -1093,13 +1125,38 @@ type UserRow = {
   avatar_name?: string | null
   role: string
   registered_at: string
+  last_visit_at?: string | null
+  last_game_at?: string | null
+  last_game_id?: number | null
+  online: boolean
   last_room_id?: number | null
   last_spectator_room_id?: number | null
+  games_played: number
+  games_hosted: number
+  room_minutes: number
+  stream_minutes: number
+  spectator_minutes: number
   deleted_at?: string | null
   timeouts_count: number
   bans_count: number
   suspends_count: number
 }
+
+type UserSortKey =
+  | 'tg_id'
+  | 'registered_at'
+  | 'last_online'
+  | 'last_game'
+  | 'last_room'
+  | 'last_spectator'
+  | 'games_played'
+  | 'games_hosted'
+  | 'room_minutes'
+  | 'stream_minutes'
+  | 'spectator_minutes'
+  | 'suspends_count'
+  | 'timeouts_count'
+  | 'bans_count'
 
 type UserMiniProfileTarget = {
   id: number
@@ -1257,7 +1314,6 @@ const stats = reactive<SiteStats>({
     rooms: 0,
     stream_minutes: 0,
   },
-  nomination_leaderboards: [],
 })
 
 const logActions = ref<string[]>([])
@@ -1281,6 +1337,7 @@ const usersTotal = ref(0)
 const usersPage = ref(1)
 const usersLimit = ref(20)
 const usersUser = ref('')
+const usersSort = ref<UserSortKey>('registered_at')
 const sanctions = ref<SanctionsRow[]>([])
 const sanctionsTotal = ref(0)
 const sanctionsPage = ref(1)
@@ -1371,6 +1428,7 @@ const clearChatBusy = ref(false)
 const endGamesBusy = ref(false)
 const markAllNotifsBusy = ref(false)
 let logsUserTimer: number | undefined
+let logsRefreshTimer: number | undefined
 let roomsUserTimer: number | undefined
 let usersUserTimer: number | undefined
 let sanctionsUserTimer: number | undefined
@@ -1595,6 +1653,10 @@ function setUsersLimit(event: Event): void {
   usersLimit.value = normalizePageLimit(selectValue(event))
 }
 
+function sortUsers(sort: UserSortKey): void {
+  usersSort.value = sort
+}
+
 function setSanctionsLimit(event: Event): void {
   sanctionsLimit.value = normalizePageLimit(selectValue(event))
 }
@@ -1683,11 +1745,39 @@ function formatMinutes(value: number): string {
   return parts.join(' ')
 }
 
-function formatNominationLeaderboardValue(key: string, value: number): string {
-  if (key === 'room_minutes' || key === 'stream_minutes' || key === 'spectator_minutes') {
-    return formatMinutes(value)
-  }
+function formatNominationCount(value: number): string {
   return Math.max(0, Math.floor(Number(value) || 0)).toLocaleString('ru-RU')
+}
+
+function parseAdminDate(value?: string | number | Date | null): Date | null {
+  if (!value) return null
+  const date = value instanceof Date ? value : new Date(value)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+function formatAdminDateOnly(value?: string | number | Date | null): string {
+  const date = parseAdminDate(value)
+  if (!date) return '-'
+  return `${String(date.getDate()).padStart(2, '0')}.${String(date.getMonth() + 1).padStart(2, '0')}.${date.getFullYear()}`
+}
+
+function formatAdminLastGame(row: UserRow): string {
+  const dateLabel = formatAdminDateOnly(row.last_game_at)
+  if (dateLabel === '-') return '-'
+  const gameId = Number(row.last_game_id || 0)
+  return Number.isFinite(gameId) && gameId > 0 ? `Игра #${Math.trunc(gameId)} от ${dateLabel}` : dateLabel
+}
+
+function formatAdminLastOnline(value?: string | null, online = false): string {
+  if (online) return 'Онлайн'
+  const date = parseAdminDate(value)
+  if (!date) return '-'
+  const totalMinutes = Math.floor((Date.now() - date.getTime()) / 60000)
+  if (totalMinutes < 1) return 'Только что'
+  if (totalMinutes < 60) return `${totalMinutes}м назад`
+  if (totalMinutes < 24 * 60) return `${Math.floor(totalMinutes / 60)}ч ${totalMinutes % 60}м назад`
+  if (totalMinutes < 30 * 24 * 60) return `${Math.floor(totalMinutes / (24 * 60))}д назад`
+  return formatAdminDateOnly(date)
 }
 
 function formatRoomIdLabel(value?: number | null): string {
@@ -1747,21 +1837,6 @@ function sanctionStatusClass(status: SanctionListStatus): string {
 function openUserMiniProfile(row: UserMiniProfileTarget): void {
   userMiniProfileTarget.value = row
   userMiniProfileOpen.value = true
-}
-
-function canOpenNominationLeaderMiniProfile(row: NominationLeaderboardLeader): boolean {
-  return canOpenMiniProfileOnAdminPage(row)
-}
-
-function openNominationLeaderMiniProfile(row: NominationLeaderboardLeader): void {
-  if (!canOpenNominationLeaderMiniProfile(row)) return
-  openUserMiniProfile({
-    id: row.id,
-    username: row.username ?? null,
-    avatar_name: row.avatar_name ?? null,
-    role: row.role ?? null,
-    deleted_at: null,
-  })
 }
 
 function canOpenMiniProfileOnAdminPage(value: {
@@ -2149,7 +2224,6 @@ async function loadStats(): Promise<void> {
       total_rooms: data?.total_rooms ?? 0,
       total_games: data?.total_games ?? 0,
       total_stream_minutes: data?.total_stream_minutes ?? 0,
-      nomination_leaderboards: normalizeNominationLeaderboards(data?.nomination_leaderboards),
       active_room_users: data?.active_room_users ?? 0,
       online_users: data?.online_users ?? 0,
       online_users_list: Array.isArray(data?.online_users_list)
@@ -2172,34 +2246,6 @@ async function loadStats(): Promise<void> {
   }
 }
 
-function normalizeNominationLeaderboards(value: unknown): NominationLeaderboard[] {
-  if (!Array.isArray(value)) return []
-  return value.flatMap((rawBoard): NominationLeaderboard[] => {
-    if (!rawBoard || typeof rawBoard !== 'object') return []
-    const board = rawBoard as Record<string, unknown>
-    const key = typeof board.key === 'string' ? board.key : ''
-    const label = typeof board.label === 'string' ? board.label : ''
-    if (!key || !label) return []
-    const leaders = Array.isArray(board.leaders)
-      ? board.leaders.flatMap((rawLeader): NominationLeaderboardLeader[] => {
-        if (!rawLeader || typeof rawLeader !== 'object') return []
-        const leader = rawLeader as Record<string, unknown>
-        const id = Number(leader.id)
-        if (!Number.isFinite(id) || id <= 0) return []
-        return [{
-          id: Math.trunc(id),
-          username: typeof leader.username === 'string' ? leader.username : null,
-          avatar_name: typeof leader.avatar_name === 'string' ? leader.avatar_name : null,
-          role: typeof leader.role === 'string' ? leader.role : null,
-          value: Math.max(0, Math.floor(Number(leader.value) || 0)),
-          level: Math.max(1, Math.floor(Number(leader.level) || 1)),
-        }]
-      })
-      : []
-    return [{ key, label, leaders }]
-  })
-}
-
 async function loadLogActions(): Promise<void> {
   try {
     const { data } = await api.get('/admin/logs/actions')
@@ -2209,7 +2255,7 @@ async function loadLogActions(): Promise<void> {
   }
 }
 
-async function loadLogs(): Promise<void> {
+async function loadLogs(silent = false): Promise<void> {
   if (logsLoading.value) return
   logsLoading.value = true
   try {
@@ -2224,7 +2270,7 @@ async function loadLogs(): Promise<void> {
     logs.value = Array.isArray(data?.items) ? data.items : []
     logsTotal.value = Number.isFinite(data?.total) ? data.total : 0
   } catch {
-    void alertDialog('Не удалось загрузить логи')
+    if (!silent) void alertDialog('Не удалось загрузить логи')
   } finally {
     logsLoading.value = false
   }
@@ -2266,6 +2312,7 @@ async function loadUsers(): Promise<void> {
     const params: Record<string, any> = {
       page: usersPage.value,
       limit: usersLimit.value,
+      sort: usersSort.value,
     }
     if (usersUser.value) params.username = usersUser.value
     const { data } = await api.get('/admin/users', { params })
@@ -2273,8 +2320,17 @@ async function loadUsers(): Promise<void> {
     users.value = items.map((item: any) => ({
       ...item,
       tg_id: item?.tg_id ?? null,
+      last_visit_at: item?.last_visit_at ?? null,
+      last_game_at: item?.last_game_at ?? null,
+      last_game_id: Number.isFinite(item?.last_game_id) ? item.last_game_id : null,
+      online: Boolean(item?.online),
       last_room_id: Number.isFinite(item?.last_room_id) ? item.last_room_id : null,
       last_spectator_room_id: Number.isFinite(item?.last_spectator_room_id) ? item.last_spectator_room_id : null,
+      games_played: Math.max(0, Math.floor(Number(item?.games_played) || 0)),
+      games_hosted: Math.max(0, Math.floor(Number(item?.games_hosted) || 0)),
+      room_minutes: Math.max(0, Math.floor(Number(item?.room_minutes) || 0)),
+      stream_minutes: Math.max(0, Math.floor(Number(item?.stream_minutes) || 0)),
+      spectator_minutes: Math.max(0, Math.floor(Number(item?.spectator_minutes) || 0)),
     }))
     usersTotal.value = Number.isFinite(data?.total) ? data.total : 0
   } catch {
@@ -2766,6 +2822,18 @@ function prevContactRequests(): void {
   void loadContactRequests()
 }
 
+function syncLogsAutoRefresh(tab: TabKey): void {
+  if (logsRefreshTimer !== undefined) {
+    window.clearInterval(logsRefreshTimer)
+    logsRefreshTimer = undefined
+  }
+  if (tab !== 'logs') return
+
+  logsRefreshTimer = window.setInterval(() => {
+    if (activeTab.value === 'logs') void loadLogs(true)
+  }, 3000)
+}
+
 function refreshActiveTab(tab: typeof activeTab.value): void {
   if (tab === 'settings') {
     void loadSettings()
@@ -2819,6 +2887,7 @@ watch(activeTab, (tab) => {
   if (tab !== 'contact_requests' && contactRequestReplyModalOpen.value) {
     closeContactRequestReplyModal()
   }
+  syncLogsAutoRefresh(tab)
   refreshActiveTab(tab)
 })
 
@@ -2853,7 +2922,7 @@ watch(roomsUser, () => {
   roomsUserTimer = window.setTimeout(() => { void loadRooms() }, 500)
 })
 
-watch(usersLimit, () => {
+watch([usersLimit, usersSort], () => {
   usersPage.value = 1
   if (activeTab.value !== 'users') return
   void loadUsers()
@@ -2902,6 +2971,10 @@ onMounted(() => {
       activeTab.value = requestedTab
     })
   }
+})
+
+onBeforeUnmount(() => {
+  if (logsRefreshTimer !== undefined) window.clearInterval(logsRefreshTimer)
 })
 </script>
 
@@ -3035,11 +3108,6 @@ onMounted(() => {
           margin-bottom: 15px;
         }
       }
-      .form-actions {
-        display: flex;
-        justify-content: flex-end;
-        grid-column: 1 / -1;
-      }
     }
     .filters {
       display: flex;
@@ -3162,67 +3230,6 @@ onMounted(() => {
         grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 10px;
       }
-      .nomination-leaderboards {
-        display: grid;
-        grid-template-columns: repeat(5, minmax(0, 1fr));
-        gap: 10px;
-      }
-      .nomination-leaderboard {
-        min-width: 0;
-        padding: 10px;
-        border-radius: 5px;
-        background-color: $neutral-800;
-        .stats-mini-title {
-          color: $neutral-100;
-        }
-      }
-      .nomination-leader-list {
-        display: flex;
-        flex-direction: column;
-        margin: 0;
-        padding: 0;
-        gap: 6px;
-        list-style: none;
-      }
-      .nomination-leader-row {
-        display: grid;
-        grid-template-columns: auto minmax(0, 1fr) auto;
-        align-items: center;
-        gap: 6px;
-        min-width: 0;
-        font-size: 12px;
-      }
-      .nomination-leader-rank,
-      .nomination-leader-score {
-        color: $neutral-500;
-        white-space: nowrap;
-      }
-      .nomination-leader-score {
-        font-size: 11px;
-      }
-      .nomination-leader-user {
-        display: flex;
-        align-items: center;
-        gap: 5px;
-        min-width: 0;
-        border: none;
-        background: none;
-        color: white;
-        cursor: pointer;
-        overflow: hidden;
-        img {
-          width: 18px;
-          height: 18px;
-          border-radius: 50%;
-          object-fit: cover;
-          flex: 0 0 auto;
-        }
-        span {
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-      }
       .chart {
         padding: 10px;
         border-radius: 5px;
@@ -3303,6 +3310,28 @@ onMounted(() => {
         font-size: 16px;
         color: $neutral-500;
         text-align: left;
+      }
+      .table-sort {
+        display: inline-flex;
+        align-items: center;
+        padding: 0;
+        gap: 5px;
+        border: none;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        cursor: pointer;
+        span {
+          opacity: 0.5;
+          transition: opacity 0.25s ease-in-out;
+        }
+        &:hover span,
+        &.active span {
+          opacity: 1;
+        }
+        &.active {
+          color: $neutral-100;
+        }
       }
       td {
         padding: 10px;

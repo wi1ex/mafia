@@ -144,21 +144,6 @@ class PeriodStatsOut(BaseModel):
     stream_minutes: int
 
 
-class AdminNominationLeaderOut(BaseModel):
-    id: int
-    username: Optional[str] = None
-    avatar_name: Optional[str] = None
-    role: Optional[str] = None
-    value: int
-    level: int
-
-
-class AdminNominationLeaderboardOut(BaseModel):
-    key: str
-    label: str
-    leaders: List[AdminNominationLeaderOut]
-
-
 class AdminGamesEndAllOut(BaseModel):
     ended: int
     skipped: int
@@ -184,7 +169,6 @@ class SiteStatsOut(BaseModel):
     online_users: int
     online_users_list: List[OnlineUserOut]
     last_month: PeriodStatsOut
-    nomination_leaderboards: List[AdminNominationLeaderboardOut]
 
 
 class AdminLogOut(BaseModel):
@@ -377,8 +361,17 @@ class AdminUserOut(BaseModel):
     avatar_name: Optional[str] = None
     role: str
     registered_at: datetime
+    last_visit_at: Optional[datetime] = None
+    last_game_at: Optional[datetime] = None
+    last_game_id: Optional[int] = None
+    online: bool = False
     last_room_id: Optional[int] = None
     last_spectator_room_id: Optional[int] = None
+    games_played: int = 0
+    games_hosted: int = 0
+    room_minutes: int = 0
+    stream_minutes: int = 0
+    spectator_minutes: int = 0
     deleted_at: Optional[datetime] = None
     timeouts_count: int
     bans_count: int

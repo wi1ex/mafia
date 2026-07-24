@@ -47,7 +47,7 @@ from ..services.telegram import send_text_message
 from ..schemas.common import Ok, Identity
 if TYPE_CHECKING:
     from ..schemas.auth import BotResetIn, BotStatusIn, BotVerifyIn
-    from ..schemas.admin import SiteSettingsOut, GameSettingsOut, PublicSettingsOut, RegistrationsPoint, AdminRoomUserStat, AdminSanctionDurationAdjustIn, AdminGameActionFieldOut, AdminNominationLeaderboardOut
+    from ..schemas.admin import SiteSettingsOut, GameSettingsOut, PublicSettingsOut, RegistrationsPoint, AdminRoomUserStat, AdminSanctionDurationAdjustIn, AdminGameActionFieldOut
     from ..schemas.friend import FriendsListItemOut
     from ..schemas.room import GameParams, RoomBriefOut
     from ..schemas.user import UserGamesHistoryOut, GameHistoryItemOut, GameHistoryHostOut, UserMiniProfileNominationStatsOut, UserStatsOut
@@ -115,7 +115,7 @@ __all__ = [
     "active_room_game_number",
     "fetch_active_room_game_numbers",
     "aggregate_user_room_time_stats",
-    "build_nomination_leaderboards",
+    "_fetch_admin_user_game_data",
     "build_user_mini_profile_nomination_stats_out",
     "build_user_stats_out",
     "fetch_users_last_room_id",
@@ -5173,6 +5173,66 @@ async def aggregate_user_room_time_stats(session: AsyncSession, ids: list[int], 
     return rooms_created, room_seconds, stream_seconds, spectator_seconds
 
 
+async def _fetch_admin_user_game_data(
+    session: AsyncSession,
+    user_ids: list[int],
+) -> tuple[
+    dict[int, tuple[int | None, datetime | None]],
+    dict[int, int],
+    dict[int, int],
+]:
+    last_games = {user_id: (None, None) for user_id in user_ids}
+    games_played = {user_id: 0 for user_id in user_ids}
+    games_hosted = {user_id: 0 for user_id in user_ids}
+    if not user_ids:
+        return last_games, games_played, games_hosted
+
+    user_id_set = set(user_ids)
+    game_query = select(Game.id, Game.finished_at, Game.head_id, Game.result, Game.roles)
+    if len(user_ids) <= 200:
+        game_query = game_query.where(or_(
+            Game.head_id.in_(user_ids),
+            *(Game.roles.has_key(str(user_id)) for user_id in user_ids),
+        ))
+
+    game_rows = (await session.execute(game_query)).all()
+    for game_id, finished_at, head_id, result, roles in game_rows:
+        try:
+            normalized_game_id = int(game_id)
+        except (TypeError, ValueError):
+            continue
+
+        if str(result or "") in {"red", "black"}:
+            try:
+                head_user_id = int(head_id)
+            except (TypeError, ValueError):
+                head_user_id = 0
+            if head_user_id in games_hosted:
+                games_hosted[head_user_id] += 1
+
+        if not isinstance(roles, dict):
+            continue
+        for raw_user_id in roles:
+            try:
+                user_id = int(raw_user_id)
+            except (TypeError, ValueError):
+                continue
+            if user_id not in user_id_set:
+                continue
+
+            previous_game_id, previous_finished_at = last_games[user_id]
+            if (
+                previous_game_id is None
+                or previous_finished_at is None
+                or (finished_at, normalized_game_id) > (previous_finished_at, previous_game_id)
+            ):
+                last_games[user_id] = (normalized_game_id, finished_at)
+            if str(result or "") in {"red", "black"}:
+                games_played[user_id] += 1
+
+    return last_games, games_played, games_hosted
+
+
 async def fetch_user_mini_profile_game_counts(session: AsyncSession, uid: int) -> tuple[int, int]:
     if uid <= 0:
         return 0, 0
@@ -5210,101 +5270,6 @@ async def build_user_mini_profile_nomination_stats_out(db: AsyncSession, uid: in
         stream_minutes=max(0, safe_int(stream_seconds.get(uid, 0)) // 60),
         spectator_minutes=max(0, safe_int(spectator_seconds.get(uid, 0)) // 60),
     )
-
-
-NOMINATION_LEADERBOARD_DEFINITIONS = (
-    ("games_played", "Игры", (0, 50, 100, 250, 500, 1000, 2500, 5000)),
-    ("games_hosted", "Ведущий", (0, 10, 25, 50, 100, 250, 500, 1000)),
-    ("room_minutes", "В комнатах", (0, 3 * 1440, 7 * 1440, 14 * 1440, 30 * 1440, 90 * 1440, 180 * 1440, 360 * 1440)),
-    ("stream_minutes", "Трансляции", (0, 12 * 60, 1440, 3 * 1440, 7 * 1440, 14 * 1440, 30 * 1440, 90 * 1440)),
-    ("spectator_minutes", "Зритель", (0, 1440, 3 * 1440, 7 * 1440, 14 * 1440, 30 * 1440, 90 * 1440, 180 * 1440)),
-)
-
-
-def nomination_level(value: int, level_starts: tuple[int, ...]) -> int:
-    return max(1, sum(1 for level_start in level_starts if value >= level_start))
-
-
-async def build_nomination_leaderboards(session: AsyncSession) -> list[AdminNominationLeaderboardOut]:
-    from ..schemas.admin import AdminNominationLeaderboardOut, AdminNominationLeaderOut
-
-    user_rows = (
-        await session.execute(
-            select(User.id, User.username, User.avatar_name, User.role)
-            .where(User.deleted_at.is_(None))
-        )
-    ).all()
-    users: dict[int, tuple[str | None, str | None, str | None]] = {}
-    for user_id, username, avatar_name, role in user_rows:
-        try:
-            uid = int(user_id)
-        except (TypeError, ValueError):
-            continue
-        if uid > 0:
-            users[uid] = (username, avatar_name, role)
-
-    user_ids = list(users)
-    if not user_ids:
-        return [
-            AdminNominationLeaderboardOut(key=key, label=label, leaders=[])
-            for key, label, _level_starts in NOMINATION_LEADERBOARD_DEFINITIONS
-        ]
-
-    _rooms_created, room_seconds, stream_seconds, spectator_seconds = await aggregate_user_room_time_stats(
-        session,
-        user_ids,
-    )
-    games_played = {uid: 0 for uid in user_ids}
-    games_hosted = {uid: 0 for uid in user_ids}
-    game_rows = await session.execute(
-        select(Game.head_id, Game.roles).where(Game.result.in_(("red", "black")))
-    )
-    for head_id, roles in game_rows.all():
-        try:
-            head_uid = int(head_id)
-        except (TypeError, ValueError):
-            head_uid = 0
-        if head_uid in games_hosted:
-            games_hosted[head_uid] += 1
-
-        if not isinstance(roles, dict):
-            continue
-        for raw_user_id in roles:
-            try:
-                uid = int(raw_user_id)
-            except (TypeError, ValueError):
-                continue
-            if uid in games_played:
-                games_played[uid] += 1
-
-    values_by_key = {
-        "games_played": games_played,
-        "games_hosted": games_hosted,
-        "room_minutes": {uid: max(0, int(room_seconds.get(uid, 0)) // 60) for uid in user_ids},
-        "stream_minutes": {uid: max(0, int(stream_seconds.get(uid, 0)) // 60) for uid in user_ids},
-        "spectator_minutes": {uid: max(0, int(spectator_seconds.get(uid, 0)) // 60) for uid in user_ids},
-    }
-
-    result: list[AdminNominationLeaderboardOut] = []
-    for key, label, level_starts in NOMINATION_LEADERBOARD_DEFINITIONS:
-        values = values_by_key[key]
-        top_user_ids = sorted(
-            (uid for uid in user_ids if values.get(uid, 0) > 0),
-            key=lambda uid: (-values[uid], (users[uid][0] or f"user{uid}").lower(), uid),
-        )[:5]
-        leaders = [
-            AdminNominationLeaderOut(
-                id=uid,
-                username=users[uid][0],
-                avatar_name=users[uid][1],
-                role=users[uid][2],
-                value=values[uid],
-                level=nomination_level(values[uid], level_starts),
-            )
-            for uid in top_user_ids
-        ]
-        result.append(AdminNominationLeaderboardOut(key=key, label=label, leaders=leaders))
-    return result
 
 
 async def build_user_stats_out(db: AsyncSession, uid: int, season: int | None = None) -> UserStatsOut:

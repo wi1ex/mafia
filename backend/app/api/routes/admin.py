@@ -142,7 +142,8 @@ from ..utils import (
     fetch_live_room_stats,
     has_live_room_snapshot,
     fetch_active_room_game_numbers,
-    build_nomination_leaderboards,
+    aggregate_user_room_time_stats,
+    _fetch_admin_user_game_data,
     build_user_stats_out,
     fetch_games_history_page,
     fetch_users_last_room_id,
@@ -207,6 +208,23 @@ public_router = APIRouter()
 ADMIN_GUARD = (Depends(require_protected_admin_dep),)
 router = APIRouter(dependencies=ADMIN_GUARD)
 log = structlog.get_logger()
+
+AdminUserSortKey = Literal[
+    "tg_id",
+    "registered_at",
+    "last_online",
+    "last_game",
+    "last_room",
+    "last_spectator",
+    "games_played",
+    "games_hosted",
+    "room_minutes",
+    "stream_minutes",
+    "spectator_minutes",
+    "suspends_count",
+    "timeouts_count",
+    "bans_count",
+]
 
 
 @public_router.get("/settings/public", response_model=PublicSettingsOut)
@@ -308,8 +326,6 @@ async def site_stats(month: str | None = None, session: AsyncSession = Depends(g
     active_users_monthly = await build_active_users_monthly_series(session)
     total_stream_seconds = await calc_total_stream_seconds(session)
     month_stream_seconds = await calc_room_stream_seconds_in_range(session, month_start, month_end)
-    nomination_leaderboards = await build_nomination_leaderboards(session)
-
     r = get_redis()
     active_room_users = await fetch_active_rooms_stats(r)
     base_online_ids = set(await fetch_online_user_ids(r))
@@ -377,7 +393,6 @@ async def site_stats(month: str | None = None, session: AsyncSession = Depends(g
             rooms=month_rooms,
             stream_minutes=month_stream_seconds // 60,
         ),
-        nomination_leaderboards=nomination_leaderboards,
     )
 
 
@@ -1362,7 +1377,7 @@ async def mark_all_notifications_read(ident: Identity = Depends(get_identity), s
 
 @router.get("/users", response_model=AdminUsersOut, dependencies=ADMIN_GUARD)
 @log_route("admin.users.list")
-async def users_list(page: int = 1, limit: int = 20, username: str | None = None, session: AsyncSession = Depends(get_session)) -> AdminUsersOut:
+async def users_list(page: int = 1, limit: int = 20, username: str | None = None, sort: AdminUserSortKey = "registered_at", session: AsyncSession = Depends(get_session)) -> AdminUsersOut:
     limit, page, offset = normalize_pagination(page, limit)
 
     filters = []
@@ -1374,22 +1389,128 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
         filters.append(User.id.in_(user_ids))
 
     total = int(await session.scalar(select(func.count(User.id)).where(*filters)) or 0)
-    rows = await session.execute(
-        select(User)
-        .where(*filters)
-        .order_by(User.registered_at.desc(), User.id.desc())
-        .offset(offset)
-        .limit(limit)
-    )
-    users = list(rows.scalars().all())
+    if total == 0:
+        return AdminUsersOut(total=0, items=[])
+
+    game_data: tuple[
+        dict[int, tuple[int | None, datetime | None]],
+        dict[int, int],
+        dict[int, int],
+    ] | None = None
+    room_data: tuple[dict[int, int], dict[int, int], dict[int, int], dict[int, int]] | None = None
+    last_room_id: dict[int, int | None] | None = None
+    last_spectator_room_id: dict[int, int | None] | None = None
+    sanction_counts: dict[int, dict[str, int]] | None = None
+
+    database_sort_columns = {
+        "tg_id": User.telegram_id,
+        "registered_at": User.registered_at,
+        "last_online": User.last_visit_at,
+    }
+    if sort in database_sort_columns:
+        rows = await session.execute(
+            select(User)
+            .where(*filters)
+            .order_by(database_sort_columns[sort].desc().nulls_last(), User.id.desc())
+            .offset(offset)
+            .limit(limit)
+        )
+        users = list(rows.scalars().all())
+    else:
+        rows = await session.execute(select(User).where(*filters))
+        users = list(rows.scalars().all())
+        all_user_ids = [int(user.id) for user in users]
+
+        if sort in {"last_game", "games_played", "games_hosted"}:
+            game_data = await _fetch_admin_user_game_data(session, all_user_ids)
+        elif sort in {"room_minutes", "stream_minutes", "spectator_minutes"}:
+            room_data = await aggregate_user_room_time_stats(session, all_user_ids)
+        elif sort == "last_room":
+            last_room_id = await fetch_users_last_room_id(session, all_user_ids)
+        elif sort == "last_spectator":
+            last_spectator_room_id = await fetch_users_last_spectator_room_id(session, all_user_ids)
+        elif sort in {"suspends_count", "timeouts_count", "bans_count"}:
+            sanction_counts = await fetch_sanction_counts_for_users(session, all_user_ids)
+
+        if sort in {"last_game", "games_played", "games_hosted"}:
+            assert game_data is not None
+
+            last_games, games_played, games_hosted = game_data
+            sort_values = {
+                "last_game": {user_id: game[0] or 0 for user_id, game in last_games.items()},
+                "games_played": games_played,
+                "games_hosted": games_hosted,
+            }[sort]
+
+        elif sort in {"room_minutes", "stream_minutes", "spectator_minutes"}:
+            assert room_data is not None
+
+            _rooms_created, room_seconds, stream_seconds, spectator_seconds = room_data
+            sort_values = {
+                "room_minutes": room_seconds,
+                "stream_minutes": stream_seconds,
+                "spectator_minutes": spectator_seconds,
+            }[sort]
+
+        elif sort == "last_room":
+            assert last_room_id is not None
+
+            sort_values = last_room_id
+
+        elif sort == "last_spectator":
+            assert last_spectator_room_id is not None
+
+            sort_values = last_spectator_room_id
+
+        else:
+            assert sanction_counts is not None
+
+            sanction_kind = {
+                "suspends_count": SANCTION_SUSPEND,
+                "timeouts_count": SANCTION_TIMEOUT,
+                "bans_count": SANCTION_BAN,
+            }[sort]
+            sort_values = {
+                user_id: int(user_counts.get(sanction_kind, 0) or 0)
+                for user_id, user_counts in sanction_counts.items()
+            }
+
+        users.sort(
+            key=lambda user: (int(sort_values.get(int(user.id), 0) or 0), int(user.id)),
+            reverse=True,
+        )
+        users = users[offset:offset + limit]
+
     ids = [int(u.id) for u in users]
-    last_room_id = await fetch_users_last_room_id(session, ids)
-    last_spectator_room_id = await fetch_users_last_spectator_room_id(session, ids)
-    sanction_counts = await fetch_sanction_counts_for_users(session, ids)
+    if game_data is None:
+        game_data = await _fetch_admin_user_game_data(session, ids)
+    if room_data is None:
+        room_data = await aggregate_user_room_time_stats(session, ids)
+    if last_room_id is None:
+        last_room_id = await fetch_users_last_room_id(session, ids)
+    if last_spectator_room_id is None:
+        last_spectator_room_id = await fetch_users_last_spectator_room_id(session, ids)
+    if sanction_counts is None:
+        sanction_counts = await fetch_sanction_counts_for_users(session, ids)
+
+    last_games, games_played, games_hosted = game_data
+    _rooms_created, room_seconds, stream_seconds, spectator_seconds = room_data
+    online_user_ids: set[int] = set()
+    if ids:
+        try:
+            redis = get_redis()
+            base_online_ids = set(await fetch_online_user_ids(redis))
+            online_user_ids = set(
+                await fetch_effective_online_user_ids(redis, ids, base_online_ids=base_online_ids)
+            )
+        except Exception:
+            log.warning("admin.users.online_fetch_failed", users=len(ids))
+
     items: list[AdminUserOut] = []
     for u in users:
         uid = int(u.id)
         user_counts = sanction_counts.get(uid, {})
+        last_game_id, last_game_at = last_games.get(uid, (None, None))
         items.append(AdminUserOut(
             id=uid,
             tg_id=u.telegram_id,
@@ -1397,8 +1518,17 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
             avatar_name=u.avatar_name,
             role=u.role,
             registered_at=u.registered_at,
+            last_visit_at=u.last_visit_at,
+            last_game_at=last_game_at,
+            last_game_id=last_game_id,
+            online=uid in online_user_ids,
             last_room_id=last_room_id.get(uid),
             last_spectator_room_id=last_spectator_room_id.get(uid),
+            games_played=max(0, int(games_played.get(uid, 0) or 0)),
+            games_hosted=max(0, int(games_hosted.get(uid, 0) or 0)),
+            room_minutes=max(0, int(room_seconds.get(uid, 0) or 0) // 60),
+            stream_minutes=max(0, int(stream_seconds.get(uid, 0) or 0) // 60),
+            spectator_minutes=max(0, int(spectator_seconds.get(uid, 0) or 0) // 60),
             deleted_at=u.deleted_at,
             timeouts_count=int(user_counts.get(SANCTION_TIMEOUT, 0) or 0),
             bans_count=int(user_counts.get(SANCTION_BAN, 0) or 0),
