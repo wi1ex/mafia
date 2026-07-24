@@ -414,6 +414,7 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
   {
     hideAdminBadge: props.inGame,
     hideModeratorBadge: props.inGame,
+    userId: props.id,
   },
 ))
 

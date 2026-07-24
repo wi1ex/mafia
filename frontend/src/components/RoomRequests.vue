@@ -83,8 +83,8 @@ const appNickStyle = (app: { theme_color?: string | null }) => {
   const option = getProfileThemeOption(app.theme_color)
   return option ? { '--app-nick-theme': option.bg } : {}
 }
-const appThemeIconSrcs = (app: { theme_icon?: string | null; role?: string | null }) => (
-  getProfileThemeBadgeSources(app.theme_icon, app.role, { roleBadgeVariant: 'black' })
+const appThemeIconSrcs = (app: { id?: number; theme_icon?: string | null; role?: string | null }) => (
+  getProfileThemeBadgeSources(app.theme_icon, app.role, { roleBadgeVariant: 'black', userId: app.id })
 )
 
 function loadSeen(): Set<number> {

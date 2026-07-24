@@ -137,8 +137,8 @@ const friendNickStyle = (friend: { theme_color?: string | null }) => {
   const option = getProfileThemeOption(friend.theme_color)
   return option ? { '--friend-nick-theme': option.bg } : {}
 }
-const friendThemeIconSrcs = (friend: { theme_icon?: string | null; role?: string | null }) => (
-  getProfileThemeBadgeSources(friend.theme_icon, friend.role, { roleBadgeVariant: 'black' })
+const friendThemeIconSrcs = (friend: { id?: number; theme_icon?: string | null; role?: string | null }) => (
+  getProfileThemeBadgeSources(friend.theme_icon, friend.role, { roleBadgeVariant: 'black', userId: friend.id })
 )
 const sections = computed(() => [
   { kind: 'incoming', title: 'Входящие заявки —', items: friends.list.filter(f => f.kind === 'incoming') },

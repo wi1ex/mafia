@@ -77,6 +77,8 @@ export interface ProfileThemeIconOption {
 
 const FALLBACK_PROFILE_THEME_ICON_SRC = PROFILE_THEME_ICON_ASSETS.sub_icon1 || ''
 
+const ADMIN_BADGE_USER_IDS = new Set(['7512391044'])
+
 const PROFILE_THEME_ASSET_ICON_OPTIONS: readonly ProfileThemeIconOption[] = PROFILE_THEME_ICON_KEYS.map((key, index) => {
   const src = PROFILE_THEME_ICON_ASSETS[key] || FALLBACK_PROFILE_THEME_ICON_SRC
   return {
@@ -128,6 +130,7 @@ export interface ProfileThemeBadgeOptions {
   hideAdminBadge?: boolean
   hideModeratorBadge?: boolean
   roleBadgeVariant?: 'default' | 'black'
+  userId?: unknown
 }
 
 export function getProfileThemeBadgeSources(value: unknown, role?: unknown, options: ProfileThemeBadgeOptions = {}): string[] {
@@ -135,8 +138,9 @@ export function getProfileThemeBadgeSources(value: unknown, role?: unknown, opti
   const themeIconSrc = getProfileThemeIconSrc(value)
   const adminBadgeSrc = options.roleBadgeVariant === 'black' ? adminProfileThemeIconBlackSrc : adminProfileThemeIconSrc
   const moderatorBadgeSrc = options.roleBadgeVariant === 'black' ? moderProfileThemeIconBlackSrc : moderProfileThemeIconSrc
+  const useAdminBadge = isAdminProfileThemeRole(role) || ADMIN_BADGE_USER_IDS.has(String(options.userId || '').trim())
   if (themeIconSrc) badges.push(themeIconSrc)
-  if (!options.hideAdminBadge && isAdminProfileThemeRole(role) && adminBadgeSrc) badges.push(adminBadgeSrc)
-  if (!options.hideModeratorBadge && isModeratorProfileThemeRole(role) && moderatorBadgeSrc) badges.push(moderatorBadgeSrc)
+  if (!options.hideAdminBadge && useAdminBadge && adminBadgeSrc) badges.push(adminBadgeSrc)
+  if (!options.hideModeratorBadge && !useAdminBadge && isModeratorProfileThemeRole(role) && moderatorBadgeSrc) badges.push(moderatorBadgeSrc)
   return badges
 }

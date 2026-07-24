@@ -119,7 +119,7 @@ const toastUserNickStyle = (user?: ToastUser) => {
   return option ? { '--toast-user-nick-theme': option.bg } : {}
 }
 const toastUserThemeIconSrcs = (user: ToastUser) => (
-  getProfileThemeBadgeSources(user.theme_icon, user.role, { roleBadgeVariant: 'black' })
+  getProfileThemeBadgeSources(user.theme_icon, user.role, { roleBadgeVariant: 'black', userId: user.id })
 )
 
 async function close(target: ToastItem | number) {

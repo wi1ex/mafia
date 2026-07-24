@@ -187,7 +187,7 @@ const authMode = ref<'login' | 'register'>('login')
 const botName = (import.meta.env.VITE_TG_BOT_NAME as string || '').trim()
 const botLink = botName ? `https://t.me/${botName}` : 'https://t.me'
 const userMenuButtonStyle = computed(() => buildProfileThemeStyle(user.activeProfileThemeColor))
-const userMenuProfileIconSrcs = computed(() => getProfileThemeBadgeSources(user.activeProfileThemeIcon, user.user?.role))
+const userMenuProfileIconSrcs = computed(() => getProfileThemeBadgeSources(user.activeProfileThemeIcon, user.user?.role, { userId: user.user?.id }))
 const selfMiniProfileOpen = ref(false)
 const selfMiniProfileUserId = computed(() => {
   const uid = Number(user.user?.id || 0)

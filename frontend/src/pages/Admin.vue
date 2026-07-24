@@ -870,8 +870,8 @@
                   <td>
                     <div class="subscription-theme-preview">
                       <span class="subscription-theme-chip" :style="subscriptionThemeStyle(row.profile_theme_color)"></span>
-                      <div v-if="subscriptionThemeIconSrcs(row.profile_theme_icon, row.role).length" class="subscription-theme-icons" aria-hidden="true">
-                        <img v-for="badgeSrc in subscriptionThemeIconSrcs(row.profile_theme_icon, row.role)" :key="`${row.user_id}-${badgeSrc}`" class="subscription-theme-icon" :src="badgeSrc" alt="" />
+                      <div v-if="subscriptionThemeIconSrcs(row.profile_theme_icon, row.role, row.user_id).length" class="subscription-theme-icons" aria-hidden="true">
+                        <img v-for="badgeSrc in subscriptionThemeIconSrcs(row.profile_theme_icon, row.role, row.user_id)" :key="`${row.user_id}-${badgeSrc}`" class="subscription-theme-icon" :src="badgeSrc" alt="" />
                       </div>
                     </div>
                   </td>
@@ -2040,8 +2040,8 @@ function subscriptionThemeStyle(color: string | null | undefined): Record<string
   return buildProfileThemeBgStyle(color)
 }
 
-function subscriptionThemeIconSrcs(icon: string | null | undefined, role?: string | null): string[] {
-  return getProfileThemeBadgeSources(icon, role)
+function subscriptionThemeIconSrcs(icon: string | null | undefined, role?: string | null, userId?: number): string[] {
+  return getProfileThemeBadgeSources(icon, role, { userId })
 }
 
 function resetSubscriptionForm(): void {

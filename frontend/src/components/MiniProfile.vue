@@ -670,7 +670,7 @@ const profileRole = computed(() => {
   return initialProfileForTarget.value?.role || null
 })
 const profilePanelStyle = computed(() => buildProfileThemeBgStyle(profileThemeColor.value))
-const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(profileThemeIcon.value, profileRole.value))
+const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(profileThemeIcon.value, profileRole.value, { userId: targetUserId.value }))
 const activeSanction = computed(() => (profileLoadedForTarget.value ? profile.value?.active_sanction || null : null))
 const friendsCount = computed(() => {
   if (!profileLoadedForTarget.value) return null

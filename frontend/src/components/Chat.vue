@@ -34,8 +34,8 @@
                 <button class="message-meta-author" :class="{ 'author-trigger': canOpenAuthorMiniProfile(message) }" type="button"
                         :disabled="!canOpenAuthorMiniProfile(message)" @click="openAuthorMiniProfile(message)">
                   <img class="author-avatar" v-minio-img="{ key: message.author.avatar_name ? `avatars/${message.author.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="Аватар автора" />
-                  <div v-if="profileThemeIconSrcs(message.author.theme_icon, message.author.role).length" class="profile-theme-icons" aria-hidden="true">
-                    <img v-for="badgeSrc in profileThemeIconSrcs(message.author.theme_icon, message.author.role)" :key="`${message.author.id}-${badgeSrc}`" class="profile-theme-icon" :src="badgeSrc" alt="" />
+                  <div v-if="profileThemeIconSrcs(message.author.theme_icon, message.author.role, message.author.id).length" class="profile-theme-icons" aria-hidden="true">
+                    <img v-for="badgeSrc in profileThemeIconSrcs(message.author.theme_icon, message.author.role, message.author.id)" :key="`${message.author.id}-${badgeSrc}`" class="profile-theme-icon" :src="badgeSrc" alt="" />
                   </div>
                   <span class="author-name">{{ message.author.username || (`user${message.author.id}`) }}</span>
                 </button>
@@ -458,7 +458,7 @@ const composerPlaceholder = computed(() => (
 const showLoadMore = computed(() => hasMore.value && (loadingMore.value || listAtTop.value))
 const mentionDropdownVisible = computed(() => Boolean(activeMentionRange.value?.query) && !composerDisabled.value && (mentionLoading.value || mentionHasSearched.value))
 const messageCardStyle = (message: GlobalChatMessage) => buildProfileThemeBgStyle(message.author.theme_color)
-const profileThemeIconSrcs = (icon: unknown, role?: unknown) => getProfileThemeBadgeSources(icon, role)
+const profileThemeIconSrcs = (icon: unknown, role?: unknown, userId?: unknown) => getProfileThemeBadgeSources(icon, role, { userId })
 
 function canOpenAuthorMiniProfile(message: GlobalChatMessage): boolean {
   return canOpenMiniProfileTarget({
