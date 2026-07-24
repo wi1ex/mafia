@@ -354,11 +354,12 @@ const selectedRoom = computed(() => selectedId.value ? (roomsMap.get(selectedId.
 const sortedRooms = computed(() => Array.from(roomsMap.values()).sort((a, b) => {
   const rank = (room: Room): number => {
     switch (roomStatusLabel(room)) {
-      case 'GAME': return 0
-      case 'DUO': return 1
-      case 'HIDE': return 2
-      case 'LOBBY': return 3
-      default: return 4
+      case 'HIDE': return 0
+      case 'GAME': return 1
+      case 'LOBBY': return 2
+      case 'DUO': return 3
+      case 'ROOM': return 4
+      default: return 5
     }
   }
 
