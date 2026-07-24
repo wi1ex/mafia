@@ -872,6 +872,7 @@ const canShowFoulButtons = computed(() =>
   ACTION_PHASES.includes(gamePhase.value as (typeof ACTION_PHASES)[number])
 )
 const isMafiaLimitRoom = computed(() => roomUserLimit.value === gameLimitMin.value)
+const usesLowVideoSimulcast = computed(() => isMafiaLimitRoom.value || roomUserLimit.value === 20)
 const canStartStreams = computed(() => settings.streamsCanStart || isAdminUser.value)
 const canViewGameSettings = computed(() => !adminSpectator.value && isMafiaLimitRoom.value)
 const canEditGameSettings = computed(() =>
@@ -998,10 +999,14 @@ const desiredCameraQuality = computed<CameraQuality>(() => {
   return 'low'
 })
 
-const autoRemoteQuality = computed<VQ>(() => (desiredCameraQuality.value === 'low' ? 'sd' : 'hd'))
+const lowVideoSimulcastRemoteQuality: VQ = window.innerWidth < 1000 ? 'low' : 'medium'
+const autoRemoteQuality = computed<VQ>(() => {
+  if (usesLowVideoSimulcast.value) return lowVideoSimulcastRemoteQuality
+  return desiredCameraQuality.value === 'low' ? 'low' : 'high'
+})
 
-watch(desiredCameraQuality, (quality) => {
-  void rtc.setCameraQuality(quality)
+watch([desiredCameraQuality, usesLowVideoSimulcast], ([quality, simulcast]) => {
+  void rtc.setCameraQuality(quality, { simulcast })
 }, { immediate: true })
 
 watch(autoRemoteQuality, (quality) => {
@@ -3624,7 +3629,7 @@ onMounted(async () => {
     await rtc.refreshDevices()
     applyJoinAck(j)
 
-    await rtc.setCameraQuality(desiredCameraQuality.value)
+    await rtc.setCameraQuality(desiredCameraQuality.value, { simulcast: usesLowVideoSimulcast.value })
 
     const bindLK = () => rtc.initRoom({
       onScreenShareEnded: async () => {

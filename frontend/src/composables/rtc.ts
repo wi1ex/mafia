@@ -22,7 +22,7 @@ import {
 setLogLevel(LogLevel.error)
 
 export type DeviceKind = 'audioinput' | 'videoinput'
-export type VQ = 'sd' | 'hd'
+export type VQ = 'low' | 'medium' | 'high'
 export type CameraQuality = 'low' | 'high'
 export type ScreenShareQuality = 'low' | 'medium' | 'high'
 const LS = {
@@ -77,7 +77,7 @@ export type UseRTC = {
   selectedMicId: Ref<string>
   selectedCamId: Ref<string>
   remoteQuality: Ref<VQ>
-  setCameraQuality: (quality: CameraQuality) => Promise<void>
+  setCameraQuality: (quality: CameraQuality, opts?: { simulcast?: boolean }) => Promise<void>
   videoRef: (id: string) => (el: HTMLVideoElement | null) => void
   reconnecting: Ref<boolean>
   screenVideoRef: (id: string) => (el: HTMLVideoElement | null) => void
@@ -184,6 +184,7 @@ export function useRTC(): UseRTC {
   const screenKey = (id: string) => `${id}#s`
   const isScreenKey = (key: string) => key.endsWith('#s')
   const isSub = (pub: RemoteTrackPublication) => pub.isSubscribed
+  const lowMobileVideoQuality = new VideoPreset(160, 90, 75_000, 30)
   const lowVideoQuality = new VideoPreset(480, 270, 250_000, 30)
   const highVideoQuality = VideoPresets.h720
   const lowScreenQuality = ScreenSharePresets.h360fps15
@@ -195,11 +196,13 @@ export function useRTC(): UseRTC {
     return highScreenQuality
   }
   const cameraQuality = ref<CameraQuality>('low')
+  const cameraSimulcast = ref(false)
   const cameraPresetFor = (quality: CameraQuality) => {
     if (quality === 'low') return lowVideoQuality
     return highVideoQuality
   }
   const cameraPreset = () => cameraPresetFor(cameraQuality.value)
+  const cameraSimulcastLayers = () => cameraSimulcast.value ? [lowMobileVideoQuality] : undefined
   const cameraOptions = (deviceId?: string) => ({
     deviceId: deviceId ? ({ exact: deviceId } as any) : undefined,
     resolution: cameraPreset().resolution,
@@ -208,8 +211,8 @@ export function useRTC(): UseRTC {
       : undefined,
   } as any)
   const cameraPublishOptions = () => ({
-    simulcast: false,
-    videoSimulcastLayers: undefined,
+    simulcast: cameraSimulcast.value,
+    videoSimulcastLayers: cameraSimulcastLayers(),
     videoCodec: 'h264' as const,
     videoEncoding: cameraPreset().encoding,
     degradationPreference: 'maintain-framerate' as const,
@@ -1310,10 +1313,12 @@ export function useRTC(): UseRTC {
     }
   }
 
-  async function setCameraQuality(quality: CameraQuality): Promise<void> {
+  async function setCameraQuality(quality: CameraQuality, opts?: { simulcast?: boolean }): Promise<void> {
     const next = quality === 'low' ? 'low' : 'high'
-    const changed = cameraQuality.value !== next
+    const nextSimulcast = opts?.simulcast === true
+    const changed = cameraQuality.value !== next || cameraSimulcast.value !== nextSimulcast
     cameraQuality.value = next
+    cameraSimulcast.value = nextSimulcast
     if (!changed) return
 
     const room = lk.value
@@ -1411,7 +1416,12 @@ export function useRTC(): UseRTC {
   function applyVideoQuality(pub: RemoteTrackPublication) {
     if (pub.kind !== Track.Kind.Video || !pub.isSubscribed) return
     try {
-      pub.setVideoQuality(remoteQuality.value === 'hd' ? VideoQuality.HIGH : VideoQuality.LOW)
+      const quality = remoteQuality.value === 'high'
+        ? VideoQuality.HIGH
+        : remoteQuality.value === 'medium'
+          ? VideoQuality.MEDIUM
+          : VideoQuality.LOW
+      pub.setVideoQuality(quality)
     } catch {}
   }
 
@@ -1438,7 +1448,7 @@ export function useRTC(): UseRTC {
 
   const hasRemoteCameraTrack = (id: string): boolean => id !== localId.value && cameraTrackIds.value.has(id)
 
-  const remoteQuality = ref<VQ>('hd')
+  const remoteQuality = ref<VQ>('medium')
   function setRemoteQualityForAll(q: VQ, _opts?: { persist?: boolean }) {
     const changed = remoteQuality.value !== q
     if (changed) {
@@ -1606,8 +1616,8 @@ export function useRTC(): UseRTC {
         videoEncoding: cameraPreset().encoding,
         red: true,
         dtx: false,
-        simulcast: false,
-        videoSimulcastLayers: undefined,
+        simulcast: cameraSimulcast.value,
+        videoSimulcastLayers: cameraSimulcastLayers(),
         screenShareEncoding: highScreenQuality.encoding,
         screenShareSimulcastLayers: undefined,
         ...(opts?.publishDefaults || {})
