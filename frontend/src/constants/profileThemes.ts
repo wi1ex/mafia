@@ -5,9 +5,11 @@ const PROFILE_THEME_GRADIENT = {
 } as const
 
 const PROFILE_THEME_PRESETS = [
+  { key: 'onyx', color1: '#777777', color2: '#2D2D2D', adminOnly: true },
+  { key: 'plum', color1: '#363636', color2: '#000000' },
   { key: 'mulberry', color1: '#B5397D', color2: '#51133B' },
   { key: 'rose', color1: '#BD2B4D', color2: '#4C1424' },
-  { key: 'garnet', color1: '#DE002C', color2: '#4B0C0F' },
+  { key: 'garnet', color1: '#C00025', color2: '#4B0C0F' },
   { key: 'ruby', color1: '#C8472A', color2: '#511F17' },
   { key: 'terracotta', color1: '#D06A29', color2: '#653118' },
   { key: 'copper', color1: '#D58926', color2: '#624017' },
@@ -24,8 +26,6 @@ const PROFILE_THEME_PRESETS = [
   { key: 'azure', color1: '#6C70DA', color2: '#141B4C' },
   { key: 'midnight', color1: '#825EB7', color2: '#1F1044' },
   { key: 'violet', color1: '#A34BA6', color2: '#381353' },
-  { key: 'plum', color1: '#2D2D2D', color2: '#000000' },
-  { key: 'onyx', color1: '#707173', color2: '#2F2F32', adminOnly: true },
 ] as const
 
 type ProfileThemePreset = typeof PROFILE_THEME_PRESETS[number]
