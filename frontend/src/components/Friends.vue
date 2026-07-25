@@ -573,7 +573,9 @@ onBeforeUnmount(() => {
       .actions {
         display: flex;
         align-items: center;
+        justify-content: space-between;
         gap: 4px;
+        min-width: 164px;
         .room-info {
           display: flex;
           flex-direction: column;

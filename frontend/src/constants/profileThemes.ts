@@ -5,35 +5,34 @@ const PROFILE_THEME_GRADIENT = {
 } as const
 
 const PROFILE_THEME_PRESETS = [
-  { key: 'mulberry', title: 'Фуксиевый', color1: '#C72787', color2: '#51133B' },
-  { key: 'rose', title: 'Малиновый', color1: '#BD2B4D', color2: '#4C1424' },
-  { key: 'garnet', title: 'Гранатовый', color1: '#BB1717', color2: '#4B0C0F' },
-  { key: 'ruby', title: 'Киноварный', color1: '#C8472A', color2: '#511F17' },
-  { key: 'terracotta', title: 'Терракотовый', color1: '#DC6728', color2: '#653118' },
-  { key: 'copper', title: 'Медный', color1: '#D58926', color2: '#624017' },
-  { key: 'gold', title: 'Золотой', color1: '#CDAA25', color2: '#5F4E16' },
-  { key: 'amber', title: 'Лаймовый', color1: '#B4C422', color2: '#4A4F14' },
-  { key: 'moss', title: 'Моховой', color1: '#71A82E', color2: '#334A19' },
-  { key: 'olive', title: 'Травяной', color1: '#38A028', color2: '#1A4116' },
-  { key: 'mint', title: 'Мятный', color1: '#2FA169', color2: '#153B2C' },
-  { key: 'emerald', title: 'Изумрудный', color1: '#2F9C8C', color2: '#194844' },
-  { key: 'teal', title: 'Бирюзовый', color1: '#2B8083', color2: '#153539' },
-  { key: 'lagoon', title: 'Лагунный', color1: '#289AB3', color2: '#143F4C' },
-  { key: 'sky', title: 'Синий', color1: '#2669B5', color2: '#132C4C' },
-  { key: 'cobalt', title: 'Кобальтовый', color1: '#2647B4', color2: '#121E4B' },
-  { key: 'azure', title: 'Индиго', color1: '#223192', color2: '#141B4C' },
-  { key: 'midnight', title: 'Полуночный', color1: '#4420A0', color2: '#1F1044' },
-  { key: 'violet', title: 'Фиолетовый', color1: '#8828C8', color2: '#381353' },
-  { key: 'plum', title: 'Сливовый', color1: '#702782', color2: '#34143E' },
-  { key: 'onyx', title: 'Ониксовый', color1: '#707173', color2: '#2F2F32', adminOnly: true },
+  { key: 'mulberry', color1: '#B5397D', color2: '#51133B' },
+  { key: 'rose', color1: '#BD2B4D', color2: '#4C1424' },
+  { key: 'garnet', color1: '#DE002C', color2: '#4B0C0F' },
+  { key: 'ruby', color1: '#C8472A', color2: '#511F17' },
+  { key: 'terracotta', color1: '#D06A29', color2: '#653118' },
+  { key: 'copper', color1: '#D58926', color2: '#624017' },
+  { key: 'gold', color1: '#BD9F00', color2: '#5F4E16' },
+  { key: 'amber', color1: '#9E8D00', color2: '#4A4F14' },
+  { key: 'moss', color1: '#89A842', color2: '#334A19' },
+  { key: 'olive', color1: '#679723', color2: '#1A4116' },
+  { key: 'mint', color1: '#2FA169', color2: '#153B2C' },
+  { key: 'emerald', color1: '#2F9C8C', color2: '#194844' },
+  { key: 'teal', color1: '#00A1BD', color2: '#1E4E54' },
+  { key: 'lagoon', color1: '#028BA1', color2: '#143F4C' },
+  { key: 'sky', color1: '#0091CF', color2: '#132C4C' },
+  { key: 'cobalt', color1: '#4377BD', color2: '#121E4B' },
+  { key: 'azure', color1: '#6C70DA', color2: '#141B4C' },
+  { key: 'midnight', color1: '#825EB7', color2: '#1F1044' },
+  { key: 'violet', color1: '#A34BA6', color2: '#381353' },
+  { key: 'plum', color1: '#2D2D2D', color2: '#000000' },
+  { key: 'onyx', color1: '#707173', color2: '#2F2F32', adminOnly: true },
 ] as const
 
 type ProfileThemePreset = typeof PROFILE_THEME_PRESETS[number]
 export type ProfileThemeColor = ProfileThemePreset['key']
-const PROFILE_THEME_ADMIN_HIDDEN_COLORS = new Set<ProfileThemeColor>(['mulberry'])
+const PROFILE_THEME_ADMIN_HIDDEN_COLORS = new Set<ProfileThemeColor>(['plum'])
 type ProfileThemePresetBase = {
   key: ProfileThemeColor
-  title: string
   color1: string
   color2: string
   adminOnly?: boolean

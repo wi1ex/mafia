@@ -31,7 +31,7 @@ PROFILE_THEME_COLORS: tuple[str, ...] = (
     "plum",
 )
 PROFILE_THEME_ADMIN_COLORS: tuple[str, ...] = ("onyx",)
-PROFILE_THEME_ADMIN_HIDDEN_COLORS: tuple[str, ...] = ("mulberry",)
+PROFILE_THEME_ADMIN_HIDDEN_COLORS: tuple[str, ...] = ("plum",)
 PROFILE_THEME_DEFAULT = "terracotta"
 PROFILE_THEME_ICON_NONE = "none"
 PROFILE_THEME_ICON_COUNT = 49
