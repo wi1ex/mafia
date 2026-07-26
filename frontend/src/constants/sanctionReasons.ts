@@ -4,6 +4,61 @@ export type RulesSection = {
   rules: readonly string[]
 }
 
+export type SanctionBadgeKey = 'ban' | 'tmt1' | 'tmt2' | 'tmt3' | 'tmt4' | 'otr1' | 'otr2' | 'otr3' | 'otr4'
+
+export type SanctionBadge = {
+  code: string
+  backgroundColor: string
+  textColor: string
+}
+
+export const SANCTION_BADGES: Record<SanctionBadgeKey, SanctionBadge> = {
+  ban: { code: 'БАН', backgroundColor: '#b91c1c', textColor: '#ffffff' },
+  tmt1: { code: 'ТМТ1', backgroundColor: '#c2410c', textColor: '#ffffff' },
+  tmt2: { code: 'ТМТ2', backgroundColor: '#a16207', textColor: '#ffffff' },
+  tmt3: { code: 'ТМТ3', backgroundColor: '#4d7c0f', textColor: '#ffffff' },
+  tmt4: { code: 'ТМТ4', backgroundColor: '#047857', textColor: '#ffffff' },
+  otr1: { code: 'ОТР1', backgroundColor: '#0f766e', textColor: '#ffffff' },
+  otr2: { code: 'ОТР2', backgroundColor: '#0369a1', textColor: '#ffffff' },
+  otr3: { code: 'ОТР3', backgroundColor: '#4338ca', textColor: '#ffffff' },
+  otr4: { code: 'ОТР4', backgroundColor: '#7e22ce', textColor: '#ffffff' },
+}
+
+export const RULE_SANCTION_BADGES: Partial<Record<string, SanctionBadgeKey>> = {
+  '2.1': 'ban',
+  '2.2': 'tmt2',
+  '2.3': 'ban',
+  '2.4': 'tmt3',
+  '2.5': 'tmt4',
+  '2.6': 'tmt4',
+  '2.7': 'ban',
+  '4.1': 'tmt1',
+  '4.2': 'tmt1',
+  '4.3': 'tmt4',
+  '4.4': 'tmt3',
+  '4.5': 'tmt4',
+  '4.6': 'tmt4',
+  '4.7': 'tmt4',
+  '4.8': 'ban',
+  '4.9': 'ban',
+  '5.1': 'otr4',
+  '5.2': 'otr2',
+  '5.3': 'otr2',
+  '5.4': 'otr2',
+  '5.5': 'otr3',
+  '5.6': 'otr2',
+  '5.7': 'otr2',
+  '5.8': 'tmt2',
+  '5.9': 'tmt4',
+  '5.10': 'otr1',
+}
+
+export function getRuleSanctionBadge(rule: string): SanctionBadge | undefined {
+  const ruleNumber = rule.match(/^(\d+\.\d+)\./)?.[1]
+  const badgeKey = ruleNumber ? RULE_SANCTION_BADGES[ruleNumber] : undefined
+  return badgeKey ? SANCTION_BADGES[badgeKey] : undefined
+}
+
 export const RULES_SECTIONS = [
   {
     id: "section-1",

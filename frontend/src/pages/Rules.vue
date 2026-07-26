@@ -31,7 +31,12 @@
           <article v-for="section in RULES_SECTIONS" :id="section.id" :key="section.id" class="rule-card">
             <h3>{{ section.title }}</h3>
             <ul>
-              <li v-for="rule in section.rules" :key="rule">{{ rule }}</li>
+              <li v-for="rule in section.rules" :key="rule" class="rule-item">
+                <span v-if="getRuleSanctionBadge(rule)" class="sanction-badge" :style="{ backgroundColor: getRuleSanctionBadge(rule)?.backgroundColor, color: getRuleSanctionBadge(rule)?.textColor }">
+                  {{ getRuleSanctionBadge(rule)?.code }}
+                </span>
+                <span class="rule-text">{{ rule }}</span>
+              </li>
             </ul>
           </article>
         </section>
@@ -55,7 +60,7 @@
 
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, ref } from 'vue'
-import { RULES_SECTIONS } from '@/constants/sanctionReasons'
+import { RULES_SECTIONS, getRuleSanctionBadge } from '@/constants/sanctionReasons'
 
 type TocItem = {
   id: string
@@ -352,11 +357,29 @@ onBeforeUnmount(() => {
       }
       ul {
         margin: 0;
-        padding-left: 20px;
+        padding-left: 0;
         display: grid;
         gap: 5px;
-        li {
+        .rule-item {
+          display: flex;
+          align-items: flex-start;
+          gap: 5px;
+          list-style: none;
           color: $neutral-100;
+        }
+        .sanction-badge {
+          flex: 0 0 44px;
+          min-width: 44px;
+          padding: 2px 4px;
+          border-radius: 3px;
+          font-size: 12px;
+          font-weight: 700;
+          line-height: 18px;
+          letter-spacing: 0.02em;
+          text-align: center;
+        }
+        .rule-text {
+          min-width: 0;
         }
       }
       &:nth-child(2) { animation-delay: 0.15s; }
