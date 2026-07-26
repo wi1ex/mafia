@@ -17,6 +17,7 @@ from ...schemas.admin import (
     AdminContactRequestOut,
     AdminContactRequestsOut,
     AdminSanctionDurationAdjustIn,
+    AdminSanctionReasonUpdateIn,
     AdminSanctionListItemOut,
     AdminSanctionsOut,
     AdminSanctionTimedIn,
@@ -470,6 +471,43 @@ async def moderation_sanctions_list(page: int = 1, limit: int = 20, username: st
         )
 
     return AdminSanctionsOut(total=total, items=items)
+
+
+@router.patch("/sanctions/{sanction_id}/reason", response_model=Ok, dependencies=MODERATION_GUARD)
+@log_route("moderation.sanctions.reason_update")
+async def moderation_update_sanction_reason(sanction_id: int, payload: AdminSanctionReasonUpdateIn, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
+    sanction = await session.get(UserSanction, int(sanction_id))
+    if not sanction:
+        raise HTTPException(status_code=404, detail="sanction_not_found")
+
+    await get_moderation_target_user(session, int(sanction.user_id))
+
+    next_reason = payload.reason.strip()
+    if not next_reason:
+        raise HTTPException(status_code=422, detail="reason_required")
+
+    previous_reason = str(sanction.reason or "").strip()
+    if previous_reason == next_reason:
+        return Ok()
+
+    sanction.reason = next_reason
+    await session.commit()
+
+    await log_action(
+        session,
+        user_id=int(ident["id"]),
+        username=ident["username"],
+        action="moderation_sanction_reason_update",
+        details={
+            "sanction_id": int(sanction.id),
+            "target_user_id": int(sanction.user_id),
+            "kind": str(sanction.kind or ""),
+            "previous_reason": previous_reason,
+            "next_reason": next_reason,
+        },
+    )
+
+    return Ok()
 
 
 @router.patch("/sanctions/{sanction_id}/increase", response_model=Ok, dependencies=MODERATION_GUARD)
