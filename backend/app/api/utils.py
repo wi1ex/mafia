@@ -278,7 +278,6 @@ SANCTION_TIMEOUT = "timeout"
 SANCTION_BAN = "ban"
 SANCTION_SUSPEND = "suspend"
 HOSTED_GAME_SUSPEND_REDUCTION_SECONDS = 4 * 60 * 60
-MODERATION_EXTENDED_SANCTION_USER_ID = 7512391044
 MODERATION_MAX_TIMED_SANCTION_SECONDS = 7 * 24 * 60 * 60
 HOSTED_GAME_SUSPEND_LEGACY_REDUCTION_SECONDS = 6 * 60 * 60
 HOSTED_GAME_SUSPEND_REDUCTION_CHANGED_AT = datetime(2026, 5, 1, tzinfo=timezone.utc)
@@ -577,6 +576,15 @@ def normalize_season_start_value(raw: object, *, default_starts: Sequence[int]) 
     return season_starts_csv(starts), starts
 
 
+def normalize_optional_user_id(value: object) -> int | None:
+    try:
+        user_id = int(value)
+    except (TypeError, ValueError):
+        return None
+
+    return user_id if user_id > 0 else None
+
+
 def build_app_settings_snapshot_defaults(core_settings_obj: Any, *, default_starts: Sequence[int], snapshot_cls: Any) -> Any:
     season_start_csv, season_start_values = normalize_season_start_value(
         getattr(core_settings_obj, "SEASON_START_GAME_NUMBER", None),
@@ -589,6 +597,7 @@ def build_app_settings_snapshot_defaults(core_settings_obj: Any, *, default_star
         getattr(core_settings_obj, "TEXT_MODERATION_BLACKLIST", "0"),
     )
     blacklist_users_limit = max(0, int(getattr(core_settings_obj, "BLACKLIST_USERS_LIMIT", 30)))
+    senior_moderator_user_id = normalize_optional_user_id(getattr(core_settings_obj, "SENIOR_MODERATOR_USER_ID", None))
     return snapshot_cls(
         registration_enabled=getattr(core_settings_obj, "REGISTRATION_ENABLED"),
         rooms_can_create=getattr(core_settings_obj, "ROOMS_CAN_CREATE"),
@@ -612,6 +621,7 @@ def build_app_settings_snapshot_defaults(core_settings_obj: Any, *, default_star
         text_moderation_blacklist=text_moderation_blacklist,
         text_moderation_blacklist_words=parse_text_moderation_blacklist(text_moderation_blacklist),
         blacklist_users_limit=blacklist_users_limit,
+        senior_moderator_user_id=senior_moderator_user_id,
         self_speech_finish_enabled=bool(getattr(core_settings_obj, "SELF_SPEECH_FINISH_ENABLED", True)),
         game_min_ready_players=getattr(core_settings_obj, "GAME_MIN_READY_PLAYERS"),
         role_pick_seconds=getattr(core_settings_obj, "ROLE_PICK_SECONDS"),
@@ -639,6 +649,7 @@ def build_app_settings_snapshot_from_row(row: Any, *, default_starts: Sequence[i
         getattr(row, "text_moderation_blacklist", "0"),
     )
     blacklist_users_limit = max(0, int(getattr(row, "blacklist_users_limit", 30)))
+    senior_moderator_user_id = normalize_optional_user_id(getattr(row, "senior_moderator_user_id", None))
     return snapshot_cls(
         registration_enabled=bool(getattr(row, "registration_enabled")),
         rooms_can_create=bool(getattr(row, "rooms_can_create")),
@@ -662,6 +673,7 @@ def build_app_settings_snapshot_from_row(row: Any, *, default_starts: Sequence[i
         text_moderation_blacklist=text_moderation_blacklist,
         text_moderation_blacklist_words=parse_text_moderation_blacklist(text_moderation_blacklist),
         blacklist_users_limit=blacklist_users_limit,
+        senior_moderator_user_id=senior_moderator_user_id,
         self_speech_finish_enabled=bool(getattr(row, "self_speech_finish_enabled", True)),
         game_min_ready_players=int(getattr(row, "game_min_ready_players")),
         role_pick_seconds=int(getattr(row, "role_pick_seconds")),
@@ -826,7 +838,10 @@ def compute_duration_seconds(months: int, days: int, hours: int, minutes: int) -
 
 
 def moderation_timed_sanction_duration_limit(ident: Identity) -> int | None:
-    if int(ident["id"]) == MODERATION_EXTENDED_SANCTION_USER_ID:
+    from ..security.parameters import get_cached_settings
+
+    senior_moderator_user_id = get_cached_settings().senior_moderator_user_id
+    if senior_moderator_user_id is not None and int(ident["id"]) == senior_moderator_user_id:
         return None
 
     return MODERATION_MAX_TIMED_SANCTION_SECONDS
@@ -3577,6 +3592,7 @@ def site_settings_out(row) -> SiteSettingsOut:
         text_moderation_whitelist=normalize_text_moderation_whitelist(getattr(row, "text_moderation_whitelist", "0")),
         text_moderation_blacklist=normalize_text_moderation_blacklist(getattr(row, "text_moderation_blacklist", "0")),
         blacklist_users_limit=max(0, int(getattr(row, "blacklist_users_limit", 30))),
+        senior_moderator_user_id=normalize_optional_user_id(getattr(row, "senior_moderator_user_id", None)),
         self_speech_finish_enabled=bool(getattr(row, "self_speech_finish_enabled", True)),
     )
 
@@ -3602,6 +3618,7 @@ def public_settings_out(settings) -> "PublicSettingsOut":
         knocks_limit=int(settings.knocks_limit),
         wink_spot_chance_percent=int(settings.wink_spot_chance_percent),
         season_start_game_number=str(settings.season_start_game_number),
+        senior_moderator_user_id=settings.senior_moderator_user_id,
         self_speech_finish_enabled=bool(getattr(settings, "self_speech_finish_enabled", True)),
     )
 

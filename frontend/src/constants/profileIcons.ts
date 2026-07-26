@@ -2,6 +2,7 @@ import adminProfileThemeIconSrc from '@/assets/svg/icons/sub_admin_icon.svg'
 import adminProfileThemeIconBlackSrc from '@/assets/svg/icons/sub_admin_icon_black.svg'
 import moderProfileThemeIconSrc from '@/assets/svg/icons/sub_moder_icon.svg'
 import moderProfileThemeIconBlackSrc from '@/assets/svg/icons/sub_moder_icon_black.svg'
+import { useSettingsStore } from '@/store/modules/setting'
 
 const PROFILE_THEME_ICON_ASSET_MODULES = import.meta.glob('@/assets/svg/icons/sub_icon*.svg', { eager: true, query: '?url', import: 'default' })
 
@@ -77,8 +78,6 @@ export interface ProfileThemeIconOption {
 
 const FALLBACK_PROFILE_THEME_ICON_SRC = PROFILE_THEME_ICON_ASSETS.sub_icon1 || ''
 
-const ADMIN_BADGE_USER_IDS = new Set(['7512391044'])
-
 const PROFILE_THEME_ASSET_ICON_OPTIONS: readonly ProfileThemeIconOption[] = PROFILE_THEME_ICON_KEYS.map((key, index) => {
   const src = PROFILE_THEME_ICON_ASSETS[key] || FALLBACK_PROFILE_THEME_ICON_SRC
   return {
@@ -133,12 +132,22 @@ export interface ProfileThemeBadgeOptions {
   userId?: unknown
 }
 
+function seniorModeratorUserId(): string {
+  try {
+    return String(useSettingsStore().seniorModeratorUserId || '').trim()
+  } catch {
+    return ''
+  }
+}
+
 export function getProfileThemeBadgeSources(value: unknown, role?: unknown, options: ProfileThemeBadgeOptions = {}): string[] {
   const badges: string[] = []
   const themeIconSrc = getProfileThemeIconSrc(value)
   const adminBadgeSrc = options.roleBadgeVariant === 'black' ? adminProfileThemeIconBlackSrc : adminProfileThemeIconSrc
   const moderatorBadgeSrc = options.roleBadgeVariant === 'black' ? moderProfileThemeIconBlackSrc : moderProfileThemeIconSrc
-  const useAdminBadge = isAdminProfileThemeRole(role) || ADMIN_BADGE_USER_IDS.has(String(options.userId || '').trim())
+  const seniorModeratorId = seniorModeratorUserId()
+  const useAdminBadge = isAdminProfileThemeRole(role)
+    || Boolean(seniorModeratorId) && String(options.userId || '').trim() === seniorModeratorId
   if (themeIconSrc) badges.push(themeIconSrc)
   if (!options.hideAdminBadge && useAdminBadge && adminBadgeSrc) badges.push(adminBadgeSrc)
   if (!options.hideModeratorBadge && !useAdminBadge && isModeratorProfileThemeRole(role) && moderatorBadgeSrc) badges.push(moderatorBadgeSrc)

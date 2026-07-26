@@ -554,7 +554,6 @@ const MINUTES_IN_DAY = 24 * 60
 const STAFF_MODAL_Z_INDEX = 1700
 const NOMINATION_TOOLTIP_PANEL_GAP = 24
 const STAFF_SANCTION_DURATION_LIMITS = { months: 240, days: 31, hours: 23 } as const
-const MODERATION_EXTENDED_SANCTION_USER_ID = 7512391044
 const MODERATION_MAX_TIMED_SANCTION_SECONDS = 7 * 24 * 60 * 60
 const STAFF_PRIMARY_ACTION_KEYS: readonly StaffActionKey[] = ['suspend', 'timeout']
 const nominationIntFmt = new Intl.NumberFormat('ru-RU')
@@ -879,11 +878,11 @@ const staffSanctionTotalSeconds = computed(() => {
 const staffSanctionDurationWithinLimit = computed(() => (
   staffSanctionKind.value === 'ban'
   || !isModerViewer.value
-  || viewerUserId.value === MODERATION_EXTENDED_SANCTION_USER_ID
+  || viewerUserId.value === settingsStore.seniorModeratorUserId
   || staffSanctionTotalSeconds.value <= MODERATION_MAX_TIMED_SANCTION_SECONDS
 ))
 const staffSanctionDurationHint = computed(() => (
-  isModerViewer.value && viewerUserId.value !== MODERATION_EXTENDED_SANCTION_USER_ID
+  isModerViewer.value && viewerUserId.value !== settingsStore.seniorModeratorUserId
     ? 'Максимальный срок санкции для модератора — 7 дней.'
     : ''
 ))

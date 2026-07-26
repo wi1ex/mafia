@@ -20,6 +20,7 @@ export interface PublicSettings {
   knocks_limit: number
   wink_spot_chance_percent: number
   season_start_game_number: string
+  senior_moderator_user_id: number | null
   self_speech_finish_enabled: boolean
 }
 
@@ -41,6 +42,7 @@ const PUBLIC_SETTINGS_KEYS: readonly (keyof PublicSettings)[] = [
   'knocks_limit',
   'wink_spot_chance_percent',
   'season_start_game_number',
+  'senior_moderator_user_id',
   'self_speech_finish_enabled',
 ]
 
@@ -62,6 +64,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const knocksLimit = ref(0)
   const winkSpotChancePercent = ref(25)
   const seasonStartGameNumber = ref('1')
+  const seniorModeratorUserId = ref<number | null>(null)
   const selfSpeechFinishEnabled = ref(true)
   const seasonStartGameNumbers = computed<number[]>(() => parseSeasonStartNumbers(seasonStartGameNumber.value))
   const ready = ref(false)
@@ -113,6 +116,10 @@ export const useSettingsStore = defineStore('settings', () => {
     const winkSpotChance = Number(data.wink_spot_chance_percent)
     if (Number.isFinite(winkSpotChance)) winkSpotChancePercent.value = Math.max(0, Math.min(100, Math.round(winkSpotChance)))
     seasonStartGameNumber.value = normalizeSeasonStart(data.season_start_game_number)
+    const seniorModeratorId = Number(data.senior_moderator_user_id)
+    seniorModeratorUserId.value = Number.isSafeInteger(seniorModeratorId) && seniorModeratorId > 0
+      ? seniorModeratorId
+      : null
     selfSpeechFinishEnabled.value = Boolean(data.self_speech_finish_enabled)
     ready.value = true
   }
@@ -169,6 +176,7 @@ export const useSettingsStore = defineStore('settings', () => {
     knocksLimit,
     winkSpotChancePercent,
     seasonStartGameNumber,
+    seniorModeratorUserId,
     selfSpeechFinishEnabled,
     seasonStartGameNumbers,
     ready,

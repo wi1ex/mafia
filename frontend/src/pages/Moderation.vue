@@ -295,7 +295,7 @@ import { alertDialog } from '@/services/confirm'
 import { formatLocalDateTime } from '@/services/datetime'
 import { SANCTION_REASONS } from '@/constants/sanctionReasons'
 import { canOpenMiniProfileTarget, normalizeMiniProfileUserId } from '@/services/miniProfile'
-import { useUserStore } from '@/store'
+import { useSettingsStore, useUserStore } from '@/store'
 
 import MiniProfile from '@/components/MiniProfile.vue'
 import Sanction from '@/components/Sanction.vue'
@@ -384,6 +384,7 @@ const PAGE_LIMIT_OPTIONS = [
 ] as const
 
 const activeTab = ref<TabKey>('users')
+const settingsStore = useSettingsStore()
 const userStore = useUserStore()
 const viewerUserId = computed(() => normalizeMiniProfileUserId(userStore.user?.id))
 const users = ref<UserRow[]>([])
@@ -413,9 +414,8 @@ let contactRequestsUserTimer: number | undefined
 
 const sanctionReasons = SANCTION_REASONS
 const sanctionReasonValues = new Set(sanctionReasons.map(({ value }) => value))
-const MODERATION_EXTENDED_SANCTION_USER_ID = 7512391044
 const MODERATION_MAX_TIMED_SANCTION_SECONDS = 7 * 24 * 60 * 60
-const canIssueExtendedModerationSanctions = computed(() => viewerUserId.value === MODERATION_EXTENDED_SANCTION_USER_ID)
+const canIssueExtendedModerationSanctions = computed(() => viewerUserId.value === settingsStore.seniorModeratorUserId)
 const SANCTION_DURATION_LIMITS = {
   months: 240,
   days: 31,

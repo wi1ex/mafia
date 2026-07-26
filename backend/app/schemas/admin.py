@@ -33,6 +33,7 @@ class SiteSettingsOut(BaseModel):
     text_moderation_whitelist: str
     text_moderation_blacklist: str
     blacklist_users_limit: int
+    senior_moderator_user_id: Optional[int] = None
     self_speech_finish_enabled: bool
 
 
@@ -56,6 +57,7 @@ class SiteSettingsUpdateIn(BaseModel):
     text_moderation_whitelist: Optional[TextModerationWhitelistCsv] = Field(default=None, max_length=4096)
     text_moderation_blacklist: Optional[TextModerationBlacklistCsv] = Field(default=None, max_length=4096)
     blacklist_users_limit: Optional[int] = Field(default=None, ge=0)
+    senior_moderator_user_id: Optional[int] = Field(default=None, ge=1)
     self_speech_finish_enabled: Optional[bool] = None
 
 
@@ -124,6 +126,7 @@ class PublicSettingsOut(BaseModel):
     knocks_limit: int
     wink_spot_chance_percent: int
     season_start_game_number: str
+    senior_moderator_user_id: Optional[int] = None
     self_speech_finish_enabled: bool
 
 

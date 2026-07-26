@@ -92,6 +92,8 @@
                          autocomplete="off" inputmode="text" :disabled="savingSettings" label="Черный список слов (через запятую)" />
                 <UiInput id="blacklist-users-limit" v-model.number="site.blacklist_users_limit" type="number" min="0" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Лимит черного списка" />
+                <UiInput id="senior-moderator-user-id" :model-value="site.senior_moderator_user_id ?? ''" type="number" min="1" step="1"
+                         @update:model-value="setSeniorModeratorUserId" autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Старший модератор" />
               </div>
             </div>
 
@@ -1012,6 +1014,7 @@ type SiteSettings = {
   text_moderation_whitelist: string
   text_moderation_blacklist: string
   blacklist_users_limit: number
+  senior_moderator_user_id: number | null
   self_speech_finish_enabled: boolean
 }
 
@@ -1282,6 +1285,7 @@ const site = reactive<SiteSettings>({
   text_moderation_whitelist: '0',
   text_moderation_blacklist: '0',
   blacklist_users_limit: 30,
+  senior_moderator_user_id: null,
   self_speech_finish_enabled: true,
 })
 
@@ -1526,6 +1530,15 @@ function normalizeNonNegativeInt(value: number): number {
   return Math.max(0, Math.trunc(normalizeInt(value)))
 }
 
+function normalizeOptionalPositiveInt(value: unknown): number | null {
+  const parsed = Number(value)
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null
+}
+
+function setSeniorModeratorUserId(value: string | number): void {
+  site.senior_moderator_user_id = normalizeOptionalPositiveInt(value)
+}
+
 function normalizePercent(value: number): number {
   const n = normalizeInt(value)
   if (n < 0) return 0
@@ -1580,6 +1593,7 @@ function snapshotSite(): string {
     text_moderation_whitelist: normalizeTextModerationWhitelist(site.text_moderation_whitelist),
     text_moderation_blacklist: normalizeTextModerationBlacklist(site.text_moderation_blacklist),
     blacklist_users_limit: normalizeNonNegativeInt(site.blacklist_users_limit),
+    senior_moderator_user_id: normalizeOptionalPositiveInt(site.senior_moderator_user_id),
     self_speech_finish_enabled: Boolean(site.self_speech_finish_enabled),
   })
 }
@@ -2123,6 +2137,7 @@ async function loadSettings(): Promise<void> {
     site.text_moderation_whitelist = normalizeTextModerationWhitelist(site.text_moderation_whitelist)
     site.text_moderation_blacklist = normalizeTextModerationBlacklist(site.text_moderation_blacklist)
     site.blacklist_users_limit = normalizeNonNegativeInt(site.blacklist_users_limit)
+    site.senior_moderator_user_id = normalizeOptionalPositiveInt(site.senior_moderator_user_id)
     siteSnapshot.value = snapshotSite()
     gameSnapshot.value = snapshotGame()
   } catch {
@@ -2165,6 +2180,7 @@ async function saveSettings(): Promise<void> {
         text_moderation_whitelist: normalizeTextModerationWhitelist(site.text_moderation_whitelist),
         text_moderation_blacklist: normalizeTextModerationBlacklist(site.text_moderation_blacklist),
         blacklist_users_limit: normalizeNonNegativeInt(site.blacklist_users_limit),
+        senior_moderator_user_id: normalizeOptionalPositiveInt(site.senior_moderator_user_id),
         self_speech_finish_enabled: Boolean(site.self_speech_finish_enabled),
       },
       game: {
@@ -2191,6 +2207,7 @@ async function saveSettings(): Promise<void> {
     site.text_moderation_whitelist = normalizeTextModerationWhitelist(site.text_moderation_whitelist)
     site.text_moderation_blacklist = normalizeTextModerationBlacklist(site.text_moderation_blacklist)
     site.blacklist_users_limit = normalizeNonNegativeInt(site.blacklist_users_limit)
+    site.senior_moderator_user_id = normalizeOptionalPositiveInt(site.senior_moderator_user_id)
     siteSnapshot.value = snapshotSite()
     gameSnapshot.value = snapshotGame()
     settingsStore.applyPublic({
@@ -2211,6 +2228,7 @@ async function saveSettings(): Promise<void> {
       knocks_limit: game.knocks_limit,
       wink_spot_chance_percent: normalizePercent(game.wink_spot_chance_percent),
       season_start_game_number: site.season_start_game_number,
+      senior_moderator_user_id: site.senior_moderator_user_id,
       self_speech_finish_enabled: site.self_speech_finish_enabled,
     })
     void alertDialog('Настройки сохранены')
