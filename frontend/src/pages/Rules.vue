@@ -21,18 +21,29 @@
             <p>Конкретный вид санкции, срок и дополнительные меры определяются Администрацией/Модераторами с учетом характера нарушения, повторяемости, последствий и иных обстоятельств.</p>
           </div>
           <div class="notice-list">
-            <div class="notice-item notice-item--suspend">Отстранение — временное отстранение от участия в играх.</div>
-            <div class="notice-item notice-item--timeout">Таймаут — временное ограничение доступа к комнатам и чату.</div>
-            <div class="notice-item notice-item--ban">Бан — полная блокировка доступа к платформе.</div>
-            <div class="sanction-legend" aria-label="Расшифровка сроков санкций">
-              <span class="sanction-legend-title">Шкала сроков</span>
-              <div v-for="badge in SANCTION_BADGE_LEGEND" :key="badge.code" class="sanction-legend-item">
-                <span>{{ badge.notation }}</span>
-                <span class="sanction-legend-badge" :style="{ backgroundColor: badge.backgroundColor, color: badge.textColor }">
-                  {{ badge.code }}
-                </span>
+            <div class="notice-item notice-item--suspend">
+              <span class="notice-item-title">Отстранение — временное отстранение от участия в играх.</span>
+              <div class="notice-item-scales" aria-label="Шкала сроков отстранения">
+                <div v-for="badge in SUSPEND_SANCTION_BADGES" :key="badge.code" class="notice-item-scale">
+                  <span>{{ badge.notation }}</span>
+                  <span class="notice-item-badge" :style="{ backgroundColor: badge.backgroundColor, color: badge.textColor }">
+                    {{ badge.code }}
+                  </span>
+                </div>
               </div>
             </div>
+            <div class="notice-item notice-item--timeout">
+              <span class="notice-item-title">Таймаут — временное ограничение доступа к комнатам и чату.</span>
+              <div class="notice-item-scales" aria-label="Шкала сроков таймаута">
+                <div v-for="badge in TIMEOUT_SANCTION_BADGES" :key="badge.code" class="notice-item-scale">
+                  <span>{{ badge.notation }}</span>
+                  <span class="notice-item-badge" :style="{ backgroundColor: badge.backgroundColor, color: badge.textColor }">
+                    {{ badge.code }}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div class="notice-item notice-item--ban">Бан — полная блокировка доступа к платформе.</div>
           </div>
         </section>
 
@@ -69,7 +80,7 @@
 
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, ref } from 'vue'
-import { RULES_SECTIONS, SANCTION_BADGE_LEGEND, getRuleSanctionBadge } from '@/constants/sanctionReasons'
+import { RULES_SECTIONS, SUSPEND_SANCTION_BADGES, TIMEOUT_SANCTION_BADGES, getRuleSanctionBadge } from '@/constants/sanctionReasons'
 
 type TocItem = {
   id: string
@@ -181,6 +192,9 @@ onBeforeUnmount(() => {
 
 <style scoped lang="scss">
 .rules {
+  --sanction-ban-background: #{$red-600};
+  --sanction-timeout-background: #{$orange-600};
+  --sanction-suspend-background: #{$yellow-600};
   width: 66%;
   margin: 20px auto;
   line-height: 1.5;
@@ -428,6 +442,34 @@ onBeforeUnmount(() => {
         border: 1px solid $neutral-500;
         font-size: 14px;
         color: $neutral-100;
+        .notice-item-title {
+          display: block;
+        }
+        .notice-item-scales {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 6px;
+          margin-top: 8px;
+        }
+        .notice-item-scale {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 6px;
+          min-width: 0;
+          font-size: 12px;
+        }
+        .notice-item-badge {
+          flex: 0 0 38px;
+          min-width: 38px;
+          padding: 2px 3px;
+          border-radius: 3px;
+          font-size: 11px;
+          font-weight: 700;
+          line-height: 16px;
+          letter-spacing: 0.02em;
+          text-align: center;
+        }
       }
       .notice-item--suspend {
         border-color: $yellow-500;
@@ -437,41 +479,6 @@ onBeforeUnmount(() => {
       }
       .notice-item--ban {
         border-color: $red-500;
-      }
-      .sanction-legend {
-        grid-column: 1 / -1;
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 6px 10px;
-        .sanction-legend-title {
-          grid-column: 1 / -1;
-          color: $neutral-300;
-          font-size: 13px;
-          font-weight: 700;
-        }
-        .sanction-legend-item {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 8px;
-          padding: 5px 7px;
-          border: 1px solid $neutral-500;
-          border-radius: 6px;
-          background-color: $neutral-900;
-          color: $neutral-100;
-          font-size: 13px;
-        }
-        .sanction-legend-badge {
-          flex: 0 0 44px;
-          min-width: 44px;
-          padding: 2px 4px;
-          border-radius: 3px;
-          font-size: 12px;
-          font-weight: 700;
-          line-height: 18px;
-          letter-spacing: 0.02em;
-          text-align: center;
-        }
       }
     }
   }

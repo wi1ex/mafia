@@ -14,22 +14,25 @@ export type SanctionBadge = {
 }
 
 export const SANCTION_BADGES: Record<SanctionBadgeKey, SanctionBadge> = {
-  ban: { code: 'БАН', backgroundColor: '#333333', textColor: '#ffffff' },
-  tm1: { code: 'ТМ1', notation: '6ч–24ч ТМ', backgroundColor: '#55ff00', textColor: '#000000' },
-  tm2: { code: 'ТМ2', notation: '1д–3д ТМ', backgroundColor: '#fffb00', textColor: '#000000' },
-  tm3: { code: 'ТМ3', notation: '3д–7д ТМ', backgroundColor: '#ffa600', textColor: '#000000' },
-  tm4: { code: 'ТМ4', notation: '1д–~ ТМ', backgroundColor: '#ff0000', textColor: '#000000' },
-  ot1: { code: 'ОТ1', notation: '6ч–24ч ОТ', backgroundColor: '#55ff00', textColor: '#000000' },
-  ot2: { code: 'ОТ2', notation: '1д–3д ОТ', backgroundColor: '#fffb00', textColor: '#000000' },
-  ot3: { code: 'ОТ3', notation: '3д–7д ОТ', backgroundColor: '#ffa600', textColor: '#000000' },
-  ot4: { code: 'ОТ4', notation: '7д–~ ОТ', backgroundColor: '#ff0000', textColor: '#000000' },
+  ban: { code: 'БАН', backgroundColor: 'var(--sanction-ban-background)', textColor: '#ffffff' },
+  tm1: { code: 'ТМ1', notation: '6ч–24ч', backgroundColor: 'var(--sanction-timeout-background)', textColor: '#ffffff' },
+  tm2: { code: 'ТМ2', notation: '1д–3д', backgroundColor: 'var(--sanction-timeout-background)', textColor: '#ffffff' },
+  tm3: { code: 'ТМ3', notation: '3д–7д', backgroundColor: 'var(--sanction-timeout-background)', textColor: '#ffffff' },
+  tm4: { code: 'ТМ4', notation: '1д–…', backgroundColor: 'var(--sanction-timeout-background)', textColor: '#ffffff' },
+  ot1: { code: 'ОТ1', notation: '6ч–24ч', backgroundColor: 'var(--sanction-suspend-background)', textColor: '#ffffff' },
+  ot2: { code: 'ОТ2', notation: '1д–3д', backgroundColor: 'var(--sanction-suspend-background)', textColor: '#ffffff' },
+  ot3: { code: 'ОТ3', notation: '3д–7д', backgroundColor: 'var(--sanction-suspend-background)', textColor: '#ffffff' },
+  ot4: { code: 'ОТ4', notation: '7д–…', backgroundColor: 'var(--sanction-suspend-background)', textColor: '#ffffff' },
 }
 
-export const SANCTION_BADGE_LEGEND = [
+export const SUSPEND_SANCTION_BADGES = [
   SANCTION_BADGES.ot1,
   SANCTION_BADGES.ot2,
   SANCTION_BADGES.ot3,
   SANCTION_BADGES.ot4,
+] as const
+
+export const TIMEOUT_SANCTION_BADGES = [
   SANCTION_BADGES.tm1,
   SANCTION_BADGES.tm2,
   SANCTION_BADGES.tm3,
