@@ -172,7 +172,7 @@ onBeforeUnmount(() => {
 
 <style scoped lang="scss">
 .rules {
-  width: 60%;
+  width: 66%;
   margin: 20px auto;
   line-height: 1.5;
   overflow: auto;
@@ -368,15 +368,14 @@ onBeforeUnmount(() => {
           color: $neutral-100;
         }
         .sanction-badge {
-          flex: 0 0 44px;
-          min-width: 44px;
-          padding: 2px 4px;
-          border-radius: 3px;
-          font-size: 12px;
-          font-weight: 700;
-          line-height: 18px;
-          letter-spacing: 0.02em;
-          text-align: center;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 3px 5px;
+          min-width: 40px;
+          border-radius: 10px;
+          font-size: 13px;
+          font-family: Hauora-Bold;
         }
         .rule-text {
           min-width: 0;
