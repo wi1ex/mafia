@@ -364,6 +364,10 @@
                 <option v-for="option in PAGE_LIMIT_OPTIONS" :key="option.value" :value="option.value">{{ option.label }}</option>
               </select>
             </div>
+            <div class="logs-auto-refresh-actions" aria-label="Автообновление логов">
+              <button class="btn confirm" type="button" :disabled="logsAutoRefreshEnabled" @click="startLogsAutoRefresh">Старт</button>
+              <button class="btn danger" type="button" :disabled="!logsAutoRefreshEnabled" @click="stopLogsAutoRefresh">Стоп</button>
+            </div>
           </div>
 
           <div v-if="logsLoading" class="loading">Загрузка...</div>
@@ -1344,6 +1348,7 @@ const logsLimit = ref(20)
 const logsAction = ref('all')
 const logsUser = ref('')
 const logsDay = ref('')
+const logsAutoRefreshEnabled = ref(false)
 
 const rooms = ref<RoomRow[]>([])
 const roomsTotal = ref(0)
@@ -2895,12 +2900,25 @@ function prevContactRequests(): void {
   void loadContactRequests()
 }
 
+function startLogsAutoRefresh(): void {
+  if (logsAutoRefreshEnabled.value) return
+  logsAutoRefreshEnabled.value = true
+  syncLogsAutoRefresh(activeTab.value)
+  void loadLogs(true)
+}
+
+function stopLogsAutoRefresh(): void {
+  if (!logsAutoRefreshEnabled.value) return
+  logsAutoRefreshEnabled.value = false
+  syncLogsAutoRefresh(activeTab.value)
+}
+
 function syncLogsAutoRefresh(tab: TabKey): void {
   if (logsRefreshTimer !== undefined) {
     window.clearInterval(logsRefreshTimer)
     logsRefreshTimer = undefined
   }
-  if (tab !== 'logs') return
+  if (tab !== 'logs' || !logsAutoRefreshEnabled.value) return
 
   logsRefreshTimer = window.setInterval(() => {
     if (activeTab.value === 'logs') void loadLogs(true)
@@ -2947,9 +2965,12 @@ watch(() => route.query.tab, (tab) => {
   if (next !== activeTab.value) activeTab.value = next
 })
 
-watch(activeTab, (tab) => {
+watch(activeTab, (tab, previousTab) => {
   if (normalizeTab(route.query.tab) !== tab) {
     router.replace({ query: { ...route.query, tab } }).catch(() => {})
+  }
+  if (tab === 'logs' && previousTab !== 'logs') {
+    logsAutoRefreshEnabled.value = false
   }
   if (tab !== 'users' && userMiniProfileOpen.value) {
     closeUserMiniProfile()
@@ -3193,6 +3214,11 @@ onBeforeUnmount(() => {
         flex-direction: column;
         gap: 5px;
         min-width: 160px;
+      }
+      .logs-auto-refresh-actions {
+        display: flex;
+        align-self: flex-end;
+        gap: 10px;
       }
     }
     .tooltip {
