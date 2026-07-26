@@ -56,6 +56,7 @@ from ..utils import (
     emit_nickname_reset_notice,
     emit_notify,
     emit_sanctions_update,
+    ensure_moderation_timed_sanction_duration_allowed,
     fetch_active_sanction,
     fetch_sanction_counts_for_users,
     fetch_effective_online_user_ids,
@@ -66,6 +67,7 @@ from ..utils import (
     format_duration_parts,
     format_duration_seconds_compact,
     get_moderation_target_user,
+    moderation_timed_sanction_duration_limit,
     normalize_pagination,
     send_sanction_finished_telegram_notice,
     revoke_active_suspend,
@@ -513,7 +515,15 @@ async def moderation_update_sanction_reason(sanction_id: int, payload: AdminSanc
 @router.patch("/sanctions/{sanction_id}/increase", response_model=Ok, dependencies=MODERATION_GUARD)
 @log_route("moderation.sanctions.increase")
 async def moderation_increase_active_sanction_duration(sanction_id: int, payload: AdminSanctionDurationAdjustIn, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
-    return await adjust_active_sanction_duration(sanction_id, payload, action="increase", ident=ident, session=session, target_scope="moderation")
+    return await adjust_active_sanction_duration(
+        sanction_id,
+        payload,
+        action="increase",
+        ident=ident,
+        session=session,
+        target_scope="moderation",
+        max_total_duration_seconds=moderation_timed_sanction_duration_limit(ident),
+    )
 
 
 @router.patch("/sanctions/{sanction_id}/decrease", response_model=Ok, dependencies=MODERATION_GUARD)
@@ -538,6 +548,8 @@ async def moderation_apply_user_timeout(user_id: int, payload: AdminSanctionTime
     duration_seconds = compute_duration_seconds(months, days, hours, minutes)
     if duration_seconds <= 0:
         raise HTTPException(status_code=422, detail="duration_required")
+
+    ensure_moderation_timed_sanction_duration_allowed(duration_seconds, ident)
 
     reason = payload.reason.strip()
     if not reason:
@@ -621,6 +633,8 @@ async def moderation_apply_user_suspend(user_id: int, payload: AdminSanctionTime
     duration_seconds = compute_duration_seconds(months, days, hours, minutes)
     if duration_seconds <= 0:
         raise HTTPException(status_code=422, detail="duration_required")
+
+    ensure_moderation_timed_sanction_duration_allowed(duration_seconds, ident)
 
     reason = payload.reason.strip()
     if not reason:

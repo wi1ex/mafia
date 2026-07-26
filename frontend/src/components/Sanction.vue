@@ -16,6 +16,7 @@
               <UiInput id="sanction-days" v-model.number="form.days" type="number" min="0" max="31" step="1" autocomplete="off" label="Дни" />
               <UiInput id="sanction-hours" v-model.number="form.hours" type="number" min="0" max="23" step="1" autocomplete="off" label="Часы" />
             </div>
+            <p v-if="showDuration && durationHint" class="duration-hint">{{ durationHint }}</p>
             <div v-if="showReason">
               <label for="sanction-reason">Причина</label>
               <select id="sanction-reason" v-model="form.reason">
@@ -61,6 +62,7 @@ withDefaults(defineProps<{
   showReason?: boolean
   showDescription?: boolean
   saveLabel?: string
+  durationHint?: string
   zIndex?: number
   reasons: { value: string; label: string }[]
   form: {
@@ -75,6 +77,7 @@ withDefaults(defineProps<{
   showReason: true,
   showDescription: true,
   saveLabel: 'Применить',
+  durationHint: '',
   zIndex: 1000,
 })
 
@@ -174,6 +177,12 @@ function close() {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 10px;
+      }
+      .duration-hint {
+        margin: 0;
+        color: $yellow-500;
+        font-size: 13px;
+        line-height: 18px;
       }
       #sanction-reason {
         width: 100%;

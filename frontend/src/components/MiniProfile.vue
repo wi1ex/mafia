@@ -264,6 +264,7 @@
       :show-duration="staffSanctionKind !== 'ban'"
       :form="staffSanctionForm"
       :reasons="staffSanctionReasons"
+      :duration-hint="staffSanctionDurationHint"
       :z-index="STAFF_MODAL_Z_INDEX"
       @update:open="onStaffSanctionModalOpenUpdate"
       @save="saveStaffSanction"
@@ -553,6 +554,8 @@ const MINUTES_IN_DAY = 24 * 60
 const STAFF_MODAL_Z_INDEX = 1700
 const NOMINATION_TOOLTIP_PANEL_GAP = 24
 const STAFF_SANCTION_DURATION_LIMITS = { months: 240, days: 31, hours: 23 } as const
+const MODERATION_EXTENDED_SANCTION_USER_ID = 7512391044
+const MODERATION_MAX_TIMED_SANCTION_SECONDS = 7 * 24 * 60 * 60
 const STAFF_PRIMARY_ACTION_KEYS: readonly StaffActionKey[] = ['suspend', 'timeout']
 const nominationIntFmt = new Intl.NumberFormat('ru-RU')
 const PROFILE_NOMINATION_DEFINITIONS: readonly ProfileNominationDefinition[] = [
@@ -873,10 +876,23 @@ const staffSanctionTotalSeconds = computed(() => {
   const hours = Math.max(0, Number(staffSanctionForm.hours) || 0)
   return ((months * 30 * 24 * 60) + (days * 24 * 60) + (hours * 60)) * 60
 })
+const staffSanctionDurationWithinLimit = computed(() => (
+  staffSanctionKind.value === 'ban'
+  || !isModerViewer.value
+  || viewerUserId.value === MODERATION_EXTENDED_SANCTION_USER_ID
+  || staffSanctionTotalSeconds.value <= MODERATION_MAX_TIMED_SANCTION_SECONDS
+))
+const staffSanctionDurationHint = computed(() => (
+  isModerViewer.value && viewerUserId.value !== MODERATION_EXTENDED_SANCTION_USER_ID
+    ? 'Максимальный срок санкции для модератора — 7 дней.'
+    : ''
+))
 const staffSanctionCanSave = computed(() => {
   if (!staffSanctionForm.reason || !staffSanctionForm.description.trim()) return false
   if (staffSanctionKind.value === 'ban') return isAdminViewer.value
-  return staffSanctionDurationValid.value && staffSanctionTotalSeconds.value > 0
+  return staffSanctionDurationValid.value
+    && staffSanctionTotalSeconds.value > 0
+    && staffSanctionDurationWithinLimit.value
 })
 const staffSanctionTitle = computed(() => {
   const label = displayName.value
@@ -1555,6 +1571,7 @@ async function saveStaffSanction(): Promise<void> {
     const d = e?.response?.data?.detail
     if (st === 409 && d === 'sanction_active') void alertDialog('Санкция уже активна')
     else if (st === 422 && d === 'duration_required') void alertDialog('Укажите срок санкции')
+    else if (st === 422 && d === 'moderation_sanction_duration_limit') void alertDialog('Модератор может выдать санкцию максимум на 7 дней')
     else if (d === 'forbidden') void alertDialog('Нельзя применить санкцию к этому пользователю')
     else if (d === 'protected_user') void alertDialog('Пользователь защищен от админ-действий')
     else void alertDialog(kind === 'timeout' ? 'Не удалось выдать таймаут' : kind === 'ban' ? 'Не удалось выдать бан' : 'Не удалось выдать отстранение')

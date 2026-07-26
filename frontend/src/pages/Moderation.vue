@@ -270,6 +270,7 @@
       :save-label="sanctionAdjustSaveLabel"
       :form="sanctionAdjustForm"
       :reasons="sanctionReasons"
+      :duration-hint="sanctionAdjustDurationHint"
       @update:open="onSanctionAdjustModalOpenUpdate"
       @save="saveSanctionAdjust"
     />
@@ -412,6 +413,9 @@ let contactRequestsUserTimer: number | undefined
 
 const sanctionReasons = SANCTION_REASONS
 const sanctionReasonValues = new Set(sanctionReasons.map(({ value }) => value))
+const MODERATION_EXTENDED_SANCTION_USER_ID = 7512391044
+const MODERATION_MAX_TIMED_SANCTION_SECONDS = 7 * 24 * 60 * 60
+const canIssueExtendedModerationSanctions = computed(() => viewerUserId.value === MODERATION_EXTENDED_SANCTION_USER_ID)
 const SANCTION_DURATION_LIMITS = {
   months: 240,
   days: 31,
@@ -458,9 +462,30 @@ const sanctionAdjustTotalSeconds = computed(() => {
   const totalMinutes = (months * 30 * 24 * 60) + (days * 24 * 60) + (hours * 60)
   return totalMinutes * 60
 })
+const sanctionAdjustDurationWithinLimit = computed(() => {
+  const target = sanctionAdjustTarget.value
+  if (!target || sanctionAdjustMode.value !== 'increase' || canIssueExtendedModerationSanctions.value) return true
+
+  const issuedAt = Date.parse(target.issued_at)
+  const expiresAt = Date.parse(target.finished_at || '')
+  if (!Number.isFinite(issuedAt) || !Number.isFinite(expiresAt)) return false
+
+  return expiresAt + sanctionAdjustTotalSeconds.value <= issuedAt + MODERATION_MAX_TIMED_SANCTION_SECONDS * 1000
+})
+const sanctionAdjustDurationHint = computed(() => (
+  sanctionAdjustMode.value === 'increase' && !canIssueExtendedModerationSanctions.value
+    ? 'Срок санкции не может превышать 7 дней.'
+    : ''
+))
 const sanctionAdjustCanSave = computed(() => {
   const target = sanctionAdjustTarget.value
-  return Boolean(target && canAdjustSanction(target) && sanctionAdjustDurationValid.value && sanctionAdjustTotalSeconds.value > 0)
+  return Boolean(
+    target
+    && canAdjustSanction(target)
+    && sanctionAdjustDurationValid.value
+    && sanctionAdjustTotalSeconds.value > 0
+    && sanctionAdjustDurationWithinLimit.value,
+  )
 })
 const sanctionAdjustSaveLabel = computed(() => sanctionAdjustMode.value === 'increase' ? 'Увеличить' : 'Уменьшить')
 const sanctionAdjustTitle = computed(() => {
@@ -847,6 +872,7 @@ async function saveSanctionAdjust(): Promise<void> {
     else if (st === 422 && d === 'duration_required') void alertDialog('Укажите срок изменения')
     else if (st === 422 && d === 'sanction_not_timed') void alertDialog('Для этой санкции нельзя изменить срок')
     else if (st === 422 && d === 'sanction_decrease_too_large') void alertDialog('Нельзя уменьшить срок на все оставшееся время санкции или больше')
+    else if (st === 422 && d === 'moderation_sanction_duration_limit') void alertDialog('Модератор не может увеличить срок санкции более чем до 7 дней')
     else void alertDialog('Не удалось изменить срок санкции')
   } finally {
     sanctionsAdjusting[busyKey] = false

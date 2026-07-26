@@ -125,6 +125,8 @@ __all__ = [
     "build_admin_mini_profile_blacklist",
     "fetch_sanction_counts_for_users",
     "compute_duration_seconds",
+    "moderation_timed_sanction_duration_limit",
+    "ensure_moderation_timed_sanction_duration_allowed",
     "elapsed_seconds_since",
     "is_sanction_active",
     "is_sanction_expired_after_game",
@@ -276,6 +278,8 @@ SANCTION_TIMEOUT = "timeout"
 SANCTION_BAN = "ban"
 SANCTION_SUSPEND = "suspend"
 HOSTED_GAME_SUSPEND_REDUCTION_SECONDS = 4 * 60 * 60
+MODERATION_EXTENDED_SANCTION_USER_ID = 7512391044
+MODERATION_MAX_TIMED_SANCTION_SECONDS = 7 * 24 * 60 * 60
 HOSTED_GAME_SUSPEND_LEGACY_REDUCTION_SECONDS = 6 * 60 * 60
 HOSTED_GAME_SUSPEND_REDUCTION_CHANGED_AT = datetime(2026, 5, 1, tzinfo=timezone.utc)
 MSK_TZ = timezone(timedelta(hours=3))
@@ -821,6 +825,19 @@ def compute_duration_seconds(months: int, days: int, hours: int, minutes: int) -
     return total_minutes * 60
 
 
+def moderation_timed_sanction_duration_limit(ident: Identity) -> int | None:
+    if int(ident["id"]) == MODERATION_EXTENDED_SANCTION_USER_ID:
+        return None
+
+    return MODERATION_MAX_TIMED_SANCTION_SECONDS
+
+
+def ensure_moderation_timed_sanction_duration_allowed(duration_seconds: int, ident: Identity) -> None:
+    limit = moderation_timed_sanction_duration_limit(ident)
+    if limit is not None and duration_seconds > limit:
+        raise HTTPException(status_code=422, detail="moderation_sanction_duration_limit")
+
+
 def is_sanction_active(sanction: UserSanction, now: datetime | None = None) -> bool:
     if sanction.revoked_at is not None:
         return False
@@ -976,7 +993,7 @@ def sanction_adjust_notification(kind: str, action: str, duration_label: str, re
     return "Срок санкции уменьшен", f"Срок вашей санкции уменьшен на {duration_label}.{remaining_suffix}"
 
 
-async def adjust_active_sanction_duration(sanction_id: int, payload: AdminSanctionDurationAdjustIn, *, action: str, ident: Identity, session: AsyncSession, target_scope: Literal["admin", "moderation"] = "admin") -> Ok:
+async def adjust_active_sanction_duration(sanction_id: int, payload: AdminSanctionDurationAdjustIn, *, action: str, ident: Identity, session: AsyncSession, target_scope: Literal["admin", "moderation"] = "admin", max_total_duration_seconds: int | None = None) -> Ok:
     sanction = await session.get(UserSanction, int(sanction_id))
     if not sanction:
         raise HTTPException(status_code=404, detail="sanction_not_found")
@@ -1016,6 +1033,11 @@ async def adjust_active_sanction_duration(sanction_id: int, payload: AdminSancti
     action_value = "increase" if str(action or "").strip().lower() == "increase" else "decrease"
     if action_value == "increase":
         next_expires_at = current_expires_at + timedelta(seconds=duration_seconds)
+        if max_total_duration_seconds is not None:
+            max_expires_at = _as_utc_datetime(cast(datetime, sanction.issued_at)) + timedelta(seconds=max(0, int(max_total_duration_seconds)))
+            if next_expires_at > max_expires_at:
+                raise HTTPException(status_code=422, detail="moderation_sanction_duration_limit")
+
         sanction.expired_notified_at = None
     else:
         remaining_seconds_before = max(0.0, (current_expires_at - now).total_seconds())
