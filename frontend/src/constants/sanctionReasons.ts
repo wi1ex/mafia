@@ -4,53 +4,65 @@ export type RulesSection = {
   rules: readonly string[]
 }
 
-export type SanctionBadgeKey = 'ban' | 'tmt1' | 'tmt2' | 'tmt3' | 'tmt4' | 'otr1' | 'otr2' | 'otr3' | 'otr4'
+export type SanctionBadgeKey = 'ban' | 'tm1' | 'tm2' | 'tm3' | 'tm4' | 'ot1' | 'ot2' | 'ot3' | 'ot4'
 
 export type SanctionBadge = {
   code: string
   backgroundColor: string
   textColor: string
+  notation?: string
 }
 
 export const SANCTION_BADGES: Record<SanctionBadgeKey, SanctionBadge> = {
   ban: { code: 'БАН', backgroundColor: '#333333', textColor: '#ffffff' },
-  tmt1: { code: 'ТМТ1', backgroundColor: '#55ff00', textColor: '#000000' },
-  tmt2: { code: 'ТМТ2', backgroundColor: '#fffb00', textColor: '#000000' },
-  tmt3: { code: 'ТМТ3', backgroundColor: '#ffa600', textColor: '#000000' },
-  tmt4: { code: 'ТМТ4', backgroundColor: '#ff0000', textColor: '#000000' },
-  otr1: { code: 'ОТР1', backgroundColor: '#55ff00', textColor: '#000000' },
-  otr2: { code: 'ОТР2', backgroundColor: '#fffb00', textColor: '#000000' },
-  otr3: { code: 'ОТР3', backgroundColor: '#ffa600', textColor: '#000000' },
-  otr4: { code: 'ОТР4', backgroundColor: '#ff0000', textColor: '#000000' },
+  tm1: { code: 'ТМ1', notation: '6ч–24ч ТМ', backgroundColor: '#55ff00', textColor: '#000000' },
+  tm2: { code: 'ТМ2', notation: '1д–3д ТМ', backgroundColor: '#fffb00', textColor: '#000000' },
+  tm3: { code: 'ТМ3', notation: '3д–7д ТМ', backgroundColor: '#ffa600', textColor: '#000000' },
+  tm4: { code: 'ТМ4', notation: '1д–~ ТМ', backgroundColor: '#ff0000', textColor: '#000000' },
+  ot1: { code: 'ОТ1', notation: '6ч–24ч ОТ', backgroundColor: '#55ff00', textColor: '#000000' },
+  ot2: { code: 'ОТ2', notation: '1д–3д ОТ', backgroundColor: '#fffb00', textColor: '#000000' },
+  ot3: { code: 'ОТ3', notation: '3д–7д ОТ', backgroundColor: '#ffa600', textColor: '#000000' },
+  ot4: { code: 'ОТ4', notation: '7д–~ ОТ', backgroundColor: '#ff0000', textColor: '#000000' },
 }
+
+export const SANCTION_BADGE_LEGEND = [
+  SANCTION_BADGES.ot1,
+  SANCTION_BADGES.ot2,
+  SANCTION_BADGES.ot3,
+  SANCTION_BADGES.ot4,
+  SANCTION_BADGES.tm1,
+  SANCTION_BADGES.tm2,
+  SANCTION_BADGES.tm3,
+  SANCTION_BADGES.tm4,
+] as const
 
 export const RULE_SANCTION_BADGES: Partial<Record<string, SanctionBadgeKey>> = {
   '2.1': 'ban',
-  '2.2': 'tmt2',
+  '2.2': 'tm2',
   '2.3': 'ban',
-  '2.4': 'tmt3',
-  '2.5': 'tmt4',
-  '2.6': 'tmt4',
+  '2.4': 'tm3',
+  '2.5': 'tm4',
+  '2.6': 'tm4',
   '2.7': 'ban',
-  '3.1': 'tmt1',
-  '3.2': 'tmt1',
-  '3.3': 'tmt4',
-  '3.4': 'tmt3',
-  '3.5': 'tmt4',
-  '3.6': 'tmt4',
-  '3.7': 'tmt4',
+  '3.1': 'tm1',
+  '3.2': 'tm1',
+  '3.3': 'tm4',
+  '3.4': 'tm3',
+  '3.5': 'tm4',
+  '3.6': 'tm4',
+  '3.7': 'tm4',
   '3.8': 'ban',
   '3.9': 'ban',
-  '4.1': 'otr4',
-  '4.2': 'otr2',
-  '4.3': 'otr2',
-  '4.4': 'otr2',
-  '4.5': 'otr3',
-  '4.6': 'otr2',
-  '4.7': 'otr2',
-  '4.8': 'tmt2',
-  '4.9': 'tmt4',
-  '4.10': 'otr1',
+  '4.1': 'ot4',
+  '4.2': 'ot2',
+  '4.3': 'ot2',
+  '4.4': 'ot2',
+  '4.5': 'ot3',
+  '4.6': 'ot2',
+  '4.7': 'ot2',
+  '4.8': 'tm2',
+  '4.9': 'tm4',
+  '4.10': 'ot1',
 }
 
 export function getRuleSanctionBadge(rule: string): SanctionBadge | undefined {

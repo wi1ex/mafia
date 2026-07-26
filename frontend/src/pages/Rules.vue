@@ -24,6 +24,15 @@
             <div class="notice-item notice-item--suspend">Отстранение — временное отстранение от участия в играх.</div>
             <div class="notice-item notice-item--timeout">Таймаут — временное ограничение доступа к комнатам и чату.</div>
             <div class="notice-item notice-item--ban">Бан — полная блокировка доступа к платформе.</div>
+            <div class="sanction-legend" aria-label="Расшифровка сроков санкций">
+              <span class="sanction-legend-title">Шкала сроков</span>
+              <div v-for="badge in SANCTION_BADGE_LEGEND" :key="badge.code" class="sanction-legend-item">
+                <span>{{ badge.notation }}</span>
+                <span class="sanction-legend-badge" :style="{ backgroundColor: badge.backgroundColor, color: badge.textColor }">
+                  {{ badge.code }}
+                </span>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -60,7 +69,7 @@
 
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, ref } from 'vue'
-import { RULES_SECTIONS, getRuleSanctionBadge } from '@/constants/sanctionReasons'
+import { RULES_SECTIONS, SANCTION_BADGE_LEGEND, getRuleSanctionBadge } from '@/constants/sanctionReasons'
 
 type TocItem = {
   id: string
@@ -372,7 +381,7 @@ onBeforeUnmount(() => {
           align-items: center;
           justify-content: center;
           padding: 3px 5px;
-          min-width: 40px;
+          min-width: 35px;
           border-radius: 10px;
           font-size: 13px;
           font-family: Hauora-Bold;
@@ -390,7 +399,7 @@ onBeforeUnmount(() => {
   }
   .notice {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
     gap: 20px;
     padding: 20px;
     border-radius: 10px;
@@ -428,6 +437,41 @@ onBeforeUnmount(() => {
       }
       .notice-item--ban {
         border-color: $red-500;
+      }
+      .sanction-legend {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px 10px;
+        .sanction-legend-title {
+          grid-column: 1 / -1;
+          color: $neutral-300;
+          font-size: 13px;
+          font-weight: 700;
+        }
+        .sanction-legend-item {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          padding: 5px 7px;
+          border: 1px solid $neutral-500;
+          border-radius: 6px;
+          background-color: $neutral-900;
+          color: $neutral-100;
+          font-size: 13px;
+        }
+        .sanction-legend-badge {
+          flex: 0 0 44px;
+          min-width: 44px;
+          padding: 2px 4px;
+          border-radius: 3px;
+          font-size: 12px;
+          font-weight: 700;
+          line-height: 18px;
+          letter-spacing: 0.02em;
+          text-align: center;
+        }
       }
     }
   }
