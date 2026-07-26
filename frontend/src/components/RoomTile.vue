@@ -854,7 +854,7 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
     .role-timer-bar {
       width: 100%;
       height: 100%;
-      background: linear-gradient(to right, rgba(68, 16, 122, 1) 0%, rgba(91, 0, 255, 1) 30%, rgba(255, 19, 97, 1) 60%, rgba(255, 248, 0, 1) 100%);
+      background: linear-gradient(to right, rgb(200, 255, 0) 0%, rgb(255, 19, 145) 50%, rgb(64, 0, 255) 100%);
       clip-path: inset(0 0 0 0);
       animation: role-timer-decrease linear forwards;
     }

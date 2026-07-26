@@ -497,6 +497,7 @@ function roomStatusClass(room: Room): Record<string, boolean> {
     hide: label === 'HIDE',
     runned: label === 'GAME',
     duo: label === 'DUO',
+    room: label === 'ROOM',
   }
 }
 
@@ -1128,6 +1129,9 @@ onBeforeUnmount(() => {
               background-color: $neutral-500;
               &.duo {
                 background-color: $blue-500;
+              }
+              &.room {
+                background-color: $orange-600;
               }
               &.runned {
                 background-color: $green-700;

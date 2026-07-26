@@ -999,7 +999,7 @@ const desiredCameraQuality = computed<CameraQuality>(() => {
   return 'low'
 })
 
-const lowVideoSimulcastRemoteQuality: VQ = window.innerWidth < 1000 ? 'low' : 'medium'
+const lowVideoSimulcastRemoteQuality: VQ = window.screen.width < 1000 ? 'low' : 'medium'
 const autoRemoteQuality = computed<VQ>(() => {
   if (usesLowVideoSimulcast.value) return lowVideoSimulcastRemoteQuality
   return desiredCameraQuality.value === 'low' ? 'low' : 'high'
