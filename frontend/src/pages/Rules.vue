@@ -43,7 +43,7 @@
                 </div>
               </div>
             </div>
-            <div class="notice-item notice-item--ban">Бан — полная блокировка доступа к платформе.</div>
+            <div class="notice-item notice-item--ban">Бан — вечная блокировка доступа к платформе.</div>
           </div>
         </section>
 
@@ -478,6 +478,8 @@ onBeforeUnmount(() => {
         border-color: $orange-500;
       }
       .notice-item--ban {
+        grid-column-start: 1;
+        grid-column-end: 3;
         border-color: $red-500;
       }
     }

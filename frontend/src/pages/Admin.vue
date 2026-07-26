@@ -734,7 +734,15 @@
                   <td>{{ formatSanctionDuration(row.duration_seconds) }}</td>
                   <td>{{ formatSanctionDuration(row.served_seconds) }}</td>
                   <td>{{ formatSanctionWorkoff(row) }}</td>
-                  <td class="rule-cell">{{ row.reason || '-' }}</td>
+                  <td class="rule-cell">
+                    <select :value="row.reason || ''" :disabled="isSanctionReasonChanging(row)" :aria-label="`Пункт правил для санкции ${row.id}`" @change="updateSanctionReason(row, $event)">
+                      <option v-if="!row.reason" value="" disabled>Пункт не указан</option>
+                      <option v-else-if="!isCurrentSanctionReason(row.reason)" :value="row.reason">
+                        Устаревший пункт: {{ row.reason }}
+                      </option>
+                      <option v-for="option in sanctionReasons" :key="option.value" :value="option.value">{{ option.label }}</option>
+                    </select>
+                  </td>
                   <td class="description-cell">{{ row.description || '-' }}</td>
                   <td class="actions-cell">
                     <button v-if="canAdjustSanction(row)" class="btn dark" :disabled="isSanctionAdjustBusy(row, 'decrease')" @click="openSanctionAdjust(row, 'decrease')">
@@ -1363,6 +1371,7 @@ const contactRequestReplyText = ref('')
 const contactRequestReplySaving = ref(false)
 const sanctionsDeleting = reactive<Record<number, boolean>>({})
 const sanctionsAdjusting = reactive<Record<string, boolean>>({})
+const sanctionsReasonChanging = reactive<Record<number, boolean>>({})
 const subscriptions = ref<SubscriptionRow[]>([])
 const subscriptionModalOpen = ref(false)
 const subscriptionModalMode = ref<'extend' | 'reduce'>('extend')
@@ -1386,6 +1395,7 @@ const userMiniProfileHistoryUrl = computed(() => {
 const updateNoticeSaving = ref(false)
 const updateNoticeForm = reactive({ title: '', text: '' })
 const sanctionReasons = SANCTION_REASONS
+const sanctionReasonValues = new Set(sanctionReasons.map(({ value }) => value))
 const SANCTION_DURATION_LIMITS = {
   months: 240,
   days: 31,
@@ -2381,6 +2391,42 @@ async function loadSanctions(): Promise<void> {
     void alertDialog('Не удалось загрузить санкции')
   } finally {
     sanctionsLoading.value = false
+  }
+}
+
+function isCurrentSanctionReason(reason: string | null | undefined): boolean {
+  return Boolean(reason && sanctionReasonValues.has(reason))
+}
+
+function isSanctionReasonChanging(row: SanctionsRow): boolean {
+  return Boolean(sanctionsReasonChanging[row.id])
+}
+
+async function updateSanctionReason(row: SanctionsRow, event: Event): Promise<void> {
+  const nextReason = selectValue(event).trim()
+  const previousReason = row.reason || ''
+  const select = event.target as HTMLSelectElement
+  if (!nextReason || nextReason === previousReason || isSanctionReasonChanging(row)) return
+
+  sanctionsReasonChanging[row.id] = true
+  try {
+    await api.patch(`/admin/sanctions/${row.id}/reason`, { reason: nextReason })
+    row.reason = nextReason
+    void alertDialog('Пункт правил изменён')
+  } catch (e: any) {
+    select.value = previousReason
+    const status = Number(e?.response?.status || 0)
+    const detail = String(e?.response?.data?.detail || '')
+    if (status === 404 && detail === 'sanction_not_found') {
+      void loadSanctions()
+      void alertDialog('Санкция не найдена')
+    } else if (status === 422 && detail === 'reason_required') {
+      void alertDialog('Выберите пункт правил')
+    } else {
+      void alertDialog('Не удалось изменить пункт правил')
+    }
+  } finally {
+    sanctionsReasonChanging[row.id] = false
   }
 }
 
@@ -3489,6 +3535,19 @@ onBeforeUnmount(() => {
       max-width: 520px;
       white-space: pre-wrap;
       word-break: break-word;
+    }
+    .sanctions-table .rule-cell select {
+      width: 100%;
+      min-width: 240px;
+      padding: 5px 10px;
+      border: 1px solid $neutral-500;
+      border-radius: 5px;
+      background-color: $neutral-900;
+      color: $neutral-100;
+      cursor: pointer;
+      &:disabled {
+        opacity: 0.5;
+      }
     }
     .sanctions-table .actions-cell {
       white-space: nowrap;
