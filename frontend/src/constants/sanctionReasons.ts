@@ -46,7 +46,7 @@ export const RULE_SANCTION_BADGES: Partial<Record<string, SanctionBadgeKey>> = {
   '2.4': 'tm2',
   '2.5': 'tm4',
   '2.6': 'tm3',
-  '2.7': 'ban',
+  '2.7': 'tm4',
   '3.1': 'tm1',
   '3.2': 'tm1',
   '3.3': 'tm3',
