@@ -86,6 +86,7 @@ class Settings(BaseSettings):
     WINKS_LIMIT: int = 3
     KNOCKS_LIMIT: int = 4
     WINK_SPOT_CHANCE_PERCENT: int = 10
+    GAME_ROLES_REVEAL_SECONDS: int = 5
 
     @field_validator("BACKEND_CORS_ORIGINS")
     @classmethod

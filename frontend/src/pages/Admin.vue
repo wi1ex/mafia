@@ -121,6 +121,8 @@
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Постукивания (шт)" />
                 <UiInput id="wink-spot-chance-percent" v-model.number="game.wink_spot_chance_percent" type="number" min="0" max="100" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Вероятность для подмигиваний (%)" />
+                <UiInput id="game-roles-reveal-seconds" v-model.number="game.game_roles_reveal_seconds" type="number" min="1" step="1"
+                         autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Отображение ролей в конце игры (сек)" />
               </div>
             </div>
           </div>
@@ -1034,6 +1036,7 @@ type GameSettings = {
   winks_limit: number
   knocks_limit: number
   wink_spot_chance_percent: number
+  game_roles_reveal_seconds: number
 }
 
 type RegistrationPoint = {
@@ -1305,6 +1308,7 @@ const game = reactive<GameSettings>({
   winks_limit: 3,
   knocks_limit: 3,
   wink_spot_chance_percent: 10,
+  game_roles_reveal_seconds: 5,
 })
 
 const settingsStore = useSettingsStore()
@@ -1616,6 +1620,7 @@ function snapshotGame(): string {
     winks_limit: normalizeInt(game.winks_limit),
     knocks_limit: normalizeInt(game.knocks_limit),
     wink_spot_chance_percent: normalizePercent(game.wink_spot_chance_percent),
+    game_roles_reveal_seconds: normalizeInt(game.game_roles_reveal_seconds),
   })
 }
 
@@ -2200,6 +2205,7 @@ async function saveSettings(): Promise<void> {
         winks_limit: normalizeInt(game.winks_limit),
         knocks_limit: normalizeInt(game.knocks_limit),
         wink_spot_chance_percent: normalizePercent(game.wink_spot_chance_percent),
+        game_roles_reveal_seconds: normalizeInt(game.game_roles_reveal_seconds),
       },
     }
     const { data } = await api.patch('/admin/settings', payload)

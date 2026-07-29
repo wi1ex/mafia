@@ -5397,7 +5397,7 @@ async def finish_game(r, rid: int, *, result: str, head_uid: int | None = None, 
 
 
 async def schedule_auto_game_end(rid: int, *, reason: str) -> None:
-    await asyncio.sleep(5)
+    await asyncio.sleep(get_positive_setting_int("GAME_ROLES_REVEAL_SECONDS", 5))
 
     r = get_redis()
     try:

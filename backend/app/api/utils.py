@@ -634,6 +634,7 @@ def build_app_settings_snapshot_defaults(core_settings_obj: Any, *, default_star
         winks_limit=getattr(core_settings_obj, "WINKS_LIMIT"),
         knocks_limit=getattr(core_settings_obj, "KNOCKS_LIMIT"),
         wink_spot_chance_percent=getattr(core_settings_obj, "WINK_SPOT_CHANCE_PERCENT"),
+        game_roles_reveal_seconds=getattr(core_settings_obj, "GAME_ROLES_REVEAL_SECONDS"),
     )
 
 
@@ -686,6 +687,7 @@ def build_app_settings_snapshot_from_row(row: Any, *, default_starts: Sequence[i
         winks_limit=int(getattr(row, "winks_limit")),
         knocks_limit=int(getattr(row, "knocks_limit")),
         wink_spot_chance_percent=int(getattr(row, "wink_spot_chance_percent")),
+        game_roles_reveal_seconds=int(getattr(row, "game_roles_reveal_seconds")),
     )
 
 
@@ -3638,6 +3640,7 @@ def game_settings_out(row) -> GameSettingsOut:
         winks_limit=int(row.winks_limit),
         knocks_limit=int(row.knocks_limit),
         wink_spot_chance_percent=int(row.wink_spot_chance_percent),
+        game_roles_reveal_seconds=int(row.game_roles_reveal_seconds),
     )
 
 

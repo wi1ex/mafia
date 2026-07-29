@@ -73,6 +73,7 @@ class GameSettingsOut(BaseModel):
     winks_limit: int
     knocks_limit: int
     wink_spot_chance_percent: int
+    game_roles_reveal_seconds: int
 
 
 class GameSettingsUpdateIn(BaseModel):
@@ -87,6 +88,7 @@ class GameSettingsUpdateIn(BaseModel):
     winks_limit: Optional[int] = Field(default=None, ge=0)
     knocks_limit: Optional[int] = Field(default=None, ge=0)
     wink_spot_chance_percent: Optional[int] = Field(default=None, ge=0, le=100)
+    game_roles_reveal_seconds: Optional[int] = Field(default=None, ge=1)
 
 
 class AdminSettingsOut(BaseModel):

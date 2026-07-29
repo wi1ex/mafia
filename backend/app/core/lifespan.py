@@ -24,6 +24,12 @@ async def lifespan(app) -> AsyncIterator[None]:
         async with engine.begin() as conn:
             await conn.execute(text("SELECT 1"))
             await conn.run_sync(Base.metadata.create_all)
+            # 11111111111111111111111111111111111111111111111111111
+            await conn.execute(text(
+                "ALTER TABLE settings "
+                "ADD COLUMN IF NOT EXISTS game_roles_reveal_seconds INTEGER NOT NULL DEFAULT 5"
+            ))
+            # 22222222222222222222222222222222222222222222222222222
 
         async with SessionLocal() as session:
             await ensure_app_settings(session)

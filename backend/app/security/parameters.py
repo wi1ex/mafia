@@ -56,6 +56,7 @@ class AppSettingsSnapshot:
     winks_limit: int
     knocks_limit: int
     wink_spot_chance_percent: int
+    game_roles_reveal_seconds: int
 
 
 _CACHE: Optional[AppSettingsSnapshot] = None
@@ -110,6 +111,7 @@ async def ensure_app_settings(session: AsyncSession) -> AppSettings:
             winks_limit=defaults.winks_limit,
             knocks_limit=defaults.knocks_limit,
             wink_spot_chance_percent=defaults.wink_spot_chance_percent,
+            game_roles_reveal_seconds=defaults.game_roles_reveal_seconds,
         )
         session.add(row)
 
