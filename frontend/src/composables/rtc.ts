@@ -184,8 +184,8 @@ export function useRTC(): UseRTC {
   const screenKey = (id: string) => `${id}#s`
   const isScreenKey = (key: string) => key.endsWith('#s')
   const isSub = (pub: RemoteTrackPublication) => pub.isSubscribed
-  const lowMobileVideoQuality = new VideoPreset(160, 90, 75_000, 30)
-  const lowVideoQuality = new VideoPreset(480, 270, 250_000, 30)
+  const lowVideoQuality = new VideoPreset(160, 90, 75_000, 30)
+  const midVideoQuality = new VideoPreset(480, 270, 250_000, 30)
   const highVideoQuality = VideoPresets.h720
   const lowScreenQuality = ScreenSharePresets.h360fps15
   const midScreenQuality = new VideoPreset(960, 540, 1_000_000, 30, 'medium')
@@ -198,11 +198,11 @@ export function useRTC(): UseRTC {
   const cameraQuality = ref<CameraQuality>('low')
   const cameraSimulcast = ref(false)
   const cameraPresetFor = (quality: CameraQuality) => {
-    if (quality === 'low') return lowVideoQuality
+    if (quality === 'low') return midVideoQuality
     return highVideoQuality
   }
   const cameraPreset = () => cameraPresetFor(cameraQuality.value)
-  const cameraSimulcastLayers = () => cameraSimulcast.value ? [lowMobileVideoQuality] : undefined
+  const cameraSimulcastLayers = () => cameraSimulcast.value ? [lowVideoQuality] : undefined
   const cameraOptions = (deviceId?: string) => ({
     deviceId: deviceId ? ({ exact: deviceId } as any) : undefined,
     resolution: cameraPreset().resolution,
