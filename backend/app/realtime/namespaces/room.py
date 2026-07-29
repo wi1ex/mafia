@@ -138,7 +138,6 @@ from ..utils import (
 log = structlog.get_logger()
 
 BG_STATE_TTL_SECONDS = 300
-BG_DISCONNECT_DELAY_SECONDS = BG_STATE_TTL_SECONDS + 5
 ROOM_RECONNECT_GRACE_SECONDS = max(1, int(getattr(settings, "ROOM_RECONNECT_GRACE_SECONDS", 4) or 4))
 
 
@@ -4274,19 +4273,7 @@ async def disconnect(sid):
         except Exception:
             log.exception("sio.disconnect.vote_presence_break_failed", rid=rid, uid=uid)
 
-        try:
-            phase = str(await r.hget(f"room:{rid}:game_state", "phase") or "idle")
-        except Exception:
-            phase = "idle"
-
         delay_seconds = ROOM_RECONNECT_GRACE_SECONDS
-        if phase == "idle":
-            try:
-                has_bg_state = await r.exists(f"room:{rid}:user:{uid}:bg_state")
-            except Exception:
-                has_bg_state = 0
-            if has_bg_state:
-                delay_seconds = BG_DISCONNECT_DELAY_SECONDS
 
         schedule_guarded_disconnect_cleanup(
             delay_seconds=delay_seconds,
