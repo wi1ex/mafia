@@ -630,17 +630,17 @@
                   </th>
                   <th>
                     <button class="table-sort" :class="{ active: usersSort === 'suspends_count' }" type="button" title="Сортировать по убыванию" @click="sortUsers('suspends_count')">
-                      Отстранения <span aria-hidden="true">↓</span>
+                      ОТ <span aria-hidden="true">↓</span>
                     </button>
                   </th>
                   <th>
                     <button class="table-sort" :class="{ active: usersSort === 'timeouts_count' }" type="button" title="Сортировать по убыванию" @click="sortUsers('timeouts_count')">
-                      Таймауты <span aria-hidden="true">↓</span>
+                      ТМ <span aria-hidden="true">↓</span>
                     </button>
                   </th>
                   <th>
                     <button class="table-sort" :class="{ active: usersSort === 'bans_count' }" type="button" title="Сортировать по убыванию" @click="sortUsers('bans_count')">
-                      Баны <span aria-hidden="true">↓</span>
+                      БАН <span aria-hidden="true">↓</span>
                     </button>
                   </th>
                 </tr>
