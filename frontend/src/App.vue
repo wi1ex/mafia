@@ -256,12 +256,4 @@ onBeforeUnmount(() => {
   }
 }
 
-@media (max-width: 1700px) {
-
-}
-
-@media (max-width: 1200px) {
-
-}
-
 </style>
