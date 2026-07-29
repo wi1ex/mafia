@@ -43,7 +43,7 @@
                 </button>
               </div>
               <div v-else-if="isAccepted(f)" class="actions">
-                <div v-if="f.room_id && isAccepted(f)" class="room-info">
+                <div v-if="f.room_id && isAccepted(f)" class="room-info" :class="{ solo: !shouldShowInviteButton(f) }">
                   <span class="room">{{ f.room_title || ('Комната #' + f.room_id) }}</span>
                   <span class="game" :class="{ active: f.room_in_game }">{{ f.room_in_game ? 'Игра' : 'Лобби' }}</span>
                 </div>
@@ -573,13 +573,16 @@ onBeforeUnmount(() => {
       .actions {
         display: flex;
         align-items: center;
-        justify-content: space-between;
+        justify-content: flex-end;
         gap: 4px;
         min-width: 164px;
         .room-info {
           display: flex;
           flex-direction: column;
           min-width: 100px;
+          &.solo {
+            min-width: 132px;
+          }
           .room {
             text-align: start;
             max-width: 100px;
