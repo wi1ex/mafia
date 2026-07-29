@@ -23,7 +23,7 @@ setLogLevel(LogLevel.error)
 
 export type DeviceKind = 'audioinput' | 'videoinput'
 export type VQ = 'low' | 'medium' | 'high'
-export type CameraQuality = 'low' | 'high'
+export type CameraQuality = 'low' | 'medium' | 'high'
 export type ScreenShareQuality = 'low' | 'medium' | 'high'
 const LS = {
   mic: 'audioDeviceId',
@@ -187,7 +187,7 @@ export function useRTC(): UseRTC {
   const lowVideoQuality = new VideoPreset(160, 90, 75_000, 30)
   const midVideoQuality = new VideoPreset(480, 270, 250_000, 30)
   const highVideoQuality = VideoPresets.h720
-  const lowScreenQuality = ScreenSharePresets.h360fps15
+  const lowScreenQuality = new VideoPreset(640, 360, 500_000, 30, 'medium')
   const midScreenQuality = new VideoPreset(960, 540, 1_000_000, 30, 'medium')
   const highScreenQuality = ScreenSharePresets.h720fps30
   const screenPresetFor = (quality?: ScreenShareQuality) => {
@@ -195,14 +195,20 @@ export function useRTC(): UseRTC {
     if (quality === 'medium') return midScreenQuality
     return highScreenQuality
   }
-  const cameraQuality = ref<CameraQuality>('low')
+  const cameraQuality = ref<CameraQuality>('medium')
   const cameraSimulcast = ref(false)
   const cameraPresetFor = (quality: CameraQuality) => {
-    if (quality === 'low') return midVideoQuality
+    if (quality === 'low') return lowVideoQuality
+    if (quality === 'medium') return midVideoQuality
     return highVideoQuality
   }
   const cameraPreset = () => cameraPresetFor(cameraQuality.value)
-  const cameraSimulcastLayers = () => cameraSimulcast.value ? [lowVideoQuality] : undefined
+  const cameraSimulcastLayers = () => {
+    if (!cameraSimulcast.value) return undefined
+    if (cameraQuality.value === 'high') return [midVideoQuality]
+    if (cameraQuality.value === 'medium') return [lowVideoQuality]
+    return undefined
+  }
   const cameraOptions = (deviceId?: string) => ({
     deviceId: deviceId ? ({ exact: deviceId } as any) : undefined,
     resolution: cameraPreset().resolution,
@@ -1314,8 +1320,8 @@ export function useRTC(): UseRTC {
   }
 
   async function setCameraQuality(quality: CameraQuality, opts?: { simulcast?: boolean }): Promise<void> {
-    const next = quality === 'low' ? 'low' : 'high'
-    const nextSimulcast = opts?.simulcast === true
+    const next = quality === 'low' || quality === 'medium' ? quality : 'high'
+    const nextSimulcast = opts?.simulcast === true && next !== 'low'
     const changed = cameraQuality.value !== next || cameraSimulcast.value !== nextSimulcast
     cameraQuality.value = next
     cameraSimulcast.value = nextSimulcast

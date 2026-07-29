@@ -872,7 +872,9 @@ const canShowFoulButtons = computed(() =>
   ACTION_PHASES.includes(gamePhase.value as (typeof ACTION_PHASES)[number])
 )
 const isMafiaLimitRoom = computed(() => roomUserLimit.value === gameLimitMin.value)
-const usesLowVideoSimulcast = computed(() => isMafiaLimitRoom.value || roomUserLimit.value === 20)
+const usesCameraSimulcast = computed(() =>
+  isMafiaLimitRoom.value || roomUserLimit.value === 20 || roomUserLimit.value === 2
+)
 const canStartStreams = computed(() => settings.streamsCanStart || isAdminUser.value)
 const canViewGameSettings = computed(() => !adminSpectator.value && isMafiaLimitRoom.value)
 const canEditGameSettings = computed(() =>
@@ -996,16 +998,16 @@ const canShowStartGame = computed(() => {
 
 const desiredCameraQuality = computed<CameraQuality>(() => {
   if (roomUserLimit.value === 2 && !screenOwnerId.value) return 'high'
-  return 'low'
+  return 'medium'
 })
 
-const lowVideoSimulcastRemoteQuality: VQ = window.screen.width < 1000 ? 'low' : 'medium'
+const simulcastRemoteQuality: VQ = window.screen.width < 1000 ? 'low' : 'medium'
 const autoRemoteQuality = computed<VQ>(() => {
-  if (usesLowVideoSimulcast.value) return lowVideoSimulcastRemoteQuality
-  return desiredCameraQuality.value === 'low' ? 'low' : 'high'
+  if (usesCameraSimulcast.value) return simulcastRemoteQuality
+  return desiredCameraQuality.value === 'high' ? 'high' : 'low'
 })
 
-watch([desiredCameraQuality, usesLowVideoSimulcast], ([quality, simulcast]) => {
+watch([desiredCameraQuality, usesCameraSimulcast], ([quality, simulcast]) => {
   void rtc.setCameraQuality(quality, { simulcast })
 }, { immediate: true })
 
@@ -3629,7 +3631,7 @@ onMounted(async () => {
     await rtc.refreshDevices()
     applyJoinAck(j)
 
-    await rtc.setCameraQuality(desiredCameraQuality.value, { simulcast: usesLowVideoSimulcast.value })
+    await rtc.setCameraQuality(desiredCameraQuality.value, { simulcast: usesCameraSimulcast.value })
 
     const bindLK = () => rtc.initRoom({
       onScreenShareEnded: async () => {
