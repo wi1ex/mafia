@@ -3798,6 +3798,87 @@ async def get_player_ids(r, rid: int) -> list[int]:
     return list(await smembers_ints(r, f"room:{rid}:game_players"))
 
 
+async def ensure_game_mics_off_except_active_fouls(
+    r,
+    rid: int,
+    *,
+    head_uid: int,
+    phase_override: str | None = None,
+    excluded_uids: Iterable[int] = (),
+) -> None:
+    try:
+        player_ids = await get_player_ids(r, rid)
+        active_foul_ids = set((await get_active_fouls(r, rid)).keys())
+    except Exception:
+        log.exception("speech_mic_check.load_failed", rid=rid, head=head_uid)
+        return
+
+    excluded_ids = {int(uid) for uid in excluded_uids if int(uid) > 0}
+    for target_uid in player_ids:
+        if target_uid in active_foul_ids or target_uid in excluded_ids:
+            continue
+
+        try:
+            applied, _ = await apply_blocks_and_emit(
+                r,
+                rid,
+                actor_uid=head_uid,
+                actor_role="head",
+                target_uid=target_uid,
+                changes_bool={"mic": True},
+                phase_override=phase_override,
+            )
+            if applied.get("mic") == "1":
+                continue
+
+            row = await r.hgetall(f"room:{rid}:user:{target_uid}:block")
+            blocks_full = {k: ("1" if (row or {}).get(k) == "1" else "0") for k in KEYS_BLOCK}
+            if blocks_full["mic"] == "1":
+                await emit_moderation_filtered(
+                    r,
+                    rid,
+                    target_uid,
+                    blocks_full,
+                    head_uid,
+                    "head",
+                    phase_override=phase_override,
+                )
+        except Exception:
+            log.exception("speech_mic_check.reassert_failed", rid=rid, head=head_uid, target=target_uid)
+
+
+def schedule_speech_mic_check(rid: int) -> None:
+    async def _runner() -> None:
+        try:
+            await asyncio.sleep(2.5)
+            r = get_redis()
+            raw_state = await r.hgetall(f"room:{rid}:game_state")
+            ctx = GameActionContext.from_raw_state(uid=0, rid=rid, r=r, raw_state=raw_state)
+            if ctx.phase == "idle" or not ctx.head_uid:
+                return
+
+            active_speaker_uid = 0
+            if ctx.phase == "day" and ctx.gint("day_speech_started") > 0:
+                active_speaker_uid = ctx.gint("day_current_uid")
+            elif ctx.phase == "vote" and ctx.gint("vote_speech_started") > 0:
+                active_speaker_uid = ctx.gint("vote_speech_uid")
+
+            await ensure_game_mics_off_except_active_fouls(
+                r,
+                rid,
+                head_uid=ctx.head_uid,
+                phase_override=ctx.phase,
+                excluded_uids=(active_speaker_uid,),
+            )
+        except asyncio.CancelledError:
+            return
+
+        except Exception:
+            log.exception("speech_mic_check.delayed_failed", rid=rid)
+
+    asyncio.create_task(_runner())
+
+
 def build_night_reset_mapping(*, include_vote_meta: bool) -> dict[str, str]:
     mapping = {
         "phase": "night",
@@ -3990,6 +4071,9 @@ async def finish_day_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker_
             await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=speaker_uid, changes_bool={"mic": True})
         except Exception:
             log.exception("day_speech.finish.block_failed", rid=rid, head=head_uid, target=speaker_uid)
+
+    if head_uid:
+        schedule_speech_mic_check(rid)
 
     opening_uid, closing_uid = await recompute_day_opening_and_closing_from_state(r, rid, raw_gstate)
     day_speeches_done = False
@@ -4543,6 +4627,9 @@ async def finish_vote_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker
             await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=speaker_uid, changes_bool={"mic": True})
         except Exception:
             log.exception("vote_speech.finish.block_failed", rid=rid, head=head_uid, target=speaker_uid)
+
+    if head_uid:
+        schedule_speech_mic_check(rid)
 
     kind = ctx.gstr("vote_speech_kind")
     leaders = ctx.gcsv_ints("vote_leaders_order")
@@ -5486,6 +5573,9 @@ async def finish_day_prelude_speech(r, rid: int, raw_gstate: Mapping[str, Any], 
             await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=speaker_uid, changes_bool={"mic": True})
         except Exception:
             log.exception("day_prelude.finish.block_failed", rid=rid, head=head_uid, target=speaker_uid)
+
+    if head_uid:
+        schedule_speech_mic_check(rid)
 
     async with r.pipeline() as p:
         await p.hset(
