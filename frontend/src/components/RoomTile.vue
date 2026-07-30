@@ -100,11 +100,11 @@
     </UiButton>
 
     <div v-if="showFarewellButtons" class="farewell-buttons">
-      <button @click="$emit('farewell','citizen', id)">
-        <img :src="iconRoleCitizen" alt="like" />
+      <button class="farewell-button citizen" @click="$emit('farewell','citizen', id)">
+        <img :src="iconRoleCitizen" alt="like" class="farewell-img" />
       </button>
-      <button @click="$emit('farewell','mafia', id)">
-        <img :src="iconRoleMafia" alt="dislike" />
+      <button class="farewell-button mafia" @click="$emit('farewell','mafia', id)">
+        <img :src="iconRoleMafia" alt="dislike" class="farewell-img" />
       </button>
     </div>
 
@@ -739,22 +739,28 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
     left: 50%;
     bottom: 8px;
     transform: translate(-50%);
-    gap: 2px;
+    gap: 4px;
     z-index: 10;
-    button {
+    .farewell-button {
       display: flex;
       align-items: center;
       justify-content: center;
       padding: 0;
-      width: 36px;
-      height: 36px;
-      border: 1px solid $green-500;
-      border-radius: 12px;
+      width: 74px;
+      height: 74px;
+      border: 2px solid $green-500;
+      border-radius: 24px;
       background-color: $soft-purple-800;
       cursor: pointer;
-      img {
-        width: 24px;
-        height: 24px;
+      &.citizen {
+        background-color: $role-citizen;
+      }
+      &.mafia {
+        background-color: $role-mafia;
+      }
+      .farewell-img {
+        width: 48px;
+        height: 48px;
       }
     }
   }
