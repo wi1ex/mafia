@@ -58,10 +58,19 @@ import iconClose from '@/assets/svg/iconClose.svg'
 import iconCheckCircle from '@/assets/svg/iconCheckCircle.svg'
 import iconInfo from '@/assets/svg/iconInfo.svg'
 import iconDanger from '@/assets/svg/iconDanger.svg'
+import toastSoundUrl from '@/assets/audio/short.mp3'
 
 const router = useRouter()
 const notif = useNotifStore()
 const TOAST_TTL_MS = 30000
+const toastSoundAudio = new Audio(toastSoundUrl)
+toastSoundAudio.preload = 'auto'
+
+function playToastSound(): void {
+  try { toastSoundAudio.currentTime = 0 } catch {}
+  const result = toastSoundAudio.play()
+  if (result && typeof result.catch === 'function') result.catch(() => {})
+}
 
 type RouteAction = {
   kind: 'route'
@@ -254,6 +263,7 @@ onMounted(() => {
       sanctionText: splitSanctionToastText(kind, text),
     }
     items.value.push(t)
+    if (!d.silent) playToastSound()
     window.setTimeout(() => {
       const current = items.value.find(x => x.key === key)
       if (!current) return
