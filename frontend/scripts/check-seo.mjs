@@ -6,7 +6,7 @@ const publicRoot = resolve(frontendRoot, 'public')
 const siteUrl = 'https://deceit.games'
 const pwaIcon192 = '/pwa-192-v20260717.png'
 const pwaIcon512 = '/pwa-512-v20260717.png'
-const socialPreview = '/og/deceit-preview-v20260717.png'
+const socialPreview = '/og/deceit-preview-v20260801.png'
 
 function fail(message) {
   throw new Error(`SEO check failed: ${message}`)
