@@ -274,9 +274,10 @@ async def join(sid, data) -> JoinAck:
                     raw_game = await r.hgetall(f"room:{rid}:game")
                 except Exception:
                     raw_game = {}
-                spectators_limit = normalize_spectators_limit(raw_game.get("spectators_limit"))
+                room_spectators_limit = normalize_spectators_limit(raw_game.get("spectators_limit"))
+                spectators_limit = max(0, int(get_cached_settings().spectators_limit))
                 can_bypass_spectators_limit = base_role_normalized in {ROLE_ADMIN, ROLE_MODER}
-                if spectators_limit <= 0 and not can_bypass_spectators_limit:
+                if (room_spectators_limit <= 0 or spectators_limit <= 0) and not can_bypass_spectators_limit:
                     return {"ok": False, "error": "game_in_progress", "status": 409}
 
                 try:

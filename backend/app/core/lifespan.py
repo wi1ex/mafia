@@ -29,6 +29,10 @@ async def lifespan(app) -> AsyncIterator[None]:
                 "ALTER TABLE settings "
                 "ADD COLUMN IF NOT EXISTS game_roles_reveal_seconds INTEGER NOT NULL DEFAULT 5"
             ))
+            await conn.execute(text(
+                "ALTER TABLE settings "
+                "ADD COLUMN IF NOT EXISTS spectators_limit INTEGER NOT NULL DEFAULT 10"
+            ))
             # 22222222222222222222222222222222222222222222222222222
 
         async with SessionLocal() as session:

@@ -145,7 +145,7 @@ watch(() => [props.id, props.type, props.passwordToggle], () => {
   textarea {
     width: calc(100% - 64px);
     height: 16px;
-    padding: 20px 32px 19px;
+    padding: 19px 32px;
     border-radius: 32px;
     border: 1px solid var(--ui-input-border);
     background-color: transparent;

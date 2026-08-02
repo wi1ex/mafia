@@ -15,6 +15,7 @@ export interface PublicSettings {
   admin_banner_link: string
   donation_url: string
   rooms_limit_global: number
+  spectators_limit: number
   game_min_ready_players: number
   winks_limit: number
   knocks_limit: number
@@ -37,6 +38,7 @@ const PUBLIC_SETTINGS_KEYS: readonly (keyof PublicSettings)[] = [
   'admin_banner_link',
   'donation_url',
   'rooms_limit_global',
+  'spectators_limit',
   'game_min_ready_players',
   'winks_limit',
   'knocks_limit',
@@ -59,6 +61,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const adminBannerLink = ref('0')
   const donationUrl = ref('')
   const roomsLimitGlobal = ref(100)
+  const spectatorsLimit = ref(10)
   const gameMinReadyPlayers = ref(4)
   const winksLimit = ref(0)
   const knocksLimit = ref(0)
@@ -107,6 +110,10 @@ export const useSettingsStore = defineStore('settings', () => {
     donationUrl.value = String(data.donation_url || '').trim()
     const roomsLimit = Number(data.rooms_limit_global)
     if (Number.isFinite(roomsLimit) && roomsLimit > 0) roomsLimitGlobal.value = Math.trunc(roomsLimit)
+    const spectatorsLimitValue = Number(data.spectators_limit)
+    if (Number.isFinite(spectatorsLimitValue) && spectatorsLimitValue >= 0) {
+      spectatorsLimit.value = Math.trunc(spectatorsLimitValue)
+    }
     const minReady = Number(data.game_min_ready_players)
     if (Number.isFinite(minReady) && minReady > 0) gameMinReadyPlayers.value = minReady
     const winks = Number(data.winks_limit)
@@ -171,6 +178,7 @@ export const useSettingsStore = defineStore('settings', () => {
     adminBannerLink,
     donationUrl,
     roomsLimitGlobal,
+    spectatorsLimit,
     gameMinReadyPlayers,
     winksLimit,
     knocksLimit,

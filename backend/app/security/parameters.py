@@ -34,6 +34,7 @@ class AppSettingsSnapshot:
     donation_url: str
     rooms_limit_global: int
     rooms_limit_per_user: int
+    spectators_limit: int
     rooms_empty_ttl_seconds: int
     rooms_single_ttl_minutes: int
     season_start_game_number: str
@@ -92,6 +93,7 @@ async def ensure_app_settings(session: AsyncSession) -> AppSettings:
             donation_url=normalize_donation_url(defaults.donation_url),
             rooms_limit_global=defaults.rooms_limit_global,
             rooms_limit_per_user=defaults.rooms_limit_per_user,
+            spectators_limit=defaults.spectators_limit,
             rooms_empty_ttl_seconds=defaults.rooms_empty_ttl_seconds,
             rooms_single_ttl_minutes=defaults.rooms_single_ttl_minutes,
             season_start_game_number=defaults.season_start_game_number,

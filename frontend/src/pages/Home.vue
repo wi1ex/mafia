@@ -428,6 +428,13 @@ const isGameParticipant = computed(() => {
   return members.some(m => m.id === uid && (m.role === 'head' || m.role === 'player'))
 })
 
+const game = computed<Game>(() => info.value?.game ?? roomGameDefault)
+const spectatorsLimit = computed(() => {
+  if (game.value.spectators_limit <= 0) return 0
+  const limit = Number(settings.spectatorsLimit)
+  return Number.isFinite(limit) ? Math.max(0, Math.trunc(limit)) : 10
+})
+
 type Cta = 'none' | 'login' | 'enter' | 'full' | 'apply' | 'pending' | 'in_game' | 'watch' | 'spectators_full' | 'blocked' | 'loading'
 const ctaState = computed<Cta>(() => {
   const room = selectedRoom.value
@@ -442,7 +449,7 @@ const ctaState = computed<Cta>(() => {
     if (isGameParticipant.value) return 'enter'
     if (canBypassSpectatorsLimit.value) return 'watch'
     if (!info.value?.game) return 'loading'
-    const limit = info.value.game.spectators_limit
+    const limit = spectatorsLimit.value
     const count = info.value?.spectators_count ?? 0
     if (limit <= 0) return 'in_game'
     return count < limit ? 'watch' : 'spectators_full'
@@ -453,7 +460,6 @@ const ctaState = computed<Cta>(() => {
   return 'none'
 })
 const hasGame = computed(() => Boolean(info.value?.game))
-const game = computed<Game>(() => info.value?.game ?? roomGameDefault)
 const gameLimitMin = computed(() => {
   const minReady = Number(settings.gameMinReadyPlayers)
   return Number.isFinite(minReady) && minReady > 0 ? minReady + 1 : 11
@@ -466,7 +472,7 @@ const canShowGameMeta = computed(() => {
   return Number.isFinite(limit) && limit === gameLimitMin.value && hasGame.value
 })
 const spectatorsLabel = computed(() => {
-  const limit = game.value.spectators_limit
+  const limit = spectatorsLimit.value
   if (limit <= 0) return 'Без зрителей'
   if (selectedRoom.value?.in_game) {
     const count = spectatorsCount.value
@@ -476,7 +482,7 @@ const spectatorsLabel = computed(() => {
 })
 const spectatorsCount = computed(() => info.value?.spectators_count ?? 0)
 const spectatorsTooltipEnabled = computed(() => {
-  const limit = game.value.spectators_limit
+  const limit = spectatorsLimit.value
   if (settings.verificationRestrictions && !userStore.telegramVerified) return false
   return auth.isAuthed && !!selectedRoom.value?.in_game && limit > 0 && spectatorsCount.value > 0
 })

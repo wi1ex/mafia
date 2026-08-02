@@ -80,6 +80,8 @@
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Общий лимит комнат" />
                 <UiInput id="rooms-limit-user" v-model.number="site.rooms_limit_per_user" type="number" min="1" max="10" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Лимит комнат на пользователя" />
+                <UiInput id="spectators-limit" v-model.number="site.spectators_limit" type="number" min="0" max="100" step="1"
+                         autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Лимит зрителей в игре" />
                 <UiInput id="rooms-empty-ttl-seconds" v-model.number="site.rooms_empty_ttl_seconds" type="number" min="10" max="300" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Время жизни пустой комнаты (сек)" />
                 <UiInput id="rooms-single-ttl-minutes" v-model.number="site.rooms_single_ttl_minutes" type="number" min="1" step="1"
@@ -1014,6 +1016,7 @@ type SiteSettings = {
   donation_url: string
   rooms_limit_global: number
   rooms_limit_per_user: number
+  spectators_limit: number
   rooms_empty_ttl_seconds: number
   rooms_single_ttl_minutes: number
   season_start_game_number: string
@@ -1286,6 +1289,7 @@ const site = reactive<SiteSettings>({
   donation_url: '',
   rooms_limit_global: 100,
   rooms_limit_per_user: 3,
+  spectators_limit: 10,
   rooms_empty_ttl_seconds: 10,
   rooms_single_ttl_minutes: 30,
   season_start_game_number: '1',
@@ -1596,6 +1600,7 @@ function snapshotSite(): string {
     donation_url: normalizeExternalPaymentUrl(site.donation_url),
     rooms_limit_global: normalizeInt(site.rooms_limit_global),
     rooms_limit_per_user: normalizeInt(site.rooms_limit_per_user),
+    spectators_limit: normalizeNonNegativeInt(site.spectators_limit),
     rooms_empty_ttl_seconds: normalizeInt(site.rooms_empty_ttl_seconds),
     rooms_single_ttl_minutes: normalizeInt(site.rooms_single_ttl_minutes),
     season_start_game_number: normalizeSeasonStartNumbers(site.season_start_game_number),
@@ -2184,6 +2189,7 @@ async function saveSettings(): Promise<void> {
         donation_url: normalizeExternalPaymentUrl(site.donation_url),
         rooms_limit_global: normalizeInt(site.rooms_limit_global),
         rooms_limit_per_user: normalizeInt(site.rooms_limit_per_user),
+        spectators_limit: normalizeNonNegativeInt(site.spectators_limit),
         rooms_empty_ttl_seconds: normalizeInt(site.rooms_empty_ttl_seconds),
         rooms_single_ttl_minutes: normalizeInt(site.rooms_single_ttl_minutes),
         season_start_game_number: normalizedSeasonStarts,
@@ -2234,6 +2240,7 @@ async function saveSettings(): Promise<void> {
       admin_banner_link: site.admin_banner_link,
       donation_url: site.donation_url,
       rooms_limit_global: site.rooms_limit_global,
+      spectators_limit: site.spectators_limit,
       game_min_ready_players: game.game_min_ready_players,
       winks_limit: game.winks_limit,
       knocks_limit: game.knocks_limit,

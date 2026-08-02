@@ -66,6 +66,7 @@ class Settings(BaseSettings):
 
     ROOMS_LIMIT_GLOBAL: int = 10
     ROOMS_LIMIT_PER_USER: int = 3
+    SPECTATORS_LIMIT: int = 10
     ROOMS_EMPTY_TTL_SECONDS: int = 30
     ROOMS_SINGLE_TTL_MINUTES: int = 30
     SEASON_START_GAME_NUMBER: str = "1"

@@ -26,6 +26,7 @@ class AppSettings(Base):
     donation_url: Mapped[str] = mapped_column(String(2048), nullable=False, server_default=settings.DONATION_URL)
     rooms_limit_global: Mapped[int] = mapped_column(Integer, nullable=False, server_default=str(settings.ROOMS_LIMIT_GLOBAL))
     rooms_limit_per_user: Mapped[int] = mapped_column(Integer, nullable=False, server_default=str(settings.ROOMS_LIMIT_PER_USER))
+    spectators_limit: Mapped[int] = mapped_column(Integer, nullable=False, server_default=str(settings.SPECTATORS_LIMIT))
     rooms_empty_ttl_seconds: Mapped[int] = mapped_column(Integer, nullable=False, server_default=str(settings.ROOMS_EMPTY_TTL_SECONDS))
     rooms_single_ttl_minutes: Mapped[int] = mapped_column(Integer, nullable=False, server_default=str(settings.ROOMS_SINGLE_TTL_MINUTES))
     season_start_game_number: Mapped[str] = mapped_column(String(255), nullable=False, server_default=str(settings.SEASON_START_GAME_NUMBER))

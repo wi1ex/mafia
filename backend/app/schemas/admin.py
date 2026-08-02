@@ -27,6 +27,7 @@ class SiteSettingsOut(BaseModel):
     donation_url: str
     rooms_limit_global: int
     rooms_limit_per_user: int
+    spectators_limit: int
     rooms_empty_ttl_seconds: int
     rooms_single_ttl_minutes: int
     season_start_game_number: str
@@ -51,6 +52,7 @@ class SiteSettingsUpdateIn(BaseModel):
     donation_url: Optional[str] = Field(default=None, max_length=2048)
     rooms_limit_global: Optional[int] = Field(default=None, ge=1)
     rooms_limit_per_user: Optional[int] = Field(default=None, ge=1)
+    spectators_limit: Optional[int] = Field(default=None, ge=0, le=100)
     rooms_empty_ttl_seconds: Optional[int] = Field(default=None, ge=1)
     rooms_single_ttl_minutes: Optional[int] = Field(default=None, ge=1)
     season_start_game_number: Optional[SeasonStartCsv] = Field(default=None, min_length=1, max_length=255)
@@ -123,6 +125,7 @@ class PublicSettingsOut(BaseModel):
     admin_banner_link: str
     donation_url: str
     rooms_limit_global: int
+    spectators_limit: int
     game_min_ready_players: int
     winks_limit: int
     knocks_limit: int
