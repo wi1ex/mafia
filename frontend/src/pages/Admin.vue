@@ -70,60 +70,60 @@
 
             <div class="block">
               <div class="field-stack">
-                <UiInput id="admin-banner-text" v-model="site.admin_banner_text"
+                <UiInput id="admin-banner-text" size="low" v-model="site.admin_banner_text"
                          autocomplete="off" :disabled="savingSettings" label="Текст баннера в хедере" />
-                <UiInput id="admin-banner-link" v-model="site.admin_banner_link"
+                <UiInput id="admin-banner-link" size="low" v-model="site.admin_banner_link"
                          autocomplete="off" :disabled="savingSettings" label="Ссылка баннера в хедере" />
-                <UiInput id="donation-url" v-model="site.donation_url"
+                <UiInput id="donation-url" size="low" v-model="site.donation_url"
                          autocomplete="off" inputmode="url" :disabled="savingSettings" label="Ссылка для донатов" />
-                <UiInput id="rooms-limit-global" v-model.number="site.rooms_limit_global" type="number" min="1" max="100" step="1"
+                <UiInput id="rooms-limit-global" size="low" v-model.number="site.rooms_limit_global" type="number" min="1" max="100" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Общий лимит комнат" />
-                <UiInput id="rooms-limit-user" v-model.number="site.rooms_limit_per_user" type="number" min="1" max="10" step="1"
+                <UiInput id="rooms-limit-user" size="low" v-model.number="site.rooms_limit_per_user" type="number" min="1" max="10" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Лимит комнат на пользователя" />
-                <UiInput id="spectators-limit" v-model.number="site.spectators_limit" type="number" min="0" max="100" step="1"
+                <UiInput id="spectators-limit" size="low" v-model.number="site.spectators_limit" type="number" min="0" max="100" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Лимит зрителей в игре" />
-                <UiInput id="rooms-empty-ttl-seconds" v-model.number="site.rooms_empty_ttl_seconds" type="number" min="10" max="300" step="1"
+                <UiInput id="rooms-empty-ttl-seconds" size="low" v-model.number="site.rooms_empty_ttl_seconds" type="number" min="10" max="300" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Время жизни пустой комнаты (сек)" />
-                <UiInput id="rooms-single-ttl-minutes" v-model.number="site.rooms_single_ttl_minutes" type="number" min="1" step="1"
+                <UiInput id="rooms-single-ttl-minutes" size="low" v-model.number="site.rooms_single_ttl_minutes" type="number" min="1" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Кик при 1 участнике (мин)" />
-                <UiInput id="season-start-game-number" v-model="site.season_start_game_number"
+                <UiInput id="season-start-game-number" size="low" v-model="site.season_start_game_number"
                          autocomplete="off" inputmode="text" :disabled="savingSettings" label="Стартовые игры сезонов (через запятую)" />
-                <UiInput id="text-moderation-whitelist" v-model="site.text_moderation_whitelist"
+                <UiInput id="text-moderation-whitelist" size="low" v-model="site.text_moderation_whitelist"
                          autocomplete="off" inputmode="text" :disabled="savingSettings" label="Белый список слов (через запятую)" />
-                <UiInput id="text-moderation-blacklist" v-model="site.text_moderation_blacklist"
+                <UiInput id="text-moderation-blacklist" size="low" v-model="site.text_moderation_blacklist"
                          autocomplete="off" inputmode="text" :disabled="savingSettings" label="Черный список слов (через запятую)" />
-                <UiInput id="blacklist-users-limit" v-model.number="site.blacklist_users_limit" type="number" min="0" step="1"
+                <UiInput id="blacklist-users-limit" size="low" v-model.number="site.blacklist_users_limit" type="number" min="0" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Лимит черного списка" />
-                <UiInput id="senior-moderator-user-id" :model-value="site.senior_moderator_user_id ?? ''" type="number" min="1" step="1"
+                <UiInput id="senior-moderator-user-id" size="low" :model-value="site.senior_moderator_user_id ?? ''" type="number" min="1" step="1"
                          @update:model-value="setSeniorModeratorUserId" autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Старший модератор" />
               </div>
             </div>
 
             <div class="block">
               <div class="field-stack">
-                <UiInput id="game-min-ready" v-model.number="game.game_min_ready_players" type="number" min="1" step="1"
+                <UiInput id="game-min-ready" size="low" v-model.number="game.game_min_ready_players" type="number" min="1" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Количество игроков для старта" />
-                <UiInput id="role-pick-seconds" v-model.number="game.role_pick_seconds" type="number" min="1" step="1"
+                <UiInput id="role-pick-seconds" size="low" v-model.number="game.role_pick_seconds" type="number" min="1" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Выбор ролей (сек)" />
-                <UiInput id="mafia-talk-seconds" v-model.number="game.mafia_talk_seconds" type="number" min="1" step="1"
+                <UiInput id="mafia-talk-seconds" size="low" v-model.number="game.mafia_talk_seconds" type="number" min="1" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Договорка мафии (сек)" />
-                <UiInput id="player-talk-seconds" v-model.number="game.player_talk_seconds" type="number" min="1" step="1"
+                <UiInput id="player-talk-seconds" size="low" v-model.number="game.player_talk_seconds" type="number" min="1" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Речь игрока (сек)" />
-                <UiInput id="player-talk-short-seconds" v-model.number="game.player_talk_short_seconds" type="number" min="1" step="1"
+                <UiInput id="player-talk-short-seconds" size="low" v-model.number="game.player_talk_short_seconds" type="number" min="1" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Речь при 3х фолах (сек)" />
-                <UiInput id="player-foul-seconds" v-model.number="game.player_foul_seconds" type="number" min="1" step="1"
+                <UiInput id="player-foul-seconds" size="low" v-model.number="game.player_foul_seconds" type="number" min="1" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Фол (сек)" />
-                <UiInput id="night-action-seconds" v-model.number="game.night_action_seconds" type="number" min="1" step="1"
+                <UiInput id="night-action-seconds" size="low" v-model.number="game.night_action_seconds" type="number" min="1" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Отстрелы и проверки (сек)" />
-                <UiInput id="vote-seconds" v-model.number="game.vote_seconds" type="number" min="1" step="1"
+                <UiInput id="vote-seconds" size="low" v-model.number="game.vote_seconds" type="number" min="1" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Голосование (сек)" />
-                <UiInput id="winks-limit" v-model.number="game.winks_limit" type="number" min="0" step="1"
+                <UiInput id="winks-limit" size="low" v-model.number="game.winks_limit" type="number" min="0" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Подмигивания (шт)" />
-                <UiInput id="knocks-limit" v-model.number="game.knocks_limit" type="number" min="0" step="1"
+                <UiInput id="knocks-limit" size="low" v-model.number="game.knocks_limit" type="number" min="0" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Постукивания (шт)" />
-                <UiInput id="wink-spot-chance-percent" v-model.number="game.wink_spot_chance_percent" type="number" min="0" max="100" step="1"
+                <UiInput id="wink-spot-chance-percent" size="low" v-model.number="game.wink_spot_chance_percent" type="number" min="0" max="100" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Вероятность для подмигиваний (%)" />
-                <UiInput id="game-roles-reveal-seconds" v-model.number="game.game_roles_reveal_seconds" type="number" min="1" step="1"
+                <UiInput id="game-roles-reveal-seconds" size="low" v-model.number="game.game_roles_reveal_seconds" type="number" min="1" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Отображение ролей в конце игры (сек)" />
               </div>
             </div>
