@@ -4,6 +4,7 @@
     :class="[
       rootClass,
       modeClass,
+      sizeClass,
       labelModeClass,
       {
         invalid,
@@ -56,6 +57,7 @@ const props = withDefaults(defineProps<{
   placeholder?: string
   meta?: string
   mode?: 'light' | 'dark'
+  size?: 'high' | 'low'
   labelMode?: 'floating' | 'placeholder'
   passwordToggle?: boolean
   icon?: string
@@ -65,6 +67,7 @@ const props = withDefaults(defineProps<{
   as: 'input',
   invalid: false,
   mode: 'dark',
+  size: 'high',
   labelMode: 'floating',
   passwordToggle: false,
   icon: '',
@@ -81,6 +84,7 @@ const rootClass = computed(() => attrs.class)
 const rootStyle = computed<StyleValue>(() => (attrs.style ?? null) as StyleValue)
 const controlTag = computed(() => props.as)
 const modeClass = computed(() => `ui-input--${props.mode}`)
+const sizeClass = computed(() => `ui-input--${props.size}`)
 const labelModeClass = computed(() => `ui-input--${props.labelMode}-label`)
 const resolvedPlaceholder = computed(() => props.placeholder ?? (props.labelMode === 'placeholder' ? props.label : ' '))
 const showPasswordToggle = computed(() => props.passwordToggle && controlTag.value === 'input' && props.type === 'password')
@@ -164,6 +168,30 @@ watch(() => [props.id, props.type, props.passwordToggle], () => {
       width: calc(100% - 104px);
     }
   }
+  &.ui-input--low {
+    input,
+    textarea {
+      padding: 11px 24px;
+      width: calc(100% - 48px);
+      border-radius: 12px;
+    }
+    &.ui-input--with-action {
+      input,
+      textarea {
+        padding-right: 64px;
+        width: calc(100% - 88px);
+      }
+    }
+    label {
+      left: 24px;
+      max-width: calc(100% - 48px);
+    }
+    .meta,
+    .password-toggle,
+    .input-icon {
+      right: 24px;
+    }
+  }
   &:hover:not(.invalid) input:not(:disabled),
   &:hover:not(.invalid) textarea:not(:disabled),
   &:focus-within:not(.invalid) input,
@@ -182,8 +210,8 @@ watch(() => [props.id, props.type, props.passwordToggle], () => {
   label {
     position: absolute;
     top: 50%;
-    left: 24px;
-    max-width: calc(100% - 48px);
+    left: 32px;
+    max-width: calc(100% - 64px);
     padding: 0;
     background-color: transparent;
     color: var(--ui-input-text);
@@ -203,7 +231,7 @@ watch(() => [props.id, props.type, props.passwordToggle], () => {
   .meta {
     position: absolute;
     top: -7px;
-    right: 24px;
+    right: 32px;
     padding: 0 4px;
     border-radius: 6px;
     background-color: var(--ui-input-resolved-label-bg);
@@ -221,7 +249,7 @@ watch(() => [props.id, props.type, props.passwordToggle], () => {
     display: flex;
     position: absolute;
     top: 50%;
-    right: 24px;
+    right: 32px;
     align-items: center;
     justify-content: center;
     width: 24px;
@@ -251,7 +279,7 @@ watch(() => [props.id, props.type, props.passwordToggle], () => {
   .input-icon {
     position: absolute;
     top: 50%;
-    right: 24px;
+    right: 32px;
     transform: translateY(-50%);
     pointer-events: none;
     --ui-icon-width: 24px;
