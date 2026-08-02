@@ -3204,7 +3204,7 @@ onBeforeUnmount(() => {
         .field-stack {
           display: flex;
           flex-direction: column;
-          gap: 10px;
+          gap: 20px;
         }
         .bulk-admin-actions {
           display: flex;
