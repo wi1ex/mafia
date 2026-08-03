@@ -13,7 +13,6 @@ export interface UserProfile {
   telegram_verified?: boolean
   password_temp?: boolean
   protected_user?: boolean
-  hotkeys_visible?: boolean
   tg_invites_enabled?: boolean
   allow_friend_requests?: boolean
   subscription_active?: boolean
@@ -51,17 +50,14 @@ export const useUserStore = defineStore('user', () => {
   }
 
   async function updateUiPrefs(payload: {
-    hotkeys_visible?: boolean
     tg_invites_enabled?: boolean
     allow_friend_requests?: boolean
   }): Promise<void> {
     const { data } = await api.patch<{
-      hotkeys_visible: boolean
       tg_invites_enabled: boolean
       allow_friend_requests: boolean
     }>('/users/ui_prefs', payload)
     if (!user.value) return
-    user.value.hotkeys_visible = data.hotkeys_visible
     user.value.tg_invites_enabled = data.tg_invites_enabled
     user.value.allow_friend_requests = data.allow_friend_requests
   }
@@ -163,18 +159,8 @@ export const useUserStore = defineStore('user', () => {
   const inActiveGameAsAlivePlayer = computed(() => Boolean(user.value?.in_active_game_as_alive_player))
   const inActiveGameAsPlayer = computed(() => Boolean(user.value?.in_active_game_as_player ?? user.value?.in_active_game_as_alive_player))
   const roomRestricted = computed(() => banActive.value || timeoutActive.value)
-  const hotkeysVisible = computed(() => user.value?.hotkeys_visible ?? true)
   const tgInvitesEnabled = computed(() => user.value?.tg_invites_enabled ?? true)
   const allowFriendRequests = computed(() => user.value?.allow_friend_requests ?? true)
-
-  async function setHotkeysVisible(next: boolean): Promise<void> {
-    const prev = user.value?.hotkeys_visible
-    if (user.value) user.value.hotkeys_visible = next
-    try { await updateUiPrefs({ hotkeys_visible: next }) }
-    catch {
-      if (user.value && prev !== undefined) user.value.hotkeys_visible = prev
-    }
-  }
 
   async function setTgInvitesEnabled(next: boolean): Promise<void> {
     const prev = user.value?.tg_invites_enabled
@@ -227,7 +213,6 @@ export const useUserStore = defineStore('user', () => {
     inActiveGameAsAlivePlayer,
     inActiveGameAsPlayer,
     roomRestricted,
-    hotkeysVisible,
     tgInvitesEnabled,
     allowFriendRequests,
     applyProfile,
@@ -241,7 +226,6 @@ export const useUserStore = defineStore('user', () => {
     setInActiveGameAsAlivePlayer,
     setInActiveGameAsPlayer,
     setTelegramVerified,
-    setHotkeysVisible,
     setTgInvitesEnabled,
     setAllowFriendRequests,
     ensureClock,

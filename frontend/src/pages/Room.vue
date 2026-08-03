@@ -33,7 +33,6 @@
           :id="id"
           :local-id="localId"
           :is-mobile="IS_MOBILE"
-          :hotkeys-visible="hotkeysVisible"
           :speaking="(game.daySpeech.currentId === id) || (gamePhase === 'idle' && rtc.isSpeaking(id))"
           :video-ref="stableVideoRef(id)"
           :has-video-track="rtc.hasCameraTrack"
@@ -144,7 +143,6 @@
             :id="id"
             :local-id="localId"
             :is-mobile="IS_MOBILE"
-            :hotkeys-visible="hotkeysVisible"
             :side="true"
             :speaking="(game.daySpeech.currentId === id) || (gamePhase === 'idle' && rtc.isSpeaking(id))"
             :video-ref="stableVideoRef(id)"
@@ -320,7 +318,7 @@
           </button>
           <button v-else-if="canShowTakeFoulSelf" class="btn-text" @click="takeFoulUi" :disabled="!canTakeFoulSelf || foulPending">
             Взять фол
-            <span v-if="!IS_MOBILE && hotkeysVisible" class="hot-btn">↩</span>
+            <span v-if="!IS_MOBILE" class="hot-btn">↩</span>
           </button>
 
           <button v-if="gamePhase === 'idle' && !adminSpectator && canShowStartGame && canUseReadyStart" @click="startGameUi" :disabled="startingGame" aria-label="Запустить игру">
@@ -331,22 +329,22 @@
           </button>
           <button v-if="!adminSpectator && (gamePhase === 'idle' || isHead)" @click="toggleMic" :disabled="pending.mic || blockedSelf.mic === 1" :aria-pressed="micOn">
             <UiIcon class="control-state-icon" :class="stateIconClass('mic', localId)" :icon="stateIcon('mic', localId)" label="mic" />
-              <span v-if="!IS_MOBILE && hotkeysVisible" class="hot-btn">M</span>
+              <span v-if="!IS_MOBILE" class="hot-btn">M</span>
           </button>
           <button v-if="!adminSpectator && (gamePhase === 'idle' || isHead)" @click="toggleCam" :disabled="pending.cam || blockedSelf.cam === 1" :aria-pressed="camOn">
             <UiIcon class="control-state-icon" :class="stateIconClass('cam', localId)" :icon="stateIcon('cam', localId)" label="cam" />
-              <span v-if="!IS_MOBILE && hotkeysVisible" class="hot-btn">C</span>
+              <span v-if="!IS_MOBILE" class="hot-btn">C</span>
           </button>
           <button v-if="gamePhase === 'idle'" @click="toggleSpeakers" :disabled="pending.speakers || blockedSelf.speakers === 1" :aria-pressed="speakersOn">
             <UiIcon class="control-state-icon" :class="stateIconClass('speakers', localId)" :icon="stateIcon('speakers', localId)" label="speakers" />
-              <span v-if="!IS_MOBILE && hotkeysVisible" class="hot-btn">S</span>
+              <span v-if="!IS_MOBILE" class="hot-btn">S</span>
           </button>
           <button v-if="gamePhase === 'idle' && !adminSpectator && !IS_MOBILE" @click="toggleScreen" :disabled="pendingScreen || (!!screenOwnerId && screenOwnerId !== localId) || blockedSelf.screen === 1" :aria-pressed="isMyScreen">
             <UiIcon class="control-state-icon" :class="stateIconClass('screen', localId)" :icon="stateIcon('screen', localId)" label="screen" />
           </button>
           <button v-if="gamePhase !== 'idle' && isHead && hostBlurToggleEnabled" @click="toggleHostBlur" :disabled="hostBlurPending" :aria-pressed="hostBlurActive" aria-label="Пауза">
             <UiIcon class="panel-icon" :class="hostBlurActive ? 'panel-icon-green' : 'panel-icon-neutral'" :icon="hostBlurActive ? iconPauseOn : iconPauseOff" />
-              <span v-if="!IS_MOBILE && hotkeysVisible" class="hot-btn">P</span>
+              <span v-if="!IS_MOBILE" class="hot-btn">P</span>
           </button>
         </div>
 
@@ -409,11 +407,8 @@
           :open="settingsOpen"
           :in-game="gamePhase !== 'idle'"
           :is-spectator="isSpectatorLike"
-          :show-hotkeys-toggle="canShowHotkeysToggle"
           :show-mirror-toggle="canShowMirrorToggle"
           :is-mobile="IS_MOBILE"
-          :hotkeys-visible="hotkeysVisible"
-          :hotkeys-toggle-pending="hotkeysTogglePending"
           :mics="mics"
           :cams="cams"
           v-model:micId="selectedMicId"
@@ -428,7 +423,6 @@
           :can-toggle-known-roles="canToggleKnownRoles"
           :known-roles-visible="knownRolesVisible"
           @device-change="(kind) => rtc.onDeviceChange(kind)"
-          @toggle-hotkeys="onToggleRoomHotkeys"
           @toggle-known-roles="toggleKnownRolesUi"
           @close="settingsOpen=false"
         />
@@ -480,7 +474,6 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch } from 'vue'
-import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 import type { Socket } from 'socket.io-client'
 import {
@@ -590,7 +583,6 @@ const userStore = useUserStore()
 const friends = useFriendsStore()
 const chat = useGlobalChatStore()
 const confirmState = useConfirmState()
-const { hotkeysVisible } = storeToRefs(userStore)
 
 const rtc = useRTC()
 const { localId, mics, cams, selectedMicId, selectedCamId, peerIds } = rtc      
@@ -726,7 +718,6 @@ const miniProfileUserId = ref<number | null>(null)
 const miniProfileInitial = ref<RoomMiniProfileInitial | null>(null)
 const pendingScreen = ref(false)
 const settingsOpen = ref(false)
-const hotkeysTogglePending = ref(false)
 const friendsPanelOpen = ref(false)
 const roomFriendsEl = ref<HTMLElement | null>(null)
 const gameParamsOpen = ref(false)
@@ -884,10 +875,6 @@ const canEditGameSettings = computed(() =>
   isMafiaLimitRoom.value
 )
 const canShowMirrorToggle = computed(() =>
-  !adminSpectator.value &&
-  (gamePhase.value === 'idle' || (!isSpectatorInGame.value && amIAlive.value))
-)
-const canShowHotkeysToggle = computed(() =>
   !adminSpectator.value &&
   (gamePhase.value === 'idle' || (!isSpectatorInGame.value && amIAlive.value))
 )
@@ -1301,7 +1288,7 @@ const visibleSpaceHotkeyAction = computed<SpaceHotkeyAction | null>(() => {
 })
 
 function showSpaceHotkeyHint(action: SpaceHotkeyAction): boolean {
-  return !IS_MOBILE && hotkeysVisible.value && visibleSpaceHotkeyAction.value === action
+  return !IS_MOBILE && visibleSpaceHotkeyAction.value === action
 }
 
 function tryHandleSpaceHotkey(): boolean {
@@ -1440,12 +1427,6 @@ function onHotkey(e: KeyboardEvent) {
 function toggleKnownRolesUi(): void {
   if (!canToggleKnownRoles.value) return
   game.toggleKnownRolesVisibility()
-}
-async function onToggleRoomHotkeys(next: boolean): Promise<void> {
-  if (hotkeysTogglePending.value) return
-  hotkeysTogglePending.value = true
-  try { await userStore.setHotkeysVisible(next) }
-  finally { hotkeysTogglePending.value = false }
 }
 function volumeIcon(val: number, enabled: boolean) {
   if (!enabled) return iconVolumeMute

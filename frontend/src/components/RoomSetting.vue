@@ -10,20 +10,6 @@
 
       <div class="change-devices">
         <UiSwitch
-          v-if="showHotkeysToggle"
-          :model-value="hotkeysVisible !== false"
-          label="Подсказки для клавиш:"
-          off-label="Скрыть"
-          on-label="Показать"
-          aria-label="Подсказки для клавиш"
-          theme="light"
-          size="low"
-          :width="256"
-          :disabled="hotkeysTogglePending"
-          @update:modelValue="onToggleHotkeys"
-        />
-
-        <UiSwitch
           :model-value="buttonsHigh"
           label="Расположение кнопок:"
           off-label="Стандарт"
@@ -72,7 +58,7 @@
         >
           <template #label>
             Отображение ролей:
-            <span v-if="!isMobile && hotkeysVisible" class="hot-btn">R</span>
+            <span v-if="!isMobile" class="hot-btn">R</span>
           </template>
         </UiSwitch>
 
@@ -147,11 +133,8 @@ const props = defineProps<{
   open: boolean
   inGame: boolean
   isSpectator?: boolean
-  showHotkeysToggle: boolean
   showMirrorToggle: boolean
   isMobile?: boolean
-  hotkeysVisible?: boolean
-  hotkeysTogglePending?: boolean
   mics: Dev[]
   cams: Dev[]
   micId: string
@@ -174,7 +157,6 @@ const emit = defineEmits<{
   'update:buttonsHigh': [boolean]
   'update:videoFillOn': [boolean]
   'update:volume': [number]
-  'toggle-hotkeys': [boolean]
   'toggle-known-roles': []
   'device-change': ['audioinput' | 'videoinput']
   'close': []
@@ -197,9 +179,6 @@ function onToggleButtonsHigh(next: boolean) {
 }
 function onToggleVideoFill(next: boolean) {
   emit('update:videoFillOn', next)
-}
-function onToggleHotkeys(next: boolean) {
-  emit('toggle-hotkeys', next)
 }
 function onToggleKnownRoles(_next: boolean) {
   emit('toggle-known-roles')

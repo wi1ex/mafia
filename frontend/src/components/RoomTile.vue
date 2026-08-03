@@ -123,7 +123,7 @@
       @click="$emit('vote', id)"
     >
       <span>Проголосовать</span>
-      <span v-if="!isMobile && hotkeysVisible" class="hot-btn" aria-hidden="true">_</span>
+      <span v-if="!isMobile" class="hot-btn" aria-hidden="true">_</span>
     </UiButton>
 
     <div class="head-bar" v-if="isGameHead && phaseLabel">{{ phaseLabel }}</div>
@@ -202,7 +202,6 @@ const props = withDefaults(defineProps<{
   id: string
   localId: string
   isMobile?: boolean
-  hotkeysVisible?: boolean
   speaking: boolean
   side?: boolean
   fitContain?: boolean
@@ -275,7 +274,6 @@ const props = withDefaults(defineProps<{
   side: false,
   fitContain: false,
   isMobile: false,
-  hotkeysVisible: true,
   canOpenProfile: true,
   isGameHead: false,
   isHead: false,

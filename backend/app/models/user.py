@@ -21,7 +21,6 @@ class User(Base):
     telegram_nickname: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
     password_hash: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
     password_temp: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
-    hotkeys_visible: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
     tg_invites_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
     allow_friend_requests: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
     registered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

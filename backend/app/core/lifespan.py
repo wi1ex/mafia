@@ -26,6 +26,9 @@ async def lifespan(app) -> AsyncIterator[None]:
             await conn.run_sync(Base.metadata.create_all)
             # 11111111111111111111111111111111111111111111111111111
             await conn.execute(text(
+                "ALTER TABLE users DROP COLUMN IF EXISTS hotkeys_visible"
+            ))
+            await conn.execute(text(
                 "ALTER TABLE settings "
                 "ADD COLUMN IF NOT EXISTS game_roles_reveal_seconds INTEGER NOT NULL DEFAULT 5"
             ))

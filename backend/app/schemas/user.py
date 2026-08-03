@@ -21,7 +21,6 @@ class UserOut(BaseModel):
     has_password: bool = False
     password_temp: bool = False
     protected_user: bool = False
-    hotkeys_visible: bool = True
     tg_invites_enabled: bool = True
     allow_friend_requests: bool = True
     subscription_active: bool = False
@@ -288,13 +287,11 @@ class ChatMentionSearchOut(BaseModel):
 
 
 class UserUiPrefsIn(BaseModel):
-    hotkeys_visible: Optional[bool] = None
     tg_invites_enabled: Optional[bool] = None
     allow_friend_requests: Optional[bool] = None
 
 
 class UserUiPrefsOut(BaseModel):
-    hotkeys_visible: bool
     tg_invites_enabled: bool
     allow_friend_requests: bool
 
