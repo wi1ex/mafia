@@ -14,6 +14,7 @@ class GameParams(BaseModel):
     break_at_zero: bool = Field(default=True)
     lift_at_zero: bool = Field(default=True)
     lift_3x: bool = Field(default=True)
+    first_shot_check: bool = Field(default=True)
     wink_knock: bool = Field(default=True)
     farewell_wills: bool = Field(default=True)
     music: bool = Field(default=True)

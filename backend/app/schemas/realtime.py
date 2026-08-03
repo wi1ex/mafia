@@ -87,6 +87,7 @@ class GameStartAck(TypedDict, total=False):
     nominate_mode: Literal["players", "head"]
     wink_knock: bool
     farewell_wills: bool
+    first_shot_check: bool
     music: bool
 
 

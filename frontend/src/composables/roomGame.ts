@@ -150,6 +150,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   const voteBlocked = ref(false)
   const hostBlurActive = ref(false)
   const farewellWillsEnabled = ref(true)
+  const firstShotCheckEnabled = ref(true)
   const musicEnabled = ref(true)
   const deathReasonByUser = reactive(new Map<string, string>())
 
@@ -1138,7 +1139,10 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     nominateMode.value = normalizeNominateMode((gr as any).nominate_mode)
     if ('wink_knock' in (gr as any)) winkKnockEnabled.value = isTrueLike((gr as any).wink_knock)
     if ('farewell_wills_enabled' in (gr as any)) farewellWillsEnabled.value = isTrueLike((gr as any).farewell_wills_enabled)
+    if ('first_shot_check' in (gr as any)) firstShotCheckEnabled.value = isTrueLike((gr as any).first_shot_check)
     if ('music' in (gr as any)) musicEnabled.value = isTrueLike((gr as any).music)
+    const runtimeDayNumber = Number((gr as any).day_number)
+    if (Number.isFinite(runtimeDayNumber) && runtimeDayNumber >= 0) dayNumber.value = Math.floor(runtimeDayNumber)
     const winks = Number((gr as any).winks_left)
     if (Number.isFinite(winks) && winks >= 0) winksLeft.value = Math.floor(winks)
     const knocks = Number((gr as any).knocks_left)
@@ -1480,6 +1484,9 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     }
     if ('farewell_wills' in (payload || {})) {
       farewellWillsEnabled.value = isTrueLike((payload as any).farewell_wills)
+    }
+    if ('first_shot_check' in (payload || {})) {
+      firstShotCheckEnabled.value = isTrueLike((payload as any).first_shot_check)
     }
     if ('music' in (payload || {})) {
       musicEnabled.value = isTrueLike((payload as any).music)
@@ -2338,6 +2345,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (!gamePlayers.has(targetId)) return false
     if (nightCheckedByMe.has(targetId)) return false
     if (myRole === 'don') {
+      if (!firstShotCheckEnabled.value && dayNumber.value === 1 && targetId === myNightShotTarget.value) return false
       const tr = gameRolesByUser.get(targetId)
       if (tr === 'mafia' || tr === 'don') return false
     }
@@ -2354,7 +2362,13 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (winksLeft.value <= 0) return false
     if (!targetId || targetId === localId.value) return false
     if (!gameAlive.has(targetId)) return false
-    return !offlineInGame.has(targetId)
+    if (offlineInGame.has(targetId)) return false
+    const mySeat = seatIndex(localId.value)
+    const targetSeat = seatIndex(targetId)
+    const total = playerSeatCount.value
+    if (!mySeat || !targetSeat || total <= 1) return false
+    const [left, right] = neighborSeats(mySeat, total)
+    return targetSeat !== left && targetSeat !== right
   }
 
   function canKnockTarget(targetId: string): boolean {
@@ -2420,6 +2434,10 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   }
   if (st === 409 && code === 'all_black_found') {
     void alertDialog('Шериф уже нашел всех черных игроков')
+    return
+  }
+  if (st === 400 && code === 'first_shot_check_disabled') {
+    void alertDialog('Нельзя проверить игрока, выбранного для первого отстрела')
     return
   }
     if (st === 400 && code === 'bad_phase') void alertDialog('Сейчас не фаза ночи')

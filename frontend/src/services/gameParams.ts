@@ -5,6 +5,7 @@ export type RoomGameParams = {
   break_at_zero: boolean
   lift_at_zero: boolean
   lift_3x: boolean
+  first_shot_check: boolean
   wink_knock: boolean
   farewell_wills: boolean
   music: boolean
@@ -24,6 +25,7 @@ export const roomGameDefault: RoomGameParams = {
   break_at_zero: true,
   lift_at_zero: true,
   lift_3x: true,
+  first_shot_check: true,
   wink_knock: true,
   farewell_wills: true,
   music: true,
@@ -62,6 +64,7 @@ export function normalizeRoomGameParams(
     : (typeof value.lift_2x_at_zero === 'boolean' ? value.lift_2x_at_zero : undefined)
   if (typeof liftAtZero === 'boolean') merged.lift_at_zero = liftAtZero
   if (typeof value.lift_3x === 'boolean') merged.lift_3x = value.lift_3x
+  if (typeof value.first_shot_check === 'boolean') merged.first_shot_check = value.first_shot_check
   if (typeof value.wink_knock === 'boolean') merged.wink_knock = value.wink_knock
   if (typeof value.farewell_wills === 'boolean') merged.farewell_wills = value.farewell_wills
   if (typeof value.music === 'boolean') merged.music = value.music

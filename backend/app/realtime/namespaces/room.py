@@ -4127,6 +4127,16 @@ async def game_night_check(sid, data):
         if err:
             return err
 
+        if my_role == "don" and ctx.gint("day_number") == 1:
+            try:
+                raw_game = await r.hgetall(f"room:{rid}:game")
+            except Exception:
+                raw_game = {}
+            if not game_flag(raw_game, "first_shot_check", True):
+                shot_target = str(await r.hget(f"room:{rid}:night_shots", str(uid)) or "")
+                if shot_target == str(target_uid):
+                    return {"ok": False, "error": "first_shot_check_disabled", "status": 400}
+
         checked_key = f"room:{rid}:game_checked:{my_role}"
         if await r.sismember(checked_key, str(target_uid)):
             return {"ok": False, "error": "already_checked", "status": 409}

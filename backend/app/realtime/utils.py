@@ -1825,7 +1825,7 @@ class GameStateView:
                 picks = await get_night_head_picks(r, rid, "checks")
                 night_section["head_picks"] = {"kind": "checks", "picks": picks}
 
-        if stage in ("shoot", "shoot_done") and my_role in ("mafia", "don"):
+        if stage in ("shoot", "shoot_done", "checks", "checks_done") and my_role in ("mafia", "don"):
             my_t = self.ctx.as_int(await r.hget(f"room:{rid}:night_shots", str(uid)))
             if my_t:
                 night_section["my_shot"] = {"target_id": my_t, "seat": seat_of(self.seats_map, my_t)}
@@ -6062,6 +6062,7 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
 
     wink_knock = game_flag(raw_game, "wink_knock", True)
     farewell_wills_enabled = game_flag(raw_game, "farewell_wills", True)
+    first_shot_check = game_flag(raw_game, "first_shot_check", True)
     music_enabled = game_flag(raw_game, "music", True)
     winks_left = 0
     knocks_left = 0
@@ -6077,6 +6078,7 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
 
     game_runtime: dict[str, Any] = {
         "phase": phase,
+        "day_number": ctx.gint("day_number"),
         "min_ready": get_cached_settings().game_min_ready_players,
         "seats": seats_map,
         "players": list(players_set),
@@ -6086,6 +6088,7 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
         "nominate_mode": nominate_mode,
         "wink_knock": wink_knock,
         "farewell_wills_enabled": farewell_wills_enabled,
+        "first_shot_check": first_shot_check,
         "music": music_enabled,
         "winks_left": winks_left,
         "knocks_left": knocks_left,
@@ -6756,6 +6759,7 @@ async def game_start_unlocked(sid, data) -> GameStartAck:
             nominate_mode = "players"
         wink_knock = game_flag(raw_game, "wink_knock", True)
         farewell_wills = game_flag(raw_game, "farewell_wills", True)
+        first_shot_check = game_flag(raw_game, "first_shot_check", True)
         music_enabled = game_flag(raw_game, "music", True)
         try:
             winks_limit = int(app_settings.winks_limit)
@@ -6912,6 +6916,7 @@ async def game_start_unlocked(sid, data) -> GameStartAck:
             "winks_limit": winks_limit,
             "knocks_limit": knocks_limit,
             "farewell_wills": farewell_wills,
+            "first_shot_check": first_shot_check,
             "music": music_enabled,
         }
 

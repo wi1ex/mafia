@@ -160,6 +160,10 @@
                   <span class="ri-meta-value">{{ game.lift_3x ? 'Вкл' : 'Откл' }}</span>
                 </div>
                 <div class="ri-game-div">
+                  <span class="ri-meta-text">Проверка 1го отстрела</span>
+                  <span class="ri-meta-value">{{ game.first_shot_check ? 'Вкл' : 'Откл' }}</span>
+                </div>
+                <div class="ri-game-div">
                   <span class="ri-meta-text">Музыка</span>
                   <span class="ri-meta-value">{{ game.music ? 'Вкл' : 'Откл' }}</span>
                 </div>

@@ -94,6 +94,15 @@
               :disabled="gameParamsDisabled"
             />
             <UiSwitch
+              v-model="game.first_shot_check"
+              label="Проверка 1го отстрела:"
+              theme="light"
+              size="low"
+              :width="256"
+              aria-label="Проверка 1го отстрела"
+              :disabled="gameParamsDisabled"
+            />
+            <UiSwitch
               v-model="game.music"
               label="Музыка:"
               theme="light"
@@ -196,6 +205,7 @@ function isSameGame(a: RoomGameParams, b: RoomGameParams) {
     a.break_at_zero === b.break_at_zero &&
     a.lift_at_zero === b.lift_at_zero &&
     a.lift_3x === b.lift_3x &&
+    a.first_shot_check === b.first_shot_check &&
     a.wink_knock === b.wink_knock &&
     a.farewell_wills === b.farewell_wills &&
     a.music === b.music
