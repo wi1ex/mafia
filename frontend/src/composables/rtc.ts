@@ -29,7 +29,6 @@ const LS = {
   mic: 'audioDeviceId',
   cam: 'videoDeviceId',
   perm: 'mediaPermProbed',
-  mirror: 'room:mirror',
   buttonsHigh: 'room:buttonsHigh',
   videoFill: 'room:videoFill',
 }

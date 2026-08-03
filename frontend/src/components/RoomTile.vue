@@ -218,7 +218,6 @@ const props = withDefaults(defineProps<{
   avatarKey: (id: string) => string
   canOpenProfile?: boolean
   isReady: (id: string) => boolean
-  isMirrored: (id: string) => boolean
   isGameHead?: boolean
   isHead?: boolean
   isDead?: (id: string) => boolean
@@ -384,9 +383,7 @@ const showVideo = computed(() =>
   props.hasVideoTrack(props.id) &&
   !camBlocked.value
 )
-const videoClass = computed(() =>
-  `${props.fitContain ? 'contain' : 'cover'}${props.isMirrored(props.id) ? ' mirrored' : ''}`
-)
+const videoClass = computed(() => props.fitContain ? 'contain' : 'cover')
 const liftNomineesSet = computed(() => new Set(props.liftNominees || []))
 const hasRolePickTimer = computed(() => props.rolePickOwnerId === props.id && (props.rolePickRemainingMs ?? 0) > 0)
 const hasMafiaTalkTimer = computed(() => props.mafiaTalkHostId === props.id && (props.mafiaTalkRemainingMs ?? 0) > 0)
@@ -448,9 +445,6 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
     }
     &.contain {
       object-fit: contain;
-    }
-    &.mirrored {
-      transform: scaleX(-1);
     }
   }
   .icon-badge-ready {

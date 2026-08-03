@@ -1131,7 +1131,7 @@ def schedule_host_blur_auto_off(rid: int, started_at: int) -> None:
     task = asyncio.create_task(_runner())
     _host_blur_auto_tasks[rid] = task
 
-KEYS_STATE: tuple[str, ...] = ("mic", "cam", "speakers", "visibility", "mirror")
+KEYS_STATE: tuple[str, ...] = ("mic", "cam", "speakers", "visibility")
 KEYS_BLOCK: tuple[str, ...] = (*KEYS_STATE, "screen")
 
 JOIN_LUA = r"""
@@ -2419,7 +2419,7 @@ async def get_room_snapshot(r, rid: int) -> Dict[str, Dict[str, str]]:
             await p.hgetall(f"room:{rid}:user:{uid}:state")
         states = await p.execute()
 
-    return {str(uid): (st or {}) for uid, st in zip(ids, states)}
+    return {str(uid): extract_state_mapping(st or {}, KEYS_STATE) for uid, st in zip(ids, states)}
 
 
 async def merge_ready_into_snapshot(r, rid: int, snapshot: Dict[str, Dict[str, str]]) -> Dict[str, Dict[str, str]]:

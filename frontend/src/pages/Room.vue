@@ -48,7 +48,6 @@
           :theme-icon="themeIconFor(id)"
           :moderation-role="moderationRol(id)"
           :can-open-profile="canOpenMiniProfileFromTile(id)"
-          :is-mirrored="isMirrored"
           :is-game-head="game.isGameHead(id)"
           :is-head="isHead"
           :is-dead="game.isDead"
@@ -159,7 +158,6 @@
             :theme-icon="themeIconFor(id)"
             :moderation-role="moderationRol(id)"
             :can-open-profile="canOpenMiniProfileFromTile(id)"
-            :is-mirrored="isMirrored"
             :is-game-head="game.isGameHead(id)"
             :is-head="isHead"
             :is-dead="game.isDead"
@@ -407,13 +405,11 @@
           :open="settingsOpen"
           :in-game="gamePhase !== 'idle'"
           :is-spectator="isSpectatorLike"
-          :show-mirror-toggle="canShowMirrorToggle"
           :is-mobile="IS_MOBILE"
           :mics="mics"
           :cams="cams"
           v-model:micId="selectedMicId"
           v-model:camId="selectedCamId"
-          v-model:mirrorOn="mirrorOn"
           v-model:buttonsHigh="buttonsHigh"
           v-model:videoFillOn="videoFillOn"
           v-model:volume="bgmVolume"
@@ -562,7 +558,6 @@ type MediaState = {
 }
 type StatusState = Partial<MediaState> & {
   ready?: State01
-  mirror?: State01
 }
 type BlockState = MediaState & { screen: State01 }
 type IconKind = keyof MediaState | 'screen'
@@ -874,10 +869,6 @@ const canEditGameSettings = computed(() =>
   gamePhase.value === 'idle' &&
   isMafiaLimitRoom.value
 )
-const canShowMirrorToggle = computed(() =>
-  !adminSpectator.value &&
-  (gamePhase.value === 'idle' || (!isSpectatorInGame.value && amIAlive.value))
-)
 const knockModalOpen = ref(false)
 const knockModalTargetId = ref<string>('')
 const knockModalArmed = ref(false)
@@ -1002,18 +993,6 @@ watch(autoRemoteQuality, (quality) => {
   rtc.setRemoteQualityForAll(quality, { persist: false })
 }, { immediate: true })
 
-const isMirrored = (id: string) => (statusByUser.get(id)?.mirror ?? 0) === 1
-const mirrorOn = computed({
-  get: () => isMirrored(localId.value),
-  set: async (v: boolean) => {
-    rtc.saveLS(rtc.LS.mirror, v ? '1' : '0')
-    const id = localId.value
-    if (!id) return
-    const cur = statusByUser.get(id) ?? {}
-    statusByUser.set(id, { ...cur, mirror: v ? 1 : 0 })
-    try { await publishState({ mirror: v }) } catch {}
-  },
-})
 const rerr = (...a: unknown[]) => console.error('[ROOM]', ...a)
 
 let reloading = false
@@ -1795,7 +1774,6 @@ function statusPatch(patch: any): Partial<StatusState> {
   if (!isEmpty((patch as any).speakers)) out.speakers = norm01((patch as any).speakers, 0)
   if (!isEmpty((patch as any).visibility)) out.visibility = norm01((patch as any).visibility, 0)
   if (!isEmpty((patch as any).ready)) out.ready = norm01((patch as any).ready, 0)
-  if (!isEmpty((patch as any).mirror)) out.mirror = norm01((patch as any).mirror, 0)
   return out
 }
 
@@ -2828,7 +2806,6 @@ type PublishDelta = Partial<{
   speakers: boolean
   visibility: boolean
   ready: boolean
-  mirror: boolean
 }>
 const pendingDeltas: PublishDelta[] = []
 
@@ -3644,15 +3621,6 @@ onMounted(async () => {
     const wantInitialMic = desiredMedia.mic && !blockedSelf.value.mic
     if (wantInitialCam || wantInitialMic) {
       await enableInitialMedia()
-    }
-
-    const hasLsMirror = rtc.loadLS(rtc.LS.mirror)
-    if (hasLsMirror == null) {
-      rtc.saveLS(rtc.LS.mirror, '0')
-      if (isMirrored(localId.value)) { void publishState({ mirror: false }) }
-    } else {
-      const want = hasLsMirror === '1'
-      if (isMirrored(localId.value) !== want) { void publishState({ mirror: want }) }
     }
 
     const hasLsButtonsHigh = rtc.loadLS(rtc.LS.buttonsHigh)

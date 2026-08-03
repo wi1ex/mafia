@@ -35,17 +35,6 @@
         />
 
         <UiSwitch
-          v-if="showMirrorToggle"
-          :model-value="mirrorOn"
-          label="Зеркальность камеры:"
-          aria-label="Зеркальность камеры"
-          theme="light"
-          size="low"
-          :width="256"
-          @update:modelValue="onToggleMirror"
-        />
-
-        <UiSwitch
           v-if="inGame && !isSpectator && canToggleKnownRoles"
           :model-value="knownRolesVisible"
           off-label="Скрыть"
@@ -133,13 +122,11 @@ const props = defineProps<{
   open: boolean
   inGame: boolean
   isSpectator?: boolean
-  showMirrorToggle: boolean
   isMobile?: boolean
   mics: Dev[]
   cams: Dev[]
   micId: string
   camId: string
-  mirrorOn: boolean
   buttonsHigh: boolean
   videoFillOn: boolean
   showVideoFillToggle: boolean
@@ -153,7 +140,6 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:micId': [string]
   'update:camId': [string]
-  'update:mirrorOn': [boolean]
   'update:buttonsHigh': [boolean]
   'update:videoFillOn': [boolean]
   'update:volume': [number]
@@ -171,9 +157,6 @@ const micOptions = computed(() => props.mics.map((item) => ({
   label: item.label || 'Микрофон',
 })))
 
-function onToggleMirror(next: boolean) {
-  emit('update:mirrorOn', next)
-}
 function onToggleButtonsHigh(next: boolean) {
   emit('update:buttonsHigh', next)
 }
