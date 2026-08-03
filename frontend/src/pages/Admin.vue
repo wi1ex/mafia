@@ -48,7 +48,6 @@
               <UiSwitch class="switch-item" :width="250" size="low" v-model="site.chat_messages_enabled" label="Сообщения в чат" :disabled="savingSettings" />
               <UiSwitch class="switch-item" :width="250" size="low" v-model="site.streams_can_start" label="Запуск трансляций" :disabled="savingSettings" />
               <UiSwitch class="switch-item" :width="250" size="low" v-model="site.games_can_start" label="Запуск игр" :disabled="savingSettings" />
-              <UiSwitch class="switch-item" :width="250" size="low" v-model="site.self_speech_finish_enabled" label="Завершение своей речи" :disabled="savingSettings" />
               <div class="bulk-admin-actions">
                 <button class="btn danger width-full" :disabled="kickRoomsBusy || clearChatBusy || endGamesBusy || markAllNotifsBusy" @click="kickAllRooms">
                   Кик всех из комнат
@@ -107,6 +106,8 @@
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Выбор ролей (сек)" />
                 <UiInput id="mafia-talk-seconds" size="low" v-model.number="game.mafia_talk_seconds" type="number" min="1" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Договорка мафии (сек)" />
+                <UiInput id="self-speech-finish-enabled" size="low" v-model.number="selfSpeechFinishEnabledInput" type="number" min="0" max="1" step="1"
+                         autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Завершение своей речи" />
                 <UiInput id="player-talk-seconds" size="low" v-model.number="game.player_talk_seconds" type="number" min="1" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Речь игрока (сек)" />
                 <UiInput id="player-talk-short-seconds" size="low" v-model.number="game.player_talk_short_seconds" type="number" min="1" step="1"
@@ -1313,6 +1314,19 @@ const game = reactive<GameSettings>({
   knocks_limit: 3,
   wink_spot_chance_percent: 10,
   game_roles_reveal_seconds: 5,
+})
+
+const selfSpeechFinishEnabledInputVersion = ref(0)
+
+const selfSpeechFinishEnabledInput = computed<number>({
+  get: () => {
+    selfSpeechFinishEnabledInputVersion.value
+    return site.self_speech_finish_enabled ? 1 : 0
+  },
+  set: value => {
+    site.self_speech_finish_enabled = Number(value) === 1
+    selfSpeechFinishEnabledInputVersion.value += 1
+  },
 })
 
 const settingsStore = useSettingsStore()
@@ -3212,7 +3226,7 @@ onBeforeUnmount(() => {
           gap: 10px;
         }
         :deep(.switch-item) {
-          margin-bottom: 15px;
+          margin-bottom: 10px;
         }
       }
     }
