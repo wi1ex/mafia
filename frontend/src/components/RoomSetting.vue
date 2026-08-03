@@ -22,19 +22,6 @@
         />
 
         <UiSwitch
-          v-if="showVideoFillToggle"
-          :model-value="videoFillOn"
-          label="Заполнение видео:"
-          off-label="Откл"
-          on-label="Вкл"
-          aria-label="Заполнение видео"
-          theme="light"
-          size="low"
-          :width="256"
-          @update:modelValue="onToggleVideoFill"
-        />
-
-        <UiSwitch
           v-if="inGame && !isSpectator && canToggleKnownRoles"
           :model-value="knownRolesVisible"
           off-label="Скрыть"
@@ -128,8 +115,6 @@ const props = defineProps<{
   micId: string
   camId: string
   buttonsHigh: boolean
-  videoFillOn: boolean
-  showVideoFillToggle: boolean
   volume: number
   volumeIcon: string
   musicEnabled: boolean
@@ -141,7 +126,6 @@ const emit = defineEmits<{
   'update:micId': [string]
   'update:camId': [string]
   'update:buttonsHigh': [boolean]
-  'update:videoFillOn': [boolean]
   'update:volume': [number]
   'toggle-known-roles': []
   'device-change': ['audioinput' | 'videoinput']
@@ -159,9 +143,6 @@ const micOptions = computed(() => props.mics.map((item) => ({
 
 function onToggleButtonsHigh(next: boolean) {
   emit('update:buttonsHigh', next)
-}
-function onToggleVideoFill(next: boolean) {
-  emit('update:videoFillOn', next)
 }
 function onToggleKnownRoles(_next: boolean) {
   emit('toggle-known-roles')

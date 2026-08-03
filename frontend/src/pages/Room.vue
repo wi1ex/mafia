@@ -411,9 +411,7 @@
           v-model:micId="selectedMicId"
           v-model:camId="selectedCamId"
           v-model:buttonsHigh="buttonsHigh"
-          v-model:videoFillOn="videoFillOn"
           v-model:volume="bgmVolume"
-          :show-video-fill-toggle="showVideoFillToggle"
           :volume-icon="volumeIcon(bgmVolume, bgmShouldPlay)"
           :music-enabled="musicEnabled"
           :can-toggle-known-roles="canToggleKnownRoles"
@@ -760,23 +758,11 @@ const appsCounts = reactive({ total: 0, unread: 0 })
 const isPrivate = ref(false)
 const roomUserLimit = ref<number>(0)
 const buttonsHighState = ref(rtc.loadLS(rtc.LS.buttonsHigh) === '1')
-const videoFillOnState = ref(rtc.loadLS(rtc.LS.videoFill) !== '0')
-const showVideoFillToggle = computed(() => {
-  const limit = roomUserLimit.value
-  return Number.isFinite(limit) && limit > 2
-})
 const buttonsHigh = computed({
   get: () => buttonsHighState.value,
   set: (v: boolean) => {
     buttonsHighState.value = v
     rtc.saveLS(rtc.LS.buttonsHigh, v ? '1' : '0')
-  },
-})
-const videoFillOn = computed({
-  get: () => videoFillOnState.value,
-  set: (v: boolean) => {
-    videoFillOnState.value = v
-    rtc.saveLS(rtc.LS.videoFill, v ? '1' : '0')
   },
 })
 const gameLimitMin = computed(() => {
@@ -828,10 +814,6 @@ const canShowHeadNominationsBadge = computed(() => {
 })
 const fitContainInGrid = computed(() => {
   const limit = roomUserLimit.value
-  if (Number.isFinite(limit) && limit > 2) return !videoFillOn.value
-  if (isTheater.value) return false
-  const count = sortedPeerIds.value.length
-  if (count >= 3) return false
   return Number.isFinite(limit) && limit === 2
 })
 const isSpectatorInGame = computed(() => {
@@ -3629,14 +3611,6 @@ onMounted(async () => {
       buttonsHighState.value = false
     } else {
       buttonsHighState.value = hasLsButtonsHigh === '1'
-    }
-
-    const hasLsVideoFill = rtc.loadLS(rtc.LS.videoFill)
-    if (hasLsVideoFill == null) {
-      rtc.saveLS(rtc.LS.videoFill, '1')
-      videoFillOnState.value = true
-    } else {
-      videoFillOnState.value = hasLsVideoFill !== '0'
     }
 
     document.addEventListener('click', onDocClick)
