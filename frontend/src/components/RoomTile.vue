@@ -7,11 +7,11 @@
       <span class="ready-text">Готов к игре</span>
     </div>
 
-    <button v-if="showKnock" class="icon-badge button left knock" @click="$emit('knock', id)" aria-label="Постучать">
+    <button v-if="showKnock" class="icon-badge button wink-knock" @click="$emit('knock', id)" aria-label="Постучать">
       <span>{{ knocksLeft }}</span>
       <UiIcon class="icon-badge-icon" :icon="iconKnock" />
     </button>
-    <button v-if="showWink" class="icon-badge button left wink" @click="$emit('wink', id)" aria-label="Подмигнуть">
+    <button v-if="showWink" class="icon-badge button wink-knock" @click="$emit('wink', id)" aria-label="Подмигнуть">
       <span>{{ winksLeft }}</span>
       <UiIcon class="icon-badge-icon" :icon="iconWink" />
     </button>
@@ -584,7 +584,6 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
     position: absolute;
     align-items: center;
     justify-content: center;
-    bottom: 8px;
     padding: 0;
     width: 36px;
     height: 36px;
@@ -623,16 +622,16 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
       cursor: pointer;
     }
     &.left {
+      bottom: 8px;
       left: 8px;
     }
     &.right {
+      bottom: 8px;
       right: 8px;
     }
-    &.wink {
-      bottom: 46px;
-    }
-    &.knock {
-      left: 46px;
+    &.wink-knock {
+      top: 8px;
+      right: 8px;
     }
     &.role-citizen {
       --icon-badge-role-bg: #{$role-citizen};
