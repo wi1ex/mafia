@@ -16,6 +16,7 @@ from ...models.user import User
 from ...schemas.admin import (
     AdminContactRequestOut,
     AdminContactRequestsOut,
+    AdminContactRequestReplyIn,
     AdminSanctionDurationAdjustIn,
     AdminSanctionReasonUpdateIn,
     AdminSanctionListItemOut,
@@ -57,6 +58,7 @@ from ..utils import (
     emit_notify,
     emit_sanctions_update,
     ensure_moderation_timed_sanction_duration_allowed,
+    ensure_senior_moderator,
     fetch_active_sanction,
     fetch_sanction_counts_for_users,
     fetch_effective_online_user_ids,
@@ -71,6 +73,7 @@ from ..utils import (
     normalize_pagination,
     send_sanction_finished_telegram_notice,
     revoke_active_suspend,
+    schedule_user_telegram_notice,
     sanction_actor_display,
     sanction_finished_at,
     sanction_served_seconds,
@@ -265,6 +268,59 @@ async def moderation_contact_requests_list(page: int = 1, limit: int = 20, usern
             for row, current_username, avatar_name, role, deleted_at in rows.all()
         ],
     )
+
+
+@router.post("/contact_requests/{contact_request_id}/reply", response_model=Ok, dependencies=MODERATION_GUARD)
+@log_route("moderation.contact_requests.reply")
+async def moderation_reply_to_contact_request(contact_request_id: int, payload: AdminContactRequestReplyIn, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
+    ensure_senior_moderator(ident)
+
+    row = await session.get(ContactRequestRecord, int(contact_request_id))
+    if not row:
+        raise HTTPException(status_code=404, detail="contact_request_not_found")
+
+    target_user_id = int(row.user_id or 0)
+    if target_user_id <= 0:
+        raise HTTPException(status_code=409, detail="contact_request_guest")
+
+    reply_text = str(payload.text or "").strip()
+    if not reply_text:
+        raise HTTPException(status_code=422, detail="contact_request_reply_empty")
+
+    target_user = await session.get(User, target_user_id)
+    if not target_user:
+        raise HTTPException(status_code=404, detail="contact_request_user_not_found")
+
+    note = Notif(
+        user_id=target_user_id,
+        title="Ответ администрации по обращению",
+        text=reply_text,
+    )
+    session.add(note)
+    await session.commit()
+    await session.refresh(note)
+
+    await emit_notify(target_user_id, note, kind="contact_request_reply")
+    schedule_user_telegram_notice(
+        target_user_id,
+        target_user.telegram_id,
+        note.title,
+        note.text,
+        log_event="contact_request.reply_telegram_notify_failed",
+    )
+
+    await log_action(
+        session,
+        user_id=int(ident["id"]),
+        username=ident["username"],
+        action="contact_request_reply",
+        details=(
+            f"Ответ на обращение id={int(row.id)} "
+            f"user_id={target_user_id} topic={str(row.topic or '')} panel=moderation"
+        ),
+    )
+
+    return Ok()
 
 
 @router.get("/users/{user_id}/stats", response_model=UserStatsOut, dependencies=MODERATION_GUARD)

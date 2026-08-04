@@ -851,6 +851,14 @@ def moderation_timed_sanction_duration_limit(ident: Identity) -> int | None:
     return MODERATION_MAX_TIMED_SANCTION_SECONDS
 
 
+def ensure_senior_moderator(ident: Identity) -> None:
+    from ..security.parameters import get_cached_settings
+
+    senior_moderator_user_id = get_cached_settings().senior_moderator_user_id
+    if senior_moderator_user_id is None or int(ident["id"]) != senior_moderator_user_id:
+        raise HTTPException(status_code=403, detail="forbidden")
+
+
 def ensure_moderation_timed_sanction_duration_allowed(duration_seconds: int, ident: Identity) -> None:
     limit = moderation_timed_sanction_duration_limit(ident)
     if limit is not None and duration_seconds > limit:

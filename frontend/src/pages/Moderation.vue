@@ -226,6 +226,7 @@
                 <th>Контактные данные</th>
                 <th>Тема обращения</th>
                 <th>Текст обращения</th>
+                <th v-if="isSeniorModerator">Связь</th>
               </tr>
             </thead>
             <tbody>
@@ -244,9 +245,15 @@
                 <td class="contact-cell">{{ row.contact }}</td>
                 <td class="topic-cell">{{ row.topic }}</td>
                 <td class="text-cell">{{ row.text }}</td>
+                <td v-if="isSeniorModerator">
+                  <button v-if="canReplyToContactRequest(row)" class="btn" type="button" @click="openContactRequestReply(row)" :disabled="contactRequestReplySaving">
+                    Ответить
+                  </button>
+                  <span v-else>-</span>
+                </td>
               </tr>
               <tr v-if="contactRequests.length === 0">
-                <td colspan="6" class="muted">Нет данных</td>
+                <td :colspan="isSeniorModerator ? 7 : 6" class="muted">Нет данных</td>
               </tr>
             </tbody>
           </table>
@@ -274,6 +281,16 @@
       @update:open="onSanctionAdjustModalOpenUpdate"
       @save="saveSanctionAdjust"
     />
+    <ContactModal
+      :open="contactRequestReplyModalOpen && Boolean(contactRequestReplyTarget)"
+      :saving="contactRequestReplySaving"
+      :can-save="contactRequestReplyCanSave"
+      :target="contactRequestReplyTarget"
+      :message="contactRequestReplyText"
+      @update:open="onContactRequestReplyModalOpenUpdate"
+      @update:message="contactRequestReplyText = $event"
+      @save="sendContactRequestReply"
+    />
     <MiniProfile
       :open="userMiniProfileOpen"
       :user-id="userMiniProfileTarget?.id ?? null"
@@ -297,6 +314,7 @@ import { SANCTION_REASONS } from '@/constants/sanctionReasons'
 import { canOpenMiniProfileTarget, normalizeMiniProfileUserId } from '@/services/miniProfile'
 import { useSettingsStore, useUserStore } from '@/store'
 
+import ContactModal from '@/components/ContactModal.vue'
 import MiniProfile from '@/components/MiniProfile.vue'
 import Sanction from '@/components/Sanction.vue'
 import UiInput from '@/components/UiInput.vue'
@@ -370,6 +388,10 @@ type ContactRequestRow = {
   created_at: string
 }
 
+type ContactRequestReplyTarget = ContactRequestRow & {
+  user_id: number
+}
+
 type UserMiniProfileTarget = {
   id: number
   username?: string | null
@@ -408,6 +430,10 @@ const contactRequestsTotal = ref(0)
 const contactRequestsPage = ref(1)
 const contactRequestsLimit = ref(20)
 const contactRequestsUser = ref('')
+const contactRequestReplyModalOpen = ref(false)
+const contactRequestReplyTarget = ref<ContactRequestReplyTarget | null>(null)
+const contactRequestReplyText = ref('')
+const contactRequestReplySaving = ref(false)
 let usersUserTimer: number | undefined
 let sanctionsUserTimer: number | undefined
 let contactRequestsUserTimer: number | undefined
@@ -416,6 +442,8 @@ const sanctionReasons = SANCTION_REASONS
 const sanctionReasonValues = new Set(sanctionReasons.map(({ value }) => value))
 const MODERATION_MAX_TIMED_SANCTION_SECONDS = 7 * 24 * 60 * 60
 const canIssueExtendedModerationSanctions = computed(() => viewerUserId.value === settingsStore.seniorModeratorUserId)
+const isSeniorModerator = computed(() => viewerUserId.value === settingsStore.seniorModeratorUserId)
+const contactRequestReplyCanSave = computed(() => contactRequestReplyText.value.trim().length > 0)
 const SANCTION_DURATION_LIMITS = {
   months: 240,
   days: 31,
@@ -681,6 +709,61 @@ function openContactRequestUserMiniProfile(row: ContactRequestRow): void {
     role: row.role ?? null,
     deleted_at: row.deleted_at ?? null,
   })
+}
+
+function canReplyToContactRequest(row: ContactRequestRow): boolean {
+  return isSeniorModerator.value && getPositiveUserId(row.user_id) > 0
+}
+
+function clearContactRequestReplyModalState(): void {
+  contactRequestReplyModalOpen.value = false
+  contactRequestReplyTarget.value = null
+  contactRequestReplyText.value = ''
+}
+
+function closeContactRequestReplyModal(): void {
+  if (contactRequestReplySaving.value) return
+  clearContactRequestReplyModalState()
+}
+
+function onContactRequestReplyModalOpenUpdate(open: boolean): void {
+  if (open) {
+    contactRequestReplyModalOpen.value = true
+    return
+  }
+  closeContactRequestReplyModal()
+}
+
+function openContactRequestReply(row: ContactRequestRow): void {
+  const userId = getPositiveUserId(row.user_id)
+  if (!isSeniorModerator.value || userId <= 0 || contactRequestReplySaving.value) return
+  contactRequestReplyTarget.value = { ...row, user_id: userId }
+  contactRequestReplyText.value = ''
+  contactRequestReplyModalOpen.value = true
+}
+
+async function sendContactRequestReply(): Promise<void> {
+  const target = contactRequestReplyTarget.value
+  const text = contactRequestReplyText.value.trim()
+  if (!isSeniorModerator.value || !target || contactRequestReplySaving.value || !text) return
+
+  contactRequestReplySaving.value = true
+  try {
+    await api.post(`/moderation/contact_requests/${target.id}/reply`, { text })
+    clearContactRequestReplyModalState()
+    void alertDialog('Ответ отправлен пользователю')
+  } catch (e: any) {
+    const status = Number(e?.response?.status || 0)
+    const detail = String(e?.response?.data?.detail || '')
+    if (status === 403) void alertDialog('Отвечать на обращения может только старший модератор')
+    else if (status === 404 && detail === 'contact_request_not_found') void alertDialog('Обращение не найдено')
+    else if (status === 404 && detail === 'contact_request_user_not_found') void alertDialog('Пользователь не найден')
+    else if (status === 409 && detail === 'contact_request_guest') void alertDialog('На обращение гостя ответить через сайт нельзя')
+    else if (status === 422 && detail === 'contact_request_reply_empty') void alertDialog('Введите текст ответа')
+    else void alertDialog('Не удалось отправить ответ')
+  } finally {
+    contactRequestReplySaving.value = false
+  }
 }
 
 function onUserMiniProfileOpenUpdate(open: boolean): void {
