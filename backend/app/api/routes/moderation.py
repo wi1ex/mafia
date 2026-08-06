@@ -73,6 +73,7 @@ from ..utils import (
     normalize_pagination,
     send_sanction_finished_telegram_notice,
     revoke_active_suspend,
+    schedule_contact_request_admin_telegram_message,
     schedule_user_telegram_notice,
     sanction_actor_display,
     sanction_finished_at,
@@ -307,6 +308,14 @@ async def moderation_reply_to_contact_request(contact_request_id: int, payload: 
         note.title,
         note.text,
         log_event="contact_request.reply_telegram_notify_failed",
+    )
+    schedule_contact_request_admin_telegram_message(
+        "Ответ на обращение с сайта\n\n"
+        f"Модератор: {ident['username']}\n"
+        f"Пользователь: {target_user.username}\n"
+        f"ID пользователя: {target_user_id}\n"
+        f"Тема: {str(row.topic or '-')}\n\n"
+        f"Ответ:\n{reply_text}"
     )
 
     await log_action(
