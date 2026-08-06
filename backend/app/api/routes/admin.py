@@ -179,6 +179,7 @@ from ..utils import (
     revoke_active_suspend,
     format_duration_parts,
     format_duration_seconds_compact,
+    normalize_username_search_term,
     find_user_ids_by_username_search,
     find_user_ids_by_admin_search,
     build_avatar_reset_notice,
@@ -587,15 +588,22 @@ async def rooms_list(page: int = 1, limit: int = 20, username: str | None = None
     query = select(Room)
     filters = []
     if username:
+        needle = normalize_username_search_term(username)
         ids = await find_user_ids_by_username_search(session, username)
-        if not ids:
+        room_search_filters = []
+        if needle:
+            room_search_filters.append(func.lower(Room.title).contains(needle, autoescape=True))
+
+        if ids:
+            id_strs = [str(i) for i in ids]
+            room_search_filters.append(Room.creator.in_(ids))
+            room_search_filters += [Room.visitors.has_key(i) for i in id_strs]
+            room_search_filters += [Room.spectators_time.has_key(i) for i in id_strs]
+
+        if not room_search_filters:
             return AdminRoomsOut(total=0, items=[])
 
-        id_strs = [str(i) for i in ids]
-        user_filters = [Room.creator.in_(ids)]
-        user_filters += [Room.visitors.has_key(i) for i in id_strs]
-        user_filters += [Room.spectators_time.has_key(i) for i in id_strs]
-        filters.append(or_(*user_filters))
+        filters.append(or_(*room_search_filters))
 
     room_filter_value = (room_filter or "").strip().lower()
     if room_filter_value not in {"", "all", "stream_only", "hidden_only", "has_games", "duo_only"}:
