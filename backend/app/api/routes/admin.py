@@ -180,6 +180,7 @@ from ..utils import (
     format_duration_parts,
     format_duration_seconds_compact,
     find_user_ids_by_username_search,
+    find_user_ids_by_admin_search,
     build_avatar_reset_notice,
     build_nickname_reset_notice,
     emit_nickname_reset_notice,
@@ -1384,7 +1385,7 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
 
     filters = []
     if username:
-        user_ids = await find_user_ids_by_username_search(session, username)
+        user_ids = await find_user_ids_by_admin_search(session, username)
         if not user_ids:
             return AdminUsersOut(total=0, items=[])
 

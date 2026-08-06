@@ -352,7 +352,7 @@
         <div v-else-if="activeTab === 'logs'">
           <div class="filters">
             <div class="field">
-              <UiInput id="logs-user" v-model.trim="logsUser" label="Никнейм" :disabled="logsLoading" />
+              <UiInput id="logs-user" v-model.trim="logsUser" label="Поиск" :disabled="logsLoading" />
             </div>
             <div class="field">
               <UiInput id="logs-day" v-model="logsDay" type="date" label="Дата" :disabled="logsLoading" />
@@ -417,7 +417,7 @@
         <div v-else-if="activeTab === 'rooms'">
           <div class="filters">
             <div class="field">
-              <UiInput id="rooms-user" v-model.trim="roomsUser" label="Никнейм" :disabled="roomsLoading" />
+              <UiInput id="rooms-user" v-model.trim="roomsUser" label="Поиск" :disabled="roomsLoading" />
             </div>
             <div class="field">
               <label for="admin-rooms-filter">Фильтры</label>
@@ -554,7 +554,7 @@
         <div v-else-if="activeTab === 'users'">
           <div class="filters">
             <div class="field">
-              <UiInput id="users-user" v-model.trim="usersUser" label="Никнейм" :disabled="usersLoading" />
+              <UiInput id="users-user" v-model.trim="usersUser" label="Поиск" :disabled="usersLoading" />
             </div>
             <div class="field">
               <label for="admin-users-limit">Отображать по</label>
@@ -692,7 +692,7 @@
         <div v-else-if="activeTab === 'sanctions'">
           <div class="filters">
             <div class="field">
-              <UiInput id="sanctions-user" v-model.trim="sanctionsUser" label="Никнейм" :disabled="sanctionsLoading" />
+              <UiInput id="sanctions-user" v-model.trim="sanctionsUser" label="Поиск" :disabled="sanctionsLoading" />
             </div>
             <div class="field">
               <label for="admin-sanctions-limit">Отображать по</label>
@@ -791,7 +791,7 @@
         <div v-else-if="activeTab === 'contact_requests'">
           <div class="filters">
             <div class="field">
-              <UiInput id="contact-requests-user" v-model.trim="contactRequestsUser" label="Никнейм" :disabled="contactRequestsLoading" />
+              <UiInput id="contact-requests-user" v-model.trim="contactRequestsUser" label="Поиск" :disabled="contactRequestsLoading" />
             </div>
             <div class="field">
               <label for="admin-contact-requests-limit">Отображать по</label>
@@ -3218,7 +3218,7 @@ onBeforeUnmount(() => {
         .field-stack {
           display: flex;
           flex-direction: column;
-          gap: 20px;
+          gap: 15px;
         }
         .bulk-admin-actions {
           display: flex;

@@ -12,6 +12,17 @@
         <div ref="paramsScroll" class="modal-div">
           <div class="params">
             <UiSwitch
+              v-model="isRating"
+              label="Режим:"
+              theme="light"
+              size="low"
+              :width="256"
+              off-label="Обычный"
+              on-label="Рейтинг"
+              aria-label="Режим: обычный/рейтинг"
+              :disabled="true"
+            />
+            <UiSwitch
               v-model="spectatorsEnabled"
               :disabled="spectatorsToggleDisabled"
               :tooltip="spectatorsToggleTooltip"
@@ -25,17 +36,6 @@
               off-label="Откл"
               on-label="Вкл"
               aria-label="Зрители: откл/вкл"
-            />
-            <UiSwitch
-              v-model="isRating"
-              label="Режим:"
-              theme="light"
-              size="low"
-              :width="256"
-              off-label="Обычный"
-              on-label="Рейтинг"
-              aria-label="Режим: обычный/рейтинг"
-              :disabled="true"
             />
             <UiSwitch
               v-model="isPlayersNomination"

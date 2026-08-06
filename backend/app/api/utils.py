@@ -187,6 +187,7 @@ __all__ = [
     "normalize_username_search_term",
     "is_within_single_typo",
     "find_user_ids_by_username_search",
+    "find_user_ids_by_admin_search",
     "find_user_by_username",
     "generate_user_id",
     "require_bot_token",
@@ -1480,6 +1481,45 @@ async def find_user_ids_by_username_search(session: AsyncSession, username: str,
             fuzzy_ids.append(int(user_id))
 
     return fuzzy_ids
+
+
+async def find_user_ids_by_admin_search(session: AsyncSession, query: str) -> list[int]:
+    needle = normalize_username_search_term(query)
+    if not needle:
+        return []
+
+    search_filters = [
+        func.lower(User.username).contains(needle, autoescape=True),
+        func.lower(User.telegram_nickname).contains(needle, autoescape=True),
+    ]
+    if needle.isdecimal():
+        numeric_id = int(needle)
+        search_filters.extend([
+            User.id == numeric_id,
+            User.telegram_id == numeric_id,
+        ])
+
+    exact_rows = await session.execute(
+        select(User.id)
+        .where(or_(*search_filters))
+        .order_by(User.id.desc())
+    )
+    exact_ids = [int(row_id) for row_id in exact_rows.scalars().all()]
+    if exact_ids:
+        return exact_ids
+
+    if len(needle) < 3:
+        return []
+
+    candidate_rows = await session.execute(select(User.id, User.username, User.telegram_nickname))
+    return [
+        int(user_id)
+        for user_id, candidate_username, candidate_telegram_nickname in candidate_rows.all()
+        if (
+            (candidate_username and is_within_single_typo(str(candidate_username), needle))
+            or (candidate_telegram_nickname and is_within_single_typo(str(candidate_telegram_nickname), needle))
+        )
+    ]
 
 
 def normalize_password(raw: str, *, allow_whitespace: bool = False) -> str:
