@@ -107,6 +107,7 @@
                   </Transition>
 
                   <UiInput
+                    v-if="kassaForm.plan === 'month'"
                     id="kassa-promo-code"
                     v-model.trim="kassaForm.promo_code"
                     type="text"
@@ -307,6 +308,14 @@ const subscribeYearSelected = computed({
     kassaForm.value.plan = yearSelected ? 'year' : 'month'
   },
 })
+
+watch(
+  () => kassaForm.value.plan,
+  (plan) => {
+    if (plan === 'year') kassaForm.value.promo_code = ''
+  },
+)
+
 const selectedSubscribePrice = computed(() => kassaPlanPrices[kassaForm.value.plan])
 const kassaSubmitText = computed(() => (
   `Оплатить ${kassaPaymentPrices[kassaForm.value.currency][kassaForm.value.plan]}`
@@ -390,7 +399,7 @@ async function onKassaPay(): Promise<void> {
   const email = normalizedKassaEmail()
   if (!email) return
 
-  const promoCode = normalizedPromoCode()
+  const promoCode = kassaForm.value.plan === 'month' ? normalizedPromoCode() : ''
   if (promoCode === null) return
 
   const paymentOption = kassaForm.value.currency === 'RUB' ? selectedKassaPaymentOption() : null
@@ -400,14 +409,15 @@ async function onKassaPay(): Promise<void> {
   const paymentWindow = window.open('', '_blank')
   if (paymentWindow) paymentWindow.opener = null
   try {
-    const { data } = await api.post<{ payment_url: string; processed?: boolean }>('/payments/kassa/link', {
+    const payload = {
       email,
       plan: kassaForm.value.plan,
       currency: kassaForm.value.currency,
       payment_provider: paymentProvider,
       payment_method: paymentOption?.payment_method || '',
-      promo_code: promoCode,
-    })
+    }
+    if (promoCode) Object.assign(payload, { promo_code: promoCode })
+    const { data } = await api.post<{ payment_url: string; processed?: boolean }>('/payments/kassa/link', payload)
     const paymentUrl = String(data?.payment_url || '')
     if (!paymentUrl && data?.processed) {
       if (paymentWindow) paymentWindow.close()

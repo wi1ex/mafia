@@ -678,9 +678,13 @@ def _ensure_payment_method_supported(*, currency: str, payment_provider: str, pa
         raise HTTPException(status_code=422, detail="kassa_payment_method_unsupported")
 
 
-def _normalize_invoice_options(payload: KassaPaymentLinkCreateIn | None) -> tuple[str, str, str, str]:
+def _normalize_invoice_options(
+    payload: KassaPaymentLinkCreateIn | None,
+    *,
+    allow_promo_code: bool,
+) -> tuple[str, str, str, str]:
     currency = _normalize_kassa_currency(payload.currency if payload is not None else None)
-    promo_code = _normalize_promo_code(payload.promo_code if payload is not None else None)
+    promo_code = _normalize_promo_code(payload.promo_code if payload is not None else None) if allow_promo_code else ""
     if currency != KASSA_CURRENCY:
         return currency, "", "", promo_code
 
@@ -1079,8 +1083,9 @@ async def create_kassa_payment_link(
     try:
         plan = _normalize_plan(payload.plan if payload is not None else None)
         email = _normalize_buyer_email(payload.email if payload is not None else None)
-        requested_currency, payment_provider, payment_method, promo_code = (
-            _normalize_invoice_options(payload)
+        requested_currency, payment_provider, payment_method, promo_code = _normalize_invoice_options(
+            payload,
+            allow_promo_code=plan == KASSA_MONTH_PLAN,
         )
         offer_id, months = _configured_offer_for_plan(plan)
     except HTTPException as exc:
