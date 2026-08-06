@@ -1316,9 +1316,17 @@ function tryHandleSpaceHotkey(): boolean {
 function onHotkey(e: KeyboardEvent) {
   if (e.defaultPrevented || e.repeat) return
   if (isEditableTarget(e.target)) return
-  if (confirmState.open) return
   if (e.ctrlKey || e.altKey || e.metaKey || e.shiftKey) return
   const code = e.code
+  const isButtonActivationKey = code === 'Space' || code === 'Enter' || code === 'NumpadEnter'
+
+  if (confirmState.open) {
+    if (isButtonActivationKey) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+    return
+  }
 
   if (code === 'KeyP') {
     if (gamePhase.value !== 'idle' && isHead.value && hostBlurToggleEnabled.value && !hostBlurPending.value) {
@@ -1353,17 +1361,19 @@ function onHotkey(e: KeyboardEvent) {
     return
   }
 
-  if (hostBlurActive.value) return
-  if (gamePhase.value !== 'idle' && !(isHead.value || amIAlive.value)) return
-
   if (code === 'Enter' || code === 'NumpadEnter') {
+    e.preventDefault()
+    e.stopPropagation()
+    if (hostBlurActive.value) return
+    if (gamePhase.value !== 'idle' && !(isHead.value || amIAlive.value)) return
     if (gamePhase.value !== 'idle' && canShowTakeFoulSelf.value && canTakeFoulSelf.value && !foulPending.value) {
-      e.preventDefault()
-      e.stopPropagation()
       void takeFoulUi()
     }
     return
   }
+
+  if (hostBlurActive.value) return
+  if (gamePhase.value !== 'idle' && !(isHead.value || amIAlive.value)) return
   if (code === 'KeyR') {
     if (gamePhase.value !== 'idle' && canToggleKnownRoles.value) {
       e.preventDefault()
