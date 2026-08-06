@@ -182,13 +182,7 @@
                 <span class="profile-restricted-text">Вы в Черном списке у пользователя</span>
               </div>
 
-              <div v-if="showRestrictedProfileSections && showActionBlock" class="profile-actions">
-<!--                <button v-if="showStatsButton" class="profile-action secondary" type="button" @click="view = 'stats'">-->
-<!--                  Статистика пользователя-->
-<!--                </button>-->
-<!--                <button v-if="showGameHistoryButton" class="profile-action secondary" type="button" @click="view = 'history'">-->
-<!--                  История игр-->
-<!--                </button>-->
+              <div v-if="showRestrictedProfileSections && showActionBlock" class="profile-actions profile-actions--main">
                 <button v-if="showFriendAction" class="profile-action friend-action" :class="`status-${friendStatusClass}`"
                         type="button" :disabled="friendDisabled" :aria-label="friendActionAriaLabel" @click="onFriendAction(friendActionKind)">
                   <div class="friend-action-content friend-action-content-default" aria-hidden="true">
@@ -199,6 +193,12 @@
                     <UiIcon class="profile-action-icon" :icon="friendActionHoverIcon" />
                     <span>{{ friendActionHoverLabel }}</span>
                   </div>
+                </button>
+                <button v-if="showStatsButton" class="profile-action secondary" type="button" @click="view = 'stats'">
+                  Статистика пользователя
+                </button>
+                <button v-if="showGameHistoryButton" class="profile-action secondary" type="button" @click="view = 'history'">
+                  История игр
                 </button>
               </div>
 
@@ -808,6 +808,8 @@ const showFriendAction = computed(() => (
   targetUserId.value > 0
   && !isSelfProfile.value
   && !targetDeleted.value
+  && !blacklistedByMe.value
+  && !viewerBlacklistedByTarget.value
   && friendActionLabel.value !== ''
 ))
 const showProfileDataButtons = computed(() => Boolean(
@@ -817,8 +819,11 @@ const showProfileDataButtons = computed(() => Boolean(
 ))
 const showStatsButton = computed(() => showProfileDataButtons.value)
 const showGameHistoryButton = computed(() => showProfileDataButtons.value)
-const showActionBlockOld = computed(() => showStatsButton.value || showGameHistoryButton.value || showFriendAction.value)
-const showActionBlock = computed(() => !blacklistedByMe.value && showFriendAction.value)
+const showActionBlock = computed(() => (
+  showStatsButton.value
+  || showGameHistoryButton.value
+  || showFriendAction.value
+))
 const staffActionScope = computed<StaffActionScope | null>(() => {
   if (isAdminViewer.value) return 'admin'
   if (isModerViewer.value) return 'moderation'
@@ -2946,6 +2951,13 @@ onBeforeUnmount(() => {
       flex-direction: column;
       gap: 10px;
       width: 100%;
+      &.profile-actions--main {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        .friend-action {
+          grid-column: 1 / -1;
+        }
+      }
       .profile-action {
         display: flex;
         align-items: center;
@@ -3032,6 +3044,7 @@ onBeforeUnmount(() => {
       }
     }
     .profile-staff-line {
+      margin: -10px 0;
       width: 100%;
       border-bottom: 1px solid $neutral-800;
     }
