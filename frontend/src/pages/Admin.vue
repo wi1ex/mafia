@@ -618,12 +618,12 @@
                   </th>
                   <th>
                     <button class="table-sort" :class="{ active: usersSort === 'room_minutes' }" type="button" title="Сортировать по убыванию" @click="sortUsers('room_minutes')">
-                      В комнатах <span aria-hidden="true">↓</span>
+                      Общение <span aria-hidden="true">↓</span>
                     </button>
                   </th>
                   <th>
                     <button class="table-sort" :class="{ active: usersSort === 'stream_minutes' }" type="button" title="Сортировать по убыванию" @click="sortUsers('stream_minutes')">
-                      Трансляции <span aria-hidden="true">↓</span>
+                      Стрим <span aria-hidden="true">↓</span>
                     </button>
                   </th>
                   <th>
@@ -3431,7 +3431,7 @@ onBeforeUnmount(() => {
       color: $neutral-100;
       font-family: Hauora-Regular;
       th {
-        padding: 10px;
+        padding: 5px;
         border-bottom: 1px solid $neutral-700;
         font-size: 16px;
         color: $neutral-500;

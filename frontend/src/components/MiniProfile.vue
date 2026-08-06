@@ -816,6 +816,7 @@ const showProfileDataButtons = computed(() => Boolean(
   props.showStatsButton
   && targetUserId.value > 0
   && (isSelfProfile.value || privilegedViewer.value || friendStatus.value === 'friends')
+  && isAdminViewer.value // TEMP: remove this line to restore stats/history visibility rules
 ))
 const showStatsButton = computed(() => showProfileDataButtons.value)
 const showGameHistoryButton = computed(() => showProfileDataButtons.value)
