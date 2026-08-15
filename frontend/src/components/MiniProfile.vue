@@ -198,6 +198,7 @@
                   v-if="showStatsButton"
                   variant="white"
                   size="middle"
+                  width="100%"
                   :icon="iconStats"
                   text="Статистика"
                   @click="view = 'stats'"
@@ -206,6 +207,7 @@
                   v-if="showGameHistoryButton"
                   variant="white"
                   size="middle"
+                  width="100%"
                   :icon="iconHistory"
                   text="История игр"
                   @click="view = 'history'"
@@ -3060,7 +3062,7 @@ onBeforeUnmount(() => {
     .profile-staff-line {
       margin: -10px 0;
       width: 100%;
-      border-bottom: 1px solid $neutral-800;
+      border-bottom: 1px solid rgba($soft-purple-900, 0.65);
     }
     .profile-staff-actions {
       display: flex;
