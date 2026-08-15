@@ -194,12 +194,22 @@
                     <span>{{ friendActionHoverLabel }}</span>
                   </div>
                 </button>
-                <button v-if="showStatsButton" class="profile-action secondary" type="button" @click="view = 'stats'">
-                  Статистика пользователя
-                </button>
-                <button v-if="showGameHistoryButton" class="profile-action secondary" type="button" @click="view = 'history'">
-                  История игр
-                </button>
+                <UiButton
+                  v-if="showStatsButton"
+                  variant="white"
+                  size="middle"
+                  :icon="iconStats"
+                  text="Статистика"
+                  @click="view = 'stats'"
+                />
+                <UiButton
+                  v-if="showGameHistoryButton"
+                  variant="white"
+                  size="middle"
+                  :icon="iconHistory"
+                  text="История игр"
+                  @click="view = 'history'"
+                />
               </div>
 
               <div v-if="showStaffActionBlock" class="profile-staff-line"></div>
@@ -247,7 +257,15 @@
 
             <template v-else>
               <div class="profile-actions">
-                <button class="profile-action secondary" type="button" @click="view = 'profile'">Назад к профилю</button>
+                <UiButton
+                  class="profile-back-button"
+                  variant="white"
+                  size="middle"
+                  width="100%"
+                  :icon="iconArrowDown"
+                  text="Назад к профилю"
+                  @click="view = 'profile'"
+                />
               </div>
               <ProfileStats v-if="view === 'stats'" :stats-url="resolvedStatsUrl" />
               <ProfileHistory v-else :history-url="resolvedHistoryUrl" :per-page="5" />
@@ -336,6 +354,9 @@ import iconDelete from '@/assets/svg/iconDelete.svg'
 import iconEllipsis from '@/assets/svg/iconEllipsis.svg'
 import iconDanger from '@/assets/svg/iconDanger.svg'
 import iconLeaveRoom from '@/assets/svg/iconLeave.svg'
+import iconStats from '@/assets/svg/iconStats.svg'
+import iconHistory from '@/assets/svg/iconHistory.svg'
+import iconArrowDown from '@/assets/svg/iconArrowDown.svg'
 
 type FriendActionKind = 'add' | 'remove' | 'incoming' | 'outgoing'
 type MiniProfileSanctionKind = 'timeout' | 'ban' | 'suspend'
@@ -3002,14 +3023,6 @@ onBeforeUnmount(() => {
             }
           }
         }
-        &.secondary {
-          background-color: $neutral-100;
-          &:not(:disabled):hover,
-          &:not(:disabled):focus-visible,
-          &:not(:disabled):active {
-            background-color: $neutral-white;
-          }
-        }
         &.status-none {
           background-color: $neutral-white;
           &:not(:disabled):hover,
@@ -3064,6 +3077,9 @@ onBeforeUnmount(() => {
           border-radius: 12px;
         }
       }
+    }
+    :deep(.profile-back-button .ui-button__icon) {
+      transform: rotate(90deg);
     }
   }
 }
