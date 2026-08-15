@@ -49,17 +49,20 @@
               <UiSwitch class="switch-item" :width="250" size="low" v-model="site.streams_can_start" label="Запуск трансляций" :disabled="savingSettings" />
               <UiSwitch class="switch-item" :width="250" size="low" v-model="site.games_can_start" label="Запуск игр" :disabled="savingSettings" />
               <div class="bulk-admin-actions">
-                <button class="btn danger width-full" :disabled="kickRoomsBusy || clearChatBusy || endGamesBusy || markAllNotifsBusy" @click="kickAllRooms">
+                <button class="btn danger width-full" :disabled="kickRoomsBusy || clearChatBusy || endGamesBusy || markAllNotifsBusy || compensationSaving" @click="kickAllRooms">
                   Кик всех из комнат
                 </button>
-                <button class="btn danger width-full" :disabled="kickRoomsBusy || clearChatBusy || endGamesBusy || markAllNotifsBusy" @click="clearGlobalChat">
+                <button class="btn danger width-full" :disabled="kickRoomsBusy || clearChatBusy || endGamesBusy || markAllNotifsBusy || compensationSaving" @click="clearGlobalChat">
                   Очистить сообщения чата
                 </button>
-                <button class="btn danger width-full" :disabled="kickRoomsBusy || clearChatBusy || endGamesBusy || markAllNotifsBusy" @click="endAllGames">
+                <button class="btn danger width-full" :disabled="kickRoomsBusy || clearChatBusy || endGamesBusy || markAllNotifsBusy || compensationSaving" @click="endAllGames">
                   Завершить все игры
                 </button>
-                <button class="btn danger width-full" :disabled="kickRoomsBusy || clearChatBusy || endGamesBusy || markAllNotifsBusy" @click="markAllNotificationsRead">
+                <button class="btn danger width-full" :disabled="kickRoomsBusy || clearChatBusy || endGamesBusy || markAllNotifsBusy || compensationSaving" @click="markAllNotificationsRead">
                   Прочитать все уведомления
+                </button>
+                <button class="btn confirm width-full" :disabled="kickRoomsBusy || clearChatBusy || endGamesBusy || markAllNotifsBusy || compensationSaving" @click="openSubscriptionCompensation">
+                  Компенсация подписки
                 </button>
                 <button class="btn confirm width-full" :disabled="savingSettings || !isSettingsDirty" @click="saveSettings">
                   Сохранить
@@ -944,6 +947,18 @@
       @update:open="onSubscriptionModalOpenUpdate"
       @save="saveSubscription"
     />
+    <SubscriptionModal
+      :open="compensationModalOpen"
+      title="Компенсация подписки"
+      status-text="Будут продлены все подписки, активные в момент сохранения."
+      save-label="Продлить"
+      :saving="compensationSaving"
+      :can-save="compensationCanSave"
+      :target="null"
+      :form="compensationForm"
+      @update:open="onCompensationModalOpenUpdate"
+      @save="saveSubscriptionCompensation"
+    />
     <ContactModal
       :open="contactRequestReplyModalOpen && Boolean(contactRequestReplyTarget)"
       :saving="contactRequestReplySaving"
@@ -1413,6 +1428,12 @@ const subscriptionForm = reactive({
   months: 0,
   days: 0,
 })
+const compensationModalOpen = ref(false)
+const compensationSaving = ref(false)
+const compensationForm = reactive({
+  months: 0,
+  days: 0,
+})
 const userMiniProfileOpen = ref(false)
 const userMiniProfileTarget = ref<UserMiniProfileTarget | null>(null)
 const userMiniProfileStatsUrl = computed(() => {
@@ -1693,6 +1714,9 @@ const subscriptionCanSave = computed(() => {
   }
   return Boolean(subscriptionTarget.value && hasDuration)
 })
+const compensationCanSave = computed(() => (
+  (Number(compensationForm.months) || 0) > 0 || (Number(compensationForm.days) || 0) > 0
+))
 
 function selectValue(event: Event): string {
   return (event.target as HTMLSelectElement).value
@@ -2139,6 +2163,31 @@ function openReduceSubscription(row: SubscriptionRow): void {
   }
   resetSubscriptionForm()
   subscriptionModalOpen.value = true
+}
+
+function resetCompensationForm(): void {
+  compensationForm.months = 0
+  compensationForm.days = 0
+}
+
+function clearSubscriptionCompensation(): void {
+  compensationModalOpen.value = false
+  resetCompensationForm()
+}
+
+function closeSubscriptionCompensation(): void {
+  if (compensationSaving.value) return
+  clearSubscriptionCompensation()
+}
+
+function onCompensationModalOpenUpdate(open: boolean): void {
+  if (!open) closeSubscriptionCompensation()
+}
+
+function openSubscriptionCompensation(): void {
+  if (compensationSaving.value) return
+  resetCompensationForm()
+  compensationModalOpen.value = true
 }
 
 function chartBarHeight(count: number, maxValue: number): string {
@@ -2727,6 +2776,32 @@ async function saveSubscription(): Promise<void> {
   }
 }
 
+async function saveSubscriptionCompensation(): Promise<void> {
+  if (compensationSaving.value || !compensationCanSave.value) return
+  compensationSaving.value = true
+  const duration = {
+    months: Math.max(0, Math.trunc(Number(compensationForm.months) || 0)),
+    days: Math.max(0, Math.trunc(Number(compensationForm.days) || 0)),
+  }
+  try {
+    const { data } = await api.post('/admin/subscriptions/compensation', duration)
+    const extended = Math.max(0, Math.floor(Number(data?.extended_count) || 0))
+    clearSubscriptionCompensation()
+    if (extended > 0) {
+      void alertDialog(`Компенсация начислена: продлено подписок — ${extended}`)
+    } else {
+      void alertDialog('Активных подписок для компенсации не найдено')
+    }
+  } catch (e: any) {
+    const st = e?.response?.status
+    const d = e?.response?.data?.detail
+    if (st === 422 && d === 'duration_required') void alertDialog('Укажите срок подписки')
+    else void alertDialog('Не удалось начислить компенсацию подписки')
+  } finally {
+    compensationSaving.value = false
+  }
+}
+
 async function removeSubscription(row: SubscriptionRow): Promise<void> {
   if (subscriptionRemoving[row.user_id]) return
   const ok = await confirmDialog({
@@ -3004,6 +3079,9 @@ watch(activeTab, (tab, previousTab) => {
   }
   if (tab !== 'subscriptions' && subscriptionModalOpen.value) {
     closeSubscriptionModal()
+  }
+  if (tab !== 'settings' && compensationModalOpen.value) {
+    closeSubscriptionCompensation()
   }
   if (tab !== 'contact_requests' && contactRequestReplyModalOpen.value) {
     closeContactRequestReplyModal()

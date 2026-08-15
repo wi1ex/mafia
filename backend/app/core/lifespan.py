@@ -28,6 +28,7 @@ async def lifespan(app) -> AsyncIterator[None]:
         async with SessionLocal() as session:
             await ensure_app_settings(session)
             await assert_protected_admin_invariants(session)
+
     except Exception:
         log.exception("app.startup.db_failed")
         raise
@@ -46,12 +47,15 @@ async def lifespan(app) -> AsyncIterator[None]:
         yield
     finally:
         await background_tasks.stop()
+
         try:
             await close_clients()
         except Exception:
             log.warning("app.shutdown.close_clients_failed")
+
         try:
             await engine.dispose()
         except Exception:
             log.warning("app.shutdown.engine_dispose_failed")
+
         log.info("app.shutdown.ok")

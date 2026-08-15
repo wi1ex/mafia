@@ -414,6 +414,10 @@ class AdminSubscriptionDurationIn(BaseModel):
     days: int = Field(default=0, ge=0, le=31)
 
 
+class AdminSubscriptionCompensationOut(BaseModel):
+    extended_count: int
+
+
 class AdminSubscriptionCreateIn(AdminSubscriptionDurationIn):
     user_id: int = Field(ge=1)
 

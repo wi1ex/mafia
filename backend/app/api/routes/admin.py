@@ -100,6 +100,7 @@ from ...schemas.admin import (
     AdminSubscriptionsOut,
     AdminSubscriptionCreateIn,
     AdminSubscriptionDurationIn,
+    AdminSubscriptionCompensationOut,
     AdminSanctionTimedIn,
     AdminSanctionDurationAdjustIn,
     AdminSanctionReasonUpdateIn,
@@ -204,6 +205,9 @@ from ..utils import (
     emit_room_profile_theme_sync,
     emit_room_role_sync,
     notify_subscription_upsert,
+    format_subscription_purchase_duration,
+    format_subscription_until,
+    schedule_user_telegram_notice,
     delete_gif_avatar_for_inactive_subscription,
 )
 
@@ -1882,6 +1886,85 @@ async def subscriptions_upsert(payload: AdminSubscriptionCreateIn, ident: Identi
         profile_theme_color=theme_state.color,
         profile_theme_icon=theme_state.icon,
     )
+
+
+@router.post("/subscriptions/compensation", response_model=AdminSubscriptionCompensationOut, dependencies=ADMIN_GUARD)
+@log_route("admin.subscriptions.compensation")
+async def subscriptions_compensation(
+    payload: AdminSubscriptionDurationIn,
+    ident: Identity = Depends(get_identity),
+    session: AsyncSession = Depends(get_session),
+) -> AdminSubscriptionCompensationOut:
+    months = int(payload.months or 0)
+    days = int(payload.days or 0)
+    if months <= 0 and days <= 0:
+        raise HTTPException(status_code=422, detail="duration_required")
+
+    now = datetime.now(timezone.utc)
+    active_rows = await session.execute(
+        select(User, UserSubscription)
+        .join(UserSubscription, UserSubscription.user_id == User.id)
+        .where(
+            User.deleted_at.is_(None),
+            UserSubscription.starts_at <= now,
+            UserSubscription.ends_at > now,
+        )
+        .order_by(User.id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    active_subscriptions = active_rows.all()
+    duration_text = format_subscription_purchase_duration(months=months, days=days)
+    notes: list[Notif] = []
+
+    for user, subscription in active_subscriptions:
+        subscription.ends_at = compute_subscription_end(subscription.ends_at, months=months, days=days)
+        user.nickname_changes_left = normalize_nickname_changes_left(user.nickname_changes_left)
+        until_text = format_subscription_until(subscription.ends_at)
+        notes.append(
+            Notif(
+                user_id=int(user.id),
+                title="Компенсация подписки",
+                text=(
+                    f"В качестве компенсации ваша подписка продлена на {duration_text} "
+                    f"и действует до {until_text}."
+                ),
+                created_at=now,
+            )
+        )
+
+    if notes:
+        session.add_all(notes)
+        await session.flush()
+
+    await log_action(
+        session,
+        user_id=int(ident["id"]),
+        username=ident["username"],
+        action="admin_subscriptions_compensation",
+        details=(
+            f"Компенсация активных подписок months={months} days={days} "
+            f"extended_count={len(active_subscriptions)}"
+        ),
+        commit=False,
+    )
+    await session.commit()
+
+    for (user, _subscription), note in zip(active_subscriptions, notes):
+        with suppress(Exception):
+            await emit_auth_profile_sync(int(user.id), role=str(user.role))
+        await emit_notify(int(user.id), note, kind="subscription")
+        telegram_id = int(user.telegram_id or 0)
+        if telegram_id > 0:
+            schedule_user_telegram_notice(
+                int(user.id),
+                telegram_id,
+                str(note.title),
+                str(note.text),
+                log_event="subscription.compensation_telegram_notify_failed",
+            )
+
+    return AdminSubscriptionCompensationOut(extended_count=len(active_subscriptions))
 
 
 @router.patch("/subscriptions/{user_id}/reduce", response_model=AdminSubscriptionOut, dependencies=ADMIN_GUARD)
