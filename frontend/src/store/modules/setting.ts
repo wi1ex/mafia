@@ -89,6 +89,7 @@ export const useSettingsStore = defineStore('settings', () => {
   )))
   const defaultSanctionReason = computed(() => sanctionReasons.value[0]?.value ?? '')
   const sanctionRulesReady = ref(false)
+  const sanctionRulesLoadFailed = ref(false)
   const seasonStartGameNumbers = computed<number[]>(() => parseSeasonStartNumbers(seasonStartGameNumber.value))
   const ready = ref(false)
   let inited = false
@@ -182,6 +183,7 @@ export const useSettingsStore = defineStore('settings', () => {
     if (!sections) return false
     sanctionRules.value = sections
     sanctionRulesReady.value = true
+    sanctionRulesLoadFailed.value = false
     return true
   }
 
@@ -212,6 +214,9 @@ export const useSettingsStore = defineStore('settings', () => {
     try {
       const { data } = await api.get<SanctionRulesPayload>('/admin/sanction-rules', { __skipAuth: true })
       if (!applySanctionRulesPayload(data)) throw new Error('invalid_sanction_rules_response')
+    } catch (error) {
+      sanctionRulesLoadFailed.value = true
+      throw error
     } finally {
       sanctionRulesReady.value = true
     }
@@ -227,7 +232,7 @@ export const useSettingsStore = defineStore('settings', () => {
     }
     window.addEventListener('auth-settings_update', onSettingsEv)
     onSanctionRulesEv = (event: CustomEvent<unknown>) => {
-      if (!applySanctionRulesPayload(event?.detail)) void fetchSanctionRules()
+      if (!applySanctionRulesPayload(event?.detail)) void fetchSanctionRules().catch(() => {})
     }
     window.addEventListener('auth-sanction_rules_update', onSanctionRulesEv)
     inited = true
@@ -258,6 +263,7 @@ export const useSettingsStore = defineStore('settings', () => {
     sanctionReasons,
     defaultSanctionReason,
     sanctionRulesReady,
+    sanctionRulesLoadFailed,
     seasonStartGameNumbers,
     ready,
 

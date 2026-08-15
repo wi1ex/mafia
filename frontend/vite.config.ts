@@ -46,7 +46,7 @@ export default defineConfig({
     compression({ algorithm: 'gzip' }),
   ],
   resolve: {
-    alias: { '@': path.resolve(__dirname, 'src') },
+    alias: { '@': path.resolve(import.meta.dirname, 'src') },
   },
   css: {
     preprocessorOptions: {

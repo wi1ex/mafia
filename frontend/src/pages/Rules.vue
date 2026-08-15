@@ -47,11 +47,11 @@
           </div>
         </section>
 
-        <section v-if="settingsStore.sanctionRulesReady" class="rules-grid">
+        <section v-if="settingsStore.sanctionRules.length" class="rules-grid">
           <article v-for="section in settingsStore.sanctionRules" :id="section.id" :key="section.id" class="rule-card">
             <h3>{{ section.title }}</h3>
             <ul>
-              <li v-for="rule in section.rules" :key="rule.text" class="rule-item">
+              <li v-for="(rule, ruleIndex) in section.rules" :key="`${section.id}-${ruleIndex}`" class="rule-item">
                 <span v-if="getRuleSanctionBadge(rule)" class="sanction-badge" :style="{ backgroundColor: getRuleSanctionBadge(rule)?.backgroundColor, color: getRuleSanctionBadge(rule)?.textColor }">
                   {{ getRuleSanctionBadge(rule)?.code }}
                 </span>
@@ -60,7 +60,7 @@
             </ul>
           </article>
         </section>
-        <p v-else class="rules-state">Загрузка правил…</p>
+        <p v-else class="rules-state">{{ rulesStateText }}</p>
       </div>
 
       <aside class="rules-toc" aria-label="Содержание страницы">
@@ -95,6 +95,9 @@ const tocLinks = computed<TocItem[]>(() => [
   { id: 'sanctions', label: 'Нотация санкций' },
   ...settingsStore.sanctionRules.map(({ id, title }) => ({ id, label: title })),
 ])
+const rulesStateText = computed(() => (
+  settingsStore.sanctionRulesLoadFailed ? 'Не удалось загрузить правила.' : 'Загрузка правил…'
+))
 
 function getRuleSanctionBadge(rule: SanctionRule) {
   return getSanctionBadge(rule.badge)
