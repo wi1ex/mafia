@@ -47,19 +47,20 @@
           </div>
         </section>
 
-        <section class="rules-grid">
-          <article v-for="section in RULES_SECTIONS" :id="section.id" :key="section.id" class="rule-card">
+        <section v-if="settingsStore.sanctionRulesReady" class="rules-grid">
+          <article v-for="section in settingsStore.sanctionRules" :id="section.id" :key="section.id" class="rule-card">
             <h3>{{ section.title }}</h3>
             <ul>
-              <li v-for="rule in section.rules" :key="rule" class="rule-item">
+              <li v-for="rule in section.rules" :key="rule.text" class="rule-item">
                 <span v-if="getRuleSanctionBadge(rule)" class="sanction-badge" :style="{ backgroundColor: getRuleSanctionBadge(rule)?.backgroundColor, color: getRuleSanctionBadge(rule)?.textColor }">
                   {{ getRuleSanctionBadge(rule)?.code }}
                 </span>
-                <span class="rule-text">{{ rule }}</span>
+                <span class="rule-text">{{ rule.text }}</span>
               </li>
             </ul>
           </article>
         </section>
+        <p v-else class="rules-state">Загрузка правил…</p>
       </div>
 
       <aside class="rules-toc" aria-label="Содержание страницы">
@@ -79,22 +80,28 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, ref } from 'vue'
-import { RULES_SECTIONS, SUSPEND_SANCTION_BADGES, TIMEOUT_SANCTION_BADGES, getRuleSanctionBadge } from '@/constants/sanctionReasons'
+import { computed, nextTick, onMounted, onBeforeUnmount, ref, watch } from 'vue'
+import { SUSPEND_SANCTION_BADGES, TIMEOUT_SANCTION_BADGES, getSanctionBadge, type SanctionRule } from '@/constants/sanctionReasons'
+import { useSettingsStore } from '@/store'
 
 type TocItem = {
   id: string
   label: string
 }
 
-const tocLinks: TocItem[] = [
+const settingsStore = useSettingsStore()
+const tocLinks = computed<TocItem[]>(() => [
   { id: 'intro', label: 'Введение' },
   { id: 'sanctions', label: 'Нотация санкций' },
-  ...RULES_SECTIONS.map(({ id, title }) => ({ id, label: title })),
-]
+  ...settingsStore.sanctionRules.map(({ id, title }) => ({ id, label: title })),
+])
 
-const activeId = ref(tocLinks[0]?.id ?? '')
-const lastId = tocLinks[tocLinks.length - 1]?.id ?? ''
+function getRuleSanctionBadge(rule: SanctionRule) {
+  return getSanctionBadge(rule.badge)
+}
+
+const activeId = ref(tocLinks.value[0]?.id ?? '')
+const lastId = computed(() => tocLinks.value[tocLinks.value.length - 1]?.id ?? '')
 const rulesEl = ref<HTMLElement | null>(null)
 let rafId = 0
 let sectionEls: HTMLElement[] = []
@@ -116,14 +123,14 @@ function onTocClick(event: MouseEvent, id: string) {
 }
 
 function collectSections() {
-  sectionEls = tocLinks
+  sectionEls = tocLinks.value
     .map(item => document.getElementById(item.id))
     .filter((el): el is HTMLElement => Boolean(el))
 }
 
 function updateActiveFromScroll() {
   if (!sectionEls.length) return
-  if (!lastId) return
+  if (!lastId.value) return
   const cutoff = 120
   let current = sectionEls[0].id
   const container = rulesEl.value
@@ -139,7 +146,7 @@ function updateActiveFromScroll() {
     }
     const scrollBottom = container.scrollTop + container.clientHeight
     const scrollHeight = container.scrollHeight
-    if (scrollBottom >= scrollHeight - 4) current = lastId
+    if (scrollBottom >= scrollHeight - 4) current = lastId.value
   } else {
     for (const el of sectionEls) {
       if (el.getBoundingClientRect().top - cutoff <= 0) {
@@ -150,7 +157,7 @@ function updateActiveFromScroll() {
     }
     const scrollBottom = window.scrollY + window.innerHeight
     const docHeight = document.documentElement.scrollHeight
-    if (scrollBottom >= docHeight - 4) current = lastId
+    if (scrollBottom >= docHeight - 4) current = lastId.value
   }
   setActive(current)
 }
@@ -173,11 +180,18 @@ onMounted(() => {
   } else {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
   }
-  setActive(tocLinks[0]?.id ?? '')
+  setActive(tocLinks.value[0]?.id ?? '')
   updateActiveFromScroll()
   scrollTarget = rulesEl.value ?? window
   scrollTarget.addEventListener('scroll', onScroll, { passive: true })
   window.addEventListener('resize', onScroll)
+})
+
+watch(tocLinks, async (links) => {
+  await nextTick()
+  collectSections()
+  if (!links.some(link => link.id === activeId.value)) setActive(links[0]?.id ?? '')
+  updateActiveFromScroll()
 })
 
 onBeforeUnmount(() => {
@@ -208,6 +222,11 @@ onBeforeUnmount(() => {
     grid-template-columns: minmax(0, 1fr) 300px;
     gap: 20px;
     align-items: start;
+  }
+  .rules-state {
+    margin: 20px 0;
+    color: $neutral-300;
+    text-align: center;
   }
   .rules-content {
     display: flex;

@@ -176,7 +176,7 @@ onMounted(async () => {
   }
   window.addEventListener('auth-notify', onAdminNotify)
   settings.ensureWS()
-  try { await settings.fetchPublic() } catch {}
+  try { await Promise.all([settings.fetchPublic(), settings.fetchSanctionRules()]) } catch {}
   await auth.init()
   if (auth.isAuthed) {
     if (!user.user) {

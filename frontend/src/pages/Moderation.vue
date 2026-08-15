@@ -310,7 +310,6 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { api } from '@/services/axios'
 import { alertDialog } from '@/services/confirm'
 import { formatLocalDateTime } from '@/services/datetime'
-import { SANCTION_REASONS } from '@/constants/sanctionReasons'
 import { canOpenMiniProfileTarget, normalizeMiniProfileUserId } from '@/services/miniProfile'
 import { useSettingsStore, useUserStore } from '@/store'
 
@@ -438,8 +437,8 @@ let usersUserTimer: number | undefined
 let sanctionsUserTimer: number | undefined
 let contactRequestsUserTimer: number | undefined
 
-const sanctionReasons = SANCTION_REASONS
-const sanctionReasonValues = new Set(sanctionReasons.map(({ value }) => value))
+const sanctionReasons = computed(() => settingsStore.sanctionReasons)
+const sanctionReasonValues = computed(() => new Set(sanctionReasons.value.map(({ value }) => value)))
 const MODERATION_MAX_TIMED_SANCTION_SECONDS = 7 * 24 * 60 * 60
 const canIssueExtendedModerationSanctions = computed(() => viewerUserId.value === settingsStore.seniorModeratorUserId)
 const isSeniorModerator = computed(() => viewerUserId.value === settingsStore.seniorModeratorUserId)
@@ -842,7 +841,7 @@ async function loadSanctions(): Promise<void> {
 }
 
 function isCurrentSanctionReason(reason: string | null | undefined): boolean {
-  return Boolean(reason && sanctionReasonValues.has(reason))
+  return Boolean(reason && sanctionReasonValues.value.has(reason))
 }
 
 function isSanctionReasonChanging(row: SanctionsRow): boolean {

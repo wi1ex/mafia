@@ -47,7 +47,7 @@ from ..services.telegram import send_text_message
 from ..schemas.common import Ok, Identity
 if TYPE_CHECKING:
     from ..schemas.auth import BotResetIn, BotStatusIn, BotVerifyIn
-    from ..schemas.admin import SiteSettingsOut, GameSettingsOut, PublicSettingsOut, RegistrationsPoint, AdminRoomUserStat, AdminSanctionDurationAdjustIn, AdminGameActionFieldOut
+    from ..schemas.admin import SiteSettingsOut, GameSettingsOut, PublicSettingsOut, SanctionRulesOut, RegistrationsPoint, AdminRoomUserStat, AdminSanctionDurationAdjustIn, AdminGameActionFieldOut
     from ..schemas.friend import FriendsListItemOut
     from ..schemas.room import GameParams, RoomBriefOut
     from ..schemas.user import UserGamesHistoryOut, GameHistoryItemOut, GameHistoryHostOut, UserMiniProfileNominationStatsOut, UserStatsOut
@@ -83,6 +83,7 @@ __all__ = [
     "validate_object_key_for_presign",
     "parse_month_range",
     "parse_day_range",
+    "sanction_rules_out",
     "site_settings_out",
     "public_settings_out",
     "game_settings_out",
@@ -3620,6 +3621,12 @@ def parse_day_range(day: date) -> tuple[datetime, datetime]:
     start = datetime(day.year, day.month, day.day, tzinfo=timezone.utc)
     end = start + timedelta(days=1)
     return start, end
+
+
+def sanction_rules_out(row) -> "SanctionRulesOut":
+    from ..schemas.admin import SanctionRulesOut
+
+    return SanctionRulesOut.model_validate({"sections": row.sections})
 
 
 def site_settings_out(row) -> SiteSettingsOut:

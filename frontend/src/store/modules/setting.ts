@@ -1,6 +1,11 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { api } from '@/services/axios'
+import {
+  SANCTION_BADGES,
+  type RulesSection,
+  type SanctionBadgeKey,
+} from '@/constants/sanctionReasons'
 
 export interface PublicSettings {
   registration_enabled: boolean
@@ -23,6 +28,15 @@ export interface PublicSettings {
   season_start_game_number: string
   senior_moderator_user_id: number | null
   self_speech_finish_enabled: boolean
+}
+
+export type SanctionReason = {
+  value: string
+  label: string
+}
+
+type SanctionRulesPayload = {
+  sections: RulesSection[]
 }
 
 const PUBLIC_SETTINGS_KEYS: readonly (keyof PublicSettings)[] = [
@@ -69,10 +83,42 @@ export const useSettingsStore = defineStore('settings', () => {
   const seasonStartGameNumber = ref('1')
   const seniorModeratorUserId = ref<number | null>(null)
   const selfSpeechFinishEnabled = ref(true)
+  const sanctionRules = ref<RulesSection[]>([])
+  const sanctionReasons = computed<SanctionReason[]>(() => sanctionRules.value.flatMap(section => (
+    section.rules.map(rule => ({ value: rule.text, label: rule.text }))
+  )))
+  const defaultSanctionReason = computed(() => sanctionReasons.value[0]?.value ?? '')
+  const sanctionRulesReady = ref(false)
   const seasonStartGameNumbers = computed<number[]>(() => parseSeasonStartNumbers(seasonStartGameNumber.value))
   const ready = ref(false)
   let inited = false
   let onSettingsEv: ((e: any) => void) | null = null
+  let onSanctionRulesEv: ((e: any) => void) | null = null
+
+  function isBadgeKey(value: unknown): value is SanctionBadgeKey {
+    return typeof value === 'string' && value in SANCTION_BADGES
+  }
+
+  function normalizeSanctionRulesPayload(payload: unknown): RulesSection[] | null {
+    if (!payload || typeof payload !== 'object' || !Array.isArray((payload as SanctionRulesPayload).sections)) return null
+    const sectionIds = new Set<string>()
+    const sections: RulesSection[] = []
+    for (const rawSection of (payload as SanctionRulesPayload).sections) {
+      if (!rawSection || typeof rawSection !== 'object') return null
+      const id = String(rawSection.id ?? '').trim()
+      const title = String(rawSection.title ?? '').trim()
+      if (!id || !title || sectionIds.has(id) || !Array.isArray(rawSection.rules) || rawSection.rules.length === 0) return null
+      sectionIds.add(id)
+      const rules = rawSection.rules.map(rawRule => {
+        const text = String(rawRule?.text ?? '').trim()
+        const badge = isBadgeKey(rawRule?.badge) ? rawRule.badge : null
+        return { text, badge }
+      })
+      if (rules.some(rule => !rule.text)) return null
+      sections.push({ id, title, rules })
+    }
+    return sections.length > 0 ? sections : null
+  }
 
   function parseSeasonStartNumbers(raw: unknown): number[] {
     const source = String(raw ?? '').trim()
@@ -131,6 +177,14 @@ export const useSettingsStore = defineStore('settings', () => {
     ready.value = true
   }
 
+  function applySanctionRulesPayload(payload: unknown): boolean {
+    const sections = normalizeSanctionRulesPayload(payload)
+    if (!sections) return false
+    sanctionRules.value = sections
+    sanctionRulesReady.value = true
+    return true
+  }
+
   function isPublicSettingsPayload(payload: unknown): payload is PublicSettings {
     return Boolean(
       payload
@@ -154,14 +208,28 @@ export const useSettingsStore = defineStore('settings', () => {
     }
   }
 
+  async function fetchSanctionRules(): Promise<void> {
+    try {
+      const { data } = await api.get<SanctionRulesPayload>('/admin/sanction-rules', { __skipAuth: true })
+      if (!applySanctionRulesPayload(data)) throw new Error('invalid_sanction_rules_response')
+    } finally {
+      sanctionRulesReady.value = true
+    }
+  }
+
   function ensureWS() {
     if (inited) return
     if (onSettingsEv) window.removeEventListener('auth-settings_update', onSettingsEv)
+    if (onSanctionRulesEv) window.removeEventListener('auth-sanction_rules_update', onSanctionRulesEv)
     onSettingsEv = (event: CustomEvent<unknown>) => {
       if (applyPublicPayload(event?.detail)) return
       void fetchPublic()
     }
     window.addEventListener('auth-settings_update', onSettingsEv)
+    onSanctionRulesEv = (event: CustomEvent<unknown>) => {
+      if (!applySanctionRulesPayload(event?.detail)) void fetchSanctionRules()
+    }
+    window.addEventListener('auth-sanction_rules_update', onSanctionRulesEv)
     inited = true
   }
 
@@ -186,12 +254,18 @@ export const useSettingsStore = defineStore('settings', () => {
     seasonStartGameNumber,
     seniorModeratorUserId,
     selfSpeechFinishEnabled,
+    sanctionRules,
+    sanctionReasons,
+    defaultSanctionReason,
+    sanctionRulesReady,
     seasonStartGameNumbers,
     ready,
 
     fetchPublic,
     applyPublic,
     applyPublicPayload,
+    applySanctionRulesPayload,
     ensureWS,
+    fetchSanctionRules,
   }
 })

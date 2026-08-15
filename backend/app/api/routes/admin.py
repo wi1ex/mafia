@@ -60,12 +60,15 @@ from ...services.global_chat import (
 )
 from ...services.minio import CHAT_IMAGE_PREFIX, delete_chat_images_async, get_prefix_storage_stats_async
 from ...services.blacklist import clear_user_blacklist
+from ...services.sanction_rules import ensure_sanction_rules
 from ...services.nickname_history import prepend_nickname_history
 from ...schemas.common import Ok, Identity
 from ...schemas.user import UserGamesHistoryOut, UserStatsOut
 from ...schemas.admin import (
     AdminSettingsOut,
     AdminSettingsUpdateIn,
+    SanctionRulesOut,
+    SanctionRulesUpdateIn,
     AdminUpdateNotificationIn,
     AdminUpdateNotificationOut,
     AdminGamesEndAllOut,
@@ -116,6 +119,7 @@ from ..utils import (
     normalize_admin_banner_text,
     normalize_admin_banner_link,
     normalize_donation_url,
+    sanction_rules_out,
     parse_cached_deleted_at,
     normalize_game_result,
     site_settings_out,
@@ -233,6 +237,51 @@ AdminUserSortKey = Literal[
     "timeouts_count",
     "bans_count",
 ]
+
+
+@public_router.get("/sanction-rules", response_model=SanctionRulesOut)
+@log_route("admin.sanction_rules_public")
+async def public_sanction_rules(session: AsyncSession = Depends(get_session)) -> SanctionRulesOut:
+    return sanction_rules_out(await ensure_sanction_rules(session))
+
+
+@router.patch("/sanction-rules", response_model=SanctionRulesOut, dependencies=ADMIN_GUARD)
+@log_route("admin.sanction_rules_update")
+async def update_sanction_rules(
+    payload: SanctionRulesUpdateIn,
+    session: AsyncSession = Depends(get_session),
+    ident: Identity = Depends(require_protected_admin_dep),
+) -> SanctionRulesOut:
+    row = await ensure_sanction_rules(session)
+    sections = payload.model_dump(mode="json")["sections"]
+    changed = row.sections != sections
+
+    if changed:
+        row.sections = sections
+        await session.commit()
+        await session.refresh(row)
+
+    result = sanction_rules_out(row)
+    if changed:
+        payload_data = result.model_dump(mode="json")
+        with suppress(Exception):
+            await sio.emit("sanction_rules_update", payload_data, namespace="/auth")
+        with suppress(Exception):
+            await sio.emit("sanction_rules_update", payload_data, namespace="/rooms")
+
+    await log_action(
+        session,
+        user_id=int(ident["id"]),
+        username=ident["username"],
+        action="admin_sanction_rules_update",
+        details=(
+            f"Обновление правил sections={len(sections)} "
+            f"rules={sum(len(section['rules']) for section in sections)}"
+            if changed
+            else "Обновление правил без изменений"
+        ),
+    )
+    return result
 
 
 @public_router.get("/settings/public", response_model=PublicSettingsOut)

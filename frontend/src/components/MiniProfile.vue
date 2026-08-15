@@ -309,7 +309,6 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { api } from '@/services/axios'
 import { alertDialog, confirmDialog, confirmDialogWithAction, useConfirmState } from '@/services/confirm'
 import { isMiniProfilePrivilegedViewer, normalizeMiniProfileRole } from '@/services/miniProfile'
-import { DEFAULT_SANCTION_REASON, SANCTION_REASONS } from '@/constants/sanctionReasons'
 import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
 import { getProfileThemeBadgeSources } from '@/constants/profileIcons'
 import {
@@ -555,12 +554,12 @@ const staffSanctionBusy = reactive<Record<string, boolean>>({})
 const staffSanctionModalOpen = ref(false)
 const staffSanctionSaving = ref(false)
 const staffSanctionKind = ref<MiniProfileSanctionKind>('timeout')
-const staffSanctionReasons = SANCTION_REASONS
+const staffSanctionReasons = computed(() => settingsStore.sanctionReasons)
 const staffSanctionForm = reactive({
   months: 0,
   days: 0,
   hours: 0,
-  reason: DEFAULT_SANCTION_REASON,
+  reason: settingsStore.defaultSanctionReason,
   description: '',
 })
 const staffSubscriptionModalOpen = ref(false)
@@ -1346,7 +1345,7 @@ function resetStaffSanctionForm(): void {
   staffSanctionForm.months = 0
   staffSanctionForm.days = 0
   staffSanctionForm.hours = 0
-  staffSanctionForm.reason = DEFAULT_SANCTION_REASON
+  staffSanctionForm.reason = settingsStore.defaultSanctionReason
   staffSanctionForm.description = ''
 }
 

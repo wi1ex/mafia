@@ -1,7 +1,7 @@
 from __future__ import annotations
 from datetime import datetime
 from typing import Annotated, Optional, List, Literal
-from pydantic import BaseModel, Field, AfterValidator
+from pydantic import AfterValidator, BaseModel, Field, field_validator, model_validator
 from ..api.utils import (
     normalize_season_start_game_number,
     normalize_text_moderation_whitelist,
@@ -11,6 +11,53 @@ from ..api.utils import (
 SeasonStartCsv = Annotated[str, AfterValidator(normalize_season_start_game_number)]
 TextModerationWhitelistCsv = Annotated[str, AfterValidator(normalize_text_moderation_whitelist)]
 TextModerationBlacklistCsv = Annotated[str, AfterValidator(normalize_text_moderation_blacklist)]
+
+SanctionBadgeKey = Literal["ban", "tm1", "tm2", "tm3", "tm4", "ot1", "ot2", "ot3", "ot4"]
+
+
+class SanctionRuleItem(BaseModel):
+    text: str = Field(min_length=1, max_length=1024)
+    badge: SanctionBadgeKey | None = None
+
+    @field_validator("text")
+    @classmethod
+    def normalize_text(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("rule_text_required")
+
+        return normalized
+
+
+class SanctionRulesSection(BaseModel):
+    id: str = Field(min_length=1, max_length=64, pattern=r"^[a-z][a-z0-9-]*$")
+    title: str = Field(min_length=1, max_length=255)
+    rules: List[SanctionRuleItem] = Field(min_length=1, max_length=100)
+
+    @field_validator("id", "title")
+    @classmethod
+    def normalize_text_fields(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("rule_section_value_required")
+
+        return normalized
+
+
+class SanctionRulesOut(BaseModel):
+    sections: List[SanctionRulesSection] = Field(min_length=1, max_length=30)
+
+    @model_validator(mode="after")
+    def validate_unique_section_ids(self):
+        ids = [section.id for section in self.sections]
+        if len(ids) != len(set(ids)):
+            raise ValueError("rule_section_ids_must_be_unique")
+
+        return self
+
+
+class SanctionRulesUpdateIn(SanctionRulesOut):
+    pass
 
 
 class SiteSettingsOut(BaseModel):

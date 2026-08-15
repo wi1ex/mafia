@@ -8,6 +8,9 @@
         <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'settings' }" :aria-selected="activeTab === 'settings'" @click="activeTab = 'settings'">
           Параметры
         </button>
+        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'rules' }" :aria-selected="activeTab === 'rules'" @click="activeTab = 'rules'">
+          Правила
+        </button>
         <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'updates' }" :aria-selected="activeTab === 'updates'" @click="activeTab = 'updates'">
           Уведомления
         </button>
@@ -36,6 +39,40 @@
     <Transition name="tab-fade" mode="out-in">
       <div :key="activeTab" class="tab-panel">
         <div v-if="loading" class="loading">Загрузка...</div>
+
+        <div v-else-if="activeTab === 'rules'" class="rules-editor">
+          <div class="rules-editor__toolbar">
+            <p>Здесь редактируется единый список: он сразу используется на странице правил и при выборе причины санкции.</p>
+            <div class="rules-editor__actions">
+              <button class="btn dark" :disabled="savingRules || !isRulesDirty" @click="loadSanctionRules">Отменить изменения</button>
+              <button class="btn" :disabled="savingRules" @click="addRulesSection">Добавить раздел</button>
+              <button class="btn confirm" :disabled="savingRules || !isRulesDirty" @click="saveSanctionRules">
+                {{ savingRules ? 'Сохранение…' : 'Сохранить правила' }}
+              </button>
+            </div>
+          </div>
+          <article v-for="(section, sectionIndex) in sanctionRulesEditor" :key="`${section.id}-${sectionIndex}`" class="rules-editor__section">
+            <div class="rules-editor__section-head">
+              <UiInput :id="`sanction-section-${sectionIndex}`" v-model="section.title" size="low" maxlength="255" :disabled="savingRules" label="Название раздела" />
+              <span class="rules-editor__anchor">Якорь: #{{ section.id }}</span>
+              <button class="btn danger" :disabled="savingRules || sanctionRulesEditor.length <= 1" @click="removeRulesSection(sectionIndex)">Удалить раздел</button>
+            </div>
+            <div class="rules-editor__rule-list">
+              <div v-for="(rule, ruleIndex) in section.rules" :key="`${section.id}-${ruleIndex}`" class="rules-editor__rule">
+                <UiInput :id="`sanction-rule-${sectionIndex}-${ruleIndex}`" v-model="rule.text" as="textarea" rows="3" size="low" maxlength="1024" :disabled="savingRules" :label="`Пункт ${ruleIndex + 1}`" />
+                <label class="rules-editor__badge">
+                  <span>Санкция</span>
+                  <select v-model="rule.badge" :disabled="savingRules">
+                    <option :value="null">Не указана</option>
+                    <option v-for="option in sanctionBadgeOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+                  </select>
+                </label>
+                <button class="btn danger" :disabled="savingRules || section.rules.length <= 1" @click="removeSanctionRule(sectionIndex, ruleIndex)">Удалить</button>
+              </div>
+            </div>
+            <button class="btn" :disabled="savingRules" @click="addSanctionRule(sectionIndex)">Добавить пункт</button>
+          </article>
+        </div>
 
         <div v-else-if="activeTab === 'settings'">
           <div class="grid">
@@ -990,7 +1027,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { api } from '@/services/axios'
 import { alertDialog, confirmDialog } from '@/services/confirm'
 import { formatLocalDateTime } from '@/services/datetime'
-import { SANCTION_REASONS } from '@/constants/sanctionReasons'
+import { SANCTION_BADGES, type SanctionBadgeKey } from '@/constants/sanctionReasons'
 import { canOpenMiniProfileTarget, normalizeMiniProfileUserId } from '@/services/miniProfile'
 import { useSettingsStore, useUserStore } from '@/store'
 
@@ -1056,6 +1093,17 @@ type GameSettings = {
   knocks_limit: number
   wink_spot_chance_percent: number
   game_roles_reveal_seconds: number
+}
+
+type EditableSanctionRule = {
+  text: string
+  badge: SanctionBadgeKey | null
+}
+
+type EditableSanctionRulesSection = {
+  id: string
+  title: string
+  rules: EditableSanctionRule[]
 }
 
 type RegistrationPoint = {
@@ -1261,7 +1309,7 @@ type RoomFilter = 'all' | 'stream_only' | 'hidden_only' | 'has_games' | 'duo_onl
 const route = useRoute()
 const router = useRouter()
 
-const TAB_KEYS = ['settings', 'updates', 'stats', 'logs', 'rooms', 'users', 'sanctions', 'contact_requests', 'subscriptions'] as const
+const TAB_KEYS = ['settings', 'rules', 'updates', 'stats', 'logs', 'rooms', 'users', 'sanctions', 'contact_requests', 'subscriptions'] as const
 type TabKey = typeof TAB_KEYS[number]
 const PAGE_LIMIT_OPTIONS = [
   { value: 20, label: '20' },
@@ -1283,6 +1331,7 @@ function normalizeTab(v: unknown): TabKey {
 const activeTab = ref<TabKey>('stats')
 const loading = ref(false)
 const savingSettings = ref(false)
+const savingRules = ref(false)
 const statsLoading = ref(false)
 const logsLoading = ref(false)
 const roomsLoading = ref(false)
@@ -1350,6 +1399,10 @@ const viewerUserId = computed(() => normalizeMiniProfileUserId(userStore.user?.i
 const roomGamesTooltipEnabled = computed(() => settingsStore.roomsLimitGlobal !== 22)
 const siteSnapshot = ref('')
 const gameSnapshot = ref('')
+const sanctionRulesEditor = ref<EditableSanctionRulesSection[]>([])
+const sanctionRulesSnapshot = ref('')
+const sanctionBadgeOptions = (Object.entries(SANCTION_BADGES) as [SanctionBadgeKey, { code: string; notation?: string }][])
+  .map(([value, badge]) => ({ value, label: badge.notation ? `${badge.code} (${badge.notation})` : badge.code }))
 
 const statsMonth = ref('')
 const stats = reactive<SiteStats>({
@@ -1446,8 +1499,8 @@ const userMiniProfileHistoryUrl = computed(() => {
 })
 const updateNoticeSaving = ref(false)
 const updateNoticeForm = reactive({ title: '', text: '' })
-const sanctionReasons = SANCTION_REASONS
-const sanctionReasonValues = new Set(sanctionReasons.map(({ value }) => value))
+const sanctionReasons = computed(() => settingsStore.sanctionReasons)
+const sanctionReasonValues = computed(() => new Set(sanctionReasons.value.map(({ value }) => value)))
 const SANCTION_DURATION_LIMITS = {
   months: 240,
   days: 31,
@@ -1667,6 +1720,7 @@ function snapshotGame(): string {
 const isSiteDirty = computed(() => siteSnapshot.value !== snapshotSite())
 const isGameDirty = computed(() => gameSnapshot.value !== snapshotGame())
 const isSettingsDirty = computed(() => isSiteDirty.value || isGameDirty.value)
+const isRulesDirty = computed(() => sanctionRulesSnapshot.value !== snapshotSanctionRules())
 const logsPages = computed(() => Math.max(1, Math.ceil(logsTotal.value / logsLimit.value)))
 const roomsPages = computed(() => Math.max(1, Math.ceil(roomsTotal.value / roomsLimit.value)))
 const usersPages = computed(() => Math.max(1, Math.ceil(usersTotal.value / usersLimit.value)))
@@ -2202,6 +2256,94 @@ function formatMonthLabel(value: string): string {
   return `${month}.${year.slice(-2)}`
 }
 
+function copySanctionRulesForEditor(): EditableSanctionRulesSection[] {
+  return settingsStore.sanctionRules.map(section => ({
+    id: section.id,
+    title: section.title,
+    rules: section.rules.map(rule => ({ text: rule.text, badge: rule.badge })),
+  }))
+}
+
+function snapshotSanctionRules(): string {
+  return JSON.stringify(sanctionRulesEditor.value.map(section => ({
+    id: section.id,
+    title: section.title.trim(),
+    rules: section.rules.map(rule => ({ text: rule.text.trim(), badge: rule.badge })),
+  })))
+}
+
+function syncSanctionRulesEditor(): void {
+  sanctionRulesEditor.value = copySanctionRulesForEditor()
+  sanctionRulesSnapshot.value = snapshotSanctionRules()
+}
+
+function addRulesSection(): void {
+  let number = sanctionRulesEditor.value.length + 1
+  let id = `section-${number}`
+  const usedIds = new Set(sanctionRulesEditor.value.map(section => section.id))
+  while (usedIds.has(id)) {
+    number += 1
+    id = `section-${number}`
+  }
+  sanctionRulesEditor.value.push({
+    id,
+    title: '',
+    rules: [{ text: '', badge: null }],
+  })
+}
+
+function removeRulesSection(sectionIndex: number): void {
+  if (sanctionRulesEditor.value.length <= 1) return
+  sanctionRulesEditor.value.splice(sectionIndex, 1)
+}
+
+function addSanctionRule(sectionIndex: number): void {
+  sanctionRulesEditor.value[sectionIndex]?.rules.push({ text: '', badge: null })
+}
+
+function removeSanctionRule(sectionIndex: number, ruleIndex: number): void {
+  const section = sanctionRulesEditor.value[sectionIndex]
+  if (!section || section.rules.length <= 1) return
+  section.rules.splice(ruleIndex, 1)
+}
+
+async function loadSanctionRules(): Promise<void> {
+  loading.value = true
+  try {
+    await settingsStore.fetchSanctionRules()
+    syncSanctionRulesEditor()
+  } catch {
+    void alertDialog('Не удалось загрузить правила')
+  } finally {
+    loading.value = false
+  }
+}
+
+async function saveSanctionRules(): Promise<void> {
+  if (savingRules.value || !isRulesDirty.value) return
+  const sections = sanctionRulesEditor.value.map(section => ({
+    id: section.id,
+    title: section.title.trim(),
+    rules: section.rules.map(rule => ({ text: rule.text.trim(), badge: rule.badge })),
+  }))
+  if (sections.some(section => !section.title || section.rules.some(rule => !rule.text))) {
+    void alertDialog('Заполните названия разделов и все пункты правил')
+    return
+  }
+
+  savingRules.value = true
+  try {
+    const { data } = await api.patch('/admin/sanction-rules', { sections })
+    if (!settingsStore.applySanctionRulesPayload(data)) throw new Error('invalid_sanction_rules_response')
+    syncSanctionRulesEditor()
+    void alertDialog('Правила сохранены')
+  } catch {
+    void alertDialog('Не удалось сохранить правила')
+  } finally {
+    savingRules.value = false
+  }
+}
+
 async function loadSettings(): Promise<void> {
   loading.value = true
   try {
@@ -2494,7 +2636,7 @@ async function loadSanctions(): Promise<void> {
 }
 
 function isCurrentSanctionReason(reason: string | null | undefined): boolean {
-  return Boolean(reason && sanctionReasonValues.has(reason))
+  return Boolean(reason && sanctionReasonValues.value.has(reason))
 }
 
 function isSanctionReasonChanging(row: SanctionsRow): boolean {
@@ -3028,6 +3170,10 @@ function syncLogsAutoRefresh(tab: TabKey): void {
 }
 
 function refreshActiveTab(tab: typeof activeTab.value): void {
+  if (tab === 'rules') {
+    void loadSanctionRules()
+    return
+  }
   if (tab === 'settings') {
     void loadSettings()
     return
@@ -3305,6 +3451,87 @@ onBeforeUnmount(() => {
         }
         :deep(.switch-item) {
           margin-bottom: 10px;
+        }
+      }
+    }
+    .rules-editor {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      .rules-editor__toolbar,
+      .rules-editor__section {
+        border: 3px solid $neutral-700;
+        border-radius: 5px;
+        padding: 15px;
+      }
+      .rules-editor__toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        p {
+          max-width: 760px;
+          margin: 0;
+          color: $neutral-300;
+        }
+      }
+      .rules-editor__actions,
+      .rules-editor__section-head,
+      .rules-editor__rule {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .rules-editor__actions {
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+      .rules-editor__section {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .rules-editor__section-head {
+        :deep(.ui-input) {
+          flex: 1;
+        }
+      }
+      .rules-editor__anchor {
+        color: $neutral-400;
+        font-size: 13px;
+        white-space: nowrap;
+      }
+      .rules-editor__rule-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .rules-editor__rule {
+        align-items: stretch;
+        padding: 10px;
+        border-radius: 5px;
+        background: $neutral-800;
+        :deep(.ui-input) {
+          flex: 1;
+        }
+      }
+      .rules-editor__badge {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 4px;
+        min-width: 120px;
+        color: $neutral-300;
+        font-size: 12px;
+        select {
+          min-width: 120px;
+          height: 38px;
+          padding: 0 8px;
+          border: 1px solid $neutral-600;
+          border-radius: 5px;
+          background: $neutral-900;
+          color: $neutral-100;
+          font-family: Hauora-Regular;
         }
       }
     }
