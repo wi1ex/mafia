@@ -3915,8 +3915,8 @@ onBeforeUnmount(() => {
         top: 0;
         left: 0;
         box-sizing: border-box;
-        width: 320px;
-        height: 180px;
+        width: 640px;
+        height: 360px;
         cursor: grab;
         touch-action: none;
         user-select: none;
