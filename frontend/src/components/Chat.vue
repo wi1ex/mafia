@@ -173,7 +173,13 @@
             <img :src="iconPhoto" alt="" />
           </label>
 
-          <div class="composer-input-wrap">
+          <div
+            :class="['composer-input-wrap', { 'composer-input-wrap--drag-active': composerDragActive }]"
+            @dragenter="onComposerDragEnter"
+            @dragover="onComposerDragOver"
+            @dragleave="onComposerDragLeave"
+            @drop="onComposerDrop"
+          >
             <div ref="composerMirrorEl" class="composer-highlight-overlay" aria-hidden="true">
               <p class="composer-highlight-content">
                 <template v-for="(segment, index) in buildDraftTextSegments(draft)" :key="`draft-text-${index}`">
@@ -183,7 +189,7 @@
               </p>
             </div>
 
-          <textarea ref="textareaEl" v-model="draft" :class="['composer-input', { 'composer-input--mirrored': Boolean(draft) }]" :disabled="composerDisabled" @click="onComposerSelectionChange" @keyup="onComposerSelectionChange" @select="onComposerSelectionChange" @scroll="onComposerScroll" @blur="onComposerBlur" rows="3"
+          <textarea ref="textareaEl" v-model="draft" :class="['composer-input', { 'composer-input--mirrored': Boolean(draft) }]" :disabled="composerDisabled" @click="onComposerSelectionChange" @keyup="onComposerSelectionChange" @select="onComposerSelectionChange" @scroll="onComposerScroll" @blur="onComposerBlur" @paste="onComposerPaste" rows="3"
                     maxlength="1000" placeholder="Введите текст..." @keydown="onComposerKeydown" />
 
             <div v-if="mentionDropdownVisible" class="mention-suggestions" role="listbox" aria-label="Подсказки упоминаний">
@@ -349,6 +355,7 @@ const composerShellEl = ref<HTMLElement | null>(null)
 const textareaEl = ref<HTMLTextAreaElement | null>(null)
 const composerMirrorEl = ref<HTMLElement | null>(null)
 const composerPickerOpen = ref(false)
+const composerDragActive = ref(false)
 const knownMentionCandidates = ref<ChatMentionCandidate[]>([])
 const mentionSuggestions = ref<ChatMentionCandidate[]>([])
 const mentionLoading = ref(false)
@@ -393,6 +400,7 @@ let visibleUnreadTargetCheckRaf: number | null = null
 let unreadTargetsOpenSettleToken = 0
 let lastUserScrollIntentAt = 0
 let visibleUnreadTargetAutoReadSuppressedUntil = 0
+let composerDragDepth = 0
 const floatingChatActionsBottom = ref(62)
 const unreadTargetVisibilityTick = ref(0)
 const unreadTargetsOpenSettlePending = ref(false)
@@ -1456,10 +1464,71 @@ function onPickImage(event: Event): void {
   const input = event.target as HTMLInputElement | null
   const file = input?.files?.[0] || null
   if (!file) return
-  chat.attachDraftImage(file)
+  attachDraftImage(file)
   if (input) input.value = ''
+}
+
+function attachDraftImage(file: File): void {
+  if (composerDisabled.value) return
+  chat.attachDraftImage(file)
   composerPickerOpen.value = false
   void nextTick(() => focusComposer())
+}
+
+function isComposerFileDrag(event: DragEvent): boolean {
+  return Array.from(event.dataTransfer?.types || []).includes('Files')
+}
+
+function resetComposerDragState(): void {
+  composerDragDepth = 0
+  composerDragActive.value = false
+}
+
+function onComposerDragEnter(event: DragEvent): void {
+  if (!isComposerFileDrag(event)) return
+  event.preventDefault()
+  composerDragDepth += 1
+  composerDragActive.value = !composerDisabled.value
+}
+
+function onComposerDragOver(event: DragEvent): void {
+  if (!isComposerFileDrag(event)) return
+  event.preventDefault()
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = composerDisabled.value ? 'none' : 'copy'
+  }
+}
+
+function onComposerDragLeave(event: DragEvent): void {
+  if (!isComposerFileDrag(event)) return
+  composerDragDepth = Math.max(0, composerDragDepth - 1)
+  composerDragActive.value = composerDragDepth > 0 && !composerDisabled.value
+}
+
+function onComposerDrop(event: DragEvent): void {
+  if (!isComposerFileDrag(event)) return
+  event.preventDefault()
+  const file = Array.from(event.dataTransfer?.files || []).find((candidate) => candidate.type.toLowerCase().startsWith('image/'))
+  resetComposerDragState()
+  if (!file) return
+  attachDraftImage(file)
+}
+
+function clipboardImageFile(event: ClipboardEvent): File | null {
+  for (const item of Array.from(event.clipboardData?.items || [])) {
+    if (item.kind !== 'file' || !item.type.toLowerCase().startsWith('image/')) continue
+    const file = item.getAsFile()
+    if (file) return file
+  }
+  return null
+}
+
+function onComposerPaste(event: ClipboardEvent): void {
+  if (composerDisabled.value) return
+  const file = clipboardImageFile(event)
+  if (!file) return
+  event.preventDefault()
+  attachDraftImage(file)
 }
 
 watch(lastMutationToken, async () => {
@@ -1507,6 +1576,7 @@ watch(draft, () => {
 
 watch(composerDisabled, (disabled) => {
   if (disabled) {
+    resetComposerDragState()
     clearMentionSuggestions()
     return
   }
@@ -1575,6 +1645,7 @@ watch(() => chat.open, (open) => {
     unreadTargetsOpenSettlePending.value = false
     lastUserScrollIntentAt = 0
     composerPickerOpen.value = false
+    resetComposerDragState()
     reactionPickerMessageId.value = null
     clearMentionSuggestions()
     closeReactionDetails()
@@ -1626,6 +1697,7 @@ onBeforeUnmount(() => {
   closeReactionDetails()
   closeDeletedPreview()
   closeImageLightbox()
+  resetComposerDragState()
 })
 </script>
 
@@ -2176,6 +2248,9 @@ onBeforeUnmount(() => {
       width: 100%;
       background-color: $neutral-700;
       overflow: hidden;
+      &--drag-active {
+        box-shadow: inset 0 0 0 2px $orange-500;
+      }
     }
     .composer-highlight-overlay {
       position: absolute;
