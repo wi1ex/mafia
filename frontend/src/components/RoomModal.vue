@@ -54,7 +54,6 @@
           v-model="isPrivate"
           theme="light"
           :width="274"
-          :disabled="isPrivacyLocked"
           label="Приватность"
           off-label="Открытая"
           on-label="Закрытая"
@@ -196,10 +195,7 @@ const ok = computed(() => title.value.length > 0)
 const isPrivate = computed<boolean>({
   get: () => privacy.value === 'private',
   set: v => {
-    if (!v && anonymity.value === 'hidden') {
-      privacy.value = 'private'
-      return
-    }
+    if (!v) anonymity.value = 'visible'
     privacy.value = v ? 'private' : 'open'
   },
 })
@@ -211,8 +207,6 @@ const isAnonymous = computed<boolean>({
     anonymity.value = v ? 'hidden' : 'visible'
   },
 })
-
-const isPrivacyLocked = computed(() => anonymity.value === 'hidden')
 
 function normalizeRoomLimit(value: unknown): RoomLimit {
   const parsed = Number(value)
