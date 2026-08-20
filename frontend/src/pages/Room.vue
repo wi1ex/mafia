@@ -142,7 +142,7 @@
             <span>{{ streamVol }}%</span>
           </div>
           <button type="button" class="layout-toggle" aria-label="Изменить вид комнаты" :aria-pressed="isScreenGridLayout" @pointerdown.stop @click.stop="toggleScreenLayout">
-            <UiIcon class="layout-toggle__icon" :icon="iconGrid" />
+            <UiIcon class="layout-toggle__icon" :icon="isScreenGridLayout ? iconTheater : iconGrid" />
           </button>
         </div>
 
@@ -543,6 +543,7 @@ import iconLeavePlayer from '@/assets/images/leavePlayer.png'
 import iconDotBig from '@/assets/svg/iconDotBig.svg'
 import iconClose from '@/assets/svg/iconClose.svg'
 import iconGrid from '@/assets/svg/iconGrid.svg'
+import iconTheater from '@/assets/svg/iconTheater.svg'
 
 import iconMicOn from '@/assets/svg/iconMicOn.svg'
 import iconMicOff from '@/assets/svg/iconMicOff.svg'
@@ -3881,13 +3882,6 @@ onBeforeUnmount(() => {
         &:hover,
         &:focus-visible {
           background-color: $soft-purple-800;
-        }
-        &[aria-pressed='true'] {
-          background-color: $green-700;
-          &:hover,
-          &:focus-visible {
-            background-color: $green-600;
-          }
         }
         .layout-toggle__icon {
           --ui-icon-width: 24px;
