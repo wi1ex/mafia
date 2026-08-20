@@ -132,6 +132,8 @@ from ..utils import (
     release_room_action_lock,
     acquire_speech_action_lock,
     release_speech_action_lock,
+    acquire_speech_mic_operation_lock,
+    release_speech_mic_operation_lock,
     speech_min_duration_error,
 )
 
@@ -1730,34 +1732,42 @@ async def game_speech_next(sid, data):
 
             now_ms = int(time() * 1000)
             now_ts = now_ms // 1000
+            mic_lock = await acquire_speech_mic_operation_lock(r, rid, wait_seconds=2.0)
+            if mic_lock is None:
+                return {"ok": False, "error": "speech_action_busy", "status": 409}
+
+            mic_lock_key, mic_lock_token = mic_lock
             try:
-                _, forced_off = await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=next_uid, changes_bool={"mic": False})
-            except Exception:
-                log.exception("game_speech_next.unblock_mic_failed", rid=rid, head=head_uid, target=next_uid)
-                return {"ok": False, "error": "internal", "status": 500}
+                try:
+                    _, forced_off = await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=next_uid, changes_bool={"mic": False})
+                except Exception:
+                    log.exception("game_speech_next.unblock_mic_failed", rid=rid, head=head_uid, target=next_uid)
+                    return {"ok": False, "error": "internal", "status": 500}
 
-            if "__error__" in forced_off:
-                return {"ok": False, "error": "forbidden", "status": 403}
+                if "__error__" in forced_off:
+                    return {"ok": False, "error": "forbidden", "status": 403}
 
-            try:
-                await r.hset(f"room:{rid}:user:{next_uid}:state", mapping={"mic": "1"})
-                await emit_state_changed_filtered(r, rid, next_uid, {"mic": "1"})
-            except Exception:
-                log.exception("game_speech_next.mic_state_on_failed", rid=rid, uid=next_uid)
+                try:
+                    await r.hset(f"room:{rid}:user:{next_uid}:state", mapping={"mic": "1"})
+                    await emit_state_changed_filtered(r, rid, next_uid, {"mic": "1"})
+                except Exception:
+                    log.exception("game_speech_next.mic_state_on_failed", rid=rid, uid=next_uid)
 
-            async with r.pipeline() as p:
-                await p.hset(
-                    f"room:{rid}:game_state",
-                    mapping={
-                        "day_current_uid": str(next_uid),
-                        "day_speech_started": str(now_ts),
-                        "day_speech_duration": str(duration),
-                        "day_speech_finish_unlock_at_ms": str(now_ms + SPEECH_FINISH_MIN_SECONDS * 1000),
-                    },
-                )
-                if use_short:
-                    await p.hset(f"room:{rid}:game_short_speech_used", str(next_uid), "1")
-                await p.execute()
+                async with r.pipeline() as p:
+                    await p.hset(
+                        f"room:{rid}:game_state",
+                        mapping={
+                            "day_current_uid": str(next_uid),
+                            "day_speech_started": str(now_ts),
+                            "day_speech_duration": str(duration),
+                            "day_speech_finish_unlock_at_ms": str(now_ms + SPEECH_FINISH_MIN_SECONDS * 1000),
+                        },
+                    )
+                    if use_short:
+                        await p.hset(f"room:{rid}:game_short_speech_used", str(next_uid), "1")
+                    await p.execute()
+            finally:
+                await release_speech_mic_operation_lock(r, mic_lock_key, mic_lock_token)
 
             remaining = duration
             farewell_section: dict[str, Any] | None = None
@@ -3743,36 +3753,44 @@ async def game_vote_speech_next(sid, data):
                 kind = "defence"
                 duration = short_sec
 
-            try:
-                _, forced_off = await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=target_uid, changes_bool={"mic": False})
-            except Exception:
-                log.exception("game_vote_speech_next.unblock_mic_failed", rid=rid, head=head_uid, target=target_uid)
-                return {"ok": False, "error": "internal", "status": 500}
-
-            if "__error__" in forced_off:
-                return {"ok": False, "error": "forbidden", "status": 403}
-
-            try:
-                await r.hset(f"room:{rid}:user:{target_uid}:state", mapping={"mic": "1"})
-                await emit_state_changed_filtered(r, rid, target_uid, {"mic": "1"})
-            except Exception:
-                log.exception("game_vote_speech_next.mic_state_on_failed", rid=rid, uid=target_uid)
-
             now_ms = int(time() * 1000)
             now_ts = now_ms // 1000
-            async with r.pipeline() as p:
-                await p.hset(
-                    f"room:{rid}:game_state",
-                    mapping={
-                        "vote_leader_idx": str(leader_idx + 1),
-                        "vote_speech_uid": str(target_uid),
-                        "vote_speech_started": str(now_ts),
-                        "vote_speech_duration": str(duration),
-                        "vote_speech_kind": kind,
-                        "vote_speech_finish_unlock_at_ms": str(now_ms + SPEECH_FINISH_MIN_SECONDS * 1000),
-                    },
-                )
-                await p.execute()
+            mic_lock = await acquire_speech_mic_operation_lock(r, rid, wait_seconds=2.0)
+            if mic_lock is None:
+                return {"ok": False, "error": "speech_action_busy", "status": 409}
+
+            mic_lock_key, mic_lock_token = mic_lock
+            try:
+                try:
+                    _, forced_off = await apply_blocks_and_emit(r, rid, actor_uid=head_uid, actor_role="head", target_uid=target_uid, changes_bool={"mic": False})
+                except Exception:
+                    log.exception("game_vote_speech_next.unblock_mic_failed", rid=rid, head=head_uid, target=target_uid)
+                    return {"ok": False, "error": "internal", "status": 500}
+
+                if "__error__" in forced_off:
+                    return {"ok": False, "error": "forbidden", "status": 403}
+
+                try:
+                    await r.hset(f"room:{rid}:user:{target_uid}:state", mapping={"mic": "1"})
+                    await emit_state_changed_filtered(r, rid, target_uid, {"mic": "1"})
+                except Exception:
+                    log.exception("game_vote_speech_next.mic_state_on_failed", rid=rid, uid=target_uid)
+
+                async with r.pipeline() as p:
+                    await p.hset(
+                        f"room:{rid}:game_state",
+                        mapping={
+                            "vote_leader_idx": str(leader_idx + 1),
+                            "vote_speech_uid": str(target_uid),
+                            "vote_speech_started": str(now_ts),
+                            "vote_speech_duration": str(duration),
+                            "vote_speech_kind": kind,
+                            "vote_speech_finish_unlock_at_ms": str(now_ms + SPEECH_FINISH_MIN_SECONDS * 1000),
+                        },
+                    )
+                    await p.execute()
+            finally:
+                await release_speech_mic_operation_lock(r, mic_lock_key, mic_lock_token)
 
             farewell_section: dict[str, Any] | None = None
             if kind == "farewell":

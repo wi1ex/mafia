@@ -77,6 +77,8 @@ __all__ = [
     "release_room_action_lock",
     "acquire_speech_action_lock",
     "release_speech_action_lock",
+    "acquire_speech_mic_operation_lock",
+    "release_speech_mic_operation_lock",
     "speech_min_duration_error",
     "norm01",
     "to_bool01",
@@ -240,6 +242,7 @@ HOST_BLUR_AUTO_OFF_SECONDS = 120
 _host_blur_auto_tasks: dict[int, asyncio.Task[None]] = {}
 SPEECH_FINISH_MIN_SECONDS = 3
 SPEECH_ACTION_LOCK_TTL_SECONDS = 5
+SPEECH_MIC_OPERATION_LOCK_TTL_SECONDS = 10
 ROOM_ACTION_LOCK_TTL_SECONDS = 45
 SCREEN_QUALITY_LOW = "low"
 SCREEN_QUALITY_MEDIUM = "medium"
@@ -1599,6 +1602,31 @@ async def acquire_speech_action_lock(r, rid: int, action: str) -> tuple[str, str
 
 
 async def release_speech_action_lock(r, key: str, token: str) -> None:
+    await release_room_action_lock(r, key, token)
+
+
+async def acquire_speech_mic_operation_lock(
+    r,
+    rid: int,
+    *,
+    wait_seconds: float = 0.0,
+) -> tuple[str, str] | None:
+    deadline = asyncio.get_running_loop().time() + max(0.0, float(wait_seconds))
+    while True:
+        lock = await acquire_room_action_lock(
+            r,
+            rid,
+            "speech_mic_operation",
+            ttl_seconds=SPEECH_MIC_OPERATION_LOCK_TTL_SECONDS,
+        )
+        now = asyncio.get_running_loop().time()
+        if lock is not None or now >= deadline:
+            return lock
+
+        await asyncio.sleep(min(0.05, deadline - now))
+
+
+async def release_speech_mic_operation_lock(r, key: str, token: str) -> None:
     await release_room_action_lock(r, key, token)
 
 
@@ -3852,24 +3880,33 @@ def schedule_speech_mic_check(rid: int) -> None:
         try:
             await asyncio.sleep(2.5)
             r = get_redis()
-            raw_state = await r.hgetall(f"room:{rid}:game_state")
-            ctx = GameActionContext.from_raw_state(uid=0, rid=rid, r=r, raw_state=raw_state)
-            if ctx.phase == "idle" or not ctx.head_uid:
+            lock = await acquire_speech_mic_operation_lock(r, rid, wait_seconds=2.0)
+            if lock is None:
+                log.warning("speech_mic_check.lock_busy", rid=rid)
                 return
 
-            active_speaker_uid = 0
-            if ctx.phase == "day" and ctx.gint("day_speech_started") > 0:
-                active_speaker_uid = ctx.gint("day_current_uid")
-            elif ctx.phase == "vote" and ctx.gint("vote_speech_started") > 0:
-                active_speaker_uid = ctx.gint("vote_speech_uid")
+            lock_key, lock_token = lock
+            try:
+                raw_state = await r.hgetall(f"room:{rid}:game_state")
+                ctx = GameActionContext.from_raw_state(uid=0, rid=rid, r=r, raw_state=raw_state)
+                if ctx.phase == "idle" or not ctx.head_uid:
+                    return
 
-            await ensure_game_mics_off_except_active_fouls(
-                r,
-                rid,
-                head_uid=ctx.head_uid,
-                phase_override=ctx.phase,
-                excluded_uids=(active_speaker_uid,),
-            )
+                active_speaker_uid = 0
+                if ctx.phase == "day" and ctx.gint("day_speech_started") > 0:
+                    active_speaker_uid = ctx.gint("day_current_uid")
+                elif ctx.phase == "vote" and ctx.gint("vote_speech_started") > 0:
+                    active_speaker_uid = ctx.gint("vote_speech_uid")
+
+                await ensure_game_mics_off_except_active_fouls(
+                    r,
+                    rid,
+                    head_uid=ctx.head_uid,
+                    phase_override=ctx.phase,
+                    excluded_uids=(active_speaker_uid,),
+                )
+            finally:
+                await release_speech_mic_operation_lock(r, lock_key, lock_token)
         except asyncio.CancelledError:
             return
 
