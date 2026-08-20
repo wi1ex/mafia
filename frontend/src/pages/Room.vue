@@ -113,8 +113,16 @@
         />
       </div>
 
-      <div v-else class="theater" :class="{ 'theater--grid': isScreenGridLayout }">
-        <div class="stage">
+      <div v-else ref="theaterEl" class="theater" :class="{ 'theater--grid': isScreenGridLayout }">
+        <div
+          class="stage"
+          :class="{ 'stage--dragging': isScreenStageDragging }"
+          :style="isScreenGridLayout ? screenStageStyle : undefined"
+          @pointerdown="startScreenStageDrag"
+          @pointermove="moveScreenStage"
+          @pointerup="endScreenStageDrag"
+          @pointercancel="endScreenStageDrag"
+        >
           <video :ref="(el) => stableScreenRef(screenOwnerId)(el as HTMLVideoElement | null)" playsinline autoplay muted />
           <div v-if="screenOwnerId" class="screen-quality" :aria-label="`${screenQualityLabel}: ${SCREEN_QUALITY_HINT}`">
             <UiIcon class="dot-img" :icon="iconDotBig" />
@@ -133,15 +141,16 @@
             />
             <span>{{ streamVol }}%</span>
           </div>
-          <button type="button" class="layout-toggle" aria-label="Изменить вид комнаты" :aria-pressed="isScreenGridLayout" @click.stop="toggleScreenLayout">
+          <button type="button" class="layout-toggle" aria-label="Изменить вид комнаты" :aria-pressed="isScreenGridLayout" @pointerdown.stop @click.stop="toggleScreenLayout">
             <UiIcon class="layout-toggle__icon" :icon="iconGrid" />
           </button>
         </div>
 
-        <div class="sidebar">
+        <div class="sidebar" :style="isScreenGridLayout ? gridStyle : undefined">
           <RoomTile
             v-for="id in sortedPeerIds"
             :key="id"
+            :style="isScreenGridLayout ? tileGridStyle(id) : undefined"
             :id="id"
             :local-id="localId"
             :is-mobile="IS_MOBILE"
@@ -707,6 +716,10 @@ const volumeSnapTimers = new Map<string, number>()
 const screenOwnerId = ref<string>('')
 const screenQuality = ref<ScreenShareQuality>('low')
 const isScreenGridLayout = ref(false)
+const theaterEl = ref<HTMLElement | null>(null)
+const screenStagePosition = reactive({ x: 8, y: 8 })
+const isScreenStageDragging = ref(false)
+let screenStageDrag: { pointerId: number; offsetX: number; offsetY: number } | null = null
 const miniProfileOpen = ref(false)
 const miniProfileUserId = ref<number | null>(null)
 const miniProfileInitial = ref<RoomMiniProfileInitial | null>(null)
@@ -2058,7 +2071,10 @@ function clearScreenVolume(id: string | null | undefined) {
 
 function setScreenOwner(id: string, quality?: unknown) {
   const prev = screenOwnerId.value
-  if (id && id !== prev) isScreenGridLayout.value = false
+  if (id && id !== prev) {
+    isScreenGridLayout.value = false
+    resetScreenStagePosition()
+  }
   screenOwnerId.value = id
   screenQuality.value = id
     ? normalizeScreenQuality(quality, id === prev ? screenQuality.value : 'low')
@@ -2068,6 +2084,55 @@ function setScreenOwner(id: string, quality?: unknown) {
 
 function toggleScreenLayout() {
   isScreenGridLayout.value = !isScreenGridLayout.value
+}
+
+const screenStageStyle = computed(() => ({
+  transform: `translate(${screenStagePosition.x}px, ${screenStagePosition.y}px)`,
+}))
+
+function resetScreenStagePosition() {
+  screenStagePosition.x = 8
+  screenStagePosition.y = 8
+}
+
+function startScreenStageDrag(event: PointerEvent) {
+  if (!isScreenGridLayout.value || event.button !== 0) return
+  if (event.target instanceof Element && event.target.closest('.screen-quality, .volume, .layout-toggle')) return
+
+  const theater = theaterEl.value
+  const stage = event.currentTarget as HTMLElement
+  if (!theater) return
+
+  const stageRect = stage.getBoundingClientRect()
+  screenStageDrag = {
+    pointerId: event.pointerId,
+    offsetX: event.clientX - stageRect.left,
+    offsetY: event.clientY - stageRect.top,
+  }
+  isScreenStageDragging.value = true
+  stage.setPointerCapture(event.pointerId)
+  event.preventDefault()
+}
+
+function moveScreenStage(event: PointerEvent) {
+  const drag = screenStageDrag
+  const theater = theaterEl.value
+  if (!drag || drag.pointerId !== event.pointerId || !theater) return
+
+  const bounds = theater.getBoundingClientRect()
+  const stageBounds = (event.currentTarget as HTMLElement).getBoundingClientRect()
+  const maxX = Math.max(0, bounds.width - stageBounds.width)
+  const maxY = Math.max(0, bounds.height - stageBounds.height)
+  screenStagePosition.x = Math.min(maxX, Math.max(0, event.clientX - bounds.left - drag.offsetX))
+  screenStagePosition.y = Math.min(maxY, Math.max(0, event.clientY - bounds.top - drag.offsetY))
+}
+
+function endScreenStageDrag(event: PointerEvent) {
+  if (!screenStageDrag || screenStageDrag.pointerId !== event.pointerId) return
+  const stage = event.currentTarget as HTMLElement
+  if (stage.hasPointerCapture(event.pointerId)) stage.releasePointerCapture(event.pointerId)
+  screenStageDrag = null
+  isScreenStageDragging.value = false
 }
 
 function connectSocket() {
@@ -3843,17 +3908,29 @@ onBeforeUnmount(() => {
       height: 0;
     }
     &.theater--grid {
-      grid-template-columns: repeat(6, minmax(0, 1fr));
-      grid-template-rows: repeat(5, minmax(0, 1fr));
-      gap: 2px;
+      display: block;
+      position: relative;
       .stage {
-        grid-column: 1 / span 3;
-        grid-row: 1 / span 3;
+        position: absolute;
+        top: 0;
+        left: 0;
+        box-sizing: border-box;
+        width: 320px;
+        height: 180px;
+        cursor: grab;
+        touch-action: none;
+        user-select: none;
+        z-index: 20;
+        &.stage--dragging {
+          cursor: grabbing;
+        }
       }
       .sidebar {
-        display: contents;
-        width: auto;
-        overflow: visible;
+        display: grid;
+        width: 100%;
+        height: 100%;
+        gap: 2px;
+        overflow: hidden;
       }
     }
   }
