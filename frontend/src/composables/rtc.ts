@@ -1472,7 +1472,7 @@ export function useRTC(): UseRTC {
       deviceId: deviceId ? ({ exact: deviceId } as any) : undefined,
       echoCancellation: true,
       noiseSuppression: false,
-      autoGainControl: true,
+      autoGainControl: false,
     } as any
   }
 
@@ -1629,7 +1629,7 @@ export function useRTC(): UseRTC {
       audioCaptureDefaults: {
         echoCancellation: true,
         noiseSuppression: false,
-        autoGainControl: true,
+        autoGainControl: false,
         ...(opts?.audioCaptureDefaults || {})
       },
       videoCaptureDefaults: {

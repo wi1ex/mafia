@@ -737,10 +737,10 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
       align-items: center;
       justify-content: center;
       padding: 0;
-      width: 74px;
-      height: 74px;
-      border: 2px solid $green-500;
-      border-radius: 24px;
+      width: 36px;
+      height: 36px;
+      border: 1px solid $green-500;
+      border-radius: 12px;
       background-color: $soft-purple-800;
       cursor: pointer;
       &.citizen {
@@ -750,8 +750,8 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
         background-color: $role-mafia;
       }
       .farewell-img {
-        width: 48px;
-        height: 48px;
+        width: 24px;
+        height: 24px;
       }
     }
   }
@@ -866,6 +866,23 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
 @keyframes role-timer-decrease {
   from { clip-path: inset(0 0 0 0); }
   to   { clip-path: inset(0 100% 0 0); }
+}
+
+@media (max-width: 1000px) {
+  .tile {
+    .farewell-buttons {
+      .farewell-button {
+        width: 74px;
+        height: 74px;
+        border: 2px solid $green-500;
+        border-radius: 24px;
+        .farewell-img {
+          width: 48px;
+          height: 48px;
+        }
+      }
+    }
+  }
 }
 
 </style>
