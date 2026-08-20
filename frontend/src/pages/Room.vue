@@ -854,8 +854,9 @@ const canShowFoulButtons = computed(() =>
   ACTION_PHASES.includes(gamePhase.value as (typeof ACTION_PHASES)[number])
 )
 const isMafiaLimitRoom = computed(() => roomUserLimit.value === gameLimitMin.value)
+const isDuoRoom = computed(() => roomUserLimit.value === 2)
 const usesCameraSimulcast = computed(() =>
-  isMafiaLimitRoom.value || roomUserLimit.value === 20 || roomUserLimit.value === 2
+  isMafiaLimitRoom.value || roomUserLimit.value === 20 || isDuoRoom.value
 )
 const canStartStreams = computed(() => settings.streamsCanStart || isAdminUser.value)
 const canViewGameSettings = computed(() => !adminSpectator.value && isMafiaLimitRoom.value)
@@ -971,12 +972,13 @@ const canShowStartGame = computed(() => {
 })
 
 const desiredCameraQuality = computed<CameraQuality>(() => {
-  if (roomUserLimit.value === 2 && !screenOwnerId.value) return 'high'
+  if (isDuoRoom.value) return 'high'
   return 'medium'
 })
 
 const simulcastRemoteQuality: VQ = window.screen.width < 1000 ? 'low' : 'medium'
 const autoRemoteQuality = computed<VQ>(() => {
+  if (isDuoRoom.value) return window.screen.width < 1000 ? 'medium' : 'high'
   if (usesCameraSimulcast.value) return simulcastRemoteQuality
   return desiredCameraQuality.value === 'high' ? 'high' : 'low'
 })
