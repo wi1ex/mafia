@@ -27,7 +27,6 @@ export interface PublicSettings {
   wink_spot_chance_percent: number
   season_start_game_number: string
   senior_moderator_user_id: number | null
-  self_speech_finish_enabled: boolean
 }
 
 export type SanctionReason = {
@@ -59,7 +58,6 @@ const PUBLIC_SETTINGS_KEYS: readonly (keyof PublicSettings)[] = [
   'wink_spot_chance_percent',
   'season_start_game_number',
   'senior_moderator_user_id',
-  'self_speech_finish_enabled',
 ]
 
 export const useSettingsStore = defineStore('settings', () => {
@@ -82,7 +80,6 @@ export const useSettingsStore = defineStore('settings', () => {
   const winkSpotChancePercent = ref(25)
   const seasonStartGameNumber = ref('1')
   const seniorModeratorUserId = ref<number | null>(null)
-  const selfSpeechFinishEnabled = ref(true)
   const sanctionRules = ref<RulesSection[]>([])
   const sanctionReasons = computed<SanctionReason[]>(() => sanctionRules.value.flatMap(section => (
     section.rules.map(rule => ({ value: rule.text, label: rule.text }))
@@ -174,7 +171,6 @@ export const useSettingsStore = defineStore('settings', () => {
     seniorModeratorUserId.value = Number.isSafeInteger(seniorModeratorId) && seniorModeratorId > 0
       ? seniorModeratorId
       : null
-    selfSpeechFinishEnabled.value = Boolean(data.self_speech_finish_enabled)
     ready.value = true
   }
 
@@ -258,7 +254,6 @@ export const useSettingsStore = defineStore('settings', () => {
     winkSpotChancePercent,
     seasonStartGameNumber,
     seniorModeratorUserId,
-    selfSpeechFinishEnabled,
     sanctionRules,
     sanctionReasons,
     defaultSanctionReason,

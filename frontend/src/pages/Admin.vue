@@ -146,8 +146,6 @@
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Выбор ролей (сек)" />
                 <UiInput id="mafia-talk-seconds" size="low" v-model.number="game.mafia_talk_seconds" type="number" min="1" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Договорка мафии (сек)" />
-                <UiInput id="self-speech-finish-enabled" size="low" v-model.number="selfSpeechFinishEnabledInput" type="number" min="0" max="1" step="1"
-                         autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Завершение своей речи" />
                 <UiInput id="player-talk-seconds" size="low" v-model.number="game.player_talk_seconds" type="number" min="1" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Речь игрока (сек)" />
                 <UiInput id="player-talk-short-seconds" size="low" v-model.number="game.player_talk_short_seconds" type="number" min="1" step="1"
@@ -1077,7 +1075,6 @@ type SiteSettings = {
   text_moderation_blacklist: string
   blacklist_users_limit: number
   senior_moderator_user_id: number | null
-  self_speech_finish_enabled: boolean
 }
 
 type GameSettings = {
@@ -1362,7 +1359,6 @@ const site = reactive<SiteSettings>({
   text_moderation_blacklist: '0',
   blacklist_users_limit: 30,
   senior_moderator_user_id: null,
-  self_speech_finish_enabled: true,
 })
 
 const game = reactive<GameSettings>({
@@ -1378,19 +1374,6 @@ const game = reactive<GameSettings>({
   knocks_limit: 3,
   wink_spot_chance_percent: 10,
   game_roles_reveal_seconds: 5,
-})
-
-const selfSpeechFinishEnabledInputVersion = ref(0)
-
-const selfSpeechFinishEnabledInput = computed<number>({
-  get: () => {
-    selfSpeechFinishEnabledInputVersion.value
-    return site.self_speech_finish_enabled ? 1 : 0
-  },
-  set: value => {
-    site.self_speech_finish_enabled = Number(value) === 1
-    selfSpeechFinishEnabledInputVersion.value += 1
-  },
 })
 
 const settingsStore = useSettingsStore()
@@ -1696,7 +1679,6 @@ function snapshotSite(): string {
     text_moderation_blacklist: normalizeTextModerationBlacklist(site.text_moderation_blacklist),
     blacklist_users_limit: normalizeNonNegativeInt(site.blacklist_users_limit),
     senior_moderator_user_id: normalizeOptionalPositiveInt(site.senior_moderator_user_id),
-    self_speech_finish_enabled: Boolean(site.self_speech_finish_enabled),
   })
 }
 
@@ -2402,7 +2384,6 @@ async function saveSettings(): Promise<void> {
         text_moderation_blacklist: normalizeTextModerationBlacklist(site.text_moderation_blacklist),
         blacklist_users_limit: normalizeNonNegativeInt(site.blacklist_users_limit),
         senior_moderator_user_id: normalizeOptionalPositiveInt(site.senior_moderator_user_id),
-        self_speech_finish_enabled: Boolean(site.self_speech_finish_enabled),
       },
       game: {
         game_min_ready_players: normalizeInt(game.game_min_ready_players),
@@ -2452,7 +2433,6 @@ async function saveSettings(): Promise<void> {
       wink_spot_chance_percent: normalizePercent(game.wink_spot_chance_percent),
       season_start_game_number: site.season_start_game_number,
       senior_moderator_user_id: site.senior_moderator_user_id,
-      self_speech_finish_enabled: site.self_speech_finish_enabled,
     })
     void alertDialog('Настройки сохранены')
   } catch {

@@ -636,7 +636,7 @@ const {
   canFinishSpeechHead,
   canShowPassSpeechHead,
   canPassSpeechHead,
-  canFinishSpeechSelf: canFinishSpeechSelfBase,
+  canFinishSpeechSelf,
   canShowTakeFoulSelf,
   canTakeFoulSelf,
   canStartVote,
@@ -661,10 +661,6 @@ const {
   canRestartVoteForLeaders,
   canShowNight,
 } = game
-
-const canFinishSpeechSelf = computed(() => (
-  settings.selfSpeechFinishEnabled && canFinishSpeechSelfBase.value
-))
 
 const navUserAgent = navigator.userAgent || ''
 const isUaDataMobile = (navigator as any).userAgentData?.mobile === true

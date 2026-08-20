@@ -525,6 +525,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     const me = localId.value
     if (!me) return false
     if (!amIAlive.value) return false
+    if (nominateMode.value !== 'players') return false
     if (gamePhase.value !== 'day' && gamePhase.value !== 'vote') return false
     if (daySpeech.currentId !== me) return false
     return finishSpeechUnlocked.value

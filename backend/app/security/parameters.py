@@ -45,7 +45,6 @@ class AppSettingsSnapshot:
     text_moderation_blacklist_words: tuple[str, ...]
     blacklist_users_limit: int
     senior_moderator_user_id: int | None
-    self_speech_finish_enabled: bool
     game_min_ready_players: int
     role_pick_seconds: int
     mafia_talk_seconds: int
@@ -101,7 +100,6 @@ async def ensure_app_settings(session: AsyncSession) -> AppSettings:
             text_moderation_blacklist=defaults.text_moderation_blacklist,
             blacklist_users_limit=defaults.blacklist_users_limit,
             senior_moderator_user_id=defaults.senior_moderator_user_id,
-            self_speech_finish_enabled=defaults.self_speech_finish_enabled,
             game_min_ready_players=defaults.game_min_ready_players,
             role_pick_seconds=defaults.role_pick_seconds,
             mafia_talk_seconds=defaults.mafia_talk_seconds,

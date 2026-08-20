@@ -3547,7 +3547,12 @@ async def game_speech_finish(sid, data):
             if not head_uid:
                 return {"ok": False, "error": "no_head", "status": 400}
 
-            if actor_uid == current_uid and actor_uid != head_uid and not get_cached_settings().self_speech_finish_enabled:
+            raw_game = await r.hgetall(f"room:{rid}:game")
+            nominate_mode = str(raw_game.get("nominate_mode") or "players")
+            if nominate_mode not in ("players", "head"):
+                nominate_mode = "players"
+
+            if actor_uid == current_uid and actor_uid != head_uid and nominate_mode == "head":
                 return {"ok": False, "error": "self_speech_finish_disabled", "status": 403}
 
             if actor_uid not in (head_uid, current_uid):

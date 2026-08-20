@@ -26,6 +26,12 @@ async def lifespan(app) -> AsyncIterator[None]:
             await conn.execute(text("SELECT 1"))
             await conn.run_sync(Base.metadata.create_all)
 
+            # 1111111111111111111111111111111111111111111111
+            await conn.execute(text(
+                "ALTER TABLE settings DROP COLUMN IF EXISTS self_speech_finish_enabled"
+            ))
+            # 2222222222222222222222222222222222222222222222
+
         async with SessionLocal() as session:
             await ensure_app_settings(session)
             await ensure_sanction_rules(session)
