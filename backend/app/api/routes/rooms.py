@@ -84,7 +84,7 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
     gp = payload.game
     anonymity = payload.anonymity
     spectators_limit = normalize_spectators_limit(gp.spectators_limit)
-    if anonymity == "hidden" or spectators_limit <= 0 or user_limit == 20:
+    if anonymity == "hidden":
         theme_state = await resolve_profile_theme_state(session, uid)
         if not theme_state.subscription_active:
             raise HTTPException(status_code=403, detail="subscription_required")
@@ -300,11 +300,6 @@ async def update_game(room_id: int, payload: GameParams, ident: Identity = Depen
         raise HTTPException(status_code=409, detail="game_in_progress")
 
     spectators_limit = normalize_spectators_limit(payload.spectators_limit)
-    if spectators_limit <= 0:
-        theme_state = await resolve_profile_theme_state(session, actor_id)
-        if not theme_state.subscription_active:
-            raise HTTPException(status_code=403, detail="subscription_required")
-
     game_dict = {
         "mode": payload.mode,
         "spectators_limit": spectators_limit,

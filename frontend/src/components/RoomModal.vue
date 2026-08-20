@@ -32,20 +32,9 @@
           <span class="room-limit-text">Лимит участников</span>
           <div class="room-limit-segmented" role="radiogroup" aria-label="Лимит участников">
             <span v-for="option in roomLimitOptions" :key="option.value" class="room-limit-option">
-              <button v-if="option.value !== 20 || hasSubscription" class="room-limit-button" type="button" role="radio"
-                :class="{ active: limit === option.value }" :aria-checked="limit === option.value" @click="limit = option.value">
+              <button class="room-limit-button" type="button" role="radio" :class="{ active: limit === option.value }" :aria-checked="limit === option.value" @click="limit = option.value">
                 <span>{{ option.label }}</span>
               </button>
-              <span v-else class="room-limit-button room-limit-button--disabled" role="radio" aria-checked="false" aria-disabled="true">
-                <span>{{ option.label }}</span>
-                <UiTooltip
-                  class="room-limit-tooltip"
-                  :text="premiumRoomLimitHint"
-                  placement="top-left"
-                  :icon-size="20"
-                  bubble-width="320px"
-                />
-              </span>
             </span>
           </div>
         </div>
@@ -102,7 +91,6 @@ import UiInput from '@/components/UiInput.vue'
 import UiSwitch from '@/components/UiSwitch.vue'
 import UiButton from '@/components/UiButton.vue'
 import UiIcon from '@/components/UiIcon.vue'
-import UiTooltip from '@/components/UiTooltip.vue'
 
 import iconClose from '@/assets/svg/iconClose.svg'
 
@@ -117,7 +105,6 @@ const TITLE_MAX = 32
 type RoomLimit = number
 const hasSubscription = computed(() => Boolean(user.subscriptionActive))
 const canCreateHiddenRoom = hasSubscription
-const canDisableSpectators = hasSubscription
 const gameLimitMin = computed(() => {
   if (!settings.ready) return 11
   const minReady = Number(settings.gameMinReadyPlayers)
@@ -138,9 +125,7 @@ const initialGame: RoomGameParams = (() => {
   try {
     const raw = localStorage.getItem('room:lastGame')
     if (!raw) return { ...roomGameDefault }
-    return normalizeRoomGameParams(JSON.parse(raw), {
-      allowDisableSpectators: canDisableSpectators.value,
-    })
+    return normalizeRoomGameParams(JSON.parse(raw))
   } catch {
     return { ...roomGameDefault }
   }
@@ -183,7 +168,6 @@ const initialLimit = (() => {
 })()
 const limit = ref<RoomLimit>(initialLimit)
 const hiddenRoomHint = 'Создание скрытых комнат доступно только при наличии подписки'
-const premiumRoomLimitHint = 'Комната на 20 участников доступна только при наличии подписки'
 
 const privacy = ref<'open' | 'private'>(initialBasic.privacy === 'private' ? 'private' : 'open')
 const initialAnonymity = initialBasic.anonymity === 'hidden' && canCreateHiddenRoom.value ? 'hidden' : 'visible'
@@ -211,14 +195,12 @@ const isAnonymous = computed<boolean>({
 function normalizeRoomLimit(value: unknown): RoomLimit {
   const parsed = Number(value)
   if (parsed === 2 || parsed === gameLimitMin.value) return parsed
-  if (parsed === 20 && hasSubscription.value) return parsed
+  if (parsed === 20) return parsed
   return gameLimitMin.value
 }
 
 function normalizeGame(value: unknown): RoomGameParams {
-  return normalizeRoomGameParams(value, {
-    allowDisableSpectators: canDisableSpectators.value,
-  })
+  return normalizeRoomGameParams(value)
 }
 
 function saveBasic() {
@@ -264,7 +246,7 @@ async function create() {
     else if (st === 403 && d === 'user_timeout') void alertDialog('Вам выдан таймаут, создание комнаты недоступно')
     else if (st === 403 && d === 'user_banned') void alertDialog('Аккаунт забанен, создание комнаты недоступно')
     else if (st === 403 && d === 'not_verified') void alertDialog('Для создания комнаты требуется верификация')
-    else if (st === 403 && d === 'subscription_required') void alertDialog(limit.value === 20 ? premiumRoomLimitHint : hiddenRoomHint)
+    else if (st === 403 && d === 'subscription_required') void alertDialog(hiddenRoomHint)
     else if (st === 409 && d === 'rooms_limit_global') void alertDialog('Достигнут общий лимит комнат')
     else if (st === 409 && d === 'rooms_limit_user') void alertDialog('Достигнут личный лимит комнат')
     else if (st === 422 && moderationText) void alertDialog({ title: 'Отказ в создании', text: moderationText })
@@ -293,26 +275,12 @@ watch(gameLimitMin, (nextLimit) => {
   if (limit.value !== 2 && limit.value !== 20) limit.value = nextLimit
 }, { flush: 'sync' })
 
-watch(hasSubscription, (hasActiveSubscription) => {
-  if (!hasActiveSubscription && limit.value === 20) limit.value = gameLimitMin.value
-}, { flush: 'sync' })
-
 watch(anonymity, (next) => {
   if (next === 'hidden' && privacy.value !== 'private') privacy.value = 'private'
 }, { flush: 'sync' })
 
 watch(canCreateHiddenRoom, (canCreate) => {
   if (!canCreate && anonymity.value === 'hidden') anonymity.value = 'visible'
-}, { flush: 'sync' })
-
-watch(canDisableSpectators, (allowDisable) => {
-  const normalizedGame = normalizeRoomGameParams(game.value, {
-    allowDisableSpectators: allowDisable,
-  })
-  if (JSON.stringify(normalizedGame) !== JSON.stringify(game.value)) {
-    game.value = normalizedGame
-  }
-  saveGame()
 }, { flush: 'sync' })
 
 watch(() => user.user, () => {
@@ -443,7 +411,7 @@ onBeforeUnmount(() => {
                 pointer-events: none;
                 transition: opacity 0.25s ease-in-out;
               }
-              > span:not(.room-limit-tooltip) {
+              > span {
                 position: relative;
                 z-index: 1;
               }
@@ -457,16 +425,6 @@ onBeforeUnmount(() => {
               &:not(.active):focus-visible,
               &:not(.active):active {
                 color: $neutral-black;
-              }
-            }
-            .room-limit-button--disabled {
-              overflow: visible;
-              color: $neutral-300;
-              cursor: not-allowed;
-              .room-limit-tooltip {
-                position: relative;
-                z-index: 1;
-                margin-left: 4px;
               }
             }
           }

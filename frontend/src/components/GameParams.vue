@@ -24,11 +24,7 @@
             />
             <UiSwitch
               v-model="spectatorsEnabled"
-              :disabled="spectatorsToggleDisabled"
-              :tooltip="spectatorsToggleTooltip"
-              tooltip-target="off"
-              tooltip-placement="bottom-center"
-              tooltip-bubble-width="320px"
+              :disabled="gameParamsDisabled"
               label="Зрители:"
               theme="light"
               size="low"
@@ -123,7 +119,6 @@
 import { computed, ref, watch } from 'vue'
 import { api } from '@/services/axios'
 import { alertDialog } from '@/services/confirm'
-import { useUserStore } from '@/store'
 import {
   normalizeRoomGameParams,
   roomGameDefault,
@@ -150,16 +145,12 @@ const emit = defineEmits<{
   (e: 'saved', game: RoomGameParams): void
 }>()
 
-const user = useUserStore()
 const busy = ref(false)
 const loading = ref(false)
 const paramsScroll = ref<HTMLElement | null>(null)
 const game = ref<RoomGameParams>({ ...roomGameDefault })
 const initialGame = ref<RoomGameParams | null>(null)
-const canDisableSpectators = computed(() => Boolean(user.subscriptionActive))
-const allowDisabledSpectatorsValue = computed(() => !props.canEdit || canDisableSpectators.value)
 const gameParamsDisabled = computed(() => busy.value || loading.value || !props.canEdit)
-const spectatorsDisabledHint = 'Отключение зрителей в игре доступно только при наличии подписки'
 
 const isRating = computed<boolean>({
   get: () => game.value.mode === 'rating',
@@ -174,28 +165,12 @@ const isPlayersNomination = computed<boolean>({
 const spectatorsEnabled = computed<boolean>({
   get: () => game.value.spectators_limit >= SPECTATORS_ENABLED_LIMIT,
   set: (next) => {
-    if (!next && !canDisableSpectators.value) return
     game.value.spectators_limit = next ? SPECTATORS_ENABLED_LIMIT : SPECTATORS_DISABLED_LIMIT
   },
 })
 
-const spectatorsPremiumLocked = computed(() => !canDisableSpectators.value && spectatorsEnabled.value)
-const spectatorsToggleDisabled = computed(() => Boolean(gameParamsDisabled.value || spectatorsPremiumLocked.value))
-const spectatorsToggleTooltip = computed(() => {
-  if (!props.canEdit || canDisableSpectators.value) return undefined
-  return spectatorsDisabledHint
-})
-
-function normalizeLoadedGame(raw: unknown): RoomGameParams {
-  return normalizeRoomGameParams(raw, {
-    allowDisableSpectators: allowDisabledSpectatorsValue.value,
-  })
-}
-
-function normalizeSaveGame(raw: unknown): RoomGameParams {
-  return normalizeRoomGameParams(raw, {
-    allowDisableSpectators: canDisableSpectators.value,
-  })
+function normalizeGame(raw: unknown): RoomGameParams {
+  return normalizeRoomGameParams(raw)
 }
 
 function isSameGame(a: RoomGameParams, b: RoomGameParams) {
@@ -236,7 +211,7 @@ async function loadGame() {
   loading.value = true
   try {
     const { data } = await api.get(`/rooms/${props.roomId}/info`)
-    const next = data?.game ? normalizeLoadedGame(data.game) : { ...roomGameDefault }
+    const next = data?.game ? normalizeGame(data.game) : { ...roomGameDefault }
     applyGame(next)
   } catch {
     void alertDialog('Не удалось загрузить параметры игры')
@@ -249,7 +224,7 @@ async function save() {
   if (!props.roomId || !props.canEdit || !isDirty.value || busy.value || loading.value) return
   busy.value = true
   try {
-    const payload = normalizeSaveGame(game.value)
+    const payload = normalizeGame(game.value)
     await api.patch(`/rooms/${props.roomId}/game`, payload)
     saveLastGame(payload)
     applyGame(payload)
@@ -259,7 +234,6 @@ async function save() {
     const d = e?.response?.data?.detail
     if (st === 409 && d === 'game_in_progress') void alertDialog('Игра уже началась')
     else if (st === 403 && d === 'forbidden') void alertDialog('Нет доступа к настройкам игры')
-    else if (st === 403 && d === 'subscription_required') void alertDialog('Отключение зрителей доступно только обладателям подписки')
     else if (st === 404 && d === 'room_not_found') void alertDialog('Комната не найдена')
     else if (st === 429 && d === 'rate_limited') void alertDialog('Слишком много запросов, попробуйте позже')
     else if (d && typeof d === 'object' && d.detail) void alertDialog(String(d.detail))
@@ -280,7 +254,7 @@ watch(() => props.roomId, () => {
 
 watch(() => props.externalGame, (next) => {
   if (!next) return
-  applyGame(normalizeLoadedGame(next))
+  applyGame(normalizeGame(next))
 }, { deep: true })
 
 watch(game, () => {
@@ -288,21 +262,6 @@ watch(game, () => {
   void save()
 }, { deep: true })
 
-watch(allowDisabledSpectatorsValue, (allowDisable) => {
-  const normalizedGame = normalizeRoomGameParams(game.value, {
-    allowDisableSpectators: allowDisable,
-  })
-  const normalizedInitial = initialGame.value
-    ? normalizeRoomGameParams(initialGame.value, { allowDisableSpectators: allowDisable })
-    : null
-
-  if (JSON.stringify(normalizedGame) !== JSON.stringify(game.value)) {
-    game.value = normalizedGame
-  }
-  if (normalizedInitial && JSON.stringify(normalizedInitial) !== JSON.stringify(initialGame.value)) {
-    initialGame.value = normalizedInitial
-  }
-}, { flush: 'sync' })
 </script>
 
 <style scoped lang="scss">

@@ -33,11 +33,10 @@ export const roomGameDefault: RoomGameParams = {
 
 export function normalizeSpectatorsLimit(
   value: unknown,
-  options?: { allowDisableSpectators?: boolean },
 ): number {
   const parsed = Number(value ?? SPECTATORS_ENABLED_LIMIT)
   if (!Number.isFinite(parsed)) return SPECTATORS_ENABLED_LIMIT
-  if ((options?.allowDisableSpectators ?? true) && parsed <= 0) {
+  if (parsed <= 0) {
     return SPECTATORS_DISABLED_LIMIT
   }
   return SPECTATORS_ENABLED_LIMIT
@@ -45,7 +44,6 @@ export function normalizeSpectatorsLimit(
 
 export function normalizeRoomGameParams(
   raw: unknown,
-  options?: { allowDisableSpectators?: boolean },
 ): RoomGameParams {
   const merged: RoomGameParams = { ...roomGameDefault }
   if (!raw || typeof raw !== 'object') return merged
@@ -54,9 +52,7 @@ export function normalizeRoomGameParams(
   if (value.mode === 'normal' || value.mode === 'rating') merged.mode = value.mode
   if (value.nominate_mode === 'head' || value.nominate_mode === 'players') merged.nominate_mode = value.nominate_mode
 
-  merged.spectators_limit = normalizeSpectatorsLimit(value.spectators_limit, {
-    allowDisableSpectators: options?.allowDisableSpectators,
-  })
+  merged.spectators_limit = normalizeSpectatorsLimit(value.spectators_limit)
 
   if (typeof value.break_at_zero === 'boolean') merged.break_at_zero = value.break_at_zero
   const liftAtZero = typeof value.lift_at_zero === 'boolean'

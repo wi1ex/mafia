@@ -1178,9 +1178,7 @@ function openGameSettings() {
   gameParamsOpen.value = next
 }
 function applyRoomGameSnapshot(raw: unknown) {
-  roomGameSnapshot.value = normalizeRoomGameParams(raw, {
-    allowDisableSpectators: true,
-  })
+  roomGameSnapshot.value = normalizeRoomGameParams(raw)
 }
 function onDocClick() {
   closePanels(undefined, { keepFriendsWhenConfirm: true })
