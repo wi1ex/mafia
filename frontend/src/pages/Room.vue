@@ -113,7 +113,7 @@
         />
       </div>
 
-      <div v-else class="theater">
+      <div v-else class="theater" :class="{ 'theater--grid': isScreenGridLayout }">
         <div class="stage">
           <video :ref="(el) => stableScreenRef(screenOwnerId)(el as HTMLVideoElement | null)" playsinline autoplay muted />
           <div v-if="screenOwnerId" class="screen-quality" :aria-label="`${screenQualityLabel}: ${SCREEN_QUALITY_HINT}`">
@@ -133,6 +133,9 @@
             />
             <span>{{ streamVol }}%</span>
           </div>
+          <button type="button" class="layout-toggle" aria-label="Изменить вид комнаты" :aria-pressed="isScreenGridLayout" @click.stop="toggleScreenLayout">
+            <UiIcon class="layout-toggle__icon" :icon="iconGrid" />
+          </button>
         </div>
 
         <div class="sidebar">
@@ -142,7 +145,7 @@
             :id="id"
             :local-id="localId"
             :is-mobile="IS_MOBILE"
-            :side="true"
+            :side="!isScreenGridLayout"
             :speaking="(game.daySpeech.currentId === id) || (gamePhase === 'idle' && rtc.isSpeaking(id))"
             :video-ref="stableVideoRef(id)"
             :has-video-track="rtc.hasCameraTrack"
@@ -530,6 +533,7 @@ import iconFouledPlayer from '@/assets/images/fouledPlayer.png'
 import iconLeavePlayer from '@/assets/images/leavePlayer.png'
 import iconDotBig from '@/assets/svg/iconDotBig.svg'
 import iconClose from '@/assets/svg/iconClose.svg'
+import iconGrid from '@/assets/svg/iconGrid.svg'
 
 import iconMicOn from '@/assets/svg/iconMicOn.svg'
 import iconMicOff from '@/assets/svg/iconMicOff.svg'
@@ -702,6 +706,7 @@ const SEAT_TILE_STYLE_CACHE = new Map<number, Readonly<{ gridColumn: string; gri
 const volumeSnapTimers = new Map<string, number>()
 const screenOwnerId = ref<string>('')
 const screenQuality = ref<ScreenShareQuality>('low')
+const isScreenGridLayout = ref(false)
 const miniProfileOpen = ref(false)
 const miniProfileUserId = ref<number | null>(null)
 const miniProfileInitial = ref<RoomMiniProfileInitial | null>(null)
@@ -2053,11 +2058,16 @@ function clearScreenVolume(id: string | null | undefined) {
 
 function setScreenOwner(id: string, quality?: unknown) {
   const prev = screenOwnerId.value
+  if (id && id !== prev) isScreenGridLayout.value = false
   screenOwnerId.value = id
   screenQuality.value = id
     ? normalizeScreenQuality(quality, id === prev ? screenQuality.value : 'low')
     : 'low'
   clearScreenVolume(prev)
+}
+
+function toggleScreenLayout() {
+  isScreenGridLayout.value = !isScreenGridLayout.value
 }
 
 function connectSocket() {
@@ -3785,6 +3795,39 @@ onBeforeUnmount(() => {
           text-align: right;
         }
       }
+      .layout-toggle {
+        display: flex;
+        position: absolute;
+        align-items: center;
+        justify-content: center;
+        right: 8px;
+        bottom: 8px;
+        padding: 0;
+        width: 40px;
+        height: 40px;
+        border: none;
+        border-radius: 12px;
+        background-color: $soft-purple-900;
+        cursor: pointer;
+        transition: background-color 0.25s ease-in-out;
+        z-index: 20;
+        &:hover,
+        &:focus-visible {
+          background-color: $soft-purple-800;
+        }
+        &[aria-pressed='true'] {
+          background-color: $green-700;
+          &:hover,
+          &:focus-visible {
+            background-color: $green-600;
+          }
+        }
+        .layout-toggle__icon {
+          --ui-icon-width: 24px;
+          --ui-icon-height: 24px;
+          --ui-icon-color: #{$neutral-100};
+        }
+      }
     }
     .sidebar {
       display: flex;
@@ -3798,6 +3841,20 @@ onBeforeUnmount(() => {
     .sidebar::-webkit-scrollbar {
       width: 0;
       height: 0;
+    }
+    &.theater--grid {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      grid-template-rows: repeat(5, minmax(0, 1fr));
+      gap: 2px;
+      .stage {
+        grid-column: 1 / span 3;
+        grid-row: 1 / span 3;
+      }
+      .sidebar {
+        display: contents;
+        width: auto;
+        overflow: visible;
+      }
     }
   }
   .panel {
