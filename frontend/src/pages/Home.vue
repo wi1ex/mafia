@@ -1404,7 +1404,6 @@ onBeforeUnmount(() => {
                 }
                 .streaming-link {
                   display: inline-flex;
-                  flex: 0 0 auto;
                   .streaming-icon {
                     --ui-icon-width: 16px;
                     --ui-icon-height: 16px;
