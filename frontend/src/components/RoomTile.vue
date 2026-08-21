@@ -7,18 +7,20 @@
       <span class="ready-text">Готов к игре</span>
     </div>
 
-    <button v-if="showSpeakerAlert" class="icon-badge button speaker-alert" @click.stop="$emit('speaker-alert', id)" aria-label="Подать звуковой сигнал">
-      <UiIcon class="icon-badge-icon" :icon="iconNotifBell" />
+    <button v-if="showSpeakerAlert" class="icon-badge button top-right" @click.stop="$emit('speaker-alert', id)" aria-label="Подать звуковой сигнал">
+      <UiIcon class="icon-badge-bell" :icon="iconNotifBell" />
     </button>
 
-    <button v-if="showKnock" class="icon-badge button wink-knock" @click="$emit('knock', id)" aria-label="Постучать">
+    <button v-if="showKnock" class="icon-badge button top-right" @click="$emit('knock', id)" aria-label="Постучать">
       <span>{{ knocksLeft }}</span>
       <UiIcon class="icon-badge-icon" :icon="iconKnock" />
     </button>
-    <button v-if="showWink" class="icon-badge button wink-knock" @click="$emit('wink', id)" aria-label="Подмигнуть">
+
+    <button v-if="showWink" class="icon-badge button top-right" @click="$emit('wink', id)" aria-label="Подмигнуть">
       <span>{{ winksLeft }}</span>
       <UiIcon class="icon-badge-icon" :icon="iconWink" />
     </button>
+
     <button v-if="showFoulControl && inGame && seat != null && !isGameHead && !isDead(id)" class="icon-badge button left" @click="$emit('foul', id)" :disabled="!isHead" aria-label="Выдать фол">
       <span>{{ foulsCount }}</span>
       <UiIcon class="icon-badge-icon" :icon="iconFoul" />
@@ -604,6 +606,11 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
       --ui-icon-height: 16px;
       --ui-icon-color: #{$neutral-white};
     }
+    .icon-badge-bell {
+      --ui-icon-width: 20px;
+      --ui-icon-height: 20px;
+      --ui-icon-color: #{$neutral-white};
+    }
     .icon-badge-role-block {
       display: flex;
       align-items: center;
@@ -637,11 +644,7 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
       bottom: 8px;
       right: 8px;
     }
-    &.wink-knock {
-      top: 8px;
-      right: 8px;
-    }
-    &.speaker-alert {
+    &.top-right {
       top: 8px;
       right: 8px;
     }
