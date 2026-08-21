@@ -7,6 +7,10 @@
       <span class="ready-text">Готов к игре</span>
     </div>
 
+    <button v-if="showSpeakerAlert" class="icon-badge button speaker-alert" @click.stop="$emit('speaker-alert', id)" aria-label="Подать звуковой сигнал">
+      <UiIcon class="icon-badge-icon" :icon="iconNotifBell" />
+    </button>
+
     <button v-if="showKnock" class="icon-badge button wink-knock" @click="$emit('knock', id)" aria-label="Постучать">
       <span>{{ knocksLeft }}</span>
       <UiIcon class="icon-badge-icon" :icon="iconKnock" />
@@ -195,6 +199,7 @@ import iconWink from '@/assets/svg/iconEmoji.svg'
 import iconKnock from '@/assets/svg/iconKnock.svg'
 import iconRoleCitizen from '@/assets/svg/iconRoleCitizen.svg'
 import iconRoleMafia from '@/assets/svg/iconRoleMafia.svg'
+import iconNotifBell from '@/assets/svg/iconNotifBell.svg'
 
 type IconKind = 'mic' | 'cam' | 'speakers' | 'visibility' | 'screen'
 
@@ -245,6 +250,7 @@ const props = withDefaults(defineProps<{
   knocksLeft?: number
   showWink?: boolean
   showKnock?: boolean
+  showSpeakerAlert?: boolean
   showFoulControl?: boolean
   phaseLabel?: string
   showNominate?: boolean
@@ -300,6 +306,7 @@ const props = withDefaults(defineProps<{
   knocksLeft: 0,
   showWink: false,
   showKnock: false,
+  showSpeakerAlert: false,
   showFoulControl: false,
   phaseLabel: '',
   showNominate: false,
@@ -338,6 +345,7 @@ defineEmits<{
   (e: 'check', id: string): void
   (e: 'wink', id: string): void
   (e: 'knock', id: string): void
+  (e: 'speaker-alert', id: string): void
   (e: 'farewell', verdict: 'citizen' | 'mafia', id: string): void
   (e: 'best-move', id: string): void
   (e: 'open-profile', id: string): void
@@ -630,6 +638,10 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
       right: 8px;
     }
     &.wink-knock {
+      top: 8px;
+      right: 8px;
+    }
+    &.speaker-alert {
       top: 8px;
       right: 8px;
     }

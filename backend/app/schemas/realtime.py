@@ -10,6 +10,7 @@ class JoinAck(TypedDict, total=False):
     privacy: Literal["open", "private"]
     user_limit: int
     snapshot: Dict[str, Dict[str, str]]
+    speaker_alerts: Dict[str, int]
     self_pref: Dict[str, str]
     positions: Dict[str, int]
     blocked: Dict[str, Dict[str, str]]

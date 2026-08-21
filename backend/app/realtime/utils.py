@@ -83,6 +83,10 @@ __all__ = [
     "norm01",
     "to_bool01",
     "apply_state",
+    "get_speaker_alert_cycle",
+    "get_active_speaker_alert_cycle",
+    "mark_speaker_alert_cycle",
+    "get_speaker_alert_availability",
     "apply_bg_state_on_join",
     "apply_join_idle_defaults",
     "apply_join_phase_state",
@@ -2297,9 +2301,88 @@ async def apply_state(r, rid: int, uid: int, data: Mapping[str, Any]) -> Dict[st
     upd = {k: v for k, v in incoming_state.items() if cur.get(k) != v}
     if upd:
         await r.hset(f"room:{rid}:user:{uid}:state", mapping=upd)
+        if upd.get("speakers") == "1":
+            await r.hdel(_speaker_alert_active_key(rid), str(uid))
         changed.update(upd)
 
     return changed
+
+
+def _speaker_alert_cycles_key(rid: int) -> str:
+    return f"room:{rid}:speaker_alert_cycles"
+
+
+def _speaker_alert_active_key(rid: int) -> str:
+    return f"room:{rid}:speaker_alert_active"
+
+
+def _speaker_alert_seen_key(rid: int, target_uid: int, cycle: int) -> str:
+    return f"room:{rid}:speaker_alert_seen:{target_uid}:{cycle}"
+
+
+async def get_speaker_alert_cycle(r, rid: int, target_uid: int) -> int:
+    key = _speaker_alert_cycles_key(rid)
+    raw = await r.hget(key, str(target_uid))
+    try:
+        cycle = int(raw or 0)
+    except (TypeError, ValueError):
+        cycle = 0
+    return max(0, cycle)
+
+
+async def get_active_speaker_alert_cycle(r, rid: int, target_uid: int) -> int:
+    raw = await r.hget(_speaker_alert_active_key(rid), str(target_uid))
+    try:
+        return max(0, int(raw or 0))
+
+    except (TypeError, ValueError):
+        return 0
+
+
+async def mark_speaker_alert_cycle(r, rid: int, target_uid: int) -> int:
+    key = _speaker_alert_cycles_key(rid)
+    current = await get_speaker_alert_cycle(r, rid, target_uid)
+    if current > 0:
+        cycle = int(await r.hincrby(key, str(target_uid), 1))
+    else:
+        created = await r.hsetnx(key, str(target_uid), "1")
+        cycle = 1 if created else max(1, await get_speaker_alert_cycle(r, rid, target_uid))
+    await r.hset(_speaker_alert_active_key(rid), str(target_uid), str(cycle))
+    return cycle
+
+
+async def get_speaker_alert_availability(r, rid: int, viewer_uid: int) -> dict[str, int]:
+    try:
+        member_ids = await smembers_ints(r, f"room:{rid}:members")
+    except Exception:
+        return {}
+
+    available: dict[str, int] = {}
+    for target_uid in member_ids:
+        if target_uid == viewer_uid:
+            continue
+        try:
+            speakers = await r.hget(f"room:{rid}:user:{target_uid}:state", "speakers")
+            speakers_blocked = await r.hget(f"room:{rid}:user:{target_uid}:block", "speakers")
+        except Exception:
+            continue
+        if speakers not in ("0", b"0") or speakers_blocked in ("1", b"1"):
+            continue
+
+        try:
+            cycle = await get_active_speaker_alert_cycle(r, rid, target_uid)
+            if cycle <= 0 or cycle != await get_speaker_alert_cycle(r, rid, target_uid):
+                continue
+            alerted = await r.sismember(
+                _speaker_alert_seen_key(rid, target_uid, cycle),
+                str(viewer_uid),
+            )
+        except Exception:
+            continue
+        if not alerted:
+            available[str(target_uid)] = cycle
+
+    return available
 
 
 def _decode_redis_value(val: Any) -> str:
@@ -8228,6 +8311,7 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
         await _del_scan(f"room:{rid}:user:*:epoch")
         await _del_scan(f"room:{rid}:user:*:bg_state")
         await _del_scan(f"room:{rid}:user:*:sid")
+        await _del_scan(f"room:{rid}:speaker_alert_seen:*")
         await r.delete(
             f"room:{rid}:members",
             f"room:{rid}:positions",
@@ -8251,6 +8335,8 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
             f"room:{rid}:screen_quality",
             f"room:{rid}:screen_started_at",
             f"room:{rid}:ready",
+            f"room:{rid}:speaker_alert_cycles",
+            f"room:{rid}:speaker_alert_active",
             f"room:{rid}:game_state",
             f"room:{rid}:game_seats",
             f"room:{rid}:game_players",

@@ -75,6 +75,7 @@
           :knocks-left="knocksLeft"
           :show-wink="game.canWinkTarget(id)"
           :show-knock="game.canKnockTarget(id)"
+          :show-speaker-alert="canSendSpeakerAlert(id)"
           :phase-label="phaseLabelFor(id)"
           :night-owner-id="nightOwnerIdFor(id)"
           :night-remaining-ms="nightRemainingMsFor(id)"
@@ -103,6 +104,7 @@
           @foul="onGiveFoul"
           @wink="onWink"
           @knock="openKnockModal"
+          @speaker-alert="onSpeakerAlert"
           @nominate="onNominate"
           @unnominate="onUnnominate"
           @vote="onVote"
@@ -197,6 +199,7 @@
             :knocks-left="knocksLeft"
             :show-wink="game.canWinkTarget(id)"
             :show-knock="game.canKnockTarget(id)"
+            :show-speaker-alert="canSendSpeakerAlert(id)"
             :phase-label="phaseLabelFor(id)"
             :night-owner-id="nightOwnerIdFor(id)"
             :night-remaining-ms="nightRemainingMsFor(id)"
@@ -225,6 +228,7 @@
             @foul="onGiveFoul"
             @wink="onWink"
             @knock="openKnockModal"
+            @speaker-alert="onSpeakerAlert"
             @nominate="onNominate"
             @unnominate="onUnnominate"
             @vote="onVote"
@@ -520,6 +524,7 @@ import iconVolumeMid from '@/assets/svg/iconVolumeMid.svg'
 import iconVolumeLow from '@/assets/svg/iconVolumeLow.svg'
 import iconVolumeMute from '@/assets/svg/iconVolumeMute.svg'
 import gongAudioUrl from '@/assets/audio/gong.mp3'
+import toastSoundUrl from '@/assets/audio/short.mp3'
 
 import iconLeaveRoom from '@/assets/svg/iconLeave.svg'
 import iconRequestsRoom from '@/assets/svg/iconRequestsRoom.svg'
@@ -703,6 +708,8 @@ const nameByUser = reactive(new Map<string, string>())
 const avatarByUser = reactive(new Map<string, string | null>())
 const themeColorByUser = reactive(new Map<string, string | null>())
 const themeIconByUser = reactive(new Map<string, string | null>())
+const speakerAlertCycles = reactive(new Map<string, number>())
+const speakerAlertSending = reactive(new Set<string>())
 const volUi = reactive<Record<string, number>>({})
 const MIN_GAME_VOLUME = 10
 const EMPTY_NUMBERS: number[] = []
@@ -1464,11 +1471,19 @@ watch(canKeepKnockModal, (ok) => {
 const speechGongAudio = new Audio(gongAudioUrl)
 speechGongAudio.preload = 'auto'
 speechGongAudio.volume = 0.5
+const speakerAlertAudio = new Audio(toastSoundUrl)
+speakerAlertAudio.preload = 'auto'
 
 function playSpeechGong(): void {
   try { speechGongAudio.currentTime = 0 } catch {}
   const res = speechGongAudio.play()
   if (res && typeof res.catch === 'function') res.catch(() => {})
+}
+
+function playSpeakerAlertSound(): void {
+  try { speakerAlertAudio.currentTime = 0 } catch {}
+  const result = speakerAlertAudio.play()
+  if (result && typeof result.catch === 'function') result.catch(() => {})
 }
 
 async function sendAck(event: string, payload: any, timeoutMs = 15000): Promise<Ack> {
@@ -1930,6 +1945,19 @@ function isBlocked(id: string, kind: IconKind) {
   return st ? st[kind] === 1 : false
 }
 
+function canSendSpeakerAlert(id: string): boolean {
+  return (
+    gamePhase.value === 'idle' &&
+    !adminSpectator.value &&
+    !!id &&
+    id !== localId.value &&
+    !isOn(id, 'speakers') &&
+    !isBlocked(id, 'speakers') &&
+    speakerAlertCycles.has(id) &&
+    !speakerAlertSending.has(id)
+  )
+}
+
 const blockedSelf = computed<BlockState>(() => {
   const s = blockByUser.get(localId.value)
   return {
@@ -1999,6 +2027,19 @@ async function toggleBlock(targetId: string, key: keyof BlockState) {
   if (!ensureOk(resp, { 403: 'Недостаточно прав', 404: 'Пользователь не в комнате' }, 'Сеть/таймаут при модерации')) return
 }
 
+async function onSpeakerAlert(targetId: string): Promise<void> {
+  if (!canSendSpeakerAlert(targetId)) return
+  speakerAlertSending.add(targetId)
+  try {
+    const response = await sendAck('speaker_alert', { user_id: Number(targetId) }, 5000)
+    if (response?.ok || Number(response?.status) === 409) {
+      speakerAlertCycles.delete(targetId)
+    }
+  } finally {
+    speakerAlertSending.delete(targetId)
+  }
+}
+
 async function kickUser(targetId: string) {
   if (!canModerate(targetId)) return
   const ok = await confirmDialog({
@@ -2047,6 +2088,8 @@ function purgePeerUI(id: string) {
   statusByUser.delete(id)
   positionByUser.delete(id)
   blockByUser.delete(id)
+  speakerAlertCycles.delete(id)
+  speakerAlertSending.delete(id)
   rolesByUser.delete(id)
   moderationRolesByUser.delete(id)
   profileRolesByUser.delete(id)
@@ -2205,6 +2248,10 @@ socket.value?.on('connect', async () => {
     const id = String(p.user_id)
     ensurePeer(id)
     applyPeerState(id, p)
+    if ('speakers' in (p || {}) && norm01(p.speakers, 1) === 1) {
+      speakerAlertCycles.delete(id)
+      speakerAlertSending.delete(id)
+    }
     if (id !== String(localId.value)) return
 
     const nextMic = !blockedSelf.value.mic && norm01(p?.mic, local.mic ? 1 : 0) === 1
@@ -2232,6 +2279,28 @@ socket.value?.on('connect', async () => {
       local.visibility = nextVisibility
       void applyLocalControlWithRetry('visibility', nextVisibility)
     }
+  })
+
+  socket.value.on('speaker_alert_available', (p: any) => {
+    const id = String(p?.user_id || '')
+    const cycle = Number(p?.cycle || 0)
+    if (!id || id === String(localId.value) || !Number.isInteger(cycle) || cycle <= 0) return
+    speakerAlertCycles.set(id, cycle)
+    speakerAlertSending.delete(id)
+  })
+
+  socket.value.on('speaker_alert', (p: any) => {
+    const roomId = Number(p?.room_id || 0)
+    if (roomId && roomId !== rid) return
+    playSpeakerAlertSound()
+  })
+
+  socket.value.on('speaker_alert_sent', (p: any) => {
+    const roomId = Number(p?.room_id || 0)
+    const id = String(p?.user_id || '')
+    if ((roomId && roomId !== rid) || !id) return
+    speakerAlertCycles.delete(id)
+    speakerAlertSending.delete(id)
   })
 
   socket.value.on('member_joined', (p: any) => {
@@ -2816,6 +2885,13 @@ function applyJoinAck(j: any) {
       screen:     pick01(bl.screen, 0),
     })
   }
+
+  speakerAlertCycles.clear()
+  for (const [uid, rawCycle] of Object.entries((j.speaker_alerts || {}) as Record<string, any>)) {
+    const cycle = Number(rawCycle)
+    if (Number.isInteger(cycle) && cycle > 0) speakerAlertCycles.set(String(uid), cycle)
+  }
+  speakerAlertSending.clear()
 
   rolesByUser.clear()
   for (const [uid, r] of Object.entries(j.roles || {})) {

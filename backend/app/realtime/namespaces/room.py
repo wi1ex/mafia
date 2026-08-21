@@ -33,6 +33,10 @@ from ..utils import (
     norm01,
     to_bool01,
     apply_state,
+    get_speaker_alert_cycle,
+    get_active_speaker_alert_cycle,
+    mark_speaker_alert_cycle,
+    get_speaker_alert_availability,
     apply_bg_state_on_join,
     apply_join_idle_defaults,
     apply_join_phase_state,
@@ -631,6 +635,9 @@ async def join(sid, data) -> JoinAck:
         game_deaths = await get_game_deaths(r, rid)
         farewell_wills = await get_farewell_wills(r, rid)
         farewell_limits = await get_farewell_limits(r, rid)
+        speaker_alerts = {}
+        if phase == "idle" and not (spectator_mode or admin_spectator_mode):
+            speaker_alerts = await get_speaker_alert_availability(r, rid, uid)
 
         payload = {
             "ok": True,
@@ -639,6 +646,7 @@ async def join(sid, data) -> JoinAck:
             "privacy": str(params.get("privacy") or "open"),
             "user_limit": user_limit,
             "snapshot": snapshot,
+            "speaker_alerts": speaker_alerts,
             "self_pref": user_state,
             "positions": positions,
             "blocked": blocked,
@@ -795,11 +803,81 @@ async def state(sid, data) -> StateAck:
             changed["ready"] = forced_ready or "0"
         if changed:
             await emit_state_changed_filtered(r, rid, uid, changed)
+            if changed.get("speakers") == "0":
+                if raw_gstate is None:
+                    raw_gstate = await r.hgetall(f"room:{rid}:game_state")
+                phase = str((raw_gstate or {}).get("phase") or "idle")
+                speakers_blocked = await r.hget(f"room:{rid}:user:{uid}:block", "speakers")
+                if phase == "idle" and speakers_blocked not in ("1", b"1"):
+                    cycle = await mark_speaker_alert_cycle(r, rid, uid)
+                    await sio.emit(
+                        "speaker_alert_available",
+                        {"user_id": uid, "cycle": cycle},
+                        room=f"room:{rid}",
+                        namespace="/room",
+                    )
         return {"ok": True}
 
     except Exception:
         log.exception("sio.state.error", sid=sid)
         return {"ok": False}
+
+
+@sio.event(namespace="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:speaker_alert:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
+async def speaker_alert(sid, data):
+    try:
+        sess = await sio.get_session(sid, namespace="/room")
+        actor_uid = int(sess["uid"])
+        rid = int(sess.get("rid") or 0)
+        target_uid = int((data or {}).get("user_id") or 0)
+        if not rid or not target_uid or target_uid == actor_uid:
+            return {"ok": False, "error": "bad_request", "status": 400}
+
+        if sess.get("spectator"):
+            return {"ok": False, "error": "forbidden", "status": 403}
+
+        r = get_redis()
+        if not await r.sismember(f"room:{rid}:members", str(actor_uid)):
+            return {"ok": False, "error": "not_in_room", "status": 403}
+
+        if not await r.sismember(f"room:{rid}:members", str(target_uid)):
+            return {"ok": False, "error": "user_not_in_room", "status": 404}
+
+        if str(await r.hget(f"room:{rid}:game_state", "phase") or "idle") != "idle":
+            return {"ok": False, "error": "game_in_progress", "status": 409}
+
+        speakers = await r.hget(f"room:{rid}:user:{target_uid}:state", "speakers")
+        speakers_blocked = await r.hget(f"room:{rid}:user:{target_uid}:block", "speakers")
+        if speakers not in ("0", b"0") or speakers_blocked in ("1", b"1"):
+            return {"ok": False, "error": "speaker_alert_unavailable", "status": 409}
+
+        cycle = await get_active_speaker_alert_cycle(r, rid, target_uid)
+        if cycle <= 0 or cycle != await get_speaker_alert_cycle(r, rid, target_uid):
+            return {"ok": False, "error": "speaker_alert_unavailable", "status": 409}
+
+        seen_key = f"room:{rid}:speaker_alert_seen:{target_uid}:{cycle}"
+        added = await r.sadd(seen_key, str(actor_uid))
+        if not added:
+            return {"ok": False, "error": "speaker_alert_already_sent", "status": 409}
+
+        await sio.emit(
+            "speaker_alert_sent",
+            {"room_id": rid, "user_id": target_uid, "cycle": cycle},
+            room=f"user:{actor_uid}",
+            namespace="/room",
+        )
+        await sio.emit(
+            "speaker_alert",
+            {"room_id": rid, "from_user_id": actor_uid},
+            room=f"user:{target_uid}",
+            namespace="/room",
+        )
+        return {"ok": True, "user_id": target_uid, "cycle": cycle}
+
+    except Exception:
+        log.exception("sio.speaker_alert.error", sid=sid)
+        return {"ok": False, "error": "internal", "status": 500}
 
 
 @sio.event(namespace="/room")
