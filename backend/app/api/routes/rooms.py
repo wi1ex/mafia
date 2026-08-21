@@ -204,6 +204,7 @@ async def room_info(
             username=m.get("username"),
             avatar_name=m.get("avatar_name"),
             profile_role=cast(str | None, m.get("profile_role")),
+            streaming_url=cast(str | None, m.get("streaming_url")),
             screen=m.get("screen"),
             role=m.get("role"),
             slot=m.get("slot"),

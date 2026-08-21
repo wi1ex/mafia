@@ -29,11 +29,11 @@
                       <div v-if="profileThemeIconSrcs.length" class="profile-theme-icons" aria-hidden="true">
                         <img v-for="badgeSrc in profileThemeIconSrcs" :key="badgeSrc" class="profile-theme-icon" :src="badgeSrc" alt="" />
                       </div>
-                      <span class="profile-name">{{ displayName }}</span>
                       <a v-if="profileStreamingUrl" class="profile-streaming-link" :href="profileStreamingUrl" target="_blank"
                          rel="noopener noreferrer nofollow" aria-label="Открыть стриминговую страницу" @click.stop>
                         <UiIcon class="profile-streaming-icon" :icon="iconTwitch" />
                       </a>
+                      <span class="profile-name">{{ displayName }}</span>
                     </div>
 
                     <div v-if="showRestrictedProfileSections && showProfileMeta" class="profile-meta">
@@ -2229,16 +2229,16 @@ onBeforeUnmount(() => {
               }
               .profile-streaming-link {
                 display: inline-flex;
-                flex: 0 0 auto;
-                color: $neutral-white;
                 .profile-streaming-icon {
                   --ui-icon-width: 24px;
                   --ui-icon-height: 24px;
-                  --ui-icon-color: currentColor;
+                  --ui-icon-color: $neutral-white;
                 }
                 &:hover,
                 &:focus-visible {
-                  color: $green-500;
+                  .profile-streaming-icon {
+                    --ui-icon-color: $green-500;
+                  }
                 }
               }
             }
