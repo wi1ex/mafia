@@ -30,6 +30,10 @@
                         <img v-for="badgeSrc in profileThemeIconSrcs" :key="badgeSrc" class="profile-theme-icon" :src="badgeSrc" alt="" />
                       </div>
                       <span class="profile-name">{{ displayName }}</span>
+                      <a v-if="profileStreamingUrl" class="profile-streaming-link" :href="profileStreamingUrl" target="_blank"
+                         rel="noopener noreferrer nofollow" aria-label="Открыть стриминговую страницу" @click.stop>
+                        <UiIcon class="profile-streaming-icon" :icon="iconTwitch" />
+                      </a>
                     </div>
 
                     <div v-if="showRestrictedProfileSections && showProfileMeta" class="profile-meta">
@@ -358,6 +362,7 @@ import iconLeaveRoom from '@/assets/svg/iconLeave.svg'
 import iconStats from '@/assets/svg/iconStats.svg'
 import iconHistory from '@/assets/svg/iconHistory.svg'
 import iconArrowDown from '@/assets/svg/iconArrowDown.svg'
+import iconTwitch from '@/assets/svg/iconTwitch.svg'
 
 type FriendActionKind = 'add' | 'remove' | 'incoming' | 'outgoing'
 type MiniProfileSanctionKind = 'timeout' | 'ban' | 'suspend'
@@ -451,6 +456,7 @@ type MiniProfileInitial = {
   theme_icon?: string | null
   profile_theme_color?: string | null
   profile_theme_icon?: string | null
+  streaming_url?: string | null
   friend_status?: FriendStatus | null
   blacklisted_by_me?: boolean | null
   viewer_blacklisted_by_target?: boolean | null
@@ -479,6 +485,7 @@ type MiniProfileResponse = {
   suspend_until?: string | null
   profile_theme_color?: string | null
   profile_theme_icon?: string | null
+  streaming_url?: string | null
   friend_status?: FriendStatus | null
   blacklisted_by_me?: boolean
   viewer_blacklisted_by_target?: boolean
@@ -688,6 +695,12 @@ const profileThemeIcon = computed(() => {
   if (profileLoadedForTarget.value) return profile.value?.profile_theme_icon || null
   const initial = initialProfileForTarget.value
   return initial?.profile_theme_icon || initial?.theme_icon || null
+})
+const profileStreamingUrl = computed(() => {
+  const value = profileLoadedForTarget.value
+    ? profile.value?.streaming_url
+    : initialProfileForTarget.value?.streaming_url
+  return typeof value === 'string' && value.trim() ? value.trim() : null
 })
 const profileRole = computed(() => {
   if (profileLoadedForTarget.value) return profile.value?.role || null
@@ -1767,6 +1780,7 @@ async function loadProfile() {
       suspend_until: data?.suspend_until ?? null,
       profile_theme_color: data?.profile_theme_color ?? null,
       profile_theme_icon: data?.profile_theme_icon ?? null,
+      streaming_url: data?.streaming_url ?? null,
       friend_status: normalizeFriendStatus(data?.friend_status),
       blacklisted_by_me: Boolean(data?.blacklisted_by_me),
       viewer_blacklisted_by_target: Boolean(data?.viewer_blacklisted_by_target),
@@ -2188,6 +2202,7 @@ onBeforeUnmount(() => {
             gap: 8px;
             .profile-title {
               display: flex;
+              align-items: center;
               height: 30px;
               gap: 8px;
               .profile-theme-icons {
@@ -2201,6 +2216,7 @@ onBeforeUnmount(() => {
                 }
               }
               .profile-name {
+                min-width: 0;
                 max-width: 314px;
                 color: $neutral-white;
                 font-family: Involve-Medium;
@@ -2210,6 +2226,20 @@ onBeforeUnmount(() => {
                 white-space: nowrap;
                 overflow: hidden;
                 text-overflow: ellipsis;
+              }
+              .profile-streaming-link {
+                display: inline-flex;
+                flex: 0 0 auto;
+                color: $neutral-white;
+                .profile-streaming-icon {
+                  --ui-icon-width: 24px;
+                  --ui-icon-height: 24px;
+                  --ui-icon-color: currentColor;
+                }
+                &:hover,
+                &:focus-visible {
+                  color: $green-500;
+                }
               }
             }
             .profile-meta {

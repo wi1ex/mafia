@@ -123,6 +123,7 @@ from ...services.profile_theme import (
     ensure_profile_theme_defaults,
     normalize_profile_theme_color,
     normalize_profile_theme_icon,
+    normalize_profile_streaming_url,
     resolve_profile_theme_state,
     upsert_profile_theme_icon_preference,
     upsert_profile_theme_preference,
@@ -392,6 +393,7 @@ async def mini_profile(user_id: int, allow_deleted: bool = False, ident: Identit
         suspend_until=active_sanctions.get("suspend").expires_at if active_sanctions.get("suspend") else None,
         profile_theme_color=theme_state.color,
         profile_theme_icon=theme_state.icon,
+        streaming_url=user.streaming_url if theme_state.subscription_active else None,
         friend_status=friend_status,
         blacklisted_by_me=blacklisted_by_me,
         viewer_blacklisted_by_target=viewer_blacklisted_by_target,
@@ -1216,7 +1218,21 @@ async def update_profile_theme(payload: UserProfileThemeIn, ident: Identity = De
     else:
         icon = theme_state.icon
 
-    if theme_state.color == color and (not has_icon_update or theme_state.icon == icon):
+    has_streaming_url_update = "streaming_url" in payload.model_fields_set
+    if has_streaming_url_update:
+        try:
+            streaming_url = normalize_profile_streaming_url(payload.streaming_url)
+        except ValueError as exc:
+            detail = str(exc).strip() or "profile_streaming_url_invalid"
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detail)
+    else:
+        streaming_url = user.streaming_url
+
+    if (
+        theme_state.color == color
+        and (not has_icon_update or theme_state.icon == icon)
+        and (not has_streaming_url_update or user.streaming_url == streaming_url)
+    ):
         if defaults_changed:
             await refresh_user_profile_cache(db, uid)
             with suppress(Exception):
@@ -1232,19 +1248,28 @@ async def update_profile_theme(payload: UserProfileThemeIn, ident: Identity = De
             subscription_until=theme_state.subscription_until,
             profile_theme_color=theme_state.color,
             profile_theme_icon=theme_state.icon,
+            streaming_url=user.streaming_url,
         )
 
     old_color = theme_state.color
     old_icon = theme_state.icon
+    old_streaming_url = user.streaming_url
     changed_theme_parts: list[str] = []
     if old_color != color:
         changed_theme_parts.append(f"profile_theme_color: {old_color or 'none'} -> {color}")
     if has_icon_update and old_icon != icon:
         changed_theme_parts.append(f"profile_theme_icon: {old_icon or 'none'} -> {icon}")
+    if has_streaming_url_update and old_streaming_url != streaming_url:
+        changed_theme_parts.append(
+            "profile_streaming_url: "
+            f"{old_streaming_url or 'none'} -> {streaming_url or 'none'}"
+        )
 
     await upsert_profile_theme_preference(db, uid, color)
     if has_icon_update:
         await upsert_profile_theme_icon_preference(db, uid, icon)
+    if has_streaming_url_update:
+        user.streaming_url = streaming_url
     await db.commit()
     await refresh_user_profile_cache(db, uid)
     next_state = await resolve_profile_theme_state(db, uid)
@@ -1271,6 +1296,7 @@ async def update_profile_theme(payload: UserProfileThemeIn, ident: Identity = De
         subscription_until=next_state.subscription_until,
         profile_theme_color=next_state.color,
         profile_theme_icon=next_state.icon,
+        streaming_url=user.streaming_url,
     )
 
 

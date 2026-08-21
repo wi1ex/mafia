@@ -102,6 +102,10 @@
                       <img v-minio-img="{ key: m.avatar_name ? `avatars/${m.avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false }" alt="avatar" class="user-mini-avatar" />
                       <span class="mini-profile-name">{{ m.username || ('user' + m.id) }}</span>
                     </button>
+                    <a v-if="m.streaming_url" class="streaming-link" :href="m.streaming_url" target="_blank"
+                       rel="noopener noreferrer nofollow" aria-label="Открыть стриминговую страницу" @click.stop>
+                      <UiIcon class="streaming-icon" :icon="iconTwitch" />
+                    </a>
                     <UiIcon v-if="m.screen" class="screen-icon" :icon="iconScreenOn" label="Трансляция" />
                   </li>
                 </ul>
@@ -258,6 +262,7 @@ import iconAddPlus from '@/assets/svg/iconAddPlus.svg'
 import iconNoRooms from '@/assets/svg/iconNoRooms.svg'
 import iconNoMembers from '@/assets/svg/iconNoMembers.svg'
 import iconDot from '@/assets/svg/iconDot.svg'
+import iconTwitch from '@/assets/svg/iconTwitch.svg'
 import imageSlide6 from '@/assets/images/carousel-image6.png'
 import imageSlide7 from '@/assets/images/carousel-image7.png'
 
@@ -281,6 +286,7 @@ type RoomInfoMember = {
   username?: string
   avatar_name?: string | null
   profile_role?: string | null
+  streaming_url?: string | null
   screen?: boolean
   role?: 'head' | 'player' | 'observer'
   slot?: number | null
@@ -301,6 +307,7 @@ type HomeMiniProfileInitial = {
   username?: string | null
   avatar_name?: string | null
   role?: string | null
+  streaming_url?: string | null
 }
 type Game = RoomGameParams
 type Access = 'approved'|'pending'|'none'|'blacklisted'|'hidden'
@@ -532,7 +539,7 @@ function canOpenRoomInfoMiniProfileForUser(user: { id?: number | null; profile_r
   })
 }
 
-function openMiniProfileFromRoomInfo(user: { id: number; username?: string | null; avatar_name?: string | null; profile_role?: string | null }): void {
+function openMiniProfileFromRoomInfo(user: { id: number; username?: string | null; avatar_name?: string | null; profile_role?: string | null; streaming_url?: string | null }): void {
   const uid = Number(user.id || 0)
   if (!canOpenRoomInfoMiniProfileForUser(user)) return
   miniProfileUserId.value = uid
@@ -541,6 +548,7 @@ function openMiniProfileFromRoomInfo(user: { id: number; username?: string | nul
     username: user.username || null,
     avatar_name: user.avatar_name || null,
     role: user.profile_role || null,
+    streaming_url: user.streaming_url || null,
   }
   spectatorsOpen.value = false
   miniProfileOpen.value = true
@@ -1393,6 +1401,20 @@ onBeforeUnmount(() => {
                   --ui-icon-width: 20px;
                   --ui-icon-height: 20px;
                   --ui-icon-color: #{$green-500};
+                }
+                .streaming-link {
+                  display: inline-flex;
+                  flex: 0 0 auto;
+                  color: $neutral-white;
+                  .streaming-icon {
+                    --ui-icon-width: 20px;
+                    --ui-icon-height: 20px;
+                    --ui-icon-color: currentColor;
+                  }
+                  &:hover,
+                  &:focus-visible {
+                    color: $green-500;
+                  }
                 }
                 .user-mini-avatar {
                   border-radius: 50%;

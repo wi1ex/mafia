@@ -2557,7 +2557,7 @@ async def get_profiles_snapshot(r, rid: int, *, extra_ids: Iterable[int | str] |
 
     async with r.pipeline() as p:
         for uid in ids:
-            await p.hmget(f"room:{rid}:user:{uid}:info", "username", "avatar_name", "theme_color", "theme_icon")
+            await p.hmget(f"room:{rid}:user:{uid}:info", "username", "avatar_name", "theme_color", "theme_icon", "streaming_url")
         rows = await p.execute()
 
     out: dict[str, dict[str, str | None]] = {}
@@ -2566,12 +2566,14 @@ async def get_profiles_snapshot(r, rid: int, *, extra_ids: Iterable[int | str] |
         av = values[1] if isinstance(values, (list, tuple)) and len(values) > 1 else None
         th = values[2] if isinstance(values, (list, tuple)) and len(values) > 2 else None
         ic = values[3] if isinstance(values, (list, tuple)) and len(values) > 3 else None
+        su = values[4] if isinstance(values, (list, tuple)) and len(values) > 4 else None
         uid_s = str(uid)
         out[uid_s] = {
             "username": str(un) if un else None,
             "avatar_name": str(av) if av else None,
             "theme_color": str(th) if th else None,
             "theme_icon": str(ic) if ic else None,
+            "streaming_url": str(su) if su else None,
             "role": None,
             "deleted_at": None,
         }
@@ -2597,6 +2599,7 @@ async def get_profiles_snapshot(r, rid: int, *, extra_ids: Iterable[int | str] |
                     "avatar_name": None,
                     "theme_color": None,
                     "theme_icon": None,
+                    "streaming_url": None,
                     "role": None,
                     "deleted_at": None,
                 }
@@ -2609,6 +2612,7 @@ async def get_profiles_snapshot(r, rid: int, *, extra_ids: Iterable[int | str] |
                 avatar_cached = profile.get("avatar_name")
                 theme_cached = profile.get("theme_color")
                 icon_cached = profile.get("theme_icon")
+                streaming_url_cached = profile.get("streaming_url")
                 role_cached = profile.get("role")
                 deleted_at_cached = profile.get("deleted_at")
                 if username_cached is not None:
@@ -2616,6 +2620,7 @@ async def get_profiles_snapshot(r, rid: int, *, extra_ids: Iterable[int | str] |
                 cur["avatar_name"] = str(avatar_cached) if avatar_cached is not None else None
                 cur["theme_color"] = str(theme_cached) if theme_cached is not None else None
                 cur["theme_icon"] = str(icon_cached) if icon_cached is not None else None
+                cur["streaming_url"] = str(streaming_url_cached) if streaming_url_cached is not None else None
                 cur["role"] = str(role_cached) if role_cached is not None else None
                 cur["deleted_at"] = str(deleted_at_cached) if deleted_at_cached is not None else None
                 out[key] = cur
@@ -2629,6 +2634,8 @@ async def get_profiles_snapshot(r, rid: int, *, extra_ids: Iterable[int | str] |
                     mp["theme_color"] = str(theme_cached)
                 if icon_cached is not None:
                     mp["theme_icon"] = str(icon_cached)
+                if streaming_url_cached is not None:
+                    mp["streaming_url"] = str(streaming_url_cached)
                 if mp:
                     await p.hset(f"room:{rid}:user:{uid_i}:info", mapping=mp)
                 else:
@@ -2639,6 +2646,8 @@ async def get_profiles_snapshot(r, rid: int, *, extra_ids: Iterable[int | str] |
                     await p.hdel(f"room:{rid}:user:{uid_i}:info", "theme_color")
                 if icon_cached is None:
                     await p.hdel(f"room:{rid}:user:{uid_i}:info", "theme_icon")
+                if streaming_url_cached is None:
+                    await p.hdel(f"room:{rid}:user:{uid_i}:info", "streaming_url")
             await p.execute()
 
     return out

@@ -29,6 +29,7 @@ class UserOut(BaseModel):
     nickname_changes_left: int = 0
     profile_theme_color: Optional[str] = None
     profile_theme_icon: Optional[str] = None
+    streaming_url: Optional[str] = None
     timeout_until: Optional[datetime] = None
     suspend_until: Optional[datetime] = None
     ban_active: bool = False
@@ -92,6 +93,7 @@ class UserMiniProfileOut(BaseModel):
     suspend_until: Optional[datetime] = None
     profile_theme_color: Optional[str] = None
     profile_theme_icon: Optional[str] = None
+    streaming_url: Optional[str] = None
     friend_status: Literal["self", "friends", "outgoing", "incoming", "none"] = "none"
     blacklisted_by_me: bool = False
     viewer_blacklisted_by_target: bool = False
@@ -313,6 +315,7 @@ class ContactRequestIn(BaseModel):
 class UserProfileThemeIn(BaseModel):
     color: str = Field(min_length=1, max_length=32)
     icon: Optional[str] = Field(default=None, max_length=32)
+    streaming_url: Optional[str] = Field(default=None, max_length=512)
 
 
 class UserProfileThemeOut(BaseModel):
@@ -321,6 +324,7 @@ class UserProfileThemeOut(BaseModel):
     subscription_until: Optional[datetime] = None
     profile_theme_color: Optional[str] = None
     profile_theme_icon: Optional[str] = None
+    streaming_url: Optional[str] = None
 
 
 class PasswordChangeIn(BaseModel):

@@ -3,6 +3,7 @@ import calendar
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Iterable
+from urllib.parse import urlsplit
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..models.subscription import UserSubscription
@@ -106,6 +107,32 @@ def normalize_optional_profile_theme_icon(raw: object) -> str | None:
 def normalize_profile_theme_icon(raw: object) -> str:
     normalized = normalize_optional_profile_theme_icon(raw)
     return normalized if normalized is not None else PROFILE_THEME_ICON_NONE
+
+
+def normalize_profile_streaming_url(raw: object) -> str | None:
+    if raw is None:
+        return None
+
+    value = str(raw).strip()
+    if not value:
+        return None
+
+    if len(value) > 512 or any(char.isspace() or ord(char) < 32 or ord(char) == 127 for char in value):
+        raise ValueError("profile_streaming_url_invalid")
+
+    try:
+        parsed = urlsplit(value)
+        _ = parsed.port
+    except (TypeError, ValueError):
+        raise ValueError("profile_streaming_url_invalid")
+
+    if parsed.scheme.lower() not in {"http", "https"} or not parsed.netloc or not parsed.hostname:
+        raise ValueError("profile_streaming_url_invalid")
+
+    if parsed.username is not None or parsed.password is not None:
+        raise ValueError("profile_streaming_url_invalid")
+
+    return value
 
 
 def _apply_profile_theme_defaults(row: User) -> bool:

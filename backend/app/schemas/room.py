@@ -37,6 +37,7 @@ class RoomInfoMemberOut(BaseModel):
     username: Optional[str] = None
     avatar_name: Optional[str] = None
     profile_role: Optional[str] = None
+    streaming_url: Optional[str] = None
     screen: Optional[bool] = None
     role: Optional[Literal["head", "player", "observer"]] = None
     slot: Optional[int] = None

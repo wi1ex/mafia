@@ -21,6 +21,7 @@ export interface UserProfile {
   nickname_changes_left?: number
   profile_theme_color?: string | null
   profile_theme_icon?: string | null
+  streaming_url?: string | null
   timeout_until?: string | null
   suspend_until?: string | null
   ban_active?: boolean
@@ -100,6 +101,7 @@ export const useUserStore = defineStore('user', () => {
     subscription_until?: string | null
     profile_theme_color?: string | null
     profile_theme_icon?: string | null
+    streaming_url?: string | null
   }) {
     if (!user.value) return
     if ('subscription_active' in payload) user.value.subscription_active = Boolean(payload.subscription_active)
@@ -107,6 +109,7 @@ export const useUserStore = defineStore('user', () => {
     if ('subscription_until' in payload) user.value.subscription_until = payload.subscription_until ?? null
     if ('profile_theme_color' in payload) user.value.profile_theme_color = payload.profile_theme_color ?? null
     if ('profile_theme_icon' in payload) user.value.profile_theme_icon = payload.profile_theme_icon ?? null
+    if ('streaming_url' in payload) user.value.streaming_url = payload.streaming_url ?? null
   }
 
   function setSanctions(payload: { timeout_until?: string | null; suspend_until?: string | null; ban_active?: boolean }) {

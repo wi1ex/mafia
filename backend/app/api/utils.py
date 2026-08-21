@@ -1645,6 +1645,7 @@ async def build_user_out_payload(session: AsyncSession, *, user_id: int, role: s
         theme_color=theme_state.color,
         theme_until=theme_state.subscription_until,
         theme_icon=theme_state.icon,
+        streaming_url=user.streaming_url if theme_state.subscription_active else None,
     )
     if defaults_changed:
         with suppress(Exception):
@@ -1678,6 +1679,7 @@ async def build_user_out_payload(session: AsyncSession, *, user_id: int, role: s
         nickname_changes_left=normalize_nickname_changes_left(user.nickname_changes_left),
         profile_theme_color=theme_state.color,
         profile_theme_icon=theme_state.icon,
+        streaming_url=user.streaming_url,
         timeout_until=timeout.expires_at if timeout else None,
         suspend_until=suspend.expires_at if suspend else None,
         ban_active=bool(ban),
@@ -5511,17 +5513,24 @@ async def emit_room_profile_theme_sync(uid: int, theme_color: str | None, theme_
     if rid <= 0:
         return
 
+    normalized_streaming_url = None
     try:
         normalized_color = theme_color.strip() if isinstance(theme_color, str) and theme_color.strip() else None
         normalized_icon = theme_icon.strip() if isinstance(theme_icon, str) and theme_icon.strip() else None
+        streaming_url = await r.hget(f"user:{int(uid)}:profile", "streaming_url") if normalized_color else None
+        normalized_streaming_url = streaming_url.strip() if isinstance(streaming_url, str) and streaming_url.strip() else None
         if normalized_color:
             await r.hset(f"room:{rid}:user:{int(uid)}:info", mapping={"theme_color": normalized_color})
             if normalized_icon:
                 await r.hset(f"room:{rid}:user:{int(uid)}:info", mapping={"theme_icon": normalized_icon})
             else:
                 await r.hdel(f"room:{rid}:user:{int(uid)}:info", "theme_icon")
+            if normalized_streaming_url:
+                await r.hset(f"room:{rid}:user:{int(uid)}:info", mapping={"streaming_url": normalized_streaming_url})
+            else:
+                await r.hdel(f"room:{rid}:user:{int(uid)}:info", "streaming_url")
         else:
-            await r.hdel(f"room:{rid}:user:{int(uid)}:info", "theme_color", "theme_icon")
+            await r.hdel(f"room:{rid}:user:{int(uid)}:info", "theme_color", "theme_icon", "streaming_url")
     except Exception as exc:
         log.warning("room.profile_theme.cache_failed", rid=rid, uid=int(uid), err=type(exc).__name__)
 
@@ -5532,6 +5541,7 @@ async def emit_room_profile_theme_sync(uid: int, theme_color: str | None, theme_
                 "user_id": int(uid),
                 "theme_color": theme_color if isinstance(theme_color, str) and theme_color.strip() else None,
                 "theme_icon": theme_icon if isinstance(theme_icon, str) and theme_icon.strip() else None,
+                "streaming_url": normalized_streaming_url,
             },
             room=f"room:{rid}",
             namespace="/room",
@@ -5798,6 +5808,8 @@ async def build_room_members_for_info(r, room_id: int) -> list[Dict[str, Any]]:
                     profiles[str(uid)] = {
                         "username": profile.get("username"),
                         "avatar_name": profile.get("avatar_name"),
+                        "role": profile.get("role"),
+                        "streaming_url": profile.get("streaming_url"),
                     }
         except Exception:
             log.exception("room.info.extra_profiles_failed", rid=room_id)
@@ -5825,6 +5837,7 @@ async def build_room_members_for_info(r, room_id: int) -> list[Dict[str, Any]]:
                 "username": p.get("username"),
                 "avatar_name": p.get("avatar_name"),
                 "profile_role": p.get("role"),
+                "streaming_url": p.get("streaming_url"),
                 "screen": True if screen_owner and uid == screen_owner else None,
                 "role": role,
                 "slot": slot,

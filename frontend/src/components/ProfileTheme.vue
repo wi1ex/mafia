@@ -39,6 +39,18 @@
             <img v-else class="theme-icon-img" :src="iconDush" alt="" aria-hidden="true" />
           </button>
         </div>
+        <UiInput
+          id="profile-streaming-url"
+          v-model="selectedStreamingUrl"
+          class="streaming-url-input"
+          type="url"
+          inputmode="url"
+          maxlength="512"
+          autocomplete="url"
+          label="Ссылка на стриминговую платформу"
+          placeholder="https://twitch.tv/..."
+          :disabled="themeSaveBusy || isBanned"
+        />
       </div>
     </div>
     <div class="theme-preview">
@@ -111,6 +123,7 @@ import Subscription from '@/components/Subscription.vue'
 import UiTooltip from '@/components/UiTooltip.vue'
 import UiButton from '@/components/UiButton.vue'
 import UiIcon from '@/components/UiIcon.vue'
+import UiInput from '@/components/UiInput.vue'
 
 import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
 import iconDush from '@/assets/svg/iconDush.svg'
@@ -134,9 +147,11 @@ const me = reactive({
   subscription_until: null as string | null,
   profile_theme_color: null as ProfileThemeColor | null,
   profile_theme_icon: null as ProfileThemeIcon | null,
+  streaming_url: null as string | null,
 })
 const selectedProfileThemeColor = ref<ProfileThemeColor>(resolveProfileThemeColor(null))
 const selectedProfileThemeIcon = ref<ProfileThemeIcon | null>(null)
+const selectedStreamingUrl = ref('')
 const subscriptionModalOpen = ref(false)
 const themeSaveBusy = ref(false)
 const isBanned = computed(() => userStore.banActive)
@@ -156,9 +171,11 @@ const hasActiveSubscription = computed(() => {
 const canEditProfileTheme = computed(() => hasActiveSubscription.value)
 const currentProfileThemeColor = computed(() => resolveProfileThemeColor(me.profile_theme_color))
 const currentProfileThemeIcon = computed(() => normalizeProfileThemeIcon(me.profile_theme_icon))
+const currentStreamingUrl = computed(() => normalizeStreamingUrl(me.streaming_url))
 const profileThemeDirty = computed(() => (
   selectedProfileThemeColor.value !== currentProfileThemeColor.value
   || selectedProfileThemeIcon.value !== currentProfileThemeIcon.value
+  || normalizeStreamingUrl(selectedStreamingUrl.value) !== currentStreamingUrl.value
 ))
 const themeSaveDisabled = computed(() => themeSaveBusy.value || isBanned.value || !canEditProfileTheme.value || !profileThemeDirty.value)
 const themePreviewStyle = computed(() => buildProfileThemeBgStyle(selectedProfileThemeColor.value))
@@ -172,16 +189,19 @@ function applyProfileThemePayload(data: any, options: { keepDraft?: boolean } = 
   me.subscription_until = data?.subscription_until || null
   me.profile_theme_color = normalizeProfileThemeColor(data?.profile_theme_color)
   me.profile_theme_icon = normalizeProfileThemeIcon(data?.profile_theme_icon)
+  me.streaming_url = normalizeStreamingUrl(data?.streaming_url) || null
   userStore.setProfileTheme({
     subscription_active: me.subscription_active,
     subscription_started_at: me.subscription_started_at,
     subscription_until: me.subscription_until,
     profile_theme_color: me.profile_theme_color,
     profile_theme_icon: me.profile_theme_icon,
+    streaming_url: me.streaming_url,
   })
   if (!options.keepDraft) {
     selectedProfileThemeColor.value = resolveProfileThemeColor(me.profile_theme_color)
     selectedProfileThemeIcon.value = me.profile_theme_icon
+    selectedStreamingUrl.value = me.streaming_url || ''
   }
 }
 
@@ -198,6 +218,10 @@ function themeOptionStyle(color: ProfileThemeColor): Record<string, string> {
 
 function themeIconSrc(icon: ProfileThemeIcon): string | null {
   return getProfileThemeIconSrc(icon)
+}
+
+function normalizeStreamingUrl(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : ''
 }
 
 function pickProfileTheme(color: ProfileThemeColor) {
@@ -237,6 +261,7 @@ async function saveProfileTheme() {
     const { data } = await api.patch('/users/profile_theme', {
       color: selectedProfileThemeColor.value,
       icon: selectedProfileThemeIcon.value,
+      streaming_url: normalizeStreamingUrl(selectedStreamingUrl.value),
     })
     applyProfileThemePayload(data)
     return void alertDialog('Оформление профиля сохранено')
@@ -247,6 +272,7 @@ async function saveProfileTheme() {
     if (st === 403 && d === 'user_banned') return void alertDialog('Аккаунт забанен. Изменение оформления профиля недоступно')
     if (st === 422 && d === 'profile_theme_invalid') return void alertDialog('Выбран недопустимый цвет профиля')
     if (st === 422 && d === 'profile_theme_icon_invalid') return void alertDialog('Выбрана недопустимая иконка профиля')
+    if (st === 422 && d === 'profile_streaming_url_invalid') return void alertDialog('Укажите корректную ссылку на стриминговую платформу')
     void alertDialog('Не удалось сохранить оформление профиля')
   } finally {
     themeSaveBusy.value = false
@@ -357,6 +383,9 @@ onBeforeUnmount(() => {
             width: 100%;
           }
         }
+      }
+      .streaming-url-input {
+        --ui-input-label-bg: #{$soft-purple-800};
       }
     }
   }
