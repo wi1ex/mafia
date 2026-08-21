@@ -803,19 +803,23 @@ async def state(sid, data) -> StateAck:
             changed["ready"] = forced_ready or "0"
         if changed:
             await emit_state_changed_filtered(r, rid, uid, changed)
-            if changed.get("speakers") == "0":
-                if raw_gstate is None:
-                    raw_gstate = await r.hgetall(f"room:{rid}:game_state")
-                phase = str((raw_gstate or {}).get("phase") or "idle")
-                speakers_blocked = await r.hget(f"room:{rid}:user:{uid}:block", "speakers")
-                if phase == "idle" and speakers_blocked not in ("1", b"1"):
-                    cycle = await mark_speaker_alert_cycle(r, rid, uid)
-                    await sio.emit(
-                        "speaker_alert_available",
-                        {"user_id": uid, "cycle": cycle},
-                        room=f"room:{rid}",
-                        namespace="/room",
-                    )
+
+        speaker_alert_cycle = 0
+        if changed.get("speakers") == "0":
+            if raw_gstate is None:
+                raw_gstate = await r.hgetall(f"room:{rid}:game_state")
+            phase = str((raw_gstate or {}).get("phase") or "idle")
+            speakers_blocked = await r.hget(f"room:{rid}:user:{uid}:block", "speakers")
+            if phase == "idle" and speakers_blocked not in ("1", b"1"):
+                speaker_alert_cycle = await mark_speaker_alert_cycle(r, rid, uid)
+
+        if speaker_alert_cycle > 0:
+            await sio.emit(
+                "speaker_alert_available",
+                {"user_id": uid, "cycle": speaker_alert_cycle},
+                room=f"room:{rid}",
+                namespace="/room",
+            )
         return {"ok": True}
 
     except Exception:

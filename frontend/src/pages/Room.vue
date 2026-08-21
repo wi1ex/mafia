@@ -2285,6 +2285,7 @@ socket.value?.on('connect', async () => {
     const id = String(p?.user_id || '')
     const cycle = Number(p?.cycle || 0)
     if (!id || id === String(localId.value) || !Number.isInteger(cycle) || cycle <= 0) return
+    if (isOn(id, 'speakers') || isBlocked(id, 'speakers')) return
     speakerAlertCycles.set(id, cycle)
     speakerAlertSending.delete(id)
   })
@@ -2366,6 +2367,10 @@ socket.value?.on('connect', async () => {
     const uid = String(p?.user_id ?? '')
     const blocks = (p?.blocks ?? {}) as Record<string, any>
     applyBlocks(uid, blocks)
+    if ('speakers' in blocks && norm01(blocks.speakers, 0) === 1) {
+      speakerAlertCycles.delete(uid)
+      speakerAlertSending.delete(uid)
+    }
     if (uid === String(localId.value)) {
       if ('cam' in blocks && norm01(blocks.cam, 0) === 1) {
         local.cam = false

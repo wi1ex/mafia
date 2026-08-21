@@ -2284,7 +2284,12 @@ async def validate_auth(auth: Any) -> SocketIdentity | None:
         return None
 
 
-async def apply_state(r, rid: int, uid: int, data: Mapping[str, Any]) -> Dict[str, str]:
+async def apply_state(
+    r,
+    rid: int,
+    uid: int,
+    data: Mapping[str, Any],
+) -> Dict[str, str]:
     incoming_state = {k: norm01(data[k]) for k in KEYS_STATE if k in data}
     if not incoming_state:
         return {}
@@ -2321,22 +2326,13 @@ def _speaker_alert_seen_key(rid: int, target_uid: int, cycle: int) -> str:
 
 
 async def get_speaker_alert_cycle(r, rid: int, target_uid: int) -> int:
-    key = _speaker_alert_cycles_key(rid)
-    raw = await r.hget(key, str(target_uid))
-    try:
-        cycle = int(raw or 0)
-    except (TypeError, ValueError):
-        cycle = 0
-    return max(0, cycle)
+    raw = await r.hget(_speaker_alert_cycles_key(rid), str(target_uid))
+    return positive_int(raw)
 
 
 async def get_active_speaker_alert_cycle(r, rid: int, target_uid: int) -> int:
     raw = await r.hget(_speaker_alert_active_key(rid), str(target_uid))
-    try:
-        return max(0, int(raw or 0))
-
-    except (TypeError, ValueError):
-        return 0
+    return positive_int(raw)
 
 
 async def mark_speaker_alert_cycle(r, rid: int, target_uid: int) -> int:
@@ -2357,32 +2353,52 @@ async def get_speaker_alert_availability(r, rid: int, viewer_uid: int) -> dict[s
     except Exception:
         return {}
 
-    available: dict[str, int] = {}
-    for target_uid in member_ids:
-        if target_uid == viewer_uid:
-            continue
-        try:
-            speakers = await r.hget(f"room:{rid}:user:{target_uid}:state", "speakers")
-            speakers_blocked = await r.hget(f"room:{rid}:user:{target_uid}:block", "speakers")
-        except Exception:
-            continue
-        if speakers not in ("0", b"0") or speakers_blocked in ("1", b"1"):
-            continue
+    target_ids = sorted(uid for uid in member_ids if uid != viewer_uid)
+    if not target_ids:
+        return {}
 
-        try:
-            cycle = await get_active_speaker_alert_cycle(r, rid, target_uid)
-            if cycle <= 0 or cycle != await get_speaker_alert_cycle(r, rid, target_uid):
-                continue
-            alerted = await r.sismember(
-                _speaker_alert_seen_key(rid, target_uid, cycle),
-                str(viewer_uid),
-            )
-        except Exception:
-            continue
-        if not alerted:
-            available[str(target_uid)] = cycle
+    try:
+        async with r.pipeline() as p:
+            for target_uid in target_ids:
+                await p.hget(f"room:{rid}:user:{target_uid}:state", "speakers")
+                await p.hget(f"room:{rid}:user:{target_uid}:block", "speakers")
+            await p.hmget(_speaker_alert_active_key(rid), *[str(uid) for uid in target_ids])
+            await p.hmget(_speaker_alert_cycles_key(rid), *[str(uid) for uid in target_ids])
+            rows = await p.execute()
+    except Exception:
+        return {}
 
-    return available
+    active_cycles = rows[-2] if len(rows) >= 2 else []
+    current_cycles = rows[-1] if len(rows) >= 1 else []
+    candidates: list[tuple[int, int]] = []
+    for index, target_uid in enumerate(target_ids):
+        speakers = rows[index * 2] if len(rows) > index * 2 else None
+        speakers_blocked = rows[index * 2 + 1] if len(rows) > index * 2 + 1 else None
+        active_cycle = positive_int(active_cycles[index] if len(active_cycles) > index else 0)
+        current_cycle = positive_int(current_cycles[index] if len(current_cycles) > index else 0)
+        if (
+            speakers in ("0", b"0")
+            and speakers_blocked not in ("1", b"1")
+            and active_cycle > 0
+            and active_cycle == current_cycle
+        ):
+            candidates.append((target_uid, active_cycle))
+    if not candidates:
+        return {}
+
+    try:
+        async with r.pipeline() as p:
+            for target_uid, cycle in candidates:
+                await p.sismember(_speaker_alert_seen_key(rid, target_uid, cycle), str(viewer_uid))
+            seen_rows = await p.execute()
+    except Exception:
+        return {}
+
+    return {
+        str(target_uid): cycle
+        for (target_uid, cycle), alerted in zip(candidates, seen_rows)
+        if not alerted
+    }
 
 
 def _decode_redis_value(val: Any) -> str:
@@ -2758,6 +2774,8 @@ async def update_blocks(r, rid: int, actor_uid: int, actor_role: str, target_uid
         return {}, {}
 
     await r.hset(f"room:{rid}:user:{target_uid}:block", mapping=to_apply)
+    if to_apply.get("speakers") == "1":
+        await r.hdel(_speaker_alert_active_key(rid), str(target_uid))
 
     forced_off: Dict[str, str] = {}
     turn_off_keys = [k for k, v in to_apply.items() if v == "1" and k in KEYS_STATE]
@@ -5216,6 +5234,7 @@ async def process_player_death(r, rid: int, user_id: int, *, head_uid: int | Non
 
     state_map = {"mic": "0", "cam": "0", "speakers": "1", "visibility": "1"}
     await r.hset(f"room:{rid}:user:{user_id}:state", mapping=state_map)
+    await r.hdel(_speaker_alert_active_key(rid), str(user_id))
     try:
         await emit_state_changed_filtered(r, rid, user_id, state_map, phase_override=phase_override)
     except Exception:
