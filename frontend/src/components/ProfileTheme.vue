@@ -43,7 +43,7 @@
     </div>
     <div class="theme-preview">
       <div class="theme-preview-div">
-        <span class="theme-title">Предпросмотр</span>
+        <span class="theme-title">Предпросмотр профиля</span>
         <div class="theme-preview-profile" :style="themePreviewStyle">
           <header class="profile-top">
             <div class="profile-identity">
@@ -72,7 +72,7 @@
         </div>
       </div>
       <div class="theme-preview-div">
-        <span class="theme-title">Бейджик</span>
+        <span class="theme-title">Предпросмотр бейджа</span>
         <div class="theme-preview-card" :style="themePreviewStyle">
           <img class="theme-preview-avatar" v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false, animated: true }" alt="avatar" />
           <div v-if="themePreviewIconSrcs.length" class="theme-preview-icons" aria-hidden="true">

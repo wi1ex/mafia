@@ -9,7 +9,7 @@
           <header>
             <div class="header-track" :class="{ 'is-kassa': kassaFormOpen }">
               <div class="header-div" :aria-hidden="kassaFormOpen ? 'true' : 'false'">
-                <span class="header-title">Выбери свой план подписки или просто поддержи проект</span>
+                <span class="header-title">Оформи подписку или просто поддержи проект</span>
               </div>
               <div class="header-div" :aria-hidden="kassaFormOpen ? 'false' : 'true'">
                 <span class="header-title">Оформление подписки</span>
@@ -136,13 +136,13 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { api } from '@/services/axios'
+import { alertDialog } from '@/services/confirm'
+import { useAuthStore, useSettingsStore, useUserStore } from '@/store'
 
 import UiIcon from '@/components/UiIcon.vue'
 import UiInput from '@/components/UiInput.vue'
 import UiButton from '@/components/UiButton.vue'
-import { api } from '@/services/axios'
-import { alertDialog } from '@/services/confirm'
-import { useAuthStore, useSettingsStore, useUserStore } from '@/store'
 
 import imageSlide8 from '@/assets/images/carousel-image8.png'
 import iconClose from '@/assets/svg/iconClose.svg'
@@ -245,13 +245,13 @@ const kassaPaymentPrices: Record<KassaCurrency, Record<KassaPlan, string>> = {
 const subscriptionBenefits: readonly string[] = [
   'анимированные GIF-аватары',
   'выбор цвета и иконки профиля',
-  'создание скрытых комнат',
-  'трансляции в высоком качестве',
   'иконка стрим-платформы в профиле',
+  'трансляции в высоком качестве',
+  'создание скрытых комнат',
   'входить зрителем вне лимита',
   'черный список пользователей',
-  'увеличенный лимит на изменение никнейма',
   'обнуление истории своих никнеймов',
+  'увеличенный лимит на изменение никнейма',
 ]
 
 const kassaCurrencies: readonly KassaCurrency[] = ['RUB', 'USD', 'EUR']
@@ -557,7 +557,7 @@ onBeforeUnmount(() => {
         align-items: center;
         gap: 8px;
         .header-title {
-          max-width: 350px;
+          max-width: 300px;
           text-align: center;
           color: $neutral-black;
           font-family: Involve-Medium;

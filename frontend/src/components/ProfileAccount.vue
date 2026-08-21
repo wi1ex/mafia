@@ -57,7 +57,7 @@
               rel="noopener noreferrer"
             />
             <span class="hint-url">
-              Или найдите в Telegram
+              Верификация производится в
               <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer"> @{{ botName }}</a>
             </span>
           </div>
@@ -138,7 +138,7 @@
             :disabled="pwdBusy || !canChangePassword"
           />
           <span class="hint-url">
-            Сбросить пароль можно через TG-бота
+            Сброс пароля возможен только в
             <a v-if="botName" :href="botLink" target="_blank" rel="noopener noreferrer"> @{{ botName }}</a>
           </span>
         </div>
