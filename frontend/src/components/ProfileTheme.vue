@@ -27,6 +27,18 @@
         />
       </div>
       <div class="theme-changes">
+        <UiInput
+          id="profile-streaming-url"
+          v-model="selectedStreamingUrl"
+          class="streaming-url-input"
+          type="url"
+          inputmode="url"
+          maxlength="512"
+          autocomplete="url"
+          label="Ссылка на Ваш профиль на стриминговой платформе"
+          placeholder="https://twitch.tv/..."
+          :disabled="themeSaveBusy || isBanned"
+        />
         <div class="theme-palette">
           <button class="theme-option" v-for="item in profileThemeOptions" :key="item.key" type="button" :class="{ active: selectedProfileThemeColor === item.key }"
                   :style="themeOptionStyle(item.key)" :disabled="themeSaveBusy || isBanned" @click="pickProfileTheme(item.key)">
@@ -39,18 +51,6 @@
             <img v-else class="theme-icon-img" :src="iconDush" alt="" aria-hidden="true" />
           </button>
         </div>
-        <UiInput
-          id="profile-streaming-url"
-          v-model="selectedStreamingUrl"
-          class="streaming-url-input"
-          type="url"
-          inputmode="url"
-          maxlength="512"
-          autocomplete="url"
-          label="Ссылка на стриминговую платформу"
-          placeholder="https://twitch.tv/..."
-          :disabled="themeSaveBusy || isBanned"
-        />
       </div>
     </div>
     <div class="theme-preview">
@@ -66,6 +66,7 @@
                     <div v-if="themePreviewIconSrcs.length" class="theme-preview-icons" aria-hidden="true">
                       <img class="theme-preview-icon" v-for="badgeSrc in themePreviewIconSrcs" :key="badgeSrc" :src="badgeSrc" alt="" />
                     </div>
+                    <UiIcon v-if="themePreviewStreamingUrl" class="theme-preview-streaming-icon" :icon="iconTwitch" />
                     <span class="theme-preview-name">{{ me.username || 'User' }}</span>
                   </div>
                   <div class="profile-meta">
@@ -128,6 +129,7 @@ import UiInput from '@/components/UiInput.vue'
 import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
 import iconDush from '@/assets/svg/iconDush.svg'
 import iconClose from '@/assets/svg/iconClose.svg'
+import iconTwitch from '@/assets/svg/iconTwitch.svg'
 
 type SubscriptionSite = {
   id: string
@@ -180,6 +182,7 @@ const profileThemeDirty = computed(() => (
 const themeSaveDisabled = computed(() => themeSaveBusy.value || isBanned.value || !canEditProfileTheme.value || !profileThemeDirty.value)
 const themePreviewStyle = computed(() => buildProfileThemeBgStyle(selectedProfileThemeColor.value))
 const themePreviewIconSrcs = computed(() => getProfileThemeBadgeSources(selectedProfileThemeIcon.value, me.role, { userId: userStore.user?.id }))
+const themePreviewStreamingUrl = computed(() => normalizeStreamingUrl(selectedStreamingUrl.value))
 const profileThemeOptions = computed(() => getProfileThemeOptions(me.role))
 const profileThemeIconOptions = computed(() => PROFILE_THEME_ICON_OPTIONS.filter((item) => item.available || item.key === selectedProfileThemeIcon.value))
 
@@ -466,6 +469,11 @@ onBeforeUnmount(() => {
                       height: 28px;
                       object-fit: contain;
                     }
+                  }
+                  .theme-preview-streaming-icon {
+                    --ui-icon-width: 24px;
+                    --ui-icon-height: 24px;
+                    --ui-icon-color: #{$neutral-white};
                   }
                   .theme-preview-name {
                     max-width: 240px;
