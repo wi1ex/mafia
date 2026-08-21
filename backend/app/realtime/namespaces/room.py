@@ -17,7 +17,7 @@ from ...core.db import SessionLocal
 from ...security.parameters import get_cached_settings
 from ...schemas.realtime import StateAck, ModerateAck, JoinAck, ScreenAck, GameStartAck, GameRolePickAck, GameHostBlurAck
 from ...api.utils import normalize_spectators_limit
-from ...services.blacklist import is_user_blacklisted_by
+from ...services.blacklist import is_user_blacklisted_by, user_has_active_subscription
 from ...services.livekit import get_livekit_room_name, make_livekit_token, remove_livekit_participant
 from ..utils import (
     SANCTION_TIMEOUT,
@@ -282,12 +282,17 @@ async def join(sid, data) -> JoinAck:
                 if (room_spectators_limit <= 0 or spectators_limit <= 0) and not can_bypass_spectators_limit:
                     return {"ok": False, "error": "game_in_progress", "status": 409}
 
+                can_bypass_spectators_capacity = can_bypass_spectators_limit
+                if not can_bypass_spectators_capacity:
+                    async with SessionLocal() as s:
+                        can_bypass_spectators_capacity = await user_has_active_subscription(s, uid)
+
                 try:
                     already_spectator = await r.sismember(f"room:{rid}:spectators", str(uid))
                 except Exception:
                     already_spectator = False
                 if not already_spectator:
-                    if not can_bypass_spectators_limit:
+                    if not can_bypass_spectators_capacity:
                         spectators_count = await get_public_spectators_count(r, rid)
                         if spectators_count >= spectators_limit:
                             return {"ok": False, "error": "spectators_full", "status": 409}

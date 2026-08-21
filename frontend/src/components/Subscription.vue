@@ -21,17 +21,6 @@
           <div class="subscription-purchase-content">
             <div class="subscription-purchase-track" :class="{ 'is-kassa': kassaFormOpen }">
               <div class="subscription-purchase-slide" :inert="kassaFormOpen ? true : undefined" :aria-hidden="kassaFormOpen ? 'true' : 'false'">
-                <UiSwitch
-                  v-model="subscribeYearSelected"
-                  class="subscribe-switch"
-                  label="Подписка"
-                  off-label="Месяц"
-                  on-label="Год"
-                  on-badge="-15%"
-                  theme="light"
-                  without-text
-                  aria-label="Выбор срока подписки"
-                />
                 <div class="subscribe">
                   <img class="background-image" :src="imageSlide8" alt="" aria-hidden="true" />
                   <span class="subscribe-price-value">Оформи подписку всего за <span class="subscribe-price-amount">{{ selectedSubscribePrice.amount }}</span><span class="subscribe-price-period">{{ selectedSubscribePrice.period }}</span></span>
@@ -150,7 +139,6 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
 import UiIcon from '@/components/UiIcon.vue'
 import UiInput from '@/components/UiInput.vue'
-import UiSwitch from '@/components/UiSwitch.vue'
 import UiButton from '@/components/UiButton.vue'
 import { api } from '@/services/axios'
 import { alertDialog } from '@/services/confirm'
@@ -259,6 +247,8 @@ const subscriptionBenefits: readonly string[] = [
   'выбор цвета и иконки профиля',
   'создание скрытых комнат',
   'трансляции в высоком качестве',
+  'иконка стрим-платформы в профиле',
+  'входить зрителем вне лимита',
   'черный список пользователей',
   'увеличенный лимит на изменение никнейма',
   'обнуление истории своих никнеймов',
@@ -300,13 +290,6 @@ const kassaForm = ref<{
 const availableKassaPaymentOptions = computed(() => (
   kassaPaymentOptions.filter((option) => option.currencies.includes(kassaForm.value.currency))
 ))
-const subscribeYearSelected = computed({
-  get: () => kassaForm.value.plan === 'year',
-  set: (yearSelected: boolean) => {
-    kassaForm.value.plan = yearSelected ? 'year' : 'month'
-  },
-})
-
 watch(
   () => kassaForm.value.plan,
   (plan) => {
@@ -527,7 +510,7 @@ onBeforeUnmount(() => {
     flex-direction: column;
     padding: 24px;
     width: 570px;
-    height: 624px;
+    height: 512px;
     border-radius: 24px;
     background-color: $neutral-100;
     box-shadow: 0 2px 16px 0 rgba($neutral-black, 0.20);
@@ -612,14 +595,11 @@ onBeforeUnmount(() => {
           &::-webkit-scrollbar {
             display: none;
           }
-          .subscribe-switch {
-            margin: 40px 0 16px;
-          }
           .subscribe {
             display: flex;
             position: relative;
             flex-direction: column;
-            margin-bottom: 40px;
+            margin: 20px 0;
             padding: 24px;
             gap: 40px;
             border-radius: 24px;
@@ -682,7 +662,7 @@ onBeforeUnmount(() => {
           .kassa-form {
             display: flex;
             flex-direction: column;
-            margin-top: 76px;
+            margin: 20px 0;
             gap: 24px;
             .kassa-field {
               display: flex;
@@ -813,21 +793,6 @@ onBeforeUnmount(() => {
   max-height: 120px;
   opacity: 1;
   transform: translateY(0);
-}
-
-@media (max-width: 1000px) {
-  .subscription-purchase-overlay .subscription-purchase-modal {
-    height: 512px;
-  }
-  .subscription-purchase-overlay .subscription-purchase-modal .subscription-purchase-content .subscription-purchase-track .subscription-purchase-slide .subscribe-switch {
-    display: none;
-  }
-  .subscription-purchase-overlay .subscription-purchase-modal .subscription-purchase-content .subscription-purchase-track .subscription-purchase-slide .subscribe {
-    margin: 20px 0;
-  }
-  .subscription-purchase-overlay .subscription-purchase-modal .subscription-purchase-content .subscription-purchase-track .subscription-purchase-slide .kassa-form {
-    margin: 20px 0;
-  }
 }
 
 </style>

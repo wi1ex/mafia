@@ -314,6 +314,7 @@ const isAdmin = computed(() => userStore.user?.role === 'admin')
 const isModer = computed(() => userStore.user?.role === 'moder')
 const canCloseRooms = computed(() => isAdmin.value || isModer.value)
 const canBypassSpectatorsLimit = computed(() => isAdmin.value || isModer.value)
+const canBypassSpectatorsCapacity = computed(() => canBypassSpectatorsLimit.value || userStore.subscriptionActive)
 const canCreateRooms = computed(() => settings.roomsCanCreate || isAdmin.value)
 const canEnterRooms = computed(() => settings.roomsCanEnter || isAdmin.value)
 const canAdminSpectateRoom = computed(() => {
@@ -456,6 +457,7 @@ const ctaState = computed<Cta>(() => {
     const limit = spectatorsLimit.value
     const count = info.value?.spectators_count ?? 0
     if (limit <= 0) return 'in_game'
+    if (canBypassSpectatorsCapacity.value) return 'watch'
     return count < limit ? 'watch' : 'spectators_full'
   }
   if (room.privacy === 'open' || access.value === 'approved') return isFull.value ? 'full' : 'enter'
