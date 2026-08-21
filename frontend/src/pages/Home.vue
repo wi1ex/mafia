@@ -1405,15 +1405,16 @@ onBeforeUnmount(() => {
                 .streaming-link {
                   display: inline-flex;
                   flex: 0 0 auto;
-                  color: $neutral-white;
                   .streaming-icon {
-                    --ui-icon-width: 20px;
-                    --ui-icon-height: 20px;
-                    --ui-icon-color: currentColor;
+                    --ui-icon-width: 16px;
+                    --ui-icon-height: 16px;
+                    --ui-icon-color: #{$neutral-white};
                   }
                   &:hover,
                   &:focus-visible {
-                    color: $green-500;
+                    .streaming-icon {
+                      --ui-icon-color: #{$green-500};
+                    }
                   }
                 }
                 .user-mini-avatar {

@@ -2232,12 +2232,12 @@ onBeforeUnmount(() => {
                 .profile-streaming-icon {
                   --ui-icon-width: 24px;
                   --ui-icon-height: 24px;
-                  --ui-icon-color: $neutral-white;
+                  --ui-icon-color: #{$neutral-white};
                 }
                 &:hover,
                 &:focus-visible {
                   .profile-streaming-icon {
-                    --ui-icon-color: $green-500;
+                    --ui-icon-color: #{$green-500};
                   }
                 }
               }
