@@ -205,6 +205,30 @@
                 Отправить всем
               </button>
             </div>
+
+            <div class="block home-carousel-banner-block">
+              <h2>Баннер главной карусели</h2>
+              <p class="home-carousel-banner-hint">Изображение станет первым слайдом на главной. Поддерживаются JPG и PNG до 5 МБ.</p>
+              <input
+                ref="homeCarouselBannerInput"
+                class="home-carousel-banner-input"
+                type="file"
+                accept="image/jpeg,image/png"
+                :disabled="homeCarouselBannerBusy"
+                @change="uploadHomeCarouselBanner"
+              />
+              <div v-if="homeCarouselBannerKey" class="home-carousel-banner-preview">
+                <img v-minio-img="{ key: homeCarouselBannerKey, lazy: false }" alt="Текущий баннер карусели" />
+              </div>
+              <div class="home-carousel-banner-actions">
+                <button class="btn" type="button" :disabled="homeCarouselBannerBusy" @click="openHomeCarouselBannerPicker">
+                  {{ homeCarouselBannerKey ? 'Заменить изображение' : 'Загрузить изображение' }}
+                </button>
+                <button v-if="homeCarouselBannerKey" class="btn danger" type="button" :disabled="homeCarouselBannerBusy" @click="deleteHomeCarouselBanner">
+                  Удалить изображение
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1482,6 +1506,9 @@ const userMiniProfileHistoryUrl = computed(() => {
 })
 const updateNoticeSaving = ref(false)
 const updateNoticeForm = reactive({ title: '', text: '' })
+const homeCarouselBannerInput = ref<HTMLInputElement | null>(null)
+const homeCarouselBannerKey = ref<string | null>(null)
+const homeCarouselBannerBusy = ref(false)
 const sanctionReasons = computed(() => settingsStore.sanctionReasons)
 const sanctionReasonValues = computed(() => new Set(sanctionReasons.value.map(({ value }) => value)))
 const SANCTION_DURATION_LIMITS = {
@@ -1595,6 +1622,11 @@ function normalizeAdminBannerLink(raw: unknown): string {
   const text = String(raw ?? '').trim()
   if (!text || text === '0') return '0'
   return text
+}
+
+function normalizeHomeCarouselBannerKey(raw: unknown): string | null {
+  const key = String(raw ?? '').trim()
+  return /^home\/carousel-banner\/\d{9,}-[a-f0-9]{32}\.(jpg|png)$/.test(key) ? key : null
 }
 
 function normalizeExternalPaymentUrl(raw: unknown): string {
@@ -2332,6 +2364,7 @@ async function loadSettings(): Promise<void> {
     const { data } = await api.get('/admin/settings')
     Object.assign(site, data?.site || {})
     Object.assign(game, data?.game || {})
+    homeCarouselBannerKey.value = normalizeHomeCarouselBannerKey(data?.site?.home_carousel_banner_key)
     site.admin_banner_text = normalizeAdminBannerText(site.admin_banner_text)
     site.admin_banner_link = normalizeAdminBannerLink(site.admin_banner_link)
     site.donation_url = normalizeExternalPaymentUrl(site.donation_url)
@@ -2348,6 +2381,19 @@ async function loadSettings(): Promise<void> {
     gameSnapshot.value = snapshotGame()
   } finally {
     loading.value = false
+  }
+}
+
+async function loadHomeCarouselBanner(): Promise<void> {
+  if (homeCarouselBannerBusy.value) return
+  homeCarouselBannerBusy.value = true
+  try {
+    const { data } = await api.get('/admin/settings')
+    homeCarouselBannerKey.value = normalizeHomeCarouselBannerKey(data?.site?.home_carousel_banner_key)
+  } catch {
+    void alertDialog('Не удалось загрузить баннер карусели')
+  } finally {
+    homeCarouselBannerBusy.value = false
   }
 }
 
@@ -2403,6 +2449,7 @@ async function saveSettings(): Promise<void> {
     const { data } = await api.patch('/admin/settings', payload)
     Object.assign(site, data?.site || {})
     Object.assign(game, data?.game || {})
+    homeCarouselBannerKey.value = normalizeHomeCarouselBannerKey(data?.site?.home_carousel_banner_key)
     site.admin_banner_text = normalizeAdminBannerText(site.admin_banner_text)
     site.admin_banner_link = normalizeAdminBannerLink(site.admin_banner_link)
     site.donation_url = normalizeExternalPaymentUrl(site.donation_url)
@@ -2424,6 +2471,7 @@ async function saveSettings(): Promise<void> {
       verification_restrictions: site.verification_restrictions,
       admin_banner_text: site.admin_banner_text,
       admin_banner_link: site.admin_banner_link,
+      home_carousel_banner_key: homeCarouselBannerKey.value,
       donation_url: site.donation_url,
       rooms_limit_global: site.rooms_limit_global,
       spectators_limit: site.spectators_limit,
@@ -2968,6 +3016,71 @@ async function sendUpdateNotice(): Promise<void> {
   }
 }
 
+function openHomeCarouselBannerPicker(): void {
+  if (homeCarouselBannerBusy.value) return
+  homeCarouselBannerInput.value?.click()
+}
+
+function homeCarouselBannerErrorMessage(error: any): string {
+  const detail = String(error?.response?.data?.detail || '')
+  if (detail === 'file_too_large') return 'Размер изображения не должен превышать 5 МБ'
+  if (detail === 'bad_image') return 'Загрузите корректное изображение в формате JPG или PNG'
+  if (detail === 'empty_file') return 'Выбранный файл пуст'
+  return 'Не удалось сохранить баннер карусели'
+}
+
+async function uploadHomeCarouselBanner(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file || homeCarouselBannerBusy.value) return
+  if (!['image/jpeg', 'image/png'].includes(file.type)) {
+    void alertDialog('Загрузите изображение в формате JPG или PNG')
+    return
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    void alertDialog('Размер изображения не должен превышать 5 МБ')
+    return
+  }
+
+  homeCarouselBannerBusy.value = true
+  try {
+    const form = new FormData()
+    form.append('file', file)
+    const { data } = await api.post('/admin/home-carousel-banner', form)
+    settingsStore.applyPublic(data)
+    homeCarouselBannerKey.value = normalizeHomeCarouselBannerKey(data?.home_carousel_banner_key)
+    void alertDialog('Баннер добавлен в начало главной карусели')
+  } catch (error) {
+    void alertDialog(homeCarouselBannerErrorMessage(error))
+  } finally {
+    homeCarouselBannerBusy.value = false
+  }
+}
+
+async function deleteHomeCarouselBanner(): Promise<void> {
+  if (!homeCarouselBannerKey.value || homeCarouselBannerBusy.value) return
+  const confirmed = await confirmDialog({
+    title: 'Удалить баннер карусели',
+    text: 'Изображение исчезнет из главной карусели у всех пользователей.',
+    confirmText: 'Удалить',
+    cancelText: 'Отмена',
+  })
+  if (!confirmed) return
+
+  homeCarouselBannerBusy.value = true
+  try {
+    const { data } = await api.delete('/admin/home-carousel-banner')
+    settingsStore.applyPublic(data)
+    homeCarouselBannerKey.value = normalizeHomeCarouselBannerKey(data?.home_carousel_banner_key)
+    void alertDialog('Баннер удалён из главной карусели')
+  } catch {
+    void alertDialog('Не удалось удалить баннер карусели')
+  } finally {
+    homeCarouselBannerBusy.value = false
+  }
+}
+
 async function kickAllRooms(): Promise<void> {
   if (kickRoomsBusy.value) return
   const ok = await confirmDialog({
@@ -3156,6 +3269,10 @@ function refreshActiveTab(tab: typeof activeTab.value): void {
   }
   if (tab === 'settings') {
     void loadSettings()
+    return
+  }
+  if (tab === 'updates') {
+    void loadHomeCarouselBanner()
     return
   }
   if (tab === 'stats') {
@@ -3792,10 +3909,59 @@ onBeforeUnmount(() => {
       }
     }
     .updates-notice-grid {
-      grid-template-columns: minmax(0, 800px);
+      grid-template-columns: minmax(0, 800px) minmax(280px, 440px);
+      align-items: start;
+      @media (max-width: 1200px) {
+        grid-template-columns: minmax(0, 800px);
+      }
     }
     .updates-notice-block {
       max-width: 800px;
+    }
+    .home-carousel-banner-block {
+      h2 {
+        margin: 0;
+        color: $neutral-100;
+        font-family: Hauora-Bold;
+        font-size: 20px;
+        line-height: 24px;
+      }
+      .home-carousel-banner-hint {
+        margin: 8px 0 0;
+        color: $neutral-500;
+        font-family: Hauora-Regular;
+        font-size: 14px;
+        line-height: 19px;
+      }
+      .home-carousel-banner-input {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        clip-path: inset(50%);
+        white-space: nowrap;
+      }
+      .home-carousel-banner-preview {
+        margin-top: 16px;
+        width: 100%;
+        aspect-ratio: 607 / 494;
+        overflow: hidden;
+        border-radius: 12px;
+        background-color: $neutral-800;
+        img {
+          display: block;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+      }
+      .home-carousel-banner-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 16px;
+      }
     }
     :deep(.update-notice-textarea textarea) {
       min-height: 200px;

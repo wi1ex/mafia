@@ -10,6 +10,7 @@ from ..api.utils import (
     season_starts_csv,
     normalize_admin_banner_text,
     normalize_admin_banner_link,
+    normalize_home_carousel_banner_key,
     normalize_season_start_value,
     normalize_text_moderation_whitelist,
     normalize_text_moderation_blacklist,
@@ -31,6 +32,7 @@ class AppSettingsSnapshot:
     verification_restrictions: bool
     admin_banner_text: str
     admin_banner_link: str
+    home_carousel_banner_key: str | None
     donation_url: str
     rooms_limit_global: int
     rooms_limit_per_user: int
@@ -89,6 +91,7 @@ async def ensure_app_settings(session: AsyncSession) -> AppSettings:
             verification_restrictions=defaults.verification_restrictions,
             admin_banner_text=normalize_admin_banner_text(defaults.admin_banner_text),
             admin_banner_link=normalize_admin_banner_link(defaults.admin_banner_link),
+            home_carousel_banner_key=None,
             donation_url=normalize_donation_url(defaults.donation_url),
             rooms_limit_global=defaults.rooms_limit_global,
             rooms_limit_per_user=defaults.rooms_limit_per_user,
@@ -148,6 +151,11 @@ async def ensure_app_settings(session: AsyncSession) -> AppSettings:
         current_donation_url = str(getattr(row, "donation_url", "") or "").strip()
         if current_donation_url != normalized_donation_url:
             row.donation_url = normalized_donation_url
+            changed = True
+
+        normalized_home_carousel_banner_key = normalize_home_carousel_banner_key(getattr(row, "home_carousel_banner_key", None))
+        if getattr(row, "home_carousel_banner_key", None) != normalized_home_carousel_banner_key:
+            row.home_carousel_banner_key = normalized_home_carousel_banner_key
             changed = True
 
         if changed:

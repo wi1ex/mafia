@@ -30,6 +30,9 @@ async def lifespan(app) -> AsyncIterator[None]:
             await conn.execute(text(
                 "ALTER TABLE settings DROP COLUMN IF EXISTS self_speech_finish_enabled"
             ))
+            await conn.execute(text(
+                "ALTER TABLE settings ADD COLUMN IF NOT EXISTS home_carousel_banner_key VARCHAR(255)"
+            ))
             # 2222222222222222222222222222222222222222222222
 
         async with SessionLocal() as session:

@@ -2,11 +2,15 @@
   <section class="home-carousel" role="region" aria-roledescription="carousel" aria-label="Информационная карусель" tabindex="0" :class="{ 'is-paused': isPaused }"
            :style="carouselProgressStyle" @mouseenter="hovered = true" @mouseleave="hovered = false" @focusin="focused = true" @focusout="onFocusOut" @keydown="onKeydown" >
     <Transition :name="slideTransitionName">
-      <article v-if="activeIndex === 0" key="slide-1" class="slide">
+      <article v-if="homeCarouselBannerKey && activeIndex === 0" key="home-carousel-banner" class="slide">
+        <img class="background-image home-carousel-banner-image" v-minio-img="{ key: homeCarouselBannerKey, lazy: false }" alt="Баннер на главной" />
+      </article>
+
+      <article v-else-if="baseSlideIndex === 0" key="slide-1" class="slide">
         <img class="background-image" :src="imageSlide1" alt="deceit — место, где игра превращается в общение: собирайтесь в комнаты, играйте в мафию и не только, общайтесь, смотрите и проводите время вместе." />
       </article>
 
-      <article v-else-if="activeIndex === 1" key="slide-2" class="slide">
+      <article v-else-if="baseSlideIndex === 1" key="slide-2" class="slide">
         <img class="background-image" :src="imageSlide2" alt="Проводите время вместе — от игр до фильмов." />
         <div class="slide-div">
           <div class="slide-top">
@@ -21,7 +25,7 @@
         </div>
       </article>
 
-      <article v-else-if="activeIndex === 2" key="slide-3" class="slide">
+      <article v-else-if="baseSlideIndex === 2" key="slide-3" class="slide">
         <img class="background-image" :src="imageSlide3" alt="Следи за своим уровнем игры и становись сильнее!" />
         <div class="slide-div">
           <div class="slide-top">
@@ -36,7 +40,7 @@
         </div>
       </article>
 
-      <article v-else-if="activeIndex === 3" key="slide-4" class="slide">
+      <article v-else-if="baseSlideIndex === 3" key="slide-4" class="slide">
         <img class="background-image" :src="imageSlide4" alt="Пространство для общения и новых знакомств!" />
         <div class="slide-div">
           <div class="slide-top">
@@ -84,7 +88,7 @@
       </button>
 
       <div class="carousel-dots">
-        <span v-for="index in SLIDE_COUNT" :key="index" class="carousel-dot" :class="{ active: activeIndex === index - 1 }" aria-hidden="true" />
+        <span v-for="index in slideCount" :key="index" class="carousel-dot" :class="{ active: activeIndex === index - 1 }" aria-hidden="true" />
       </div>
 
       <button type="button" class="nav-btn" aria-label="Следующий блок" @click="goNext(true)">
@@ -97,6 +101,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { requestPwaInstall, usePwaInstallState } from '@/services/pwa'
+import { useSettingsStore } from '@/store'
 
 import UiTooltip from '@/components/UiTooltip.vue'
 import UiButton from '@/components/UiButton.vue'
@@ -111,7 +116,6 @@ import imageSlide4 from '@/assets/images/carousel-image4.png'
 import imageSlide5 from '@/assets/images/carousel-image5.png'
 
 const AUTOPLAY_DELAY_MS = 10000
-const SLIDE_COUNT = 5
 
 const activeIndex = ref(0)
 const slideDirection = ref<1 | -1>(1)
@@ -121,6 +125,10 @@ const documentHidden = ref(false)
 const prefersReducedMotion = ref(false)
 const manualInstallHintVisible = ref(false)
 const pwaInstall = usePwaInstallState()
+const settingsStore = useSettingsStore()
+const homeCarouselBannerKey = computed(() => settingsStore.homeCarouselBannerKey)
+const slideCount = computed(() => homeCarouselBannerKey.value ? 6 : 5)
+const baseSlideIndex = computed(() => activeIndex.value - (homeCarouselBannerKey.value ? 1 : 0))
 
 const carouselProgressStyle = computed(() => ({
   '--carousel-dot-duration': `${AUTOPLAY_DELAY_MS}ms`,
@@ -164,7 +172,7 @@ function syncAutoplay() {
 }
 
 function normalizeIndex(index: number): number {
-  return ((index % SLIDE_COUNT) + SLIDE_COUNT) % SLIDE_COUNT
+  return ((index % slideCount.value) + slideCount.value) % slideCount.value
 }
 
 function setActive(nextIndex: number, direction: 1 | -1, userInitiated: boolean) {
@@ -226,7 +234,11 @@ function onMotionChange(event: MediaQueryListEvent) {
   prefersReducedMotion.value = event.matches
 }
 
-watch([activeIndex, isPaused], () => {
+watch(slideCount, () => {
+  activeIndex.value = normalizeIndex(activeIndex.value)
+})
+
+watch([activeIndex, isPaused, slideCount], () => {
   syncAutoplay()
 }, { immediate: true })
 
@@ -273,6 +285,9 @@ onBeforeUnmount(() => {
       width: 607px;
       height: 494px;
       border-radius: 24px;
+    }
+    .home-carousel-banner-image {
+      object-fit: cover;
     }
     .slide-div {
       display: flex;

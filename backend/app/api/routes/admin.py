@@ -5,7 +5,7 @@ import structlog
 from contextlib import suppress
 from time import time
 from datetime import date, datetime, timezone, timedelta
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy import select, update, func, or_, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...core.clients import get_redis
@@ -58,7 +58,14 @@ from ...services.global_chat import (
     emit_global_chat_sanction_issued_notice,
     emit_global_chat_sanction_removed_notice,
 )
-from ...services.minio import CHAT_IMAGE_PREFIX, delete_chat_images_async, get_prefix_storage_stats_async
+from ...services.minio import (
+    CHAT_IMAGE_PREFIX,
+    MAX_BYTES,
+    delete_chat_images_async,
+    delete_object_async,
+    get_prefix_storage_stats_async,
+    put_home_carousel_banner_async,
+)
 from ...services.blacklist import clear_user_blacklist
 from ...services.sanction_rules import ensure_sanction_rules
 from ...services.nickname_history import prepend_nickname_history
@@ -118,6 +125,7 @@ from ..utils import (
     parse_day_range,
     normalize_admin_banner_text,
     normalize_admin_banner_link,
+    normalize_home_carousel_banner_key,
     normalize_donation_url,
     sanction_rules_out,
     parse_cached_deleted_at,
@@ -356,6 +364,86 @@ async def update_settings(payload: AdminSettingsUpdateIn, session: AsyncSession 
     )
 
     return AdminSettingsOut(site=site_settings_out(row), game=game_settings_out(row))
+
+
+@router.post("/home-carousel-banner", response_model=PublicSettingsOut, dependencies=ADMIN_GUARD)
+@log_route("admin.home_carousel_banner_upload")
+async def upload_home_carousel_banner(file: UploadFile = File(...), session: AsyncSession = Depends(get_session), ident: Identity = Depends(require_protected_admin_dep),) -> PublicSettingsOut:
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="empty_file")
+
+    if len(content) > MAX_BYTES:
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="file_too_large")
+
+    key = await put_home_carousel_banner_async(content, file.content_type)
+    if not key:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="bad_image")
+
+    row = await ensure_app_settings(session)
+    previous_key = normalize_home_carousel_banner_key(getattr(row, "home_carousel_banner_key", None))
+    row.home_carousel_banner_key = key
+    try:
+        await session.commit()
+        await session.refresh(row)
+    except Exception:
+        await session.rollback()
+        with suppress(Exception):
+            await delete_object_async(key)
+        raise
+
+    sync_cache_from_row(row)
+    public_payload = public_settings_out(row)
+    with suppress(Exception):
+        await get_redis().publish("settings:update", "1")
+    with suppress(Exception):
+        await sio.emit("settings_update", public_payload.model_dump(mode="json"), namespace="/auth")
+    with suppress(Exception):
+        await sio.emit("settings_update", public_payload.model_dump(mode="json"), namespace="/rooms")
+    if previous_key and previous_key != key:
+        with suppress(Exception):
+            await delete_object_async(previous_key)
+
+    await log_action(
+        session,
+        user_id=int(ident["id"]),
+        username=ident["username"],
+        action="admin_home_carousel_banner_upload",
+        details="Загрузка баннера для главной карусели",
+    )
+    return public_payload
+
+
+@router.delete("/home-carousel-banner", response_model=PublicSettingsOut, dependencies=ADMIN_GUARD)
+@log_route("admin.home_carousel_banner_delete")
+async def delete_home_carousel_banner(session: AsyncSession = Depends(get_session), ident: Identity = Depends(require_protected_admin_dep),) -> PublicSettingsOut:
+    row = await ensure_app_settings(session)
+    previous_key = normalize_home_carousel_banner_key(getattr(row, "home_carousel_banner_key", None))
+    if previous_key:
+        row.home_carousel_banner_key = None
+        await session.commit()
+        await session.refresh(row)
+
+    sync_cache_from_row(row)
+    public_payload = public_settings_out(row)
+    with suppress(Exception):
+        await get_redis().publish("settings:update", "1")
+    with suppress(Exception):
+        await sio.emit("settings_update", public_payload.model_dump(mode="json"), namespace="/auth")
+    with suppress(Exception):
+        await sio.emit("settings_update", public_payload.model_dump(mode="json"), namespace="/rooms")
+    if previous_key:
+        with suppress(Exception):
+            await delete_object_async(previous_key)
+
+    await log_action(
+        session,
+        user_id=int(ident["id"]),
+        username=ident["username"],
+        action="admin_home_carousel_banner_delete",
+        details="Удаление баннера для главной карусели",
+    )
+    return public_payload
 
 
 @router.get("/stats", response_model=SiteStatsOut, dependencies=ADMIN_GUARD)

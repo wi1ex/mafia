@@ -71,6 +71,7 @@ class SiteSettingsOut(BaseModel):
     verification_restrictions: bool
     admin_banner_text: str
     admin_banner_link: str
+    home_carousel_banner_key: Optional[str] = None
     donation_url: str
     rooms_limit_global: int
     rooms_limit_per_user: int
@@ -168,6 +169,7 @@ class PublicSettingsOut(BaseModel):
     verification_restrictions: bool
     admin_banner_text: str
     admin_banner_link: str
+    home_carousel_banner_key: Optional[str] = None
     donation_url: str
     rooms_limit_global: int
     spectators_limit: int

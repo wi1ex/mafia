@@ -37,6 +37,7 @@ CHAT_IMAGE_MAX_SIDE = MAX_SIDE
 CHAT_IMAGE_PREFIX = "chat/global/images"
 CHAT_IMAGE_PENDING_SEGMENT = "pending"
 CHAT_IMAGE_PENDING_TTL_SECONDS = 60 * 60
+HOME_CAROUSEL_BANNER_PREFIX = "home/carousel-banner/"
 BUCKET_CHECK_TTL_S = 60.0
 _bucket_checked_until = 0.0
 _bucket_check_lock = threading.Lock()
@@ -281,6 +282,55 @@ def put_chat_image(user_id: int, content: bytes, content_type: str | None) -> Op
 
     except Exception:
         log.exception("chat_image.put.unexpected", user_id=user_id)
+        raise
+
+
+def put_home_carousel_banner(content: bytes, content_type: str | None) -> Optional[str]:
+    if not content:
+        log.warning("home_carousel_banner.put.empty")
+        return None
+
+    if len(content) > MAX_BYTES:
+        log.warning("home_carousel_banner.put.too_large", bytes=len(content))
+        return None
+
+    ct_hdr = _normalize_content_type(content_type)
+    ct_guess = _sniff_ct(content)
+    ct = ct_hdr if ct_hdr in ALLOWED_CT else ct_guess
+
+    if ct not in ALLOWED_CT:
+        log.warning("home_carousel_banner.put.unsupported_type", content_type=ct or content_type)
+        return None
+
+    try:
+        content, ct = _reencode_safe(content, ct, max_side=MAX_SIDE)
+        if content is None or ct not in ALLOWED_CT:
+            return None
+
+    except Exception:
+        log.warning("home_carousel_banner.put.decode_failed")
+        return None
+
+    minio = get_minio_private()
+    ensure_bucket(minio)
+    object_name = f"{HOME_CAROUSEL_BANNER_PREFIX}{int(time.time())}-{uuid4().hex}{ALLOWED_CT[ct]}"
+
+    try:
+        minio.put_object(
+            bucket_name=_bucket,
+            object_name=object_name,
+            data=io.BytesIO(content),
+            length=len(content),
+            content_type=ct,
+        )
+        return object_name
+
+    except S3Error as e:
+        log.error("home_carousel_banner.put.s3_error", code=e.code)
+        raise
+
+    except Exception:
+        log.exception("home_carousel_banner.put.unexpected")
         raise
 
 
@@ -560,6 +610,10 @@ async def put_avatar_async(user_id: int, content: bytes, content_type: str | Non
 
 async def put_chat_image_async(user_id: int, content: bytes, content_type: str | None) -> Optional[str]:
     return await asyncio.to_thread(put_chat_image, user_id, content, content_type)
+
+
+async def put_home_carousel_banner_async(content: bytes, content_type: str | None) -> Optional[str]:
+    return await asyncio.to_thread(put_home_carousel_banner, content, content_type)
 
 
 async def delete_avatars_async(user_id: int) -> int:

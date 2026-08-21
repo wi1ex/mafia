@@ -18,6 +18,7 @@ export interface PublicSettings {
   verification_restrictions: boolean
   admin_banner_text: string
   admin_banner_link: string
+  home_carousel_banner_key: string | null
   donation_url: string
   rooms_limit_global: number
   spectators_limit: number
@@ -49,6 +50,7 @@ const PUBLIC_SETTINGS_KEYS: readonly (keyof PublicSettings)[] = [
   'verification_restrictions',
   'admin_banner_text',
   'admin_banner_link',
+  'home_carousel_banner_key',
   'donation_url',
   'rooms_limit_global',
   'spectators_limit',
@@ -71,6 +73,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const verificationRestrictions = ref(true)
   const adminBannerText = ref('0')
   const adminBannerLink = ref('0')
+  const homeCarouselBannerKey = ref<string | null>(null)
   const donationUrl = ref('')
   const roomsLimitGlobal = ref(100)
   const spectatorsLimit = ref(10)
@@ -151,6 +154,10 @@ export const useSettingsStore = defineStore('settings', () => {
     verificationRestrictions.value = Boolean(data.verification_restrictions)
     adminBannerText.value = String(data.admin_banner_text || '').trim() || '0'
     adminBannerLink.value = String(data.admin_banner_link || '').trim() || '0'
+    const homeCarouselBannerKeyValue = String(data.home_carousel_banner_key || '').trim()
+    homeCarouselBannerKey.value = /^home\/carousel-banner\/\d{9,}-[a-f0-9]{32}\.(jpg|png)$/.test(homeCarouselBannerKeyValue)
+      ? homeCarouselBannerKeyValue
+      : null
     donationUrl.value = String(data.donation_url || '').trim()
     const roomsLimit = Number(data.rooms_limit_global)
     if (Number.isFinite(roomsLimit) && roomsLimit > 0) roomsLimitGlobal.value = Math.trunc(roomsLimit)
@@ -245,6 +252,7 @@ export const useSettingsStore = defineStore('settings', () => {
     verificationRestrictions,
     adminBannerText,
     adminBannerLink,
+    homeCarouselBannerKey,
     donationUrl,
     roomsLimitGlobal,
     spectatorsLimit,
