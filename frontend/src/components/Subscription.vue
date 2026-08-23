@@ -245,13 +245,11 @@ const kassaPaymentPrices: Record<KassaCurrency, Record<KassaPlan, string>> = {
 const subscriptionBenefits: readonly string[] = [
   'анимированные GIF-аватары',
   'выбор цвета и иконки профиля',
-  'иконка стрим-платформы в профиле',
   'трансляции в высоком качестве',
   'создание скрытых комнат',
   'вход зрителем сверх лимита',
   'черный список пользователей',
-  'обнуление истории своих никнеймов',
-  'увеличенный лимит на изменение никнейма',
+  'безлимитное изменение никнейма и его истории',
 ]
 
 const kassaCurrencies: readonly KassaCurrency[] = ['RUB', 'USD', 'EUR']
@@ -510,7 +508,7 @@ onBeforeUnmount(() => {
     flex-direction: column;
     padding: 24px;
     width: 570px;
-    height: 512px;
+    height: 500px;
     border-radius: 24px;
     background-color: $neutral-100;
     box-shadow: 0 2px 16px 0 rgba($neutral-black, 0.20);
@@ -599,7 +597,7 @@ onBeforeUnmount(() => {
             display: flex;
             position: relative;
             flex-direction: column;
-            margin: 20px 0;
+            margin: 24px 0;
             padding: 24px;
             gap: 40px;
             border-radius: 24px;
@@ -640,15 +638,15 @@ onBeforeUnmount(() => {
                 align-items: center;
                 gap: 4px;
                 .subscribe-benefit-icon {
-                  --ui-icon-width: 20px;
-                  --ui-icon-height: 20px;
+                  --ui-icon-width: 24px;
+                  --ui-icon-height: 24px;
                   --ui-icon-color: #{$neutral-white};
                 }
                 span {
                   color: $neutral-white;
                   font-family: Hauora-Regular;
-                  font-size: 16px;
-                  line-height: 16px;
+                  font-size: 18px;
+                  line-height: 18px;
                   letter-spacing: -0.32px;
                 }
               }
@@ -662,8 +660,8 @@ onBeforeUnmount(() => {
           .kassa-form {
             display: flex;
             flex-direction: column;
-            margin: 20px 0;
-            gap: 24px;
+            margin: 24px 0;
+            gap: 18px;
             .kassa-field {
               display: flex;
               align-items: center;
