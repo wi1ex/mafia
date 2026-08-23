@@ -26,10 +26,6 @@ async def lifespan(app) -> AsyncIterator[None]:
             await conn.execute(text("SELECT 1"))
             await conn.run_sync(Base.metadata.create_all)
 
-            # 111111111111111111111111111111111111111111111111
-            await conn.execute(text("ALTER TABLE settings DROP COLUMN IF EXISTS blacklist_users_limit"))
-            # 222222222222222222222222222222222222222222222222
-
         async with SessionLocal() as session:
             await ensure_app_settings(session)
             await ensure_sanction_rules(session)

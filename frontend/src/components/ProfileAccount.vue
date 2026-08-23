@@ -145,37 +145,7 @@
       </div>
     </div>
 
-    <div class="params-streaming">
-      <div class="params">
-        <span class="title">Настройки</span>
-        <div class="params-div">
-          <div class="params-switch">
-            <UiSwitch
-              :model-value="tgInvitesEnabled"
-              label="Уведомления в Telegram о приглашениях в комнату"
-              off-label="Запретить"
-              on-label="Разрешить"
-              size="low"
-              :width="256"
-              :disabled="tgInvitesTogglePending || !telegramVerified"
-              @update:modelValue="onToggleTgInvites"
-            />
-          </div>
-          <div class="params-switch">
-            <UiSwitch
-              :model-value="allowFriendRequests"
-              label="Запросы в мой список друзей"
-              off-label="Запретить"
-              on-label="Разрешить"
-              size="low"
-              :width="256"
-              :disabled="friendRequestsTogglePending"
-              @update:modelValue="onToggleFriendRequests"
-            />
-          </div>
-        </div>
-      </div>
-
+    <div class="streaming-params">
       <div class="streaming">
         <div class="streaming-header">
           <div class="streaming-title">
@@ -208,6 +178,36 @@
           :disabled="streamingUrlSaveDisabled"
           @click="saveStreamingUrl"
         />
+      </div>
+
+      <div class="params">
+        <span class="title">Настройки</span>
+        <div class="params-div">
+          <div class="params-switch">
+            <UiSwitch
+              :model-value="tgInvitesEnabled"
+              label="Уведомления в Telegram о приглашениях в комнату"
+              off-label="Запретить"
+              on-label="Разрешить"
+              size="low"
+              :width="256"
+              :disabled="tgInvitesTogglePending || !telegramVerified"
+              @update:modelValue="onToggleTgInvites"
+            />
+          </div>
+          <div class="params-switch">
+            <UiSwitch
+              :model-value="allowFriendRequests"
+              label="Запросы в мой список друзей"
+              off-label="Запретить"
+              on-label="Разрешить"
+              size="low"
+              :width="256"
+              :disabled="friendRequestsTogglePending"
+              @update:modelValue="onToggleFriendRequests"
+            />
+          </div>
+        </div>
       </div>
     </div>
   </section>
@@ -769,35 +769,9 @@ onBeforeUnmount(() => {
       }
     }
   }
-  .params-streaming {
+  .streaming-params {
     display: flex;
     gap: 10px;
-    .params {
-      display: flex;
-      flex-direction: column;
-      padding: 24px;
-      gap: 24px;
-      width: calc(50% - 5px);
-      border-radius: 24px;
-      background-color: $soft-purple-900;
-      .title {
-        color: $neutral-white;
-        font-family: Involve-Medium;
-        font-size: 24px;
-        line-height: 26px;
-        letter-spacing: -0.48px;
-      }
-      .params-div {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        .params-switch {
-          padding: 16px;
-          border-radius: 20px;
-          background-color: $soft-purple-800;
-        }
-      }
-    }
     .streaming {
       display: flex;
       flex-direction: column;
@@ -835,6 +809,32 @@ onBeforeUnmount(() => {
           font-size: 16px;
           line-height: 18px;
           letter-spacing: -0.32px;
+        }
+      }
+    }
+    .params {
+      display: flex;
+      flex-direction: column;
+      padding: 24px;
+      gap: 24px;
+      width: calc(50% - 5px);
+      border-radius: 24px;
+      background-color: $soft-purple-900;
+      .title {
+        color: $neutral-white;
+        font-family: Involve-Medium;
+        font-size: 24px;
+        line-height: 26px;
+        letter-spacing: -0.48px;
+      }
+      .params-div {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        .params-switch {
+          padding: 16px;
+          border-radius: 20px;
+          background-color: $soft-purple-800;
         }
       }
     }
