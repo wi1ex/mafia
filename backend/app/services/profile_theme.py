@@ -46,11 +46,9 @@ STREAMING_PLATFORM_DOMAINS = frozenset(
         "youtu.be",
         "kick.com",
         "trovo.live",
-        "dlive.tv",
         "rumble.com",
         "vkvideo.ru",
         "vkplay.ru",
-        "goodgame.ru",
         "rutube.ru",
     }
 )

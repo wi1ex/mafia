@@ -181,7 +181,7 @@
           <div class="streaming-title">
             <span class="title">Стриминговая платформа</span>
             <UiTooltip
-              text="Доступны Twitch, YouTube, Kick, Trovo, DLive, Rumble, VK Видео, VK Play Live, GoodGame и RUTUBE."
+              text="Доступны Twitch, YouTube, Kick, Trovo, Rumble, VK и RUTUBE."
               placement="bottom-right"
               bubble-width="320px"
             />
@@ -449,7 +449,7 @@ async function saveStreamingUrl() {
     else if (st === 403 && d === 'user_deleted') void alertDialog('Аккаунт удален')
     else if (st === 422 && d === 'profile_streaming_url_invalid') void alertDialog('Укажите корректную ссылку на стриминговую платформу')
     else if (st === 422 && d === 'profile_streaming_platform_invalid') {
-      void alertDialog('Поддерживаются Twitch, YouTube, Kick, Trovo, DLive, Rumble, VK Видео, VK Play Live, GoodGame и RUTUBE')
+      void alertDialog('Поддерживаются Twitch, YouTube, Kick, Trovo, Rumble, VK и RUTUBE')
     }
     else void alertDialog('Не удалось сохранить ссылку на стриминговую платформу')
   } finally {
