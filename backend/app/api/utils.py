@@ -1641,7 +1641,7 @@ async def build_user_out_payload(session: AsyncSession, *, user_id: int, role: s
         theme_color=theme_state.color,
         theme_until=theme_state.subscription_until,
         theme_icon=theme_state.icon,
-        streaming_url=user.streaming_url if theme_state.subscription_active else None,
+        streaming_url=user.streaming_url,
     )
     if defaults_changed:
         with suppress(Exception):
@@ -5512,7 +5512,7 @@ async def emit_room_profile_theme_sync(uid: int, theme_color: str | None, theme_
     try:
         normalized_color = theme_color.strip() if isinstance(theme_color, str) and theme_color.strip() else None
         normalized_icon = theme_icon.strip() if isinstance(theme_icon, str) and theme_icon.strip() else None
-        streaming_url = await r.hget(f"user:{int(uid)}:profile", "streaming_url") if normalized_color else None
+        streaming_url = await r.hget(f"user:{int(uid)}:profile", "streaming_url")
         normalized_streaming_url = streaming_url.strip() if isinstance(streaming_url, str) and streaming_url.strip() else None
         if normalized_color:
             await r.hset(f"room:{rid}:user:{int(uid)}:info", mapping={"theme_color": normalized_color})
@@ -5520,12 +5520,12 @@ async def emit_room_profile_theme_sync(uid: int, theme_color: str | None, theme_
                 await r.hset(f"room:{rid}:user:{int(uid)}:info", mapping={"theme_icon": normalized_icon})
             else:
                 await r.hdel(f"room:{rid}:user:{int(uid)}:info", "theme_icon")
-            if normalized_streaming_url:
-                await r.hset(f"room:{rid}:user:{int(uid)}:info", mapping={"streaming_url": normalized_streaming_url})
-            else:
-                await r.hdel(f"room:{rid}:user:{int(uid)}:info", "streaming_url")
         else:
-            await r.hdel(f"room:{rid}:user:{int(uid)}:info", "theme_color", "theme_icon", "streaming_url")
+            await r.hdel(f"room:{rid}:user:{int(uid)}:info", "theme_color", "theme_icon")
+        if normalized_streaming_url:
+            await r.hset(f"room:{rid}:user:{int(uid)}:info", mapping={"streaming_url": normalized_streaming_url})
+        else:
+            await r.hdel(f"room:{rid}:user:{int(uid)}:info", "streaming_url")
     except Exception as exc:
         log.warning("room.profile_theme.cache_failed", rid=rid, uid=int(uid), err=type(exc).__name__)
 

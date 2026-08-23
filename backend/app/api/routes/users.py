@@ -90,6 +90,8 @@ from ...schemas.user import (
     ContactRequestIn,
     UserProfileThemeIn,
     UserProfileThemeOut,
+    UserStreamingUrlIn,
+    UserStreamingUrlOut,
     PasswordChangeIn,
     UserStatsOut,
     UserMiniProfileOut,
@@ -393,7 +395,7 @@ async def mini_profile(user_id: int, allow_deleted: bool = False, ident: Identit
         suspend_until=active_sanctions.get("suspend").expires_at if active_sanctions.get("suspend") else None,
         profile_theme_color=theme_state.color,
         profile_theme_icon=theme_state.icon,
-        streaming_url=user.streaming_url if theme_state.subscription_active else None,
+        streaming_url=user.streaming_url,
         friend_status=friend_status,
         blacklisted_by_me=blacklisted_by_me,
         viewer_blacklisted_by_target=viewer_blacklisted_by_target,
@@ -1218,20 +1220,9 @@ async def update_profile_theme(payload: UserProfileThemeIn, ident: Identity = De
     else:
         icon = theme_state.icon
 
-    has_streaming_url_update = "streaming_url" in payload.model_fields_set
-    if has_streaming_url_update:
-        try:
-            streaming_url = normalize_profile_streaming_url(payload.streaming_url)
-        except ValueError as exc:
-            detail = str(exc).strip() or "profile_streaming_url_invalid"
-            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detail)
-    else:
-        streaming_url = user.streaming_url
-
     if (
         theme_state.color == color
         and (not has_icon_update or theme_state.icon == icon)
-        and (not has_streaming_url_update or user.streaming_url == streaming_url)
     ):
         if defaults_changed:
             await refresh_user_profile_cache(db, uid)
@@ -1253,23 +1244,14 @@ async def update_profile_theme(payload: UserProfileThemeIn, ident: Identity = De
 
     old_color = theme_state.color
     old_icon = theme_state.icon
-    old_streaming_url = user.streaming_url
     changed_theme_parts: list[str] = []
     if old_color != color:
         changed_theme_parts.append(f"profile_theme_color: {old_color or 'none'} -> {color}")
     if has_icon_update and old_icon != icon:
         changed_theme_parts.append(f"profile_theme_icon: {old_icon or 'none'} -> {icon}")
-    if has_streaming_url_update and old_streaming_url != streaming_url:
-        changed_theme_parts.append(
-            "profile_streaming_url: "
-            f"{old_streaming_url or 'none'} -> {streaming_url or 'none'}"
-        )
-
     await upsert_profile_theme_preference(db, uid, color)
     if has_icon_update:
         await upsert_profile_theme_icon_preference(db, uid, icon)
-    if has_streaming_url_update:
-        user.streaming_url = streaming_url
     await db.commit()
     await refresh_user_profile_cache(db, uid)
     next_state = await resolve_profile_theme_state(db, uid)
@@ -1298,6 +1280,53 @@ async def update_profile_theme(payload: UserProfileThemeIn, ident: Identity = De
         profile_theme_icon=next_state.icon,
         streaming_url=user.streaming_url,
     )
+
+
+@router.patch("/streaming_url", response_model=UserStreamingUrlOut)
+@log_route("users.update_streaming_url")
+@rate_limited(lambda ident, **_: f"rl:update_streaming_url:{ident['id']}", limit=2, window_s=1)
+async def update_streaming_url(payload: UserStreamingUrlIn, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserStreamingUrlOut:
+    uid = int(ident["id"])
+    user = await db.get(User, uid)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+
+    if user.deleted_at is not None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="user_deleted")
+
+    await ensure_profile_changes_allowed(db, uid)
+    try:
+        streaming_url = normalize_profile_streaming_url(payload.streaming_url)
+    except ValueError as exc:
+        detail = str(exc).strip() or "profile_streaming_url_invalid"
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detail)
+
+    if user.streaming_url == streaming_url:
+        return UserStreamingUrlOut(streaming_url=user.streaming_url)
+
+    previous_streaming_url = user.streaming_url
+    user.streaming_url = streaming_url
+    await db.commit()
+    await refresh_user_profile_cache(db, uid)
+    theme_state = await resolve_profile_theme_state(db, uid)
+
+    await log_action(
+        db,
+        user_id=uid,
+        username=ident["username"],
+        action="profile_streaming_url_updated",
+        details=(
+            f"Ссылка на стриминговую платформу: user_id={uid} "
+            f"{previous_streaming_url or 'none'} -> {streaming_url or 'none'}"
+        ),
+    )
+
+    with suppress(Exception):
+        await emit_auth_profile_sync(uid, role=str(user.role))
+    with suppress(Exception):
+        await emit_room_profile_theme_sync(uid, theme_state.color, theme_state.icon)
+
+    return UserStreamingUrlOut(streaming_url=streaming_url)
 
 
 @router.patch("/password", response_model=Ok)

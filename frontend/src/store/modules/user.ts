@@ -112,6 +112,11 @@ export const useUserStore = defineStore('user', () => {
     if ('streaming_url' in payload) user.value.streaming_url = payload.streaming_url ?? null
   }
 
+  function setStreamingUrl(value: string | null): void {
+    if (!user.value) return
+    user.value.streaming_url = typeof value === 'string' ? value.trim() || null : null
+  }
+
   function setSanctions(payload: { timeout_until?: string | null; suspend_until?: string | null; ban_active?: boolean }) {
     if (!user.value) return
     if ("timeout_until" in payload) user.value.timeout_until = payload.timeout_until ?? null
@@ -225,6 +230,7 @@ export const useUserStore = defineStore('user', () => {
     setAvatarName,
     setNicknameChangesLeft,
     setProfileTheme,
+    setStreamingUrl,
     setSanctions,
     setInActiveGameAsAlivePlayer,
     setInActiveGameAsPlayer,

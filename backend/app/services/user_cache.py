@@ -111,7 +111,6 @@ def _normalize_theme_state(profile: UserProfile) -> UserProfile:
         profile["theme_color"] = None
         profile["theme_until"] = None
         profile["theme_icon"] = None
-        profile["streaming_url"] = None
         return profile
 
     expires_at = _parse_datetime_or_none(theme_until)
@@ -119,7 +118,6 @@ def _normalize_theme_state(profile: UserProfile) -> UserProfile:
         profile["theme_color"] = None
         profile["theme_until"] = None
         profile["theme_icon"] = None
-        profile["streaming_url"] = None
         return profile
 
     profile["theme_color"] = theme_color
@@ -179,13 +177,13 @@ async def write_user_profile_cache(user_id: int, *, username: str, role: str, av
                 await p.hdel(key, "avatar_name")
             if color is not None and expires_at and icon is not None:
                 await p.hset(key, mapping={"theme_color": color, "theme_until": expires_at, "theme_icon": icon})
-                if streaming_url is not _UNSET:
-                    if stream_url is not None:
-                        await p.hset(key, mapping={"streaming_url": stream_url})
-                    else:
-                        await p.hdel(key, "streaming_url")
             else:
-                await p.hdel(key, "theme_color", "theme_until", "theme_icon", "streaming_url")
+                await p.hdel(key, "theme_color", "theme_until", "theme_icon")
+            if streaming_url is not _UNSET:
+                if stream_url is not None:
+                    await p.hset(key, mapping={"streaming_url": stream_url})
+                else:
+                    await p.hdel(key, "streaming_url")
             if deleted_at_value is not None:
                 await p.hset(key, mapping={"deleted_at": deleted_at_value})
             else:
@@ -238,7 +236,7 @@ async def refresh_user_profile_cache(session: AsyncSession, user_id: int, *, red
         "theme_color": _value_or_none(theme_state.color),
         "theme_until": theme_state.subscription_until.isoformat() if theme_state.subscription_until else None,
         "theme_icon": _value_or_none(theme_state.icon),
-        "streaming_url": _value_or_none(rec[3]) if theme_state.subscription_active else None,
+        "streaming_url": _value_or_none(rec[3]),
         "deleted_at": rec[4].isoformat() if isinstance(rec[4], datetime) else _value_or_none(rec[4]),
     }
     if not _profile_ready(profile):
@@ -319,7 +317,7 @@ async def get_user_profiles_cached(session: AsyncSession, user_ids: Iterable[int
                 else None
             ),
             "theme_icon": _value_or_none(theme_state.icon if theme_state else None),
-            "streaming_url": _value_or_none(streaming_url) if theme_state and theme_state.subscription_active else None,
+            "streaming_url": _value_or_none(streaming_url),
             "deleted_at": deleted_at.isoformat() if isinstance(deleted_at, datetime) else _value_or_none(deleted_at),
         }
         if _profile_ready(profile):
@@ -353,12 +351,12 @@ async def get_user_profiles_cached(session: AsyncSession, user_ids: Iterable[int
                             "theme_icon": profile["theme_icon"],
                         },
                     )
-                    if profile["streaming_url"] is not None:
-                        await p.hset(user_profile_cache_key(uid), mapping={"streaming_url": profile["streaming_url"]})
-                    else:
-                        await p.hdel(user_profile_cache_key(uid), "streaming_url")
                 else:
-                    await p.hdel(user_profile_cache_key(uid), "theme_color", "theme_until", "theme_icon", "streaming_url")
+                    await p.hdel(user_profile_cache_key(uid), "theme_color", "theme_until", "theme_icon")
+                if profile["streaming_url"] is not None:
+                    await p.hset(user_profile_cache_key(uid), mapping={"streaming_url": profile["streaming_url"]})
+                else:
+                    await p.hdel(user_profile_cache_key(uid), "streaming_url")
                 if profile["deleted_at"] is not None:
                     await p.hset(user_profile_cache_key(uid), mapping={"deleted_at": profile["deleted_at"]})
                 else:

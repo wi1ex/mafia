@@ -174,6 +174,30 @@
         </div>
       </div>
     </div>
+
+    <div class="streaming">
+      <div class="streaming-header">
+        <span class="title">Стриминговая платформа</span>
+        <UiButton
+          variant="green"
+          size="middle"
+          :text="streamingUrlSaveBusy ? '...' : 'Сохранить ссылку'"
+          :disabled="streamingUrlSaveDisabled"
+          @click="saveStreamingUrl"
+        />
+      </div>
+      <UiInput
+        id="profile-streaming-url"
+        v-model="streamingUrl"
+        type="url"
+        inputmode="url"
+        maxlength="512"
+        autocomplete="url"
+        label="Ссылка на Ваш профиль на стриминговой платформе"
+        placeholder="https://twitch.tv/..."
+        :disabled="streamingUrlSaveBusy || isBanned"
+      />
+    </div>
   </section>
 </template>
 
@@ -200,7 +224,7 @@ const PASSWORD_SPACE_RE = /\s/
 const userStore = useUserStore()
 const auth = useAuthStore()
 const { tgInvitesEnabled, allowFriendRequests, now } = storeToRefs(userStore)
-const { setTgInvitesEnabled, setAllowFriendRequests } = userStore
+const { setTgInvitesEnabled, setAllowFriendRequests, setStreamingUrl } = userStore
 
 type ProfileDatesResponse = {
   registered_at?: string | null
@@ -216,6 +240,7 @@ const me = reactive({
   registered_at: null as string | null,
   has_password: false,
   protected_user: false,
+  streaming_url: null as string | null,
 })
 const profileDates = reactive({
   registered_at: null as string | null,
@@ -230,8 +255,11 @@ const pwd = reactive({ current: '', next: '', confirm: '' })
 const pwdBusy = ref(false)
 const unlinkTgBusy = ref(false)
 const deleteBusy = ref(false)
+const streamingUrl = ref('')
+const streamingUrlSaveBusy = ref(false)
 const telegramVerified = computed(() => userStore.telegramVerified)
 const passwordTemp = computed(() => userStore.passwordTemp)
+const isBanned = computed(() => userStore.banActive)
 const botName = (import.meta.env.VITE_TG_BOT_NAME as string || '').trim()
 const botLink = botName ? `https://t.me/${botName}` : 'https://t.me'
 let onProfileSync: ((e: Event) => void) | null = null
@@ -274,6 +302,12 @@ const confirmPasswordInvalid = computed(() => {
   if (len < PASSWORD_MIN) return true
   return pwd.next !== pwd.confirm
 })
+const currentStreamingUrl = computed(() => normalizeStreamingUrl(me.streaming_url))
+const streamingUrlSaveDisabled = computed(() => (
+  streamingUrlSaveBusy.value
+  || isBanned.value
+  || normalizeStreamingUrl(streamingUrl.value) === currentStreamingUrl.value
+))
 
 function hasPasswordWhitespace(value: string) {
   return PASSWORD_SPACE_RE.test(value)
@@ -336,12 +370,18 @@ function formatLastOnline(value?: string | number | Date | null, online = false,
   return formatDateOnly(dt)
 }
 
-function applyMePayload(data: any) {
+function normalizeStreamingUrl(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+function applyMePayload(data: any, options: { keepStreamingUrlDraft?: boolean } = {}) {
   me.id = Number(data?.id || 0)
   me.role = data?.role || ''
   me.registered_at = data?.registered_at || null
   me.has_password = Boolean(data?.has_password)
   me.protected_user = Boolean(data?.protected_user)
+  me.streaming_url = normalizeStreamingUrl(data?.streaming_url) || null
+  if (!options.keepStreamingUrlDraft) streamingUrl.value = me.streaming_url || ''
 }
 
 function applyProfileDatesPayload(data: ProfileDatesResponse) {
@@ -377,6 +417,29 @@ async function onToggleFriendRequests(next: boolean) {
   friendRequestsTogglePending.value = true
   try { await setAllowFriendRequests(next) }
   finally { friendRequestsTogglePending.value = false }
+}
+
+async function saveStreamingUrl() {
+  if (streamingUrlSaveDisabled.value) return
+  streamingUrlSaveBusy.value = true
+  try {
+    const { data } = await api.patch<{ streaming_url?: string | null }>('/users/streaming_url', {
+      streaming_url: normalizeStreamingUrl(streamingUrl.value),
+    })
+    me.streaming_url = normalizeStreamingUrl(data?.streaming_url) || null
+    streamingUrl.value = me.streaming_url || ''
+    setStreamingUrl(me.streaming_url)
+    void alertDialog('Ссылка на стриминговую платформу сохранена')
+  } catch (e: any) {
+    const st = e?.response?.status
+    const d = e?.response?.data?.detail
+    if (st === 403 && d === 'user_banned') void alertDialog('Аккаунт забанен. Изменение ссылки недоступно')
+    else if (st === 403 && d === 'user_deleted') void alertDialog('Аккаунт удален')
+    else if (st === 422 && d === 'profile_streaming_url_invalid') void alertDialog('Укажите корректную ссылку на стриминговую платформу')
+    else void alertDialog('Не удалось сохранить ссылку на стриминговую платформу')
+  } finally {
+    streamingUrlSaveBusy.value = false
+  }
 }
 
 async function changePassword() {
@@ -479,7 +542,7 @@ onMounted(() => {
   onProfileSync = (e: Event) => {
     const payload = (e as CustomEvent)?.detail
     if (!payload) return
-    applyMePayload(payload)
+    applyMePayload(payload, { keepStreamingUrlDraft: streamingUrlSaveDisabled.value })
   }
   window.addEventListener('auth-profile_sync', onProfileSync)
 })
@@ -714,6 +777,28 @@ onBeforeUnmount(() => {
         border-radius: 20px;
         background-color: $soft-purple-800;
       }
+    }
+  }
+  .streaming {
+    display: flex;
+    flex-direction: column;
+    padding: 24px;
+    gap: 24px;
+    border-radius: 24px;
+    background-color: $soft-purple-900;
+    --ui-input-label-bg: #{$soft-purple-900};
+    .streaming-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      min-height: 32px;
+    }
+    .title {
+      color: $neutral-white;
+      font-family: Involve-Medium;
+      font-size: 24px;
+      line-height: 26px;
+      letter-spacing: -0.48px;
     }
   }
 }

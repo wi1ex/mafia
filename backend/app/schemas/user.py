@@ -315,7 +315,6 @@ class ContactRequestIn(BaseModel):
 class UserProfileThemeIn(BaseModel):
     color: str = Field(min_length=1, max_length=32)
     icon: Optional[str] = Field(default=None, max_length=32)
-    streaming_url: Optional[str] = Field(default=None, max_length=512)
 
 
 class UserProfileThemeOut(BaseModel):
@@ -324,6 +323,14 @@ class UserProfileThemeOut(BaseModel):
     subscription_until: Optional[datetime] = None
     profile_theme_color: Optional[str] = None
     profile_theme_icon: Optional[str] = None
+    streaming_url: Optional[str] = None
+
+
+class UserStreamingUrlIn(BaseModel):
+    streaming_url: Optional[str] = Field(default=None, max_length=512)
+
+
+class UserStreamingUrlOut(BaseModel):
     streaming_url: Optional[str] = None
 
 
