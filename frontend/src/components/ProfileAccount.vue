@@ -145,39 +145,55 @@
       </div>
     </div>
 
-    <div class="params">
-      <span class="title">Настройки</span>
-      <div class="params-div">
-        <div class="params-switch">
-          <UiSwitch
-            :model-value="tgInvitesEnabled"
-            label="Уведомления в Telegram о приглашениях в комнату"
-            off-label="Запретить"
-            on-label="Разрешить"
-            size="low"
-            :width="256"
-            :disabled="tgInvitesTogglePending || !telegramVerified"
-            @update:modelValue="onToggleTgInvites"
-          />
-        </div>
-        <div class="params-switch">
-          <UiSwitch
-            :model-value="allowFriendRequests"
-            label="Запросы в мой список друзей"
-            off-label="Запретить"
-            on-label="Разрешить"
-            size="low"
-            :width="256"
-            :disabled="friendRequestsTogglePending"
-            @update:modelValue="onToggleFriendRequests"
-          />
+    <div class="params-streaming">
+      <div class="params">
+        <span class="title">Настройки</span>
+        <div class="params-div">
+          <div class="params-switch">
+            <UiSwitch
+              :model-value="tgInvitesEnabled"
+              label="Уведомления в Telegram о приглашениях в комнату"
+              off-label="Запретить"
+              on-label="Разрешить"
+              size="low"
+              :width="256"
+              :disabled="tgInvitesTogglePending || !telegramVerified"
+              @update:modelValue="onToggleTgInvites"
+            />
+          </div>
+          <div class="params-switch">
+            <UiSwitch
+              :model-value="allowFriendRequests"
+              label="Запросы в мой список друзей"
+              off-label="Запретить"
+              on-label="Разрешить"
+              size="low"
+              :width="256"
+              :disabled="friendRequestsTogglePending"
+              @update:modelValue="onToggleFriendRequests"
+            />
+          </div>
         </div>
       </div>
-    </div>
 
-    <div class="streaming">
-      <div class="streaming-header">
-        <span class="title">Стриминговая платформа</span>
+      <div class="streaming">
+        <div class="streaming-header">
+          <span class="title">Стриминговая платформа</span>
+        </div>
+        <div class="streaming-div">
+          <span class="streaming-text">Ссылка на профиль</span>
+          <UiInput
+            id="profile-streaming-url"
+            v-model="streamingUrl"
+            type="url"
+            inputmode="url"
+            maxlength="512"
+            autocomplete="url"
+            label="Ссылка на профиль"
+            placeholder="https://twitch.tv/..."
+            :disabled="streamingUrlSaveBusy || isBanned"
+          />
+        </div>
         <UiButton
           variant="green"
           size="middle"
@@ -186,17 +202,6 @@
           @click="saveStreamingUrl"
         />
       </div>
-      <UiInput
-        id="profile-streaming-url"
-        v-model="streamingUrl"
-        type="url"
-        inputmode="url"
-        maxlength="512"
-        autocomplete="url"
-        label="Ссылка на Ваш профиль на стриминговой платформе"
-        placeholder="https://twitch.tv/..."
-        :disabled="streamingUrlSaveBusy || isBanned"
-      />
     </div>
   </section>
 </template>
@@ -754,51 +759,69 @@ onBeforeUnmount(() => {
       }
     }
   }
-  .params {
+  .params-streaming {
     display: flex;
-    flex-direction: column;
-    padding: 24px;
-    gap: 24px;
-    border-radius: 24px;
-    background-color: $soft-purple-900;
-    .title {
-      color: $neutral-white;
-      font-family: Involve-Medium;
-      font-size: 24px;
-      line-height: 26px;
-      letter-spacing: -0.48px;
-    }
-    .params-div {
+    gap: 10px;
+    .params {
       display: flex;
       flex-direction: column;
-      gap: 8px;
-      .params-switch {
-        padding: 16px;
-        border-radius: 20px;
-        background-color: $soft-purple-800;
+      padding: 24px;
+      gap: 24px;
+      width: calc(50% - 5px);
+      border-radius: 24px;
+      background-color: $soft-purple-900;
+      .title {
+        color: $neutral-white;
+        font-family: Involve-Medium;
+        font-size: 24px;
+        line-height: 26px;
+        letter-spacing: -0.48px;
+      }
+      .params-div {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        .params-switch {
+          padding: 16px;
+          border-radius: 20px;
+          background-color: $soft-purple-800;
+        }
       }
     }
-  }
-  .streaming {
-    display: flex;
-    flex-direction: column;
-    padding: 24px;
-    gap: 24px;
-    border-radius: 24px;
-    background-color: $soft-purple-900;
-    --ui-input-label-bg: #{$soft-purple-900};
-    .streaming-header {
+    .streaming {
       display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      min-height: 32px;
-    }
-    .title {
-      color: $neutral-white;
-      font-family: Involve-Medium;
-      font-size: 24px;
-      line-height: 26px;
-      letter-spacing: -0.48px;
+      flex-direction: column;
+      padding: 24px;
+      gap: 24px;
+      width: calc(50% - 5px);
+      border-radius: 24px;
+      background-color: $soft-purple-900;
+      --ui-input-label-bg: #{$soft-purple-900};
+      .streaming-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        min-height: 32px;
+        .title {
+          color: $neutral-white;
+          font-family: Involve-Medium;
+          font-size: 24px;
+          line-height: 26px;
+          letter-spacing: -0.48px;
+        }
+      }
+      .streaming-div {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        .streaming-text {
+          color: $neutral-white;
+          font-family: Hauora-Bold;
+          font-size: 16px;
+          line-height: 18px;
+          letter-spacing: -0.32px;
+        }
+      }
     }
   }
 }
