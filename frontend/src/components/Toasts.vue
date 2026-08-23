@@ -12,11 +12,14 @@
 
         <div class="user">
           <div class="meta" :class="{ 'has-theme-color': hasToastUserThemeColor(t.user) }" :style="toastUserNickStyle(t.user)">
-            <img v-if="t.user" v-minio-img="{ key: t.user.avatar_name ? `avatars/${t.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
-            <div v-if="t.user && toastUserThemeIconSrcs(t.user).length" class="profile-theme-icons" aria-hidden="true">
-              <img v-for="badgeSrc in toastUserThemeIconSrcs(t.user)" :key="`${t.user.id}-${badgeSrc}`" class="profile-theme-icon" :src="badgeSrc" alt="" />
-            </div>
-            <span v-if="t.user" class="nick">{{ t.user.username || ('user' + t.user.id) }}</span>
+            <button v-if="t.user" class="user-profile-trigger" type="button" @click.stop="openToastUserMiniProfile(t.user)"
+                    :disabled="!canOpenToastUserMiniProfile(t.user)" :aria-label="`Открыть мини-профиль пользователя ${toastUserName(t.user)}`" aria-haspopup="dialog">
+              <img v-minio-img="{ key: t.user.avatar_name ? `avatars/${t.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+              <div v-if="toastUserThemeIconSrcs(t.user).length" class="profile-theme-icons" aria-hidden="true">
+                <img v-for="badgeSrc in toastUserThemeIconSrcs(t.user)" :key="`${t.user.id}-${badgeSrc}`" class="profile-theme-icon" :src="badgeSrc" alt="" />
+              </div>
+              <span class="nick">{{ toastUserName(t.user) }}</span>
+            </button>
             <div v-if="t.sanctionText" class="sanction-text">
               <p class="sanction-text__lead">{{ t.sanctionText.lead }}</p>
               <p class="sanction-text__details">{{ t.sanctionText.details }}</p>
@@ -39,17 +42,25 @@
       </div>
     </div>
   </div>
+
+  <MiniProfile
+    v-model:open="miniProfileOpen"
+    :user-id="miniProfileUserId"
+    :initial-profile="miniProfileInitial"
+  />
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
-import { useNotifStore, inferFriendApiAction, resolveFriendsApiError } from '@/store'
+import { useNotifStore, useUserStore, inferFriendApiAction, resolveFriendsApiError } from '@/store'
 import { api } from '@/services/axios'
 import { alertDialog } from '@/services/confirm'
+import { canOpenMiniProfileTarget, normalizeMiniProfileUserId } from '@/services/miniProfile'
 import { getProfileThemeOption } from '@/constants/profileThemes'
 import { getProfileThemeBadgeSources } from '@/constants/profileIcons'
 
+import MiniProfile from '@/components/MiniProfile.vue'
 import UiIcon from '@/components/UiIcon.vue'
 import UiButton from '@/components/UiButton.vue'
 
@@ -62,6 +73,7 @@ import toastSoundUrl from '@/assets/audio/short.mp3'
 
 const router = useRouter()
 const notif = useNotifStore()
+const userStore = useUserStore()
 const TOAST_TTL_MS = 30000
 const toastSoundAudio = new Audio(toastSoundUrl)
 toastSoundAudio.preload = 'auto'
@@ -121,6 +133,9 @@ type ToastToneClass = 'tone-yellow' | 'tone-orange' | 'tone-red' | 'tone-green' 
 type ToastIconVariant = 'success' | 'neutral' | 'attention'
 
 const items = ref<ToastItem[]>([])
+const miniProfileOpen = ref(false)
+const miniProfileUserId = ref<number | null>(null)
+const miniProfileInitial = ref<ToastUser | null>(null)
 
 const hasToastUserThemeColor = (user?: ToastUser) => Boolean(getProfileThemeOption(user?.theme_color))
 const toastUserNickStyle = (user?: ToastUser) => {
@@ -130,6 +145,25 @@ const toastUserNickStyle = (user?: ToastUser) => {
 const toastUserThemeIconSrcs = (user: ToastUser) => (
   getProfileThemeBadgeSources(user.theme_icon, user.role, { roleBadgeVariant: 'black', userId: user.id })
 )
+const toastUserName = (toastUser: ToastUser) => toastUser.username || `user${toastUser.id}`
+
+function canOpenToastUserMiniProfile(toastUser?: ToastUser): boolean {
+  return canOpenMiniProfileTarget({
+    targetId: toastUser?.id,
+    viewerId: normalizeMiniProfileUserId(userStore.user?.id),
+    viewerRole: userStore.user?.role,
+    targetRole: toastUser?.role,
+  })
+}
+
+function openToastUserMiniProfile(toastUser?: ToastUser): void {
+  if (!toastUser || !canOpenToastUserMiniProfile(toastUser)) return
+  const userId = normalizeMiniProfileUserId(toastUser.id)
+  if (userId <= 0) return
+  miniProfileUserId.value = userId
+  miniProfileInitial.value = toastUser
+  miniProfileOpen.value = true
+}
 
 async function close(target: ToastItem | number) {
   const key = typeof target === 'number' ? target : target.key
@@ -387,6 +421,19 @@ onBeforeUnmount(() => {
             color: transparent;
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+          }
+          .user-profile-trigger {
+            display: flex;
+            align-items: center;
+            min-width: 0;
+            padding: 0;
+            gap: 8px;
+            border: 0;
+            outline: 0;
+            background: none;
+            &:not(:disabled) {
+              cursor: pointer;
+            }
           }
           img {
             width: 24px;
