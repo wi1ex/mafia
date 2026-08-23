@@ -189,7 +189,7 @@
             inputmode="url"
             maxlength="512"
             autocomplete="url"
-            label="Ссылка на профиль"
+            label="Введите ссылку на профиль"
             placeholder="https://twitch.tv/..."
             :disabled="streamingUrlSaveBusy || isBanned"
           />
