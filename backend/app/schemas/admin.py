@@ -81,7 +81,6 @@ class SiteSettingsOut(BaseModel):
     season_start_game_number: str
     text_moderation_whitelist: str
     text_moderation_blacklist: str
-    blacklist_users_limit: int
     senior_moderator_user_id: Optional[int] = None
 
 
@@ -105,7 +104,6 @@ class SiteSettingsUpdateIn(BaseModel):
     season_start_game_number: Optional[SeasonStartCsv] = Field(default=None, min_length=1, max_length=255)
     text_moderation_whitelist: Optional[TextModerationWhitelistCsv] = Field(default=None, max_length=4096)
     text_moderation_blacklist: Optional[TextModerationBlacklistCsv] = Field(default=None, max_length=4096)
-    blacklist_users_limit: Optional[int] = Field(default=None, ge=0)
     senior_moderator_user_id: Optional[int] = Field(default=None, ge=1)
 
 

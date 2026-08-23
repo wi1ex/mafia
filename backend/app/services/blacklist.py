@@ -15,6 +15,7 @@ from ..realtime.sio import sio
 from ..services.user_cache import get_user_profiles_cached
 
 log = structlog.get_logger()
+BLACKLIST_USERS_LIMIT = 1000
 
 
 def _positive_int(raw: object) -> int:
@@ -199,8 +200,6 @@ async def _cleanup_private_room_access_for_blacklist(owner_id: int, target_id: i
 
 
 async def add_user_to_blacklist(session: AsyncSession, *, owner_id: int, target_id: int) -> tuple[bool, tuple[int, ...]]:
-    from ..security.parameters import get_cached_settings
-
     owner = _positive_int(owner_id)
     target = _positive_int(target_id)
     if owner <= 0 or target <= 0:
@@ -233,8 +232,7 @@ async def add_user_to_blacklist(session: AsyncSession, *, owner_id: int, target_
             )
             or 0
         )
-        blacklist_limit = max(0, int(get_cached_settings().blacklist_users_limit))
-        if blacklist_count >= blacklist_limit:
+        if blacklist_count >= BLACKLIST_USERS_LIMIT:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="blacklist_limit_reached",

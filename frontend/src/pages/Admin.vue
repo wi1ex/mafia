@@ -131,8 +131,6 @@
                          autocomplete="off" inputmode="text" :disabled="savingSettings" label="Белый список слов (через запятую)" />
                 <UiInput id="text-moderation-blacklist" size="low" v-model="site.text_moderation_blacklist"
                          autocomplete="off" inputmode="text" :disabled="savingSettings" label="Черный список слов (через запятую)" />
-                <UiInput id="blacklist-users-limit" size="low" v-model.number="site.blacklist_users_limit" type="number" min="0" step="1"
-                         autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Лимит черного списка" />
                 <UiInput id="senior-moderator-user-id" size="low" :model-value="site.senior_moderator_user_id ?? ''" type="number" min="1" step="1"
                          @update:model-value="setSeniorModeratorUserId" autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Старший модератор" />
               </div>
@@ -1097,7 +1095,6 @@ type SiteSettings = {
   season_start_game_number: string
   text_moderation_whitelist: string
   text_moderation_blacklist: string
-  blacklist_users_limit: number
   senior_moderator_user_id: number | null
 }
 
@@ -1381,7 +1378,6 @@ const site = reactive<SiteSettings>({
   season_start_game_number: '1',
   text_moderation_whitelist: '0',
   text_moderation_blacklist: '0',
-  blacklist_users_limit: 30,
   senior_moderator_user_id: null,
 })
 
@@ -1709,7 +1705,6 @@ function snapshotSite(): string {
     season_start_game_number: normalizeSeasonStartNumbers(site.season_start_game_number),
     text_moderation_whitelist: normalizeTextModerationWhitelist(site.text_moderation_whitelist),
     text_moderation_blacklist: normalizeTextModerationBlacklist(site.text_moderation_blacklist),
-    blacklist_users_limit: normalizeNonNegativeInt(site.blacklist_users_limit),
     senior_moderator_user_id: normalizeOptionalPositiveInt(site.senior_moderator_user_id),
   })
 }
@@ -2371,7 +2366,6 @@ async function loadSettings(): Promise<void> {
     site.season_start_game_number = normalizeSeasonStartNumbers(site.season_start_game_number)
     site.text_moderation_whitelist = normalizeTextModerationWhitelist(site.text_moderation_whitelist)
     site.text_moderation_blacklist = normalizeTextModerationBlacklist(site.text_moderation_blacklist)
-    site.blacklist_users_limit = normalizeNonNegativeInt(site.blacklist_users_limit)
     site.senior_moderator_user_id = normalizeOptionalPositiveInt(site.senior_moderator_user_id)
     siteSnapshot.value = snapshotSite()
     gameSnapshot.value = snapshotGame()
@@ -2428,7 +2422,6 @@ async function saveSettings(): Promise<void> {
         season_start_game_number: normalizedSeasonStarts,
         text_moderation_whitelist: normalizeTextModerationWhitelist(site.text_moderation_whitelist),
         text_moderation_blacklist: normalizeTextModerationBlacklist(site.text_moderation_blacklist),
-        blacklist_users_limit: normalizeNonNegativeInt(site.blacklist_users_limit),
         senior_moderator_user_id: normalizeOptionalPositiveInt(site.senior_moderator_user_id),
       },
       game: {
@@ -2456,7 +2449,6 @@ async function saveSettings(): Promise<void> {
     site.season_start_game_number = normalizeSeasonStartNumbers(site.season_start_game_number)
     site.text_moderation_whitelist = normalizeTextModerationWhitelist(site.text_moderation_whitelist)
     site.text_moderation_blacklist = normalizeTextModerationBlacklist(site.text_moderation_blacklist)
-    site.blacklist_users_limit = normalizeNonNegativeInt(site.blacklist_users_limit)
     site.senior_moderator_user_id = normalizeOptionalPositiveInt(site.senior_moderator_user_id)
     siteSnapshot.value = snapshotSite()
     gameSnapshot.value = snapshotGame()

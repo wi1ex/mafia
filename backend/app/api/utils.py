@@ -610,7 +610,6 @@ def build_app_settings_snapshot_defaults(core_settings_obj: Any, *, default_star
     text_moderation_blacklist = normalize_text_moderation_blacklist(
         getattr(core_settings_obj, "TEXT_MODERATION_BLACKLIST", "0"),
     )
-    blacklist_users_limit = max(0, int(getattr(core_settings_obj, "BLACKLIST_USERS_LIMIT", 30)))
     senior_moderator_user_id = normalize_optional_user_id(getattr(core_settings_obj, "SENIOR_MODERATOR_USER_ID", None))
     return snapshot_cls(
         registration_enabled=getattr(core_settings_obj, "REGISTRATION_ENABLED"),
@@ -636,7 +635,6 @@ def build_app_settings_snapshot_defaults(core_settings_obj: Any, *, default_star
         text_moderation_whitelist_words=parse_text_moderation_whitelist(text_moderation_whitelist),
         text_moderation_blacklist=text_moderation_blacklist,
         text_moderation_blacklist_words=parse_text_moderation_blacklist(text_moderation_blacklist),
-        blacklist_users_limit=blacklist_users_limit,
         senior_moderator_user_id=senior_moderator_user_id,
         game_min_ready_players=getattr(core_settings_obj, "GAME_MIN_READY_PLAYERS"),
         role_pick_seconds=getattr(core_settings_obj, "ROLE_PICK_SECONDS"),
@@ -664,7 +662,6 @@ def build_app_settings_snapshot_from_row(row: Any, *, default_starts: Sequence[i
     text_moderation_blacklist = normalize_text_moderation_blacklist(
         getattr(row, "text_moderation_blacklist", "0"),
     )
-    blacklist_users_limit = max(0, int(getattr(row, "blacklist_users_limit", 30)))
     senior_moderator_user_id = normalize_optional_user_id(getattr(row, "senior_moderator_user_id", None))
     return snapshot_cls(
         registration_enabled=bool(getattr(row, "registration_enabled")),
@@ -690,7 +687,6 @@ def build_app_settings_snapshot_from_row(row: Any, *, default_starts: Sequence[i
         text_moderation_whitelist_words=parse_text_moderation_whitelist(text_moderation_whitelist),
         text_moderation_blacklist=text_moderation_blacklist,
         text_moderation_blacklist_words=parse_text_moderation_blacklist(text_moderation_blacklist),
-        blacklist_users_limit=blacklist_users_limit,
         senior_moderator_user_id=senior_moderator_user_id,
         game_min_ready_players=int(getattr(row, "game_min_ready_players")),
         role_pick_seconds=int(getattr(row, "role_pick_seconds")),
@@ -3667,7 +3663,6 @@ def site_settings_out(row) -> SiteSettingsOut:
         season_start_game_number=str(row.season_start_game_number),
         text_moderation_whitelist=normalize_text_moderation_whitelist(getattr(row, "text_moderation_whitelist", "0")),
         text_moderation_blacklist=normalize_text_moderation_blacklist(getattr(row, "text_moderation_blacklist", "0")),
-        blacklist_users_limit=max(0, int(getattr(row, "blacklist_users_limit", 30))),
         senior_moderator_user_id=normalize_optional_user_id(getattr(row, "senior_moderator_user_id", None)),
     )
 
