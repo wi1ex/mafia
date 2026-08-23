@@ -178,7 +178,14 @@
 
       <div class="streaming">
         <div class="streaming-header">
-          <span class="title">Стриминговая платформа</span>
+          <div class="streaming-title">
+            <span class="title">Стриминговая платформа</span>
+            <UiTooltip
+              text="Доступны Twitch, YouTube, Kick, Trovo, DLive, Rumble, VK Видео, VK Play Live, GoodGame и RUTUBE."
+              placement="bottom-right"
+              bubble-width="320px"
+            />
+          </div>
         </div>
         <div class="streaming-div">
           <span class="streaming-text">Ссылка на профиль</span>
@@ -441,6 +448,9 @@ async function saveStreamingUrl() {
     if (st === 403 && d === 'user_banned') void alertDialog('Аккаунт забанен. Изменение ссылки недоступно')
     else if (st === 403 && d === 'user_deleted') void alertDialog('Аккаунт удален')
     else if (st === 422 && d === 'profile_streaming_url_invalid') void alertDialog('Укажите корректную ссылку на стриминговую платформу')
+    else if (st === 422 && d === 'profile_streaming_platform_invalid') {
+      void alertDialog('Поддерживаются Twitch, YouTube, Kick, Trovo, DLive, Rumble, VK Видео, VK Play Live, GoodGame и RUTUBE')
+    }
     else void alertDialog('Не удалось сохранить ссылку на стриминговую платформу')
   } finally {
     streamingUrlSaveBusy.value = false
@@ -802,6 +812,11 @@ onBeforeUnmount(() => {
         align-items: flex-start;
         justify-content: space-between;
         min-height: 32px;
+        .streaming-title {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
         .title {
           color: $neutral-white;
           font-family: Involve-Medium;

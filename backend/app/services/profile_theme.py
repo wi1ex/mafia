@@ -39,6 +39,21 @@ PROFILE_THEME_ICON_COUNT = 49
 PROFILE_THEME_ICONS: tuple[str, ...] = tuple(f"sub_icon{idx}" for idx in range(1, PROFILE_THEME_ICON_COUNT + 1))
 PROFILE_THEME_ICON_DEFAULT = PROFILE_THEME_ICONS[0]
 SUBSCRIPTION_END_LOCAL_HOUR = 2
+STREAMING_PLATFORM_DOMAINS = frozenset(
+    {
+        "twitch.tv",
+        "youtube.com",
+        "youtu.be",
+        "kick.com",
+        "trovo.live",
+        "dlive.tv",
+        "rumble.com",
+        "vkvideo.ru",
+        "vkplay.ru",
+        "goodgame.ru",
+        "rutube.ru",
+    }
+)
 
 
 @dataclass(slots=True)
@@ -130,6 +145,13 @@ def normalize_profile_streaming_url(raw: object) -> str | None:
         raise ValueError("profile_streaming_url_invalid")
 
     if parsed.username is not None or parsed.password is not None:
+        raise ValueError("profile_streaming_url_invalid")
+
+    hostname = parsed.hostname.lower().rstrip(".")
+    if not any(hostname == domain or hostname.endswith(f".{domain}") for domain in STREAMING_PLATFORM_DOMAINS):
+        raise ValueError("profile_streaming_platform_invalid")
+
+    if parsed.port not in (None, 80, 443):
         raise ValueError("profile_streaming_url_invalid")
 
     return value
