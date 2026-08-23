@@ -329,7 +329,7 @@ export function useRTC(): UseRTC {
   function effectiveUserVolumePercent(v: number): number {
     const ui = Math.min(200, Math.max(0, Number.isFinite(v) ? v : 100))
     if (ui <= 100) return ui
-    return 100 + ((ui - 100) * 3)
+    return 100 + ((ui - 100) * 5)
   }
 
   function setRemoteAudioTrackEnabled(id: string, enabled: boolean) {

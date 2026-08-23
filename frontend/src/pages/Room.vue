@@ -687,6 +687,61 @@ const isMobileUa = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Min
 const isIpadOsDesktopUa = /Macintosh/i.test(navUserAgent) && (navigator.maxTouchPoints || 0) > 1
 const IS_MOBILE = isUaDataMobile || isMobileUa || isIpadOsDesktopUa
 
+type ScreenWakeLock = {
+  released: boolean
+  release: () => Promise<void>
+  addEventListener: (type: 'release', listener: EventListener) => void
+  removeEventListener: (type: 'release', listener: EventListener) => void
+}
+
+type WakeLockNavigator = Navigator & {
+  wakeLock?: { request: (type: 'screen') => Promise<ScreenWakeLock> }
+}
+
+let screenWakeLock: ScreenWakeLock | null = null
+let screenWakeLockRequestInFlight = false
+
+function onScreenWakeLockReleased(): void {
+  screenWakeLock = null
+  if (!leaving.value && document.visibilityState === 'visible') {
+    void acquireScreenWakeLock()
+  }
+}
+
+async function acquireScreenWakeLock(): Promise<void> {
+  const wakeLock = (navigator as WakeLockNavigator).wakeLock
+  if (!IS_MOBILE || !wakeLock || leaving.value || screenWakeLock || screenWakeLockRequestInFlight) return
+  if (document.visibilityState !== 'visible') return
+
+  screenWakeLockRequestInFlight = true
+  try {
+    const lock = await wakeLock.request('screen')
+    if (leaving.value || document.visibilityState !== 'visible') {
+      try { await lock.release() } catch {}
+      return
+    }
+    screenWakeLock = lock
+    lock.addEventListener('release', onScreenWakeLockReleased)
+  } catch {
+  } finally {
+    screenWakeLockRequestInFlight = false
+  }
+}
+
+async function releaseScreenWakeLock(): Promise<void> {
+  const lock = screenWakeLock
+  screenWakeLock = null
+  if (!lock) return
+  lock.removeEventListener('release', onScreenWakeLockReleased)
+  if (!lock.released) {
+    try { await lock.release() } catch {}
+  }
+}
+
+function retryScreenWakeLockAfterInteraction(): void {
+  void acquireScreenWakeLock()
+}
+
 const local = reactive({ mic: false, cam: false, speakers: true, visibility: true })
 const desiredMedia = reactive({ mic: false, cam: false })
 const adminSpectatorRequested = computed(() => String(route.query.spectator || '').toLowerCase() === 'admin')
@@ -3314,8 +3369,10 @@ async function handleJoinFailure(j: any) {
 async function onLeave(goHome = true) {
   if (leaving.value) return
   leaving.value = true
+  await releaseScreenWakeLock()
   try {
       document.removeEventListener('click', onDocClick)
+      document.removeEventListener('pointerdown', retryScreenWakeLockAfterInteraction)
       document.removeEventListener('visibilitychange', onBackgroundVisibility)
       window.removeEventListener('pagehide', onBackgroundVisibility)
       window.removeEventListener('pageshow', handleForegroundSignal)
@@ -3547,6 +3604,7 @@ function scheduleForegroundMediaRecovery(): void {
 function handleForegroundSignal() {
   if (!IS_MOBILE) return
   if (leaving.value) return
+  void acquireScreenWakeLock()
   if (!backgrounded.value) return
   local.visibility = false
   rtc.setVideoSubscriptionsForAll(false)
@@ -3596,6 +3654,11 @@ function onBackgroundVisibility(e?: Event) {
   const type = (e as any)?.type
   const hidden = document.visibilityState === 'hidden' || type === 'pagehide'
   if (hidden) rtc.flushVolumePrefs()
+  if (hidden) {
+    void releaseScreenWakeLock()
+  } else {
+    void acquireScreenWakeLock()
+  }
   if (!IS_MOBILE) return
   if (leaving.value) return
   if (hidden) {
@@ -3777,6 +3840,7 @@ onMounted(async () => {
     }
 
     document.addEventListener('click', onDocClick)
+    document.addEventListener('pointerdown', retryScreenWakeLockAfterInteraction, { passive: true })
     window.addEventListener('keydown', onHotkey)
     document.addEventListener('visibilitychange', onBackgroundVisibility, { passive: true })
     window.addEventListener('pagehide', onBackgroundVisibility, { passive: true })
@@ -3784,6 +3848,7 @@ onMounted(async () => {
     window.addEventListener('focus', handleForegroundSignal)
     window.addEventListener('offline', handleOffline)
     window.addEventListener('online', handleOnline)
+    void acquireScreenWakeLock()
 
     uiReady.value = true
   } catch (err) {
@@ -3802,6 +3867,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  void releaseScreenWakeLock()
   window.removeEventListener('offline', handleOffline)
   window.removeEventListener('online', handleOnline)
   window.removeEventListener('keydown', onHotkey)

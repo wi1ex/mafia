@@ -26,18 +26,6 @@ async def lifespan(app) -> AsyncIterator[None]:
             await conn.execute(text("SELECT 1"))
             await conn.run_sync(Base.metadata.create_all)
 
-            # 1111111111111111111111111111111111111111111111
-            await conn.execute(text(
-                "ALTER TABLE settings DROP COLUMN IF EXISTS self_speech_finish_enabled"
-            ))
-            await conn.execute(text(
-                "ALTER TABLE settings ADD COLUMN IF NOT EXISTS home_carousel_banner_key VARCHAR(255)"
-            ))
-            await conn.execute(text(
-                "ALTER TABLE users ADD COLUMN IF NOT EXISTS streaming_url VARCHAR(512)"
-            ))
-            # 2222222222222222222222222222222222222222222222
-
         async with SessionLocal() as session:
             await ensure_app_settings(session)
             await ensure_sanction_rules(session)
