@@ -215,7 +215,7 @@ import iconClose from '@/assets/svg/iconClose.svg'
 import iconPen from '@/assets/svg/iconPen.svg'
 
 const NICK_MAX = 20
-const NICKNAME_CHANGES_MAX = 30
+const NICKNAME_CHANGES_MAX = 1000
 const NICKNAME_HISTORY_LOAD_ATTEMPTS = 3
 const NICKNAME_HISTORY_RETRY_DELAY_MS = 300
 const AVATAR_MAX_BYTES = 5 * 1024 * 1024
@@ -309,7 +309,7 @@ const nicknameChangesLeft = computed(() => normalizeNicknameChangesLeft(me.nickn
 const nicknameChangesText = computed(() => {
   const value = nicknameChangesLeft.value
   if (value === 0) return 'Лимит исчерпан'
-  return `Лимит изменений: ${value}`
+  return `Лимит изменений: ${value < 10 ? value : '∞'}`
 })
 const saveNickDisabled = computed(() => (
   busyNick.value

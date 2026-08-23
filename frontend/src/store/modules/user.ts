@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { api } from '@/services/axios'
 
-const MAX_NICKNAME_CHANGES_LEFT = 30
+const MAX_NICKNAME_CHANGES_LEFT = 1000
 
 export interface UserProfile {
   id: number
