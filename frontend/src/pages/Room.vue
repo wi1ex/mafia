@@ -71,6 +71,7 @@
           :day-speech-remaining-ms="daySpeechRemainingMsFor(id)"
           :day-speech-paused="hostBlurActive"
           :fouls-count="gameFoulsByUser.get(id) ?? 0"
+          :tech-fouls-count="gameTechFoulsByUser.get(id) ?? 0"
           :winks-left="winksLeft"
           :knocks-left="knocksLeft"
           :show-wink="game.canWinkTarget(id)"
@@ -100,8 +101,10 @@
           :vote-enabled="game.canPressVoteButton()"
           :has-voted="(isLiftVoting ? votedUsers : votedThisRound).has(id)"
           :show-foul-control="canShowFoulButtons"
+          :show-tech-foul-control="canShowTechFoulButtons"
           @open-profile="openMiniProfileFromTile"
           @foul="onGiveFoul"
+          @tech-foul="onGiveTechnicalFoul"
           @wink="onWink"
           @knock="openKnockModal"
           @speaker-alert="onSpeakerAlert"
@@ -195,6 +198,7 @@
             :day-speech-remaining-ms="daySpeechRemainingMsFor(id)"
             :day-speech-paused="hostBlurActive"
             :fouls-count="gameFoulsByUser.get(id) ?? 0"
+            :tech-fouls-count="gameTechFoulsByUser.get(id) ?? 0"
             :winks-left="winksLeft"
             :knocks-left="knocksLeft"
             :show-wink="game.canWinkTarget(id)"
@@ -224,8 +228,10 @@
             :vote-enabled="game.canPressVoteButton()"
             :has-voted="(isLiftVoting ? votedUsers : votedThisRound).has(id)"
             :show-foul-control="canShowFoulButtons"
+            :show-tech-foul-control="canShowTechFoulButtons"
             @open-profile="openMiniProfileFromTile"
             @foul="onGiveFoul"
+            @tech-foul="onGiveTechnicalFoul"
             @wink="onWink"
             @knock="openKnockModal"
             @speaker-alert="onSpeakerAlert"
@@ -614,6 +620,7 @@ const {
   offlineInGame,
   nominateMode,
   gameFoulsByUser,
+  gameTechFoulsByUser,
   votedThisRound,
   votedUsers,
   knownRolesVisible,
@@ -646,6 +653,7 @@ const {
   gameFinished,
   currentFarewellSpeech,
   isCurrentSpeaker,
+  techFoulsEnabled,
   winksLeft,
   knocksLeft,
   playerSeatCount,
@@ -916,6 +924,7 @@ const canShowFoulButtons = computed(() =>
   !adminSpectator.value &&
   ACTION_PHASES.includes(gamePhase.value as (typeof ACTION_PHASES)[number])
 )
+const canShowTechFoulButtons = computed(() => canShowFoulButtons.value && techFoulsEnabled.value)
 const isMafiaLimitRoom = computed(() => roomUserLimit.value === gameLimitMin.value)
 const isDuoRoom = computed(() => roomUserLimit.value === 2)
 const usesCameraSimulcast = computed(() =>
@@ -1612,6 +1621,7 @@ const startNightChecksUi = () => game.startNightChecks(sendAckGame)
 const goToNightUi = () => game.goToNight(sendAckGame)
 const onHeadVoteControl = () => game.headVoteControl(sendAckGame)
 const onGiveFoul = (targetId: string) => game.giveFoul(targetId, sendAckGame)
+const onGiveTechnicalFoul = (targetId: string) => game.giveTechnicalFoul(targetId, sendAckGame)
 const startBestMoveUi = () => game.startBestMove(sendAckGame)
 const startDayFromNightUi = () => game.startDayFromNight(sendAckGame)
 const startDayUi = () => game.startDay(sendAckGame)
@@ -2593,6 +2603,10 @@ socket.value?.on('connect', async () => {
 
   socket.value.on('game_fouls', (p: any) => {
     game.handleGameFouls(p)
+  })
+
+  socket.value.on('game_tech_fouls', (p: any) => {
+    game.handleGameTechFouls(p)
   })
 
   socket.value.on('game_winked', (p: any) => {

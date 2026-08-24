@@ -2868,7 +2868,8 @@ def findGamePpkTargetUserId(actions: list[object]) -> int | None:
     for rawAction in reversed(actions):
         if not isinstance(rawAction, dict):
             continue
-        if str(rawAction.get("type") or "").strip().lower() != "foul":
+        action_type = str(rawAction.get("type") or "").strip().lower()
+        if action_type not in {"foul", "tech_foul"}:
             continue
         if not gameActionHasPpk(rawAction):
             continue
@@ -2991,12 +2992,14 @@ def findGameFoulActionIndex(actions: list[object], targetUid: int) -> int | None
     for index, rawAction in enumerate(actions):
         if not isinstance(rawAction, dict):
             continue
-        if str(rawAction.get("type") or "").strip().lower() != "foul":
+        action_type = str(rawAction.get("type") or "").strip().lower()
+        if action_type not in {"foul", "tech_foul"}:
             continue
         if safe_int(rawAction.get("target_id")) != targetUid:
             continue
         foulCount = safe_int(rawAction.get("count"))
-        if foulCount < 4:
+        foul_limit = 2 if action_type == "tech_foul" else 4
+        if foulCount < foul_limit:
             continue
         if bestIndex is None or foulCount >= bestCount:
             bestIndex = index
@@ -3173,20 +3176,22 @@ def game_action_fields(action: dict[str, Any], *, uid_to_slot: dict[int, int], h
     if day > 0:
         add_field("День", str(day))
 
-    if action_type == "foul":
+    if action_type in {"foul", "tech_foul"}:
         speech_label = game_action_slot_label(uid_to_slot, action.get("speech_uid"), head_uid=head_uid)
         is_ppk = bool(action.get("ppk")) or str(action.get("format") or "").strip().upper() == "PPK"
+        is_technical = action_type == "tech_foul"
         if speech_label != "-":
             add_field("Этап", "Речь игрока")
         add_field("Кто поставил", actor_label)
         add_field("Кому", target_label)
-        add_field("Количество фолов", str(max(0, safe_int(action.get("count")))))
+        add_field("Количество тех. фолов" if is_technical else "Количество фолов", str(max(0, safe_int(action.get("count")))))
         if speech_label != "-":
             add_field("На чьей речи", speech_label)
         add_field("ППК", game_action_bool_label(is_ppk))
         if is_ppk:
             add_field("Формат", "PPK")
-        return "Фол", f"{actor_label} поставил фол игроку {target_label}", fields
+        foul_label = "Тех. фол" if is_technical else "Фол"
+        return foul_label, f"{actor_label} поставил {foul_label.lower()} игроку {target_label}", fields
 
     if action_type == "wink":
         add_field("Этап", "День / голосование")
@@ -3308,7 +3313,7 @@ def game_actions_has_ppk(raw_actions: Any) -> bool:
         if not isinstance(raw_action, dict):
             continue
         action_type = str(raw_action.get("type") or "").strip().lower()
-        if action_type not in {"death", "foul"}:
+        if action_type not in {"death", "foul", "tech_foul"}:
             continue
         if action_type == "death" and str(raw_action.get("reason") or "").strip().lower() != "foul":
             continue
@@ -3569,6 +3574,7 @@ def serialize_game_for_redis(game_dict: Dict[str, Any]) -> Dict[str, str]:
         "mode": str(game_dict["mode"]),
         "spectators_limit": str(normalize_spectators_limit(game_dict.get("spectators_limit"))),
         "nominate_mode": nominate_mode,
+        "tech_fouls": "1" if raw_bool(game_dict.get("tech_fouls"), False) else "0",
         "break_at_zero": "1" if raw_bool(game_dict.get("break_at_zero"), True) else "0",
         "lift_at_zero": "1" if raw_bool(game_dict.get("lift_at_zero"), True) else "0",
         "lift_3x": "1" if raw_bool(game_dict.get("lift_3x"), True) else "0",
@@ -3595,6 +3601,7 @@ def game_from_redis_to_model(raw_game: Dict[str, Any]) -> GameParams:
         mode=(raw_game.get("mode") or "normal"),
         spectators_limit=normalize_spectators_limit(raw_game.get("spectators_limit")),
         nominate_mode=nominate_mode,
+        tech_fouls=raw_bool(raw_game.get("tech_fouls"), False),
         break_at_zero=raw_bool(raw_game.get("break_at_zero"), True),
         lift_at_zero=raw_bool(raw_game.get("lift_at_zero"), True),
         lift_3x=raw_bool(raw_game.get("lift_3x"), True),

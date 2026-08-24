@@ -144,6 +144,10 @@
                   <span class="ri-meta-value">{{ game.nominate_mode === 'head' ? 'От ведущего' : 'От игроков' }}</span>
                 </div>
                 <div class="ri-game-div">
+                  <span class="ri-meta-text">Тех. фолы</span>
+                  <span class="ri-meta-value">{{ game.tech_fouls ? 'Вкл' : 'Откл' }}</span>
+                </div>
+                <div class="ri-game-div">
                   <span class="ri-meta-text">Завещания</span>
                   <span class="ri-meta-value">{{ game.farewell_wills ? 'Вкл' : 'Откл' }}</span>
                 </div>

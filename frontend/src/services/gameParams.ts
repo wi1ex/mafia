@@ -2,6 +2,7 @@ export type RoomGameParams = {
   mode: 'normal' | 'rating'
   spectators_limit: number
   nominate_mode: 'head' | 'players'
+  tech_fouls: boolean
   break_at_zero: boolean
   lift_at_zero: boolean
   lift_3x: boolean
@@ -22,6 +23,7 @@ export const roomGameDefault: RoomGameParams = {
   mode: 'normal',
   spectators_limit: SPECTATORS_ENABLED_LIMIT,
   nominate_mode: 'players',
+  tech_fouls: false,
   break_at_zero: true,
   lift_at_zero: true,
   lift_3x: true,
@@ -54,6 +56,7 @@ export function normalizeRoomGameParams(
 
   merged.spectators_limit = normalizeSpectatorsLimit(value.spectators_limit)
 
+  if (typeof value.tech_fouls === 'boolean') merged.tech_fouls = value.tech_fouls
   if (typeof value.break_at_zero === 'boolean') merged.break_at_zero = value.break_at_zero
   const liftAtZero = typeof value.lift_at_zero === 'boolean'
     ? value.lift_at_zero

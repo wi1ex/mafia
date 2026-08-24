@@ -1051,7 +1051,7 @@ async def update_game_ppk(game_id: int, payload: AdminGamePpkUpdateIn, ident: Id
         if not isinstance(raw_action, dict):
             continue
         action_type = str(raw_action.get("type") or "").strip().lower()
-        if action_type not in {"death", "foul"}:
+        if action_type not in {"death", "foul", "tech_foul"}:
             continue
         if gameActionHasPpk(raw_action):
             setGameActionPpk(raw_action, False)

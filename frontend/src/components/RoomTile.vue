@@ -21,6 +21,11 @@
       <UiIcon class="icon-badge-icon" :icon="iconWink" />
     </button>
 
+    <button v-if="showTechFoulControl && inGame && seat != null && !isGameHead && !isDead(id)" class="icon-badge button left tech-foul" @click="$emit('tech-foul', id)" :disabled="!isHead" aria-label="Выдать технический фол">
+      <span>{{ techFoulsCount }}</span>
+      <UiIcon class="icon-badge-icon" :icon="iconFoul" />
+    </button>
+
     <button v-if="showFoulControl && inGame && seat != null && !isGameHead && !isDead(id)" class="icon-badge button left" @click="$emit('foul', id)" :disabled="!isHead" aria-label="Выдать фол">
       <span>{{ foulsCount }}</span>
       <UiIcon class="icon-badge-icon" :icon="iconFoul" />
@@ -248,12 +253,14 @@ const props = withDefaults(defineProps<{
   visibilityHiddenAvatar?: string
   inGame?: boolean
   foulsCount?: number
+  techFoulsCount?: number
   winksLeft?: number
   knocksLeft?: number
   showWink?: boolean
   showKnock?: boolean
   showSpeakerAlert?: boolean
   showFoulControl?: boolean
+  showTechFoulControl?: boolean
   phaseLabel?: string
   showNominate?: boolean
   showUnnominate?: boolean
@@ -304,12 +311,14 @@ const props = withDefaults(defineProps<{
   finishRoleBadge: false,
   inGame: false,
   foulsCount: 0,
+  techFoulsCount: 0,
   winksLeft: 0,
   knocksLeft: 0,
   showWink: false,
   showKnock: false,
   showSpeakerAlert: false,
   showFoulControl: false,
+  showTechFoulControl: false,
   phaseLabel: '',
   showNominate: false,
   showUnnominate: false,
@@ -340,6 +349,7 @@ const props = withDefaults(defineProps<{
 
 defineEmits<{
   (e: 'foul', id: string): void
+  (e: 'tech-foul', id: string): void
   (e: 'nominate', id: string): void
   (e: 'unnominate', id: string): void
   (e: 'vote', id: string): void
@@ -639,6 +649,9 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
     &.left {
       bottom: 8px;
       left: 8px;
+    }
+    &.tech-foul {
+      bottom: 48px;
     }
     &.right {
       bottom: 8px;

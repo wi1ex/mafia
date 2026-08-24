@@ -71,6 +71,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   const offlineInGame = reactive(new Set<string>())
   const gameRolesByUser = reactive(new Map<string, GameRoleKind>())
   const gameFoulsByUser = reactive(new Map<string, number>())
+  const gameTechFoulsByUser = reactive(new Map<string, number>())
   const rolesVisibleForHead = ref(false)
   const nominateMode = ref<'players' | 'head'>('players')
   const knownRolesVisible = ref(true)
@@ -135,6 +136,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   let daySpeechPausedRemainingMs = 0
   const daySpeechesDone = ref(false)
   const foulActive = reactive(new Set<string>())
+  const techFoulsEnabled = ref(false)
   const winkKnockEnabled = ref(true)
   const winksLeft = ref(0)
   const knocksLeft = ref(0)
@@ -780,6 +782,15 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     }
   }
 
+  function syncGameTechFouls(raw: any) {
+    gameTechFoulsByUser.clear()
+    const fouls = (raw || {}) as Record<string, any>
+    for (const [uid, cnt] of Object.entries(fouls)) {
+      const n = Number(cnt)
+      if (Number.isFinite(n) && n > 0) gameTechFoulsByUser.set(String(uid), n)
+    }
+  }
+
   function syncFarewellLimits(raw: any) {
     farewellLimits.clear()
     const limits = (raw || {}) as Record<string, any>
@@ -950,6 +961,8 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     myPrivateRoleKind.value = null
     rolesVisibleForHead.value = false
     gameFoulsByUser.clear()
+    gameTechFoulsByUser.clear()
+    techFoulsEnabled.value = false
     farewellLimits.clear()
     farewellWills.clear()
     currentFarewellSpeech.value = false
@@ -1138,6 +1151,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   function applyFromJoinAck(join: any, snapshotIds?: string[]) {
     const gr = join?.game_runtime || {}
     nominateMode.value = normalizeNominateMode((gr as any).nominate_mode)
+    techFoulsEnabled.value = isTrueLike((gr as any).tech_fouls)
     if ('wink_knock' in (gr as any)) winkKnockEnabled.value = isTrueLike((gr as any).wink_knock)
     if ('farewell_wills_enabled' in (gr as any)) farewellWillsEnabled.value = isTrueLike((gr as any).farewell_wills_enabled)
     if ('first_shot_check' in (gr as any)) firstShotCheckEnabled.value = isTrueLike((gr as any).first_shot_check)
@@ -1180,6 +1194,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     }
     myPrivateRoleKind.value = normalizeGameRoleKind(join?.my_game_role)
     syncGameFouls(join?.game_fouls)
+    syncGameTechFouls(join?.game_tech_fouls)
     deathReasonByUser.clear()
     const deathsRaw = join?.game_deaths || {}
     if (deathsRaw && typeof deathsRaw === 'object') {
@@ -1483,6 +1498,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if ('nominate_mode' in (payload || {})) {
       nominateMode.value = normalizeNominateMode((payload as any).nominate_mode)
     }
+    techFoulsEnabled.value = isTrueLike((payload as any)?.tech_fouls)
     if ('farewell_wills' in (payload || {})) {
       farewellWillsEnabled.value = isTrueLike((payload as any).farewell_wills)
     }
@@ -1554,6 +1570,8 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     gameAlive.clear()
     offlineInGame.clear()
     gameFoulsByUser.clear()
+    gameTechFoulsByUser.clear()
+    techFoulsEnabled.value = false
     deathReasonByUser.clear()
     winksLeft.value = 0
     knocksLeft.value = 0
@@ -1566,6 +1584,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (!uid) return
     gameAlive.delete(uid)
     gameFoulsByUser.delete(uid)
+    gameTechFoulsByUser.delete(uid)
     if (p?.reason) deathReasonByUser.set(uid, String(p.reason))
   }
 
@@ -1801,6 +1820,10 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
 
   function handleGameFouls(p: any) {
     syncGameFouls(p?.fouls)
+  }
+
+  function handleGameTechFouls(p: any) {
+    syncGameTechFouls(p?.fouls)
   }
 
   function handleGameVoteState(p: any) {
@@ -3043,7 +3066,12 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     }
   }
 
-  async function giveFoul(targetUserId: string, sendAck: SendAckFn): Promise<void> {
+  async function giveFoulAction(
+    targetUserId: string,
+    sendAck: SendAckFn,
+    eventName: 'game_foul_set' | 'game_tech_foul_set',
+    label: string,
+  ): Promise<void> {
     const uidNum = Number(targetUserId)
     if (!uidNum) return
     const alertIgnoredFatalFoul = (resp: any): boolean => {
@@ -3051,7 +3079,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       void alertDialog('Действие отменено - исход игры уже определен')
       return true
     }
-    const resp = await sendAck('game_foul_set', { user_id: uidNum })
+    const resp = await sendAck(eventName, { user_id: uidNum })
     if (!resp?.ok) {
       const code = resp?.error
       const st = resp?.status
@@ -3064,22 +3092,31 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
           checkboxLabel: 'Объявить игроку ППК',
         })
         if (!confirm.ok) return
-        const resp2 = await sendAck('game_foul_set', { user_id: uidNum, confirm_kill: true, ppk_kill: confirm.checkboxChecked })
+        const resp2 = await sendAck(eventName, { user_id: uidNum, confirm_kill: true, ppk_kill: confirm.checkboxChecked })
         if (!resp2?.ok) {
-          void alertDialog('Не удалось выдать фол')
+          void alertDialog(`Не удалось выдать ${label}`)
         } else {
           alertIgnoredFatalFoul(resp2)
         }
       } else if (st === 403 && code === 'forbidden') {
-        void alertDialog('Фол может выдать только ведущий')
+        void alertDialog(`${label[0].toUpperCase()}${label.slice(1)} может выдать только ведущий`)
       } else if (st === 404 && code === 'not_alive') {
         void alertDialog('Игрок уже выбыл из игры')
       } else {
-        void alertDialog('Не удалось выдать фол')
+        void alertDialog(`Не удалось выдать ${label}`)
       }
       return
     }
     alertIgnoredFatalFoul(resp)
+  }
+
+  async function giveFoul(targetUserId: string, sendAck: SendAckFn): Promise<void> {
+    await giveFoulAction(targetUserId, sendAck, 'game_foul_set', 'фол')
+  }
+
+  async function giveTechnicalFoul(targetUserId: string, sendAck: SendAckFn): Promise<void> {
+    if (!techFoulsEnabled.value) return
+    await giveFoulAction(targetUserId, sendAck, 'game_tech_foul_set', 'тех. фол')
   }
 
   async function startLeaderSpeech(sendAck: SendAckFn): Promise<void> {
@@ -3223,6 +3260,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     takenCardSet,
     roleCardsToRender,
     gameFoulsByUser,
+    gameTechFoulsByUser,
     daySpeechesDone,
     nomineeSeatNumbers,
     vote,
@@ -3251,6 +3289,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     phaseLabel,
     gameFinished,
     isCurrentSpeaker,
+    techFoulsEnabled,
     winkKnockEnabled,
     winksLeft,
     knocksLeft,
@@ -3351,7 +3390,9 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     takeFoul,
     finishSpeech,
     giveFoul,
+    giveTechnicalFoul,
     handleGameFouls,
+    handleGameTechFouls,
     handleGameFarewellUpdate,
     handleGameNomineeAdded,
     handleGameNomineeRemoved,

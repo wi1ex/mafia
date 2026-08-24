@@ -45,6 +45,15 @@
               :disabled="gameParamsDisabled"
             />
             <UiSwitch
+              v-model="game.tech_fouls"
+              label="Тех. фолы:"
+              theme="light"
+              size="low"
+              :width="256"
+              aria-label="Технические фолы"
+              :disabled="gameParamsDisabled"
+            />
+            <UiSwitch
               v-model="game.farewell_wills"
               label="Завещания:"
               theme="light"
@@ -177,6 +186,7 @@ function isSameGame(a: RoomGameParams, b: RoomGameParams) {
   return a.mode === b.mode &&
     a.spectators_limit === b.spectators_limit &&
     a.nominate_mode === b.nominate_mode &&
+    a.tech_fouls === b.tech_fouls &&
     a.break_at_zero === b.break_at_zero &&
     a.lift_at_zero === b.lift_at_zero &&
     a.lift_3x === b.lift_3x &&

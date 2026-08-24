@@ -86,12 +86,14 @@ from ..utils import (
     schedule_foul_block,
     maybe_block_foul_on_reconnect,
     emit_game_fouls,
+    emit_game_tech_fouls,
     apply_blocks_and_emit,
     finish_day_speech,
     get_nominees_in_order,
     get_alive_and_voted_ids,
     enrich_game_runtime_with_vote,
     get_game_fouls,
+    get_game_tech_fouls,
     finish_vote_speech,
     emit_game_night_state,
     night_state_broadcast_job,
@@ -632,6 +634,7 @@ async def join(sid, data) -> JoinAck:
         game_runtime, game_roles_view, my_game_role = await get_game_runtime_and_roles_view(r, rid, uid)
         game_runtime = await enrich_game_runtime_with_vote(r, rid, game_runtime, raw_gstate)
         game_fouls = await get_game_fouls(r, rid)
+        game_tech_fouls = await get_game_tech_fouls(r, rid)
         game_deaths = await get_game_deaths(r, rid)
         farewell_wills = await get_farewell_wills(r, rid)
         farewell_limits = await get_farewell_limits(r, rid)
@@ -659,6 +662,7 @@ async def join(sid, data) -> JoinAck:
             "game_roles": game_roles_view,
             "my_game_role": my_game_role,
             "game_fouls": game_fouls,
+            "game_tech_fouls": game_tech_fouls,
             "game_deaths": game_deaths,
             "farewell_wills": farewell_wills,
             "farewell_limits": farewell_limits,
@@ -1976,9 +1980,7 @@ async def game_foul(sid, data):
         return {"ok": False, "error": "internal", "status": 500}
 
 
-@sio.event(namespace="/room")
-@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_foul_set:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
-async def game_foul_set(sid, data):
+async def _set_game_foul_unlocked(sid, data, *, technical: bool):
     try:
         data = data or {}
         ctx, err = await require_ctx(sid, allowed_phases=("day", "vote", "night"), require_head=True)
@@ -1996,9 +1998,21 @@ async def game_foul_set(sid, data):
         r = ctx.r
         raw_gstate = ctx.gstate
         phase = ctx.phase
+        foul_event = "game_tech_foul_set" if technical else "game_foul_set"
+        fouls_key = f"room:{rid}:game_tech_fouls" if technical else f"room:{rid}:game_fouls"
+        foul_limit = 2 if technical else 4
+        foul_action_type = "tech_foul" if technical else "foul"
         head_uid = ctx.head_uid
         if not head_uid or actor_uid != head_uid:
             return {"ok": False, "error": "forbidden", "status": 403}
+
+        if technical:
+            try:
+                raw_game = await r.hgetall(f"room:{rid}:game")
+            except Exception:
+                raw_game = {}
+            if not game_flag(raw_game, "tech_fouls", False):
+                return {"ok": False, "error": "feature_disabled", "status": 403}
 
         err = await ctx.ensure_player(target_uid, alive_required=False, error="not_player", status=400)
         if err:
@@ -2009,33 +2023,33 @@ async def game_foul_set(sid, data):
             return {"ok": False, "error": "not_alive", "status": 404}
 
         try:
-            foul_raw = await r.hget(f"room:{rid}:game_fouls", str(target_uid))
+            foul_raw = await r.hget(fouls_key, str(target_uid))
             foul_before = int(foul_raw or 0)
         except Exception:
             foul_before = 0
 
-        if foul_before >= 4:
+        if foul_before >= foul_limit:
             return {"ok": False, "error": "too_many_fouls", "status": 409, "fouls": foul_before}
 
-        if foul_before >= 3 and not confirm_kill:
+        if foul_before >= foul_limit - 1 and not confirm_kill:
             return {"ok": False, "error": "need_confirm_kill", "status": 409, "fouls": foul_before}
 
-        if foul_before >= 3 and phase == "vote" and not ppk_kill:
+        if foul_before >= foul_limit - 1 and phase == "vote" and not ppk_kill:
             try:
                 ignore_terminal_foul = await should_ignore_terminal_vote_fatal_foul(r, rid, raw_gstate, target_uid)
             except Exception:
-                log.exception("game_foul_set.ignore_terminal_vote_foul_check_failed", rid=rid, target=target_uid)
+                log.exception("game_foul_set.ignore_terminal_vote_foul_check_failed", foul_event=foul_event, rid=rid, target=target_uid)
                 ignore_terminal_foul = False
             if ignore_terminal_foul:
                 return {"ok": True, "status": 200, "room_id": rid, "user_id": target_uid, "fouls": foul_before, "killed": False, "ignored": True, "ignore_reason": "terminal_vote_result"}
 
         try:
-            foul_after = await r.hincrby(f"room:{rid}:game_fouls", str(target_uid), 1)
+            foul_after = await r.hincrby(fouls_key, str(target_uid), 1)
         except Exception:
-            log.exception("game_foul_set.incr_failed", rid=rid, target=target_uid)
+            log.exception("game_foul_set.incr_failed", foul_event=foul_event, rid=rid, target=target_uid)
             return {"ok": False, "error": "internal", "status": 500}
 
-        ppk_applied = bool(ppk_kill and foul_after >= 4)
+        ppk_applied = bool(ppk_kill and foul_after >= foul_limit)
         forced_result = ""
         if ppk_applied:
             try:
@@ -2053,7 +2067,7 @@ async def game_foul_set(sid, data):
         elif phase == "vote" and ctx.gint("vote_speech_started") > 0:
             speech_uid = ctx.gint("vote_speech_uid")
         foul_action: dict[str, Any] = {
-            "type": "foul",
+            "type": foul_action_type,
             "actor_id": head_uid,
             "target_id": target_uid,
             "count": int(foul_after),
@@ -2066,7 +2080,7 @@ async def game_foul_set(sid, data):
         await log_game_action(r, rid, foul_action)
 
         killed = False
-        if foul_after >= 4:
+        if foul_after >= foul_limit:
             killed = True
             handled_by_predefined_farewell = False
             removed = False
@@ -2086,7 +2100,7 @@ async def game_foul_set(sid, data):
                                        room=f"room:{rid}",
                                        namespace="/room")
                     except Exception:
-                        log.exception("game_foul_set.finish_speech_failed", rid=rid, uid=target_uid)
+                        log.exception("game_foul_set.finish_speech_failed", foul_event=foul_event, rid=rid, uid=target_uid)
 
             if phase == "vote":
                 vote_speaker_uid = ctx.gint("vote_speech_uid")
@@ -2103,7 +2117,7 @@ async def game_foul_set(sid, data):
                                        room=f"room:{rid}",
                                        namespace="/room")
                     except Exception:
-                        log.exception("game_foul_set.finish_vote_speech_failed", rid=rid, uid=target_uid)
+                        log.exception("game_foul_set.finish_vote_speech_failed", foul_event=foul_event, rid=rid, uid=target_uid)
 
             if handled_by_predefined_farewell:
                 try:
@@ -2119,7 +2133,7 @@ async def game_foul_set(sid, data):
                 try:
                     ppk_finished = await finish_game(r, rid, result=forced_result, head_uid=head_uid, reason="ppk")
                 except Exception:
-                    log.exception("game_foul_set.ppk_finish_failed", rid=rid, target=target_uid, result=forced_result)
+                    log.exception("game_foul_set.ppk_finish_failed", foul_event=foul_event, rid=rid, target=target_uid, result=forced_result)
 
             if removed and not ppk_finished:
                 block_now, block_next, leaders_after = await decide_vote_blocks_on_death(r, rid, raw_gstate, target_uid)
@@ -2144,18 +2158,63 @@ async def game_foul_set(sid, data):
                                            room=f"room:{rid}",
                                            namespace="/room")
                     except Exception:
-                        log.exception("game_foul_set.mark_vote_blocked_next_failed", rid=rid)
+                        log.exception("game_foul_set.mark_vote_blocked_next_failed", foul_event=foul_event, rid=rid)
 
         try:
-            await emit_game_fouls(r, rid)
+            if technical:
+                await emit_game_tech_fouls(r, rid)
+            else:
+                await emit_game_fouls(r, rid)
         except Exception:
-            log.exception("game_foul_set.emit_fouls_failed", rid=rid)
+            log.exception("game_foul_set.emit_fouls_failed", foul_event=foul_event, rid=rid)
 
         return {"ok": True, "status": 200, "room_id": rid, "user_id": target_uid, "fouls": foul_after, "killed": killed}
 
     except Exception:
-        log.exception("sio.game_foul_set.error", sid=sid, data=bool(data))
+        log.exception("sio.game_foul_set.error", technical=technical, sid=sid, data=bool(data))
         return {"ok": False, "error": "internal", "status": 500}
+
+
+async def _set_game_foul(sid, data, *, technical: bool):
+    payload = data if isinstance(data, dict) else {}
+    try:
+        target_uid = int(payload.get("user_id") or 0)
+    except Exception:
+        target_uid = 0
+    if target_uid <= 0:
+        return await _set_game_foul_unlocked(sid, payload, technical=technical)
+
+    try:
+        sess = await sio.get_session(sid, namespace="/room")
+        rid = int(sess.get("rid") or 0)
+    except Exception:
+        rid = 0
+    if rid <= 0:
+        return await _set_game_foul_unlocked(sid, payload, technical=technical)
+
+    r = get_redis()
+    lock = await acquire_room_action_lock(r, rid, f"game_foul_set:{target_uid}", ttl_seconds=60)
+    if lock is None:
+        return {"ok": False, "error": "foul_action_in_progress", "status": 409}
+
+    lock_key, lock_token = lock
+    try:
+        return await _set_game_foul_unlocked(sid, payload, technical=technical)
+
+    finally:
+        await release_room_action_lock(r, lock_key, lock_token)
+
+
+@sio.event(namespace="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_foul_set:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
+async def game_foul_set(sid, data):
+    return await _set_game_foul(sid, data, technical=False)
+
+
+@sio.event(namespace="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_tech_foul_set:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
+async def game_tech_foul_set(sid, data):
+    return await _set_game_foul(sid, data, technical=True)
 
 
 @sio.event(namespace="/room")

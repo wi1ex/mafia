@@ -86,6 +86,7 @@ class GameStartAck(TypedDict, total=False):
     off_visibility: List[int]
     bgm_seed: int
     nominate_mode: Literal["players", "head"]
+    tech_fouls: bool
     wink_knock: bool
     farewell_wills: bool
     first_shot_check: bool

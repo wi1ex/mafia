@@ -146,6 +146,7 @@ __all__ = [
     "schedule_foul_block",
     "maybe_block_foul_on_reconnect",
     "emit_game_fouls",
+    "emit_game_tech_fouls",
     "get_farewell_wills",
     "get_farewell_wills_for",
     "get_farewell_limits",
@@ -159,6 +160,7 @@ __all__ = [
     "apply_blocks_and_emit",
     "finish_day_speech",
     "get_game_fouls",
+    "get_game_tech_fouls",
     "enrich_game_runtime_with_vote",
     "emit_game_night_state",
     "night_state_broadcast_job",
@@ -4284,6 +4286,35 @@ async def emit_game_fouls(r, rid: int) -> None:
                    namespace="/room")
 
 
+async def get_game_tech_fouls(r, rid: int) -> dict[str, int]:
+    try:
+        raw = await hgetall_int_map(r, f"room:{rid}:game_tech_fouls")
+    except Exception:
+        log.exception("game_tech_fouls.load_failed", rid=rid)
+        return {}
+
+    fouls: dict[str, int] = {}
+    for uid, cnt in (raw or {}).items():
+        if cnt > 0:
+            fouls[str(uid)] = cnt
+
+    return fouls
+
+
+async def emit_game_tech_fouls(r, rid: int) -> None:
+    try:
+        fouls = await get_game_tech_fouls(r, rid)
+    except Exception:
+        log.exception("game_tech_fouls.load_failed", rid=rid)
+        return
+
+    await sio.emit("game_tech_fouls",
+                   {"room_id": rid,
+                    "fouls": fouls},
+                   room=f"room:{rid}",
+                   namespace="/room")
+
+
 async def get_game_deaths(r, rid: int) -> dict[str, str]:
     try:
         raw = await r.hgetall(f"room:{rid}:game_deaths")
@@ -6209,6 +6240,7 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
         nominate_mode = "players"
 
     wink_knock = game_flag(raw_game, "wink_knock", True)
+    tech_fouls = game_flag(raw_game, "tech_fouls", False)
     farewell_wills_enabled = game_flag(raw_game, "farewell_wills", True)
     first_shot_check = game_flag(raw_game, "first_shot_check", True)
     music_enabled = game_flag(raw_game, "music", True)
@@ -6234,6 +6266,7 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
         "bgm_seed": ctx.gint("bgm_seed"),
         "host_blur": ctx.gbool("host_blur"),
         "nominate_mode": nominate_mode,
+        "tech_fouls": tech_fouls,
         "wink_knock": wink_knock,
         "farewell_wills_enabled": farewell_wills_enabled,
         "first_shot_check": first_shot_check,
@@ -6906,6 +6939,7 @@ async def game_start_unlocked(sid, data) -> GameStartAck:
         if nominate_mode not in ("players", "head"):
             nominate_mode = "players"
         wink_knock = game_flag(raw_game, "wink_knock", True)
+        tech_fouls = game_flag(raw_game, "tech_fouls", False)
         farewell_wills = game_flag(raw_game, "farewell_wills", True)
         first_shot_check = game_flag(raw_game, "first_shot_check", True)
         music_enabled = game_flag(raw_game, "music", True)
@@ -6995,6 +7029,7 @@ async def game_start_unlocked(sid, data) -> GameStartAck:
                     f"room:{rid}:game_players",
                     f"room:{rid}:game_alive",
                     f"room:{rid}:game_fouls",
+                    f"room:{rid}:game_tech_fouls",
                     f"room:{rid}:game_deaths",
                     f"room:{rid}:game_short_speech_used",
                     f"room:{rid}:game_nominees",
@@ -7060,6 +7095,7 @@ async def game_start_unlocked(sid, data) -> GameStartAck:
             "seats": {k: int(v) for k, v in seats.items()},
             "bgm_seed": bgm_seed,
             "nominate_mode": nominate_mode,
+            "tech_fouls": tech_fouls,
             "wink_knock": wink_knock,
             "winks_limit": winks_limit,
             "knocks_limit": knocks_limit,
@@ -7766,6 +7802,7 @@ async def _perform_game_end_unlocked(ctx, sess: Optional[dict[str, Any]], *, con
             f"room:{rid}:game_players",
             f"room:{rid}:game_alive",
             f"room:{rid}:game_fouls",
+            f"room:{rid}:game_tech_fouls",
             f"room:{rid}:game_deaths",
             f"room:{rid}:game_actions",
             f"room:{rid}:game_votes_last",
@@ -8364,6 +8401,7 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
             f"room:{rid}:roles_taken",
             f"room:{rid}:game_roles",
             f"room:{rid}:game_fouls",
+            f"room:{rid}:game_tech_fouls",
             f"room:{rid}:game_short_speech_used",
             f"room:{rid}:game_nominees",
             f"room:{rid}:game_nom_speakers",
