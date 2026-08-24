@@ -22,7 +22,6 @@
               aria-label="Режим"
               :disabled="gameParamsDisabled"
             />
-<!--              :disabled="true"-->
             <UiSwitch
               v-model="spectatorsEnabled"
               :disabled="modeDependentParamsDisabled"

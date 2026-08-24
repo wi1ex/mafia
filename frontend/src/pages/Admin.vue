@@ -95,7 +95,7 @@
                 <button class="btn danger width-full" :disabled="kickRoomsBusy || clearChatBusy || endGamesBusy || markAllNotifsBusy || compensationSaving" @click="endAllGames">
                   Завершить все игры
                 </button>
-                <button class="btn danger width-full" :disabled="kickRoomsBusy || clearChatBusy || endGamesBusy || markAllNotifsBusy || compensationSaving" @click="markAllNotificationsRead">
+                <button class="btn width-full" :disabled="kickRoomsBusy || clearChatBusy || endGamesBusy || markAllNotifsBusy || compensationSaving" @click="markAllNotificationsRead">
                   Прочитать все уведомления
                 </button>
                 <button class="btn confirm width-full" :disabled="kickRoomsBusy || clearChatBusy || endGamesBusy || markAllNotifsBusy || compensationSaving" @click="openSubscriptionCompensation">
