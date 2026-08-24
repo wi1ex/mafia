@@ -23,7 +23,7 @@
 
     <button v-if="showTechFoulControl && inGame && seat != null && !isGameHead && !isDead(id)" class="icon-badge button left tech-foul" @click="$emit('tech-foul', id)" :disabled="!isHead" aria-label="Выдать технический фол">
       <span>{{ techFoulsCount }}</span>
-      <UiIcon class="icon-badge-icon" :icon="iconFoul" />
+      <UiIcon class="icon-badge-icon" :icon="iconTechFoul" />
     </button>
 
     <button v-if="showFoulControl && inGame && seat != null && !isGameHead && !isDead(id)" class="icon-badge button left" @click="$emit('foul', id)" :disabled="!isHead" aria-label="Выдать фол">
@@ -201,6 +201,7 @@ import iconPen from '@/assets/svg/iconPen.svg'
 import iconCheck from '@/assets/svg/iconCheck.svg'
 import iconKill from '@/assets/svg/iconKill.svg'
 import iconCloseCircle from '@/assets/svg/iconCloseCircle.svg'
+import iconTechFoul from '@/assets/svg/iconTechFoul.svg'
 import iconFoul from '@/assets/svg/iconFoul.svg'
 import iconWink from '@/assets/svg/iconEmoji.svg'
 import iconKnock from '@/assets/svg/iconKnock.svg'
