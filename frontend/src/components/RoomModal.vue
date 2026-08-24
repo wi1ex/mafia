@@ -359,7 +359,7 @@ onBeforeUnmount(() => {
     .modal-div {
       display: flex;
       flex-direction: column;
-      gap: 24px;
+      gap: 18px;
       background-color: $neutral-100;
       .room-limit-field {
         display: flex;

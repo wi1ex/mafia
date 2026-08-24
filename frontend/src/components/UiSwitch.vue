@@ -1,5 +1,16 @@
 <template>
-  <div class="switch" :class="[`switch--${switchTheme}`, `switch--${switchSize}`, { 'switch--without-text': withoutText }]" :style="switchStyle">
+  <div
+    class="switch"
+    :class="[
+      `switch--${switchTheme}`,
+      `switch--${switchSize}`,
+      {
+        'switch--without-text': withoutText,
+        'switch--disabled': props.disabled,
+      },
+    ]"
+    :style="switchStyle"
+  >
     <span v-if="!withoutText" class="switch-label">
       <slot name="label">{{ label }}</slot>
     </span>
@@ -156,6 +167,9 @@ onBeforeUnmount(() => {
   &.switch--without-text {
     justify-self: center;
     width: fit-content;
+  }
+  &.switch--disabled {
+    opacity: 0.6;
   }
   .switch-label {
     display: inline-flex;
