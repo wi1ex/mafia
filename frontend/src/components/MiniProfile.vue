@@ -225,7 +225,7 @@
                   <UiButton
                     variant="white"
                     size="middle"
-                    :width="252"
+                    :width="270"
                     :icon="action.icon"
                     :text="action.label"
                     :disabled="action.disabled"
@@ -250,7 +250,7 @@
                         v-bind="triggerProps"
                         variant="white"
                         size="middle"
-                        :width="91"
+                        :width="94"
                         :text="displayLabel"
                         :icon="iconEllipsis"
                         icon-position="right"
@@ -2083,7 +2083,7 @@ onBeforeUnmount(() => {
     flex-direction: column;
     padding: 24px;
     gap: 24px;
-    width: 611px;
+    width: 650px;
     border-radius: 24px;
     background-color: var(--user-theme-bg, $neutral-black);
     overflow-y: auto;
@@ -2217,7 +2217,7 @@ onBeforeUnmount(() => {
               }
               .profile-name {
                 min-width: 0;
-                max-width: 314px;
+                max-width: 324px;
                 color: $neutral-white;
                 font-family: Involve-Medium;
                 font-size: 24px;
