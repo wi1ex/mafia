@@ -82,6 +82,8 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
         raise HTTPException(status_code=422, detail="invalid_user_limit")
 
     gp = payload.game
+    if not app_settings.rating_enabled and gp.mode == "rating":
+        gp = gp.model_copy(update={"mode": "normal"})
     anonymity = payload.anonymity
     spectators_limit = normalize_spectators_limit(gp.spectators_limit)
     if anonymity == "hidden":
@@ -301,19 +303,23 @@ async def update_game(room_id: int, payload: GameParams, ident: Identity = Depen
     if phase != "idle":
         raise HTTPException(status_code=409, detail="game_in_progress")
 
-    spectators_limit = normalize_spectators_limit(payload.spectators_limit)
+    game_params = payload
+    if not get_cached_settings().rating_enabled and game_params.mode == "rating":
+        game_params = game_params.model_copy(update={"mode": "normal"})
+
+    spectators_limit = normalize_spectators_limit(game_params.spectators_limit)
     game_dict = {
-        "mode": payload.mode,
+        "mode": game_params.mode,
         "spectators_limit": spectators_limit,
-        "nominate_mode": payload.nominate_mode,
-        "tech_fouls": bool(payload.tech_fouls),
-        "break_at_zero": bool(payload.break_at_zero),
-        "lift_at_zero": bool(payload.lift_at_zero),
-        "lift_3x": bool(payload.lift_3x),
-        "first_shot_check": bool(payload.first_shot_check),
-        "wink_knock": bool(payload.wink_knock),
-        "farewell_wills": bool(payload.farewell_wills),
-        "music": bool(payload.music),
+        "nominate_mode": game_params.nominate_mode,
+        "tech_fouls": bool(game_params.tech_fouls),
+        "break_at_zero": bool(game_params.break_at_zero),
+        "lift_at_zero": bool(game_params.lift_at_zero),
+        "lift_3x": bool(game_params.lift_3x),
+        "first_shot_check": bool(game_params.first_shot_check),
+        "wink_knock": bool(game_params.wink_knock),
+        "farewell_wills": bool(game_params.farewell_wills),
+        "music": bool(game_params.music),
     }
 
     room = await session.get(Room, room_id)

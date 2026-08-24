@@ -65,6 +65,7 @@ class SiteSettingsOut(BaseModel):
     rooms_can_create: bool
     rooms_can_enter: bool
     games_can_start: bool
+    rating_enabled: bool
     streams_can_start: bool
     chat_open_enabled: bool
     chat_messages_enabled: bool
@@ -89,6 +90,7 @@ class SiteSettingsUpdateIn(BaseModel):
     rooms_can_create: Optional[bool] = None
     rooms_can_enter: Optional[bool] = None
     games_can_start: Optional[bool] = None
+    rating_enabled: Optional[bool] = None
     streams_can_start: Optional[bool] = None
     chat_open_enabled: Optional[bool] = None
     chat_messages_enabled: Optional[bool] = None
@@ -161,6 +163,7 @@ class PublicSettingsOut(BaseModel):
     rooms_can_create: bool
     rooms_can_enter: bool
     games_can_start: bool
+    rating_enabled: bool
     streams_can_start: bool
     chat_open_enabled: bool
     chat_messages_enabled: bool

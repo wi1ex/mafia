@@ -26,6 +26,7 @@ class AppSettingsSnapshot:
     rooms_can_create: bool
     rooms_can_enter: bool
     games_can_start: bool
+    rating_enabled: bool
     streams_can_start: bool
     chat_open_enabled: bool
     chat_messages_enabled: bool
@@ -84,6 +85,7 @@ async def ensure_app_settings(session: AsyncSession) -> AppSettings:
             rooms_can_create=defaults.rooms_can_create,
             rooms_can_enter=defaults.rooms_can_enter,
             games_can_start=defaults.games_can_start,
+            rating_enabled=defaults.rating_enabled,
             streams_can_start=defaults.streams_can_start,
             chat_open_enabled=defaults.chat_open_enabled,
             chat_messages_enabled=defaults.chat_messages_enabled,

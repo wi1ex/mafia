@@ -20,7 +20,7 @@
               off-label="Обычный"
               on-label="Рейтинг"
               aria-label="Режим"
-              :disabled="gameParamsDisabled"
+              :disabled="gameParamsDisabled || !ratingEnabled"
             />
             <UiSwitch
               v-model="spectatorsEnabled"
@@ -128,6 +128,7 @@
 import { computed, ref, watch } from 'vue'
 import { api } from '@/services/axios'
 import { alertDialog } from '@/services/confirm'
+import { useSettingsStore } from '@/store'
 import {
   normalizeRoomGameParams,
   roomGameDefault,
@@ -159,7 +160,9 @@ const loading = ref(false)
 const paramsScroll = ref<HTMLElement | null>(null)
 const game = ref<RoomGameParams>({ ...roomGameDefault })
 const initialGame = ref<RoomGameParams | null>(null)
+const settings = useSettingsStore()
 const gameParamsDisabled = computed(() => busy.value || loading.value || !props.canEdit)
+const ratingEnabled = computed(() => settings.ratingEnabled)
 
 const isRating = computed<boolean>({
   get: () => game.value.mode === 'rating',
@@ -206,8 +209,12 @@ const isDirty = computed(() => {
 })
 
 function applyGame(next: RoomGameParams): void {
-  game.value = { ...next }
-  initialGame.value = { ...next }
+  const normalized = normalizeGame(next)
+  const allowedGame = !ratingEnabled.value && normalized.mode === 'rating'
+    ? { ...normalized, mode: 'normal' as const }
+    : normalized
+  game.value = allowedGame
+  initialGame.value = { ...allowedGame }
 }
 
 function emitClose() {
@@ -270,6 +277,12 @@ watch(() => props.externalGame, (next) => {
   if (!next) return
   applyGame(normalizeGame(next))
 }, { deep: true })
+
+watch(ratingEnabled, (enabled) => {
+  if (!enabled && game.value.mode === 'rating') {
+    game.value = { ...game.value, mode: 'normal' }
+  }
+})
 
 watch(game, () => {
   if (!props.open) return

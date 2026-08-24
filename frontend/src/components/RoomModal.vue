@@ -200,7 +200,10 @@ function normalizeRoomLimit(value: unknown): RoomLimit {
 }
 
 function normalizeGame(value: unknown): RoomGameParams {
-  return normalizeRoomGameParams(value)
+  const normalized = normalizeRoomGameParams(value)
+  return !settings.ratingEnabled && normalized.mode === 'rating'
+    ? { ...normalized, mode: 'normal' }
+    : normalized
 }
 
 function saveBasic() {
