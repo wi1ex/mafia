@@ -19,12 +19,13 @@
               :width="256"
               off-label="Обычный"
               on-label="Рейтинг"
-              aria-label="Режим: обычный/рейтинг"
-              :disabled="true"
+              aria-label="Режим"
+              :disabled="gameParamsDisabled"
             />
+<!--              :disabled="true"-->
             <UiSwitch
               v-model="spectatorsEnabled"
-              :disabled="gameParamsDisabled"
+              :disabled="modeDependentParamsDisabled"
               label="Зрители:"
               theme="light"
               size="low"
@@ -42,7 +43,7 @@
               off-label="Ведущий"
               on-label="Игрок"
               aria-label="Выставления"
-              :disabled="gameParamsDisabled"
+              :disabled="modeDependentParamsDisabled"
             />
             <UiSwitch
               v-model="game.tech_fouls"
@@ -50,8 +51,8 @@
               theme="light"
               size="low"
               :width="256"
-              aria-label="Технические фолы"
-              :disabled="gameParamsDisabled"
+              aria-label="Тех. фолы"
+              :disabled="modeDependentParamsDisabled"
             />
             <UiSwitch
               v-model="game.farewell_wills"
@@ -60,7 +61,7 @@
               size="low"
               :width="256"
               aria-label="Завещания"
-              :disabled="gameParamsDisabled"
+              :disabled="modeDependentParamsDisabled"
             />
             <UiSwitch
               v-model="game.wink_knock"
@@ -69,7 +70,7 @@
               size="low"
               :width="256"
               aria-label="Подмигивать/Стучать"
-              :disabled="gameParamsDisabled"
+              :disabled="modeDependentParamsDisabled"
             />
             <UiSwitch
               v-model="game.break_at_zero"
@@ -78,7 +79,7 @@
               size="low"
               :width="256"
               aria-label="Слом в нуле"
-              :disabled="gameParamsDisabled"
+              :disabled="modeDependentParamsDisabled"
             />
             <UiSwitch
               v-model="game.lift_at_zero"
@@ -87,7 +88,7 @@
               size="low"
               :width="256"
               aria-label="Подъем в нуле"
-              :disabled="gameParamsDisabled"
+              :disabled="modeDependentParamsDisabled"
             />
             <UiSwitch
               v-model="game.lift_3x"
@@ -96,7 +97,7 @@
               size="low"
               :width="256"
               aria-label="Подъем 3х при 9х"
-              :disabled="gameParamsDisabled"
+              :disabled="modeDependentParamsDisabled"
             />
             <UiSwitch
               v-model="game.first_shot_check"
@@ -105,7 +106,7 @@
               size="low"
               :width="256"
               aria-label="Проверка 1го отстрела"
-              :disabled="gameParamsDisabled"
+              :disabled="modeDependentParamsDisabled"
             />
             <UiSwitch
               v-model="game.music"
@@ -114,7 +115,7 @@
               size="low"
               :width="256"
               aria-label="Музыка"
-              :disabled="gameParamsDisabled"
+              :disabled="modeDependentParamsDisabled"
             />
           </div>
         </div>
@@ -163,8 +164,12 @@ const gameParamsDisabled = computed(() => busy.value || loading.value || !props.
 
 const isRating = computed<boolean>({
   get: () => game.value.mode === 'rating',
-  set: v => { game.value.mode = v ? 'rating' : 'normal' },
+  set: v => {
+    game.value = normalizeGame({ ...game.value, mode: v ? 'rating' : 'normal' })
+  },
 })
+
+const modeDependentParamsDisabled = computed(() => gameParamsDisabled.value || isRating.value)
 
 const isPlayersNomination = computed<boolean>({
   get: () => game.value.nominate_mode === 'players',

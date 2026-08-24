@@ -67,5 +67,19 @@ export function normalizeRoomGameParams(
   if (typeof value.wink_knock === 'boolean') merged.wink_knock = value.wink_knock
   if (typeof value.farewell_wills === 'boolean') merged.farewell_wills = value.farewell_wills
   if (typeof value.music === 'boolean') merged.music = value.music
+
+  if (merged.mode === 'rating') {
+    merged.spectators_limit = SPECTATORS_ENABLED_LIMIT
+    merged.nominate_mode = 'players'
+    merged.tech_fouls = true
+    merged.break_at_zero = true
+    merged.lift_at_zero = true
+    merged.lift_3x = true
+    merged.first_shot_check = true
+    merged.wink_knock = true
+    merged.farewell_wills = true
+    merged.music = true
+  }
+
   return merged
 }

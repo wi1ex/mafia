@@ -1,7 +1,7 @@
 from typing import Annotated, Optional, List, Literal
 from datetime import datetime
 from pydantic.functional_validators import BeforeValidator
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from ..api.utils import sanitize_title_for_schema
 
 Title = Annotated[str, BeforeValidator(sanitize_title_for_schema)]
@@ -19,6 +19,21 @@ class GameParams(BaseModel):
     wink_knock: bool = Field(default=True)
     farewell_wills: bool = Field(default=True)
     music: bool = Field(default=True)
+
+    @model_validator(mode="after")
+    def apply_rating_rules(self) -> "GameParams":
+        if self.mode == "rating":
+            self.spectators_limit = 10
+            self.nominate_mode = "players"
+            self.tech_fouls = True
+            self.break_at_zero = True
+            self.lift_at_zero = True
+            self.lift_3x = True
+            self.first_shot_check = True
+            self.wink_knock = True
+            self.farewell_wills = True
+            self.music = True
+        return self
 
 
 class RoomCreateIn(BaseModel):
