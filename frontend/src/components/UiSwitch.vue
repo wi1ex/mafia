@@ -169,7 +169,16 @@ onBeforeUnmount(() => {
     width: fit-content;
   }
   &.switch--disabled {
-    opacity: 0.6;
+    .switch-label,
+    label .slider:before,
+    label .slider-option > span:not(.ui-tooltip) {
+      opacity: 0.6;
+    }
+    label .slider {
+      cursor: default;
+      border-color: color-mix(in srgb, var(--switch-slider-color) 60%, transparent);
+      background-color: color-mix(in srgb, var(--switch-slider-color) 60%, transparent);
+    }
   }
   .switch-label {
     display: inline-flex;
