@@ -10,7 +10,7 @@
 
       <div class="modal-shell">
         <div ref="paramsScroll" class="modal-div">
-          <div class="params">
+          <fieldset class="params" :disabled="busy">
             <UiSwitch
               v-model="isRating"
               label="Режим:"
@@ -116,7 +116,7 @@
               aria-label="Музыка"
               :disabled="modeDependentParamsDisabled"
             />
-          </div>
+          </fieldset>
         </div>
         <UiScrollbar :target="paramsScroll" :active="open" theme="light" :inset-bottom="8" right="-16px" />
       </div>
@@ -161,7 +161,7 @@ const paramsScroll = ref<HTMLElement | null>(null)
 const game = ref<RoomGameParams>({ ...roomGameDefault })
 const initialGame = ref<RoomGameParams | null>(null)
 const settings = useSettingsStore()
-const gameParamsDisabled = computed(() => busy.value || loading.value || !props.canEdit)
+const gameParamsDisabled = computed(() => loading.value || !props.canEdit)
 const ratingEnabled = computed(() => settings.ratingEnabled)
 
 const isRating = computed<boolean>({
@@ -356,6 +356,10 @@ watch(game, () => {
         display: flex;
         flex-direction: column;
         gap: 8px;
+        margin: 0;
+        padding: 0;
+        min-inline-size: 0;
+        border: 0;
       }
       &::-webkit-scrollbar {
         display: none;
