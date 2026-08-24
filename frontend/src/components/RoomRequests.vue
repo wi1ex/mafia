@@ -12,7 +12,14 @@
         <div ref="appsScroll" class="apps-scroll">
           <ul v-if="apps.length">
             <li v-for="u in apps" :key="u.id" :class="{ 'has-theme-color': hasAppThemeColor(u) }" :style="appNickStyle(u)">
-              <div class="user">
+              <button v-if="canOpenMiniProfile(u)" class="user user-profile-trigger" type="button" @click="openMiniProfile(u)" :aria-label="`Открыть профиль ${u.username || ('user' + u.id)}`">
+                <img class="avatar" v-minio-img="{ key: u.avatar_name ? `avatars/${u.avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false, animated: true }" alt="avatar" />
+                <div v-if="appThemeIconSrcs(u).length" class="profile-theme-icons" aria-hidden="true">
+                  <img v-for="badgeSrc in appThemeIconSrcs(u)" :key="`${u.id}-${badgeSrc}`" class="profile-theme-icon" :src="badgeSrc" alt="" />
+                </div>
+                <span class="username">{{ u.username || ('user' + u.id) }}</span>
+              </button>
+              <div v-else class="user">
                 <img class="avatar" v-minio-img="{ key: u.avatar_name ? `avatars/${u.avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false, animated: true }" alt="avatar" />
                 <div v-if="appThemeIconSrcs(u).length" class="profile-theme-icons" aria-hidden="true">
                   <img v-for="badgeSrc in appThemeIconSrcs(u)" :key="`${u.id}-${badgeSrc}`" class="profile-theme-icon" :src="badgeSrc" alt="" />
@@ -40,6 +47,13 @@
       </div>
     </div>
   </Transition>
+
+  <MiniProfile
+    v-model:open="miniProfileOpen"
+    :user-id="miniProfileUserId"
+    :initial-profile="miniProfileInitial"
+    :show-stats-button="true"
+  />
 </template>
 
 <script setup lang="ts">
@@ -49,7 +63,10 @@ import { getProfileThemeBadgeSources } from '@/constants/profileIcons'
 import { api } from '@/services/axios'
 import { alertDialog } from '@/services/confirm'
 import { formatLocalDateTime } from '@/services/datetime'
+import { canOpenMiniProfileTarget, normalizeMiniProfileUserId } from '@/services/miniProfile'
+import { useUserStore } from '@/store'
 
+import MiniProfile from '@/components/MiniProfile.vue'
 import UiIcon from '@/components/UiIcon.vue'
 import UiScrollbar from '@/components/UiScrollbar.vue'
 
@@ -71,6 +88,11 @@ const emit = defineEmits<{
 
 const apps = ref<AppItem[]>([])
 const appsScroll = ref<HTMLElement | null>(null)
+const userStore = useUserStore()
+const miniProfileOpen = ref(false)
+const miniProfileUserId = ref<number | null>(null)
+const miniProfileInitial = ref<AppItem | null>(null)
+const viewerUserId = computed(() => normalizeMiniProfileUserId(userStore.user?.id))
 const seenKey = computed(() => `room:${props.roomId}:apps_seen`)
 const isLoading = ref(false)
 const showEmpty = computed(() => !isLoading.value && apps.value.length === 0)
@@ -86,6 +108,22 @@ const appNickStyle = (app: { theme_color?: string | null }) => {
 const appThemeIconSrcs = (app: { id?: number; theme_icon?: string | null; role?: string | null }) => (
   getProfileThemeBadgeSources(app.theme_icon, app.role, { roleBadgeVariant: 'black', userId: app.id })
 )
+
+function canOpenMiniProfile(app: AppItem): boolean {
+  return canOpenMiniProfileTarget({
+    targetId: app.id,
+    viewerId: viewerUserId.value,
+    viewerRole: userStore.user?.role,
+    targetRole: app.role,
+  })
+}
+
+function openMiniProfile(app: AppItem): void {
+  if (!canOpenMiniProfile(app)) return
+  miniProfileUserId.value = app.id
+  miniProfileInitial.value = app
+  miniProfileOpen.value = true
+}
 
 function loadSeen(): Set<number> {
   try { return new Set<number>(JSON.parse(localStorage.getItem(seenKey.value) || '[]')) } catch { return new Set() }
@@ -361,7 +399,15 @@ onBeforeUnmount(() => {
       .user {
         display: flex;
         align-items: center;
+        padding: 0;
         gap: 8px;
+        min-width: 0;
+        border: none;
+        background: none;
+        text-align: left;
+        &.user-profile-trigger {
+          cursor: pointer;
+        }
         .avatar {
           width: 24px;
           height: 24px;
