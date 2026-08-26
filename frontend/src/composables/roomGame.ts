@@ -2886,7 +2886,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     } else if (st === 403 && code === 'game_start_disabled') {
       void alertDialog('Запуск игр временно недоступен')
     } else if (st === 403 && code === 'rating_head_required') {
-      void alertDialog('В рейтинговой игре запуск доступен только ведущему рейтинга')
+      void alertDialog('В рейтинговой игре запуск доступен только пользователю с ролью Ведущий')
     } else if (st === 409 && code === 'already_in_other_game') {
       void alertDialog('Некоторые пользователи являются живыми игроками в другой комнате')
     } else if (st === 403 && code === 'not_in_room') {

@@ -261,7 +261,7 @@ async function save() {
     const d = e?.response?.data?.detail
     if (st === 409 && d === 'game_in_progress') void alertDialog('Игра уже началась')
     else if (st === 403 && d === 'forbidden') void alertDialog('Нет доступа к настройкам игры')
-    else if (st === 403 && d === 'rating_head_required') void alertDialog('Рейтинговый режим доступен только ведущему рейтинга')
+    else if (st === 403 && d === 'rating_head_required') void alertDialog('Рейтинговый режим доступен только пользователю с ролью Ведущий')
     else if (st === 404 && d === 'room_not_found') void alertDialog('Комната не найдена')
     else if (st === 429 && d === 'rate_limited') void alertDialog('Слишком много запросов, попробуйте позже')
     else if (d && typeof d === 'object' && d.detail) void alertDialog(String(d.detail))

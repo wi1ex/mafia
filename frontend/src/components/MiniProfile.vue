@@ -1043,10 +1043,10 @@ const staffActionItems = computed<StaffActionItem[]>(() => {
       },
       {
         key: 'head_rate',
-        label: targetHasHeadRate.value ? 'Снять ведущего рейтинга' : 'Выдать ведущего рейтинга',
+        label: targetHasHeadRate.value ? 'Снять ведущего' : 'Выдать ведущего',
         icon: iconJudgeHummer,
         disabled: staffAdminDeletedUserActionsLocked.value || staffRoleBusy.value || targetRoleNormalized.value === 'admin',
-        ariaLabel: targetHasHeadRate.value ? `Снять ведущего рейтинга ${displayName.value}` : `Выдать ведущего рейтинга ${displayName.value}`,
+        ariaLabel: targetHasHeadRate.value ? `Снять ведущего ${displayName.value}` : `Выдать ведущего ${displayName.value}`,
       },
       ...subscriptionActionItems,
     ]
@@ -1084,10 +1084,10 @@ const staffActionItems = computed<StaffActionItem[]>(() => {
       },
       {
         key: 'head_rate',
-        label: targetHasHeadRate.value ? 'Снять ведущего рейтинга' : 'Выдать ведущего рейтинга',
+        label: targetHasHeadRate.value ? 'Снять ведущего' : 'Выдать ведущего',
         icon: iconJudgeHummer,
         disabled: staffRoleBusy.value,
-        ariaLabel: targetHasHeadRate.value ? `Снять ведущего рейтинга ${displayName.value}` : `Выдать ведущего рейтинга ${displayName.value}`,
+        ariaLabel: targetHasHeadRate.value ? `Снять ведущего ${displayName.value}` : `Выдать ведущего ${displayName.value}`,
       },
     ]
   }
@@ -1527,8 +1527,8 @@ async function toggleStaffHeadRate(): Promise<void> {
   const isHeadRate = targetHasHeadRate.value
   const userLabel = currentTargetLabel()
   const ok = await confirmDialog({
-    title: isHeadRate ? 'Снять ведущего рейтинга' : 'Выдать ведущего рейтинга',
-    text: `Вы уверены, что хотите ${isHeadRate ? 'снять' : 'выдать'} роль Ведущий Рейтинга пользователю ${userLabel}?`,
+    title: isHeadRate ? 'Снять ведущего' : 'Выдать ведущего',
+    text: `Вы уверены, что хотите ${isHeadRate ? 'снять' : 'выдать'} роль Ведущий пользователю ${userLabel}?`,
     confirmText: isHeadRate ? 'Снять' : 'Выдать',
     cancelText: 'Отмена',
     checkboxLabel: 'Подтверждаю',
@@ -1544,7 +1544,7 @@ async function toggleStaffHeadRate(): Promise<void> {
       : [...profileAdditionalRoles.value, 'head_rate']
     patchProfile({ additional_roles: data?.additional_roles || fallbackAdditionalRoles })
     emitStaffActionComplete('head_rate')
-    void alertDialog(isHeadRate ? 'Роль ведущего рейтинга снята' : 'Роль ведущего рейтинга выдана')
+    void alertDialog(isHeadRate ? 'Роль ведущего снята' : 'Роль ведущего выдана')
   } catch (e: any) {
     const d = e?.response?.data?.detail
     if (d === 'protected_user') void alertDialog('Пользователь защищен от админ-действий')
