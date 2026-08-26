@@ -16,7 +16,7 @@ from ...core.logging import log_action
 from ...core.db import SessionLocal
 from ...security.parameters import get_cached_settings
 from ...schemas.realtime import StateAck, ModerateAck, JoinAck, ScreenAck, GameStartAck, GameRolePickAck, GameHostBlurAck
-from ...api.utils import normalize_spectators_limit
+from ...api.utils import game_from_redis_to_model, normalize_spectators_limit
 from ...services.blacklist import is_user_blacklisted_by, user_has_active_subscription
 from ...services.livekit import get_livekit_room_name, make_livekit_token, remove_livekit_participant
 from ..utils import (
@@ -648,6 +648,7 @@ async def join(sid, data) -> JoinAck:
             "token": token,
             "privacy": str(params.get("privacy") or "open"),
             "user_limit": user_limit,
+            "game": game_from_redis_to_model(await r.hgetall(f"room:{rid}:game")).model_dump(),
             "snapshot": snapshot,
             "speaker_alerts": speaker_alerts,
             "self_pref": user_state,

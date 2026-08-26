@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Optional
 from sqlalchemy import BigInteger, String, DateTime, Boolean, Text, Integer, func
 from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.dialects.postgresql import JSONB
 from ..core.db import Base
 
 
@@ -12,6 +13,7 @@ class User(Base):
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     username: Mapped[str] = mapped_column(String(20), nullable=False, index=True, unique=True)
     role: Mapped[str] = mapped_column(String(16), nullable=False, default="user")
+    additional_roles: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list, server_default="[]")
     avatar_name: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     nickname_history: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     nickname_changes_left: Mapped[int] = mapped_column(Integer, nullable=False, server_default="1")

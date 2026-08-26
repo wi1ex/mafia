@@ -1,8 +1,13 @@
 from __future__ import annotations
+import json
+import re
 
 ROLE_ADMIN = "admin"
 ROLE_MODER = "moder"
 ROLE_USER = "user"
+
+ADDITIONAL_ROLE_HEAD_RATE = "head_rate"
+_ADDITIONAL_ROLE_RE = re.compile(r"^[a-z][a-z0-9_]{0,31}$")
 
 ROOM_ROLE_HEAD = "head"
 ROOM_ROLE_HOST = "host"
@@ -17,6 +22,30 @@ def normalize_user_role(raw: object) -> str:
         return ROLE_MODER
 
     return ROLE_USER
+
+
+def normalize_additional_roles(raw: object) -> tuple[str, ...]:
+    value = raw
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except (TypeError, ValueError):
+            parsed = [value]
+        value = [parsed] if isinstance(parsed, str) else parsed
+
+    if not isinstance(value, (list, tuple, set, frozenset)):
+        return ()
+
+    roles = {
+        candidate
+        for item in value
+        if (candidate := str(item or "").strip().lower()) and _ADDITIONAL_ROLE_RE.fullmatch(candidate)
+    }
+    return tuple(sorted(roles))
+
+
+def has_additional_role(roles: object, role: str) -> bool:
+    return str(role or "").strip().lower() in normalize_additional_roles(roles)
 
 
 def normalize_room_role(raw: object) -> str:

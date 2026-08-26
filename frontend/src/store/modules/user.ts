@@ -9,6 +9,7 @@ export interface UserProfile {
   username?: string
   avatar_name?: string | null
   role: string
+  additional_roles?: string[]
   registered_at?: string | null
   telegram_verified?: boolean
   password_temp?: boolean

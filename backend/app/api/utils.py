@@ -1639,6 +1639,7 @@ async def build_user_out_payload(session: AsyncSession, *, user_id: int, role: s
         uid,
         username=str(user.username),
         role=normalized_role,
+        additional_roles=user.additional_roles,
         avatar_name=user.avatar_name,
         theme_color=theme_state.color,
         theme_until=theme_state.subscription_until,
@@ -1664,6 +1665,7 @@ async def build_user_out_payload(session: AsyncSession, *, user_id: int, role: s
         username=user.username,
         avatar_name=user.avatar_name,
         role=normalized_role,
+        additional_roles=list(user.additional_roles or []),
         registered_at=user.registered_at,
         telegram_verified=bool(user.telegram_id),
         has_password=bool(user.password_hash),
@@ -2054,7 +2056,7 @@ async def delete_gif_avatar_for_inactive_subscription(session: AsyncSession, use
 
 async def delete_user_avatar(session: AsyncSession, user_id: int, *, missing_status_code: int = 404, missing_detail: str = "user_not_found") -> str | None:
     uid = int(user_id)
-    row = await session.execute(select(User.username, User.avatar_name, User.role).where(User.id == uid))
+    row = await session.execute(select(User.username, User.avatar_name, User.role, User.additional_roles).where(User.id == uid))
     rec = row.first()
     if not rec:
         raise HTTPException(status_code=missing_status_code, detail=missing_detail)
@@ -2062,6 +2064,7 @@ async def delete_user_avatar(session: AsyncSession, user_id: int, *, missing_sta
     db_username = str(rec[0])
     old_avatar_name = cast(str | None, rec[1])
     db_role = str(rec[2])
+    db_additional_roles = rec[3]
 
     await session.execute(update(User).where(User.id == uid).values(avatar_name=None))
     await session.commit()
@@ -2070,6 +2073,7 @@ async def delete_user_avatar(session: AsyncSession, user_id: int, *, missing_sta
         uid,
         username=db_username,
         role=db_role,
+        additional_roles=db_additional_roles,
         avatar_name=None,
         theme_color=theme_state.color,
         theme_until=theme_state.subscription_until,
@@ -2465,8 +2469,13 @@ def ensure_moderation_target_allowed(user: User) -> None:
         raise HTTPException(status_code=403, detail="forbidden")
 
 
-async def get_moderation_target_user(session: AsyncSession, user_id: int) -> User:
-    user = await session.get(User, int(user_id))
+async def get_moderation_target_user(
+    session: AsyncSession,
+    user_id: int,
+    *,
+    for_update: bool = False,
+) -> User:
+    user = await session.get(User, int(user_id), with_for_update=for_update)
     if not user:
         raise HTTPException(status_code=404, detail="user_not_found")
 

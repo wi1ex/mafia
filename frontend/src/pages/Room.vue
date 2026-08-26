@@ -1029,11 +1029,17 @@ const canUseReadyStart = computed(() => {
   return limit === min + 1
 })
 const canUseReadyToggle = computed(() => !adminSpectator.value && canUseReadyStart.value)
+const isRatingGame = computed(() => roomGameSnapshot.value?.mode === 'rating')
+const isRatingHead = computed(() => (
+  Array.isArray(userStore.user?.additional_roles)
+  && userStore.user.additional_roles.some(role => String(role || '').trim().toLowerCase() === 'head_rate')
+))
 const canShowHeadPicks = computed(() => isHead.value && knownRolesVisible.value)
 const canShowStartGame = computed(() => {
   if (adminSpectator.value) return false
   if (!localId.value) return false
   if (gamePhase.value !== 'idle') return false
+  if (isRatingGame.value && !isRatingHead.value) return false
   const total = totalPlayers.value
   const ready = readyCount.value
   const st = statusByUser.get(localId.value)
@@ -2925,6 +2931,7 @@ function clampLocalVisibilityForCurrentPhase(): void {
 function applyJoinAck(j: any) {
   adminSpectator.value = !!j?.admin_spectator
   isPrivate.value = (j?.privacy || j?.room?.privacy) === 'private'
+  if (j?.game) applyRoomGameSnapshot(j.game)
   const limitRaw = Number(j?.user_limit ?? j?.room_user_limit ?? 0)
   roomUserLimit.value = Number.isFinite(limitRaw) ? limitRaw : 0
   const me = localId.value

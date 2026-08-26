@@ -1,4 +1,5 @@
 from __future__ import annotations
+import json
 import structlog
 from datetime import datetime, timezone
 from sqlalchemy import select
@@ -6,11 +7,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Any, Iterable, TypedDict
 from ..core.clients import get_redis
 from ..models.user import User
+from ..core.roles import normalize_additional_roles
 from ..services.profile_theme import resolve_profile_theme_state, resolve_profile_theme_states
 
 log = structlog.get_logger()
 
-PROFILE_FIELDS: tuple[str, ...] = ("username", "avatar_name", "role", "theme_color", "theme_until", "theme_icon", "streaming_url", "deleted_at")
+PROFILE_FIELDS: tuple[str, ...] = ("username", "avatar_name", "role", "additional_roles", "theme_color", "theme_until", "theme_icon", "streaming_url", "deleted_at")
 _UNSET = object()
 
 
@@ -18,6 +20,7 @@ class UserProfile(TypedDict):
     username: str | None
     avatar_name: str | None
     role: str | None
+    additional_roles: list[str]
     theme_color: str | None
     theme_until: str | None
     theme_icon: str | None
@@ -57,15 +60,17 @@ def _profile_from_values(values: list[Any] | tuple[Any, ...]) -> UserProfile:
     username = _value_or_none(values[0] if len(values) > 0 else None)
     avatar_name = _value_or_none(values[1] if len(values) > 1 else None)
     role = _value_or_none(values[2] if len(values) > 2 else None)
-    theme_color = _value_or_none(values[3] if len(values) > 3 else None)
-    theme_until = _value_or_none(values[4] if len(values) > 4 else None)
-    theme_icon = _value_or_none(values[5] if len(values) > 5 else None)
-    streaming_url = _value_or_none(values[6] if len(values) > 6 else None)
-    deleted_at = _value_or_none(values[7] if len(values) > 7 else None)
+    additional_roles = list(normalize_additional_roles(values[3] if len(values) > 3 else None))
+    theme_color = _value_or_none(values[4] if len(values) > 4 else None)
+    theme_until = _value_or_none(values[5] if len(values) > 5 else None)
+    theme_icon = _value_or_none(values[6] if len(values) > 6 else None)
+    streaming_url = _value_or_none(values[7] if len(values) > 7 else None)
+    deleted_at = _value_or_none(values[8] if len(values) > 8 else None)
     return {
         "username": username,
         "avatar_name": avatar_name,
         "role": role,
+        "additional_roles": additional_roles,
         "theme_color": theme_color,
         "theme_until": theme_until,
         "theme_icon": theme_icon,
@@ -154,12 +159,13 @@ async def read_user_profile_cache(user_id: int, *, redis_client=None) -> UserPro
     return profile if _profile_ready(profile) else None
 
 
-async def write_user_profile_cache(user_id: int, *, username: str, role: str, avatar_name: str | None, theme_color: str | None, theme_until: datetime | None, theme_icon: str | None = None, streaming_url: str | None | object = _UNSET, deleted_at: datetime | str | None = None, redis_client=None) -> None:
+async def write_user_profile_cache(user_id: int, *, username: str, role: str, additional_roles: object, avatar_name: str | None, theme_color: str | None, theme_until: datetime | None, theme_icon: str | None = None, streaming_url: str | None | object = _UNSET, deleted_at: datetime | str | None = None, redis_client=None) -> None:
     r = redis_client or get_redis()
     key = user_profile_cache_key(user_id)
     mapping = {
         "username": str(username),
         "role": str(role),
+        "additional_roles": json.dumps(list(normalize_additional_roles(additional_roles)), separators=(",", ":")),
     }
     avatar = _value_or_none(avatar_name)
     color = _value_or_none(theme_color)
@@ -222,7 +228,7 @@ async def invalidate_avatar_presign_cache(avatar_name: str | None, *, redis_clie
 
 async def refresh_user_profile_cache(session: AsyncSession, user_id: int, *, redis_client=None) -> UserProfile | None:
     uid = int(user_id)
-    row = await session.execute(select(User.username, User.avatar_name, User.role, User.streaming_url, User.deleted_at).where(User.id == uid))
+    row = await session.execute(select(User.username, User.avatar_name, User.role, User.additional_roles, User.streaming_url, User.deleted_at).where(User.id == uid))
     rec = row.first()
     if not rec:
         await delete_user_profile_cache(uid, redis_client=redis_client)
@@ -233,11 +239,12 @@ async def refresh_user_profile_cache(session: AsyncSession, user_id: int, *, red
         "username": _value_or_none(rec[0]),
         "avatar_name": _value_or_none(rec[1]),
         "role": _value_or_none(rec[2]),
+        "additional_roles": list(normalize_additional_roles(rec[3])),
         "theme_color": _value_or_none(theme_state.color),
         "theme_until": theme_state.subscription_until.isoformat() if theme_state.subscription_until else None,
         "theme_icon": _value_or_none(theme_state.icon),
-        "streaming_url": _value_or_none(rec[3]),
-        "deleted_at": rec[4].isoformat() if isinstance(rec[4], datetime) else _value_or_none(rec[4]),
+        "streaming_url": _value_or_none(rec[4]),
+        "deleted_at": rec[5].isoformat() if isinstance(rec[5], datetime) else _value_or_none(rec[5]),
     }
     if not _profile_ready(profile):
         await delete_user_profile_cache(uid, redis_client=redis_client)
@@ -247,6 +254,7 @@ async def refresh_user_profile_cache(session: AsyncSession, user_id: int, *, red
         uid,
         username=profile["username"] or "",
         role=profile["role"] or "user",
+        additional_roles=profile["additional_roles"],
         avatar_name=profile["avatar_name"],
         theme_color=profile["theme_color"],
         theme_until=theme_state.subscription_until,
@@ -298,9 +306,9 @@ async def get_user_profiles_cached(session: AsyncSession, user_ids: Iterable[int
         return out
 
     theme_states = await resolve_profile_theme_states(session, missed)
-    rows = await session.execute(select(User.id, User.username, User.avatar_name, User.role, User.streaming_url, User.deleted_at).where(User.id.in_(missed)))
+    rows = await session.execute(select(User.id, User.username, User.avatar_name, User.role, User.additional_roles, User.streaming_url, User.deleted_at).where(User.id.in_(missed)))
     db_map: dict[int, UserProfile] = {}
-    for uid_raw, username, avatar_name, role, streaming_url, deleted_at in rows.all():
+    for uid_raw, username, avatar_name, role, additional_roles, streaming_url, deleted_at in rows.all():
         try:
             uid = int(uid_raw)
         except Exception:
@@ -310,6 +318,7 @@ async def get_user_profiles_cached(session: AsyncSession, user_ids: Iterable[int
             "username": _value_or_none(username),
             "avatar_name": _value_or_none(avatar_name),
             "role": _value_or_none(role),
+            "additional_roles": list(normalize_additional_roles(additional_roles)),
             "theme_color": _value_or_none(theme_state.color if theme_state else None),
             "theme_until": (
                 theme_state.subscription_until.isoformat()
@@ -336,6 +345,7 @@ async def get_user_profiles_cached(session: AsyncSession, user_ids: Iterable[int
                     mapping={
                         "username": profile["username"] or "",
                         "role": profile["role"] or "user",
+                        "additional_roles": json.dumps(profile["additional_roles"], separators=(",", ":")),
                     },
                 )
                 if profile["avatar_name"] is not None:

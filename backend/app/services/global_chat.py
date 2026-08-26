@@ -613,6 +613,11 @@ def build_global_chat_role_changed_text(*, target_username: str, role: str, gran
             return f"Пользователю {target_mention} выдана роль Модератор"
         return f"У пользователя {target_mention} снята роль Модератор"
 
+    if role_value == "head_rate":
+        if granted:
+            return f"Пользователю {target_mention} выдана роль Ведущий Рейтинга"
+        return f"У пользователя {target_mention} снята роль Ведущий Рейтинга"
+
     role_label = role_value or "role"
     if granted:
         return f"Пользователю {target_mention} выдана роль {role_label}"

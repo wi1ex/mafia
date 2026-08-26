@@ -9,6 +9,7 @@ import structlog
 from ...core.clients import get_redis
 from ...core.db import get_session
 from ...core.logging import log_action
+from ...core.roles import ADDITIONAL_ROLE_HEAD_RATE, normalize_additional_roles
 from ...models.contact_request import ContactRequestRecord
 from ...models.notif import Notif
 from ...models.sanction import UserSanction
@@ -23,6 +24,8 @@ from ...schemas.admin import (
     AdminSanctionsOut,
     AdminSanctionTimedIn,
     AdminUserNameOut,
+    AdminUserAdditionalRoleIn,
+    AdminUserAdditionalRolesOut,
 )
 from ...schemas.common import Identity, Ok
 from ...schemas.moderation import ModerationUserOut, ModerationUsersOut
@@ -33,6 +36,7 @@ from ...security.decorators import log_route, require_roles_dep
 from ...services.global_chat import (
     emit_global_chat_avatar_deleted_notice,
     emit_global_chat_nickname_reset_notice,
+    emit_global_chat_role_notice,
     emit_global_chat_sanction_issued_notice,
     emit_global_chat_sanction_removed_notice,
 )
@@ -97,6 +101,72 @@ ModerationUserSortKey = Literal[
     "timeouts_count",
     "bans_count",
 ]
+
+
+@router.patch("/users/{user_id}/additional_roles", response_model=AdminUserAdditionalRolesOut, dependencies=MODERATION_GUARD)
+@log_route("moderation.users.additional_role")
+async def moderation_update_user_additional_role(user_id: int, payload: AdminUserAdditionalRoleIn, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> AdminUserAdditionalRolesOut:
+    role = str(payload.role)
+    if role != ADDITIONAL_ROLE_HEAD_RATE:
+        raise HTTPException(status_code=403, detail="forbidden")
+
+    user = await get_moderation_target_user(session, user_id, for_update=True)
+    uid = cast(int, user.id)
+    previous_roles = normalize_additional_roles(user.additional_roles)
+    next_roles = set(previous_roles)
+    if payload.enabled:
+        next_roles.add(role)
+    else:
+        next_roles.discard(role)
+    normalized_roles = list(sorted(next_roles))
+    if list(previous_roles) == normalized_roles:
+        return AdminUserAdditionalRolesOut(id=uid, additional_roles=normalized_roles)
+
+    user.additional_roles = normalized_roles
+    await session.commit()
+    await session.refresh(user)
+    await refresh_user_profile_cache(session, uid)
+
+    granted = bool(payload.enabled)
+    note = Notif(
+        user_id=uid,
+        title="Роль",
+        text=("Вам выдана роль Ведущий Рейтинга." if granted else "С вас снята роль Ведущий Рейтинга."),
+    )
+    session.add(note)
+    await session.commit()
+    await session.refresh(note)
+
+    details = f"Дополнительная роль {role} user_id={uid}"
+    if user.username:
+        details += f" username={user.username}"
+    details += f" enabled={int(granted)} panel=moderation actor_role={ident['role']}"
+    await log_action(
+        session,
+        user_id=int(ident["id"]),
+        username=ident["username"],
+        action="head_rate_role_grant" if granted else "head_rate_role_revoke",
+        details=details,
+    )
+
+    with suppress(Exception):
+        await emit_notify(uid, note, kind="role_update")
+    with suppress(Exception):
+        await emit_global_chat_role_notice(
+            session,
+            actor_user_id=int(ident["id"]),
+            target_user_id=uid,
+            target_username=user.username,
+            role=role,
+            granted=granted,
+        )
+    with suppress(Exception):
+        await emit_auth_profile_sync(uid)
+
+    return AdminUserAdditionalRolesOut(
+        id=uid,
+        additional_roles=list(normalize_additional_roles(user.additional_roles)),
+    )
 
 
 @router.get("/users", response_model=ModerationUsersOut, dependencies=MODERATION_GUARD)

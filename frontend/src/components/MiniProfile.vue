@@ -367,7 +367,7 @@ import iconTwitch from '@/assets/svg/iconTwitch.svg'
 type FriendActionKind = 'add' | 'remove' | 'incoming' | 'outgoing'
 type MiniProfileSanctionKind = 'timeout' | 'ban' | 'suspend'
 type StaffSubscriptionMode = 'grant' | 'extend' | 'reduce'
-type StaffActionKey = 'suspend' | 'timeout' | 'avatar' | 'nickname' | 'ban' | 'account' | 'role' | 'subscription' | 'subscription_extend' | 'subscription_reduce'
+type StaffActionKey = 'suspend' | 'timeout' | 'avatar' | 'nickname' | 'ban' | 'account' | 'role' | 'head_rate' | 'subscription' | 'subscription_extend' | 'subscription_reduce'
 type StaffActionScope = 'admin' | 'moderation'
 type MiniProfileRoomControlKey = 'mic' | 'cam' | 'speakers' | 'screen'
 type NominationLevel = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
@@ -452,6 +452,7 @@ type MiniProfileInitial = {
   username?: string | null
   avatar_name?: string | null
   role?: string | null
+  additional_roles?: string[] | null
   theme_color?: string | null
   theme_icon?: string | null
   profile_theme_color?: string | null
@@ -470,6 +471,7 @@ type MiniProfileResponse = {
   username?: string | null
   avatar_name?: string | null
   role?: string | null
+  additional_roles?: string[] | null
   protected_user?: boolean
   deleted?: boolean
   registered_at?: string | null
@@ -706,6 +708,14 @@ const profileRole = computed(() => {
   if (profileLoadedForTarget.value) return profile.value?.role || null
   return initialProfileForTarget.value?.role || null
 })
+const profileAdditionalRoles = computed(() => {
+  const raw = profileLoadedForTarget.value
+    ? profile.value?.additional_roles
+    : initialProfileForTarget.value?.additional_roles
+  if (!Array.isArray(raw)) return []
+  return raw.map(role => String(role || '').trim().toLowerCase()).filter(Boolean)
+})
+const targetHasHeadRate = computed(() => profileAdditionalRoles.value.includes('head_rate'))
 const profilePanelStyle = computed(() => buildProfileThemeBgStyle(profileThemeColor.value))
 const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(profileThemeIcon.value, profileRole.value, { userId: targetUserId.value }))
 const activeSanction = computed(() => (profileLoadedForTarget.value ? profile.value?.active_sanction || null : null))
@@ -1025,6 +1035,13 @@ const staffActionItems = computed<StaffActionItem[]>(() => {
         disabled: staffAdminDeletedUserActionsLocked.value || staffRoleBusy.value || targetRoleNormalized.value === 'admin',
         ariaLabel: targetRoleNormalized.value === 'moder' ? `Снять модерку ${displayName.value}` : `Выдать модерку ${displayName.value}`,
       },
+      {
+        key: 'head_rate',
+        label: targetHasHeadRate.value ? 'Снять ведущего рейтинга' : 'Выдать ведущего рейтинга',
+        icon: iconJudgeHummer,
+        disabled: staffAdminDeletedUserActionsLocked.value || staffRoleBusy.value || targetRoleNormalized.value === 'admin',
+        ariaLabel: targetHasHeadRate.value ? `Снять ведущего рейтинга ${displayName.value}` : `Выдать ведущего рейтинга ${displayName.value}`,
+      },
       ...subscriptionActionItems,
     ]
   }
@@ -1058,6 +1075,13 @@ const staffActionItems = computed<StaffActionItem[]>(() => {
         icon: iconDelete,
         disabled: nicknameDisabled,
         ariaLabel: `Сбросить никнейм ${displayName.value}`,
+      },
+      {
+        key: 'head_rate',
+        label: targetHasHeadRate.value ? 'Снять ведущего рейтинга' : 'Выдать ведущего рейтинга',
+        icon: iconJudgeHummer,
+        disabled: staffRoleBusy.value,
+        ariaLabel: targetHasHeadRate.value ? `Снять ведущего рейтинга ${displayName.value}` : `Выдать ведущего рейтинга ${displayName.value}`,
       },
     ]
   }
@@ -1490,6 +1514,42 @@ async function toggleStaffRole(): Promise<void> {
   }
 }
 
+async function toggleStaffHeadRate(): Promise<void> {
+  if ((!isAdminViewer.value && !isModerViewer.value) || staffActionDisabled('head_rate')) return
+  const uid = targetUserId.value
+  if (uid <= 0 || staffRoleBusy.value) return
+  const isHeadRate = targetHasHeadRate.value
+  const userLabel = currentTargetLabel()
+  const ok = await confirmDialog({
+    title: isHeadRate ? 'Снять ведущего рейтинга' : 'Выдать ведущего рейтинга',
+    text: `Вы уверены, что хотите ${isHeadRate ? 'снять' : 'выдать'} роль Ведущий Рейтинга пользователю ${userLabel}?`,
+    confirmText: isHeadRate ? 'Снять' : 'Выдать',
+    cancelText: 'Отмена',
+    checkboxLabel: 'Подтверждаю',
+    checkboxRequired: true,
+  })
+  if (!ok) return
+  staffRoleBusy.value = true
+  try {
+    const prefix = isAdminViewer.value ? '/admin' : '/moderation'
+    const { data } = await api.patch(`${prefix}/users/${uid}/additional_roles`, { role: 'head_rate', enabled: !isHeadRate })
+    const fallbackAdditionalRoles = isHeadRate
+      ? profileAdditionalRoles.value.filter(role => role !== 'head_rate')
+      : [...profileAdditionalRoles.value, 'head_rate']
+    patchProfile({ additional_roles: data?.additional_roles || fallbackAdditionalRoles })
+    emitStaffActionComplete('head_rate')
+    void alertDialog(isHeadRate ? 'Роль ведущего рейтинга снята' : 'Роль ведущего рейтинга выдана')
+  } catch (e: any) {
+    const d = e?.response?.data?.detail
+    if (d === 'protected_user') void alertDialog('Пользователь защищен от админ-действий')
+    else if (d === 'user_deleted') void alertDialog('Аккаунт удален')
+    else if (d === 'admin_role_locked' || d === 'forbidden') void alertDialog('Нельзя изменить роль этого пользователя')
+    else void alertDialog('Не удалось обновить роль пользователя')
+  } finally {
+    staffRoleBusy.value = false
+  }
+}
+
 async function toggleStaffAccount(): Promise<void> {
   if (!isAdminViewer.value || staffActionDisabled('account')) return
   const uid = targetUserId.value
@@ -1678,6 +1738,10 @@ function onStaffAction(key: StaffActionKey): void {
   }
   if (key === 'role') {
     void toggleStaffRole()
+    return
+  }
+  if (key === 'head_rate') {
+    void toggleStaffHeadRate()
     return
   }
   if (key === 'account') {

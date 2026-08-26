@@ -501,6 +501,16 @@ class AdminUserRoleOut(BaseModel):
     role: str
 
 
+class AdminUserAdditionalRoleIn(BaseModel):
+    role: Literal["head_rate"]
+    enabled: bool
+
+
+class AdminUserAdditionalRolesOut(BaseModel):
+    id: int
+    additional_roles: List[str] = Field(default_factory=list)
+
+
 class AdminUserNameOut(BaseModel):
     id: int
     username: str

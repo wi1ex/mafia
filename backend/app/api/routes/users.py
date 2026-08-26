@@ -52,7 +52,7 @@ from ...models.kassa_payment import KassaPayment
 from ...models.notif import Notif
 from ...models.user import User
 from ...core.db import get_session
-from ...core.roles import ROLE_ADMIN, ROLE_MODER, normalize_user_role
+from ...core.roles import ROLE_ADMIN, ROLE_MODER, normalize_additional_roles, normalize_user_role
 from ...core.settings import settings
 from ...core.clients import get_redis
 from ...core.logging import log_action
@@ -380,6 +380,7 @@ async def mini_profile(user_id: int, allow_deleted: bool = False, ident: Identit
         username=user.username,
         avatar_name=user.avatar_name,
         role=target_role,
+        additional_roles=list(normalize_additional_roles(user.additional_roles)),
         protected_user=bool(is_staff_viewer and is_protected_admin(uid)),
         deleted=bool(user.deleted_at),
         registered_at=None if viewer_blacklisted_by_target and not is_staff_viewer else user.registered_at,
@@ -1086,6 +1087,7 @@ async def update_username(payload: UsernameUpdateIn, ident: Identity = Depends(g
         uid,
         username=new,
         role=str(user.role),
+        additional_roles=user.additional_roles,
         avatar_name=user.avatar_name,
         theme_color=theme_state.color,
         theme_until=theme_state.subscription_until,
@@ -1410,7 +1412,7 @@ async def upload_avatar(file: UploadFile = File(...), static_frame_index: int | 
     uid = int(ident["id"])
     await ensure_profile_changes_allowed(db, uid)
 
-    row = await db.execute(select(User.username, User.avatar_name, User.role).where(User.id == uid))
+    row = await db.execute(select(User.username, User.avatar_name, User.role, User.additional_roles).where(User.id == uid))
     rec = row.first()
     if not rec:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
@@ -1418,6 +1420,7 @@ async def upload_avatar(file: UploadFile = File(...), static_frame_index: int | 
     db_username = str(rec[0])
     old_avatar_name = cast(str | None, rec[1])
     db_role = str(rec[2])
+    db_additional_roles = rec[3]
     ct = (file.content_type or "").split(";")[0].strip().lower()
     if ct not in AVATAR_ALLOWED_CT:
         raise HTTPException(status_code=415, detail="unsupported_media_type")
@@ -1446,6 +1449,7 @@ async def upload_avatar(file: UploadFile = File(...), static_frame_index: int | 
         uid,
         username=db_username,
         role=db_role,
+        additional_roles=db_additional_roles,
         avatar_name=name,
         theme_color=theme_state.color,
         theme_until=theme_state.subscription_until,

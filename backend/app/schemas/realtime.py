@@ -9,6 +9,7 @@ class JoinAck(TypedDict, total=False):
     token: str
     privacy: Literal["open", "private"]
     user_limit: int
+    game: dict
     snapshot: Dict[str, Dict[str, str]]
     speaker_alerts: Dict[str, int]
     self_pref: Dict[str, str]

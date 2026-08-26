@@ -16,6 +16,7 @@ class UserOut(BaseModel):
     username: Optional[str] = None
     avatar_name: Optional[str] = None
     role: str
+    additional_roles: List[str] = Field(default_factory=list)
     registered_at: Optional[datetime] = None
     telegram_verified: bool = False
     has_password: bool = False
@@ -78,6 +79,7 @@ class UserMiniProfileOut(BaseModel):
     username: Optional[str] = None
     avatar_name: Optional[str] = None
     role: str
+    additional_roles: List[str] = Field(default_factory=list)
     protected_user: bool = False
     deleted: bool = False
     registered_at: Optional[datetime] = None

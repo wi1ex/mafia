@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...core.clients import get_redis
 from ...core.db import get_session
 from ...models.log import AppLog
+from ...core.roles import ADDITIONAL_ROLE_HEAD_RATE, ROLE_MODER, normalize_additional_roles
 from ...models.contact_request import ContactRequestRecord
 from ...models.game import Game
 from ...models.room import Room
@@ -102,6 +103,8 @@ from ...schemas.admin import (
     AdminGameResultUpdateIn,
     AdminGameResultOut,
     AdminUserOut,
+    AdminUserAdditionalRoleIn,
+    AdminUserAdditionalRolesOut,
     AdminUsersOut,
     AdminUserRoleIn,
     AdminUserRoleOut,
@@ -2289,9 +2292,9 @@ async def update_user_role(user_id: int, payload: AdminUserRoleIn, ident: Identi
 
     uid = cast(int, user.id)
     if prev_role != user.role:
-        if user.role == "moder":
+        if user.role == ROLE_MODER:
             action = "moder_role_grant"
-        elif prev_role == "moder":
+        elif prev_role == ROLE_MODER:
             action = "moder_role_revoke"
         else:
             action = "role_update"
@@ -2308,7 +2311,7 @@ async def update_user_role(user_id: int, payload: AdminUserRoleIn, ident: Identi
             details=details,
         )
 
-        if user.role == "moder":
+        if user.role == ROLE_MODER:
             note = Notif(
                 user_id=uid,
                 title="Роль",
@@ -2325,10 +2328,10 @@ async def update_user_role(user_id: int, payload: AdminUserRoleIn, ident: Identi
                     actor_user_id=int(ident["id"]),
                     target_user_id=uid,
                     target_username=user.username,
-                    role="moder",
+                    role=ROLE_MODER,
                     granted=True,
                 )
-        elif prev_role == "moder":
+        elif prev_role == ROLE_MODER:
             note = Notif(
                 user_id=uid,
                 title="Роль",
@@ -2345,7 +2348,7 @@ async def update_user_role(user_id: int, payload: AdminUserRoleIn, ident: Identi
                     actor_user_id=int(ident["id"]),
                     target_user_id=uid,
                     target_username=user.username,
-                    role="moder",
+                    role=ROLE_MODER,
                     granted=False,
                 )
 
@@ -2360,6 +2363,77 @@ async def update_user_role(user_id: int, payload: AdminUserRoleIn, ident: Identi
         await force_logout_user(uid, reason="role_changed")
 
     return AdminUserRoleOut(id=uid, role=user.role)
+
+
+@router.patch("/users/{user_id}/additional_roles", response_model=AdminUserAdditionalRolesOut, dependencies=ADMIN_GUARD)
+@log_route("admin.users.additional_role")
+async def update_user_additional_role(user_id: int, payload: AdminUserAdditionalRoleIn, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> AdminUserAdditionalRolesOut:
+    user = await session.scalar(select(User).where(User.id == int(user_id)).with_for_update())
+    if not user:
+        raise HTTPException(status_code=404, detail="user_not_found")
+
+    ensure_admin_target_allowed(user)
+    ensure_admin_target_not_deleted(user)
+    role = str(payload.role)
+    if role != ADDITIONAL_ROLE_HEAD_RATE:
+        raise HTTPException(status_code=422, detail="unsupported_additional_role")
+
+    previous_roles = normalize_additional_roles(user.additional_roles)
+    next_roles = set(previous_roles)
+    if payload.enabled:
+        next_roles.add(role)
+    else:
+        next_roles.discard(role)
+    normalized_roles = list(sorted(next_roles))
+    uid = cast(int, user.id)
+    if list(previous_roles) == normalized_roles:
+        return AdminUserAdditionalRolesOut(id=uid, additional_roles=normalized_roles)
+
+    user.additional_roles = normalized_roles
+    await session.commit()
+    await session.refresh(user)
+    await refresh_user_profile_cache(session, uid)
+
+    granted = bool(payload.enabled)
+    note = Notif(
+        user_id=uid,
+        title="Роль",
+        text=("Вам выдана роль Ведущий Рейтинга." if granted else "С вас снята роль Ведущий Рейтинга."),
+    )
+    session.add(note)
+    await session.commit()
+    await session.refresh(note)
+
+    details = f"Дополнительная роль {role} user_id={uid}"
+    if user.username:
+        details += f" username={user.username}"
+    details += f" enabled={int(granted)}"
+    await log_action(
+        session,
+        user_id=int(ident["id"]),
+        username=ident["username"],
+        action="head_rate_role_grant" if granted else "head_rate_role_revoke",
+        details=details,
+    )
+
+    with suppress(Exception):
+        await emit_notify(uid, note, kind="role_update")
+    with suppress(Exception):
+        await emit_global_chat_role_notice(
+            session,
+            actor_user_id=int(ident["id"]),
+            target_user_id=uid,
+            target_username=user.username,
+            role=role,
+            granted=granted,
+        )
+    with suppress(Exception):
+        await emit_auth_profile_sync(uid)
+
+    return AdminUserAdditionalRolesOut(
+        id=uid,
+        additional_roles=list(normalize_additional_roles(user.additional_roles)),
+    )
 
 
 @router.post("/users/{user_id}/nickname_reset", response_model=AdminUserNameOut, dependencies=ADMIN_GUARD)

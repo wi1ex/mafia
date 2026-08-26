@@ -17,12 +17,13 @@ from typing import Any, Dict, Mapping, cast, Optional, List, Iterable
 from dataclasses import dataclass
 from .sio import sio
 from ..core.db import SessionLocal
-from ..core.roles import ROLE_ADMIN, ROLE_MODER, can_room_moderate, normalize_user_role, room_moderation_role
+from ..core.roles import ADDITIONAL_ROLE_HEAD_RATE, ROLE_ADMIN, ROLE_MODER, can_room_moderate, has_additional_role, normalize_user_role, room_moderation_role
 from ..core.settings import settings
 from ..security.parameters import get_cached_settings
 from ..models.room import Room
 from ..models.sanction import UserSanction
 from ..models.game import Game
+from ..models.user import User
 from ..models.friend import FriendCloseness
 from ..schemas.realtime import GameStartAck
 from ..core.clients import get_redis
@@ -6791,6 +6792,14 @@ async def game_start_unlocked(sid, data) -> GameStartAck:
         actor_base_role = str(sess.get("base_role") or "user")
         if normalize_user_role(actor_base_role) != ROLE_ADMIN and not app_settings.games_can_start:
             return {"ok": False, "error": "game_start_disabled", "status": 403}
+
+        raw_game = await r.hgetall(f"room:{rid}:game")
+        game_mode = _decode_redis_value(raw_game.get("mode") or "normal").strip().lower()
+        if game_mode == "rating":
+            async with SessionLocal() as session:
+                additional_roles = await session.scalar(select(User.additional_roles).where(User.id == uid))
+            if not has_additional_role(additional_roles, ADDITIONAL_ROLE_HEAD_RATE):
+                return {"ok": False, "error": "rating_head_required", "status": 403}
 
         min_ready = app_settings.game_min_ready_players
         members = await smembers_ints(r, f"room:{rid}:members")
