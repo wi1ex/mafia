@@ -17,7 +17,7 @@
               :disabled="deleteBusy || isDeleteAccountForbiddenSelf"
             />
           </div>
-          <div class="profile-dates" aria-label="Даты профиля">
+          <div class="profile-dates" aria-label="Информация профиля">
             <div class="date-row">
               <span class="date-title">Дата регистрации</span>
               <span class="date-time">{{ registeredAtLabel }}</span>
@@ -27,8 +27,8 @@
               <span class="date-time">{{ lastGameAtLabel }}</span>
             </div>
             <div class="date-row">
-              <span class="date-title">Последний раз в сети</span>
-              <span class="date-time">{{ lastOnlineLabel }}</span>
+              <span class="date-title">Роли</span>
+              <span class="date-time profile-role-tags">{{ profileRoleTagsLabel }}</span>
             </div>
           </div>
         </div>
@@ -219,6 +219,7 @@ import { storeToRefs } from 'pinia'
 import { api, AUTH_SESSION_SID_HEADER } from '@/services/axios'
 import { alertDialog, confirmDialog } from '@/services/confirm'
 import { hasAuthCookieMutex, withAuthCookieLock } from '@/services/refreshCoordination'
+import { getProfileRoleTags } from '@/services/profileRoles'
 import { useAuthStore, useUserStore } from '@/store'
 
 import UiInput from '@/components/UiInput.vue'
@@ -249,6 +250,7 @@ type ProfileDatesResponse = {
 const me = reactive({
   id: 0,
   role: '',
+  additional_roles: [] as string[],
   registered_at: null as string | null,
   has_password: false,
   protected_user: false,
@@ -280,6 +282,7 @@ const isDeleteAccountForbiddenSelf = computed(() => {
   const role = String(me.role || '').trim().toLowerCase()
   return role === 'moder'
 })
+const profileRoleTagsLabel = computed(() => getProfileRoleTags(me.role, me.additional_roles).join(' '))
 const registeredAtLabel = computed(() => formatDateWithMonthName(profileDates.registered_at || me.registered_at))
 const lastGameAtLabel = computed(() => {
   const dateLabel = formatDateOnly(profileDates.last_game_at)
@@ -389,6 +392,7 @@ function normalizeStreamingUrl(value: unknown): string {
 function applyMePayload(data: any, options: { keepStreamingUrlDraft?: boolean } = {}) {
   me.id = Number(data?.id || 0)
   me.role = data?.role || ''
+  me.additional_roles = Array.isArray(data?.additional_roles) ? data.additional_roles : []
   me.registered_at = data?.registered_at || null
   me.has_password = Boolean(data?.has_password)
   me.protected_user = Boolean(data?.protected_user)
@@ -639,6 +643,10 @@ onBeforeUnmount(() => {
               font-size: 16px;
               line-height: 16px;
               letter-spacing: -0.32px;
+            }
+            .profile-role-tags {
+              margin-left: 16px;
+              text-align: right;
             }
           }
         }

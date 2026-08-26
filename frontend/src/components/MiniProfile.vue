@@ -167,7 +167,7 @@
             </header>
 
             <template v-if="view === 'profile'">
-              <div v-if="showRestrictedProfileSections" class="profile-dates" aria-label="Даты профиля">
+              <div v-if="showRestrictedProfileSections" class="profile-dates" aria-label="Информация профиля">
                 <div class="date-row">
                   <span class="date-title">Дата регистрации</span>
                   <span class="date-time">{{ registeredAtLabel }}</span>
@@ -176,9 +176,13 @@
                   <span class="date-title">Последняя игра</span>
                   <span class="date-time">{{ lastGameAtLabel }}</span>
                 </div>
-                <div class="date-row">
+                <div v-if="!isSelfProfile" class="date-row">
                   <span class="date-title">Последний раз в сети</span>
                   <span class="date-time">{{ lastOnlineLabel }}</span>
+                </div>
+                <div class="date-row">
+                  <span class="date-title">Роли</span>
+                  <span class="date-time profile-role-tags">{{ profileRoleTagsLabel }}</span>
                 </div>
               </div>
               <div v-else class="profile-restricted-div">
@@ -313,6 +317,7 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { api } from '@/services/axios'
 import { alertDialog, confirmDialog, confirmDialogWithAction, useConfirmState } from '@/services/confirm'
 import { isMiniProfilePrivilegedViewer, normalizeMiniProfileRole } from '@/services/miniProfile'
+import { getProfileRoleTags } from '@/services/profileRoles'
 import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
 import { getProfileThemeBadgeSources } from '@/constants/profileIcons'
 import {
@@ -716,6 +721,7 @@ const profileAdditionalRoles = computed(() => {
   return raw.map(role => String(role || '').trim().toLowerCase()).filter(Boolean)
 })
 const targetHasHeadRate = computed(() => profileAdditionalRoles.value.includes('head_rate'))
+const profileRoleTagsLabel = computed(() => getProfileRoleTags(profileRole.value, profileAdditionalRoles.value).join(' '))
 const profilePanelStyle = computed(() => buildProfileThemeBgStyle(profileThemeColor.value))
 const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(profileThemeIcon.value, profileRole.value, { userId: targetUserId.value }))
 const activeSanction = computed(() => (profileLoadedForTarget.value ? profile.value?.active_sanction || null : null))
@@ -1829,6 +1835,7 @@ async function loadProfile() {
       username: data?.username ?? null,
       avatar_name: data?.avatar_name ?? null,
       role: data?.role ?? null,
+      additional_roles: Array.isArray(data?.additional_roles) ? data.additional_roles : [],
       protected_user: Boolean(data?.protected_user),
       deleted: Boolean(data?.deleted),
       registered_at: data?.registered_at ?? null,
@@ -3039,6 +3046,10 @@ onBeforeUnmount(() => {
           font-size: 16px;
           line-height: 16px;
           letter-spacing: -0.32px;
+        }
+        .profile-role-tags {
+          margin-left: 16px;
+          text-align: right;
         }
       }
     }
