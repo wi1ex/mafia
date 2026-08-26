@@ -181,7 +181,7 @@
                   <span class="date-time">{{ lastOnlineLabel }}</span>
                 </div>
                 <div class="date-row">
-                  <span class="date-title">Роли</span>
+                  <span class="date-title">Роли пользователя</span>
                   <span class="date-time profile-role-tags">{{ profileRoleTagsLabel }}</span>
                 </div>
               </div>

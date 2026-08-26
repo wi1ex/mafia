@@ -20,7 +20,7 @@
               off-label="Обычный"
               on-label="Рейтинг"
               aria-label="Режим"
-              :disabled="gameParamsDisabled || !ratingEnabled"
+              :disabled="ratingModeDisabled"
             />
             <UiSwitch
               v-model="spectatorsEnabled"
@@ -128,7 +128,7 @@
 import { computed, ref, watch } from 'vue'
 import { api } from '@/services/axios'
 import { alertDialog } from '@/services/confirm'
-import { useSettingsStore } from '@/store'
+import { useSettingsStore, useUserStore } from '@/store'
 import {
   normalizeRoomGameParams,
   roomGameDefault,
@@ -161,8 +161,14 @@ const paramsScroll = ref<HTMLElement | null>(null)
 const game = ref<RoomGameParams>({ ...roomGameDefault })
 const initialGame = ref<RoomGameParams | null>(null)
 const settings = useSettingsStore()
+const userStore = useUserStore()
 const gameParamsDisabled = computed(() => loading.value || !props.canEdit)
 const ratingEnabled = computed(() => settings.ratingEnabled)
+const isRatingHead = computed(() => (
+  Array.isArray(userStore.user?.additional_roles)
+  && userStore.user.additional_roles.some(role => String(role || '').trim().toLowerCase() === 'head_rate')
+))
+const ratingModeDisabled = computed(() => gameParamsDisabled.value || !ratingEnabled.value || !isRatingHead.value)
 
 const isRating = computed<boolean>({
   get: () => game.value.mode === 'rating',
@@ -255,6 +261,7 @@ async function save() {
     const d = e?.response?.data?.detail
     if (st === 409 && d === 'game_in_progress') void alertDialog('Игра уже началась')
     else if (st === 403 && d === 'forbidden') void alertDialog('Нет доступа к настройкам игры')
+    else if (st === 403 && d === 'rating_head_required') void alertDialog('Рейтинговый режим доступен только ведущему рейтинга')
     else if (st === 404 && d === 'room_not_found') void alertDialog('Комната не найдена')
     else if (st === 429 && d === 'rate_limited') void alertDialog('Слишком много запросов, попробуйте позже')
     else if (d && typeof d === 'object' && d.detail) void alertDialog(String(d.detail))

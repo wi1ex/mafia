@@ -23,7 +23,7 @@ export const roomGameDefault: RoomGameParams = {
   mode: 'normal',
   spectators_limit: SPECTATORS_ENABLED_LIMIT,
   nominate_mode: 'players',
-  tech_fouls: false,
+  tech_fouls: true,
   break_at_zero: true,
   lift_at_zero: true,
   lift_3x: true,

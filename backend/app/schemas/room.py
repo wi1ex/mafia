@@ -11,7 +11,7 @@ class GameParams(BaseModel):
     mode: Literal["normal", "rating"] = "normal"
     spectators_limit: int = Field(ge=0, le=10, default=10)
     nominate_mode: Literal["players", "head"] = "players"
-    tech_fouls: bool = Field(default=False)
+    tech_fouls: bool = Field(default=True)
     break_at_zero: bool = Field(default=True)
     lift_at_zero: bool = Field(default=True)
     lift_3x: bool = Field(default=True)
