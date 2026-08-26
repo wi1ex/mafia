@@ -236,15 +236,13 @@ const PASSWORD_SPACE_RE = /\s/
 
 const userStore = useUserStore()
 const auth = useAuthStore()
-const { tgInvitesEnabled, allowFriendRequests, now } = storeToRefs(userStore)
+const { tgInvitesEnabled, allowFriendRequests } = storeToRefs(userStore)
 const { setTgInvitesEnabled, setAllowFriendRequests, setStreamingUrl } = userStore
 
 type ProfileDatesResponse = {
   registered_at?: string | null
-  last_visit_at?: string | null
   last_game_at?: string | null
   last_game_id?: number | null
-  online?: boolean
 }
 
 const me = reactive({
@@ -258,10 +256,8 @@ const me = reactive({
 })
 const profileDates = reactive({
   registered_at: null as string | null,
-  last_visit_at: null as string | null,
   last_game_at: null as string | null,
   last_game_id: null as number | null,
-  online: false,
 })
 const tgInvitesTogglePending = ref(false)
 const friendRequestsTogglePending = ref(false)
@@ -290,7 +286,6 @@ const lastGameAtLabel = computed(() => {
   const gameId = Number(profileDates.last_game_id || 0)
   return Number.isFinite(gameId) && gameId > 0 ? `Игра #${Math.trunc(gameId)} от ${dateLabel}` : dateLabel
 })
-const lastOnlineLabel = computed(() => formatLastOnline(profileDates.last_visit_at, profileDates.online, now.value))
 const canChangePassword = computed(() =>
   pwd.current.length >= PASSWORD_MIN &&
   pwd.current.length <= PASSWORD_MAX &&
@@ -365,26 +360,6 @@ function formatDateWithMonthName(value?: string | number | Date | null): string 
   return `${dt.getDate()} ${RU_MONTHS_GENITIVE[dt.getMonth()]} ${dt.getFullYear()}`
 }
 
-function formatLastOnline(value?: string | number | Date | null, online = false, nowMs = Date.now()): string {
-  if (online) return 'Онлайн'
-  const dt = parseDate(value)
-  if (!dt) return '-'
-  const diffMs = nowMs - dt.getTime()
-  if (diffMs < 0) return 'Только что'
-  const totalMinutes = Math.floor(diffMs / 60000)
-  const minutesInDay = 24 * 60
-  const minutesInMonth = 30 * minutesInDay
-  if (totalMinutes < 1) return 'Только что'
-  if (totalMinutes < 60) return `${totalMinutes}м назад`
-  if (totalMinutes < minutesInDay) {
-    const hours = Math.floor(totalMinutes / 60)
-    const minutes = totalMinutes % 60
-    return `${hours}ч ${minutes}м назад`
-  }
-  if (totalMinutes < minutesInMonth) return `${Math.floor(totalMinutes / minutesInDay)}д назад`
-  return formatDateOnly(dt)
-}
-
 function normalizeStreamingUrl(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
 }
@@ -402,10 +377,8 @@ function applyMePayload(data: any, options: { keepStreamingUrlDraft?: boolean } 
 
 function applyProfileDatesPayload(data: ProfileDatesResponse) {
   profileDates.registered_at = data?.registered_at || null
-  profileDates.last_visit_at = data?.last_visit_at || null
   profileDates.last_game_at = data?.last_game_at || null
   profileDates.last_game_id = Number.isFinite(Number(data?.last_game_id)) ? Math.trunc(Number(data.last_game_id)) : null
-  profileDates.online = Boolean(data?.online)
 }
 
 async function loadMe() {
