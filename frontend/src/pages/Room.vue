@@ -4495,6 +4495,7 @@ onBeforeUnmount(() => {
 @media (max-width: 1000px) {
   .room {
     padding: 0 10px;
+    gap: 2px;
   }
   .room .panel {
     height: 60px;

@@ -3909,9 +3909,6 @@ onBeforeUnmount(() => {
     .updates-notice-grid {
       grid-template-columns: minmax(0, 800px) minmax(280px, 440px);
       align-items: start;
-      @media (max-width: 1200px) {
-        grid-template-columns: minmax(0, 800px);
-      }
     }
     .updates-notice-block {
       max-width: 800px;
