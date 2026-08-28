@@ -271,13 +271,6 @@ async function invite(friend: { id: number; username?: string | null; kind?: str
     void alertDialog('Пользователь уже приглашен в эту комнату')
     return
   }
-  const ok = await confirmDialog({
-    title: 'Приглашение в комнату',
-    text: `Вы уверены, что хотите пригласить пользователя ${friend.username || ('user' + uid)} в комнату?`,
-    confirmText: 'Подтвердить',
-    cancelText: 'Отмена',
-  })
-  if (!ok) return
   inviteBusy[uid] = true
   try {
     await friends.inviteToRoom(uid, inviteRoomId.value)
