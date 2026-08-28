@@ -90,6 +90,7 @@
           :show-best-move-button="game.canMakeBestMoveChoice(id)"
           :farewell-summary="game.farewellSummaryForUser(id)"
           :show-farewell-buttons="game.canMakeFarewellChoice(id)"
+          :show-opinion-buttons="game.canMakeNightOpinionChoice(id)"
           :nominees="nomineesFor(id)"
           :lift-nominees="liftNomineesFor(id)"
           :current-nominee-seat="id === headUserId ? currentNomineeSeat : null"
@@ -114,6 +115,7 @@
           @shoot="shootTargetUi"
           @check="checkTargetUi"
           @farewell="onFarewell"
+          @opinion="onOpinion"
           @best-move="onBestMove"
         />
       </div>
@@ -217,6 +219,7 @@
             :show-best-move-button="game.canMakeBestMoveChoice(id)"
             :farewell-summary="game.farewellSummaryForUser(id)"
             :show-farewell-buttons="game.canMakeFarewellChoice(id)"
+            :show-opinion-buttons="game.canMakeNightOpinionChoice(id)"
             :nominees="nomineesFor(id)"
             :lift-nominees="liftNomineesFor(id)"
             :current-nominee-seat="id === headUserId ? currentNomineeSeat : null"
@@ -241,6 +244,7 @@
             @shoot="shootTargetUi"
             @check="checkTargetUi"
             @farewell="onFarewell"
+            @opinion="onOpinion"
             @best-move="onBestMove"
           />
         </div>
@@ -314,6 +318,10 @@
           <button v-if="canShowNight" class="btn-text" :disabled="hostBlurLocksControls || hasOfflineAlivePlayers" @click="goToNightUi">
             Ночь
             <span v-if="showSpaceHotkeyHint('goToNight')" class="hot-btn">_</span>
+          </button>
+          <button v-if="canHeadNightOpinionControl" class="btn-text" :disabled="hasOfflineAlivePlayers" @click="startNightOpinionsUi">
+            Мнения
+            <span v-if="showSpaceHotkeyHint('startNightOpinions')" class="hot-btn">_</span>
           </button>
           <button v-if="canHeadNightShootControl" class="btn-text" :disabled="hasOfflineAlivePlayers" @click="startNightShootUi">
             Стрельба
@@ -677,6 +685,7 @@ const {
   canHeadGoToMafiaTalkControl,
   canHeadFinishMafiaTalkControl,
   canHeadFinishVoteControl,
+  canHeadNightOpinionControl,
   canHeadNightShootControl,
   canHeadNightCheckControl,
   canHeadBestMoveControl,
@@ -1285,6 +1294,7 @@ type SpaceHotkeyAction =
   | 'startLeaderSpeech'
   | 'restartVoteForLeaders'
   | 'goToNight'
+  | 'startNightOpinions'
   | 'startNightShoot'
   | 'startNightChecks'
   | 'startBestMove'
@@ -1307,6 +1317,7 @@ const spaceHotkeyAction = computed<SpaceHotkeyAction | null>(() => {
   if (canShowStartLeaderSpeech.value && canStartLeaderSpeech.value && !hostBlurLocksControls.value) return 'startLeaderSpeech'
   if (canRestartVoteForLeaders.value && !hostBlurLocksControls.value) return 'restartVoteForLeaders'
   if (canShowNight.value && !hostBlurLocksControls.value && !hasOfflineAlivePlayers.value) return 'goToNight'
+  if (canHeadNightOpinionControl.value && !hasOfflineAlivePlayers.value) return 'startNightOpinions'
   if (canHeadNightShootControl.value && !hasOfflineAlivePlayers.value) return 'startNightShoot'
   if (canHeadNightCheckControl.value && !hasOfflineAlivePlayers.value) return 'startNightChecks'
   if (canHeadBestMoveControl.value) return 'startBestMove'
@@ -1331,6 +1342,7 @@ const visibleSpaceHotkeyAction = computed<SpaceHotkeyAction | null>(() => {
   if (canShowStartLeaderSpeech.value) return 'startLeaderSpeech'
   if (canRestartVoteForLeaders.value) return 'restartVoteForLeaders'
   if (canShowNight.value) return 'goToNight'
+  if (canHeadNightOpinionControl.value) return 'startNightOpinions'
   if (canHeadNightShootControl.value) return 'startNightShoot'
   if (canHeadNightCheckControl.value) return 'startNightChecks'
   if (canHeadBestMoveControl.value) return 'startBestMove'
@@ -1385,6 +1397,9 @@ function tryHandleSpaceHotkey(): boolean {
       return true
     case 'goToNight':
       void goToNightUi()
+      return true
+    case 'startNightOpinions':
+      void startNightOpinionsUi()
       return true
     case 'startNightShoot':
       void startNightShootUi()
@@ -1622,6 +1637,7 @@ const startLeaderSpeechUi = () => game.startLeaderSpeech(sendAckGame)
 const restartVoteForLeadersUi = () => game.restartVoteForLeaders(sendAckGame)
 const shootTargetUi = (targetId: string) => game.shootTarget(targetId, sendAckGame)
 const checkTargetUi = (targetId: string) => game.checkTarget(targetId, sendAckGame)
+const startNightOpinionsUi = () => game.startNightOpinions(sendAckGame)
 const startNightShootUi = () => game.startNightShoot(sendAckGame)
 const startNightChecksUi = () => game.startNightChecks(sendAckGame)
 const goToNightUi = () => game.goToNight(sendAckGame)
@@ -1978,6 +1994,11 @@ function onUnnominate(targetId: string) {
 function onFarewell(verdict: FarewellVerdict, targetId: string) {
   if (!game.canMakeFarewellChoice(targetId)) return
   void game.markFarewellChoice(targetId, verdict, sendAckGame)
+}
+
+function onOpinion(verdict: FarewellVerdict, targetId: string) {
+  if (!game.canMakeNightOpinionChoice(targetId)) return
+  void game.markNightOpinionChoice(targetId, verdict, sendAckGame)
 }
 
 function onBestMove(targetId: string) {

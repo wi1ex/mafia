@@ -112,6 +112,10 @@ from ..utils import (
     get_farewell_limits,
     get_farewell_wills_for,
     ensure_farewell_limit,
+    get_night_opinions_for,
+    compute_night_opinion_limit,
+    begin_night_opinions,
+    claim_night_opinion,
     log_game_action,
     store_last_votes_snapshot,
     block_vote_and_clear,
@@ -4064,6 +4068,121 @@ async def game_vote_restart(sid, data):
 
 
 @sio.event(namespace="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:night_opinions_start:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
+async def game_night_opinions_start(sid, data):
+    try:
+        ctx, err = await require_ctx(sid, allowed_phases="night", require_head=True)
+        if err:
+            return err
+
+        uid = ctx.uid
+        rid = ctx.rid
+        r = ctx.r
+        g = ctx.gstate
+        if ctx.phase != "night":
+            return {"ok": False, "error": "bad_phase", "status": 400}
+
+        if uid != ctx.head_uid:
+            return {"ok": False, "error": "forbidden", "status": 403}
+
+        if str(g.get("night_stage") or "sleep") != "sleep":
+            return {"ok": False, "error": "bad_stage", "status": 409}
+
+        if not ctx.gbool("night_opinions_required"):
+            return {"ok": False, "error": "opinions_unavailable", "status": 409}
+
+        now_ts = int(time())
+        try:
+            duration = int(get_cached_settings().night_action_seconds)
+        except Exception:
+            duration = 10
+        if duration <= 0:
+            duration = 10
+
+        started = await begin_night_opinions(r, rid, started_at=now_ts, duration=duration)
+        if not started:
+            return {"ok": False, "error": "bad_stage", "status": 409}
+
+        g2 = dict(g)
+        g2["night_stage"] = "opinions"
+        g2["night_opinion_started"] = str(now_ts)
+        g2["night_opinion_duration"] = str(duration)
+        await emit_game_night_state(rid, g2)
+        asyncio.create_task(night_state_broadcast_job(rid, "opinions", now_ts, duration))
+        asyncio.create_task(night_stage_timeout_job(rid, "opinions", now_ts, duration, "opinions_done"))
+        return {"ok": True, "status": 200, "room_id": rid}
+
+    except Exception:
+        log.exception("sio.game_night_opinions_start.error", sid=sid)
+        return {"ok": False, "error": "internal", "status": 500}
+
+
+@sio.event(namespace="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:night_opinion_mark:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
+async def game_night_opinion_mark(sid, data):
+    try:
+        data = data or {}
+        ctx, err = await require_ctx(sid, allowed_phases="night")
+        if err:
+            return err
+
+        uid = ctx.uid
+        rid = ctx.rid
+        r = ctx.r
+        if ctx.phase != "night":
+            return {"ok": False, "error": "bad_phase", "status": 400}
+
+        if str(ctx.gstate.get("night_stage") or "sleep") != "opinions":
+            return {"ok": False, "error": "bad_stage", "status": 409}
+
+        try:
+            target_uid = int(data.get("user_id") or 0)
+        except Exception:
+            target_uid = 0
+        if target_uid <= 0:
+            return {"ok": False, "error": "bad_request", "status": 400}
+
+        verdict = str(data.get("verdict") or data.get("color") or "")
+        if verdict not in ("citizen", "mafia"):
+            return {"ok": False, "error": "bad_request", "status": 400}
+
+        try:
+            limit = await compute_night_opinion_limit(r, rid)
+        except Exception:
+            log.exception("game_night_opinion_mark.limit_failed", rid=rid, uid=uid)
+            return {"ok": False, "error": "internal", "status": 500}
+
+        claimed, claim_error = await claim_night_opinion(
+            r,
+            rid,
+            uid,
+            target_uid,
+            verdict=verdict,
+            limit=limit,
+            now_ts=int(time()),
+        )
+        if not claimed:
+            status = 403 if claim_error in {"forbidden", "not_alive"} else 400 if claim_error in {"bad_request", "self_target"} else 404 if claim_error == "target_not_alive" else 409
+            return {"ok": False, "error": claim_error or "failed", "status": status}
+
+        picks = await get_night_opinions_for(r, rid, uid)
+        return {
+            "ok": True,
+            "status": 200,
+            "room_id": rid,
+            "target_id": target_uid,
+            "verdict": verdict,
+            "limit": limit,
+            "opinions": picks,
+            "remaining": max(limit - len(picks), 0),
+        }
+
+    except Exception:
+        log.exception("sio.game_night_opinion_mark.error", sid=sid, data=bool(data))
+        return {"ok": False, "error": "internal", "status": 500}
+
+
+@sio.event(namespace="/room")
 @rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:night_shoot_start:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 async def game_night_shoot_start(sid, data):
     try:
@@ -4083,8 +4202,11 @@ async def game_night_shoot_start(sid, data):
             return {"ok": False, "error": "forbidden", "status": 403}
 
         stage = str(g.get("night_stage") or "sleep")
-        if stage != "sleep":
+        if stage not in ("sleep", "opinions_done"):
             return {"ok": False, "error": "bad_stage", "status": 409}
+
+        if ctx.gbool("night_opinions_required"):
+            return {"ok": False, "error": "opinions_required", "status": 409}
 
         now_ts = int(time())
         try:

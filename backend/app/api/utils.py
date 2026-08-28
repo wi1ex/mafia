@@ -3153,6 +3153,52 @@ def game_action_wills(uid_to_slot: dict[int, int], raw_wills: Any, *, head_uid: 
     return out
 
 
+def game_action_night_opinions(uid_to_slot: dict[int, int], raw_opinions: Any, *, head_uid: int = 0) -> list[str]:
+    if not isinstance(raw_opinions, dict):
+        return []
+
+    out: list[str] = []
+    for raw_actor_uid, raw_picks in raw_opinions.items():
+        actor_label = game_action_slot_label(uid_to_slot, raw_actor_uid, head_uid=head_uid)
+        if actor_label == "-":
+            continue
+        if not isinstance(raw_picks, dict):
+            continue
+
+        picks: list[str] = []
+        for raw_target_uid, raw_pick in raw_picks.items():
+            target_label = game_action_slot_label(uid_to_slot, raw_target_uid, head_uid=head_uid)
+            if target_label == "-":
+                continue
+
+            if not isinstance(raw_pick, dict):
+                legacy = game_action_wills(uid_to_slot, {raw_target_uid: raw_pick}, head_uid=head_uid)
+                if legacy:
+                    picks.append(legacy[0])
+                continue
+
+            guess = str(raw_pick.get("guess") or "").strip().lower()
+            actual_role = str(raw_pick.get("actual_role") or "").strip().lower()
+            if guess == "citizen":
+                guess_label = "мирный"
+            elif guess == "mafia":
+                guess_label = "мафия"
+            else:
+                guess_label = guess or "-"
+
+            if raw_pick.get("correct") is True:
+                result_label = "угадал"
+            elif raw_pick.get("correct") is False:
+                result_label = "ошибся"
+            else:
+                result_label = "-"
+            actual_label = game_action_role_label(actual_role) if actual_role else "-"
+            picks.append(f"{target_label}: {guess_label} → {result_label} (факт: {actual_label})")
+
+        out.append(f"{actor_label}: {'; '.join(picks) if picks else '-'}")
+    return out
+
+
 def game_action_check_result(checker_role: Any, target_role: Any) -> str:
     checker = str(checker_role or "").strip().lower()
     target = str(target_role or "").strip().lower()
@@ -3260,6 +3306,14 @@ def game_action_fields(action: dict[str, Any], *, uid_to_slot: dict[int, int], h
         add_field("Убитый", kill_label if kill_label != "-" else "Нет")
         add_field("Убийство прошло", game_action_bool_label(action.get("kill_ok")))
         return "Ночной отстрел", "Итог ночного отстрела", fields
+
+    if action_type == "night_opinions":
+        night_number = max(0, safe_int(action.get("night")))
+        opinions = game_action_night_opinions(uid_to_slot, action.get("opinions"), head_uid=head_uid)
+        add_field("Этап", "Ночь")
+        add_field("Ночь", str(night_number) if night_number > 0 else "-")
+        add_field("Мнения игроков", " | ".join(opinions) if opinions else "-")
+        return "Мнения", f"Мнения игроков за ночь {night_number if night_number > 0 else '-'}", fields
 
     if action_type == "best_move":
         targets = game_action_slot_labels(uid_to_slot, action.get("targets"), head_uid=head_uid)

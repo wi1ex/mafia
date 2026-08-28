@@ -119,6 +119,15 @@
       </button>
     </div>
 
+    <div v-if="showOpinionButtons" class="farewell-buttons opinion-buttons">
+      <button class="farewell-button opinion-button citizen" @click="$emit('opinion','citizen', id)">
+        <img :src="iconRoleCitizen" alt="Мирный" class="farewell-img" />
+      </button>
+      <button class="farewell-button opinion-button mafia" @click="$emit('opinion','mafia', id)">
+        <img :src="iconRoleMafia" alt="Мафия" class="farewell-img" />
+      </button>
+    </div>
+
     <div v-if="farewellSummary && farewellSummary.length" class="farewell-summary">
       <span class="farewell-summary-badge" v-for="item in farewellSummary" :key="item.targetId" :class="item.verdict">{{ item.seat ?? '?' }}</span>
     </div>
@@ -269,6 +278,7 @@ const props = withDefaults(defineProps<{
   bestMoveMarked?: boolean
   farewellSummary?: { targetId: string, seat: number | null, verdict: 'citizen' | 'mafia' }[]
   showFarewellButtons?: boolean
+  showOpinionButtons?: boolean
   nominees?: number[]
   liftNominees?: number[]
   showNominationsBar?: boolean
@@ -327,6 +337,7 @@ const props = withDefaults(defineProps<{
   bestMoveMarked: false,
   farewellSummary: () => [],
   showFarewellButtons: false,
+  showOpinionButtons: false,
   nominees: () => [],
   liftNominees: () => [],
   showNominationsBar: false,
@@ -360,6 +371,7 @@ defineEmits<{
   (e: 'knock', id: string): void
   (e: 'speaker-alert', id: string): void
   (e: 'farewell', verdict: 'citizen' | 'mafia', id: string): void
+  (e: 'opinion', verdict: 'citizen' | 'mafia', id: string): void
   (e: 'best-move', id: string): void
   (e: 'open-profile', id: string): void
 }>()

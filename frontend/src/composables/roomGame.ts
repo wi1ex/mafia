@@ -25,6 +25,7 @@ export type Ack = {
 
 export type SendAckFn = (event: string, payload: any, timeoutMs?: number) => Promise<Ack>
 export type FarewellVerdict = 'citizen' | 'mafia'
+export type NightOpinionVerdict = FarewellVerdict
 
 export const GAME_COLUMN_INDEX: Record<number, number> = {
   1: 5, 2: 7, 3: 7, 4: 7, 5: 5, 6: 3, 7: 1, 8: 1, 9: 1, 10: 3, 11: 4,
@@ -116,6 +117,8 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   const activeFarewellAllowed = ref(true)
   const farewellLimits = reactive(new Map<string, number>())
   const farewellWills = reactive(new Map<string, Map<string, FarewellVerdict>>())
+  const nightOpinionLimit = ref(0)
+  const myNightOpinions = reactive(new Map<string, NightOpinionVerdict>())
   const bestMove = reactive({
     uid: '',
     active: false,
@@ -157,8 +160,9 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   const deathReasonByUser = reactive(new Map<string, string>())
 
   const night = reactive({
-    stage: 'sleep' as 'sleep' | 'shoot' | 'shoot_done' | 'checks' | 'checks_done',
+    stage: 'sleep' as 'sleep' | 'opinions' | 'opinions_done' | 'shoot' | 'shoot_done' | 'checks' | 'checks_done',
     remainingMs: 0,
+    opinionsRequired: false,
     killOk: false,
     killUid: '',
     hasResult: false,
@@ -292,6 +296,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       }
       if (night.stage === 'shoot') return 'Отстрелы мафии'
       if (night.stage === 'checks') return 'Проверки дона и шерифа'
+      if (night.stage === 'opinions') return 'Мнения'
       return ''
     }
     if (gamePhase.value === 'day') {
@@ -567,8 +572,14 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
 
   const liftHighlightNominees = computed(() => ['prepared', 'voting', 'passed'].includes(voteLiftState.value))
 
+  const canHeadNightOpinionControl = computed(() => {
+    return gamePhase.value === 'night' && isHead.value && night.stage === 'sleep' && night.opinionsRequired
+  })
+
   const canHeadNightShootControl = computed(() => {
-    return gamePhase.value === 'night' && isHead.value && night.stage === 'sleep'
+    return gamePhase.value === 'night'
+      && isHead.value
+      && (night.stage === 'opinions_done' || (night.stage === 'sleep' && !night.opinionsRequired))
   })
 
   const canHeadNightCheckControl = computed(() => {
@@ -825,6 +836,26 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     }
   }
 
+  function syncNightOpinions(raw: any) {
+    myNightOpinions.clear()
+    nightOpinionLimit.value = 0
+    if (!raw || typeof raw !== 'object') return
+    const limit = Number((raw as any).limit)
+    if (Number.isFinite(limit) && limit >= 0) nightOpinionLimit.value = Math.floor(limit)
+    const picks = (raw as any).picks
+    if (!picks || typeof picks !== 'object') return
+    for (const [targetId, verdictRaw] of Object.entries(picks)) {
+      const verdict = verdictRaw === 'citizen' || verdictRaw === 'mafia' ? verdictRaw : ''
+      const id = String(targetId || '')
+      if (id && verdict) myNightOpinions.set(id, verdict)
+    }
+  }
+
+  function resetNightOpinions() {
+    nightOpinionLimit.value = 0
+    myNightOpinions.clear()
+  }
+
   function resetBestMoveState() {
     bestMove.uid = ''
     bestMove.active = false
@@ -965,6 +996,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     techFoulsEnabled.value = false
     farewellLimits.clear()
     farewellWills.clear()
+    resetNightOpinions()
     currentFarewellSpeech.value = false
     activeFarewellSpeakerId.value = ''
     mafiaTalk.remainingMs = 0
@@ -979,6 +1011,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     
     night.stage = 'sleep'
     night.remainingMs = 0
+    night.opinionsRequired = false
     night.killOk = false
     night.killUid = ''
     night.hasResult = false
@@ -1088,6 +1121,20 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     const map = farewellWills.get(me)
     if (map?.has(targetId)) return false
     return (map?.size ?? 0) < limit
+  }
+
+  function canMakeNightOpinionChoice(targetId: string): boolean {
+    if (gameFinished.value) return false
+    if (gamePhase.value !== 'night' || night.stage !== 'opinions' || night.remainingMs <= 0) return false
+    if (!amIAlive.value) return false
+    const myRole = myGameRoleKind.value
+    if (myRole !== 'citizen' && myRole !== 'sheriff') return false
+    const me = localId.value
+    if (!me || targetId === me) return false
+    const seat = seatIndex(targetId)
+    if (seat == null || seat === 11 || !gameAlive.has(targetId)) return false
+    if (myNightOpinions.has(targetId)) return false
+    return myNightOpinions.size < nightOpinionLimit.value
   }
 
   function canMakeBestMoveChoice(targetId: string): boolean {
@@ -1399,6 +1446,8 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       voteResultShown.value = isTrueLike((vt as any).results_ready)
     } else if (phase === 'night' && nt && typeof nt === 'object') {
       night.stage = String((nt as any).stage || 'sleep') as any
+      night.opinionsRequired = isTrueLike((nt as any).opinions_required)
+      syncNightOpinions((nt as any).opinions)
       const ms = secondsToMs((nt as any).deadline)
       setNightRemainingMs(ms, false)
       night.killOk = false
@@ -1453,6 +1502,8 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       resetVoteState(false)
       setNightRemainingMs(0, false)
       night.stage = 'sleep'
+      night.opinionsRequired = false
+      resetNightOpinions()
     }
     const checksSection = (gr as any).checks
     if (checksSection && typeof checksSection === 'object') {
@@ -2181,6 +2232,8 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       resetBestMoveState()
       const nt = p?.night
       night.stage = String(nt?.stage || 'sleep') as any
+      night.opinionsRequired = isTrueLike(nt?.opinions_required)
+      syncNightOpinions(nt?.opinions)
       setNightRemainingMs(secondsToMs(nt?.deadline), true)
       night.hasResult = false
       myNightShotTarget.value = ''
@@ -2309,11 +2362,15 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     const nextStage = String(nt.stage || 'sleep') as any
     const stageChanged = nextStage !== prevStage
     night.stage = nextStage
+    if ('opinions_required' in (nt as any)) night.opinionsRequired = isTrueLike((nt as any).opinions_required)
     const nextMs = secondsToMs(nt.deadline)
     if (stageChanged || night.remainingMs <= 0) setNightRemainingMs(nextMs, true)
     if ('best_move' in (nt as any)) syncBestMove((nt as any).best_move)
     if (!stageChanged) return
-    if (nextStage === 'shoot') {
+    if (nextStage === 'opinions') {
+      resetNightOpinions()
+      nightOpinionLimit.value = Math.max(Math.floor((gameAlive.size - 1) / 2), 0)
+    } else if (nextStage === 'shoot') {
       myNightShotTarget.value = ''
       headNightPicks.clear()
     } else if (nextStage === 'checks') {
@@ -2540,6 +2597,48 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     const left = Number((resp as any).knocks_left)
     if (Number.isFinite(left) && left >= 0) knocksLeft.value = Math.floor(left)
     return true
+  }
+
+  async function startNightOpinions(sendAck: SendAckFn): Promise<void> {
+    const resp = await sendAck('game_night_opinions_start', {})
+    if (!resp?.ok) void alertDialog('Не удалось начать этап мнений')
+  }
+
+  async function markNightOpinionChoice(targetUserId: string, verdict: NightOpinionVerdict, sendAck: SendAckFn): Promise<void> {
+    const uidNum = Number(targetUserId)
+    if (!uidNum) return
+    const resp = await sendAck('game_night_opinion_mark', { user_id: uidNum, verdict })
+    if (!resp?.ok) {
+      const st = resp?.status
+      const code = resp?.error
+      if (st === 409 && code === 'limit_reached') {
+        void alertDialog('Лимит мнений исчерпан')
+      } else if (st === 409 && code === 'already_marked') {
+        void alertDialog('Мнение об этом игроке уже оставлено')
+      } else if (st === 404 && code === 'target_not_alive') {
+        void alertDialog('Игрок уже выбыл из игры')
+      } else if (st === 403 && code === 'forbidden') {
+        void alertDialog('Мнения доступны только мирным жителям и шерифу')
+      } else if (st === 409 && code === 'window_closed') {
+        void alertDialog('Время для мнений вышло')
+      } else if (st === 409 && code === 'bad_stage') {
+        void alertDialog('Сейчас не этап мнений')
+      } else {
+        void alertDialog('Не удалось сохранить мнение')
+      }
+      return
+    }
+    const limit = Number((resp as any).limit)
+    if (Number.isFinite(limit) && limit >= 0) nightOpinionLimit.value = Math.floor(limit)
+    const opinions = (resp as any).opinions
+    if (opinions && typeof opinions === 'object') {
+      myNightOpinions.clear()
+      for (const [targetId, verdictRaw] of Object.entries(opinions)) {
+        const value = verdictRaw === 'citizen' || verdictRaw === 'mafia' ? verdictRaw : ''
+        const id = String(targetId || '')
+        if (id && value) myNightOpinions.set(id, value)
+      }
+    }
   }
 
   async function startNightShoot(sendAck: SendAckFn): Promise<void> {
@@ -3316,6 +3415,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     canHeadGoToMafiaTalkControl,
     canHeadFinishMafiaTalkControl,
     canHeadFinishVoteControl,
+    canHeadNightOpinionControl,
     canHeadNightShootControl,
     canHeadNightCheckControl,
     canHeadBestMoveControl,
@@ -3330,6 +3430,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
 
     farewellSummaryForUser,
     canMakeFarewellChoice,
+    canMakeNightOpinionChoice,
     canMakeBestMoveChoice,
     isBestMoveMarked,
     effectiveRoleKindForTile,
@@ -3342,6 +3443,8 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     checkTarget,
     winkTarget,
     knockTarget,
+    startNightOpinions,
+    markNightOpinionChoice,
     startNightShoot,
     startNightChecks,
     startBestMove,

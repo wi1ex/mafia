@@ -8,7 +8,7 @@
             <h1>Правила платформы</h1>
             <div class="tags">
               <span class="pill">18+</span>
-              <span class="pill">Редакция от 01.08.2026</span>
+              <span class="pill">Редакция от 01.09.2026</span>
               <a class="pill docs" href="/files/user-agreement.pdf" target="_blank" rel="noopener noreferrer">Пользовательское соглашение</a>
               <a class="pill docs" href="/files/privacy-policy.pdf" target="_blank" rel="noopener noreferrer">Политика обработки ПД</a>
             </div>

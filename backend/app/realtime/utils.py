@@ -153,6 +153,11 @@ __all__ = [
     "get_farewell_limits",
     "compute_farewell_allowed",
     "ensure_farewell_limit",
+    "get_night_opinions_for",
+    "compute_night_opinion_limit",
+    "should_require_night_opinions",
+    "begin_night_opinions",
+    "claim_night_opinion",
     "log_game_action",
     "load_game_actions",
     "store_last_votes_snapshot",
@@ -364,6 +369,116 @@ end
 redis.call('HSET', KEYS[2], ARGV[1], ARGV[2])
 redis.call('SADD', KEYS[3], ARGV[2])
 return {1, ''}
+"""
+
+NIGHT_OPINION_CLAIM_LUA = r"""
+local phase = redis.call('HGET', KEYS[1], 'phase') or 'idle'
+if phase ~= 'night' then
+    return {0, 'bad_phase'}
+end
+
+if (redis.call('HGET', KEYS[1], 'night_stage') or 'sleep') ~= 'opinions' then
+    return {0, 'bad_stage'}
+end
+
+local started = tonumber(redis.call('HGET', KEYS[1], 'night_opinion_started') or '0')
+local duration = tonumber(redis.call('HGET', KEYS[1], 'night_opinion_duration') or '0')
+local now_ts = tonumber(ARGV[4]) or 0
+if started <= 0 or duration <= 0 or now_ts > started + duration then
+    return {0, 'window_closed'}
+end
+
+local actor_uid = ARGV[1]
+local target_uid = ARGV[2]
+if actor_uid == target_uid then
+    return {0, 'self_target'}
+end
+
+local actor_role = redis.call('HGET', KEYS[3], actor_uid) or ''
+if actor_role ~= 'citizen' and actor_role ~= 'sheriff' then
+    return {0, 'forbidden'}
+end
+
+if redis.call('SISMEMBER', KEYS[4], actor_uid) ~= 1 then
+    return {0, 'not_alive'}
+end
+if redis.call('SISMEMBER', KEYS[4], target_uid) ~= 1 then
+    return {0, 'target_not_alive'}
+end
+
+local field = actor_uid .. ':' .. target_uid
+if redis.call('HEXISTS', KEYS[2], field) == 1 then
+    return {0, 'already_marked'}
+end
+
+local limit = tonumber(ARGV[5]) or 0
+if limit <= 0 then
+    return {0, 'limit_reached'}
+end
+
+local prefix = '^' .. actor_uid .. ':'
+local used = 0
+local existing = redis.call('HKEYS', KEYS[2])
+for _, existing_field in ipairs(existing) do
+    if string.match(existing_field, prefix) then
+        used = used + 1
+    end
+end
+if used >= limit then
+    return {0, 'limit_reached'}
+end
+
+redis.call('HSET', KEYS[2], field, ARGV[3])
+return {1, ''}
+"""
+
+NIGHT_OPINION_START_LUA = r"""
+local phase = redis.call('HGET', KEYS[1], 'phase') or 'idle'
+if phase ~= 'night' then
+    return 0
+end
+if (redis.call('HGET', KEYS[1], 'night_stage') or 'sleep') ~= 'sleep' then
+    return 0
+end
+if (redis.call('HGET', KEYS[1], 'night_opinions_required') or '0') ~= '1' then
+    return 0
+end
+
+redis.call(
+    'HSET',
+    KEYS[1],
+    'night_stage', 'opinions',
+    'night_opinion_started', ARGV[1],
+    'night_opinion_duration', ARGV[2]
+)
+redis.call('DEL', KEYS[2])
+return 1
+"""
+
+NIGHT_OPINION_TIMEOUT_LUA = r"""
+local phase = redis.call('HGET', KEYS[1], 'phase') or 'idle'
+if phase ~= 'night' then
+    return 0
+end
+if (redis.call('HGET', KEYS[1], 'night_stage') or 'sleep') ~= 'opinions' then
+    return 0
+end
+
+local started = tonumber(redis.call('HGET', KEYS[1], 'night_opinion_started') or '0')
+local duration = tonumber(redis.call('HGET', KEYS[1], 'night_opinion_duration') or '0')
+if started ~= tonumber(ARGV[1]) or duration ~= tonumber(ARGV[2]) then
+    return 0
+end
+
+redis.call(
+    'HSET',
+    KEYS[1],
+    'night_stage', ARGV[3],
+    'night_opinion_started', '0',
+    'night_opinion_duration', '0',
+    'night_opinions_required', '0'
+)
+return 1
 """
 
 GAME_FINISH_CLAIM_LUA = r"""
@@ -1844,12 +1959,18 @@ class GameStateView:
     async def night(self, r, rid: int, uid: int) -> dict[str, Any] | None:
         stage = self.ctx.gstr("night_stage", "sleep")
         deadline = 0
-        if stage == "shoot":
+        if stage == "opinions":
+            deadline = self.ctx.deadline("night_opinion_started", "night_opinion_duration")
+        elif stage == "shoot":
             deadline = self.ctx.deadline("night_shoot_started", "night_shoot_duration")
         elif stage == "checks":
             deadline = self.ctx.deadline("night_check_started", "night_check_duration")
 
-        night_section: dict[str, Any] = {"stage": stage, "deadline": deadline}
+        night_section: dict[str, Any] = {
+            "stage": stage,
+            "deadline": deadline,
+            "opinions_required": self.ctx.gbool("night_opinions_required"),
+        }
         my_role = self.roles_map.get(str(uid)) or ""
         head_uid_n = self.ctx.head_uid
         if head_uid_n and uid == head_uid_n:
@@ -1884,6 +2005,16 @@ class GameStateView:
                     known[str(tu)] = "sheriff" if tr == "sheriff" else "citizen"
 
             night_section["known"] = known
+
+        if stage == "opinions" and my_role in ("citizen", "sheriff"):
+            try:
+                is_alive = bool(await r.sismember(f"room:{rid}:game_alive", str(uid)))
+                if is_alive:
+                    limit = await compute_night_opinion_limit(r, rid)
+                    picks = await get_night_opinions_for(r, rid, uid)
+                    night_section["opinions"] = {"limit": limit, "picks": picks}
+            except Exception:
+                log.exception("night.opinions_section.failed", rid=rid, uid=uid)
 
         return night_section
 
@@ -4033,6 +4164,9 @@ def build_night_reset_mapping(*, include_vote_meta: bool) -> dict[str, str]:
     mapping = {
         "phase": "night",
         "night_stage": "sleep",
+        "night_opinions_required": "0",
+        "night_opinion_started": "0",
+        "night_opinion_duration": "0",
         "night_shoot_started": "0",
         "night_shoot_duration": "0",
         "night_check_started": "0",
@@ -4512,6 +4646,166 @@ async def ensure_farewell_limit(r, rid: int, speaker_uid: int, *, mode: str = "k
     return limit
 
 
+async def get_night_opinions_for(r, rid: int, actor_uid: int) -> dict[str, str]:
+    if actor_uid <= 0:
+        return {}
+
+    try:
+        raw = await r.hgetall(f"room:{rid}:game_night_opinions")
+    except Exception:
+        log.exception("night_opinions.load_failed", rid=rid, uid=actor_uid)
+        return {}
+
+    prefix = f"{actor_uid}:"
+    out: dict[str, str] = {}
+    for raw_key, raw_verdict in (raw or {}).items():
+        key = str(raw_key or "")
+        if not key.startswith(prefix):
+            continue
+        target_uid = key.removeprefix(prefix)
+        if not target_uid:
+            continue
+        verdict = str(raw_verdict or "")
+        if verdict in ("citizen", "mafia"):
+            out[target_uid] = verdict
+    return out
+
+
+async def get_night_opinions(r, rid: int) -> dict[str, dict[str, str]]:
+    try:
+        raw = await r.hgetall(f"room:{rid}:game_night_opinions")
+    except Exception:
+        log.exception("night_opinions.load_all_failed", rid=rid)
+        return {}
+
+    out: dict[str, dict[str, str]] = {}
+    for raw_key, raw_verdict in (raw or {}).items():
+        try:
+            actor_uid, target_uid = str(raw_key).split(":", 1)
+        except ValueError:
+            continue
+        if not actor_uid or not target_uid:
+            continue
+        verdict = str(raw_verdict or "")
+        if verdict not in ("citizen", "mafia"):
+            continue
+        out.setdefault(actor_uid, {})[target_uid] = verdict
+    return out
+
+
+def night_opinion_side(role: Any) -> str:
+    role_name = str(role or "").strip().lower()
+    if role_name in {"mafia", "don"}:
+        return "mafia"
+
+    if role_name in {"citizen", "sheriff"}:
+        return "citizen"
+
+    return ""
+
+
+def enrich_night_opinions_for_history(opinions: Mapping[str, Mapping[str, str]], raw_roles: Mapping[str | int, Any]) -> dict[str, dict[str, dict[str, Any]]]:
+    out: dict[str, dict[str, dict[str, Any]]] = {}
+    for actor_uid, picks in opinions.items():
+        actor_picks: dict[str, dict[str, Any]] = {}
+        for target_uid, guess in picks.items():
+            guess_side = night_opinion_side(guess)
+            if not guess_side:
+                continue
+            actual_role = str(raw_roles.get(str(target_uid), raw_roles.get(target_uid, "")) or "").strip().lower()
+            actual_side = night_opinion_side(actual_role)
+            actor_picks[str(target_uid)] = {
+                "guess": guess_side,
+                "actual_role": actual_role,
+                "actual_side": actual_side,
+                "correct": bool(actual_side) and guess_side == actual_side,
+            }
+        if actor_picks:
+            out[str(actor_uid)] = actor_picks
+    return out
+
+
+async def compute_night_opinion_limit(r, rid: int) -> int:
+    alive = await smembers_ints(r, f"room:{rid}:game_alive")
+    other_players = max(len(alive) - 1, 0)
+    return max(farewell_formula(other_players) - 1, 0)
+
+
+async def should_require_night_opinions(r, rid: int, raw_game: Mapping[str, Any] | None = None) -> bool:
+    if raw_game is None:
+        try:
+            raw_game = await r.hgetall(f"room:{rid}:game")
+        except Exception:
+            raw_game = {}
+
+    if str((raw_game or {}).get("mode") or "").strip().lower() != "rating":
+        return False
+
+    try:
+        raw_roles = await r.hgetall(f"room:{rid}:game_roles")
+        alive = await smembers_ints(r, f"room:{rid}:game_alive")
+    except Exception:
+        log.exception("night_opinions.eligibility_load_failed", rid=rid)
+        return False
+
+    red_alive_cnt, black_alive_cnt = count_alive_teams(raw_roles or {}, alive)
+    if farewell_finishes_game(red_alive_cnt, black_alive_cnt):
+        return False
+
+    if farewell_finishes_game(max(red_alive_cnt - 1, 0), black_alive_cnt):
+        return False
+
+    return await compute_night_opinion_limit(r, rid) > 0
+
+
+async def begin_night_opinions(r, rid: int, *, started_at: int, duration: int) -> bool:
+    result = await r.eval(
+        NIGHT_OPINION_START_LUA,
+        2,
+        f"room:{rid}:game_state",
+        f"room:{rid}:game_night_opinions",
+        str(int(started_at)),
+        str(max(int(duration), 0)),
+    )
+    return int(result or 0) == 1
+
+
+async def claim_night_opinion(
+    r,
+    rid: int,
+    uid: int,
+    target_uid: int,
+    *,
+    verdict: str,
+    limit: int,
+    now_ts: int,
+) -> tuple[bool, str | None]:
+    if verdict not in {"citizen", "mafia"}:
+        return False, "bad_request"
+
+    result = await r.eval(
+        NIGHT_OPINION_CLAIM_LUA,
+        4,
+        f"room:{rid}:game_state",
+        f"room:{rid}:game_night_opinions",
+        f"room:{rid}:game_roles",
+        f"room:{rid}:game_alive",
+        str(uid),
+        str(target_uid),
+        verdict,
+        str(int(now_ts)),
+        str(max(int(limit), 0)),
+    )
+    if not isinstance(result, (list, tuple)) or not result:
+        return False, "failed"
+
+    if int(result[0] or 0) != 1:
+        error = str(result[1] or "failed") if len(result) > 1 else "failed"
+        return False, error
+
+    return True, None
+
+
 async def assign_role_for_user(
     r,
     rid: int,
@@ -4880,12 +5174,18 @@ async def emit_game_night_state(rid: int, raw_gstate: Mapping[str, Any]) -> None
 
     stage = ctx.gstr("night_stage", "sleep")
     deadline = 0
-    if stage == "shoot":
+    if stage == "opinions":
+        deadline = ctx.deadline("night_opinion_started", "night_opinion_duration")
+    elif stage == "shoot":
         deadline = ctx.deadline("night_shoot_started", "night_shoot_duration")
     elif stage == "checks":
         deadline = ctx.deadline("night_check_started", "night_check_duration")
 
-    night_payload = {"stage": stage, "deadline": deadline}
+    night_payload = {
+        "stage": stage,
+        "deadline": deadline,
+        "opinions_required": ctx.gbool("night_opinions_required"),
+    }
     best_move = best_move_payload_from_state(ctx, include_empty=True)
     if best_move is not None:
         night_payload["best_move"] = best_move
@@ -5095,7 +5395,14 @@ async def night_state_broadcast_job(rid: int, expected_stage: str, expected_star
                 log.exception("night_state_broadcast.emit_failed", rid=rid)
             return
 
-        if expected_stage == "shoot":
+        if expected_stage == "opinions":
+            cur_started = ctx.gint("night_opinion_started")
+            cur_dur = ctx.gint("night_opinion_duration")
+            if cur_started != expected_started or cur_dur != duration_val:
+                return
+
+            remaining = ctx.deadline("night_opinion_started", "night_opinion_duration")
+        elif expected_stage == "shoot":
             cur_started = ctx.gint("night_shoot_started")
             cur_dur = ctx.gint("night_shoot_duration")
             if cur_started != expected_started or cur_dur != duration_val:
@@ -5145,6 +5452,47 @@ async def night_stage_timeout_job(rid: int, expected_stage: str, expected_starte
 
     stage = ctx.gstr("night_stage", "sleep")
     if stage != expected_stage:
+        return
+
+    if expected_stage == "opinions":
+        cur_started = ctx.gint("night_opinion_started")
+        cur_dur = ctx.gint("night_opinion_duration")
+        if cur_started != expected_started or cur_dur != duration:
+            return
+
+        transitioned = await r.eval(
+            NIGHT_OPINION_TIMEOUT_LUA,
+            1,
+            f"room:{rid}:game_state",
+            str(int(expected_started)),
+            str(int(duration)),
+            next_stage,
+        )
+        if int(transitioned or 0) != 1:
+            return
+
+        opinions = await get_night_opinions(r, rid)
+        try:
+            raw_roles = await r.hgetall(f"room:{rid}:game_roles")
+        except Exception:
+            log.exception("night_opinions.roles_load_failed", rid=rid)
+            raw_roles = {}
+        await log_game_action(
+            r,
+            rid,
+            {
+                "type": "night_opinions",
+                "night": ctx.gint("day_number"),
+                "opinions": enrich_night_opinions_for_history(opinions, raw_roles or {}),
+            },
+        )
+
+        raw2 = dict(raw)
+        raw2["night_stage"] = next_stage
+        raw2["night_opinion_started"] = "0"
+        raw2["night_opinion_duration"] = "0"
+        raw2["night_opinions_required"] = "0"
+        await emit_game_night_state(rid, raw2)
         return
 
     if expected_stage == "shoot":
@@ -7050,6 +7398,7 @@ async def game_start_unlocked(sid, data) -> GameStartAck:
                     f"room:{rid}:game_checked:sheriff",
                     f"room:{rid}:game_farewell_wills",
                     f"room:{rid}:game_farewell_limits",
+                    f"room:{rid}:game_night_opinions",
                     f"room:{rid}:game_winks_left",
                     f"room:{rid}:game_knocks_left",
                     f"room:{rid}:roles_cards",
@@ -7488,13 +7837,19 @@ async def game_phase_next_unlocked(sid, data):
                                 "draw_base_alive": str(alive_cnt)}
 
             bgm_seed = random.randint(1, 2**31 - 1) if music_enabled else 0
+            opinions_required = await should_require_night_opinions(r, rid, raw_game)
             async with r.pipeline() as p:
                 mapping = build_night_reset_mapping(include_vote_meta=True)
                 mapping["bgm_seed"] = str(bgm_seed)
+                mapping["night_opinions_required"] = "1" if opinions_required else "0"
                 if draw_mapping:
                     mapping.update(draw_mapping)
                 await p.hset(f"room:{rid}:game_state", mapping=mapping)
-                await p.delete(f"room:{rid}:night_shots", f"room:{rid}:night_checks")
+                await p.delete(
+                    f"room:{rid}:night_shots",
+                    f"room:{rid}:night_checks",
+                    f"room:{rid}:game_night_opinions",
+                )
                 await p.execute()
 
             await apply_night_start_blocks(r, rid, head_uid=head_uid, emit_safe=True)
@@ -7503,7 +7858,11 @@ async def game_phase_next_unlocked(sid, data):
                            {"room_id": rid,
                             "from": cur_phase,
                             "to": "night",
-                            "night": {"stage": "sleep", "deadline": 0},
+                            "night": {
+                                "stage": "sleep",
+                                "deadline": 0,
+                                "opinions_required": opinions_required,
+                            },
                             "bgm_seed": bgm_seed},
                            room=f"room:{rid}",
                            namespace="/room")
@@ -7532,13 +7891,19 @@ async def game_phase_next_unlocked(sid, data):
                                 "draw_base_alive": str(alive_cnt)}
 
             bgm_seed = random.randint(1, 2**31 - 1) if music_enabled else 0
+            opinions_required = await should_require_night_opinions(r, rid, raw_game)
             async with r.pipeline() as p:
                 mapping = build_night_reset_mapping(include_vote_meta=False)
                 mapping["bgm_seed"] = str(bgm_seed)
+                mapping["night_opinions_required"] = "1" if opinions_required else "0"
                 if draw_mapping:
                     mapping.update(draw_mapping)
                 await p.hset(f"room:{rid}:game_state", mapping=mapping)
-                await p.delete(f"room:{rid}:night_shots", f"room:{rid}:night_checks")
+                await p.delete(
+                    f"room:{rid}:night_shots",
+                    f"room:{rid}:night_checks",
+                    f"room:{rid}:game_night_opinions",
+                )
                 await p.execute()
 
             await apply_night_start_blocks(r, rid, head_uid=head_uid, emit_safe=False)
@@ -7547,7 +7912,11 @@ async def game_phase_next_unlocked(sid, data):
                            {"room_id": rid,
                             "from": cur_phase,
                             "to": "night",
-                            "night": {"stage": "sleep", "deadline": 0},
+                            "night": {
+                                "stage": "sleep",
+                                "deadline": 0,
+                                "opinions_required": opinions_required,
+                            },
                             "bgm_seed": bgm_seed},
                            room=f"room:{rid}",
                            namespace="/room")
@@ -7597,6 +7966,9 @@ async def game_phase_next_unlocked(sid, data):
                 "day_prelude_active": "0",
                 "day_prelude_done": "0",
                 "night_stage": "",
+                "night_opinions_required": "0",
+                "night_opinion_started": "0",
+                "night_opinion_duration": "0",
                 "night_shoot_started": "0",
                 "night_shoot_duration": "0",
                 "night_check_started": "0",
@@ -7824,6 +8196,7 @@ async def _perform_game_end_unlocked(ctx, sess: Optional[dict[str, Any]], *, con
             f"room:{rid}:game_votes",
             f"room:{rid}:night_shots",
             f"room:{rid}:night_checks",
+            f"room:{rid}:game_night_opinions",
             f"room:{rid}:game_checked:don",
             f"room:{rid}:game_checked:sheriff",
             f"room:{rid}:game_farewell_wills",
