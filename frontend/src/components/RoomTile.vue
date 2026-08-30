@@ -722,13 +722,21 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
         height: calc(100% * 2 / 3);
       }
       .finish-points {
-        margin: 10px 0 0;
-        min-width: 0;
+        display: flex;
+        position: absolute;
+        align-items: center;
+        justify-content: center;
+        bottom: 8px;
+        margin: 0;
+        padding: 0 12px;
+        height: 36px;
+        background-color: $soft-purple-900;
+        border-radius: 12px;
         font-family: Hauora-Bold;
-        font-size: 30px;
+        font-size: 18px;
+        line-height: 20px;
+        letter-spacing: -0.36px;
         font-variant-numeric: tabular-nums;
-        line-height: 30px;
-        letter-spacing: -0.6px;
         &.zero {
           color: $neutral-white;
         }
