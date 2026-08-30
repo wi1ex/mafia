@@ -1567,6 +1567,7 @@ SETTING_MAP = {
     "PLAYER_FOUL_SECONDS": "player_foul_seconds",
     "NIGHT_ACTION_SECONDS": "night_action_seconds",
     "VOTE_SECONDS": "vote_seconds",
+    "GAME_ROLES_REVEAL_SECONDS": "game_roles_reveal_seconds",
 }
 
 
