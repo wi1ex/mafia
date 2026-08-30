@@ -34,8 +34,10 @@ from ..api.utils import (
     HOSTED_GAME_SUSPEND_REDUCTION_SECONDS,
     active_alive_game_room_key,
     active_game_rooms_key,
+    game_from_redis_to_model,
     get_active_game_rooms,
     reduce_suspend_after_hosted_game,
+    serialize_game_for_redis,
 )
 from ..services.global_chat import emit_global_chat_permissions_updated
 from ..services.livekit import remove_livekit_participant
@@ -195,6 +197,7 @@ __all__ = [
     "normalize_uid_set",
     "room_request_cleanup_for_game_start",
     "emit_room_requests_pruned_for_game_start",
+    "get_room_min_ready",
     "get_positive_setting_int",
     "wink_spot_chance",
     "randomize_limit",
@@ -1569,6 +1572,16 @@ SETTING_MAP = {
     "VOTE_SECONDS": "vote_seconds",
     "GAME_ROLES_REVEAL_SECONDS": "game_roles_reveal_seconds",
 }
+
+
+def get_room_min_ready(params: Mapping[str, Any] | None = None) -> int:
+    default = max(1, int(get_cached_settings().game_min_ready_players))
+    try:
+        value = int((params or {}).get("game_min_ready") or 0)
+    except Exception:
+        return default
+
+    return value if value > 0 else default
 
 
 @dataclass
@@ -5284,7 +5297,11 @@ async def compute_best_move_eligible(r, rid: int, victim_uid: int) -> bool:
         alive_cnt = int(await r.scard(f"room:{rid}:game_alive") or 0)
     except Exception:
         alive_cnt = 0
-    if alive_cnt < get_cached_settings().game_min_ready_players - 1:
+    try:
+        params = await r.hgetall(f"room:{rid}:params")
+    except Exception:
+        params = {}
+    if alive_cnt < get_room_min_ready(params) - 1:
         return False
 
     try:
@@ -6592,6 +6609,7 @@ async def enrich_game_runtime_with_vote(r, rid: int, game_runtime: Mapping[str, 
 async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[str, Any], dict[str, str], Optional[str]]:
     raw_gstate = await r.hgetall(f"room:{rid}:game_state")
     raw_game = await r.hgetall(f"room:{rid}:game")
+    raw_params = await r.hgetall(f"room:{rid}:params")
     raw_seats = await hgetall_int_map(r, f"room:{rid}:game_seats")
     players_set = await smembers_ints(r, f"room:{rid}:game_players")
     alive_set = await smembers_ints(r, f"room:{rid}:game_alive")
@@ -6628,7 +6646,7 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
     game_runtime: dict[str, Any] = {
         "phase": phase,
         "day_number": ctx.gint("day_number"),
-        "min_ready": get_cached_settings().game_min_ready_players,
+        "min_ready": get_room_min_ready(raw_params),
         "seats": seats_map,
         "players": list(players_set),
         "alive": list(alive_set),
@@ -7162,14 +7180,41 @@ async def game_start_unlocked(sid, data) -> GameStartAck:
             return {"ok": False, "error": "game_start_disabled", "status": 403}
 
         raw_game = await r.hgetall(f"room:{rid}:game")
-        game_mode = _decode_redis_value(raw_game.get("mode") or "normal").strip().lower()
+        game_mode = normalize_game_mode(raw_game.get("mode"))
+        if game_mode == RATING_MODE and not app_settings.rating_enabled:
+            if confirm:
+                try:
+                    normalized_game = game_from_redis_to_model(raw_game).model_dump()
+                    normalized_game["mode"] = "normal"
+                    async with SessionLocal() as session:
+                        room = await session.get(Room, rid)
+                        if room is None:
+                            return {"ok": False, "error": "room_not_found", "status": 404}
+
+                        room.game = normalized_game
+                        await session.commit()
+                    await r.hset(f"room:{rid}:game", mapping=serialize_game_for_redis(normalized_game))
+                except Exception:
+                    log.exception("game_start.rating_mode_normalize_failed", rid=rid)
+                    return {"ok": False, "error": "internal", "status": 500}
+
+                with suppress(Exception):
+                    await sio.emit(
+                        "room_game_updated",
+                        {"room_id": rid, "game": normalized_game},
+                        room=f"room:{rid}",
+                        namespace="/room",
+                    )
+                with suppress(Exception):
+                    await emit_rooms_upsert_safe(r, rid)
+            game_mode = "normal"
         if game_mode == "rating":
             async with SessionLocal() as session:
                 additional_roles = await session.scalar(select(User.additional_roles).where(User.id == uid))
             if not has_additional_role(additional_roles, ADDITIONAL_ROLE_HEAD_RATE):
                 return {"ok": False, "error": "rating_head_required", "status": 403}
 
-        min_ready = app_settings.game_min_ready_players
+        min_ready = get_room_min_ready(params)
         members = await smembers_ints(r, f"room:{rid}:members")
         ready_ids = await smembers_ints(r, f"room:{rid}:ready")
         not_ready_raw = [mid for mid in members if mid not in ready_ids]

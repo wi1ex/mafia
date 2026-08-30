@@ -137,6 +137,7 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
         "privacy": privacy,
         "anonymity": anonymity,
         "entry_closed": "0",
+        "game_min_ready": str(app_settings.game_min_ready_players),
     }
     game_data = serialize_game_for_redis(game_dict)
     params_clean = {k: v for k, v in params_data.items() if v is not None}

@@ -861,10 +861,6 @@ const buttonsHigh = computed({
     rtc.saveLS(rtc.LS.buttonsHigh, v ? '1' : '0')
   },
 })
-const gameLimitMin = computed(() => {
-  const minReady = Number(settings.gameMinReadyPlayers)
-  return Number.isFinite(minReady) && minReady > 0 ? minReady + 1 : 11
-})
 const ws_url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host
 const isTheater = computed(() => !!screenOwnerId.value)
 const isMyScreen = computed(() => !!localId.value && screenOwnerId.value === localId.value)
@@ -936,7 +932,7 @@ const canShowFoulButtons = computed(() =>
   ACTION_PHASES.includes(gamePhase.value as (typeof ACTION_PHASES)[number])
 )
 const canShowTechFoulButtons = computed(() => canShowFoulButtons.value && techFoulsEnabled.value)
-const isMafiaLimitRoom = computed(() => roomUserLimit.value === gameLimitMin.value)
+const isMafiaLimitRoom = computed(() => roomUserLimit.value === minReadyToStart.value + 1)
 const isDuoRoom = computed(() => roomUserLimit.value === 2)
 const usesCameraSimulcast = computed(() =>
   isMafiaLimitRoom.value || roomUserLimit.value === 20 || isDuoRoom.value

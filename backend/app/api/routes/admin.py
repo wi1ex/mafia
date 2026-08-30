@@ -303,6 +303,60 @@ async def public_settings(session: AsyncSession = Depends(get_session)) -> Publi
     return public_settings_out(settings)
 
 
+async def snapshot_live_room_min_ready(previous_min_ready: int) -> int:
+    r = get_redis()
+    try:
+        raw_room_ids = await r.zrange("rooms:index", 0, -1)
+    except Exception:
+        log.warning("admin.settings.snapshot_room_min_ready.index_load_failed")
+        return 0
+
+    room_ids: list[int] = []
+    for raw_room_id in raw_room_ids or []:
+        try:
+            room_id = int(raw_room_id)
+        except Exception:
+            continue
+        if room_id > 0:
+            room_ids.append(room_id)
+    if not room_ids:
+        return 0
+
+    try:
+        async with r.pipeline() as pipeline:
+            for room_id in room_ids:
+                await pipeline.hget(f"room:{room_id}:params", "game_min_ready")
+            existing_values = await pipeline.execute()
+    except Exception:
+        log.warning("admin.settings.snapshot_room_min_ready.load_failed")
+        return 0
+
+    missing_ids: list[int] = []
+    for room_id, value in zip(room_ids, existing_values):
+        try:
+            configured_min_ready = int(value or 0)
+        except Exception:
+            configured_min_ready = 0
+        if configured_min_ready <= 0:
+            missing_ids.append(room_id)
+    if not missing_ids:
+        return 0
+
+    try:
+        async with r.pipeline() as pipeline:
+            for room_id in missing_ids:
+                await pipeline.hset(
+                    f"room:{room_id}:params",
+                    mapping={"game_min_ready": str(max(1, previous_min_ready))},
+                )
+            await pipeline.execute()
+    except Exception:
+        log.warning("admin.settings.snapshot_room_min_ready.save_failed")
+        return 0
+
+    return len(missing_ids)
+
+
 @router.get("/settings", response_model=AdminSettingsOut, dependencies=ADMIN_GUARD)
 @log_route("admin.settings_get")
 async def get_settings(session: AsyncSession = Depends(get_session)) -> AdminSettingsOut:
@@ -315,6 +369,7 @@ async def get_settings(session: AsyncSession = Depends(get_session)) -> AdminSet
 @log_route("admin.settings_update")
 async def update_settings(payload: AdminSettingsUpdateIn, session: AsyncSession = Depends(get_session), ident: Identity = Depends(require_protected_admin_dep)) -> AdminSettingsOut:
     row = await ensure_app_settings(session)
+    previous_game_min_ready = max(1, int(row.game_min_ready_players))
     data = payload.model_dump(exclude_unset=True)
     site_data = data.get("site") or {}
     game_data = data.get("game") or {}
@@ -340,6 +395,10 @@ async def update_settings(payload: AdminSettingsUpdateIn, session: AsyncSession 
         await session.commit()
         await session.refresh(row)
 
+    room_min_ready_snapshots = 0
+    if "game_min_ready_players" in changed:
+        room_min_ready_snapshots = await snapshot_live_room_min_ready(previous_game_min_ready)
+
     sync_cache_from_row(row)
     if changed:
         public_payload = public_settings_out(row).model_dump(mode="json")
@@ -355,7 +414,8 @@ async def update_settings(payload: AdminSettingsUpdateIn, session: AsyncSession 
             schedule_user_game_stats_cache_invalidation("admin.settings.season_change.invalidate_stats_cache_failed")
 
     details = (
-        f"Обновление настроек keys={','.join(sorted(changed))} season_changed={int(season_changed)}"
+        f"Обновление настроек keys={','.join(sorted(changed))} season_changed={int(season_changed)} "
+        f"room_min_ready_snapshots={room_min_ready_snapshots}"
         if changed
         else "Обновление настроек без изменений"
     )

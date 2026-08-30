@@ -2146,11 +2146,6 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       onCleanup(() => resetLeaderSpeechDelay())
   }, { immediate: true })
 
-  watch(() => settings.gameMinReadyPlayers, (value) => {
-      const v = Number(value)
-      if (Number.isFinite(v) && v > 0 && gamePhase.value === 'idle') minReadyToStart.value = v
-  })
-
   async function goToMafiaTalk(sendAck: SendAckFn): Promise<void> {
     const resp = await sendAck('game_phase_next', { from: 'roles_pick', to: 'mafia_talk_start' })
     if (!resp?.ok) {

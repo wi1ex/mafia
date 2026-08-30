@@ -23,6 +23,7 @@ import { useNotifStore } from '@/store'
 import { useGlobalChatStore } from '@/store'
 import { useSettingsStore } from '@/store'
 import { alertDialog } from '@/services/confirm'
+import { createPublicSocket, disposeAuthedSocket } from '@/services/sio'
 import rotateDeviceVideo from '@/assets/video/rotate-device.mp4'
 
 import Header from '@/components/Header.vue'
@@ -62,7 +63,9 @@ let onTelegramVerified: ((e: any) => void) | null = null
 let onAdminNotify: ((e: any) => void) | null = null
 let onUserGameParticipationChanged: ((e: any) => void) | null = null
 let onProfileSync: ((e: any) => void) | null = null
+let onPublicSettingsUpdate: ((payload: unknown) => void) | null = null
 let rotateVideoObserver: IntersectionObserver | null = null
+let publicSettingsSocket: ReturnType<typeof createPublicSocket> | null = null
 
 function setRotateVideoVisible(visible: boolean) {
   rotateVideoVisible.value = visible
@@ -175,6 +178,20 @@ onMounted(async () => {
     if (auth.isAuthed) user.fetchMe().catch(() => {})
   }
   window.addEventListener('auth-notify', onAdminNotify)
+  onPublicSettingsUpdate = (payload: unknown) => {
+    if (settings.applyPublicPayload(payload)) return
+    void settings.fetchPublic()
+  }
+  publicSettingsSocket = createPublicSocket('/rooms', {
+    path: '/ws/socket.io',
+    transports: ['websocket', 'polling'],
+    upgrade: true,
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 200,
+    reconnectionDelayMax: 2000,
+  })
+  publicSettingsSocket.on('settings_update', onPublicSettingsUpdate)
   settings.ensureWS()
   try { await Promise.all([settings.fetchPublic(), settings.fetchSanctionRules()]) } catch {}
   await auth.init()
@@ -204,6 +221,13 @@ onBeforeUnmount(() => {
   if (onProfileSync) window.removeEventListener('auth-profile_sync', onProfileSync)
   if (onTelegramVerified) window.removeEventListener('auth-telegram_verified', onTelegramVerified)
   if (onAdminNotify) window.removeEventListener('auth-notify', onAdminNotify)
+  if (publicSettingsSocket) {
+    if (onPublicSettingsUpdate) publicSettingsSocket.off('settings_update', onPublicSettingsUpdate)
+    disposeAuthedSocket(publicSettingsSocket)
+    try { (publicSettingsSocket.io.opts as any).reconnection = false } catch {}
+    try { publicSettingsSocket.close() } catch {}
+    publicSettingsSocket = null
+  }
 })
 </script>
 
