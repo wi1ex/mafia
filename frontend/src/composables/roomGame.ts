@@ -1056,7 +1056,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
 
   function gamePointsForUser(id: string): number | null {
     const points = gamePointsByUser.get(String(id))
-    return Number.isFinite(points) ? points : null
+    return typeof points === 'number' && Number.isFinite(points) ? points : null
   }
 
   function nightCheckObjectiveComplete(role: GameRoleKind | null | undefined): boolean {
@@ -1620,7 +1620,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (String(payload?.mode || '').toLowerCase() === 'rating' && payload?.points && typeof payload.points === 'object') {
       for (const [uid, rawPoints] of Object.entries(payload.points)) {
         const points = Number(rawPoints)
-        if (Number.isFinite(points)) gamePointsByUser.set(String(uid), Math.trunc(points))
+        if (Number.isFinite(points)) gamePointsByUser.set(String(uid), points)
       }
     }
   }

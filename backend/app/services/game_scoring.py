@@ -53,7 +53,7 @@ def calculate_game_points(
     roles: Mapping[object, Any],
     player_ids: Iterable[int | str],
     actions: Iterable[Mapping[str, Any]] | None = None,
-) -> dict[str, int]:
+) -> dict[str, float]:
     """Calculate and persist each player's total points for one finished game.
 
     The result is intentionally calculated from immutable game snapshots.  Future
@@ -66,7 +66,7 @@ def calculate_game_points(
         return {}
 
     players = _normalize_user_ids(player_ids)
-    points = {str(user_id): 0 for user_id in players}
+    points = {str(user_id): 0.0 for user_id in players}
     normalized_result = str(result or "").strip().lower()
 
     if normalized_result not in DECISIVE_RESULTS:
@@ -74,6 +74,6 @@ def calculate_game_points(
 
     for user_id in players:
         if _wins(_role_for_user(roles, user_id), normalized_result):
-            points[str(user_id)] = 1
+            points[str(user_id)] = 1.0
 
     return points

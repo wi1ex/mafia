@@ -52,7 +52,7 @@
         </div>
 
         <div v-if="mode === 'rating'" class="slot-metrics">
-          <span>Баллы: {{ formatMetric(slot.points) }} ({{ formatMetric(slot.mmr)}} MMR)</span>
+          <span>Баллы: {{ formatPoints(slot.points) }} ({{ formatMetric(slot.mmr)}} MMR)</span>
         </div>
       </article>
     </div>
@@ -308,6 +308,12 @@ function formatMetric(value: number | null | undefined): string {
   if (!Number.isFinite(num)) return '-'
   const normalized = Math.trunc(num)
   return normalized === 0 ? '-' : String(normalized)
+}
+
+function formatPoints(value: number | null | undefined): string {
+  const points = Number(value)
+  if (!Number.isFinite(points) || points === 0) return '0.00'
+  return `${points > 0 ? '+' : '-'}${Math.abs(points).toFixed(2)}`
 }
 </script>
 

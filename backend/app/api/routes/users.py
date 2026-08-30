@@ -24,6 +24,7 @@ from ..utils import (
     is_protected_admin,
     delete_user_avatar,
     safe_int,
+    safe_float,
     non_empty_str,
     contact_request_rate_key,
     schedule_contact_request_admin_telegram_message,
@@ -876,7 +877,7 @@ async def game_history_details(game_id: int, ident: Identity = Depends(get_ident
         profile_role = non_empty_str((profile or {}).get("role"))
         deleted_at_value = non_empty_str((profile or {}).get("deleted_at"))
         role_value = None
-        points: int | None = None
+        points: float | None = None
         mmr: int | None = None
         leave_day_value = None
         leave_reason_value = None
@@ -890,7 +891,7 @@ async def game_history_details(game_id: int, ident: Identity = Depends(get_ident
             if raw_role in GAME_HISTORY_ROLES:
                 role_value = raw_role
             if game_mode == "rating":
-                points = safe_int(points_map.get(str(slot_uid), 0))
+                points = safe_float(points_map.get(str(slot_uid), 0))
                 mmr = safe_int(mmr_map.get(str(slot_uid), 0))
             leave_data = leave_map.get(slot_uid)
             if leave_data:

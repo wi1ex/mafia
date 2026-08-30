@@ -5894,7 +5894,7 @@ async def finish_game(r, rid: int, *, result: str, head_uid: int | None = None, 
         log.exception("game_finish.load_game_params_failed", rid=rid)
         raw_game = {}
     game_mode = normalize_game_mode((raw_game or {}).get("mode"))
-    points_map: dict[str, int] = {}
+    points_map: dict[str, float] = {}
     mmr_map: dict[str, int] = {}
     if game_mode == RATING_MODE:
         points_map = calculate_game_points(
@@ -7182,31 +7182,6 @@ async def game_start_unlocked(sid, data) -> GameStartAck:
         raw_game = await r.hgetall(f"room:{rid}:game")
         game_mode = normalize_game_mode(raw_game.get("mode"))
         if game_mode == RATING_MODE and not app_settings.rating_enabled:
-            if confirm:
-                try:
-                    normalized_game = game_from_redis_to_model(raw_game).model_dump()
-                    normalized_game["mode"] = "normal"
-                    async with SessionLocal() as session:
-                        room = await session.get(Room, rid)
-                        if room is None:
-                            return {"ok": False, "error": "room_not_found", "status": 404}
-
-                        room.game = normalized_game
-                        await session.commit()
-                    await r.hset(f"room:{rid}:game", mapping=serialize_game_for_redis(normalized_game))
-                except Exception:
-                    log.exception("game_start.rating_mode_normalize_failed", rid=rid)
-                    return {"ok": False, "error": "internal", "status": 500}
-
-                with suppress(Exception):
-                    await sio.emit(
-                        "room_game_updated",
-                        {"room_id": rid, "game": normalized_game},
-                        room=f"room:{rid}",
-                        namespace="/room",
-                    )
-                with suppress(Exception):
-                    await emit_rooms_upsert_safe(r, rid)
             game_mode = "normal"
         if game_mode == "rating":
             async with SessionLocal() as session:
@@ -7357,6 +7332,32 @@ async def game_start_unlocked(sid, data) -> GameStartAck:
             raw_game = await r.hgetall(f"room:{rid}:game")
         except Exception:
             raw_game = {}
+        if normalize_game_mode(raw_game.get("mode")) == RATING_MODE and not app_settings.rating_enabled:
+            try:
+                normalized_game = game_from_redis_to_model(raw_game).model_dump()
+                normalized_game["mode"] = "normal"
+                async with SessionLocal() as session:
+                    room = await session.get(Room, rid)
+                    if room is None:
+                        return {"ok": False, "error": "room_not_found", "status": 404}
+
+                    room.game = normalized_game
+                    await session.commit()
+                await r.hset(f"room:{rid}:game", mapping=serialize_game_for_redis(normalized_game))
+                raw_game = normalized_game
+            except Exception:
+                log.exception("game_start.rating_mode_normalize_failed", rid=rid)
+                return {"ok": False, "error": "internal", "status": 500}
+
+            with suppress(Exception):
+                await sio.emit(
+                    "room_game_updated",
+                    {"room_id": rid, "game": normalized_game},
+                    room=f"room:{rid}",
+                    namespace="/room",
+                )
+            with suppress(Exception):
+                await emit_rooms_upsert_safe(r, rid)
         nominate_mode = str(raw_game.get("nominate_mode") or "players")
         if nominate_mode not in ("players", "head"):
             nominate_mode = "players"

@@ -437,7 +437,7 @@ const finishPointsClass = computed(() => {
 })
 const finishPointsLabel = computed(() => {
   const points = Number(props.finishPoints)
-  if (!Number.isFinite(points) || points === 0) return '0'
+  if (!Number.isFinite(points) || points === 0) return '0.00'
   return `${points > 0 ? '+' : '-'}${Math.abs(points).toFixed(2)}`
 })
 const timelinePaused = computed(() => hasDaySpeechTimer.value && props.daySpeechPaused)

@@ -58,7 +58,7 @@
           </div>
 
           <div v-if="game.mode === 'rating'" class="history-main-stats">
-            <span>Баллы: {{ formatSignedValue(game.player_points) }}</span>
+            <span>Баллы: {{ formatSignedPoints(game.player_points) }}</span>
             <span>MMR: {{ formatSignedValue(game.player_mmr) }}</span>
           </div>
 
@@ -413,6 +413,12 @@ function formatSignedValue(valueRaw: number | null | undefined): string {
   const value = intOr(valueRaw, 0)
   if (value > 0) return `+${value}`
   return String(value)
+}
+
+function formatSignedPoints(valueRaw: number | null | undefined): string {
+  const value = Number(valueRaw)
+  if (!Number.isFinite(value) || value === 0) return '0.00'
+  return `${value > 0 ? '+' : '-'}${Math.abs(value).toFixed(2)}`
 }
 
 function setRoleFilter(nextRole: GameHistoryRoleFilter): void {

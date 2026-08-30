@@ -325,7 +325,7 @@ async def snapshot_live_room_min_ready(previous_min_ready: int) -> int:
     try:
         async with r.pipeline() as pipeline:
             for room_id in room_ids:
-                await pipeline.hget(f"room:{room_id}:params", "game_min_ready")
+                await pipeline.hmget(f"room:{room_id}:params", "id", "game_min_ready")
             existing_values = await pipeline.execute()
     except Exception:
         log.warning("admin.settings.snapshot_room_min_ready.load_failed")
@@ -333,8 +333,12 @@ async def snapshot_live_room_min_ready(previous_min_ready: int) -> int:
 
     missing_ids: list[int] = []
     for room_id, value in zip(room_ids, existing_values):
+        room_marker = value[0] if value else None
+        min_ready_value = value[1] if value and len(value) > 1 else None
+        if not room_marker:
+            continue
         try:
-            configured_min_ready = int(value or 0)
+            configured_min_ready = int(min_ready_value or 0)
         except Exception:
             configured_min_ready = 0
         if configured_min_ready <= 0:
