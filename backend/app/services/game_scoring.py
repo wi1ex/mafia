@@ -1,17 +1,33 @@
 from __future__ import annotations
 from collections.abc import Iterable, Mapping
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from typing import Any
 
 RATING_MODE = "rating"
 DECISIVE_RESULTS = {"red", "black"}
 RED_ROLES = {"citizen", "sheriff"}
 BLACK_ROLES = {"mafia", "don"}
+POINTS_QUANTUM = Decimal("0.01")
 
 
 def normalize_game_mode(raw: object) -> str:
     if isinstance(raw, bytes):
         raw = raw.decode("utf-8", "ignore")
     return RATING_MODE if str(raw or "").strip().lower() == RATING_MODE else "normal"
+
+
+def normalize_game_points_value(raw: object) -> float:
+    if isinstance(raw, bytes):
+        raw = raw.decode("utf-8", "ignore")
+    try:
+        value = Decimal(str(raw))
+    except (InvalidOperation, TypeError, ValueError):
+        return 0.0
+
+    if not value.is_finite():
+        return 0.0
+
+    return float(value.quantize(POINTS_QUANTUM, rounding=ROUND_HALF_UP))
 
 
 def _normalize_user_ids(player_ids: Iterable[int | str]) -> list[int]:
@@ -69,11 +85,9 @@ def calculate_game_points(
     points = {str(user_id): 0.0 for user_id in players}
     normalized_result = str(result or "").strip().lower()
 
-    if normalized_result not in DECISIVE_RESULTS:
-        return points
+    if normalized_result in DECISIVE_RESULTS:
+        for user_id in players:
+            if _wins(_role_for_user(roles, user_id), normalized_result):
+                points[str(user_id)] = 1.0
 
-    for user_id in players:
-        if _wins(_role_for_user(roles, user_id), normalized_result):
-            points[str(user_id)] = 1.0
-
-    return points
+    return {user_id: normalize_game_points_value(value) for user_id, value in points.items()}

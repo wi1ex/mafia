@@ -4,7 +4,6 @@ import secrets
 import unicodedata
 import asyncio
 import calendar
-import math
 from contextlib import suppress
 import structlog
 from time import time
@@ -20,7 +19,7 @@ from ..core.logging import log_action
 from ..core.roles import ROLE_ADMIN, ROLE_USER, normalize_user_role, room_moderation_role
 from ..core.settings import settings
 from ..models.game import Game
-from ..services.game_scoring import normalize_game_mode
+from ..services.game_scoring import normalize_game_mode, normalize_game_points_value
 from ..models.kassa_payment import KassaPayment
 from ..models.room import Room
 from ..models.friend import FriendLink, UserBlacklist
@@ -237,7 +236,6 @@ __all__ = [
     "build_app_settings_snapshot_from_row",
     "parse_cached_deleted_at",
     "safe_int",
-    "safe_float",
     "non_empty_str",
     "normalize_game_result",
     "normalizeGameActionsForUpdate",
@@ -2829,24 +2827,6 @@ def safe_int(raw: Any) -> int:
     return _parse_int(raw)
 
 
-def safe_float(raw: Any) -> float:
-    if raw is None:
-        return 0.0
-
-    if isinstance(raw, bytes):
-        try:
-            raw = raw.decode()
-        except Exception:
-            return 0.0
-
-    try:
-        value = float(raw)
-    except Exception:
-        return 0.0
-
-    return value if math.isfinite(value) else 0.0
-
-
 def non_empty_str(raw: Any) -> str | None:
     if not isinstance(raw, str):
         return None
@@ -3566,7 +3546,7 @@ async def fetch_games_history_page(
             if game_mode == "rating":
                 points_map = points_raw if isinstance(points_raw, dict) else {}
                 mmr_map = mmr_raw if isinstance(mmr_raw, dict) else {}
-                player_points_value = safe_float(points_map.get(uid_key, 0))
+                player_points_value = normalize_game_points_value(points_map.get(uid_key, 0))
                 player_mmr_value = safe_int(mmr_map.get(uid_key, 0))
 
         items.append(

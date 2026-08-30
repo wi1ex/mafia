@@ -24,7 +24,6 @@ from ..utils import (
     is_protected_admin,
     delete_user_avatar,
     safe_int,
-    safe_float,
     non_empty_str,
     contact_request_rate_key,
     schedule_contact_request_admin_telegram_message,
@@ -48,7 +47,7 @@ from ..utils import (
     payment_promo_discount_percent,
 )
 from ...models.game import Game
-from ...services.game_scoring import normalize_game_mode
+from ...services.game_scoring import normalize_game_mode, normalize_game_points_value
 from ...models.contact_request import ContactRequestRecord
 from ...models.kassa_payment import KassaPayment
 from ...models.notif import Notif
@@ -891,7 +890,7 @@ async def game_history_details(game_id: int, ident: Identity = Depends(get_ident
             if raw_role in GAME_HISTORY_ROLES:
                 role_value = raw_role
             if game_mode == "rating":
-                points = safe_float(points_map.get(str(slot_uid), 0))
+                points = normalize_game_points_value(points_map.get(str(slot_uid), 0))
                 mmr = safe_int(mmr_map.get(str(slot_uid), 0))
             leave_data = leave_map.get(slot_uid)
             if leave_data:

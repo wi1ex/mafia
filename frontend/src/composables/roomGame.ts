@@ -59,6 +59,13 @@ const ROLE_BADGE_ICONS: Record<GameRoleKind, string> = {
 
 const ALL_ROLE_CARDS = Array.from({ length: 10 }, (_, i) => i + 1)
 
+function normalizeGamePoints(raw: unknown): number | null {
+  const value = Number(raw)
+  if (!Number.isFinite(value)) return null
+  const rounded = Math.round(value * 100) / 100
+  return Object.is(rounded, -0) ? 0 : rounded
+}
+
 export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>) {
   const settings = useSettingsStore()
   const gamePhase = ref<GamePhase>('idle')
@@ -1619,8 +1626,8 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     gamePointsByUser.clear()
     if (String(payload?.mode || '').toLowerCase() === 'rating' && payload?.points && typeof payload.points === 'object') {
       for (const [uid, rawPoints] of Object.entries(payload.points)) {
-        const points = Number(rawPoints)
-        if (Number.isFinite(points)) gamePointsByUser.set(String(uid), points)
+        const points = normalizeGamePoints(rawPoints)
+        if (points !== null) gamePointsByUser.set(String(uid), points)
       }
     }
   }
