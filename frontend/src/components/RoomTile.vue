@@ -36,6 +36,9 @@
         <img :src="gameRole" class="icon-badge-role-icon" alt="gamerole" />
       </div>
       <img v-else :src="gameRole" class="icon-badge-role-icon" alt="gamerole" />
+      <span v-if="finishRoleBadge && hasFinishPoints" class="finish-points" :class="finishPointsClass">
+        {{ finishPointsLabel }}
+      </span>
     </div>
 
     <UiButton
@@ -259,6 +262,7 @@ const props = withDefaults(defineProps<{
   gameRole?: string
   gameRoleKind?: GameRoleKind | ''
   finishRoleBadge?: boolean
+  finishPoints?: number | null
   hiddenByVisibility?: boolean
   visibilityHiddenAvatar?: string
   inGame?: boolean
@@ -320,6 +324,7 @@ const props = withDefaults(defineProps<{
   hiddenByVisibility: false,
   visibilityHiddenAvatar: '',
   finishRoleBadge: false,
+  finishPoints: null,
   inGame: false,
   foulsCount: 0,
   techFoulsCount: 0,
@@ -423,6 +428,18 @@ const hasMafiaTalkTimer = computed(() => props.mafiaTalkHostId === props.id && (
 const hasDaySpeechTimer = computed(() => props.daySpeechOwnerId === props.id && (props.daySpeechRemainingMs ?? 0) > 0)
 const hasNightTimer = computed(() => props.nightOwnerId === props.id && (props.nightRemainingMs ?? 0) > 0)
 const showTimeline = computed(() => hasRolePickTimer.value || hasMafiaTalkTimer.value || hasDaySpeechTimer.value || hasNightTimer.value)
+const hasFinishPoints = computed(() => Number.isFinite(props.finishPoints))
+const finishPointsClass = computed(() => {
+  const points = Number(props.finishPoints)
+  if (points > 0) return 'positive'
+  if (points < 0) return 'negative'
+  return 'zero'
+})
+const finishPointsLabel = computed(() => {
+  const points = Number(props.finishPoints)
+  if (!Number.isFinite(points) || points === 0) return '0'
+  return `${points > 0 ? '+' : '-'}${Math.abs(points).toFixed(2)}`
+})
 const timelinePaused = computed(() => hasDaySpeechTimer.value && props.daySpeechPaused)
 const timelineDurationSec = computed(() => {
   let ms = 0
@@ -689,6 +706,7 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
     &.finish {
       display: flex;
       position: absolute;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
       inset: 0;
@@ -702,6 +720,24 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
         aspect-ratio: 1;
         width: auto;
         height: calc(100% * 2 / 3);
+      }
+      .finish-points {
+        margin: 10px 0 0;
+        min-width: 0;
+        font-family: Hauora-Bold;
+        font-size: 30px;
+        font-variant-numeric: tabular-nums;
+        line-height: 30px;
+        letter-spacing: -0.6px;
+        &.zero {
+          color: $neutral-white;
+        }
+        &.positive {
+          color: $green-500;
+        }
+        &.negative {
+          color: $red-500;
+        }
       }
     }
     &:disabled {
