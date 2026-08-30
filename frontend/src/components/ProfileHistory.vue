@@ -57,7 +57,7 @@
             <span>Длительность: {{ formatDuration(game.duration_seconds) }}</span>
           </div>
 
-          <div class="history-main-stats">
+          <div v-if="game.mode === 'rating'" class="history-main-stats">
             <span>Баллы: {{ formatSignedValue(game.player_points) }}</span>
             <span>MMR: {{ formatSignedValue(game.player_mmr) }}</span>
           </div>
@@ -69,7 +69,7 @@
           <div v-if="isExpanded(game.id)" class="history-extra">
             <div v-if="isDetailsLoading(game.id)" class="history-extra-state">Загрузка деталей игры...</div>
             <div v-else-if="detailsErrorFor(game.id)" class="history-extra-state history-extra-state--error">{{ detailsErrorFor(game.id) }}</div>
-            <HistoryDetails v-else :slots="detailsSlots(game.id)" />
+            <HistoryDetails v-else :slots="detailsSlots(game.id)" :mode="game.mode" />
           </div>
         </Transition>
       </li>
@@ -100,6 +100,7 @@ import iconRoleSheriff from '@/assets/svg/iconRoleSheriff.svg'
 type GameHistoryRole = 'citizen' | 'mafia' | 'don' | 'sheriff'
 type GameHistoryRoleFilter = 'all' | GameHistoryRole
 type GameResult = 'red' | 'black' | 'draw'
+type GameMode = 'normal' | 'rating'
 type PlayerGameOutcome = 'win' | 'loss' | 'draw'
 type LeaveReason = 'vote' | 'foul' | 'suicide' | 'night'
 type FarewellVerdict = 'citizen' | 'mafia'
@@ -135,8 +136,8 @@ interface GameHistorySlot {
   profile_role?: string | null
   deleted?: boolean | null
   role?: GameHistoryRole | null
-  points: number
-  mmr: number
+  points?: number | null
+  mmr?: number | null
   leave_day?: number | null
   leave_reason?: LeaveReason | null
   leave_ppk?: boolean | null
@@ -150,6 +151,7 @@ interface GameHistoryListItem {
   id: number
   number: number
   head: GameHistoryHost
+  mode: GameMode
   result: GameResult
   has_ppk?: boolean
   player_role?: GameHistoryRole | null
@@ -163,6 +165,7 @@ interface GameHistoryListItem {
 
 interface GameHistoryDetailsResponse {
   id: number
+  mode: GameMode
   slots: GameHistorySlot[]
 }
 

@@ -19,6 +19,7 @@ from ..core.logging import log_action
 from ..core.roles import ROLE_ADMIN, ROLE_USER, normalize_user_role, room_moderation_role
 from ..core.settings import settings
 from ..models.game import Game
+from ..services.game_scoring import normalize_game_mode
 from ..models.kassa_payment import KassaPayment
 from ..models.room import Room
 from ..models.friend import FriendLink, UserBlacklist
@@ -3446,6 +3447,7 @@ async def fetch_games_history_page(
         select(
             Game.id,
             Game.head_id,
+            Game.mode,
             Game.result,
             Game.black_alive_at_finish,
             Game.started_at,
@@ -3507,7 +3509,7 @@ async def fetch_games_history_page(
     raw_games = rows.all()
 
     user_ids: set[int] = set()
-    for _game_id, head_id, _result, _black_alive, _started, _finished, _roles, _points, _mmr, _actions in raw_games:
+    for _game_id, head_id, _mode, _result, _black_alive, _started, _finished, _roles, _points, _mmr, _actions in raw_games:
         hid = safe_int(head_id)
         if hid > 0:
             user_ids.add(hid)
@@ -3515,7 +3517,7 @@ async def fetch_games_history_page(
     profiles = await get_user_profiles_cached(db, user_ids) if user_ids else {}
 
     items: list[GameHistoryItemOut] = []
-    for game_id, head_id, result_raw, black_alive_raw, started_at, finished_at, roles_raw, points_raw, mmr_raw, actions_raw in raw_games:
+    for game_id, head_id, mode_raw, result_raw, black_alive_raw, started_at, finished_at, roles_raw, points_raw, mmr_raw, actions_raw in raw_games:
         gid = safe_int(game_id)
         if gid <= 0:
             continue
@@ -3536,14 +3538,16 @@ async def fetch_games_history_page(
         player_role_value: Literal["citizen", "mafia", "don", "sheriff"] | None = None
         player_points_value: int | None = None
         player_mmr_value: int | None = None
+        game_mode = normalize_game_mode(mode_raw)
         if uid_key is not None and isinstance(roles_raw, dict):
             role_raw = str(roles_raw.get(uid_key) or "").strip().lower()
             if role_raw in valid_roles:
                 player_role_value = cast(Literal["citizen", "mafia", "don", "sheriff"], role_raw)
-            points_map = points_raw if isinstance(points_raw, dict) else {}
-            mmr_map = mmr_raw if isinstance(mmr_raw, dict) else {}
-            player_points_value = safe_int(points_map.get(uid_key, 0))
-            player_mmr_value = safe_int(mmr_map.get(uid_key, 0))
+            if game_mode == "rating":
+                points_map = points_raw if isinstance(points_raw, dict) else {}
+                mmr_map = mmr_raw if isinstance(mmr_raw, dict) else {}
+                player_points_value = safe_int(points_map.get(uid_key, 0))
+                player_mmr_value = safe_int(mmr_map.get(uid_key, 0))
 
         items.append(
             GameHistoryItemOut(
@@ -3555,6 +3559,7 @@ async def fetch_games_history_page(
                     avatar_name=head_avatar_name,
                     auto=head_auto,
                 ),
+                mode=game_mode,
                 result=normalize_game_result(result_raw),
                 has_ppk=game_actions_has_ppk(actions_raw),
                 player_role=player_role_value,

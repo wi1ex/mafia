@@ -157,7 +157,7 @@
             <div v-if="isExpanded(game.id)" class="history-extra">
               <div v-if="isDetailsLoading(game.id)" class="history-extra-state">Загрузка деталей игры...</div>
               <div v-else-if="detailsErrorFor(game.id)" class="history-extra-state history-extra-state--error">{{ detailsErrorFor(game.id) }}</div>
-              <HistoryDetails v-else :slots="detailsSlots(game.id)" />
+              <HistoryDetails v-else :slots="detailsSlots(game.id)" :mode="game.mode" />
             </div>
           </Transition>
         </li>
@@ -188,6 +188,7 @@ import iconArrowDown from '@/assets/svg/iconArrow.svg'
 
 type GameHistoryRole = 'citizen' | 'mafia' | 'don' | 'sheriff'
 type GameResult = 'red' | 'black' | 'draw'
+type GameMode = 'normal' | 'rating'
 type GameResultFilter = 'all' | GameResult
 type AdminNumberFilterValue = number | ''
 type LeaveReason = 'vote' | 'foul' | 'suicide' | 'night'
@@ -234,8 +235,8 @@ interface GameHistorySlot {
   profile_role?: string | null
   deleted?: boolean | null
   role?: GameHistoryRole | null
-  points: number
-  mmr: number
+  points?: number | null
+  mmr?: number | null
   leave_day?: number | null
   leave_reason?: LeaveReason | null
   leave_ppk?: boolean | null
@@ -249,6 +250,7 @@ interface GameHistoryListItem {
   id: number
   number: number
   head: GameHistoryHost
+  mode: GameMode
   result: GameResult
   has_ppk?: boolean
   black_alive_at_finish: number
@@ -259,6 +261,7 @@ interface GameHistoryListItem {
 
 interface GameHistoryDetailsResponse {
   id: number
+  mode: GameMode
   slots: GameHistorySlot[]
 }
 

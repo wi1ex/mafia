@@ -35,6 +35,7 @@ from ...security.auth_tokens import get_identity
 from ...security.parameters import ensure_app_settings, sync_cache_from_row, refresh_app_settings, get_cached_settings
 from ...services.livekit import remove_livekit_participant
 from ...services.user_cache import refresh_user_profile_cache, get_user_profiles_cached
+from ...services.game_scoring import RATING_MODE, calculate_game_points, normalize_game_mode
 from ...services.profile_theme import (
     compute_subscription_end,
     compute_subscription_reduced_end,
@@ -999,6 +1000,17 @@ async def update_game_result(game_id: int, payload: AdminGameResultUpdateIn, ide
     if prev_result_raw != next_result:
         cache_user_ids = game_stats_cache_user_ids(game)
         game.result = next_result
+        if normalize_game_mode(getattr(game, "mode", "normal")) == RATING_MODE:
+            game.points = calculate_game_points(
+                mode=getattr(game, "mode", "normal"),
+                result=next_result,
+                roles=getattr(game, "roles", {}) or {},
+                player_ids=(getattr(game, "roles", {}) or {}).keys(),
+                actions=getattr(game, "actions", []) or [],
+            )
+        else:
+            game.points = {}
+            game.mmr = {}
         await log_action(
             session,
             user_id=int(ident["id"]),

@@ -71,6 +71,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   const gameAlive = reactive(new Set<string>())
   const offlineInGame = reactive(new Set<string>())
   const gameRolesByUser = reactive(new Map<string, GameRoleKind>())
+  const gamePointsByUser = reactive(new Map<string, number>())
   const gameFoulsByUser = reactive(new Map<string, number>())
   const gameTechFoulsByUser = reactive(new Map<string, number>())
   const rolesVisibleForHead = ref(false)
@@ -989,6 +990,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       roleOverlayTimerId.value = null
     }
     gameRolesByUser.clear()
+    gamePointsByUser.clear()
     myPrivateRoleKind.value = null
     rolesVisibleForHead.value = false
     gameFoulsByUser.clear()
@@ -1050,6 +1052,11 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   function effectiveRoleIconForTile(id: string): string {
     if (gameFinished.value) return roleIconForTile(id)
     return nightKnownRoleIconForTile(id) || roleIconForTile(id)
+  }
+
+  function gamePointsForUser(id: string): number | null {
+    const points = gamePointsByUser.get(String(id))
+    return Number.isFinite(points) ? points : null
   }
 
   function nightCheckObjectiveComplete(role: GameRoleKind | null | undefined): boolean {
@@ -1607,6 +1614,14 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       const myRole = localId.value ? normalizeGameRoleKind((roles as Record<string, unknown>)[localId.value]) : null
       if (myRole) myPrivateRoleKind.value = myRole
       rolesVisibleForHead.value = true
+    }
+
+    gamePointsByUser.clear()
+    if (String(payload?.mode || '').toLowerCase() === 'rating' && payload?.points && typeof payload.points === 'object') {
+      for (const [uid, rawPoints] of Object.entries(payload.points)) {
+        const points = Number(rawPoints)
+        if (Number.isFinite(points)) gamePointsByUser.set(String(uid), Math.trunc(points))
+      }
     }
   }
 
@@ -3373,6 +3388,8 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     voteResultShown,
     gameAlive,
     gameRolesByUser,
+    gamePointsByUser,
+    gamePointsForUser,
     voteAborted,
     voteLeaderSpeechesDone,
     voteLeaderKilled,

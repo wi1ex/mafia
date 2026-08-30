@@ -26,6 +26,20 @@ async def lifespan(app) -> AsyncIterator[None]:
             await conn.execute(text("SELECT 1"))
             await conn.run_sync(Base.metadata.create_all)
 
+
+            # The project uses create_all rather than a migration runner.  Keep the
+            # existing games table compatible with the new persisted mode snapshot.
+            await conn.execute(
+                text(
+                    "ALTER TABLE games "
+                    "ADD COLUMN IF NOT EXISTS mode VARCHAR(8) NOT NULL DEFAULT 'normal'"
+                )
+            )
+            # Games recorded before this feature have no reliable mode snapshot and
+            # must never participate in rating calculations.
+            await conn.execute(text("UPDATE games SET mode = 'normal' WHERE mode IS NULL"))
+
+
         async with SessionLocal() as session:
             await ensure_app_settings(session)
             await ensure_sanction_rules(session)

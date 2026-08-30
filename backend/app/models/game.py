@@ -13,6 +13,7 @@ class Game(Base):
     room_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
     room_owner_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
     head_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True, index=True)
+    mode: Mapped[str] = mapped_column(String(8), nullable=False, default="normal", server_default="normal")
     result: Mapped[str] = mapped_column(String(8), nullable=False)
     black_alive_at_finish: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

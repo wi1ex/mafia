@@ -42,6 +42,7 @@ from ..services.livekit import remove_livekit_participant
 from ..services.profile_theme import resolve_profile_theme_state
 from ..services.user_cache import get_user_profile_cached, get_user_profiles_cached
 from ..services.user_stats import invalidate_user_game_stats_cache_for_users
+from ..services.game_scoring import RATING_MODE, calculate_game_points, normalize_game_mode
 
 __all__ = [
     "KEYS_STATE",
@@ -5869,6 +5870,23 @@ async def finish_game(r, rid: int, *, result: str, head_uid: int | None = None, 
             log.exception("game_finish.active_game_clear_failed", rid=rid)
 
     actions = await load_game_actions(r, rid)
+    try:
+        raw_game = await r.hgetall(f"room:{rid}:game")
+    except Exception:
+        log.exception("game_finish.load_game_params_failed", rid=rid)
+        raw_game = {}
+    game_mode = normalize_game_mode((raw_game or {}).get("mode"))
+    points_map: dict[str, int] = {}
+    mmr_map: dict[str, int] = {}
+    if game_mode == RATING_MODE:
+        points_map = calculate_game_points(
+            mode=game_mode,
+            result=result,
+            roles=roles_map,
+            player_ids=player_ids,
+            actions=actions,
+        )
+        mmr_map = {str(uid): 0 for uid in player_ids}
 
     room_owner_id = 0
     try:
@@ -5898,14 +5916,13 @@ async def finish_game(r, rid: int, *, result: str, head_uid: int | None = None, 
         started_at = datetime.fromtimestamp(started_ts, tz=timezone.utc)
         finished_at = datetime.fromtimestamp(finished_ts, tz=timezone.utc)
 
-        points_map = {str(uid): 0 for uid in player_ids}
-        mmr_map = {str(uid): 0 for uid in player_ids}
         try:
             async with SessionLocal() as s:
                 game_row = Game(
                     room_id=rid,
                     room_owner_id=room_owner_id,
                     head_id=head_uid if head_uid and head_uid > 0 else None,
+                    mode=game_mode,
                     result=result,
                     started_at=started_at,
                     finished_at=finished_at,
@@ -6002,7 +6019,9 @@ async def finish_game(r, rid: int, *, result: str, head_uid: int | None = None, 
         await sio.emit("game_finished",
                        {"room_id": rid,
                         "result": result,
-                        "roles": roles_map},
+                        "roles": roles_map,
+                        "mode": game_mode,
+                        "points": points_map},
                        room=f"room:{rid}",
                        namespace="/room")
     except Exception:

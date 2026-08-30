@@ -47,6 +47,7 @@ from ..utils import (
     payment_promo_discount_percent,
 )
 from ...models.game import Game
+from ...services.game_scoring import normalize_game_mode
 from ...models.contact_request import ContactRequestRecord
 from ...models.kassa_payment import KassaPayment
 from ...models.notif import Notif
@@ -664,6 +665,7 @@ async def game_history_details(game_id: int, ident: Identity = Depends(get_ident
         select(
             Game.id,
             Game.head_id,
+            Game.mode,
             Game.result,
             Game.black_alive_at_finish,
             Game.started_at,
@@ -681,13 +683,14 @@ async def game_history_details(game_id: int, ident: Identity = Depends(get_ident
     if not rec:
         raise HTTPException(status_code=404, detail="game_not_found")
 
-    game_id_raw, head_id, result_raw, black_alive_raw, started_at, finished_at, roles_raw, seats_raw, points_raw, mmr_raw, actions_raw = rec
+    game_id_raw, head_id, mode_raw, result_raw, black_alive_raw, started_at, finished_at, roles_raw, seats_raw, points_raw, mmr_raw, actions_raw = rec
     gid = safe_int(game_id_raw)
     if gid <= 0:
         raise HTTPException(status_code=404, detail="game_not_found")
 
     head_uid = safe_int(head_id)
     head_auto = head_uid <= 0
+    game_mode = normalize_game_mode(mode_raw)
 
     roles_map = roles_raw if isinstance(roles_raw, dict) else {}
     points_map = points_raw if isinstance(points_raw, dict) else {}
@@ -873,8 +876,8 @@ async def game_history_details(game_id: int, ident: Identity = Depends(get_ident
         profile_role = non_empty_str((profile or {}).get("role"))
         deleted_at_value = non_empty_str((profile or {}).get("deleted_at"))
         role_value = None
-        points = 0
-        mmr = 0
+        points: int | None = None
+        mmr: int | None = None
         leave_day_value = None
         leave_reason_value = None
         leave_ppk_value = False
@@ -886,8 +889,9 @@ async def game_history_details(game_id: int, ident: Identity = Depends(get_ident
             raw_role = str(roles_map.get(str(slot_uid)) or "").strip().lower()
             if raw_role in GAME_HISTORY_ROLES:
                 role_value = raw_role
-            points = safe_int(points_map.get(str(slot_uid), 0))
-            mmr = safe_int(mmr_map.get(str(slot_uid), 0))
+            if game_mode == "rating":
+                points = safe_int(points_map.get(str(slot_uid), 0))
+                mmr = safe_int(mmr_map.get(str(slot_uid), 0))
             leave_data = leave_map.get(slot_uid)
             if leave_data:
                 leave_day_value = leave_data[0]
@@ -972,6 +976,7 @@ async def game_history_details(game_id: int, ident: Identity = Depends(get_ident
             avatar_name=head_avatar_name,
             auto=head_auto,
         ),
+        mode=game_mode,
         result=normalize_game_result(result_raw),
         black_alive_at_finish=max(0, safe_int(black_alive_raw)),
         started_at=started_at,

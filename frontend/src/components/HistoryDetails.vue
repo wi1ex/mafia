@@ -51,7 +51,7 @@
           </span>
         </div>
 
-        <div class="slot-metrics">
+        <div v-if="mode === 'rating'" class="slot-metrics">
           <span>Баллы: {{ formatMetric(slot.points) }} ({{ formatMetric(slot.mmr)}} MMR)</span>
         </div>
       </article>
@@ -84,6 +84,7 @@ import iconLeaveNight from '@/assets/svg/iconKill.svg'
 import iconLeaveSuicide from '@/assets/svg/iconDead.svg'
 
 type GameHistoryRole = 'citizen' | 'mafia' | 'don' | 'sheriff'
+type GameMode = 'normal' | 'rating'
 type LeaveReason = 'vote' | 'foul' | 'suicide' | 'night'
 type FarewellVerdict = 'citizen' | 'mafia'
 type NightCheckVerdict = 'citizen' | 'mafia' | 'sheriff'
@@ -106,8 +107,8 @@ interface GameHistorySlot {
   profile_role?: string | null
   deleted?: boolean | null
   role?: GameHistoryRole | null
-  points: number
-  mmr: number
+  points?: number | null
+  mmr?: number | null
   leave_day?: number | null
   leave_reason?: LeaveReason | null
   leave_ppk?: boolean | null
@@ -134,6 +135,7 @@ type GameHistoryMiniProfileInitial = {
 
 const props = defineProps<{
   slots: GameHistorySlot[]
+  mode: GameMode
 }>()
 
 const userStore = useUserStore()
@@ -301,7 +303,7 @@ function leaveMomentLabel(day: number, reason: LeaveReason): string {
   return `День ${normalizedDay}`
 }
 
-function formatMetric(value: number): string {
+function formatMetric(value: number | null | undefined): string {
   const num = Number(value)
   if (!Number.isFinite(num)) return '-'
   const normalized = Math.trunc(num)

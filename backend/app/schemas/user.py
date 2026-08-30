@@ -213,8 +213,8 @@ class GameHistorySlotOut(BaseModel):
     profile_role: Optional[str] = None
     deleted: bool = False
     role: Optional[Literal["citizen", "mafia", "don", "sheriff"]] = None
-    points: int = 0
-    mmr: int = 0
+    points: Optional[int] = None
+    mmr: Optional[int] = None
     leave_day: Optional[int] = None
     leave_reason: Optional[Literal["vote", "foul", "suicide", "night"]] = None
     leave_ppk: bool = False
@@ -228,6 +228,7 @@ class GameHistoryItemOut(BaseModel):
     id: int
     number: int
     head: GameHistoryHostOut
+    mode: Literal["normal", "rating"] = "normal"
     result: Literal["red", "black", "draw"]
     has_ppk: bool = False
     player_role: Optional[Literal["citizen", "mafia", "don", "sheriff"]] = None
