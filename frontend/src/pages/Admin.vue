@@ -3774,7 +3774,6 @@ onBeforeUnmount(() => {
         justify-content: space-between;
         gap: 16px;
         p {
-          max-width: 760px;
           margin: 0;
           color: $neutral-300;
         }
