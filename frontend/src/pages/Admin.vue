@@ -8,6 +8,9 @@
         <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'settings' }" :aria-selected="activeTab === 'settings'" @click="activeTab = 'settings'">
           Параметры
         </button>
+        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'scoring' }" :aria-selected="activeTab === 'scoring'" @click="activeTab = 'scoring'">
+          Скоринг
+        </button>
         <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'rules' }" :aria-selected="activeTab === 'rules'" @click="activeTab = 'rules'">
           Правила
         </button>
@@ -163,6 +166,46 @@
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Вероятность для подмигиваний (%)" />
                 <UiInput id="game-roles-reveal-seconds" size="low" v-model.number="game.game_roles_reveal_seconds" type="number" min="1" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Отображение ролей в конце игры (сек)" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div v-else-if="activeTab === 'scoring'">
+          <div class="grid">
+            <div class="block">
+              <p>Правила фиксируются при старте рейтинговой игры. Изменения применятся только к следующим запущенным рейтинг-играм.</p>
+              <div class="field-stack">
+                <UiInput id="scoring-fourth-foul" size="low" v-model.number="scoring.fourth_foul" type="number" step="0.01"
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="4-й фол" />
+                <UiInput id="scoring-fourth-foul-lost" size="low" v-model.number="scoring.fourth_foul_lost" type="number" step="0.01"
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="4-й фол: игра после удаления проиграна" />
+                <UiInput id="scoring-tech-foul" size="low" v-model.number="scoring.tech_foul" type="number" step="0.01"
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Технический фол" />
+                <UiInput id="scoring-second-tech-foul-lost" size="low" v-model.number="scoring.second_tech_foul_lost" type="number" step="0.01"
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="2-й технический фол: игра после удаления проиграна" />
+                <UiInput id="scoring-suicide" size="low" v-model.number="scoring.suicide" type="number" step="0.01"
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Самоубийство" />
+                <UiInput id="scoring-suicide-lost" size="low" v-model.number="scoring.suicide_lost" type="number" step="0.01"
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Самоубийство: игра после удаления проиграна" />
+              </div>
+            </div>
+            <div class="block">
+              <div class="field-stack">
+                <UiInput id="scoring-best-move-black-0" size="low" v-model.number="scoring.best_move_black_0" type="number" step="0.01"
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Лучший ход красного: 0 чёрных" />
+                <UiInput id="scoring-best-move-black-1" size="low" v-model.number="scoring.best_move_black_1" type="number" step="0.01"
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Лучший ход красного: 1 чёрный" />
+                <UiInput id="scoring-best-move-black-2" size="low" v-model.number="scoring.best_move_black_2" type="number" step="0.01"
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Лучший ход красного: 2 чёрных" />
+                <UiInput id="scoring-best-move-black-3" size="low" v-model.number="scoring.best_move_black_3" type="number" step="0.01"
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Лучший ход красного: 3 чёрных" />
+              </div>
+              <div class="bulk-admin-actions">
+                <button class="btn dark width-full" :disabled="savingScoring || !isScoringDirty" @click="loadScoring">Отменить изменения</button>
+                <button class="btn confirm width-full" :disabled="savingScoring || !isScoringDirty" @click="saveScoring">
+                  {{ savingScoring ? 'Сохранение…' : 'Сохранить скоринг' }}
+                </button>
               </div>
             </div>
           </div>
@@ -1115,6 +1158,19 @@ type GameSettings = {
   game_roles_reveal_seconds: number
 }
 
+type GameScoringSettings = {
+  fourth_foul: number
+  fourth_foul_lost: number
+  tech_foul: number
+  second_tech_foul_lost: number
+  suicide: number
+  suicide_lost: number
+  best_move_black_0: number
+  best_move_black_1: number
+  best_move_black_2: number
+  best_move_black_3: number
+}
+
 type EditableSanctionRule = {
   text: string
   badge: SanctionBadgeKey | null
@@ -1329,7 +1385,7 @@ type RoomFilter = 'all' | 'stream_only' | 'hidden_only' | 'has_games' | 'duo_onl
 const route = useRoute()
 const router = useRouter()
 
-const TAB_KEYS = ['settings', 'rules', 'updates', 'stats', 'logs', 'rooms', 'users', 'sanctions', 'contact_requests', 'subscriptions'] as const
+const TAB_KEYS = ['settings', 'scoring', 'rules', 'updates', 'stats', 'logs', 'rooms', 'users', 'sanctions', 'contact_requests', 'subscriptions'] as const
 type TabKey = typeof TAB_KEYS[number]
 const PAGE_LIMIT_OPTIONS = [
   { value: 20, label: '20' },
@@ -1351,6 +1407,7 @@ function normalizeTab(v: unknown): TabKey {
 const activeTab = ref<TabKey>('stats')
 const loading = ref(false)
 const savingSettings = ref(false)
+const savingScoring = ref(false)
 const savingRules = ref(false)
 const statsLoading = ref(false)
 const logsLoading = ref(false)
@@ -1399,12 +1456,26 @@ const game = reactive<GameSettings>({
   game_roles_reveal_seconds: 5,
 })
 
+const scoring = reactive<GameScoringSettings>({
+  fourth_foul: -0.25,
+  fourth_foul_lost: -0.4,
+  tech_foul: -0.15,
+  second_tech_foul_lost: -0.35,
+  suicide: -0.3,
+  suicide_lost: -0.5,
+  best_move_black_0: -0.1,
+  best_move_black_1: 0,
+  best_move_black_2: 0.2,
+  best_move_black_3: 0.4,
+})
+
 const settingsStore = useSettingsStore()
 const userStore = useUserStore()
 const viewerUserId = computed(() => normalizeMiniProfileUserId(userStore.user?.id))
 const roomGamesTooltipEnabled = computed(() => settingsStore.roomsLimitGlobal !== 22)
 const siteSnapshot = ref('')
 const gameSnapshot = ref('')
+const scoringSnapshot = ref('')
 const sanctionRulesEditor = ref<EditableSanctionRulesSection[]>([])
 const sanctionRulesSnapshot = ref('')
 const sanctionBadgeOptions = (Object.entries(SANCTION_BADGES) as [SanctionBadgeKey, { code: string; notation?: string }][])
@@ -1661,6 +1732,13 @@ function normalizePercent(value: number): number {
   return n
 }
 
+function normalizeScoringValue(value: unknown): number {
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed)) return 0
+  const bounded = Math.max(-10, Math.min(10, parsed))
+  return Math.round(bounded * 100) / 100
+}
+
 function normalizeRoomUsers(value: unknown): RoomUserStat[] {
   if (!Array.isArray(value)) return []
   return value
@@ -1730,9 +1808,25 @@ function snapshotGame(): string {
   })
 }
 
+function snapshotScoring(): string {
+  return JSON.stringify({
+    fourth_foul: normalizeScoringValue(scoring.fourth_foul),
+    fourth_foul_lost: normalizeScoringValue(scoring.fourth_foul_lost),
+    tech_foul: normalizeScoringValue(scoring.tech_foul),
+    second_tech_foul_lost: normalizeScoringValue(scoring.second_tech_foul_lost),
+    suicide: normalizeScoringValue(scoring.suicide),
+    suicide_lost: normalizeScoringValue(scoring.suicide_lost),
+    best_move_black_0: normalizeScoringValue(scoring.best_move_black_0),
+    best_move_black_1: normalizeScoringValue(scoring.best_move_black_1),
+    best_move_black_2: normalizeScoringValue(scoring.best_move_black_2),
+    best_move_black_3: normalizeScoringValue(scoring.best_move_black_3),
+  })
+}
+
 const isSiteDirty = computed(() => siteSnapshot.value !== snapshotSite())
 const isGameDirty = computed(() => gameSnapshot.value !== snapshotGame())
 const isSettingsDirty = computed(() => isSiteDirty.value || isGameDirty.value)
+const isScoringDirty = computed(() => scoringSnapshot.value !== snapshotScoring())
 const isRulesDirty = computed(() => sanctionRulesSnapshot.value !== snapshotSanctionRules())
 const logsPages = computed(() => Math.max(1, Math.ceil(logsTotal.value / logsLimit.value)))
 const roomsPages = computed(() => Math.max(1, Math.ceil(roomsTotal.value / roomsLimit.value)))
@@ -2379,6 +2473,46 @@ async function loadSettings(): Promise<void> {
     gameSnapshot.value = snapshotGame()
   } finally {
     loading.value = false
+  }
+}
+
+async function loadScoring(): Promise<void> {
+  loading.value = true
+  try {
+    const { data } = await api.get('/admin/scoring')
+    Object.assign(scoring, data || {})
+    scoring.fourth_foul = normalizeScoringValue(scoring.fourth_foul)
+    scoring.fourth_foul_lost = normalizeScoringValue(scoring.fourth_foul_lost)
+    scoring.tech_foul = normalizeScoringValue(scoring.tech_foul)
+    scoring.second_tech_foul_lost = normalizeScoringValue(scoring.second_tech_foul_lost)
+    scoring.suicide = normalizeScoringValue(scoring.suicide)
+    scoring.suicide_lost = normalizeScoringValue(scoring.suicide_lost)
+    scoring.best_move_black_0 = normalizeScoringValue(scoring.best_move_black_0)
+    scoring.best_move_black_1 = normalizeScoringValue(scoring.best_move_black_1)
+    scoring.best_move_black_2 = normalizeScoringValue(scoring.best_move_black_2)
+    scoring.best_move_black_3 = normalizeScoringValue(scoring.best_move_black_3)
+    scoringSnapshot.value = snapshotScoring()
+  } catch {
+    void alertDialog('Не удалось загрузить настройки скоринга')
+    scoringSnapshot.value = snapshotScoring()
+  } finally {
+    loading.value = false
+  }
+}
+
+async function saveScoring(): Promise<void> {
+  if (savingScoring.value || !isScoringDirty.value) return
+  savingScoring.value = true
+  try {
+    const payload = JSON.parse(snapshotScoring()) as GameScoringSettings
+    const { data } = await api.patch('/admin/scoring', payload)
+    Object.assign(scoring, data || {})
+    scoringSnapshot.value = snapshotScoring()
+    void alertDialog('Настройки скоринга сохранены')
+  } catch {
+    void alertDialog('Не удалось сохранить настройки скоринга')
+  } finally {
+    savingScoring.value = false
   }
 }
 
@@ -3267,6 +3401,10 @@ function refreshActiveTab(tab: typeof activeTab.value): void {
   }
   if (tab === 'settings') {
     void loadSettings()
+    return
+  }
+  if (tab === 'scoring') {
+    void loadScoring()
     return
   }
   if (tab === 'updates') {

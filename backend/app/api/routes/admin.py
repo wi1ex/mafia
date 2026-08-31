@@ -28,6 +28,7 @@ from ...realtime.utils import (
     stop_screen_for_user,
     emit_rooms_occupancy_safe,
     perform_game_end,
+    recalculate_game_points,
     record_spectator_leave,
 )
 from ...security.decorators import log_route, require_protected_admin_dep
@@ -35,7 +36,10 @@ from ...security.auth_tokens import get_identity
 from ...security.parameters import ensure_app_settings, sync_cache_from_row, refresh_app_settings, get_cached_settings
 from ...services.livekit import remove_livekit_participant
 from ...services.user_cache import refresh_user_profile_cache, get_user_profiles_cached
-from ...services.game_scoring import RATING_MODE, calculate_game_points, normalize_game_mode
+from ...services.game_scoring import (
+    build_game_scoring_rules_snapshot,
+    ensure_game_scoring_settings,
+)
 from ...services.profile_theme import (
     compute_subscription_end,
     compute_subscription_reduced_end,
@@ -76,6 +80,8 @@ from ...schemas.user import UserGamesHistoryOut, UserStatsOut
 from ...schemas.admin import (
     AdminSettingsOut,
     AdminSettingsUpdateIn,
+    GameScoringSettingsOut,
+    GameScoringSettingsUpdateIn,
     SanctionRulesOut,
     SanctionRulesUpdateIn,
     AdminUpdateNotificationIn,
@@ -203,7 +209,6 @@ from ..utils import (
     build_nickname_reset_notice,
     emit_nickname_reset_notice,
     emit_notify,
-    schedule_user_telegram_notice,
     emit_sanctions_update,
     send_sanction_finished_telegram_notice,
     refresh_rooms_after,
@@ -432,6 +437,36 @@ async def update_settings(payload: AdminSettingsUpdateIn, session: AsyncSession 
     )
 
     return AdminSettingsOut(site=site_settings_out(row), game=game_settings_out(row))
+
+
+@router.get("/scoring", response_model=GameScoringSettingsOut, dependencies=ADMIN_GUARD)
+@log_route("admin.scoring_get")
+async def get_game_scoring_settings(session: AsyncSession = Depends(get_session)) -> GameScoringSettingsOut:
+    row = await ensure_game_scoring_settings(session)
+    return GameScoringSettingsOut.model_validate(build_game_scoring_rules_snapshot(row.rules))
+
+
+@router.patch("/scoring", response_model=GameScoringSettingsOut, dependencies=ADMIN_GUARD)
+@log_route("admin.scoring_update")
+async def update_game_scoring_settings(payload: GameScoringSettingsUpdateIn, session: AsyncSession = Depends(get_session), ident: Identity = Depends(require_protected_admin_dep)) -> GameScoringSettingsOut:
+    row = await ensure_game_scoring_settings(session)
+    incoming = payload.model_dump(exclude_unset=True)
+    next_rules = build_game_scoring_rules_snapshot({**row.rules, **incoming})
+    changed = row.rules != next_rules
+    if changed:
+        row.rules = next_rules
+        await log_action(
+            session,
+            user_id=int(ident["id"]),
+            username=ident["username"],
+            action="admin_game_scoring_update",
+            details=f"Обновление правил скоринга keys={','.join(sorted(incoming))}",
+            commit=False,
+        )
+        await session.commit()
+        await session.refresh(row)
+
+    return GameScoringSettingsOut.model_validate(build_game_scoring_rules_snapshot(row.rules))
 
 
 @router.post("/home-carousel-banner", response_model=PublicSettingsOut, dependencies=ADMIN_GUARD)
@@ -1064,17 +1099,7 @@ async def update_game_result(game_id: int, payload: AdminGameResultUpdateIn, ide
     if prev_result_raw != next_result:
         cache_user_ids = game_stats_cache_user_ids(game)
         game.result = next_result
-        if normalize_game_mode(getattr(game, "mode", "normal")) == RATING_MODE:
-            game.points = calculate_game_points(
-                mode=getattr(game, "mode", "normal"),
-                result=next_result,
-                roles=getattr(game, "roles", {}) or {},
-                player_ids=(getattr(game, "roles", {}) or {}).keys(),
-                actions=getattr(game, "actions", []) or [],
-            )
-        else:
-            game.points = {}
-            game.mmr = {}
+        recalculate_game_points(game)
         await log_action(
             session,
             user_id=int(ident["id"]),
@@ -1155,6 +1180,7 @@ async def update_game_ppk(game_id: int, payload: AdminGamePpkUpdateIn, ident: Id
 
     if changed:
         game.actions = actions
+        recalculate_game_points(game)
         await log_action(
             session,
             user_id=int(ident["id"]),
@@ -1288,6 +1314,7 @@ async def update_game_foul_removals(game_id: int, payload: AdminGameFoulRemovals
 
     if changed:
         game.actions = next_actions
+        recalculate_game_points(game)
         await log_action(
             session,
             user_id=int(ident["id"]),

@@ -44,7 +44,30 @@ from ..services.livekit import remove_livekit_participant
 from ..services.profile_theme import resolve_profile_theme_state
 from ..services.user_cache import get_user_profile_cached, get_user_profiles_cached
 from ..services.user_stats import invalidate_user_game_stats_cache_for_users
-from ..services.game_scoring import RATING_MODE, calculate_game_points, normalize_game_mode
+from ..services.game_scoring import (
+    RATING_MODE,
+    calculate_game_points,
+    get_game_scoring_rules_snapshot,
+    normalize_game_mode,
+    parse_game_scoring_rules_snapshot,
+)
+
+
+def recalculate_game_points(game: Game) -> None:
+    if normalize_game_mode(getattr(game, "mode", "normal")) == RATING_MODE:
+        game.points = calculate_game_points(
+            mode=getattr(game, "mode", "normal"),
+            result=getattr(game, "result", ""),
+            roles=getattr(game, "roles", {}) or {},
+            player_ids=(getattr(game, "roles", {}) or {}).keys(),
+            actions=getattr(game, "actions", []) or [],
+            scoring_rules=getattr(game, "scoring_rules", {}) or {},
+        )
+        return
+
+    game.points = {}
+    game.mmr = {}
+
 
 __all__ = [
     "KEYS_STATE",
@@ -64,6 +87,7 @@ __all__ = [
     "fetch_active_sanctions",
     "fetch_active_users_by_kind",
     "GameActionContext",
+    "recalculate_game_points",
     "build_game_context",
     "validate_auth",
     "SocketIdentity",
@@ -4547,6 +4571,35 @@ def farewell_finishes_game(red_alive_cnt: int, black_alive_cnt: int) -> bool:
     return black_alive_cnt >= red_alive_cnt
 
 
+def player_lost_after_removal_from_snapshot(
+    raw_roles: Mapping[str | int, Any],
+    alive_ids: Iterable[int],
+    player_uid: int,
+    *,
+    phase: str = "",
+) -> bool:
+    role = raw_roles.get(str(player_uid), raw_roles.get(player_uid, ""))
+    role_name = str(role or "").strip().lower()
+    red_alive_cnt, black_alive_cnt = count_alive_teams(raw_roles, alive_ids)
+    result = ""
+
+    if farewell_finishes_game(red_alive_cnt, black_alive_cnt):
+        result = "red" if black_alive_cnt <= 0 else "black"
+
+    if not result and phase == "vote" and farewell_finishes_game(
+        max(red_alive_cnt - 1, 0), black_alive_cnt
+    ):
+        result = "black"
+
+    if role_name in ("citizen", "sheriff"):
+        return result == "black"
+
+    if role_name in ("mafia", "don"):
+        return result == "red"
+
+    return False
+
+
 def count_alive_teams(raw_roles: Mapping[str | int, Any], alive_ids: Iterable[int], *, excluded_ids: Iterable[int] = ()) -> tuple[int, int]:
     excluded = set(excluded_ids)
     red_alive_cnt = 0
@@ -5690,6 +5743,21 @@ async def process_player_death(r, rid: int, user_id: int, *, head_uid: int | Non
             "target_id": user_id,
             "day": day_number,
         }
+        if reason in ("foul", "suicide"):
+            game_lost_after = bool(ppk and reason == "foul")
+            if not game_lost_after:
+                try:
+                    raw_roles = await r.hgetall(f"room:{rid}:game_roles")
+                    alive_ids = await smembers_ints(r, f"room:{rid}:game_alive")
+                    game_lost_after = player_lost_after_removal_from_snapshot(
+                        raw_roles or {},
+                        alive_ids,
+                        user_id,
+                        phase=str(raw_state.get("phase") or ""),
+                    )
+                except Exception:
+                    log.exception("process_player_death.loss_after_load_failed", rid=rid, uid=user_id)
+            action["game_lost_after"] = game_lost_after
         if reason == "vote":
             voters: list[int] = []
             votes = await get_last_votes_snapshot(r, rid)
@@ -5908,6 +5976,7 @@ async def finish_game(r, rid: int, *, result: str, head_uid: int | None = None, 
         log.exception("game_finish.load_game_params_failed", rid=rid)
         raw_game = {}
     game_mode = normalize_game_mode((raw_game or {}).get("mode"))
+    scoring_rules = parse_game_scoring_rules_snapshot(raw_state.get("scoring_rules")) or {}
     points_map: dict[str, float] = {}
     mmr_map: dict[str, int] = {}
     if game_mode == RATING_MODE:
@@ -5917,6 +5986,7 @@ async def finish_game(r, rid: int, *, result: str, head_uid: int | None = None, 
             roles=roles_map,
             player_ids=player_ids,
             actions=actions,
+            scoring_rules=scoring_rules,
         )
         mmr_map = {str(uid): 0 for uid in player_ids}
 
@@ -5961,6 +6031,7 @@ async def finish_game(r, rid: int, *, result: str, head_uid: int | None = None, 
                     roles=roles_map,
                     seats=seats_map,
                     points=points_map,
+                    scoring_rules=scoring_rules,
                     mmr=mmr_map,
                     actions=actions,
                     black_alive_at_finish=black_alive_at_finish,
@@ -7372,6 +7443,15 @@ async def game_start_unlocked(sid, data) -> GameStartAck:
                 )
             with suppress(Exception):
                 await emit_rooms_upsert_safe(r, rid)
+        scoring_rules_snapshot: dict[str, float | int] = {}
+        if game_mode == RATING_MODE:
+            try:
+                async with SessionLocal() as session:
+                    scoring_rules_snapshot = await get_game_scoring_rules_snapshot(session)
+            except Exception:
+                log.exception("game_start.scoring_rules_load_failed", rid=rid)
+                return {"ok": False, "error": "internal", "status": 500}
+
         nominate_mode = str(raw_game.get("nominate_mode") or "players")
         if nominate_mode not in ("players", "head"):
             nominate_mode = "players"
@@ -7457,6 +7537,7 @@ async def game_start_unlocked(sid, data) -> GameStartAck:
                              "best_move_uid": "0",
                              "best_move_active": "0",
                              "best_move_targets": "",
+                             "scoring_rules": json.dumps(scoring_rules_snapshot, ensure_ascii=True, separators=(",", ":")),
                          })
             if seats:
                 await p.hset(f"room:{rid}:game_seats", mapping={k: str(v) for k, v in seats.items()})

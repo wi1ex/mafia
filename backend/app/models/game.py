@@ -1,6 +1,6 @@
 from __future__ import annotations
 from datetime import datetime
-from sqlalchemy import DateTime, Integer, String, BigInteger
+from sqlalchemy import DateTime, Integer, String, BigInteger, JSON, func
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import JSONB
 from ..core.db import Base
@@ -21,5 +21,14 @@ class Game(Base):
     roles: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
     seats: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
     points: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
+    scoring_rules: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
     mmr: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
     actions: Mapped[list] = mapped_column(JSONB, nullable=False, default=list, server_default="[]")
+
+
+class GameScoringSettings(Base):
+    __tablename__ = "game_scoring_settings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    rules: Mapped[dict] = mapped_column(JSON, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())

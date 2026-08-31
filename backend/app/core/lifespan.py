@@ -5,6 +5,7 @@ from typing import AsyncIterator
 from sqlalchemy import text
 from ..security.admin_guard import assert_protected_admin_invariants
 from ..security.parameters import ensure_app_settings
+from ..services.game_scoring import ensure_game_scoring_settings
 from ..services.sanction_rules import ensure_sanction_rules
 from .background_tasks import LifespanBackgroundTasks, verify_runtime_dependencies
 from .clients import close_clients, init_clients
@@ -38,10 +39,17 @@ async def lifespan(app) -> AsyncIterator[None]:
             # Games recorded before this feature have no reliable mode snapshot and
             # must never participate in rating calculations.
             await conn.execute(text("UPDATE games SET mode = 'normal' WHERE mode IS NULL"))
+            await conn.execute(
+                text(
+                    "ALTER TABLE games "
+                    "ADD COLUMN IF NOT EXISTS scoring_rules JSONB NOT NULL DEFAULT '{}'::jsonb"
+                )
+            )
 
 
         async with SessionLocal() as session:
             await ensure_app_settings(session)
+            await ensure_game_scoring_settings(session)
             await ensure_sanction_rules(session)
             await assert_protected_admin_invariants(session)
 

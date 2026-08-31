@@ -149,6 +149,32 @@ class AdminSettingsUpdateIn(BaseModel):
     game: Optional[GameSettingsUpdateIn] = None
 
 
+class GameScoringSettingsOut(BaseModel):
+    fourth_foul: float
+    fourth_foul_lost: float
+    tech_foul: float
+    second_tech_foul_lost: float
+    suicide: float
+    suicide_lost: float
+    best_move_black_0: float
+    best_move_black_1: float
+    best_move_black_2: float
+    best_move_black_3: float
+
+
+class GameScoringSettingsUpdateIn(BaseModel):
+    fourth_foul: Optional[float] = Field(default=None, ge=-10, le=10)
+    fourth_foul_lost: Optional[float] = Field(default=None, ge=-10, le=10)
+    tech_foul: Optional[float] = Field(default=None, ge=-10, le=10)
+    second_tech_foul_lost: Optional[float] = Field(default=None, ge=-10, le=10)
+    suicide: Optional[float] = Field(default=None, ge=-10, le=10)
+    suicide_lost: Optional[float] = Field(default=None, ge=-10, le=10)
+    best_move_black_0: Optional[float] = Field(default=None, ge=-10, le=10)
+    best_move_black_1: Optional[float] = Field(default=None, ge=-10, le=10)
+    best_move_black_2: Optional[float] = Field(default=None, ge=-10, le=10)
+    best_move_black_3: Optional[float] = Field(default=None, ge=-10, le=10)
+
+
 class AdminUpdateNotificationIn(BaseModel):
     title: str = Field(min_length=1, max_length=64)
     text: str = Field(min_length=1, max_length=4096)
