@@ -16,7 +16,7 @@ from ..api.utils import (
 from ..models.user import User
 from ..security.parameters import refresh_app_settings
 from ..services.minio import delete_stale_pending_chat_images_async, ensure_bucket
-from ..services.nickname_limits import reset_monthly_nickname_change_limits
+from ..services.nickname import reset_monthly_nickname_change_limits
 from ..services.telegram import get_telegram_nickname
 from .clients import get_redis
 from .db import SessionLocal

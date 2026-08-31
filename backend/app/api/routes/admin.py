@@ -47,7 +47,7 @@ from ...services.profile_theme import (
     resolve_profile_theme_state,
     resolve_profile_theme_states,
 )
-from ...services.nickname_limits import (
+from ...services.nickname import (
     SUBSCRIPTION_EXPIRED_NICKNAME_CHANGE_RESET,
     SUBSCRIPTION_NICKNAME_CHANGE_LIMIT,
     FREE_NICKNAME_CHANGE_LIMIT,
@@ -73,8 +73,8 @@ from ...services.minio import (
     put_home_carousel_banner_async,
 )
 from ...services.blacklist import clear_user_blacklist
-from ...services.sanction_rules import ensure_sanction_rules
-from ...services.nickname_history import prepend_nickname_history
+from ...models.sanction_rules import ensure_sanction_rules
+from ...services.nickname import prepend_nickname_history
 from ...schemas.common import Ok, Identity
 from ...schemas.user import UserGamesHistoryOut, UserStatsOut
 from ...schemas.admin import (

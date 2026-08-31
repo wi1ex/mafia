@@ -12,8 +12,7 @@ from ..core.db import SessionLocal
 from ..core.settings import settings
 from ..core.roles import ROLE_ADMIN, ROLE_MODER, normalize_user_role
 from ..security.admin_guard import normalize_protected_admin_role
-from ..services.presence import touch_user_activity
-from ..services.user_cache import read_user_profile_cache, refresh_user_profile_cache
+from ..services.user_cache import read_user_profile_cache, refresh_user_profile_cache, touch_user_activity
 from ..schemas.common import Identity
 
 log = structlog.get_logger()

@@ -6,7 +6,7 @@ from sqlalchemy import text
 from ..security.admin_guard import assert_protected_admin_invariants
 from ..security.parameters import ensure_app_settings
 from ..services.game_scoring import ensure_game_scoring_settings
-from ..services.sanction_rules import ensure_sanction_rules
+from ..models.sanction_rules import ensure_sanction_rules
 from .background_tasks import LifespanBackgroundTasks, verify_runtime_dependencies
 from .clients import close_clients, init_clients
 from .db import Base, SessionLocal, engine

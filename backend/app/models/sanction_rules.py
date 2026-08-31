@@ -3,6 +3,8 @@ from copy import deepcopy
 from datetime import datetime
 from typing import Any
 from sqlalchemy import DateTime, Integer, JSON, func
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
 from ..core.db import Base
 
@@ -89,3 +91,23 @@ class SanctionRulesConfig(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
     sections: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+
+async def ensure_sanction_rules(session: AsyncSession) -> SanctionRulesConfig:
+    row = await session.get(SanctionRulesConfig, 1)
+    if row is not None:
+        return row
+
+    row = SanctionRulesConfig(id=1, sections=default_sanction_rules())
+    session.add(row)
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        row = await session.get(SanctionRulesConfig, 1)
+        if row is None:
+            raise
+    else:
+        await session.refresh(row)
+
+    return row

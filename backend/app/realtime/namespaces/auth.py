@@ -5,7 +5,7 @@ from ..utils import validate_auth
 from ..connections import register_user_socket, unregister_user_socket
 from ...api.utils import check_sanctions_expired, emit_auth_profile_sync
 from ...security.decorators import rate_limited_sio
-from ...services.presence import touch_user_activity
+from ...services.user_cache import touch_user_activity
 from ...services.global_chat import emit_global_chat_unread_count
 
 log = structlog.get_logger()

@@ -40,8 +40,7 @@ from ...services.global_chat import (
     emit_global_chat_sanction_issued_notice,
     emit_global_chat_sanction_removed_notice,
 )
-from ...services.nickname_history import prepend_nickname_history
-from ...services.nickname_limits import FREE_NICKNAME_CHANGE_LIMIT, set_user_nickname_changes
+from ...services.nickname import FREE_NICKNAME_CHANGE_LIMIT, prepend_nickname_history, set_user_nickname_changes
 from ...services.user_cache import refresh_user_profile_cache
 from ..utils import (
     SANCTION_BAN,

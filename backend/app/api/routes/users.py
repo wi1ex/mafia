@@ -132,8 +132,9 @@ from ...services.profile_theme import (
     upsert_profile_theme_preference,
 )
 from ...services.blacklist import blacklist_relation
-from ...services.nickname_limits import MAX_NICKNAME_CHANGE_LIMIT, normalize_nickname_changes_left
-from ...services.nickname_history import (
+from ...services.nickname import (
+    MAX_NICKNAME_CHANGE_LIMIT,
+    normalize_nickname_changes_left,
     build_nickname_history_out,
     prepend_nickname_history,
     serialize_nickname_history,

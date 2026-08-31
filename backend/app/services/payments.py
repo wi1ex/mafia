@@ -22,7 +22,7 @@ from ..models.kassa_payment import KassaPayment
 from ..models.subscription import UserSubscription
 from ..models.user import User
 from ..schemas.payments import KassaPaymentLinkCreateIn, KassaPaymentLinkCreateOut
-from .nickname_limits import (
+from .nickname import (
     SUBSCRIPTION_NICKNAME_CHANGE_LIMIT,
     normalize_nickname_changes_left,
     set_user_nickname_changes,

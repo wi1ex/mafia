@@ -39,7 +39,7 @@ from ..services.user_cache import (
     invalidate_avatar_presign_cache,
 )
 from ..services.profile_theme import ensure_profile_theme_defaults, resolve_profile_theme_state
-from ..services.nickname_limits import (
+from ..services.nickname import (
     normalize_nickname_changes_left,
     reset_nickname_changes_after_subscription_expired,
 )
