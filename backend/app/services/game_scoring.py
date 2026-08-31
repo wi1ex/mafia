@@ -13,10 +13,12 @@ DECISIVE_RESULTS = {"red", "black"}
 RED_ROLES = {"citizen", "sheriff"}
 BLACK_ROLES = {"mafia", "don"}
 POINTS_QUANTUM = Decimal("0.01")
-GAME_SCORING_RULES_VERSION = 2
-LEGACY_GAME_SCORING_RULES_VERSION = 1
+GAME_SCORING_RULES_VERSION = 3
+LEGACY_GAME_SCORING_RULES_VERSIONS = frozenset({1, 2})
 
 GAME_SCORING_RULE_DEFAULTS: dict[str, Decimal] = {
+    "additional_points_min": Decimal("-1.00"),
+    "additional_points_max": Decimal("1.00"),
     "fourth_foul": Decimal("-0.25"),
     "fourth_foul_lost": Decimal("-0.40"),
     "tech_foul": Decimal("-0.15"),
@@ -112,13 +114,14 @@ def parse_game_scoring_rules_snapshot(raw: object) -> dict[str, float | int] | N
     if version == GAME_SCORING_RULES_VERSION:
         return build_game_scoring_rules_snapshot(raw)
 
-    if version != LEGACY_GAME_SCORING_RULES_VERSION:
+    if version not in LEGACY_GAME_SCORING_RULES_VERSIONS:
         return None
 
     legacy_snapshot = build_game_scoring_rules_snapshot(raw)
-    legacy_snapshot["version"] = LEGACY_GAME_SCORING_RULES_VERSION
-    for key in NEW_ACTION_RULE_KEYS:
-        legacy_snapshot[key] = 0.0
+    legacy_snapshot["version"] = version
+    if version == 1:
+        for key in NEW_ACTION_RULE_KEYS:
+            legacy_snapshot[key] = 0.0
     return legacy_snapshot
 
 
@@ -436,6 +439,16 @@ def _apply_action_points(
         points[actor_id] += rule_values[f"best_move_black_{black_count}"]
 
 
+def _additional_points_bounds(rules: Mapping[str, float | int]) -> tuple[Decimal, Decimal]:
+    lower = _as_decimal(rules.get("additional_points_min"))
+    upper = _as_decimal(rules.get("additional_points_max"))
+    if lower is None:
+        lower = GAME_SCORING_RULE_DEFAULTS["additional_points_min"]
+    if upper is None:
+        upper = GAME_SCORING_RULE_DEFAULTS["additional_points_max"]
+    return (lower, upper) if lower <= upper else (upper, lower)
+
+
 def calculate_game_points(
     *,
     mode: object,
@@ -449,16 +462,20 @@ def calculate_game_points(
         return {}
 
     players = _normalize_user_ids(player_ids)
-    points = {user_id: Decimal("0") for user_id in players}
+    base_points = {user_id: Decimal("0") for user_id in players}
     normalized_result = str(result or "").strip().lower()
 
     if normalized_result in DECISIVE_RESULTS:
         for user_id in players:
             if _wins(_role_for_user(roles, user_id), normalized_result):
-                points[user_id] = Decimal("1")
+                base_points[user_id] = Decimal("1")
 
     active_rules = parse_game_scoring_rules_snapshot(scoring_rules)
     if active_rules is not None and actions is not None:
-        _apply_action_points(points, roles=roles, actions=actions, rules=active_rules)
+        additional_points = {user_id: Decimal("0") for user_id in players}
+        _apply_action_points(additional_points, roles=roles, actions=actions, rules=active_rules)
+        additional_min, additional_max = _additional_points_bounds(active_rules)
+        for user_id, value in additional_points.items():
+            base_points[user_id] += min(max(value, additional_min), additional_max)
 
-    return {str(user_id): normalize_game_points_value(value) for user_id, value in points.items()}
+    return {str(user_id): normalize_game_points_value(value) for user_id, value in base_points.items()}

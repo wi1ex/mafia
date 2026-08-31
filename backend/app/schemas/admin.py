@@ -150,6 +150,8 @@ class AdminSettingsUpdateIn(BaseModel):
 
 
 class GameScoringSettingsOut(BaseModel):
+    additional_points_min: float
+    additional_points_max: float
     fourth_foul: float
     fourth_foul_lost: float
     tech_foul: float
@@ -172,6 +174,8 @@ class GameScoringSettingsOut(BaseModel):
 
 
 class GameScoringSettingsUpdateIn(BaseModel):
+    additional_points_min: Optional[float] = Field(default=None, ge=-10, le=10)
+    additional_points_max: Optional[float] = Field(default=None, ge=-10, le=10)
     fourth_foul: Optional[float] = Field(default=None, ge=-10, le=10)
     fourth_foul_lost: Optional[float] = Field(default=None, ge=-10, le=10)
     tech_foul: Optional[float] = Field(default=None, ge=-10, le=10)

@@ -176,6 +176,10 @@
             <div class="block scoring-block">
               <p>Правила фиксируются при старте рейтинговой игры. Изменения применятся только к следующим запущенным рейтинг-играм.</p>
               <div class="field-stack">
+                <UiInput id="scoring-additional-points-min" size="low" v-model.number="scoring.additional_points_min" type="number" step="0.01"
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Минимум суммы доп. баллов" />
+                <UiInput id="scoring-additional-points-max" size="low" v-model.number="scoring.additional_points_max" type="number" step="0.01"
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Максимум суммы доп. баллов" />
                 <UiInput id="scoring-fourth-foul" size="low" v-model.number="scoring.fourth_foul" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="4-й фол" />
                 <UiInput id="scoring-fourth-foul-lost" size="low" v-model.number="scoring.fourth_foul_lost" type="number" step="0.01"
@@ -1173,6 +1177,8 @@ type GameSettings = {
 }
 
 type GameScoringSettings = {
+  additional_points_min: number
+  additional_points_max: number
   fourth_foul: number
   fourth_foul_lost: number
   tech_foul: number
@@ -1480,6 +1486,8 @@ const game = reactive<GameSettings>({
 })
 
 const scoring = reactive<GameScoringSettings>({
+  additional_points_min: -1,
+  additional_points_max: 1,
   fourth_foul: -0.25,
   fourth_foul_lost: -0.4,
   tech_foul: -0.15,
@@ -1842,6 +1850,8 @@ function snapshotGame(): string {
 
 function snapshotScoring(): string {
   return JSON.stringify({
+    additional_points_min: normalizeScoringValue(scoring.additional_points_min),
+    additional_points_max: normalizeScoringValue(scoring.additional_points_max),
     fourth_foul: normalizeScoringValue(scoring.fourth_foul),
     fourth_foul_lost: normalizeScoringValue(scoring.fourth_foul_lost),
     tech_foul: normalizeScoringValue(scoring.tech_foul),
@@ -2522,6 +2532,8 @@ async function loadScoring(): Promise<void> {
   try {
     const { data } = await api.get('/admin/scoring')
     Object.assign(scoring, data || {})
+    scoring.additional_points_min = normalizeScoringValue(scoring.additional_points_min)
+    scoring.additional_points_max = normalizeScoringValue(scoring.additional_points_max)
     scoring.fourth_foul = normalizeScoringValue(scoring.fourth_foul)
     scoring.fourth_foul_lost = normalizeScoringValue(scoring.fourth_foul_lost)
     scoring.tech_foul = normalizeScoringValue(scoring.tech_foul)

@@ -452,6 +452,12 @@ async def update_game_scoring_settings(payload: GameScoringSettingsUpdateIn, ses
     row = await ensure_game_scoring_settings(session)
     incoming = payload.model_dump(exclude_unset=True)
     next_rules = build_game_scoring_rules_snapshot({**row.rules, **incoming})
+    if next_rules["additional_points_min"] > next_rules["additional_points_max"]:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="additional_points_min_must_not_exceed_max",
+        )
+
     changed = row.rules != next_rules
     if changed:
         row.rules = next_rules
