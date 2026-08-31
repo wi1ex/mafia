@@ -2292,7 +2292,7 @@ onBeforeUnmount(() => {
                 color: $neutral-white;
                 font-family: Involve-Medium;
                 font-size: 24px;
-                line-height: 26px;
+                line-height: 30px;
                 letter-spacing: -0.48px;
                 white-space: nowrap;
                 overflow: hidden;

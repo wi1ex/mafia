@@ -4746,7 +4746,12 @@ async def compute_night_opinion_limit(r, rid: int) -> int:
     return max(farewell_formula(other_players) - 1, 0)
 
 
-async def should_require_night_opinions(r, rid: int, raw_game: Mapping[str, Any] | None = None) -> bool:
+async def should_require_night_opinions(
+    r,
+    rid: int,
+    raw_game: Mapping[str, Any] | None = None,
+    raw_state: Mapping[str, Any] | None = None,
+) -> bool:
     if raw_game is None:
         try:
             raw_game = await r.hgetall(f"room:{rid}:game")
@@ -4754,6 +4759,15 @@ async def should_require_night_opinions(r, rid: int, raw_game: Mapping[str, Any]
             raw_game = {}
 
     if str((raw_game or {}).get("mode") or "").strip().lower() != "rating":
+        return False
+
+    if raw_state is None:
+        try:
+            raw_state = await r.hgetall(f"room:{rid}:game_state")
+        except Exception:
+            raw_state = {}
+
+    if get_day_number(raw_state or {}) not in (1, 2):
         return False
 
     try:
@@ -7903,7 +7917,9 @@ async def game_phase_next_unlocked(sid, data):
                                 "draw_base_alive": str(alive_cnt)}
 
             bgm_seed = random.randint(1, 2**31 - 1) if music_enabled else 0
-            opinions_required = await should_require_night_opinions(r, rid, raw_game)
+            opinions_required = await should_require_night_opinions(
+                r, rid, raw_game, raw_gstate
+            )
             async with r.pipeline() as p:
                 mapping = build_night_reset_mapping(include_vote_meta=True)
                 mapping["bgm_seed"] = str(bgm_seed)
@@ -7957,7 +7973,9 @@ async def game_phase_next_unlocked(sid, data):
                                 "draw_base_alive": str(alive_cnt)}
 
             bgm_seed = random.randint(1, 2**31 - 1) if music_enabled else 0
-            opinions_required = await should_require_night_opinions(r, rid, raw_game)
+            opinions_required = await should_require_night_opinions(
+                r, rid, raw_game, raw_gstate
+            )
             async with r.pipeline() as p:
                 mapping = build_night_reset_mapping(include_vote_meta=False)
                 mapping["bgm_seed"] = str(bgm_seed)
