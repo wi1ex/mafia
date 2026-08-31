@@ -257,7 +257,7 @@
           <button @click="() => void onLeave()" aria-label="Покинуть комнату">
             <UiIcon class="panel-icon panel-icon-neutral leave-room-icon" :icon="iconLeaveRoom" />
           </button>
-          <button v-if="gamePhase !== 'idle' && isHead && !gameFinished" @click="endGameUi" :disabled="endingGame" aria-label="Завершить игру">
+          <button v-if="canEndGameControl" @click="endGameUi" :disabled="endingGame" aria-label="Завершить игру">
             <UiIcon class="panel-icon panel-icon-red" :icon="iconGameStop" />
           </button>
           <button v-if="canShowLeaveGameButton" @click="leaveGameUi" :aria-label="leaveGameButtonLabel">
@@ -372,7 +372,7 @@
           <button v-if="gamePhase === 'idle' && !adminSpectator && !IS_MOBILE" @click="toggleScreen" :disabled="pendingScreen || (!!screenOwnerId && screenOwnerId !== localId) || blockedSelf.screen === 1" :aria-pressed="isMyScreen">
             <UiIcon class="control-state-icon" :class="stateIconClass('screen', localId)" :icon="stateIcon('screen', localId)" label="screen" />
           </button>
-          <button v-if="gamePhase !== 'idle' && isHead && hostBlurToggleEnabled" @click="toggleHostBlur" :disabled="hostBlurPending" :aria-pressed="hostBlurActive" aria-label="Пауза">
+          <button v-if="canToggleHostBlurControl" @click="toggleHostBlur" :disabled="hostBlurPending" :aria-pressed="hostBlurActive" aria-label="Пауза">
             <UiIcon class="panel-icon" :class="hostBlurActive ? 'panel-icon-green' : 'panel-icon-neutral'" :icon="hostBlurActive ? iconPauseOn : iconPauseOff" />
               <span v-if="!IS_MOBILE" class="hot-btn">P</span>
           </button>
@@ -935,6 +935,10 @@ const isSpectatorInGame = computed(() => {
 const isSpectatorLike = computed(() => adminSpectator.value || isSpectatorInGame.value)
 const hostBlurPending = ref(false)
 const hostBlurToggleEnabled = computed(() => gamePhase.value === 'day' || gamePhase.value === 'vote')
+const canEndGameControl = computed(() => gamePhase.value !== 'idle' && isHead.value && !gameFinished.value)
+const canToggleHostBlurControl = computed(() => (
+  gamePhase.value !== 'idle' && isHead.value && hostBlurToggleEnabled.value
+))
 const hostBlurVisible = computed(() => gamePhase.value !== 'idle' && hostBlurActive.value)
 const hostBlurUsesHeadView = computed(() => isHead.value || isSpectatorInGame.value)
 const hostBlurLocksControls = computed(() => isHead.value && hostBlurActive.value)

@@ -1,16 +1,8 @@
 <template>
   <Teleport to="#desktop-teleport-root">
     <Transition name="game-versions-overlay">
-      <div
-        class="game-versions-overlay"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="game-versions-title"
-        @pointerdown.self="overlayArmed = true"
-        @pointerup.self="overlayArmed && requestSave()"
-        @pointerleave.self="overlayArmed = false"
-        @pointercancel.self="overlayArmed = false"
-      >
+      <div class="game-versions-overlay" role="dialog" aria-modal="true" aria-labelledby="game-versions-title"
+           @pointerdown.self="overlayArmed = true" @pointerup.self="overlayArmed && requestSave()" @pointerleave.self="overlayArmed = false" @pointercancel.self="overlayArmed = false">
         <section class="game-versions-modal" @click.stop>
           <header>
             <div>
@@ -26,16 +18,13 @@
             <section v-for="(version, versionIndex) in rows" :key="versionIndex" class="version-card" :class="{ 'version-card--empty': !version.claimantId }">
               <div class="version-card__heading">
                 <span>Версия {{ versionIndex + 1 }}</span>
-                <button v-if="version.claimantId" type="button" :disabled="saving" @click="cancelVersion(versionIndex)">Отменить вскрытие</button>
+                <button v-if="version.claimantId" type="button" :disabled="saving" @click="cancelVersion(versionIndex)">
+                  Отменить вскрытие
+                </button>
               </div>
 
               <label :for="`game-version-claimant-${versionIndex}`">Вскрылся шерифом</label>
-              <select
-                :id="`game-version-claimant-${versionIndex}`"
-                :value="version.claimantId"
-                :disabled="saving"
-                @change="setClaimant(versionIndex, $event)"
-              >
+              <select :id="`game-version-claimant-${versionIndex}`" :value="version.claimantId" :disabled="saving" @change="setClaimant(versionIndex, $event)">
                 <option value="">Не отмечен</option>
                 <option v-for="player in players" :key="player.id" :value="player.id" :disabled="isClaimantUsed(player.id, versionIndex)">
                   {{ player.label }}
@@ -45,42 +34,28 @@
               <template v-if="version.claimantId">
                 <div class="version-card__checks-heading">
                   <span>Проверки</span>
-                  <button type="button" :disabled="saving || version.checks.length >= maxChecksPerVersion" @click="addCheck(versionIndex)">Добавить проверку</button>
+                  <button type="button" :disabled="saving || version.checks.length >= maxChecksPerVersion" @click="addCheck(versionIndex)">
+                    Добавить проверку
+                  </button>
                 </div>
 
                 <div v-for="(check, checkIndex) in version.checks" :key="checkIndex" class="version-check">
-                  <select
-                    :value="check.targetId"
-                    :disabled="saving"
-                    :aria-label="`Проверяемый игрок в версии ${versionIndex + 1}`"
-                    @change="setCheckTarget(versionIndex, checkIndex, $event)"
-                  >
+                  <select :value="check.targetId" :disabled="saving" :aria-label="`Проверяемый игрок в версии ${versionIndex + 1}`"
+                          @change="setCheckTarget(versionIndex, checkIndex, $event)">
                     <option value="">Игрок</option>
-                    <option
-                      v-for="player in players"
-                      :key="player.id"
-                      :value="player.id"
-                      :disabled="player.id === version.claimantId || isCheckTargetUsed(player.id, versionIndex, checkIndex)"
-                    >
+                    <option v-for="player in players" :key="player.id" :value="player.id" :disabled="player.id === version.claimantId || isCheckTargetUsed(player.id, versionIndex, checkIndex)">
                       {{ player.label }}
                     </option>
                   </select>
-                  <select
-                    :value="check.verdict"
-                    :disabled="saving"
-                    :aria-label="`Результат проверки в версии ${versionIndex + 1}`"
-                    @change="setCheckVerdict(versionIndex, checkIndex, $event)"
-                  >
+                  <select :value="check.verdict" :disabled="saving" :aria-label="`Результат проверки в версии ${versionIndex + 1}`"
+                          @change="setCheckVerdict(versionIndex, checkIndex, $event)">
                     <option value="red">Красный</option>
                     <option value="black">Чёрный</option>
                   </select>
-                  <button
-                    class="version-check__remove"
-                    type="button"
-                    :disabled="saving || version.checks.length <= 1"
-                    :aria-label="`Удалить проверку ${checkIndex + 1}`"
-                    @click="removeCheck(versionIndex, checkIndex)"
-                  >×</button>
+                  <button class="version-check__remove" type="button" :disabled="saving || version.checks.length <= 1"
+                          :aria-label="`Удалить проверку ${checkIndex + 1}`" @click="removeCheck(versionIndex, checkIndex)">
+                    ×
+                  </button>
                 </div>
               </template>
             </section>
@@ -455,28 +430,11 @@ function requestSave(): void {
 
 .game-versions-overlay-enter-active,
 .game-versions-overlay-leave-active {
-  transition: opacity 0.2s ease;
+  transition: opacity 0.25s ease-in-out;
 }
 .game-versions-overlay-enter-from,
 .game-versions-overlay-leave-to {
   opacity: 0;
 }
 
-@media (max-width: 720px) {
-  .game-versions-overlay {
-    padding: 12px;
-    .game-versions-modal {
-      max-height: calc(100vh - 24px);
-      header,
-      .game-versions-modal__list,
-      footer {
-        padding-left: 16px;
-        padding-right: 16px;
-      }
-      .game-versions-modal__list {
-        grid-template-columns: 1fr;
-      }
-    }
-  }
-}
 </style>
