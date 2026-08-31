@@ -3738,14 +3738,11 @@ onBeforeUnmount(() => {
       }
       .scoring-block {
         grid-column: 1 / -1;
+        padding-top: 0;
         .field-stack {
           display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-        @media (max-width: 760px) {
-          .field-stack {
-            grid-template-columns: 1fr;
-          }
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          margin: 20px 0;
         }
       }
     }
