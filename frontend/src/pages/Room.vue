@@ -376,6 +376,9 @@
             <UiIcon class="panel-icon" :class="hostBlurActive ? 'panel-icon-green' : 'panel-icon-neutral'" :icon="hostBlurActive ? iconPauseOn : iconPauseOff" />
               <span v-if="!IS_MOBILE" class="hot-btn">P</span>
           </button>
+          <button v-if="canManageGameVersions" class="btn-text" type="button" @click="openGameVersions">
+            Версии
+          </button>
         </div>
 
         <div class="controls-side right">
@@ -488,6 +491,14 @@
         </div>
       </Transition>
 
+      <GameVersions
+        v-if="gameVersionsOpen"
+        :versions="gameVersions"
+        :players="gameVersionPlayerOptions"
+        :saving="gameVersionsSaving"
+        @save="saveGameVersions"
+      />
+
       <div v-if="mediaGateVisible" class="reconnect-overlay media-gate" @click.stop.prevent="onMediaGateClick" @touchstart.stop.prevent="onMediaGateClick" @pointerdown.stop.prevent="onMediaGateClick">
         <span class="reconnect-overlay__text">Нажмите чтобы продолжить…</span>
       </div>
@@ -528,6 +539,7 @@ import RoomTile from '@/components/RoomTile.vue'
 import RoomRequests from '@/components/RoomRequests.vue'
 import RoomSetting from '@/components/RoomSetting.vue'
 import GameParams from '@/components/GameParams.vue'
+import GameVersions from '@/components/GameVersions.vue'
 import Friends from '@/components/Friends.vue'
 import MiniProfile from '@/components/MiniProfile.vue'
 import UiSlider from '@/components/UiSlider.vue'
@@ -601,6 +613,10 @@ type RoomMiniProfileInitial = {
   role?: string | null
   theme_color?: string | null
   theme_icon?: string | null
+}
+type GameVersionPayload = {
+  claimant_id: number
+  checks: Array<{ target_id: number, verdict: 'red' | 'black' }>
 }
 
 const route = useRoute()
@@ -811,6 +827,9 @@ const friendsPanelOpen = ref(false)
 const roomFriendsEl = ref<HTMLElement | null>(null)
 const gameParamsOpen = ref(false)
 const roomGameSnapshot = ref<RoomGameParams | null>(null)
+const gameVersionsOpen = ref(false)
+const gameVersionsSaving = ref(false)
+const gameVersions = ref<GameVersionPayload[]>([])
 const uiReady = ref(false)
 const leaving = ref(false)
 const netReconnecting = ref(false)
@@ -1037,6 +1056,19 @@ const canUseReadyStart = computed(() => {
 })
 const canUseReadyToggle = computed(() => !adminSpectator.value && canUseReadyStart.value)
 const isRatingGame = computed(() => settings.ratingEnabled && roomGameSnapshot.value?.mode === 'rating')
+const canManageGameVersions = computed(() => (
+  isHead.value
+  && roomGameSnapshot.value?.mode === 'rating'
+  && gamePhase.value !== 'idle'
+  && !gameFinished.value
+))
+const gameVersionPlayerOptions = computed(() => (
+  Object.entries(seatsByUser)
+    .map(([id, rawSeat]) => ({ id: String(id), seat: Number(rawSeat) }))
+    .filter(({ id, seat }) => id && Number.isInteger(seat) && seat > 0)
+    .sort((left, right) => left.seat - right.seat)
+    .map(({ id, seat }) => ({ id, label: `Игрок ${seat}` }))
+))
 const isRatingHead = computed(() => (
   Array.isArray(userStore.user?.additional_roles)
   && userStore.user.additional_roles.some(role => String(role || '').trim().toLowerCase() === 'head_rate')
@@ -1263,6 +1295,38 @@ function openGameSettings() {
 }
 function applyRoomGameSnapshot(raw: unknown) {
   roomGameSnapshot.value = normalizeRoomGameParams(raw)
+}
+function applyGameVersions(raw: unknown): void {
+  gameVersions.value = Array.isArray(raw) ? raw as GameVersionPayload[] : []
+}
+function openGameVersions(): void {
+  if (!canManageGameVersions.value) return
+  gameVersionsOpen.value = true
+}
+async function saveGameVersions(versions: GameVersionPayload[]): Promise<void> {
+  if (gameVersionsSaving.value || !canManageGameVersions.value) return
+  gameVersionsSaving.value = true
+  try {
+    const response = await sendAck('game_versions_set', { versions })
+    if (!response?.ok) {
+      const error = String(response?.error || '')
+      const message = error === 'version_checks_required'
+        ? 'Для каждого вскрытия нужна хотя бы одна проверка'
+        : error === 'version_player_not_found'
+          ? 'В версии указан игрок, которого нет за игровым столом'
+          : error === 'rating_only'
+            ? 'Версии доступны только в рейтинг-игре'
+            : error === 'forbidden'
+              ? 'Только ведущий может изменять версии'
+              : 'Не удалось сохранить версии'
+      void alertDialog(message)
+      return
+    }
+    applyGameVersions(response.versions)
+    gameVersionsOpen.value = false
+  } finally {
+    gameVersionsSaving.value = false
+  }
 }
 function onDocClick() {
   closePanels(undefined, { keepFriendsWhenConfirm: true })
@@ -2678,6 +2742,12 @@ socket.value?.on('connect', async () => {
     if ((p as any)?.best_move?.active) rtc.forceStopBgm()
   })
 
+  socket.value.on('game_versions_update', (p: any) => {
+    const roomId = Number(p?.room_id || 0)
+    if (roomId && roomId !== rid) return
+    applyGameVersions(p?.versions)
+  })
+
   socket.value.on('game_host_blur', (p: any) => {
     game.handleGameHostBlur(p)
   })
@@ -3030,6 +3100,7 @@ function applyJoinAck(j: any) {
 
   const snapshotIds = Object.keys(j.snapshot || {})
   game.applyFromJoinAck(j, snapshotIds)
+  applyGameVersions(j?.game_runtime?.versions)
   if (musicEnabled.value) {
     rtc.setBgmSeed(j?.game_runtime?.bgm_seed, rid)
   }
@@ -3728,6 +3799,10 @@ watch(isCurrentSpeaker, async (now, was) => {
 
 watch(canViewGameSettings, (ok) => {
   if (!ok && gameParamsOpen.value) gameParamsOpen.value = false
+})
+
+watch(canManageGameVersions, (ok) => {
+  if (!ok) gameVersionsOpen.value = false
 })
 
 watch(() => [gamePhase.value, amIAlive.value, isSpectatorLike.value, adminSpectator.value, localId.value], () => {

@@ -178,6 +178,9 @@ __all__ = [
     "get_farewell_wills",
     "get_farewell_wills_for",
     "get_farewell_limits",
+    "get_game_versions",
+    "normalize_game_versions",
+    "parse_game_versions_update",
     "compute_farewell_allowed",
     "ensure_farewell_limit",
     "get_night_opinions_for",
@@ -4580,6 +4583,115 @@ async def get_farewell_wills_for(r, rid: int, speaker_uid: int) -> dict[str, str
     return all_wills.get(str(speaker_uid), {})
 
 
+GAME_VERSIONS_MAX_COUNT = 5
+GAME_VERSION_CHECKS_MAX_COUNT = 10
+
+
+def parse_game_versions_update(raw: object) -> tuple[list[dict[str, Any]] | None, str | None]:
+    if not isinstance(raw, list) or len(raw) > GAME_VERSIONS_MAX_COUNT:
+        return None, "bad_versions"
+
+    versions: list[dict[str, Any]] = []
+    claimant_ids: set[int] = set()
+    for entry in raw:
+        if not isinstance(entry, Mapping):
+            return None, "bad_versions"
+
+        try:
+            claimant_id = int(entry.get("claimant_id") or 0)
+        except (TypeError, ValueError):
+            return None, "bad_versions"
+
+        if claimant_id <= 0 or claimant_id in claimant_ids:
+            return None, "bad_versions"
+
+        raw_checks = entry.get("checks")
+        if not isinstance(raw_checks, list) or not raw_checks or len(raw_checks) > GAME_VERSION_CHECKS_MAX_COUNT:
+            return None, "version_checks_required"
+
+        checks: list[dict[str, Any]] = []
+        target_ids: set[int] = set()
+        for check in raw_checks:
+            if not isinstance(check, Mapping):
+                return None, "bad_versions"
+
+            try:
+                target_id = int(check.get("target_id") or 0)
+            except (TypeError, ValueError):
+                return None, "bad_versions"
+
+            verdict = str(check.get("verdict") or "").strip().lower()
+            if target_id <= 0 or target_id == claimant_id or target_id in target_ids or verdict not in {"red", "black"}:
+                return None, "bad_versions"
+
+            target_ids.add(target_id)
+            checks.append({"target_id": target_id, "verdict": verdict})
+
+        claimant_ids.add(claimant_id)
+        versions.append({"claimant_id": claimant_id, "checks": checks})
+
+    return versions, None
+
+
+def normalize_game_versions(raw: object) -> list[dict[str, Any]]:
+    if isinstance(raw, bytes):
+        raw = raw.decode("utf-8", "ignore")
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return []
+
+    if not isinstance(raw, list):
+        return []
+
+    versions: list[dict[str, Any]] = []
+    claimed_ids: set[int] = set()
+    for entry in raw[:GAME_VERSIONS_MAX_COUNT]:
+        if not isinstance(entry, Mapping):
+            continue
+        try:
+            claimant_id = int(entry.get("claimant_id") or 0)
+        except (TypeError, ValueError):
+            continue
+        if claimant_id <= 0 or claimant_id in claimed_ids:
+            continue
+
+        raw_checks = entry.get("checks")
+        if not isinstance(raw_checks, list):
+            continue
+        checks: list[dict[str, Any]] = []
+        target_ids: set[int] = set()
+        for check in raw_checks[:GAME_VERSION_CHECKS_MAX_COUNT]:
+            if not isinstance(check, Mapping):
+                continue
+            try:
+                target_id = int(check.get("target_id") or 0)
+            except (TypeError, ValueError):
+                continue
+            verdict = str(check.get("verdict") or "").strip().lower()
+            if target_id <= 0 or target_id == claimant_id or target_id in target_ids or verdict not in {"red", "black"}:
+                continue
+            target_ids.add(target_id)
+            checks.append({"target_id": target_id, "verdict": verdict})
+
+        if not checks:
+            continue
+        claimed_ids.add(claimant_id)
+        versions.append({"claimant_id": claimant_id, "checks": checks})
+    return versions
+
+
+async def get_game_versions(r, rid: int) -> list[dict[str, Any]]:
+    try:
+        raw = await r.get(f"room:{rid}:game_versions")
+    except Exception:
+        log.exception("game_versions.load_failed", rid=rid)
+        return []
+
+    return normalize_game_versions(raw)
+
+
 async def get_farewell_limits(r, rid: int) -> dict[str, int]:
     try:
         raw = await hgetall_int_map(r, f"room:{rid}:game_farewell_limits")
@@ -6873,6 +6985,13 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
     except Exception:
         log.exception("game_runtime.farewell_limits_failed", rid=rid)
 
+    if (
+        ctx.head_uid
+        and uid == ctx.head_uid
+        and normalize_game_mode(raw_game.get("mode")) == RATING_MODE
+    ):
+        game_runtime["versions"] = await get_game_versions(r, rid)
+
     best_move = best_move_payload_from_state(ctx)
     if best_move is not None:
         game_runtime["best_move"] = best_move
@@ -7627,6 +7746,7 @@ async def game_start_unlocked(sid, data) -> GameStartAck:
                     f"room:{rid}:game_farewell_wills",
                     f"room:{rid}:game_farewell_limits",
                     f"room:{rid}:game_night_opinions",
+                    f"room:{rid}:game_versions",
                     f"room:{rid}:game_winks_left",
                     f"room:{rid}:game_knocks_left",
                     f"room:{rid}:roles_cards",
@@ -8442,6 +8562,7 @@ async def _perform_game_end_unlocked(ctx, sess: Optional[dict[str, Any]], *, con
             f"room:{rid}:game_checked:sheriff",
             f"room:{rid}:game_farewell_wills",
             f"room:{rid}:game_farewell_limits",
+            f"room:{rid}:game_versions",
             f"room:{rid}:game_winks_left",
             f"room:{rid}:game_knocks_left",
         )

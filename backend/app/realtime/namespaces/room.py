@@ -1,5 +1,6 @@
 from __future__ import annotations
 import asyncio
+import json
 import random
 from time import time
 from typing import Any, Mapping
@@ -18,6 +19,7 @@ from ...security.parameters import get_cached_settings
 from ...schemas.realtime import StateAck, ModerateAck, JoinAck, ScreenAck, GameStartAck, GameRolePickAck, GameHostBlurAck
 from ...api.utils import game_from_redis_to_model, normalize_spectators_limit
 from ...services.blacklist import is_user_blacklisted_by, user_has_active_subscription
+from ...services.game_scoring import RATING_MODE, normalize_game_mode
 from ...services.livekit import get_livekit_room_name, make_livekit_token, remove_livekit_participant
 from ..utils import (
     SANCTION_TIMEOUT,
@@ -112,6 +114,8 @@ from ..utils import (
     get_farewell_limits,
     get_farewell_wills_for,
     ensure_farewell_limit,
+    get_game_versions,
+    parse_game_versions_update,
     get_night_opinions_for,
     compute_night_opinion_limit,
     begin_night_opinions,
@@ -151,6 +155,7 @@ log = structlog.get_logger()
 
 BG_STATE_TTL_SECONDS = 300
 ROOM_RECONNECT_GRACE_SECONDS = max(1, int(getattr(settings, "ROOM_RECONNECT_GRACE_SECONDS", 4) or 4))
+GAME_VERSIONS_ALLOWED_PHASES = ("roles_pick", "mafia_talk_start", "mafia_talk_end", "day", "vote", "night")
 
 
 @sio.event(namespace="/room")
@@ -2796,6 +2801,72 @@ async def game_farewell_mark(sid, data):
 
     except Exception:
         log.exception("sio.game_farewell_mark.error", sid=sid, data=bool(data))
+        return {"ok": False, "error": "internal", "status": 500}
+
+
+@sio.event(namespace="/room")
+@rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_versions_set:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
+async def game_versions_set(sid, data):
+    try:
+        data = data or {}
+        ctx, err = await require_ctx(sid, allowed_phases=GAME_VERSIONS_ALLOWED_PHASES, require_head=True)
+        if err:
+            return err
+
+        if ctx.gbool("game_finished"):
+            return {"ok": False, "error": "game_finished", "status": 409}
+
+        try:
+            raw_game = await ctx.r.hgetall(f"room:{ctx.rid}:game")
+        except Exception:
+            log.exception("game_versions.mode_load_failed", rid=ctx.rid)
+            return {"ok": False, "error": "internal", "status": 500}
+
+        if normalize_game_mode((raw_game or {}).get("mode")) != RATING_MODE:
+            return {"ok": False, "error": "rating_only", "status": 403}
+
+        versions, parse_error = parse_game_versions_update(data.get("versions"))
+        if parse_error or versions is None:
+            return {"ok": False, "error": parse_error or "bad_versions", "status": 400}
+
+        player_ids = await smembers_ints(ctx.r, f"room:{ctx.rid}:game_players")
+        for version in versions:
+            claimant_id = int(version["claimant_id"])
+            if claimant_id not in player_ids:
+                return {"ok": False, "error": "version_player_not_found", "status": 404}
+
+            for check in version["checks"]:
+                if int(check["target_id"]) not in player_ids:
+                    return {"ok": False, "error": "version_player_not_found", "status": 404}
+
+        current_versions = await get_game_versions(ctx.r, ctx.rid)
+        changed = current_versions != versions
+        if changed:
+            try:
+                raw_versions = json.dumps(versions, ensure_ascii=True, separators=(",", ":"))
+                await ctx.r.set(f"room:{ctx.rid}:game_versions", raw_versions)
+            except Exception:
+                log.exception("game_versions.save_failed", rid=ctx.rid, uid=ctx.uid)
+                return {"ok": False, "error": "internal", "status": 500}
+
+            await log_game_action(
+                ctx.r,
+                ctx.rid,
+                {
+                    "type": "versions",
+                    "actor_id": ctx.uid,
+                    "day": ctx.gint("day_number"),
+                    "phase": ctx.phase,
+                    "versions": versions,
+                },
+            )
+
+        payload = {"room_id": ctx.rid, "versions": versions}
+        await sio.emit("game_versions_update", payload, room=f"user:{ctx.uid}", namespace="/room")
+        return {"ok": True, "status": 200, **payload}
+
+    except Exception:
+        log.exception("sio.game_versions_set.error", sid=sid, data=bool(data))
         return {"ok": False, "error": "internal", "status": 500}
 
 

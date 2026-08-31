@@ -3200,6 +3200,35 @@ def game_action_night_opinions(uid_to_slot: dict[int, int], raw_opinions: Any, *
     return out
 
 
+def game_action_versions(uid_to_slot: dict[int, int], raw_versions: Any, *, head_uid: int = 0) -> list[str]:
+    if not isinstance(raw_versions, list):
+        return []
+
+    out: list[str] = []
+    for raw_version in raw_versions:
+        if not isinstance(raw_version, dict):
+            continue
+        claimant_label = game_action_slot_label(uid_to_slot, raw_version.get("claimant_id"), head_uid=head_uid)
+        if claimant_label == "-":
+            continue
+        raw_checks = raw_version.get("checks")
+        if not isinstance(raw_checks, list):
+            continue
+        checks: list[str] = []
+        for raw_check in raw_checks:
+            if not isinstance(raw_check, dict):
+                continue
+            target_label = game_action_slot_label(uid_to_slot, raw_check.get("target_id"), head_uid=head_uid)
+            if target_label == "-":
+                continue
+            verdict = str(raw_check.get("verdict") or "").strip().lower()
+            verdict_label = "кр" if verdict == "red" else "ч" if verdict == "black" else "-"
+            checks.append(f"{target_label} {verdict_label}")
+        if checks:
+            out.append(f"{claimant_label}: {', '.join(checks)}")
+    return out
+
+
 def game_action_check_result(checker_role: Any, target_role: Any) -> str:
     checker = str(checker_role or "").strip().lower()
     target = str(target_role or "").strip().lower()
@@ -3315,6 +3344,22 @@ def game_action_fields(action: dict[str, Any], *, uid_to_slot: dict[int, int], h
         add_field("Ночь", str(night_number) if night_number > 0 else "-")
         add_field("Мнения игроков", " | ".join(opinions) if opinions else "-")
         return "Мнения", f"Мнения игроков за ночь {night_number if night_number > 0 else '-'}", fields
+
+    if action_type == "versions":
+        phase = str(action.get("phase") or "").strip().lower()
+        phase_label = {
+            "roles_pick": "Выбор ролей",
+            "mafia_talk_start": "Договорка",
+            "mafia_talk_end": "После договорки",
+            "day": "День",
+            "vote": "Голосование",
+            "night": "Ночь",
+        }.get(phase, phase or "-")
+        versions = game_action_versions(uid_to_slot, action.get("versions"), head_uid=head_uid)
+        add_field("Этап", phase_label)
+        add_field("Кто отметил", actor_label)
+        add_field("Текущие версии", " | ".join(versions) if versions else "Нет")
+        return "Версии", f"{actor_label} обновил версии", fields
 
     if action_type == "best_move":
         targets = game_action_slot_labels(uid_to_slot, action.get("targets"), head_uid=head_uid)
