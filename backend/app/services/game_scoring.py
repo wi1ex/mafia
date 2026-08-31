@@ -13,7 +13,8 @@ DECISIVE_RESULTS = {"red", "black"}
 RED_ROLES = {"citizen", "sheriff"}
 BLACK_ROLES = {"mafia", "don"}
 POINTS_QUANTUM = Decimal("0.01")
-GAME_SCORING_RULES_VERSION = 1
+GAME_SCORING_RULES_VERSION = 2
+LEGACY_GAME_SCORING_RULES_VERSION = 1
 
 GAME_SCORING_RULE_DEFAULTS: dict[str, Decimal] = {
     "fourth_foul": Decimal("-0.25"),
@@ -26,7 +27,28 @@ GAME_SCORING_RULE_DEFAULTS: dict[str, Decimal] = {
     "best_move_black_1": Decimal("0.00"),
     "best_move_black_2": Decimal("0.20"),
     "best_move_black_3": Decimal("0.40"),
+    "night_shoot_miss": Decimal("-0.20"),
+    "night_shoot_miss_terminal": Decimal("-0.50"),
+    "vote_opponent_team": Decimal("0.10"),
+    "vote_red_terminal": Decimal("-0.20"),
+    "vote_red_terminal_3v3": Decimal("-0.30"),
+    "black_win_3v3": Decimal("0.30"),
+    "vote_lift_same_team": Decimal("-0.30"),
+    "vote_lift_opponent_team": Decimal("0.30"),
+    "black_day_under_seven": Decimal("0.10"),
 }
+
+NEW_ACTION_RULE_KEYS = frozenset({
+    "night_shoot_miss",
+    "night_shoot_miss_terminal",
+    "vote_opponent_team",
+    "vote_red_terminal",
+    "vote_red_terminal_3v3",
+    "black_win_3v3",
+    "vote_lift_same_team",
+    "vote_lift_opponent_team",
+    "black_day_under_seven",
+})
 
 
 def normalize_game_mode(raw: object) -> str:
@@ -87,10 +109,17 @@ def parse_game_scoring_rules_snapshot(raw: object) -> dict[str, float | int] | N
     except (TypeError, ValueError):
         return None
 
-    if version != GAME_SCORING_RULES_VERSION:
+    if version == GAME_SCORING_RULES_VERSION:
+        return build_game_scoring_rules_snapshot(raw)
+
+    if version != LEGACY_GAME_SCORING_RULES_VERSION:
         return None
 
-    return build_game_scoring_rules_snapshot(raw)
+    legacy_snapshot = build_game_scoring_rules_snapshot(raw)
+    legacy_snapshot["version"] = LEGACY_GAME_SCORING_RULES_VERSION
+    for key in NEW_ACTION_RULE_KEYS:
+        legacy_snapshot[key] = 0.0
+    return legacy_snapshot
 
 
 async def ensure_game_scoring_settings(session: AsyncSession) -> GameScoringSettings:
@@ -165,6 +194,22 @@ def _action_user_id(action: Mapping[str, Any], key: str) -> int:
     return user_id if user_id > 0 else 0
 
 
+def _action_user_ids(action: Mapping[str, Any], key: str) -> list[int]:
+    raw_items = action.get(key)
+    if not isinstance(raw_items, (list, tuple, set)):
+        return []
+
+    user_ids: list[int] = []
+    seen: set[int] = set()
+    for raw_user_id in raw_items:
+        user_id = _action_user_id({"user_id": raw_user_id}, "user_id")
+        if user_id <= 0 or user_id in seen:
+            continue
+        seen.add(user_id)
+        user_ids.append(user_id)
+    return user_ids
+
+
 def _action_bool(action: Mapping[str, Any], key: str) -> bool:
     raw = action.get(key)
     if isinstance(raw, bytes):
@@ -179,6 +224,16 @@ def _is_black(role: str) -> bool:
     return role in BLACK_ROLES
 
 
+def _team_for_role(role: str) -> str:
+    if role in RED_ROLES:
+        return "red"
+
+    if role in BLACK_ROLES:
+        return "black"
+
+    return ""
+
+
 def _apply_action_points(
     points: dict[int, Decimal],
     *,
@@ -186,10 +241,10 @@ def _apply_action_points(
     actions: Iterable[Mapping[str, Any]],
     rules: Mapping[str, float | int],
 ) -> None:
-    rule_values = {
-        key: _as_decimal(rules.get(key)) or default
-        for key, default in GAME_SCORING_RULE_DEFAULTS.items()
-    }
+    rule_values: dict[str, Decimal] = {}
+    for key, default in GAME_SCORING_RULE_DEFAULTS.items():
+        parsed = _as_decimal(rules.get(key))
+        rule_values[key] = default if parsed is None else parsed
     normalized_actions = [action for action in actions if isinstance(action, Mapping)]
 
     foul_loss_after: dict[int, bool] = {}
@@ -206,6 +261,105 @@ def _apply_action_points(
 
     for action in normalized_actions:
         action_type = str(action.get("type") or "").strip().lower()
+
+        if action_type == "night_shoot_result":
+            if _action_bool(action, "kill_ok"):
+                continue
+
+            shooters = [
+                user_id
+                for user_id in _action_user_ids(action, "shooters")
+                if user_id in points and _is_black(_role_for_user(roles, user_id))
+            ]
+            if len(shooters) not in (1, 2, 3):
+                continue
+
+            terminal_miss = _action_bool(action, "black_wins_if_kill")
+            if len(shooters) in (1, 2):
+                if terminal_miss:
+                    for shooter_id in shooters:
+                        points[shooter_id] += rule_values["night_shoot_miss_terminal"]
+                continue
+
+            shots_raw = action.get("shots")
+            shots = shots_raw if isinstance(shots_raw, Mapping) else {}
+            target_counts: dict[int, int] = {}
+            shot_by_shooter: dict[int, int] = {}
+            for shooter_id in shooters:
+                target_id = _action_user_id(
+                    {"target_id": shots.get(str(shooter_id), shots.get(shooter_id, 0))},
+                    "target_id",
+                )
+                shot_by_shooter[shooter_id] = target_id
+                if target_id > 0:
+                    target_counts[target_id] = target_counts.get(target_id, 0) + 1
+
+            majority_targets = [target_id for target_id, count in target_counts.items() if count == 2]
+            if len(majority_targets) != 1:
+                continue
+
+            majority_target = majority_targets[0]
+            missers = [shooter_id for shooter_id, target_id in shot_by_shooter.items() if target_id != majority_target]
+            if len(missers) != 1:
+                continue
+
+            rule_key = "night_shoot_miss_terminal" if terminal_miss else "night_shoot_miss"
+            points[missers[0]] += rule_values[rule_key]
+            continue
+
+        if action_type == "vote" and _action_bool(action, "lift"):
+            if not _action_bool(action, "passed"):
+                continue
+
+            target_ids = _action_user_ids(action, "targets")
+            if len(target_ids) < 2:
+                continue
+
+            target_teams = {_team_for_role(_role_for_user(roles, target_id)) for target_id in target_ids}
+            if "" in target_teams or len(target_teams) != 1:
+                continue
+
+            target_team = next(iter(target_teams))
+            for voter_id in _action_user_ids(action, "by"):
+                if voter_id not in points:
+                    continue
+                voter_team = _team_for_role(_role_for_user(roles, voter_id))
+                if not voter_team:
+                    continue
+                rule_key = "vote_lift_same_team" if voter_team == target_team else "vote_lift_opponent_team"
+                points[voter_id] += rule_values[rule_key]
+            continue
+
+        if action_type == "vote":
+            leaders = _action_user_ids(action, "leaders")
+            if not _action_bool(action, "will_eliminate") or len(leaders) != 1:
+                continue
+
+            target_id = leaders[0]
+            target_team = _team_for_role(_role_for_user(roles, target_id))
+            votes_raw = action.get("votes")
+            votes = votes_raw if isinstance(votes_raw, Mapping) else {}
+            voters = _action_user_ids(
+                {"by": votes.get(str(target_id), votes.get(target_id, []))},
+                "by",
+            )
+            if target_team:
+                for voter_id in voters:
+                    if voter_id not in points:
+                        continue
+                    voter_team = _team_for_role(_role_for_user(roles, voter_id))
+                    if voter_team and voter_team != target_team:
+                        points[voter_id] += rule_values["vote_opponent_team"]
+            continue
+
+        if action_type == "day_start":
+            alive_ids = _action_user_ids(action, "alive")
+            if len(alive_ids) >= 7:
+                continue
+            for user_id in alive_ids:
+                if user_id in points and _is_black(_role_for_user(roles, user_id)):
+                    points[user_id] += rule_values["black_day_under_seven"]
+            continue
 
         if action_type == "foul":
             target_id = _action_user_id(action, "target_id")
@@ -236,6 +390,28 @@ def _apply_action_points(
             if target_id in points and reason == "suicide":
                 rule_key = "suicide_lost" if _action_bool(action, "game_lost_after") else "suicide"
                 points[target_id] += rule_values[rule_key]
+
+            if (
+                reason == "vote"
+                and _action_bool(action, "vote_unique")
+                and not _action_bool(action, "vote_lift")
+                and target_id in points
+            ):
+                target_team = _team_for_role(_role_for_user(roles, target_id))
+                voters = [voter_id for voter_id in _action_user_ids(action, "by") if voter_id in points]
+                result_after = str(action.get("result_after") or "").strip().lower()
+                if target_team == "red" and result_after == "black":
+                    red_alive_after = _action_user_id(action, "red_alive_after")
+                    black_alive_after = _action_user_id(action, "black_alive_after")
+                    is_black_win_3v3 = red_alive_after == 3 and black_alive_after == 3
+                    penalty_key = "vote_red_terminal_3v3" if is_black_win_3v3 else "vote_red_terminal"
+                    for voter_id in voters:
+                        if _team_for_role(_role_for_user(roles, voter_id)) == "red":
+                            points[voter_id] += rule_values[penalty_key]
+                    if is_black_win_3v3:
+                        for user_id in points:
+                            if _is_black(_role_for_user(roles, user_id)):
+                                points[user_id] += rule_values["black_win_3v3"]
             continue
 
         if action_type != "best_move":

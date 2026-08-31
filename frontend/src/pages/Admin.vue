@@ -173,7 +173,7 @@
 
         <div v-else-if="activeTab === 'scoring'">
           <div class="grid">
-            <div class="block">
+            <div class="block scoring-block">
               <p>Правила фиксируются при старте рейтинговой игры. Изменения применятся только к следующим запущенным рейтинг-играм.</p>
               <div class="field-stack">
                 <UiInput id="scoring-fourth-foul" size="low" v-model.number="scoring.fourth_foul" type="number" step="0.01"
@@ -188,10 +188,6 @@
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Самоубийство" />
                 <UiInput id="scoring-suicide-lost" size="low" v-model.number="scoring.suicide_lost" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Самоубийство: игра после удаления проиграна" />
-              </div>
-            </div>
-            <div class="block">
-              <div class="field-stack">
                 <UiInput id="scoring-best-move-black-0" size="low" v-model.number="scoring.best_move_black_0" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Лучший ход красного: 0 чёрных" />
                 <UiInput id="scoring-best-move-black-1" size="low" v-model.number="scoring.best_move_black_1" type="number" step="0.01"
@@ -200,6 +196,24 @@
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Лучший ход красного: 2 чёрных" />
                 <UiInput id="scoring-best-move-black-3" size="low" v-model.number="scoring.best_move_black_3" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Лучший ход красного: 3 чёрных" />
+                <UiInput id="scoring-night-shoot-miss" size="low" v-model.number="scoring.night_shoot_miss" type="number" step="0.01"
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Промах отстрела: определён промахнувшийся" />
+                <UiInput id="scoring-night-shoot-miss-terminal" size="low" v-model.number="scoring.night_shoot_miss_terminal" type="number" step="0.01"
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Промах отстрела: чёрные должны победить" />
+                <UiInput id="scoring-vote-opponent-team" size="low" v-model.number="scoring.vote_opponent_team" type="number" step="0.01"
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Голос за игрока противоположной команды" />
+                <UiInput id="scoring-vote-red-terminal" size="low" v-model.number="scoring.vote_red_terminal" type="number" step="0.01"
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Красный голосует в красного: победа чёрных" />
+                <UiInput id="scoring-vote-red-terminal-3v3" size="low" v-model.number="scoring.vote_red_terminal_3v3" type="number" step="0.01"
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Красный голосует в красного: победа чёрных 3×3" />
+                <UiInput id="scoring-black-win-3v3" size="low" v-model.number="scoring.black_win_3v3" type="number" step="0.01"
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Чёрный: победа чёрных 3×3" />
+                <UiInput id="scoring-vote-lift-same-team" size="low" v-model.number="scoring.vote_lift_same_team" type="number" step="0.01"
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Подъём нескольких игроков своей команды" />
+                <UiInput id="scoring-vote-lift-opponent-team" size="low" v-model.number="scoring.vote_lift_opponent_team" type="number" step="0.01"
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Подъём нескольких игроков команды соперника" />
+                <UiInput id="scoring-black-day-under-seven" size="low" v-model.number="scoring.black_day_under_seven" type="number" step="0.01"
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Чёрный: начало дня при менее чем 7 живых" />
               </div>
               <div class="bulk-admin-actions">
                 <button class="btn dark width-full" :disabled="savingScoring || !isScoringDirty" @click="loadScoring">Отменить изменения</button>
@@ -1169,6 +1183,15 @@ type GameScoringSettings = {
   best_move_black_1: number
   best_move_black_2: number
   best_move_black_3: number
+  night_shoot_miss: number
+  night_shoot_miss_terminal: number
+  vote_opponent_team: number
+  vote_red_terminal: number
+  vote_red_terminal_3v3: number
+  black_win_3v3: number
+  vote_lift_same_team: number
+  vote_lift_opponent_team: number
+  black_day_under_seven: number
 }
 
 type EditableSanctionRule = {
@@ -1467,6 +1490,15 @@ const scoring = reactive<GameScoringSettings>({
   best_move_black_1: 0,
   best_move_black_2: 0.2,
   best_move_black_3: 0.4,
+  night_shoot_miss: -0.2,
+  night_shoot_miss_terminal: -0.5,
+  vote_opponent_team: 0.1,
+  vote_red_terminal: -0.2,
+  vote_red_terminal_3v3: -0.3,
+  black_win_3v3: 0.3,
+  vote_lift_same_team: -0.3,
+  vote_lift_opponent_team: 0.3,
+  black_day_under_seven: 0.1,
 })
 
 const settingsStore = useSettingsStore()
@@ -1820,6 +1852,15 @@ function snapshotScoring(): string {
     best_move_black_1: normalizeScoringValue(scoring.best_move_black_1),
     best_move_black_2: normalizeScoringValue(scoring.best_move_black_2),
     best_move_black_3: normalizeScoringValue(scoring.best_move_black_3),
+    night_shoot_miss: normalizeScoringValue(scoring.night_shoot_miss),
+    night_shoot_miss_terminal: normalizeScoringValue(scoring.night_shoot_miss_terminal),
+    vote_opponent_team: normalizeScoringValue(scoring.vote_opponent_team),
+    vote_red_terminal: normalizeScoringValue(scoring.vote_red_terminal),
+    vote_red_terminal_3v3: normalizeScoringValue(scoring.vote_red_terminal_3v3),
+    black_win_3v3: normalizeScoringValue(scoring.black_win_3v3),
+    vote_lift_same_team: normalizeScoringValue(scoring.vote_lift_same_team),
+    vote_lift_opponent_team: normalizeScoringValue(scoring.vote_lift_opponent_team),
+    black_day_under_seven: normalizeScoringValue(scoring.black_day_under_seven),
   })
 }
 
@@ -2491,6 +2532,15 @@ async function loadScoring(): Promise<void> {
     scoring.best_move_black_1 = normalizeScoringValue(scoring.best_move_black_1)
     scoring.best_move_black_2 = normalizeScoringValue(scoring.best_move_black_2)
     scoring.best_move_black_3 = normalizeScoringValue(scoring.best_move_black_3)
+    scoring.night_shoot_miss = normalizeScoringValue(scoring.night_shoot_miss)
+    scoring.night_shoot_miss_terminal = normalizeScoringValue(scoring.night_shoot_miss_terminal)
+    scoring.vote_opponent_team = normalizeScoringValue(scoring.vote_opponent_team)
+    scoring.vote_red_terminal = normalizeScoringValue(scoring.vote_red_terminal)
+    scoring.vote_red_terminal_3v3 = normalizeScoringValue(scoring.vote_red_terminal_3v3)
+    scoring.black_win_3v3 = normalizeScoringValue(scoring.black_win_3v3)
+    scoring.vote_lift_same_team = normalizeScoringValue(scoring.vote_lift_same_team)
+    scoring.vote_lift_opponent_team = normalizeScoringValue(scoring.vote_lift_opponent_team)
+    scoring.black_day_under_seven = normalizeScoringValue(scoring.black_day_under_seven)
     scoringSnapshot.value = snapshotScoring()
   } catch {
     void alertDialog('Не удалось загрузить настройки скоринга')
@@ -3684,6 +3734,18 @@ onBeforeUnmount(() => {
         }
         :deep(.switch-item) {
           margin-bottom: 10px;
+        }
+      }
+      .scoring-block {
+        grid-column: 1 / -1;
+        .field-stack {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        @media (max-width: 760px) {
+          .field-stack {
+            grid-template-columns: 1fr;
+          }
         }
       }
     }

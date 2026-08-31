@@ -3248,35 +3248,10 @@ async def game_vote_finish(sid, data):
         valid_votes = {voter: target for voter, target in votes_map.items() if voter > 0}
 
         day_number = ctx.gint("day_number")
-        if vote_lift_state == "voting":
-            voters = list(valid_votes.keys())
-            await log_game_action(
-                r,
-                rid,
-                {
-                    "type": "vote",
-                    "lift": True,
-                    "targets": nominees,
-                    "by": voters,
-                    "day": day_number,
-                },
-            )
-        else:
-            votes_by_target: dict[str, list[int]] = {str(uid): [] for uid in nominees}
-            for voter_i, target_i in valid_votes.items():
-                if target_i in nominees:
-                    votes_by_target[str(target_i)].append(voter_i)
-            if nominees:
-                await log_game_action(
-                    r,
-                    rid,
-                    {
-                        "type": "vote",
-                        "targets": nominees,
-                        "votes": votes_by_target,
-                        "day": day_number,
-                    },
-                )
+        votes_by_target: dict[str, list[int]] = {str(uid): [] for uid in nominees}
+        for voter_i, target_i in valid_votes.items():
+            if target_i in nominees:
+                votes_by_target[str(target_i)].append(voter_i)
 
         if vote_lift_state != "voting":
             if valid_votes:
@@ -3289,6 +3264,18 @@ async def game_vote_finish(sid, data):
             passed = alive_cnt > 0 and yes_cnt > (alive_cnt / 2)
             leaders = list(nominees) if passed else []
             leaders_str = ",".join(str(uid) for uid in leaders)
+            await log_game_action(
+                r,
+                rid,
+                {
+                    "type": "vote",
+                    "lift": True,
+                    "targets": nominees,
+                    "by": list(valid_votes.keys()),
+                    "passed": passed,
+                    "day": day_number,
+                },
+            )
 
             payload = {
                 "room_id": rid,
@@ -3397,6 +3384,22 @@ async def game_vote_finish(sid, data):
             payload.pop("lift_state", None)
         elif skip_repeat_farewell:
             payload["speeches_done"] = True
+
+        await log_game_action(
+            r,
+            rid,
+            {
+                "type": "vote",
+                "lift": False,
+                "targets": nominees,
+                "leaders": [] if no_elimination else leaders,
+                "votes": votes_by_target,
+                "will_eliminate": bool(
+                    not no_elimination and not skip_repeat_farewell and len(leaders) == 1
+                ),
+                "day": day_number,
+            },
+        )
 
         await sio.emit("game_vote_result",
                        payload,

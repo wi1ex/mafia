@@ -160,6 +160,15 @@ class GameScoringSettingsOut(BaseModel):
     best_move_black_1: float
     best_move_black_2: float
     best_move_black_3: float
+    night_shoot_miss: float
+    night_shoot_miss_terminal: float
+    vote_opponent_team: float
+    vote_red_terminal: float
+    vote_red_terminal_3v3: float
+    black_win_3v3: float
+    vote_lift_same_team: float
+    vote_lift_opponent_team: float
+    black_day_under_seven: float
 
 
 class GameScoringSettingsUpdateIn(BaseModel):
@@ -173,6 +182,15 @@ class GameScoringSettingsUpdateIn(BaseModel):
     best_move_black_1: Optional[float] = Field(default=None, ge=-10, le=10)
     best_move_black_2: Optional[float] = Field(default=None, ge=-10, le=10)
     best_move_black_3: Optional[float] = Field(default=None, ge=-10, le=10)
+    night_shoot_miss: Optional[float] = Field(default=None, ge=-10, le=10)
+    night_shoot_miss_terminal: Optional[float] = Field(default=None, ge=-10, le=10)
+    vote_opponent_team: Optional[float] = Field(default=None, ge=-10, le=10)
+    vote_red_terminal: Optional[float] = Field(default=None, ge=-10, le=10)
+    vote_red_terminal_3v3: Optional[float] = Field(default=None, ge=-10, le=10)
+    black_win_3v3: Optional[float] = Field(default=None, ge=-10, le=10)
+    vote_lift_same_team: Optional[float] = Field(default=None, ge=-10, le=10)
+    vote_lift_opponent_team: Optional[float] = Field(default=None, ge=-10, le=10)
+    black_day_under_seven: Optional[float] = Field(default=None, ge=-10, le=10)
 
 
 class AdminUpdateNotificationIn(BaseModel):

@@ -186,6 +186,7 @@ __all__ = [
     "begin_night_opinions",
     "claim_night_opinion",
     "log_game_action",
+    "log_game_day_start",
     "load_game_actions",
     "store_last_votes_snapshot",
     "get_last_votes_snapshot",
@@ -2120,6 +2121,42 @@ async def log_game_action(r, rid: int, action: Mapping[str, Any]) -> None:
         await r.rpush(f"room:{rid}:game_actions", raw)
     except Exception:
         log.exception("game_actions.log_failed", rid=rid, action=action.get("type"))
+
+
+async def log_game_day_start(
+    r,
+    rid: int,
+    *,
+    day_number: int,
+    excluded_ids: Iterable[int] = (),
+) -> None:
+    if day_number <= 0:
+        return
+
+    try:
+        alive_ids = await smembers_ints(r, f"room:{rid}:game_alive")
+    except Exception:
+        log.exception("game_day_start.load_alive_failed", rid=rid)
+        return
+
+    excluded: set[int] = set()
+    for raw_user_id in excluded_ids:
+        try:
+            user_id = int(raw_user_id)
+        except (TypeError, ValueError):
+            continue
+        if user_id > 0:
+            excluded.add(user_id)
+
+    await log_game_action(
+        r,
+        rid,
+        {
+            "type": "day_start",
+            "day": day_number,
+            "alive": sorted(user_id for user_id in alive_ids if user_id not in excluded),
+        },
+    )
 
 
 async def load_game_actions(r, rid: int) -> list[dict[str, Any]]:
@@ -5316,6 +5353,7 @@ async def compute_night_kill(r, rid: int, *, log_action_bool: bool = True) -> tu
         day_number = 0
 
     if log_action_bool:
+        red_alive_cnt, black_alive_cnt = count_alive_teams(raw_roles or {}, alive)
         await log_game_action(
             r,
             rid,
@@ -5326,6 +5364,9 @@ async def compute_night_kill(r, rid: int, *, log_action_bool: bool = True) -> tu
                 "shots": shots_map,
                 "kill_uid": kill_uid,
                 "kill_ok": ok,
+                "black_wins_if_kill": bool(
+                    not ok and red_alive_cnt > 0 and black_alive_cnt >= max(red_alive_cnt - 1, 0)
+                ),
             },
         )
 
@@ -5743,14 +5784,29 @@ async def process_player_death(r, rid: int, user_id: int, *, head_uid: int | Non
             "target_id": user_id,
             "day": day_number,
         }
+        raw_roles: Mapping[str | int, Any] = {}
+        alive_ids: set[int] = set()
+        try:
+            raw_roles = await r.hgetall(f"room:{rid}:game_roles") or {}
+            alive_ids = await smembers_ints(r, f"room:{rid}:game_alive")
+            red_alive_after, black_alive_after = count_alive_teams(raw_roles, alive_ids)
+            action["red_alive_after"] = red_alive_after
+            action["black_alive_after"] = black_alive_after
+            if farewell_finishes_game(red_alive_after, black_alive_after):
+                action["result_after"] = "red" if black_alive_after <= 0 else "black"
+        except Exception:
+            log.exception("process_player_death.result_after_load_failed", rid=rid, uid=user_id)
+
         if reason in ("foul", "suicide"):
             game_lost_after = bool(ppk and reason == "foul")
             if not game_lost_after:
                 try:
-                    raw_roles = await r.hgetall(f"room:{rid}:game_roles")
-                    alive_ids = await smembers_ints(r, f"room:{rid}:game_alive")
+                    if not raw_roles:
+                        raw_roles = await r.hgetall(f"room:{rid}:game_roles") or {}
+                    if not alive_ids:
+                        alive_ids = await smembers_ints(r, f"room:{rid}:game_alive")
                     game_lost_after = player_lost_after_removal_from_snapshot(
-                        raw_roles or {},
+                        raw_roles,
                         alive_ids,
                         user_id,
                         phase=str(raw_state.get("phase") or ""),
@@ -5759,6 +5815,17 @@ async def process_player_death(r, rid: int, user_id: int, *, head_uid: int | Non
                     log.exception("process_player_death.loss_after_load_failed", rid=rid, uid=user_id)
             action["game_lost_after"] = game_lost_after
         if reason == "vote":
+            vote_lift_state = str(raw_state.get("vote_lift_state") or "").strip()
+            leader_ids: list[int] = []
+            for raw_leader_id in str(raw_state.get("vote_leaders_order") or "").split(","):
+                try:
+                    leader_id = int(raw_leader_id)
+                except (TypeError, ValueError):
+                    continue
+                if leader_id > 0:
+                    leader_ids.append(leader_id)
+            action["vote_lift"] = bool(vote_lift_state)
+            action["vote_unique"] = not vote_lift_state and leader_ids == [user_id]
             voters: list[int] = []
             votes = await get_last_votes_snapshot(r, rid)
             if not votes:
@@ -7884,6 +7951,8 @@ async def game_phase_next_unlocked(sid, data):
                     await p.delete(f"room:{rid}:game_votes")
                 await p.execute()
 
+            await log_game_day_start(r, rid, day_number=new_day_number)
+
             payload = {
                 "ok": True,
                 "status": 200,
@@ -8149,6 +8218,13 @@ async def game_phase_next_unlocked(sid, data):
                 await p.hset(f"room:{rid}:game_state", mapping=mapping)
                 await p.delete(f"room:{rid}:game_nominees", f"room:{rid}:game_nom_speakers", f"room:{rid}:game_votes")
                 await p.execute()
+
+            await log_game_day_start(
+                r,
+                rid,
+                day_number=new_day_number,
+                excluded_ids=[killed_uid] if ok and killed_uid else (),
+            )
 
             payload = {
                 "ok": True,
