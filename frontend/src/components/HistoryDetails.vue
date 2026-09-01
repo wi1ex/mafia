@@ -52,7 +52,32 @@
         </div>
 
         <div v-if="mode === 'rating'" class="slot-metrics">
-          <span>Баллы: {{ formatPoints(slot.points) }} ({{ formatMetric(slot.mmr)}} MMR)</span>
+          <span
+            class="points-metric"
+            :class="{ 'points-metric--explainable': !!slot.points_breakdown }"
+            :tabindex="slot.points_breakdown ? 0 : undefined"
+            :aria-describedby="slot.points_breakdown ? `points-breakdown-${slot.slot}` : undefined"
+          >
+            <span>Баллы: {{ formatPoints(slot.points) }} ({{ formatMetric(slot.mmr)}} MMR)</span>
+            <span v-if="slot.points_breakdown" :id="`points-breakdown-${slot.slot}`" class="points-tooltip" role="tooltip">
+              <strong>Расчёт баллов</strong>
+              <span>{{ basePointsLabel(slot.points_breakdown) }}</span>
+              <template v-if="slot.points_breakdown.rules_available">
+                <span class="points-tooltip__section">Дополнительные баллы:</span>
+                <span v-if="slot.points_breakdown.adjustments.length === 0" class="points-tooltip__muted">Нет начислений</span>
+                <span v-for="(adjustment, adjustmentIndex) in slot.points_breakdown.adjustments" :key="`${slot.slot}-${adjustment.rule_key}-${adjustmentIndex}`">
+                  {{ adjustment.label }}: {{ formatPoints(adjustment.points) }}
+                </span>
+                <span>Сумма дополнительных: {{ formatPoints(slot.points_breakdown.additional_points_raw) }}</span>
+                <span v-if="slot.points_breakdown.additional_points_capped">
+                  После ограничения {{ formatPoints(slot.points_breakdown.additional_points) }}
+                  (диапазон {{ formatPoints(slot.points_breakdown.additional_points_min) }} … {{ formatPoints(slot.points_breakdown.additional_points_max) }})
+                </span>
+              </template>
+              <span v-else class="points-tooltip__muted">Дополнительные баллы не рассчитывались: правила игры не сохранены.</span>
+              <span class="points-tooltip__total">Итог: {{ formatPoints(slot.points_breakdown.final_points) }}</span>
+            </span>
+          </span>
         </div>
       </article>
     </div>
@@ -88,6 +113,7 @@ type GameMode = 'normal' | 'rating'
 type LeaveReason = 'vote' | 'foul' | 'suicide' | 'night'
 type FarewellVerdict = 'citizen' | 'mafia'
 type NightCheckVerdict = 'citizen' | 'mafia' | 'sheriff'
+type PointsBaseReason = 'win' | 'loss' | 'draw'
 
 interface GameHistoryFarewellItem {
   slot: number
@@ -99,6 +125,25 @@ interface GameHistoryNightCheckItem {
   verdict: NightCheckVerdict
 }
 
+interface GameHistoryPointsAdjustment {
+  rule_key: string
+  label: string
+  points: number
+}
+
+interface GameHistoryPointsBreakdown {
+  base_points: number
+  base_reason: PointsBaseReason
+  adjustments: GameHistoryPointsAdjustment[]
+  additional_points_raw: number
+  additional_points: number
+  additional_points_min?: number | null
+  additional_points_max?: number | null
+  additional_points_capped: boolean
+  rules_available: boolean
+  final_points: number
+}
+
 interface GameHistorySlot {
   slot: number
   user_id?: number | null
@@ -108,6 +153,7 @@ interface GameHistorySlot {
   deleted?: boolean | null
   role?: GameHistoryRole | null
   points?: number | null
+  points_breakdown?: GameHistoryPointsBreakdown | null
   mmr?: number | null
   leave_day?: number | null
   leave_reason?: LeaveReason | null
@@ -315,6 +361,12 @@ function formatPoints(value: number | null | undefined): string {
   if (!Number.isFinite(points) || points === 0) return '0.00'
   return `${points > 0 ? '+' : '-'}${Math.abs(points).toFixed(2)}`
 }
+
+function basePointsLabel(breakdown: GameHistoryPointsBreakdown): string {
+  if (breakdown.base_reason === 'win') return `Стартовый балл: победа команды — ${formatPoints(breakdown.base_points)}`
+  if (breakdown.base_reason === 'draw') return `Стартовый балл: ничья — ${formatPoints(breakdown.base_points)}`
+  return `Стартовый балл: поражение команды — ${formatPoints(breakdown.base_points)}`
+}
 </script>
 
 <style scoped lang="scss">
@@ -418,6 +470,62 @@ function formatPoints(value: number | null | undefined): string {
         color: $neutral-300;
         font-size: 12px;
         font-variant-numeric: tabular-nums;
+        .points-metric {
+          display: inline-flex;
+          position: relative;
+          width: fit-content;
+          &--explainable {
+            border-bottom: 1px dashed rgba($neutral-300, 0.7);
+            cursor: help;
+            outline: none;
+            &:focus-visible {
+              border-bottom-color: $green-400;
+            }
+            &:hover .points-tooltip,
+            &:focus .points-tooltip {
+              visibility: visible;
+              opacity: 1;
+              transform: translateY(0);
+            }
+          }
+          .points-tooltip {
+            display: flex;
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 0;
+            flex-direction: column;
+            width: min(300px, calc(100vw - 32px));
+            padding: 12px;
+            gap: 5px;
+            border: 1px solid $neutral-600;
+            border-radius: 8px;
+            background-color: $neutral-900;
+            box-shadow: 0 8px 22px rgba($neutral-black, 0.45);
+            color: $neutral-100;
+            font-size: 12px;
+            line-height: 16px;
+            white-space: normal;
+            pointer-events: none;
+            visibility: hidden;
+            opacity: 0;
+            transform: translateY(4px);
+            transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease;
+            z-index: 5;
+            strong {
+              color: $neutral-white;
+              font-family: Hauora-SemiBold;
+            }
+            .points-tooltip__section,
+            .points-tooltip__total {
+              margin-top: 3px;
+              color: $neutral-white;
+              font-family: Hauora-Medium;
+            }
+            .points-tooltip__muted {
+              color: $neutral-400;
+            }
+          }
+        }
       }
       .slot-extra {
         color: $neutral-300;

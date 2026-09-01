@@ -47,7 +47,7 @@ from ..utils import (
     payment_promo_discount_percent,
 )
 from ...models.game import Game
-from ...services.game_scoring import normalize_game_mode, normalize_game_points_value
+from ...services.game_scoring import calculate_game_points_breakdown, normalize_game_mode, normalize_game_points_value
 from ...models.contact_request import ContactRequestRecord
 from ...models.kassa_payment import KassaPayment
 from ...models.notif import Notif
@@ -84,6 +84,7 @@ from ...schemas.user import (
     GameHistoryHostOut,
     GameHistoryFarewellItemOut,
     GameHistoryNightCheckItemOut,
+    GameHistoryPointsBreakdownOut,
     GameHistorySlotOut,
     UserUiPrefsIn,
     UserUiPrefsOut,
@@ -674,6 +675,7 @@ async def game_history_details(game_id: int, ident: Identity = Depends(get_ident
             Game.roles,
             Game.seats,
             Game.points,
+            Game.scoring_rules,
             Game.mmr,
             Game.actions,
         )
@@ -684,7 +686,7 @@ async def game_history_details(game_id: int, ident: Identity = Depends(get_ident
     if not rec:
         raise HTTPException(status_code=404, detail="game_not_found")
 
-    game_id_raw, head_id, mode_raw, result_raw, black_alive_raw, started_at, finished_at, roles_raw, seats_raw, points_raw, mmr_raw, actions_raw = rec
+    game_id_raw, head_id, mode_raw, result_raw, black_alive_raw, started_at, finished_at, roles_raw, seats_raw, points_raw, scoring_rules_raw, mmr_raw, actions_raw = rec
     gid = safe_int(game_id_raw)
     if gid <= 0:
         raise HTTPException(status_code=404, detail="game_not_found")
@@ -722,6 +724,14 @@ async def game_history_details(game_id: int, ident: Identity = Depends(get_ident
     head_avatar_name = non_empty_str((head_profile or {}).get("avatar_name"))
 
     uid_to_slot = {player_uid: seat_num for seat_num, player_uid in slot_map.items()}
+    points_breakdown_map = calculate_game_points_breakdown(
+        mode=game_mode,
+        result=result_raw,
+        roles=roles_map,
+        player_ids=slot_map.values(),
+        actions=actions_raw if isinstance(actions_raw, list) else [],
+        scoring_rules=scoring_rules_raw if isinstance(scoring_rules_raw, dict) else None,
+    )
     leave_map: dict[int, tuple[int, str, list[int], bool]] = {}
     pending_vote_by_target: dict[int, tuple[int, list[int]]] = {}
     best_move_map: dict[int, list[int]] = {}
@@ -878,6 +888,7 @@ async def game_history_details(game_id: int, ident: Identity = Depends(get_ident
         deleted_at_value = non_empty_str((profile or {}).get("deleted_at"))
         role_value = None
         points: float | None = None
+        points_breakdown: GameHistoryPointsBreakdownOut | None = None
         mmr: int | None = None
         leave_day_value = None
         leave_reason_value = None
@@ -893,6 +904,9 @@ async def game_history_details(game_id: int, ident: Identity = Depends(get_ident
             if game_mode == "rating":
                 points = normalize_game_points_value(points_map.get(str(slot_uid), 0))
                 mmr = safe_int(mmr_map.get(str(slot_uid), 0))
+                raw_breakdown = points_breakdown_map.get(str(slot_uid))
+                if isinstance(raw_breakdown, dict):
+                    points_breakdown = GameHistoryPointsBreakdownOut.model_validate(raw_breakdown)
             leave_data = leave_map.get(slot_uid)
             if leave_data:
                 leave_day_value = leave_data[0]
@@ -952,6 +966,7 @@ async def game_history_details(game_id: int, ident: Identity = Depends(get_ident
                 deleted=deleted_at_value is not None,
                 role=role_value,
                 points=points,
+                points_breakdown=points_breakdown,
                 mmr=mmr,
                 leave_day=leave_day_value,
                 leave_reason=leave_reason_value,

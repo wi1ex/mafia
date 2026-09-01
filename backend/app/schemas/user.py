@@ -205,6 +205,25 @@ class GameHistoryNightCheckItemOut(BaseModel):
     verdict: Literal["citizen", "mafia", "sheriff"]
 
 
+class GameHistoryPointsAdjustmentOut(BaseModel):
+    rule_key: str
+    label: str
+    points: float
+
+
+class GameHistoryPointsBreakdownOut(BaseModel):
+    base_points: float
+    base_reason: Literal["win", "loss", "draw"]
+    adjustments: List[GameHistoryPointsAdjustmentOut] = Field(default_factory=list)
+    additional_points_raw: float
+    additional_points: float
+    additional_points_min: Optional[float] = None
+    additional_points_max: Optional[float] = None
+    additional_points_capped: bool = False
+    rules_available: bool = False
+    final_points: float
+
+
 class GameHistorySlotOut(BaseModel):
     slot: int
     user_id: Optional[int] = None
@@ -214,6 +233,7 @@ class GameHistorySlotOut(BaseModel):
     deleted: bool = False
     role: Optional[Literal["citizen", "mafia", "don", "sheriff"]] = None
     points: Optional[float] = None
+    points_breakdown: Optional[GameHistoryPointsBreakdownOut] = None
     mmr: Optional[int] = None
     leave_day: Optional[int] = None
     leave_reason: Optional[Literal["vote", "foul", "suicide", "night"]] = None

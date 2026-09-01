@@ -237,17 +237,50 @@ def _team_for_role(role: str) -> str:
     return ""
 
 
+def _record_scoring_adjustment(
+    breakdown: dict[int, list[dict[str, Any]]] | None,
+    *,
+    user_id: int,
+    rule_key: str,
+    label: str,
+    value: Decimal,
+) -> None:
+    if breakdown is None:
+        return
+
+    breakdown.setdefault(user_id, []).append(
+        {
+            "rule_key": rule_key,
+            "label": label,
+            "points": normalize_game_points_value(value),
+        }
+    )
+
+
 def _apply_action_points(
     points: dict[int, Decimal],
     *,
     roles: Mapping[object, Any],
     actions: Iterable[Mapping[str, Any]],
     rules: Mapping[str, float | int],
+    breakdown: dict[int, list[dict[str, Any]]] | None = None,
 ) -> None:
     rule_values: dict[str, Decimal] = {}
     for key, default in GAME_SCORING_RULE_DEFAULTS.items():
         parsed = _as_decimal(rules.get(key))
         rule_values[key] = default if parsed is None else parsed
+
+    def apply_rule(user_id: int, rule_key: str, label: str) -> None:
+        value = rule_values[rule_key]
+        points[user_id] += value
+        _record_scoring_adjustment(
+            breakdown,
+            user_id=user_id,
+            rule_key=rule_key,
+            label=label,
+            value=value,
+        )
+
     normalized_actions = [action for action in actions if isinstance(action, Mapping)]
 
     foul_loss_after: dict[int, bool] = {}
@@ -281,7 +314,11 @@ def _apply_action_points(
             if len(shooters) in (1, 2):
                 if terminal_miss:
                     for shooter_id in shooters:
-                        points[shooter_id] += rule_values["night_shoot_miss_terminal"]
+                        apply_rule(
+                            shooter_id,
+                            "night_shoot_miss_terminal",
+                            "Промах в отстреле, после которого побеждают чёрные",
+                        )
                 continue
 
             shots_raw = action.get("shots")
@@ -307,7 +344,13 @@ def _apply_action_points(
                 continue
 
             rule_key = "night_shoot_miss_terminal" if terminal_miss else "night_shoot_miss"
-            points[missers[0]] += rule_values[rule_key]
+            apply_rule(
+                missers[0],
+                rule_key,
+                "Промах в отстреле, после которого побеждают чёрные"
+                if terminal_miss
+                else "Промах в отстреле",
+            )
             continue
 
         if action_type == "vote" and _action_bool(action, "lift"):
@@ -330,7 +373,13 @@ def _apply_action_points(
                 if not voter_team:
                     continue
                 rule_key = "vote_lift_same_team" if voter_team == target_team else "vote_lift_opponent_team"
-                points[voter_id] += rule_values[rule_key]
+                apply_rule(
+                    voter_id,
+                    rule_key,
+                    "Голосование за подъём игроков своей команды"
+                    if rule_key == "vote_lift_same_team"
+                    else "Голосование за подъём игроков другой команды",
+                )
             continue
 
         if action_type == "vote":
@@ -352,7 +401,7 @@ def _apply_action_points(
                         continue
                     voter_team = _team_for_role(_role_for_user(roles, voter_id))
                     if voter_team and voter_team != target_team:
-                        points[voter_id] += rule_values["vote_opponent_team"]
+                        apply_rule(voter_id, "vote_opponent_team", "Голосование против игрока другой команды")
             continue
 
         if action_type == "day_start":
@@ -361,7 +410,7 @@ def _apply_action_points(
                 continue
             for user_id in alive_ids:
                 if user_id in points and _is_black(_role_for_user(roles, user_id)):
-                    points[user_id] += rule_values["black_day_under_seven"]
+                    apply_rule(user_id, "black_day_under_seven", "Начало дня при менее чем 7 живых игроках")
             continue
 
         if action_type == "foul":
@@ -372,7 +421,13 @@ def _apply_action_points(
                 count = 0
             if target_id in points and count == 4:
                 rule_key = "fourth_foul_lost" if foul_loss_after.get(target_id, False) else "fourth_foul"
-                points[target_id] += rule_values[rule_key]
+                apply_rule(
+                    target_id,
+                    rule_key,
+                    "4-й фол после предрешённого поражения"
+                    if rule_key == "fourth_foul_lost"
+                    else "4-й фол",
+                )
             continue
 
         if action_type == "tech_foul":
@@ -384,7 +439,13 @@ def _apply_action_points(
             if target_id not in points or count not in (1, 2):
                 continue
             rule_key = "second_tech_foul_lost" if count == 2 and foul_loss_after.get(target_id, False) else "tech_foul"
-            points[target_id] += rule_values[rule_key]
+            apply_rule(
+                target_id,
+                rule_key,
+                "2-й технический фол после предрешённого поражения"
+                if rule_key == "second_tech_foul_lost"
+                else f"{count}-й технический фол",
+            )
             continue
 
         if action_type == "death":
@@ -392,7 +453,13 @@ def _apply_action_points(
             reason = str(action.get("reason") or "").strip().lower()
             if target_id in points and reason == "suicide":
                 rule_key = "suicide_lost" if _action_bool(action, "game_lost_after") else "suicide"
-                points[target_id] += rule_values[rule_key]
+                apply_rule(
+                    target_id,
+                    rule_key,
+                    "Самоубийство после предрешённого поражения"
+                    if rule_key == "suicide_lost"
+                    else "Самоубийство",
+                )
 
             if (
                 reason == "vote"
@@ -410,11 +477,17 @@ def _apply_action_points(
                     penalty_key = "vote_red_terminal_3v3" if is_black_win_3v3 else "vote_red_terminal"
                     for voter_id in voters:
                         if _team_for_role(_role_for_user(roles, voter_id)) == "red":
-                            points[voter_id] += rule_values[penalty_key]
+                            apply_rule(
+                                voter_id,
+                                penalty_key,
+                                "Голосование в красного, приведшее к победе чёрных 3в3"
+                                if is_black_win_3v3
+                                else "Голосование в красного, приведшее к победе чёрных",
+                            )
                     if is_black_win_3v3:
                         for user_id in points:
                             if _is_black(_role_for_user(roles, user_id)):
-                                points[user_id] += rule_values["black_win_3v3"]
+                                apply_rule(user_id, "black_win_3v3", "Победа чёрных 3в3")
             continue
 
         if action_type != "best_move":
@@ -436,7 +509,11 @@ def _apply_action_points(
             if _is_black(_role_for_user(roles, target_id)):
                 black_count += 1
         black_count = max(0, min(3, black_count))
-        points[actor_id] += rule_values[f"best_move_black_{black_count}"]
+        apply_rule(
+            actor_id,
+            f"best_move_black_{black_count}",
+            f"Лучший ход: чёрных игроков {black_count} из 3",
+        )
 
 
 def _additional_points_bounds(rules: Mapping[str, float | int]) -> tuple[Decimal, Decimal]:
@@ -479,3 +556,64 @@ def calculate_game_points(
             base_points[user_id] += min(max(value, additional_min), additional_max)
 
     return {str(user_id): normalize_game_points_value(value) for user_id, value in base_points.items()}
+
+
+def calculate_game_points_breakdown(
+    *,
+    mode: object,
+    result: object,
+    roles: Mapping[object, Any],
+    player_ids: Iterable[int | str],
+    actions: Iterable[Mapping[str, Any]] | None = None,
+    scoring_rules: Mapping[object, Any] | None = None,
+) -> dict[str, dict[str, Any]]:
+    if normalize_game_mode(mode) != RATING_MODE:
+        return {}
+
+    players = _normalize_user_ids(player_ids)
+    normalized_result = str(result or "").strip().lower()
+    base_points = {user_id: Decimal("0") for user_id in players}
+    base_reasons = {user_id: "draw" if normalized_result == "draw" else "loss" for user_id in players}
+    if normalized_result in DECISIVE_RESULTS:
+        for user_id in players:
+            if _wins(_role_for_user(roles, user_id), normalized_result):
+                base_points[user_id] = Decimal("1")
+                base_reasons[user_id] = "win"
+
+    active_rules = parse_game_scoring_rules_snapshot(scoring_rules)
+    rules_available = active_rules is not None and actions is not None
+    additional_points = {user_id: Decimal("0") for user_id in players}
+    adjustments: dict[int, list[dict[str, Any]]] = {}
+    additional_min: Decimal | None = None
+    additional_max: Decimal | None = None
+    if rules_available and active_rules is not None and actions is not None:
+        _apply_action_points(
+            additional_points,
+            roles=roles,
+            actions=actions,
+            rules=active_rules,
+            breakdown=adjustments,
+        )
+        additional_min, additional_max = _additional_points_bounds(active_rules)
+
+    result_by_user: dict[str, dict[str, Any]] = {}
+    for user_id in players:
+        raw_additional = additional_points[user_id]
+        applied_additional = raw_additional
+        if additional_min is not None and additional_max is not None:
+            applied_additional = min(max(raw_additional, additional_min), additional_max)
+
+        result_by_user[str(user_id)] = {
+            "base_points": normalize_game_points_value(base_points[user_id]),
+            "base_reason": base_reasons[user_id],
+            "adjustments": adjustments.get(user_id, []),
+            "additional_points_raw": normalize_game_points_value(raw_additional),
+            "additional_points": normalize_game_points_value(applied_additional),
+            "additional_points_min": normalize_game_points_value(additional_min) if additional_min is not None else None,
+            "additional_points_max": normalize_game_points_value(additional_max) if additional_max is not None else None,
+            "additional_points_capped": raw_additional != applied_additional,
+            "rules_available": rules_available,
+            "final_points": normalize_game_points_value(base_points[user_id] + applied_additional),
+        }
+
+    return result_by_user

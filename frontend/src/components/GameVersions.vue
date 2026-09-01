@@ -107,7 +107,7 @@ type VersionPayload = {
   checks: Array<{ target_id: number, verdict: 'red' | 'black' }>
 }
 
-const maxVersions = 5
+const maxVersions = 6
 const maxChecksPerVersion = 10
 
 const props = withDefaults(defineProps<{
@@ -291,8 +291,8 @@ function requestCancel(): void {
   .game-versions-modal {
     display: flex;
     flex-direction: column;
-    width: min(920px, 100%);
-    max-height: min(820px, calc(100vh - 48px));
+    width: min(1200px, 100%);
+    max-height: calc(100% - 48px);
     border: 2px solid $green-700;
     border-radius: 20px;
     background-color: $neutral-900;
@@ -375,7 +375,7 @@ function requestCancel(): void {
     }
     .game-versions-modal__list {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       padding: 4px 24px 24px;
       gap: 12px;
       overflow-y: auto;

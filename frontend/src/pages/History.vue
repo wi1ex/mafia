@@ -194,6 +194,7 @@ type AdminNumberFilterValue = number | ''
 type LeaveReason = 'vote' | 'foul' | 'suicide' | 'night'
 type FarewellVerdict = 'citizen' | 'mafia'
 type NightCheckVerdict = 'citizen' | 'mafia' | 'sheriff'
+type PointsBaseReason = 'win' | 'loss' | 'draw'
 
 interface AdminGameHistoryFilters {
   durationLtMinutes: AdminNumberFilterValue
@@ -227,6 +228,25 @@ interface GameHistoryNightCheckItem {
   verdict: NightCheckVerdict
 }
 
+interface GameHistoryPointsAdjustment {
+  rule_key: string
+  label: string
+  points: number
+}
+
+interface GameHistoryPointsBreakdown {
+  base_points: number
+  base_reason: PointsBaseReason
+  adjustments: GameHistoryPointsAdjustment[]
+  additional_points_raw: number
+  additional_points: number
+  additional_points_min?: number | null
+  additional_points_max?: number | null
+  additional_points_capped: boolean
+  rules_available: boolean
+  final_points: number
+}
+
 interface GameHistorySlot {
   slot: number
   user_id?: number | null
@@ -236,6 +256,7 @@ interface GameHistorySlot {
   deleted?: boolean | null
   role?: GameHistoryRole | null
   points?: number | null
+  points_breakdown?: GameHistoryPointsBreakdown | null
   mmr?: number | null
   leave_day?: number | null
   leave_reason?: LeaveReason | null

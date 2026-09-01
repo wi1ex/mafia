@@ -4583,7 +4583,7 @@ async def get_farewell_wills_for(r, rid: int, speaker_uid: int) -> dict[str, str
     return all_wills.get(str(speaker_uid), {})
 
 
-GAME_VERSIONS_MAX_COUNT = 5
+GAME_VERSIONS_MAX_COUNT = 6
 GAME_VERSION_CHECKS_MAX_COUNT = 10
 
 
