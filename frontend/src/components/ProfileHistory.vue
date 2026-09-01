@@ -59,7 +59,7 @@
 
           <div v-if="game.mode === 'rating'" class="history-main-stats">
             <span>Баллы: {{ formatSignedPoints(game.player_points) }}</span>
-            <span>MMR: {{ formatSignedValue(game.player_mmr) }}</span>
+<!--            <span>MMR: {{ formatSignedValue(game.player_mmr) }}</span>-->
           </div>
 
           <img class="arrow" :class="{ open: isExpanded(game.id) }" :src="iconArrowDown" alt="" />

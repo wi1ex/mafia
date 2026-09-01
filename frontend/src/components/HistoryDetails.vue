@@ -58,7 +58,8 @@
             :tabindex="slot.points_breakdown ? 0 : undefined"
             :aria-describedby="slot.points_breakdown ? `points-breakdown-${slot.slot}` : undefined"
           >
-            <span>Баллы: {{ formatPoints(slot.points) }} ({{ formatMetric(slot.mmr)}} MMR)</span>
+            <span>Баллы: {{ formatPoints(slot.points) }}</span>
+<!--            <span>Баллы: {{ formatPoints(slot.points) }} ({{ formatMetric(slot.mmr)}} MMR)</span>-->
             <span v-if="slot.points_breakdown" :id="`points-breakdown-${slot.slot}`" class="points-tooltip" role="tooltip">
               <strong>Расчёт баллов</strong>
               <span>{{ basePointsLabel(slot.points_breakdown) }}</span>
