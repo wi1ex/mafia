@@ -496,6 +496,7 @@
         :versions="gameVersions"
         :players="gameVersionPlayerOptions"
         :saving="gameVersionsSaving"
+        @cancel="cancelGameVersions"
         @save="saveGameVersions"
       />
 
@@ -677,6 +678,7 @@ const {
   headPickKind,
   phaseLabel,
   gameFinished,
+  dayNumber,
   currentFarewellSpeech,
   isCurrentSpeaker,
   techFoulsEnabled,
@@ -1065,11 +1067,12 @@ const canManageGameVersions = computed(() => (
   && roomGameSnapshot.value?.mode === 'rating'
   && gamePhase.value !== 'idle'
   && !gameFinished.value
+  && dayNumber.value >= 2
 ))
 const gameVersionPlayerOptions = computed(() => (
   Object.entries(seatsByUser)
     .map(([id, rawSeat]) => ({ id: String(id), seat: Number(rawSeat) }))
-    .filter(({ id, seat }) => id && Number.isInteger(seat) && seat > 0)
+    .filter(({ id, seat }) => id && Number.isInteger(seat) && seat > 0 && seat !== 11)
     .sort((left, right) => left.seat - right.seat)
     .map(({ id, seat }) => ({ id, label: `Игрок ${seat}` }))
 ))
@@ -1307,6 +1310,10 @@ function openGameVersions(): void {
   if (!canManageGameVersions.value) return
   gameVersionsOpen.value = true
 }
+function cancelGameVersions(): void {
+  if (gameVersionsSaving.value) return
+  gameVersionsOpen.value = false
+}
 async function saveGameVersions(versions: GameVersionPayload[]): Promise<void> {
   if (gameVersionsSaving.value || !canManageGameVersions.value) return
   gameVersionsSaving.value = true
@@ -1320,6 +1327,8 @@ async function saveGameVersions(versions: GameVersionPayload[]): Promise<void> {
           ? 'В версии указан игрок, которого нет за игровым столом'
           : error === 'rating_only'
             ? 'Версии доступны только в рейтинг-игре'
+            : error === 'versions_not_available_yet'
+              ? 'Версии становятся доступны со второго игрового дня'
             : error === 'forbidden'
               ? 'Только ведущий может изменять версии'
               : 'Не удалось сохранить версии'

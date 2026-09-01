@@ -2816,6 +2816,9 @@ async def game_versions_set(sid, data):
         if ctx.gbool("game_finished"):
             return {"ok": False, "error": "game_finished", "status": 409}
 
+        if ctx.gint("day_number") < 2:
+            return {"ok": False, "error": "versions_not_available_yet", "status": 409}
+
         try:
             raw_game = await ctx.r.hgetall(f"room:{ctx.rid}:game")
         except Exception:

@@ -2,23 +2,32 @@
   <Teleport to="#desktop-teleport-root">
     <Transition name="game-versions-overlay">
       <div class="game-versions-overlay" role="dialog" aria-modal="true" aria-labelledby="game-versions-title"
-           @pointerdown.self="overlayArmed = true" @pointerup.self="overlayArmed && requestSave()" @pointerleave.self="overlayArmed = false" @pointercancel.self="overlayArmed = false">
+           @pointerdown.self="overlayArmed = true" @pointerup.self="overlayArmed && requestCancel()" @pointerleave.self="overlayArmed = false" @pointercancel.self="overlayArmed = false">
         <section class="game-versions-modal" @click.stop>
           <header>
             <div>
               <h2 id="game-versions-title">Версии</h2>
-              <p>Отметьте вскрытия шерифом и озвученные проверки. Сохранение происходит при закрытии окна.</p>
+              <p>Отметьте вскрытия шерифом и озвученные проверки.</p>
             </div>
-            <button class="game-versions-modal__close" type="button" :disabled="saving" aria-label="Сохранить и закрыть" @click="requestSave">×</button>
           </header>
 
           <p v-if="validationError" class="game-versions-modal__error" role="alert">{{ validationError }}</p>
+
+          <div class="game-versions-modal__list-header">
+            <span>Текущие версии: {{ rows.length }} / {{ maxVersions }}</span>
+            <button type="button" :disabled="saving || rows.length >= maxVersions" @click="addVersion">
+              Добавить версию
+            </button>
+          </div>
 
           <div class="game-versions-modal__list">
             <section v-for="(version, versionIndex) in rows" :key="versionIndex" class="version-card" :class="{ 'version-card--empty': !version.claimantId }">
               <div class="version-card__heading">
                 <span>Версия {{ versionIndex + 1 }}</span>
-                <button v-if="version.claimantId" type="button" :disabled="saving" @click="cancelVersion(versionIndex)">
+                <button v-if="rows.length > 1" type="button" :disabled="saving" @click="removeVersion(versionIndex)">
+                  Удалить версию
+                </button>
+                <button v-else-if="version.claimantId" type="button" :disabled="saving" @click="cancelVersion(versionIndex)">
                   Отменить вскрытие
                 </button>
               </div>
@@ -62,6 +71,9 @@
           </div>
 
           <footer>
+            <button class="game-versions-modal__cancel" type="button" :disabled="saving" @click="requestCancel">
+              Отменить изменения и закрыть
+            </button>
             <button class="game-versions-modal__save" type="button" :disabled="saving" @click="requestSave">
               {{ saving ? 'Сохранение…' : 'Сохранить и закрыть' }}
             </button>
@@ -109,6 +121,7 @@ const props = withDefaults(defineProps<{
 })
 
 const emit = defineEmits<{
+  cancel: []
   save: [versions: VersionPayload[]]
 }>()
 
@@ -117,7 +130,7 @@ const validationError = ref('')
 const overlayArmed = ref(false)
 
 function emptyRows(): VersionDraft[] {
-  return Array.from({ length: maxVersions }, () => ({ claimantId: '', checks: [] }))
+  return [{ claimantId: '', checks: [] }]
 }
 
 function readValue(event: Event): string {
@@ -142,7 +155,7 @@ function parseVersions(raw: unknown): VersionDraft[] {
     }
     if (claimantId && checks.length) parsed.push({ claimantId, checks })
   }
-  return [...parsed, ...emptyRows()].slice(0, maxVersions)
+  return parsed.length ? parsed : emptyRows()
 }
 
 function resetRows(raw: unknown): void {
@@ -171,6 +184,18 @@ function setClaimant(versionIndex: number, event: Event): void {
 
 function cancelVersion(versionIndex: number): void {
   rows.value[versionIndex] = { claimantId: '', checks: [] }
+  validationError.value = ''
+}
+
+function addVersion(): void {
+  if (rows.value.length >= maxVersions) return
+  rows.value.push({ claimantId: '', checks: [] })
+  validationError.value = ''
+}
+
+function removeVersion(versionIndex: number): void {
+  if (rows.value.length <= 1) return
+  rows.value.splice(versionIndex, 1)
   validationError.value = ''
 }
 
@@ -244,6 +269,12 @@ function requestSave(): void {
   const payload = buildPayload()
   if (payload) emit('save', payload)
 }
+
+function requestCancel(): void {
+  overlayArmed.value = false
+  if (props.saving) return
+  emit('cancel')
+}
 </script>
 
 <style scoped lang="scss">
@@ -289,7 +320,6 @@ function requestSave(): void {
         line-height: 20px;
       }
     }
-    .game-versions-modal__close,
     .version-check__remove {
       display: flex;
       align-items: center;
@@ -316,6 +346,32 @@ function requestSave(): void {
       font-family: Hauora-Regular;
       font-size: 14px;
       line-height: 20px;
+    }
+    .game-versions-modal__list-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px 12px;
+      gap: 12px;
+      color: $neutral-300;
+      font-family: Hauora-Regular;
+      font-size: 14px;
+      line-height: 20px;
+      button {
+        height: 36px;
+        padding: 0 12px;
+        border: 1px solid $green-500;
+        border-radius: 10px;
+        background-color: transparent;
+        color: $green-400;
+        font-family: Hauora-Medium;
+        font-size: 14px;
+        cursor: pointer;
+        &:hover:not(:disabled),
+        &:focus-visible:not(:disabled) {
+          background-color: rgba($green-500, 0.15);
+        }
+      }
     }
     .game-versions-modal__list {
       display: grid;
@@ -401,19 +457,33 @@ function requestSave(): void {
     footer {
       display: flex;
       justify-content: flex-end;
+      flex-wrap: wrap;
       padding: 16px 24px 24px;
       border-top: 1px solid $neutral-700;
+      gap: 12px;
+      .game-versions-modal__cancel,
       .game-versions-modal__save {
         min-width: 190px;
         height: 40px;
         padding: 0 16px;
         border: 0;
         border-radius: 10px;
-        background-color: $green-500;
-        color: $neutral-black;
         font-family: Hauora-Medium;
         font-size: 14px;
         cursor: pointer;
+      }
+      .game-versions-modal__cancel {
+        border: 1px solid $neutral-500;
+        background-color: transparent;
+        color: $neutral-100;
+        &:hover:not(:disabled),
+        &:focus-visible:not(:disabled) {
+          background-color: $neutral-800;
+        }
+      }
+      .game-versions-modal__save {
+        background-color: $green-500;
+        color: $neutral-black;
         &:hover:not(:disabled),
         &:focus-visible:not(:disabled) {
           background-color: $green-400;
