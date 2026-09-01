@@ -19,8 +19,8 @@ LEGACY_GAME_SCORING_RULES_VERSIONS = frozenset({1, 2})
 GAME_SCORING_RULE_DEFAULTS: dict[str, Decimal] = {
     "additional_points_min": Decimal("-1.00"),
     "additional_points_max": Decimal("1.00"),
-    "fourth_foul": Decimal("-0.25"),
-    "fourth_foul_lost": Decimal("-0.40"),
+    "fourth_foul": Decimal("-0.30"),
+    "fourth_foul_lost": Decimal("-0.50"),
     "tech_foul": Decimal("-0.15"),
     "second_tech_foul_lost": Decimal("-0.35"),
     "suicide": Decimal("-0.30"),

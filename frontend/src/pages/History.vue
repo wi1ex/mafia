@@ -755,7 +755,7 @@ onBeforeUnmount(() => {
         border-radius: 5px;
         background-color: $neutral-800;
         box-shadow: 0 5px 10px rgba(black, 0.25);
-        overflow: hidden;
+        overflow: visible;
         transition: background-color 0.25s ease-in-out;
         &.history-item--red:not(.open) {
           background-color: rgba($red-500, 0.5);
@@ -837,7 +837,7 @@ onBeforeUnmount(() => {
           }
         }
         .history-extra {
-          overflow: hidden;
+          overflow: visible;
           .history-extra-state {
             padding: 15px 10px;
             text-align: center;

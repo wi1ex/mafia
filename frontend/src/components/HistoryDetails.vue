@@ -510,7 +510,7 @@ function basePointsLabel(breakdown: GameHistoryPointsBreakdown): string {
             opacity: 0;
             transform: translateY(4px);
             transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease;
-            z-index: 5;
+            z-index: 20;
             strong {
               color: $neutral-white;
               font-family: Hauora-SemiBold;
