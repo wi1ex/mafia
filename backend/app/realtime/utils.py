@@ -7629,7 +7629,7 @@ async def game_start_unlocked(sid, data) -> GameStartAck:
                 )
             with suppress(Exception):
                 await emit_rooms_upsert_safe(r, rid)
-        scoring_rules_snapshot: dict[str, float | int] = {}
+        scoring_rules_snapshot: dict[str, float | str] = {}
         if game_mode == RATING_MODE:
             try:
                 async with SessionLocal() as session:

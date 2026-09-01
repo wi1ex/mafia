@@ -13,8 +13,6 @@ DECISIVE_RESULTS = {"red", "black"}
 RED_ROLES = {"citizen", "sheriff"}
 BLACK_ROLES = {"mafia", "don"}
 POINTS_QUANTUM = Decimal("0.01")
-GAME_SCORING_RULES_VERSION = 3
-LEGACY_GAME_SCORING_RULES_VERSIONS = frozenset({1, 2})
 
 GAME_SCORING_RULE_DEFAULTS: dict[str, Decimal] = {
     "additional_points_min": Decimal("-1.00"),
@@ -40,18 +38,27 @@ GAME_SCORING_RULE_DEFAULTS: dict[str, Decimal] = {
     "black_day_under_seven": Decimal("0.10"),
 }
 
-NEW_ACTION_RULE_KEYS = frozenset({
-    "night_shoot_miss",
-    "night_shoot_miss_terminal",
-    "vote_opponent_team",
-    "vote_red_terminal",
-    "vote_red_terminal_3v3",
-    "black_win_3v3",
-    "vote_lift_same_team",
-    "vote_lift_opponent_team",
-    "black_day_under_seven",
-})
-
+GAME_SCORING_LABEL_DEFAULTS: dict[str, str] = {
+    "fourth_foul": "4-й фол",
+    "fourth_foul_lost": "4-й фол после предрешённого поражения",
+    "tech_foul": "{count}-й технический фол",
+    "second_tech_foul_lost": "2-й технический фол после предрешённого поражения",
+    "suicide": "Самоубийство",
+    "suicide_lost": "Самоубийство после предрешённого поражения",
+    "best_move_black_0": "Лучший ход: чёрных игроков 0 из 3",
+    "best_move_black_1": "Лучший ход: чёрных игроков 1 из 3",
+    "best_move_black_2": "Лучший ход: чёрных игроков 2 из 3",
+    "best_move_black_3": "Лучший ход: чёрных игроков 3 из 3",
+    "night_shoot_miss": "Промах в отстреле",
+    "night_shoot_miss_terminal": "Промах в отстреле, после которого побеждают чёрные",
+    "vote_opponent_team": "Голосование против игрока другой команды",
+    "vote_red_terminal": "Голосование в красного, приведшее к победе чёрных",
+    "vote_red_terminal_3v3": "Голосование в красного, приведшее к победе чёрных 3в3",
+    "black_win_3v3": "Победа чёрных 3в3",
+    "vote_lift_same_team": "Голосование за подъём игроков своей команды",
+    "vote_lift_opponent_team": "Голосование за подъём игроков другой команды",
+    "black_day_under_seven": "Начало дня при менее чем 7 живых игроках",
+}
 
 def normalize_game_mode(raw: object) -> str:
     if isinstance(raw, bytes):
@@ -84,17 +91,27 @@ def _as_decimal(raw: object) -> Decimal | None:
     return value if value.is_finite() else None
 
 
-def build_game_scoring_rules_snapshot(raw: Mapping[object, Any] | None = None) -> dict[str, float | int]:
+def _normalize_scoring_label(raw: object, default: str) -> str:
+    if not isinstance(raw, str):
+        return default
+
+    value = raw.strip()
+    return value[:255] if value else default
+
+
+def build_game_scoring_rules_snapshot(raw: Mapping[object, Any] | None = None) -> dict[str, float | str]:
     source = raw if isinstance(raw, Mapping) else {}
-    snapshot: dict[str, float | int] = {"version": GAME_SCORING_RULES_VERSION}
+    snapshot: dict[str, float | str] = {}
     for key, default in GAME_SCORING_RULE_DEFAULTS.items():
         parsed = _as_decimal(source.get(key, default))
         value = default if parsed is None else parsed
         snapshot[key] = normalize_game_points_value(value)
+    for key, default in GAME_SCORING_LABEL_DEFAULTS.items():
+        snapshot[f"{key}_label"] = _normalize_scoring_label(source.get(f"{key}_label"), default)
     return snapshot
 
 
-def parse_game_scoring_rules_snapshot(raw: object) -> dict[str, float | int] | None:
+def parse_game_scoring_rules_snapshot(raw: object) -> dict[str, float | str] | None:
     if isinstance(raw, bytes):
         raw = raw.decode("utf-8", "ignore")
     if isinstance(raw, str):
@@ -103,26 +120,10 @@ def parse_game_scoring_rules_snapshot(raw: object) -> dict[str, float | int] | N
         except (TypeError, ValueError, json.JSONDecodeError):
             return None
 
-    if not isinstance(raw, Mapping):
+    if not isinstance(raw, Mapping) or not raw:
         return None
 
-    try:
-        version = int(raw.get("version") or 0)
-    except (TypeError, ValueError):
-        return None
-
-    if version == GAME_SCORING_RULES_VERSION:
-        return build_game_scoring_rules_snapshot(raw)
-
-    if version not in LEGACY_GAME_SCORING_RULES_VERSIONS:
-        return None
-
-    legacy_snapshot = build_game_scoring_rules_snapshot(raw)
-    legacy_snapshot["version"] = version
-    if version == 1:
-        for key in NEW_ACTION_RULE_KEYS:
-            legacy_snapshot[key] = 0.0
-    return legacy_snapshot
+    return build_game_scoring_rules_snapshot(raw)
 
 
 async def ensure_game_scoring_settings(session: AsyncSession) -> GameScoringSettings:
@@ -151,7 +152,7 @@ async def ensure_game_scoring_settings(session: AsyncSession) -> GameScoringSett
     return row
 
 
-async def get_game_scoring_rules_snapshot(session: AsyncSession) -> dict[str, float | int]:
+async def get_game_scoring_rules_snapshot(session: AsyncSession) -> dict[str, float | str]:
     row = await ensure_game_scoring_settings(session)
     return build_game_scoring_rules_snapshot(row.rules)
 
@@ -257,12 +258,24 @@ def _record_scoring_adjustment(
     )
 
 
+def _scoring_rule_label(
+    rules: Mapping[str, object],
+    rule_key: str,
+    **placeholders: object,
+) -> str:
+    default = GAME_SCORING_LABEL_DEFAULTS[rule_key]
+    label = _normalize_scoring_label(rules.get(f"{rule_key}_label"), default)
+    for key, value in placeholders.items():
+        label = label.replace(f"{{{key}}}", str(value))
+    return label
+
+
 def _apply_action_points(
     points: dict[int, Decimal],
     *,
     roles: Mapping[object, Any],
     actions: Iterable[Mapping[str, Any]],
-    rules: Mapping[str, float | int],
+    rules: Mapping[str, object],
     breakdown: dict[int, list[dict[str, Any]]] | None = None,
 ) -> None:
     rule_values: dict[str, Decimal] = {}
@@ -270,14 +283,14 @@ def _apply_action_points(
         parsed = _as_decimal(rules.get(key))
         rule_values[key] = default if parsed is None else parsed
 
-    def apply_rule(user_id: int, rule_key: str, label: str) -> None:
+    def apply_rule(user_id: int, rule_key: str, **placeholders: object) -> None:
         value = rule_values[rule_key]
         points[user_id] += value
         _record_scoring_adjustment(
             breakdown,
             user_id=user_id,
             rule_key=rule_key,
-            label=label,
+            label=_scoring_rule_label(rules, rule_key, **placeholders),
             value=value,
         )
 
@@ -317,7 +330,6 @@ def _apply_action_points(
                         apply_rule(
                             shooter_id,
                             "night_shoot_miss_terminal",
-                            "Промах в отстреле, после которого побеждают чёрные",
                         )
                 continue
 
@@ -347,9 +359,6 @@ def _apply_action_points(
             apply_rule(
                 missers[0],
                 rule_key,
-                "Промах в отстреле, после которого побеждают чёрные"
-                if terminal_miss
-                else "Промах в отстреле",
             )
             continue
 
@@ -376,9 +385,6 @@ def _apply_action_points(
                 apply_rule(
                     voter_id,
                     rule_key,
-                    "Голосование за подъём игроков своей команды"
-                    if rule_key == "vote_lift_same_team"
-                    else "Голосование за подъём игроков другой команды",
                 )
             continue
 
@@ -401,7 +407,7 @@ def _apply_action_points(
                         continue
                     voter_team = _team_for_role(_role_for_user(roles, voter_id))
                     if voter_team and voter_team != target_team:
-                        apply_rule(voter_id, "vote_opponent_team", "Голосование против игрока другой команды")
+                        apply_rule(voter_id, "vote_opponent_team")
             continue
 
         if action_type == "day_start":
@@ -410,7 +416,7 @@ def _apply_action_points(
                 continue
             for user_id in alive_ids:
                 if user_id in points and _is_black(_role_for_user(roles, user_id)):
-                    apply_rule(user_id, "black_day_under_seven", "Начало дня при менее чем 7 живых игроках")
+                    apply_rule(user_id, "black_day_under_seven")
             continue
 
         if action_type == "foul":
@@ -424,9 +430,6 @@ def _apply_action_points(
                 apply_rule(
                     target_id,
                     rule_key,
-                    "4-й фол после предрешённого поражения"
-                    if rule_key == "fourth_foul_lost"
-                    else "4-й фол",
                 )
             continue
 
@@ -442,9 +445,7 @@ def _apply_action_points(
             apply_rule(
                 target_id,
                 rule_key,
-                "2-й технический фол после предрешённого поражения"
-                if rule_key == "second_tech_foul_lost"
-                else f"{count}-й технический фол",
+                count=count,
             )
             continue
 
@@ -456,9 +457,6 @@ def _apply_action_points(
                 apply_rule(
                     target_id,
                     rule_key,
-                    "Самоубийство после предрешённого поражения"
-                    if rule_key == "suicide_lost"
-                    else "Самоубийство",
                 )
 
             if (
@@ -480,14 +478,11 @@ def _apply_action_points(
                             apply_rule(
                                 voter_id,
                                 penalty_key,
-                                "Голосование в красного, приведшее к победе чёрных 3в3"
-                                if is_black_win_3v3
-                                else "Голосование в красного, приведшее к победе чёрных",
                             )
                     if is_black_win_3v3:
                         for user_id in points:
                             if _is_black(_role_for_user(roles, user_id)):
-                                apply_rule(user_id, "black_win_3v3", "Победа чёрных 3в3")
+                                apply_rule(user_id, "black_win_3v3")
             continue
 
         if action_type != "best_move":
@@ -512,11 +507,10 @@ def _apply_action_points(
         apply_rule(
             actor_id,
             f"best_move_black_{black_count}",
-            f"Лучший ход: чёрных игроков {black_count} из 3",
         )
 
 
-def _additional_points_bounds(rules: Mapping[str, float | int]) -> tuple[Decimal, Decimal]:
+def _additional_points_bounds(rules: Mapping[str, object]) -> tuple[Decimal, Decimal]:
     lower = _as_decimal(rules.get("additional_points_min"))
     upper = _as_decimal(rules.get("additional_points_max"))
     if lower is None:

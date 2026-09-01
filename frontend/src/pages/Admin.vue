@@ -175,6 +175,7 @@
           <div class="grid">
             <div class="block scoring-block">
               <p>Правила фиксируются при старте рейтинговой игры. Изменения применятся только к следующим запущенным рейтинг-играм.</p>
+              <p>Тексты отображаются в деталях истории игры. В тексте технического фола <code>{count}</code> будет заменён на номер фола.</p>
               <div class="field-stack">
                 <UiInput id="scoring-additional-points-min" size="low" v-model.number="scoring.additional_points_min" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Минимум суммы доп. баллов" />
@@ -182,42 +183,80 @@
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Максимум суммы доп. баллов" />
                 <UiInput id="scoring-fourth-foul" size="low" v-model.number="scoring.fourth_foul" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="4-й фол" />
+                <UiInput id="scoring-fourth-foul-label" size="low" v-model.trim="scoring.fourth_foul_label" maxlength="255"
+                         autocomplete="off" :disabled="savingScoring" label="Текст в истории: 4-й фол" />
                 <UiInput id="scoring-fourth-foul-lost" size="low" v-model.number="scoring.fourth_foul_lost" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="4-й фол: игра после удаления проиграна" />
+                <UiInput id="scoring-fourth-foul-lost-label" size="low" v-model.trim="scoring.fourth_foul_lost_label" maxlength="255"
+                         autocomplete="off" :disabled="savingScoring" label="Текст в истории: 4-й фол после поражения" />
                 <UiInput id="scoring-tech-foul" size="low" v-model.number="scoring.tech_foul" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Технический фол" />
+                <UiInput id="scoring-tech-foul-label" size="low" v-model.trim="scoring.tech_foul_label" maxlength="255"
+                         autocomplete="off" :disabled="savingScoring" label="Текст в истории: технический фол" />
                 <UiInput id="scoring-second-tech-foul-lost" size="low" v-model.number="scoring.second_tech_foul_lost" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="2-й технический фол: игра после удаления проиграна" />
+                <UiInput id="scoring-second-tech-foul-lost-label" size="low" v-model.trim="scoring.second_tech_foul_lost_label" maxlength="255"
+                         autocomplete="off" :disabled="savingScoring" label="Текст в истории: 2-й технический фол после поражения" />
                 <UiInput id="scoring-suicide" size="low" v-model.number="scoring.suicide" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Самоубийство" />
+                <UiInput id="scoring-suicide-label" size="low" v-model.trim="scoring.suicide_label" maxlength="255"
+                         autocomplete="off" :disabled="savingScoring" label="Текст в истории: самоубийство" />
                 <UiInput id="scoring-suicide-lost" size="low" v-model.number="scoring.suicide_lost" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Самоубийство: игра после удаления проиграна" />
+                <UiInput id="scoring-suicide-lost-label" size="low" v-model.trim="scoring.suicide_lost_label" maxlength="255"
+                         autocomplete="off" :disabled="savingScoring" label="Текст в истории: самоубийство после поражения" />
                 <UiInput id="scoring-best-move-black-0" size="low" v-model.number="scoring.best_move_black_0" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Лучший ход красного: 0 чёрных" />
+                <UiInput id="scoring-best-move-black-0-label" size="low" v-model.trim="scoring.best_move_black_0_label" maxlength="255"
+                         autocomplete="off" :disabled="savingScoring" label="Текст в истории: лучший ход, 0 чёрных" />
                 <UiInput id="scoring-best-move-black-1" size="low" v-model.number="scoring.best_move_black_1" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Лучший ход красного: 1 чёрный" />
+                <UiInput id="scoring-best-move-black-1-label" size="low" v-model.trim="scoring.best_move_black_1_label" maxlength="255"
+                         autocomplete="off" :disabled="savingScoring" label="Текст в истории: лучший ход, 1 чёрный" />
                 <UiInput id="scoring-best-move-black-2" size="low" v-model.number="scoring.best_move_black_2" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Лучший ход красного: 2 чёрных" />
+                <UiInput id="scoring-best-move-black-2-label" size="low" v-model.trim="scoring.best_move_black_2_label" maxlength="255"
+                         autocomplete="off" :disabled="savingScoring" label="Текст в истории: лучший ход, 2 чёрных" />
                 <UiInput id="scoring-best-move-black-3" size="low" v-model.number="scoring.best_move_black_3" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Лучший ход красного: 3 чёрных" />
+                <UiInput id="scoring-best-move-black-3-label" size="low" v-model.trim="scoring.best_move_black_3_label" maxlength="255"
+                         autocomplete="off" :disabled="savingScoring" label="Текст в истории: лучший ход, 3 чёрных" />
                 <UiInput id="scoring-night-shoot-miss" size="low" v-model.number="scoring.night_shoot_miss" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Промах отстрела: определён промахнувшийся" />
+                <UiInput id="scoring-night-shoot-miss-label" size="low" v-model.trim="scoring.night_shoot_miss_label" maxlength="255"
+                         autocomplete="off" :disabled="savingScoring" label="Текст в истории: промах отстрела" />
                 <UiInput id="scoring-night-shoot-miss-terminal" size="low" v-model.number="scoring.night_shoot_miss_terminal" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Промах отстрела: чёрные должны победить" />
+                <UiInput id="scoring-night-shoot-miss-terminal-label" size="low" v-model.trim="scoring.night_shoot_miss_terminal_label" maxlength="255"
+                         autocomplete="off" :disabled="savingScoring" label="Текст в истории: промах отстрела перед победой чёрных" />
                 <UiInput id="scoring-vote-opponent-team" size="low" v-model.number="scoring.vote_opponent_team" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Голос за игрока противоположной команды" />
+                <UiInput id="scoring-vote-opponent-team-label" size="low" v-model.trim="scoring.vote_opponent_team_label" maxlength="255"
+                         autocomplete="off" :disabled="savingScoring" label="Текст в истории: голос за другую команду" />
                 <UiInput id="scoring-vote-red-terminal" size="low" v-model.number="scoring.vote_red_terminal" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Красный голосует в красного: победа чёрных" />
+                <UiInput id="scoring-vote-red-terminal-label" size="low" v-model.trim="scoring.vote_red_terminal_label" maxlength="255"
+                         autocomplete="off" :disabled="savingScoring" label="Текст в истории: голос в красного перед победой чёрных" />
                 <UiInput id="scoring-vote-red-terminal-3v3" size="low" v-model.number="scoring.vote_red_terminal_3v3" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Красный голосует в красного: победа чёрных 3×3" />
+                <UiInput id="scoring-vote-red-terminal-3v3-label" size="low" v-model.trim="scoring.vote_red_terminal_3v3_label" maxlength="255"
+                         autocomplete="off" :disabled="savingScoring" label="Текст в истории: голос в красного перед 3×3" />
                 <UiInput id="scoring-black-win-3v3" size="low" v-model.number="scoring.black_win_3v3" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Чёрный: победа чёрных 3×3" />
+                <UiInput id="scoring-black-win-3v3-label" size="low" v-model.trim="scoring.black_win_3v3_label" maxlength="255"
+                         autocomplete="off" :disabled="savingScoring" label="Текст в истории: победа чёрных 3×3" />
                 <UiInput id="scoring-vote-lift-same-team" size="low" v-model.number="scoring.vote_lift_same_team" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Подъём нескольких игроков своей команды" />
+                <UiInput id="scoring-vote-lift-same-team-label" size="low" v-model.trim="scoring.vote_lift_same_team_label" maxlength="255"
+                         autocomplete="off" :disabled="savingScoring" label="Текст в истории: подъём своей команды" />
                 <UiInput id="scoring-vote-lift-opponent-team" size="low" v-model.number="scoring.vote_lift_opponent_team" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Подъём нескольких игроков команды соперника" />
+                <UiInput id="scoring-vote-lift-opponent-team-label" size="low" v-model.trim="scoring.vote_lift_opponent_team_label" maxlength="255"
+                         autocomplete="off" :disabled="savingScoring" label="Текст в истории: подъём другой команды" />
                 <UiInput id="scoring-black-day-under-seven" size="low" v-model.number="scoring.black_day_under_seven" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Чёрный: начало дня при менее чем 7 живых" />
+                <UiInput id="scoring-black-day-under-seven-label" size="low" v-model.trim="scoring.black_day_under_seven_label" maxlength="255"
+                         autocomplete="off" :disabled="savingScoring" label="Текст в истории: начало дня менее чем с 7 живыми" />
               </div>
               <div class="bulk-admin-actions">
                 <button class="btn dark width-full" :disabled="savingScoring || !isScoringDirty" @click="loadScoring">Отменить изменения</button>
@@ -1198,6 +1237,25 @@ type GameScoringSettings = {
   vote_lift_same_team: number
   vote_lift_opponent_team: number
   black_day_under_seven: number
+  fourth_foul_label: string
+  fourth_foul_lost_label: string
+  tech_foul_label: string
+  second_tech_foul_lost_label: string
+  suicide_label: string
+  suicide_lost_label: string
+  best_move_black_0_label: string
+  best_move_black_1_label: string
+  best_move_black_2_label: string
+  best_move_black_3_label: string
+  night_shoot_miss_label: string
+  night_shoot_miss_terminal_label: string
+  vote_opponent_team_label: string
+  vote_red_terminal_label: string
+  vote_red_terminal_3v3_label: string
+  black_win_3v3_label: string
+  vote_lift_same_team_label: string
+  vote_lift_opponent_team_label: string
+  black_day_under_seven_label: string
 }
 
 type EditableSanctionRule = {
@@ -1507,6 +1565,25 @@ const scoring = reactive<GameScoringSettings>({
   vote_lift_same_team: -0.3,
   vote_lift_opponent_team: 0.3,
   black_day_under_seven: 0.1,
+  fourth_foul_label: '4-й фол',
+  fourth_foul_lost_label: '4-й фол после предрешённого поражения',
+  tech_foul_label: '{count}-й технический фол',
+  second_tech_foul_lost_label: '2-й технический фол после предрешённого поражения',
+  suicide_label: 'Самоубийство',
+  suicide_lost_label: 'Самоубийство после предрешённого поражения',
+  best_move_black_0_label: 'Лучший ход: чёрных игроков 0 из 3',
+  best_move_black_1_label: 'Лучший ход: чёрных игроков 1 из 3',
+  best_move_black_2_label: 'Лучший ход: чёрных игроков 2 из 3',
+  best_move_black_3_label: 'Лучший ход: чёрных игроков 3 из 3',
+  night_shoot_miss_label: 'Промах в отстреле',
+  night_shoot_miss_terminal_label: 'Промах в отстреле, после которого побеждают чёрные',
+  vote_opponent_team_label: 'Голосование против игрока другой команды',
+  vote_red_terminal_label: 'Голосование в красного, приведшее к победе чёрных',
+  vote_red_terminal_3v3_label: 'Голосование в красного, приведшее к победе чёрных 3в3',
+  black_win_3v3_label: 'Победа чёрных 3в3',
+  vote_lift_same_team_label: 'Голосование за подъём игроков своей команды',
+  vote_lift_opponent_team_label: 'Голосование за подъём игроков другой команды',
+  black_day_under_seven_label: 'Начало дня при менее чем 7 живых игроках',
 })
 
 const settingsStore = useSettingsStore()
@@ -1779,6 +1856,10 @@ function normalizeScoringValue(value: unknown): number {
   return Math.round(bounded * 100) / 100
 }
 
+function normalizeScoringLabel(value: unknown): string {
+  return String(value ?? '').trim().slice(0, 255)
+}
+
 function normalizeRoomUsers(value: unknown): RoomUserStat[] {
   if (!Array.isArray(value)) return []
   return value
@@ -1871,6 +1952,25 @@ function snapshotScoring(): string {
     vote_lift_same_team: normalizeScoringValue(scoring.vote_lift_same_team),
     vote_lift_opponent_team: normalizeScoringValue(scoring.vote_lift_opponent_team),
     black_day_under_seven: normalizeScoringValue(scoring.black_day_under_seven),
+    fourth_foul_label: normalizeScoringLabel(scoring.fourth_foul_label),
+    fourth_foul_lost_label: normalizeScoringLabel(scoring.fourth_foul_lost_label),
+    tech_foul_label: normalizeScoringLabel(scoring.tech_foul_label),
+    second_tech_foul_lost_label: normalizeScoringLabel(scoring.second_tech_foul_lost_label),
+    suicide_label: normalizeScoringLabel(scoring.suicide_label),
+    suicide_lost_label: normalizeScoringLabel(scoring.suicide_lost_label),
+    best_move_black_0_label: normalizeScoringLabel(scoring.best_move_black_0_label),
+    best_move_black_1_label: normalizeScoringLabel(scoring.best_move_black_1_label),
+    best_move_black_2_label: normalizeScoringLabel(scoring.best_move_black_2_label),
+    best_move_black_3_label: normalizeScoringLabel(scoring.best_move_black_3_label),
+    night_shoot_miss_label: normalizeScoringLabel(scoring.night_shoot_miss_label),
+    night_shoot_miss_terminal_label: normalizeScoringLabel(scoring.night_shoot_miss_terminal_label),
+    vote_opponent_team_label: normalizeScoringLabel(scoring.vote_opponent_team_label),
+    vote_red_terminal_label: normalizeScoringLabel(scoring.vote_red_terminal_label),
+    vote_red_terminal_3v3_label: normalizeScoringLabel(scoring.vote_red_terminal_3v3_label),
+    black_win_3v3_label: normalizeScoringLabel(scoring.black_win_3v3_label),
+    vote_lift_same_team_label: normalizeScoringLabel(scoring.vote_lift_same_team_label),
+    vote_lift_opponent_team_label: normalizeScoringLabel(scoring.vote_lift_opponent_team_label),
+    black_day_under_seven_label: normalizeScoringLabel(scoring.black_day_under_seven_label),
   })
 }
 
@@ -2553,6 +2653,25 @@ async function loadScoring(): Promise<void> {
     scoring.vote_lift_same_team = normalizeScoringValue(scoring.vote_lift_same_team)
     scoring.vote_lift_opponent_team = normalizeScoringValue(scoring.vote_lift_opponent_team)
     scoring.black_day_under_seven = normalizeScoringValue(scoring.black_day_under_seven)
+    scoring.fourth_foul_label = normalizeScoringLabel(scoring.fourth_foul_label)
+    scoring.fourth_foul_lost_label = normalizeScoringLabel(scoring.fourth_foul_lost_label)
+    scoring.tech_foul_label = normalizeScoringLabel(scoring.tech_foul_label)
+    scoring.second_tech_foul_lost_label = normalizeScoringLabel(scoring.second_tech_foul_lost_label)
+    scoring.suicide_label = normalizeScoringLabel(scoring.suicide_label)
+    scoring.suicide_lost_label = normalizeScoringLabel(scoring.suicide_lost_label)
+    scoring.best_move_black_0_label = normalizeScoringLabel(scoring.best_move_black_0_label)
+    scoring.best_move_black_1_label = normalizeScoringLabel(scoring.best_move_black_1_label)
+    scoring.best_move_black_2_label = normalizeScoringLabel(scoring.best_move_black_2_label)
+    scoring.best_move_black_3_label = normalizeScoringLabel(scoring.best_move_black_3_label)
+    scoring.night_shoot_miss_label = normalizeScoringLabel(scoring.night_shoot_miss_label)
+    scoring.night_shoot_miss_terminal_label = normalizeScoringLabel(scoring.night_shoot_miss_terminal_label)
+    scoring.vote_opponent_team_label = normalizeScoringLabel(scoring.vote_opponent_team_label)
+    scoring.vote_red_terminal_label = normalizeScoringLabel(scoring.vote_red_terminal_label)
+    scoring.vote_red_terminal_3v3_label = normalizeScoringLabel(scoring.vote_red_terminal_3v3_label)
+    scoring.black_win_3v3_label = normalizeScoringLabel(scoring.black_win_3v3_label)
+    scoring.vote_lift_same_team_label = normalizeScoringLabel(scoring.vote_lift_same_team_label)
+    scoring.vote_lift_opponent_team_label = normalizeScoringLabel(scoring.vote_lift_opponent_team_label)
+    scoring.black_day_under_seven_label = normalizeScoringLabel(scoring.black_day_under_seven_label)
     scoringSnapshot.value = snapshotScoring()
   } catch {
     void alertDialog('Не удалось загрузить настройки скоринга')
@@ -3753,7 +3872,7 @@ onBeforeUnmount(() => {
         padding-top: 0;
         .field-stack {
           display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
+          grid-template-columns: repeat(2, minmax(0, 1fr));
           margin: 20px 0;
         }
       }

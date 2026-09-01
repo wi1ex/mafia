@@ -171,6 +171,25 @@ class GameScoringSettingsOut(BaseModel):
     vote_lift_same_team: float
     vote_lift_opponent_team: float
     black_day_under_seven: float
+    fourth_foul_label: str
+    fourth_foul_lost_label: str
+    tech_foul_label: str
+    second_tech_foul_lost_label: str
+    suicide_label: str
+    suicide_lost_label: str
+    best_move_black_0_label: str
+    best_move_black_1_label: str
+    best_move_black_2_label: str
+    best_move_black_3_label: str
+    night_shoot_miss_label: str
+    night_shoot_miss_terminal_label: str
+    vote_opponent_team_label: str
+    vote_red_terminal_label: str
+    vote_red_terminal_3v3_label: str
+    black_win_3v3_label: str
+    vote_lift_same_team_label: str
+    vote_lift_opponent_team_label: str
+    black_day_under_seven_label: str
 
 
 class GameScoringSettingsUpdateIn(BaseModel):
@@ -195,6 +214,25 @@ class GameScoringSettingsUpdateIn(BaseModel):
     vote_lift_same_team: Optional[float] = Field(default=None, ge=-10, le=10)
     vote_lift_opponent_team: Optional[float] = Field(default=None, ge=-10, le=10)
     black_day_under_seven: Optional[float] = Field(default=None, ge=-10, le=10)
+    fourth_foul_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    fourth_foul_lost_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    tech_foul_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    second_tech_foul_lost_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    suicide_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    suicide_lost_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    best_move_black_0_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    best_move_black_1_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    best_move_black_2_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    best_move_black_3_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    night_shoot_miss_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    night_shoot_miss_terminal_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    vote_opponent_team_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    vote_red_terminal_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    vote_red_terminal_3v3_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    black_win_3v3_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    vote_lift_same_team_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    vote_lift_opponent_team_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    black_day_under_seven_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
 
 
 class AdminUpdateNotificationIn(BaseModel):
