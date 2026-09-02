@@ -9,6 +9,8 @@ regressing.
 from __future__ import annotations
 import unittest
 from collections.abc import Iterable, Mapping
+
+# noinspection PyProtectedMember
 from ..app.services.game_scoring import (
     _night_opinion_obvious_colors,
     _normalize_action_versions,
@@ -33,8 +35,8 @@ def version(claimant_id: int, *checks: tuple[int, str]) -> dict[str, object]:
 class VersionsObviousColorsTests(unittest.TestCase):
     maxDiff = None
 
+    @staticmethod
     def obvious_colors(
-        self,
         *,
         actor_id: int,
         versions: list[dict[str, object]],
@@ -324,4 +326,3 @@ class VersionsObviousColorsTests(unittest.TestCase):
             ],
         )
         self.assertEqual([item["obvious"] for item in before_claim_removal], [False, False])
-
