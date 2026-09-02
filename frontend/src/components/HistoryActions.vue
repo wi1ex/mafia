@@ -90,7 +90,8 @@
                 <p class="action-summary">{{ action.summary }}</p>
 
                 <div v-if="action.fields.length > 0" class="action-fields">
-                  <div v-for="field in action.fields" :key="`${action.order}-${field.label}`" class="action-field">
+                  <div v-for="(field, fieldIndex) in action.fields" :key="`${action.order}-${field.label}-${fieldIndex}`" class="action-field"
+                       :class="{ 'action-field--scoring': field.label.startsWith('Скоринг ') }">
                     <span class="field-label">{{ field.label }}</span>
                     <span class="field-value">{{ field.value }}</span>
                   </div>
@@ -832,6 +833,9 @@ watch(
                 line-height: 1.2;
                 word-break: break-word;
                 white-space: pre-wrap;
+              }
+              &.action-field--scoring {
+                grid-column: span 3;
               }
             }
           }

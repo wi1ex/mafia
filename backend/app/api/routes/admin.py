@@ -38,6 +38,7 @@ from ...services.livekit import remove_livekit_participant
 from ...services.user_cache import refresh_user_profile_cache, get_user_profiles_cached
 from ...services.game_scoring import (
     build_game_scoring_rules_snapshot,
+    calculate_game_scoring_audit,
     ensure_game_scoring_settings,
 )
 from ...services.profile_theme import (
@@ -189,6 +190,7 @@ from ..utils import (
     findGameFoulActionIndex,
     setGameActionPpk,
     game_action_fields,
+    game_scoring_audit_fields,
     compute_duration_seconds,
     gc_empty_room_and_emit,
     fetch_active_sanction,
@@ -1032,12 +1034,25 @@ async def game_actions(game_id: int, session: AsyncSession = Depends(get_session
     if gid <= 0:
         raise HTTPException(status_code=404, detail="game_not_found")
 
-    row = await session.execute(select(Game.id, Game.head_id, Game.seats, Game.actions, Game.result).where(Game.id == gid).limit(1))
+    row = await session.execute(
+        select(
+            Game.id,
+            Game.head_id,
+            Game.mode,
+            Game.roles,
+            Game.seats,
+            Game.actions,
+            Game.scoring_rules,
+            Game.result,
+        )
+        .where(Game.id == gid)
+        .limit(1)
+    )
     rec = row.first()
     if not rec:
         raise HTTPException(status_code=404, detail="game_not_found")
 
-    game_id_raw, head_id_raw, seats_raw, actions_raw, result_raw = rec
+    game_id_raw, head_id_raw, mode_raw, roles_raw, seats_raw, actions_raw, scoring_rules_raw, result_raw = rec
     game_id_value = safe_int(game_id_raw)
     if game_id_value <= 0:
         raise HTTPException(status_code=404, detail="game_not_found")
@@ -1053,6 +1068,14 @@ async def game_actions(game_id: int, session: AsyncSession = Depends(get_session
             uid_to_slot[uid] = slot
 
     actions = normalizeGameActionsForUpdate(actions_raw)
+    scoring_audit = calculate_game_scoring_audit(
+        mode=mode_raw,
+        roles=roles_raw if isinstance(roles_raw, dict) else {},
+        player_ids=uid_to_slot,
+        actions=actions,
+        scoring_rules=scoring_rules_raw if isinstance(scoring_rules_raw, dict) else None,
+    )
+    scoring_fields_by_order = game_scoring_audit_fields(scoring_audit, uid_to_slot=uid_to_slot)
     items: list[AdminGameActionOut] = []
     if actions:
         for index, raw_action in enumerate(actions, start=1):
@@ -1060,6 +1083,7 @@ async def game_actions(game_id: int, session: AsyncSession = Depends(get_session
                 continue
             action = dict(raw_action)
             title, summary, fields = game_action_fields(action, uid_to_slot=uid_to_slot, head_uid=head_uid)
+            fields.extend(scoring_fields_by_order.get(index, []))
             occurred_at: datetime | None = None
             ts = safe_int(action.get("ts"))
             if ts > 0:

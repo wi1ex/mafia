@@ -265,6 +265,7 @@ __all__ = [
     "game_action_wills",
     "game_action_check_result",
     "game_action_fields",
+    "game_scoring_audit_fields",
 ]
 
 log = structlog.get_logger()
@@ -3406,6 +3407,70 @@ def game_action_fields(action: dict[str, Any], *, uid_to_slot: dict[int, int], h
 
     add_field("Сырые данные", str(action))
     return action_type or "Событие", f"Событие {action_type or 'unknown'}", fields
+
+
+def game_scoring_audit_fields(
+    audit_items: Iterable[Mapping[str, Any]],
+    *,
+    uid_to_slot: dict[int, int],
+) -> dict[int, list[AdminGameActionFieldOut]]:
+    from ..schemas.admin import AdminGameActionFieldOut
+
+    def color_label(raw: object) -> str:
+        return "красный" if str(raw or "").strip().lower() == "red" else "чёрный"
+
+    def player_label(user_id: int) -> str:
+        slot = uid_to_slot.get(user_id)
+        return f"Игрок {slot}" if slot else f"user{user_id}"
+
+    def points_label(raw: object) -> str:
+        try:
+            points = float(raw)
+        except (TypeError, ValueError):
+            points = 0.0
+        return f"{points:+.2f}"
+
+    fields_by_order: dict[int, list[AdminGameActionFieldOut]] = {}
+    for audit_item in audit_items:
+        order = safe_int(audit_item.get("action_order"))
+        actor_id = safe_int(audit_item.get("actor_id"))
+        target_id = safe_int(audit_item.get("target_id"))
+        if order <= 0 or actor_id <= 0 or target_id <= 0:
+            continue
+
+        action_type = str(audit_item.get("type") or "").strip().lower()
+        label = "Скоринг мнения" if action_type == "night_opinion" else "Скоринг завещания"
+        value = (
+            f"{player_label(actor_id)} → {player_label(target_id)}: заявил {color_label(audit_item.get('guess_color'))}; "
+            f"фактический цвет — {color_label(audit_item.get('actual_color'))}."
+        )
+
+        reason = str(audit_item.get("reason") or "").strip().lower()
+        if reason == "black_author":
+            value += " Завещание чёрного автора не оценивается."
+        elif bool(audit_item.get("obvious")):
+            obvious_reason = str(audit_item.get("obvious_reason") or "").strip()
+            value += f" Очевидный {color_label(audit_item.get('obvious_color'))} цвет"
+            if obvious_reason:
+                value += f" ({obvious_reason})"
+            value += " — 0.00."
+        else:
+            actor_adjustment = audit_item.get("actor_adjustment")
+            if isinstance(actor_adjustment, Mapping):
+                actor_points = points_label(actor_adjustment.get("points"))
+                actor_rule = str(actor_adjustment.get("label") or "").strip()
+                value += f" Неочевидный цвет — автор: {actor_points}" + (f" ({actor_rule})." if actor_rule else ".")
+            else:
+                value += " Неочевидный цвет — 0.00."
+
+            target_adjustment = audit_item.get("target_adjustment")
+            if isinstance(target_adjustment, Mapping):
+                target_points = points_label(target_adjustment.get("points"))
+                target_rule = str(target_adjustment.get("label") or "").strip()
+                value += f" Цели: {target_points}" + (f" ({target_rule})." if target_rule else ".")
+
+        fields_by_order.setdefault(order, []).append(AdminGameActionFieldOut(label=label, value=value))
+    return fields_by_order
 
 
 def normalize_game_result(raw: Any) -> str:

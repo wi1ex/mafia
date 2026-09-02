@@ -446,6 +446,7 @@ def _night_opinion_obvious_colors(
     active_versions: list[dict[str, Any]],
     sheriff_checks: Mapping[int, set[int]],
     alive_states: Iterable[frozenset[int]],
+    sources: dict[int, str] | None = None,
 ) -> dict[int, str]:
     actor_role = _role_for_user(roles, actor_id)
     if actor_role not in RED_ROLES or actor_id not in player_ids:
@@ -466,16 +467,27 @@ def _night_opinion_obvious_colors(
         return {}
 
     private_colors: dict[int, str] = {actor_id: "red"}
+    known_color_sources: dict[int, str] = {actor_id: "собственная роль"}
     if actor_role == "sheriff":
         for target_id in sheriff_checks.get(actor_id, set()):
             target_color = _team_for_role(_role_for_user(roles, target_id))
             if target_color:
                 private_colors[target_id] = target_color
+                known_color_sources[target_id] = "личная проверка шерифа"
         for claimant_id in claimant_ids:
             if claimant_id != actor_id:
                 private_colors[claimant_id] = "black"
+                known_color_sources[claimant_id] = "контрвскрытие против шерифа"
 
     known_colors: dict[int, str] = dict(private_colors)
+
+    def set_known_color(user_id: int, color: str, source: str) -> None:
+        if user_id in known_colors:
+            return
+
+        known_colors[user_id] = color
+        known_color_sources[user_id] = source
+
     false_claimant_ids: set[int] = set()
     possible_black_teams: list[frozenset[int]] = []
     frozen_alive_states = tuple(alive_states)
@@ -507,12 +519,14 @@ def _night_opinion_obvious_colors(
         for user_id in player_ids:
             is_black = [user_id in black_team for black_team in possible_black_teams]
             if all(is_black):
-                known_colors.setdefault(user_id, "black")
+                set_known_color(user_id, "black", "версии и состав живых игроков")
             elif not any(is_black):
-                known_colors.setdefault(user_id, "red")
+                set_known_color(user_id, "red", "версии и состав живых игроков")
 
     for claimant_id in false_claimant_ids:
-        known_colors.setdefault(claimant_id, "black")
+        set_known_color(claimant_id, "black", "очевидно ложное вскрытие")
+    if sources is not None:
+        sources.update(known_color_sources)
     return known_colors
 
 
@@ -521,7 +535,8 @@ def _apply_night_opinion_points(
     *,
     roles: Mapping[object, Any],
     actions: Iterable[Mapping[str, Any]],
-    apply_rule: Callable[[int, str], None],
+    apply_rule: Callable[[int, str], dict[str, Any]],
+    audit: list[dict[str, Any]] | None = None,
 ) -> None:
     player_ids = set(points)
     if not player_ids:
@@ -537,7 +552,8 @@ def _apply_night_opinion_points(
         if alive_states[-1] != snapshot:
             alive_states.append(snapshot)
 
-    for action in actions:
+    for action_index, action in enumerate(actions, start=1):
+        action_order = _action_user_id(action, "_scoring_action_order") or action_index
         action_type = _action_type(action)
         if action_type == "versions":
             active_versions = _normalize_action_versions(action.get("versions"), player_ids)
@@ -596,6 +612,7 @@ def _apply_night_opinion_points(
             if not isinstance(raw_picks, Mapping):
                 continue
 
+            obvious_color_sources: dict[int, str] = {}
             obvious_colors = _night_opinion_obvious_colors(
                 actor_id=actor_id,
                 roles=roles,
@@ -603,6 +620,7 @@ def _apply_night_opinion_points(
                 active_versions=versions,
                 sheriff_checks=sheriff_checks,
                 alive_states=opinion_alive_states,
+                sources=obvious_color_sources,
             )
             for raw_target_id, raw_guess in raw_picks.items():
                 target_id = _action_user_id({"target_id": raw_target_id}, "target_id")
@@ -613,14 +631,33 @@ def _apply_night_opinion_points(
                     or target_id == actor_id
                     or not guess_color
                     or not actual_color
-                    or target_id in obvious_colors
                 ):
                     continue
+
+                audit_item = {
+                    "action_order": action_order,
+                    "type": "night_opinion",
+                    "actor_id": actor_id,
+                    "target_id": target_id,
+                    "guess_color": guess_color,
+                    "actual_color": actual_color,
+                    "obvious": target_id in obvious_colors,
+                    "obvious_color": obvious_colors.get(target_id),
+                    "obvious_reason": obvious_color_sources.get(target_id),
+                    "reason": "obvious_color" if target_id in obvious_colors else "",
+                }
+                if target_id in obvious_colors:
+                    if audit is not None:
+                        audit.append(audit_item)
+                    continue
+
                 rule_key = "night_opinion_correct" if guess_color == actual_color else "night_opinion_wrong"
-                apply_rule(
+                audit_item["actor_adjustment"] = apply_rule(
                     actor_id,
                     rule_key,
                 )
+                if audit is not None:
+                    audit.append(audit_item)
 
 
 def _apply_farewell_points(
@@ -628,7 +665,8 @@ def _apply_farewell_points(
     *,
     roles: Mapping[object, Any],
     actions: Iterable[Mapping[str, Any]],
-    apply_rule: Callable[[int, str], None],
+    apply_rule: Callable[[int, str], dict[str, Any]],
+    audit: list[dict[str, Any]] | None = None,
 ) -> None:
     player_ids = set(points)
     if not player_ids:
@@ -644,7 +682,8 @@ def _apply_farewell_points(
         if alive_states[-1] != snapshot:
             alive_states.append(snapshot)
 
-    for action in actions:
+    for action_index, action in enumerate(actions, start=1):
+        action_order = _action_user_id(action, "_scoring_action_order") or action_index
         action_type = _action_type(action)
         if action_type == "versions":
             active_versions = _normalize_action_versions(action.get("versions"), player_ids)
@@ -678,13 +717,14 @@ def _apply_farewell_points(
         if action_type != "farewell":
             continue
 
-        actor_id = _action_user_id(action, "actor_id")
-        if actor_id not in player_ids or _role_for_user(roles, actor_id) not in RED_ROLES:
-            continue
-
         raw_wills = action.get("wills")
         if not isinstance(raw_wills, Mapping):
             continue
+        actor_id = _action_user_id(action, "actor_id")
+        if actor_id not in player_ids:
+            continue
+
+        actor_is_red = _role_for_user(roles, actor_id) in RED_ROLES
         raw_contexts = action.get("contexts")
         contexts = raw_contexts if isinstance(raw_contexts, Mapping) else {}
         for raw_target_id, raw_guess in raw_wills.items():
@@ -697,6 +737,23 @@ def _apply_farewell_points(
                 or not guess_color
                 or not actual_color
             ):
+                continue
+
+            if not actor_is_red:
+                if audit is not None:
+                    audit.append(
+                        {
+                            "action_order": action_order,
+                            "type": "farewell",
+                            "actor_id": actor_id,
+                            "target_id": target_id,
+                            "guess_color": guess_color,
+                            "actual_color": actual_color,
+                            "obvious": False,
+                            "obvious_color": None,
+                            "reason": "black_author",
+                        }
+                    )
                 continue
 
             raw_context = contexts.get(str(target_id), contexts.get(target_id))
@@ -713,6 +770,7 @@ def _apply_farewell_points(
             if not farewell_alive_states or farewell_alive_states[-1] != frozenset(farewell_alive_ids):
                 farewell_alive_states = (*farewell_alive_states, frozenset(farewell_alive_ids))
 
+            obvious_color_sources: dict[int, str] = {}
             obvious_colors = _night_opinion_obvious_colors(
                 actor_id=actor_id,
                 roles=roles,
@@ -720,18 +778,37 @@ def _apply_farewell_points(
                 active_versions=versions,
                 sheriff_checks=sheriff_checks,
                 alive_states=farewell_alive_states,
+                sources=obvious_color_sources,
             )
+            audit_item = {
+                "action_order": action_order,
+                "type": "farewell",
+                "actor_id": actor_id,
+                "target_id": target_id,
+                "guess_color": guess_color,
+                "actual_color": actual_color,
+                "obvious": target_id in obvious_colors,
+                "obvious_color": obvious_colors.get(target_id),
+                "obvious_reason": obvious_color_sources.get(target_id),
+                "reason": "obvious_color" if target_id in obvious_colors else "",
+            }
             if target_id in obvious_colors:
+                if audit is not None:
+                    audit.append(audit_item)
                 continue
 
             if actual_color == "red":
                 rule_key = "farewell_red_correct" if guess_color == "red" else "farewell_red_wrong"
-                apply_rule(actor_id, rule_key)
+                audit_item["actor_adjustment"] = apply_rule(actor_id, rule_key)
+                if audit is not None:
+                    audit.append(audit_item)
                 continue
 
             rule_key = "farewell_black_correct" if guess_color == "black" else "farewell_black_wrong"
-            apply_rule(actor_id, rule_key)
+            audit_item["actor_adjustment"] = apply_rule(actor_id, rule_key)
             if guess_color != "red":
+                if audit is not None:
+                    audit.append(audit_item)
                 continue
 
             target_is_claimant = any(
@@ -743,7 +820,9 @@ def _apply_farewell_points(
                 if target_is_claimant
                 else "farewell_black_named_red"
             )
-            apply_rule(target_id, black_bonus_rule_key)
+            audit_item["target_adjustment"] = apply_rule(target_id, black_bonus_rule_key)
+            if audit is not None:
+                audit.append(audit_item)
 
 
 def _apply_action_points(
@@ -753,36 +832,49 @@ def _apply_action_points(
     actions: Iterable[Mapping[str, Any]],
     rules: Mapping[str, object],
     breakdown: dict[int, list[dict[str, Any]]] | None = None,
+    audit: list[dict[str, Any]] | None = None,
 ) -> None:
     rule_values: dict[str, Decimal] = {}
     for key, default in GAME_SCORING_RULE_DEFAULTS.items():
         parsed = _as_decimal(rules.get(key))
         rule_values[key] = default if parsed is None else parsed
 
-    def apply_rule(user_id: int, rule_key: str, **placeholders: object) -> None:
+    def apply_rule(user_id: int, rule_key: str, **placeholders: object) -> dict[str, Any]:
         value = rule_values[rule_key]
+        label = _scoring_rule_label(rules, rule_key, **placeholders)
         points[user_id] += value
         _record_scoring_adjustment(
             breakdown,
             user_id=user_id,
             rule_key=rule_key,
-            label=_scoring_rule_label(rules, rule_key, **placeholders),
+            label=label,
             value=value,
         )
+        return {
+            "rule_key": rule_key,
+            "label": label,
+            "points": normalize_game_points_value(value),
+        }
 
-    normalized_actions = [action for action in actions if isinstance(action, Mapping)]
+    normalized_actions = [
+        {**action, "_scoring_action_order": action_order}
+        for action_order, action in enumerate(actions, start=1)
+        if isinstance(action, Mapping)
+    ]
 
     _apply_night_opinion_points(
         points,
         roles=roles,
         actions=normalized_actions,
         apply_rule=apply_rule,
+        audit=audit,
     )
     _apply_farewell_points(
         points,
         roles=roles,
         actions=normalized_actions,
         apply_rule=apply_rule,
+        audit=audit,
     )
 
     foul_loss_after: dict[int, bool] = {}
@@ -1039,6 +1131,33 @@ def calculate_game_points(
             base_points[user_id] += min(max(value, additional_min), additional_max)
 
     return {str(user_id): normalize_game_points_value(value) for user_id, value in base_points.items()}
+
+
+def calculate_game_scoring_audit(
+    *,
+    mode: object,
+    roles: Mapping[object, Any],
+    player_ids: Iterable[int | str],
+    actions: Iterable[Mapping[str, Any]] | None = None,
+    scoring_rules: Mapping[object, Any] | None = None,
+) -> list[dict[str, Any]]:
+    if normalize_game_mode(mode) != RATING_MODE:
+        return []
+
+    active_rules = parse_game_scoring_rules_snapshot(scoring_rules)
+    if active_rules is None or actions is None:
+        return []
+
+    players = _normalize_user_ids(player_ids)
+    audit: list[dict[str, Any]] = []
+    _apply_action_points(
+        {user_id: Decimal("0") for user_id in players},
+        roles=roles,
+        actions=actions,
+        rules=active_rules,
+        audit=audit,
+    )
+    return audit
 
 
 def calculate_game_points_breakdown(
