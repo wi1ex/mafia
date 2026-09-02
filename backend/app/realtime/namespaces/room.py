@@ -2775,7 +2775,18 @@ async def game_farewell_mark(sid, data):
             return {"ok": False, "error": "already_marked", "status": 409, "limit": limit, "used": used}
 
         try:
-            await r.hset(f"room:{rid}:game_farewell_wills", tgt_key, verdict)
+            farewell_context = {
+                "versions": await get_game_versions(r, rid),
+                "alive": sorted(await smembers_ints(r, f"room:{rid}:game_alive")),
+            }
+            async with r.pipeline() as pipeline:
+                await pipeline.hset(f"room:{rid}:game_farewell_wills", tgt_key, verdict)
+                await pipeline.hset(
+                    f"room:{rid}:game_farewell_contexts",
+                    tgt_key,
+                    json.dumps(farewell_context, ensure_ascii=True, separators=(",", ":")),
+                )
+                await pipeline.execute()
         except Exception:
             log.exception("game_farewell_mark.save_failed", rid=rid, uid=speaker_uid, target=target_uid)
             return {"ok": False, "error": "internal", "status": 500}

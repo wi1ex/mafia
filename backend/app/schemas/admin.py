@@ -173,6 +173,12 @@ class GameScoringSettingsOut(BaseModel):
     black_day_under_seven: float
     night_opinion_correct: float
     night_opinion_wrong: float
+    farewell_red_correct: float
+    farewell_red_wrong: float
+    farewell_black_correct: float
+    farewell_black_wrong: float
+    farewell_black_named_red: float
+    farewell_claimant_black_named_red: float
     fourth_foul_label: str
     fourth_foul_lost_label: str
     tech_foul_label: str
@@ -194,6 +200,12 @@ class GameScoringSettingsOut(BaseModel):
     black_day_under_seven_label: str
     night_opinion_correct_label: str
     night_opinion_wrong_label: str
+    farewell_red_correct_label: str
+    farewell_red_wrong_label: str
+    farewell_black_correct_label: str
+    farewell_black_wrong_label: str
+    farewell_black_named_red_label: str
+    farewell_claimant_black_named_red_label: str
 
 
 class GameScoringSettingsUpdateIn(BaseModel):
@@ -220,6 +232,12 @@ class GameScoringSettingsUpdateIn(BaseModel):
     black_day_under_seven: Optional[float] = Field(default=None, ge=-10, le=10)
     night_opinion_correct: Optional[float] = Field(default=None, ge=-10, le=10)
     night_opinion_wrong: Optional[float] = Field(default=None, ge=-10, le=10)
+    farewell_red_correct: Optional[float] = Field(default=None, ge=-10, le=10)
+    farewell_red_wrong: Optional[float] = Field(default=None, ge=-10, le=10)
+    farewell_black_correct: Optional[float] = Field(default=None, ge=-10, le=10)
+    farewell_black_wrong: Optional[float] = Field(default=None, ge=-10, le=10)
+    farewell_black_named_red: Optional[float] = Field(default=None, ge=-10, le=10)
+    farewell_claimant_black_named_red: Optional[float] = Field(default=None, ge=-10, le=10)
     fourth_foul_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
     fourth_foul_lost_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
     tech_foul_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
@@ -241,6 +259,12 @@ class GameScoringSettingsUpdateIn(BaseModel):
     black_day_under_seven_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
     night_opinion_correct_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
     night_opinion_wrong_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    farewell_red_correct_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    farewell_red_wrong_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    farewell_black_correct_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    farewell_black_wrong_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    farewell_black_named_red_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    farewell_claimant_black_named_red_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
 
 
 class AdminUpdateNotificationIn(BaseModel):

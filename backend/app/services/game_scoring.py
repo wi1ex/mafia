@@ -39,6 +39,12 @@ GAME_SCORING_RULE_DEFAULTS: dict[str, Decimal] = {
     "black_day_under_seven": Decimal("0.10"),
     "night_opinion_correct": Decimal("0.10"),
     "night_opinion_wrong": Decimal("-0.10"),
+    "farewell_red_correct": Decimal("0.15"),
+    "farewell_red_wrong": Decimal("-0.20"),
+    "farewell_black_correct": Decimal("0.20"),
+    "farewell_black_wrong": Decimal("-0.25"),
+    "farewell_black_named_red": Decimal("0.10"),
+    "farewell_claimant_black_named_red": Decimal("0.15"),
 }
 
 GAME_SCORING_LABEL_DEFAULTS: dict[str, str] = {
@@ -63,6 +69,12 @@ GAME_SCORING_LABEL_DEFAULTS: dict[str, str] = {
     "black_day_under_seven": "Долгая живучесть",
     "night_opinion_correct": "Ночное мнение: верный цвет",
     "night_opinion_wrong": "Ночное мнение: неверный цвет",
+    "farewell_red_correct": "Завещание: верно указан красный",
+    "farewell_red_wrong": "Завещание: красный указан чёрным",
+    "farewell_black_correct": "Завещание: верно указан чёрный",
+    "farewell_black_wrong": "Завещание: чёрный указан красным",
+    "farewell_black_named_red": "Чёрного оставили красным",
+    "farewell_claimant_black_named_red": "Вскрывшегося чёрного оставили красным",
 }
 
 def normalize_game_mode(raw: object) -> str:
@@ -611,6 +623,129 @@ def _apply_night_opinion_points(
                 )
 
 
+def _apply_farewell_points(
+    points: dict[int, Decimal],
+    *,
+    roles: Mapping[object, Any],
+    actions: Iterable[Mapping[str, Any]],
+    apply_rule: Callable[[int, str], None],
+) -> None:
+    player_ids = set(points)
+    if not player_ids:
+        return
+
+    active_versions: list[dict[str, Any]] = []
+    sheriff_checks: dict[int, set[int]] = {}
+    alive_ids = set(player_ids)
+    alive_states: list[frozenset[int]] = [frozenset(alive_ids)]
+
+    def remember_alive_state(next_alive_ids: set[int]) -> None:
+        snapshot = frozenset(next_alive_ids)
+        if alive_states[-1] != snapshot:
+            alive_states.append(snapshot)
+
+    for action in actions:
+        action_type = _action_type(action)
+        if action_type == "versions":
+            active_versions = _normalize_action_versions(action.get("versions"), player_ids)
+            continue
+
+        if action_type == "day_start":
+            logged_alive_ids = set(_action_user_ids(action, "alive")) & player_ids
+            if logged_alive_ids:
+                alive_ids = logged_alive_ids
+                remember_alive_state(alive_ids)
+            continue
+
+        if action_type == "death":
+            target_id = _action_user_id(action, "target_id")
+            if target_id in alive_ids:
+                alive_ids.remove(target_id)
+                remember_alive_state(alive_ids)
+            continue
+
+        if action_type == "night_check":
+            actor_id = _action_user_id(action, "actor_id")
+            target_id = _action_user_id(action, "target_id")
+            if (
+                actor_id in player_ids
+                and target_id in player_ids
+                and _role_for_user(roles, actor_id) == "sheriff"
+            ):
+                sheriff_checks.setdefault(actor_id, set()).add(target_id)
+            continue
+
+        if action_type != "farewell":
+            continue
+
+        actor_id = _action_user_id(action, "actor_id")
+        if actor_id not in player_ids or _role_for_user(roles, actor_id) not in RED_ROLES:
+            continue
+
+        raw_wills = action.get("wills")
+        if not isinstance(raw_wills, Mapping):
+            continue
+        raw_contexts = action.get("contexts")
+        contexts = raw_contexts if isinstance(raw_contexts, Mapping) else {}
+        for raw_target_id, raw_guess in raw_wills.items():
+            target_id = _action_user_id({"target_id": raw_target_id}, "target_id")
+            guess_color = _night_opinion_guess_side(raw_guess)
+            actual_color = _team_for_role(_role_for_user(roles, target_id))
+            if (
+                target_id not in player_ids
+                or target_id == actor_id
+                or not guess_color
+                or not actual_color
+            ):
+                continue
+
+            raw_context = contexts.get(str(target_id), contexts.get(target_id))
+            context = raw_context if isinstance(raw_context, Mapping) else {}
+            raw_versions = context.get("versions") if context else None
+            versions = (
+                _normalize_action_versions(raw_versions, player_ids)
+                if isinstance(raw_versions, list)
+                else active_versions
+            )
+            context_alive_ids = set(_action_user_ids(context, "alive")) & player_ids
+            farewell_alive_ids = context_alive_ids or alive_ids
+            farewell_alive_states = tuple(alive_states)
+            if not farewell_alive_states or farewell_alive_states[-1] != frozenset(farewell_alive_ids):
+                farewell_alive_states = (*farewell_alive_states, frozenset(farewell_alive_ids))
+
+            obvious_colors = _night_opinion_obvious_colors(
+                actor_id=actor_id,
+                roles=roles,
+                player_ids=player_ids,
+                active_versions=versions,
+                sheriff_checks=sheriff_checks,
+                alive_states=farewell_alive_states,
+            )
+            if target_id in obvious_colors:
+                continue
+
+            if actual_color == "red":
+                rule_key = "farewell_red_correct" if guess_color == "red" else "farewell_red_wrong"
+                apply_rule(actor_id, rule_key)
+                continue
+
+            rule_key = "farewell_black_correct" if guess_color == "black" else "farewell_black_wrong"
+            apply_rule(actor_id, rule_key)
+            if guess_color != "red":
+                continue
+
+            target_is_claimant = any(
+                _action_user_id(version, "claimant_id") == target_id
+                for version in versions
+            )
+            black_bonus_rule_key = (
+                "farewell_claimant_black_named_red"
+                if target_is_claimant
+                else "farewell_black_named_red"
+            )
+            apply_rule(target_id, black_bonus_rule_key)
+
+
 def _apply_action_points(
     points: dict[int, Decimal],
     *,
@@ -638,6 +773,12 @@ def _apply_action_points(
     normalized_actions = [action for action in actions if isinstance(action, Mapping)]
 
     _apply_night_opinion_points(
+        points,
+        roles=roles,
+        actions=normalized_actions,
+        apply_rule=apply_rule,
+    )
+    _apply_farewell_points(
         points,
         roles=roles,
         actions=normalized_actions,

@@ -177,6 +177,7 @@ __all__ = [
     "emit_game_tech_fouls",
     "get_farewell_wills",
     "get_farewell_wills_for",
+    "get_farewell_will_contexts_for",
     "get_farewell_limits",
     "get_game_versions",
     "normalize_game_versions",
@@ -4583,6 +4584,53 @@ async def get_farewell_wills_for(r, rid: int, speaker_uid: int) -> dict[str, str
     return all_wills.get(str(speaker_uid), {})
 
 
+async def get_farewell_will_contexts_for(r, rid: int, speaker_uid: int) -> dict[str, dict[str, Any]]:
+    if speaker_uid <= 0:
+        return {}
+
+    try:
+        raw = await r.hgetall(f"room:{rid}:game_farewell_contexts")
+    except Exception:
+        log.exception("farewell_contexts.load_failed", rid=rid, uid=speaker_uid)
+        return {}
+
+    contexts: dict[str, dict[str, Any]] = {}
+    prefix = f"{speaker_uid}:"
+    for raw_key, raw_value in (raw or {}).items():
+        key = str(raw_key or "")
+        if not key.startswith(prefix):
+            continue
+        target_uid = key.removeprefix(prefix)
+        if not target_uid:
+            continue
+        if isinstance(raw_value, bytes):
+            raw_value = raw_value.decode("utf-8", "ignore")
+        try:
+            context = json.loads(str(raw_value))
+        except (TypeError, ValueError, json.JSONDecodeError):
+            continue
+        if not isinstance(context, Mapping):
+            continue
+
+        versions = normalize_game_versions(context.get("versions"))
+        alive_ids: list[int] = []
+        raw_alive_ids = context.get("alive")
+        if isinstance(raw_alive_ids, list):
+            seen_alive_ids: set[int] = set()
+            for raw_alive_id in raw_alive_ids:
+                try:
+                    alive_id = int(raw_alive_id)
+                except (TypeError, ValueError):
+                    continue
+                if alive_id > 0 and alive_id not in seen_alive_ids:
+                    seen_alive_ids.add(alive_id)
+                    alive_ids.append(alive_id)
+
+        contexts[target_uid] = {"versions": versions, "alive": sorted(alive_ids)}
+
+    return contexts
+
+
 GAME_VERSIONS_MAX_COUNT = 6
 GAME_VERSION_CHECKS_MAX_COUNT = 10
 
@@ -5876,8 +5924,10 @@ async def process_player_death(r, rid: int, user_id: int, *, head_uid: int | Non
         if reason in ("vote", "night"):
             try:
                 wills_for = await get_farewell_wills_for(r, rid, user_id)
+                will_contexts = await get_farewell_will_contexts_for(r, rid, user_id)
             except Exception:
                 wills_for = {}
+                will_contexts = {}
             if wills_for:
                 mode = "voted" if reason == "vote" else "killed"
                 await log_game_action(
@@ -5887,6 +5937,7 @@ async def process_player_death(r, rid: int, user_id: int, *, head_uid: int | Non
                         "type": "farewell",
                         "actor_id": user_id,
                         "wills": wills_for,
+                        "contexts": will_contexts,
                         "mode": mode,
                         "day": day_number,
                     },
@@ -7746,6 +7797,7 @@ async def game_start_unlocked(sid, data) -> GameStartAck:
                     f"room:{rid}:game_checked:don",
                     f"room:{rid}:game_checked:sheriff",
                     f"room:{rid}:game_farewell_wills",
+                    f"room:{rid}:game_farewell_contexts",
                     f"room:{rid}:game_farewell_limits",
                     f"room:{rid}:game_night_opinions",
                     f"room:{rid}:game_versions",
@@ -8563,6 +8615,7 @@ async def _perform_game_end_unlocked(ctx, sess: Optional[dict[str, Any]], *, con
             f"room:{rid}:game_checked:don",
             f"room:{rid}:game_checked:sheriff",
             f"room:{rid}:game_farewell_wills",
+            f"room:{rid}:game_farewell_contexts",
             f"room:{rid}:game_farewell_limits",
             f"room:{rid}:game_versions",
             f"room:{rid}:game_winks_left",
