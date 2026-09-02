@@ -6,6 +6,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends build-essential
 COPY pyproject.toml poetry.lock /app/
 RUN pip install --upgrade pip==26.1.2 && pip install poetry==2.4.1 && poetry config virtualenvs.create false && poetry install --no-interaction --no-ansi --only main --no-root
 COPY . /app
+RUN PYTHONOPTIMIZE=0 python -m unittest discover -s tests -v
 
 RUN useradd -u 999 -r -m -d /home/appuser -s /usr/sbin/nologin appuser && chown -R appuser:appuser /app /home/appuser
 ENV HOME=/home/appuser
