@@ -479,6 +479,16 @@ def _night_opinion_obvious_colors(
                 private_colors[claimant_id] = "black"
                 known_color_sources[claimant_id] = "контрвскрытие против шерифа"
 
+    if len(claimant_ids) >= 4:
+        known_colors = dict(private_colors)
+        for user_id in player_ids - claimant_ids:
+            if user_id not in known_colors:
+                known_colors[user_id] = "red"
+                known_color_sources[user_id] = "четыре или больше активных вскрытий"
+        if sources is not None:
+            sources.update(known_color_sources)
+        return known_colors
+
     frozen_alive_states = tuple(alive_states)
     if is_citizen_proxy_author and len(active_versions) > 1 and not explicitly_black_checked:
         own_version = next(
