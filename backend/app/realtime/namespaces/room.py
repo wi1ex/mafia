@@ -155,7 +155,7 @@ log = structlog.get_logger()
 
 BG_STATE_TTL_SECONDS = 300
 ROOM_RECONNECT_GRACE_SECONDS = max(1, int(getattr(settings, "ROOM_RECONNECT_GRACE_SECONDS", 4) or 4))
-GAME_VERSIONS_ALLOWED_PHASES = ("roles_pick", "mafia_talk_start", "mafia_talk_end", "day", "vote", "night")
+GAME_VERSIONS_ALLOWED_PHASES = ("day",)
 
 
 @sio.event(namespace="/room")
