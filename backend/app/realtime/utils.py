@@ -5716,15 +5716,17 @@ async def night_stage_timeout_job(rid: int, expected_stage: str, expected_starte
         except Exception:
             log.exception("night_opinions.roles_load_failed", rid=rid)
             raw_roles = {}
-        await log_game_action(
-            r,
-            rid,
-            {
-                "type": "night_opinions",
-                "night": ctx.gint("day_number"),
-                "opinions": enrich_night_opinions_for_history(opinions, raw_roles or {}),
-            },
-        )
+        opinions_action: dict[str, Any] = {
+            "type": "night_opinions",
+            "night": ctx.gint("day_number"),
+            "opinions": enrich_night_opinions_for_history(opinions, raw_roles or {}),
+        }
+        try:
+            opinions_action["versions"] = await get_game_versions(r, rid)
+            opinions_action["alive"] = sorted(await smembers_ints(r, f"room:{rid}:game_alive"))
+        except Exception:
+            log.exception("night_opinions.context_snapshot_failed", rid=rid)
+        await log_game_action(r, rid, opinions_action)
 
         raw2 = dict(raw)
         raw2["night_stage"] = next_stage

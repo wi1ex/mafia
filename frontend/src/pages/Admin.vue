@@ -257,6 +257,14 @@
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Чёрный: начало дня при менее чем 7 живых" />
                 <UiInput id="scoring-black-day-under-seven-label" size="low" v-model.trim="scoring.black_day_under_seven_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории: начало дня менее чем с 7 живыми" />
+                <UiInput id="scoring-night-opinion-correct" size="low" v-model.number="scoring.night_opinion_correct" type="number" step="0.01"
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Ночное мнение: верный цвет" />
+                <UiInput id="scoring-night-opinion-correct-label" size="low" v-model.trim="scoring.night_opinion_correct_label" maxlength="255"
+                         autocomplete="off" :disabled="savingScoring" label="Текст в истории: верное ночное мнение" />
+                <UiInput id="scoring-night-opinion-wrong" size="low" v-model.number="scoring.night_opinion_wrong" type="number" step="0.01"
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Ночное мнение: неверный цвет" />
+                <UiInput id="scoring-night-opinion-wrong-label" size="low" v-model.trim="scoring.night_opinion_wrong_label" maxlength="255"
+                         autocomplete="off" :disabled="savingScoring" label="Текст в истории: неверное ночное мнение" />
               </div>
               <div class="bulk-admin-actions">
                 <button class="btn dark width-full" :disabled="savingScoring || !isScoringDirty" @click="loadScoring">Отменить изменения</button>
@@ -1237,6 +1245,8 @@ type GameScoringSettings = {
   vote_lift_same_team: number
   vote_lift_opponent_team: number
   black_day_under_seven: number
+  night_opinion_correct: number
+  night_opinion_wrong: number
   fourth_foul_label: string
   fourth_foul_lost_label: string
   tech_foul_label: string
@@ -1256,6 +1266,8 @@ type GameScoringSettings = {
   vote_lift_same_team_label: string
   vote_lift_opponent_team_label: string
   black_day_under_seven_label: string
+  night_opinion_correct_label: string
+  night_opinion_wrong_label: string
 }
 
 type EditableSanctionRule = {
@@ -1565,6 +1577,8 @@ const scoring = reactive<GameScoringSettings>({
   vote_lift_same_team: -0.3,
   vote_lift_opponent_team: 0.3,
   black_day_under_seven: 0.1,
+  night_opinion_correct: 0.1,
+  night_opinion_wrong: -0.1,
   fourth_foul_label: '4-й фол',
   fourth_foul_lost_label: '4-й фол после предрешённого поражения',
   tech_foul_label: '{count}-й технический фол',
@@ -1584,6 +1598,8 @@ const scoring = reactive<GameScoringSettings>({
   vote_lift_same_team_label: 'Голосование за подъём игроков своей команды',
   vote_lift_opponent_team_label: 'Голосование за подъём игроков другой команды',
   black_day_under_seven_label: 'Начало дня при менее чем 7 живых игроках',
+  night_opinion_correct_label: 'Ночное мнение: верный цвет',
+  night_opinion_wrong_label: 'Ночное мнение: неверный цвет',
 })
 
 const settingsStore = useSettingsStore()
@@ -1952,6 +1968,8 @@ function snapshotScoring(): string {
     vote_lift_same_team: normalizeScoringValue(scoring.vote_lift_same_team),
     vote_lift_opponent_team: normalizeScoringValue(scoring.vote_lift_opponent_team),
     black_day_under_seven: normalizeScoringValue(scoring.black_day_under_seven),
+    night_opinion_correct: normalizeScoringValue(scoring.night_opinion_correct),
+    night_opinion_wrong: normalizeScoringValue(scoring.night_opinion_wrong),
     fourth_foul_label: normalizeScoringLabel(scoring.fourth_foul_label),
     fourth_foul_lost_label: normalizeScoringLabel(scoring.fourth_foul_lost_label),
     tech_foul_label: normalizeScoringLabel(scoring.tech_foul_label),
@@ -1971,6 +1989,8 @@ function snapshotScoring(): string {
     vote_lift_same_team_label: normalizeScoringLabel(scoring.vote_lift_same_team_label),
     vote_lift_opponent_team_label: normalizeScoringLabel(scoring.vote_lift_opponent_team_label),
     black_day_under_seven_label: normalizeScoringLabel(scoring.black_day_under_seven_label),
+    night_opinion_correct_label: normalizeScoringLabel(scoring.night_opinion_correct_label),
+    night_opinion_wrong_label: normalizeScoringLabel(scoring.night_opinion_wrong_label),
   })
 }
 
@@ -2653,6 +2673,8 @@ async function loadScoring(): Promise<void> {
     scoring.vote_lift_same_team = normalizeScoringValue(scoring.vote_lift_same_team)
     scoring.vote_lift_opponent_team = normalizeScoringValue(scoring.vote_lift_opponent_team)
     scoring.black_day_under_seven = normalizeScoringValue(scoring.black_day_under_seven)
+    scoring.night_opinion_correct = normalizeScoringValue(scoring.night_opinion_correct)
+    scoring.night_opinion_wrong = normalizeScoringValue(scoring.night_opinion_wrong)
     scoring.fourth_foul_label = normalizeScoringLabel(scoring.fourth_foul_label)
     scoring.fourth_foul_lost_label = normalizeScoringLabel(scoring.fourth_foul_lost_label)
     scoring.tech_foul_label = normalizeScoringLabel(scoring.tech_foul_label)
@@ -2672,6 +2694,8 @@ async function loadScoring(): Promise<void> {
     scoring.vote_lift_same_team_label = normalizeScoringLabel(scoring.vote_lift_same_team_label)
     scoring.vote_lift_opponent_team_label = normalizeScoringLabel(scoring.vote_lift_opponent_team_label)
     scoring.black_day_under_seven_label = normalizeScoringLabel(scoring.black_day_under_seven_label)
+    scoring.night_opinion_correct_label = normalizeScoringLabel(scoring.night_opinion_correct_label)
+    scoring.night_opinion_wrong_label = normalizeScoringLabel(scoring.night_opinion_wrong_label)
     scoringSnapshot.value = snapshotScoring()
   } catch {
     void alertDialog('Не удалось загрузить настройки скоринга')

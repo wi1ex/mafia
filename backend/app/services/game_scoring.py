@@ -1,7 +1,8 @@
 from __future__ import annotations
 import json
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from itertools import combinations
 from typing import TYPE_CHECKING, Any
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -36,6 +37,8 @@ GAME_SCORING_RULE_DEFAULTS: dict[str, Decimal] = {
     "vote_lift_same_team": Decimal("-0.30"),
     "vote_lift_opponent_team": Decimal("0.30"),
     "black_day_under_seven": Decimal("0.10"),
+    "night_opinion_correct": Decimal("0.10"),
+    "night_opinion_wrong": Decimal("-0.10"),
 }
 
 GAME_SCORING_LABEL_DEFAULTS: dict[str, str] = {
@@ -58,6 +61,8 @@ GAME_SCORING_LABEL_DEFAULTS: dict[str, str] = {
     "vote_lift_same_team": "Голосование за подъём игроков своей команды",
     "vote_lift_opponent_team": "Голосование за подъём игроков другой команды",
     "black_day_under_seven": "Долгая живучесть",
+    "night_opinion_correct": "Ночное мнение: верный цвет",
+    "night_opinion_wrong": "Ночное мнение: неверный цвет",
 }
 
 def normalize_game_mode(raw: object) -> str:
@@ -270,6 +275,342 @@ def _scoring_rule_label(
     return label
 
 
+def _action_type(action: Mapping[str, Any]) -> str:
+    return str(action.get("type") or "").strip().lower()
+
+
+def _normalize_action_versions(raw: object, player_ids: set[int]) -> list[dict[str, Any]]:
+    if not isinstance(raw, list):
+        return []
+
+    versions: list[dict[str, Any]] = []
+    claimant_ids: set[int] = set()
+    for raw_version in raw:
+        if not isinstance(raw_version, Mapping):
+            continue
+        claimant_id = _action_user_id(raw_version, "claimant_id")
+        if claimant_id not in player_ids or claimant_id in claimant_ids:
+            continue
+
+        raw_checks = raw_version.get("checks")
+        if not isinstance(raw_checks, list):
+            continue
+
+        checks: list[dict[str, Any]] = []
+        checked_ids: set[int] = set()
+        for raw_check in raw_checks:
+            if not isinstance(raw_check, Mapping):
+                continue
+            target_id = _action_user_id(raw_check, "target_id")
+            verdict = str(raw_check.get("verdict") or "").strip().lower()
+            if (
+                target_id not in player_ids
+                or target_id == claimant_id
+                or target_id in checked_ids
+                or verdict not in {"red", "black"}
+            ):
+                continue
+            checked_ids.add(target_id)
+            checks.append({"target_id": target_id, "verdict": verdict})
+
+        if not checks:
+            continue
+        claimant_ids.add(claimant_id)
+        versions.append({"claimant_id": claimant_id, "checks": checks})
+
+    return versions
+
+
+def _set_fixed_color(colors: dict[int, str], user_id: int, color: str) -> bool:
+    existing = colors.get(user_id)
+    if existing is not None and existing != color:
+        return False
+
+    colors[user_id] = color
+    return True
+
+
+def _candidate_fixed_colors(
+    version: Mapping[str, Any],
+    active_versions: Iterable[Mapping[str, Any]],
+    *,
+    player_ids: set[int],
+    private_colors: Mapping[int, str],
+) -> dict[int, str] | None:
+    claimant_id = _action_user_id(version, "claimant_id")
+    if claimant_id not in player_ids:
+        return None
+
+    colors: dict[int, str] = {}
+    if not _set_fixed_color(colors, claimant_id, "red"):
+        return None
+
+    for other_version in active_versions:
+        other_claimant_id = _action_user_id(other_version, "claimant_id")
+        if other_claimant_id and other_claimant_id != claimant_id:
+            if (
+                other_claimant_id not in player_ids
+                or not _set_fixed_color(colors, other_claimant_id, "black")
+            ):
+                return None
+
+    raw_checks = version.get("checks")
+    if not isinstance(raw_checks, list):
+        return None
+
+    for raw_check in raw_checks:
+        if not isinstance(raw_check, Mapping):
+            return None
+
+        target_id = _action_user_id(raw_check, "target_id")
+        verdict = str(raw_check.get("verdict") or "").strip().lower()
+        if target_id not in player_ids or verdict not in {"red", "black"}:
+            return None
+
+        if not _set_fixed_color(colors, target_id, verdict):
+            return None
+
+    for user_id, color in private_colors.items():
+        if user_id not in player_ids or color not in {"red", "black"}:
+            continue
+        if not _set_fixed_color(colors, user_id, color):
+            return None
+
+    return colors
+
+
+def _candidate_black_teams(
+    fixed_colors: Mapping[int, str],
+    *,
+    player_ids: set[int],
+    alive_states: Iterable[frozenset[int]],
+) -> list[frozenset[int]]:
+    black_ids = {user_id for user_id, color in fixed_colors.items() if color == "black"}
+    red_ids = {user_id for user_id, color in fixed_colors.items() if color == "red"}
+    if len(black_ids) > 3 or black_ids & red_ids:
+        return []
+
+    missing_black_count = 3 - len(black_ids)
+    candidates = sorted(player_ids - black_ids - red_ids)
+    if missing_black_count < 0 or len(candidates) < missing_black_count:
+        return []
+
+    compatible_teams: list[frozenset[int]] = []
+    for additional_black_ids in combinations(candidates, missing_black_count):
+        black_team = frozenset(black_ids | set(additional_black_ids))
+        if any(
+            not _alive_state_can_continue(alive_ids, black_team)
+            for alive_ids in alive_states
+        ):
+            continue
+        compatible_teams.append(black_team)
+    return compatible_teams
+
+
+def _alive_state_can_continue(alive_ids: frozenset[int], black_team: frozenset[int]) -> bool:
+    black_alive = len(alive_ids & black_team)
+    red_alive = len(alive_ids) - black_alive
+    return 0 < black_alive < red_alive
+
+
+def _night_opinion_guess_side(raw: object) -> str:
+    if isinstance(raw, Mapping):
+        raw = raw.get("guess")
+    value = str(raw or "").strip().lower()
+    if value in {"citizen", "red"}:
+        return "red"
+
+    if value in {"mafia", "black"}:
+        return "black"
+
+    return ""
+
+
+def _night_opinion_obvious_colors(
+    *,
+    actor_id: int,
+    roles: Mapping[object, Any],
+    player_ids: set[int],
+    active_versions: list[dict[str, Any]],
+    sheriff_checks: Mapping[int, set[int]],
+    alive_states: Iterable[frozenset[int]],
+) -> dict[int, str]:
+    actor_role = _role_for_user(roles, actor_id)
+    if actor_role not in RED_ROLES or actor_id not in player_ids:
+        return {}
+
+    claimant_ids = {_action_user_id(version, "claimant_id") for version in active_versions}
+    claimant_ids.discard(0)
+    is_citizen_proxy_author = actor_role == "citizen" and actor_id in claimant_ids
+    explicitly_black_checked = any(
+        _action_user_id(check, "target_id") == actor_id
+        and str(check.get("verdict") or "").strip().lower() == "black"
+        for version in active_versions
+        for check in (version.get("checks") if isinstance(version.get("checks"), list) else [])
+        if isinstance(check, Mapping)
+    )
+
+    if is_citizen_proxy_author and not explicitly_black_checked:
+        return {}
+
+    private_colors: dict[int, str] = {actor_id: "red"}
+    if actor_role == "sheriff":
+        for target_id in sheriff_checks.get(actor_id, set()):
+            target_color = _team_for_role(_role_for_user(roles, target_id))
+            if target_color:
+                private_colors[target_id] = target_color
+        for claimant_id in claimant_ids:
+            if claimant_id != actor_id:
+                private_colors[claimant_id] = "black"
+
+    known_colors: dict[int, str] = dict(private_colors)
+    false_claimant_ids: set[int] = set()
+    possible_black_teams: list[frozenset[int]] = []
+    frozen_alive_states = tuple(alive_states)
+    for version in active_versions:
+        claimant_id = _action_user_id(version, "claimant_id")
+        fixed_colors = _candidate_fixed_colors(
+            version,
+            active_versions,
+            player_ids=player_ids,
+            private_colors=private_colors,
+        )
+        if fixed_colors is None:
+            if claimant_id:
+                false_claimant_ids.add(claimant_id)
+            continue
+
+        candidate_black_teams = _candidate_black_teams(
+            fixed_colors,
+            player_ids=player_ids,
+            alive_states=frozen_alive_states,
+        )
+        if not candidate_black_teams:
+            if claimant_id:
+                false_claimant_ids.add(claimant_id)
+            continue
+        possible_black_teams.extend(candidate_black_teams)
+
+    if possible_black_teams:
+        for user_id in player_ids:
+            is_black = [user_id in black_team for black_team in possible_black_teams]
+            if all(is_black):
+                known_colors.setdefault(user_id, "black")
+            elif not any(is_black):
+                known_colors.setdefault(user_id, "red")
+
+    for claimant_id in false_claimant_ids:
+        known_colors.setdefault(claimant_id, "black")
+    return known_colors
+
+
+def _apply_night_opinion_points(
+    points: dict[int, Decimal],
+    *,
+    roles: Mapping[object, Any],
+    actions: Iterable[Mapping[str, Any]],
+    apply_rule: Callable[[int, str], None],
+) -> None:
+    player_ids = set(points)
+    if not player_ids:
+        return
+
+    active_versions: list[dict[str, Any]] = []
+    sheriff_checks: dict[int, set[int]] = {}
+    alive_ids = set(player_ids)
+    alive_states: list[frozenset[int]] = [frozenset(alive_ids)]
+
+    def remember_alive_state(next_alive_ids: set[int]) -> None:
+        snapshot = frozenset(next_alive_ids)
+        if alive_states[-1] != snapshot:
+            alive_states.append(snapshot)
+
+    for action in actions:
+        action_type = _action_type(action)
+        if action_type == "versions":
+            active_versions = _normalize_action_versions(action.get("versions"), player_ids)
+            continue
+
+        if action_type == "day_start":
+            logged_alive_ids = set(_action_user_ids(action, "alive")) & player_ids
+            if logged_alive_ids:
+                alive_ids = logged_alive_ids
+                remember_alive_state(alive_ids)
+            continue
+
+        if action_type == "death":
+            target_id = _action_user_id(action, "target_id")
+            if target_id in alive_ids:
+                alive_ids.remove(target_id)
+                remember_alive_state(alive_ids)
+            continue
+
+        if action_type == "night_check":
+            actor_id = _action_user_id(action, "actor_id")
+            target_id = _action_user_id(action, "target_id")
+            if (
+                actor_id in player_ids
+                and target_id in player_ids
+                and _role_for_user(roles, actor_id) == "sheriff"
+            ):
+                sheriff_checks.setdefault(actor_id, set()).add(target_id)
+            continue
+
+        if action_type != "night_opinions":
+            continue
+
+        action_versions = action.get("versions")
+        versions = (
+            _normalize_action_versions(action_versions, player_ids)
+            if isinstance(action_versions, list)
+            else active_versions
+        )
+        action_alive_ids = set(_action_user_ids(action, "alive")) & player_ids
+        if action_alive_ids:
+            alive_ids = action_alive_ids
+            remember_alive_state(alive_ids)
+        opinion_alive_ids = alive_ids
+        opinion_alive_states = tuple(alive_states)
+        if not opinion_alive_states or opinion_alive_states[-1] != frozenset(opinion_alive_ids):
+            opinion_alive_states = (*opinion_alive_states, frozenset(opinion_alive_ids))
+
+        raw_opinions = action.get("opinions")
+        if not isinstance(raw_opinions, Mapping):
+            continue
+        for raw_actor_id, raw_picks in raw_opinions.items():
+            actor_id = _action_user_id({"actor_id": raw_actor_id}, "actor_id")
+            if actor_id not in player_ids or _role_for_user(roles, actor_id) not in RED_ROLES:
+                continue
+            if not isinstance(raw_picks, Mapping):
+                continue
+
+            obvious_colors = _night_opinion_obvious_colors(
+                actor_id=actor_id,
+                roles=roles,
+                player_ids=player_ids,
+                active_versions=versions,
+                sheriff_checks=sheriff_checks,
+                alive_states=opinion_alive_states,
+            )
+            for raw_target_id, raw_guess in raw_picks.items():
+                target_id = _action_user_id({"target_id": raw_target_id}, "target_id")
+                guess_color = _night_opinion_guess_side(raw_guess)
+                actual_color = _team_for_role(_role_for_user(roles, target_id))
+                if (
+                    target_id not in player_ids
+                    or target_id == actor_id
+                    or not guess_color
+                    or not actual_color
+                    or target_id in obvious_colors
+                ):
+                    continue
+                rule_key = "night_opinion_correct" if guess_color == actual_color else "night_opinion_wrong"
+                apply_rule(
+                    actor_id,
+                    rule_key,
+                )
+
+
 def _apply_action_points(
     points: dict[int, Decimal],
     *,
@@ -295,6 +636,13 @@ def _apply_action_points(
         )
 
     normalized_actions = [action for action in actions if isinstance(action, Mapping)]
+
+    _apply_night_opinion_points(
+        points,
+        roles=roles,
+        actions=normalized_actions,
+        apply_rule=apply_rule,
+    )
 
     foul_loss_after: dict[int, bool] = {}
     for action in normalized_actions:

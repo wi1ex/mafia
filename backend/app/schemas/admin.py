@@ -171,6 +171,8 @@ class GameScoringSettingsOut(BaseModel):
     vote_lift_same_team: float
     vote_lift_opponent_team: float
     black_day_under_seven: float
+    night_opinion_correct: float
+    night_opinion_wrong: float
     fourth_foul_label: str
     fourth_foul_lost_label: str
     tech_foul_label: str
@@ -190,6 +192,8 @@ class GameScoringSettingsOut(BaseModel):
     vote_lift_same_team_label: str
     vote_lift_opponent_team_label: str
     black_day_under_seven_label: str
+    night_opinion_correct_label: str
+    night_opinion_wrong_label: str
 
 
 class GameScoringSettingsUpdateIn(BaseModel):
@@ -214,6 +218,8 @@ class GameScoringSettingsUpdateIn(BaseModel):
     vote_lift_same_team: Optional[float] = Field(default=None, ge=-10, le=10)
     vote_lift_opponent_team: Optional[float] = Field(default=None, ge=-10, le=10)
     black_day_under_seven: Optional[float] = Field(default=None, ge=-10, le=10)
+    night_opinion_correct: Optional[float] = Field(default=None, ge=-10, le=10)
+    night_opinion_wrong: Optional[float] = Field(default=None, ge=-10, le=10)
     fourth_foul_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
     fourth_foul_lost_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
     tech_foul_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
@@ -233,6 +239,8 @@ class GameScoringSettingsUpdateIn(BaseModel):
     vote_lift_same_team_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
     vote_lift_opponent_team_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
     black_day_under_seven_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    night_opinion_correct_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    night_opinion_wrong_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
 
 
 class AdminUpdateNotificationIn(BaseModel):
