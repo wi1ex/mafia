@@ -2584,7 +2584,7 @@ socket.value?.on('connect', async () => {
     } else if (reason === 'sanction_ban') {
       void alertDialog('Ваш аккаунт забанен: вы кикнуты из комнаты')
     } else if (reason === 'room_deleted') {
-      void alertDialog('Комната была удалена администратором. Пункт правил: 4.5.1.')
+      void alertDialog('Комната была удалена администратором. Пункт правил: 3.3')
     } else if (reason === 'single_timeout') {
       const minutes = Number(p?.minutes || 0)
       if (Number.isFinite(minutes) && minutes > 0) {
