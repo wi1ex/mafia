@@ -83,6 +83,10 @@ def normalize_game_mode(raw: object) -> str:
     return RATING_MODE if str(raw or "").strip().lower() == RATING_MODE else "normal"
 
 
+def can_set_game_mode(mode: object, *, rating_mode_eligible: object) -> bool:
+    return normalize_game_mode(mode) != RATING_MODE or bool(rating_mode_eligible)
+
+
 def normalize_game_points_value(raw: object) -> float:
     if isinstance(raw, bytes):
         raw = raw.decode("utf-8", "ignore")

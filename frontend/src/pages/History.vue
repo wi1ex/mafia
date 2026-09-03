@@ -125,9 +125,11 @@
                   :game-id="game.id"
                   :game-number="game.number"
                   :game-result="game.result"
+                  :game-mode="game.mode"
                   :details-slots="detailsSlots(game.id)"
                   :details-loading="isDetailsLoading(game.id)"
                   @result-updated="handleGameResultUpdated"
+                  @mode-updated="handleGameModeUpdated"
                   @ppk-updated="handleGamePpkUpdated"
                   @foul-removals-updated="handleGameFoulRemovalsUpdated"
                 />
@@ -451,6 +453,13 @@ function handleGameResultUpdated(payload: { gameId: number; result: GameResult; 
   ))
   adjustResultTotal(payload.previousResult, -1)
   adjustResultTotal(payload.result, 1)
+}
+
+function handleGameModeUpdated(payload: { gameId: number; mode: GameMode }): void {
+  items.value = items.value.map((game) => (
+    game.id === payload.gameId ? { ...game, mode: payload.mode } : game
+  ))
+  reloadGameDetails(payload.gameId)
 }
 
 function handleGamePpkUpdated(payload: { gameId: number; userId: number | null; previousUserId: number | null }): void {

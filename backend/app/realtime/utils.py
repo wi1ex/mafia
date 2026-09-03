@@ -4758,7 +4758,7 @@ def farewell_formula(x: int) -> int:
     if x <= 0:
         return 0
 
-    return (x // 2) + 1
+    return x // 2
 
 
 def farewell_finishes_game(red_alive_cnt: int, black_alive_cnt: int) -> bool:
@@ -4993,7 +4993,7 @@ def enrich_night_opinions_for_history(opinions: Mapping[str, Mapping[str, str]],
 async def compute_night_opinion_limit(r, rid: int) -> int:
     alive = await smembers_ints(r, f"room:{rid}:game_alive")
     other_players = max(len(alive) - 1, 0)
-    return max(farewell_formula(other_players) - 1, 0)
+    return max(farewell_formula(other_players), 0)
 
 
 async def should_require_night_opinions(
@@ -6257,6 +6257,7 @@ async def finish_game(r, rid: int, *, result: str, head_uid: int | None = None, 
                     room_owner_id=room_owner_id,
                     head_id=head_uid if head_uid and head_uid > 0 else None,
                     mode=game_mode,
+                    rating_mode_eligible=game_mode == RATING_MODE,
                     result=result,
                     started_at=started_at,
                     finished_at=finished_at,

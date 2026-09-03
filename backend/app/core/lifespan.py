@@ -39,6 +39,18 @@ async def lifespan(app) -> AsyncIterator[None]:
             # Games recorded before this feature have no reliable mode snapshot and
             # must never participate in rating calculations.
             await conn.execute(text("UPDATE games SET mode = 'normal' WHERE mode IS NULL"))
+            # Preserve whether a game was originally rating.  This lets an admin
+            # temporarily remove it from rating without allowing an ordinary game
+            # to be promoted into rating later.
+            await conn.execute(
+                text(
+                    "ALTER TABLE games "
+                    "ADD COLUMN IF NOT EXISTS rating_mode_eligible BOOLEAN NOT NULL DEFAULT FALSE"
+                )
+            )
+            await conn.execute(
+                text("UPDATE games SET rating_mode_eligible = TRUE WHERE mode = 'rating'")
+            )
             await conn.execute(
                 text(
                     "ALTER TABLE games "

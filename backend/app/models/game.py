@@ -1,6 +1,6 @@
 from __future__ import annotations
 from datetime import datetime
-from sqlalchemy import DateTime, Integer, String, BigInteger, JSON, func
+from sqlalchemy import Boolean, DateTime, Integer, String, BigInteger, JSON, func
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import JSONB
 from ..core.db import Base
@@ -14,6 +14,7 @@ class Game(Base):
     room_owner_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
     head_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True, index=True)
     mode: Mapped[str] = mapped_column(String(8), nullable=False, default="normal", server_default="normal")
+    rating_mode_eligible: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     result: Mapped[str] = mapped_column(String(8), nullable=False)
     black_alive_at_finish: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

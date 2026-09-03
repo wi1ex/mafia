@@ -38,8 +38,10 @@ from ...services.livekit import remove_livekit_participant
 from ...services.user_cache import refresh_user_profile_cache, get_user_profiles_cached
 from ...services.game_scoring import (
     build_game_scoring_rules_snapshot,
+    can_set_game_mode,
     calculate_game_scoring_audit,
     ensure_game_scoring_settings,
+    normalize_game_mode,
 )
 from ...services.profile_theme import (
     compute_subscription_end,
@@ -104,6 +106,8 @@ from ...schemas.admin import (
     AdminRoomsOut,
     AdminGameActionOut,
     AdminGameActionsOut,
+    AdminGameModeOut,
+    AdminGameModeUpdateIn,
     AdminGamePpkOut,
     AdminGamePpkUpdateIn,
     AdminGameFoulRemovalsOut,
@@ -1039,6 +1043,7 @@ async def game_actions(game_id: int, session: AsyncSession = Depends(get_session
             Game.id,
             Game.head_id,
             Game.mode,
+            Game.rating_mode_eligible,
             Game.roles,
             Game.seats,
             Game.actions,
@@ -1052,7 +1057,7 @@ async def game_actions(game_id: int, session: AsyncSession = Depends(get_session
     if not rec:
         raise HTTPException(status_code=404, detail="game_not_found")
 
-    game_id_raw, head_id_raw, mode_raw, roles_raw, seats_raw, actions_raw, scoring_rules_raw, result_raw = rec
+    game_id_raw, head_id_raw, mode_raw, rating_mode_eligible_raw, roles_raw, seats_raw, actions_raw, scoring_rules_raw, result_raw = rec
     game_id_value = safe_int(game_id_raw)
     if game_id_value <= 0:
         raise HTTPException(status_code=404, detail="game_not_found")
@@ -1106,6 +1111,8 @@ async def game_actions(game_id: int, session: AsyncSession = Depends(get_session
         id=game_id_value,
         number=game_id_value,
         result=normalize_game_result(result_raw),
+        mode=normalize_game_mode(mode_raw),
+        rating_mode_eligible=bool(rating_mode_eligible_raw),
         ppk_target_user_id=findGamePpkTargetUserId(actions),
         items=items,
     )
@@ -1150,6 +1157,51 @@ async def update_game_result(game_id: int, payload: AdminGameResultUpdateIn, ide
         id=gid,
         number=gid,
         result=normalize_game_result(getattr(game, "result", None)),
+    )
+
+
+@router.patch("/games/{game_id}/mode", response_model=AdminGameModeOut, dependencies=ADMIN_GUARD)
+@log_route("admin.games.mode_update")
+async def update_game_mode(game_id: int, payload: AdminGameModeUpdateIn, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> AdminGameModeOut:
+    gid = safe_int(game_id)
+    if gid <= 0:
+        raise HTTPException(status_code=404, detail="game_not_found")
+
+    game = await session.get(Game, gid)
+    if not game:
+        raise HTTPException(status_code=404, detail="game_not_found")
+
+    previous_mode = normalize_game_mode(getattr(game, "mode", "normal"))
+    next_mode = normalize_game_mode(payload.mode)
+    rating_mode_eligible = bool(getattr(game, "rating_mode_eligible", False))
+    if not can_set_game_mode(next_mode, rating_mode_eligible=rating_mode_eligible):
+        raise HTTPException(status_code=409, detail="rating_mode_not_available")
+
+    if previous_mode != next_mode:
+        cache_user_ids = game_stats_cache_user_ids(game)
+        game.mode = next_mode
+        recalculate_game_points(game)
+        await log_action(
+            session,
+            user_id=int(ident["id"]),
+            username=ident["username"],
+            action="admin_game_mode_update",
+            details=f"Изменение режима игры game_id={gid} from={previous_mode} to={next_mode}",
+            commit=False,
+        )
+        await session.commit()
+        await session.refresh(game)
+        await invalidate_game_stats_cache_for_game_users(
+            cache_user_ids,
+            "admin.games.mode_update.invalidate_stats_cache_failed",
+            game_id=gid,
+        )
+
+    return AdminGameModeOut(
+        id=gid,
+        number=gid,
+        mode=normalize_game_mode(getattr(game, "mode", None)),
+        rating_mode_eligible=bool(getattr(game, "rating_mode_eligible", False)),
     )
 
 

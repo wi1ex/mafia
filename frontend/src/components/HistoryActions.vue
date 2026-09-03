@@ -18,13 +18,29 @@
                     :id="`game-history-result-${gameId}`"
                     :value="selectedResult"
                     aria-label="Выбрать исход игры"
-                    :disabled="loading || savingResult || savingPpk || savingFoulRemovals"
+                    :disabled="loading || savingResult || savingMode || savingPpk || savingFoulRemovals"
                     @change="selectResult"
                   >
                     <option v-for="option in RESULT_OPTIONS" :key="option.value" :value="option.value">{{ option.label }}</option>
                   </select>
                   <span v-if="savingResult" class="editor-status">Сохраняем...</span>
                   <span v-else-if="saveError" class="editor-status editor-status--error">{{ saveError }}</span>
+                </div>
+
+                <div class="editor">
+                  <label :for="`game-history-mode-${gameId}`">Режим игры</label>
+                  <select
+                    :id="`game-history-mode-${gameId}`"
+                    :value="selectedMode"
+                    aria-label="Выбрать режим игры"
+                    :disabled="loading || savingResult || savingMode || savingPpk || savingFoulRemovals"
+                    @change="selectGameMode"
+                  >
+                    <option value="normal">Обычная</option>
+                    <option v-if="ratingModeEligible || selectedMode === 'rating'" value="rating">Рейтинговая</option>
+                  </select>
+                  <span v-if="savingMode" class="editor-status">Сохраняем...</span>
+                  <span v-else-if="modeSaveError" class="editor-status editor-status--error">{{ modeSaveError }}</span>
                 </div>
 
                 <div class="editor">
@@ -130,6 +146,7 @@ interface AdminGameActionItem {
 type GameHistoryRole = 'citizen' | 'mafia' | 'don' | 'sheriff'
 type LeaveReason = 'vote' | 'foul' | 'suicide' | 'night'
 type GameResult = 'red' | 'black' | 'draw'
+type GameMode = 'normal' | 'rating'
 interface GameHistorySlot {
   slot: number
   user_id?: number | null
@@ -143,6 +160,8 @@ interface AdminGameActionsResponse {
   id: number
   number: number
   result: GameResult
+  mode?: GameMode
+  rating_mode_eligible?: boolean
   ppk_target_user_id?: number | null
   items: AdminGameActionItem[]
 }
@@ -151,6 +170,13 @@ interface AdminGameResultResponse {
   id: number
   number: number
   result: GameResult
+}
+
+interface AdminGameModeResponse {
+  id: number
+  number: number
+  mode: GameMode
+  rating_mode_eligible?: boolean
 }
 
 interface AdminGamePpkResponse {
@@ -170,12 +196,14 @@ const props = defineProps<{
   gameId: number
   gameNumber: number
   gameResult: GameResult
+  gameMode: GameMode
   detailsSlots?: GameHistorySlot[]
   detailsLoading?: boolean
 }>()
 
 const emit = defineEmits<{
   (e: 'result-updated', payload: { gameId: number; result: GameResult; previousResult: GameResult }): void
+  (e: 'mode-updated', payload: { gameId: number; mode: GameMode }): void
   (e: 'ppk-updated', payload: { gameId: number; userId: number | null; previousUserId: number | null }): void
   (e: 'foul-removals-updated', payload: { gameId: number; removedUserIds: number[]; previousRemovedUserIds: number[]; ppkUserId: number | null; previousPpkUserId: number | null }): void
 }>()
@@ -193,6 +221,11 @@ const selectedResult = ref<GameResult>(normalizeGameResult(props.gameResult))
 const savedResult = ref<GameResult>(normalizeGameResult(props.gameResult))
 const savingResult = ref(false)
 const saveError = ref('')
+const selectedMode = ref<GameMode>(normalizeGameMode(props.gameMode))
+const savedMode = ref<GameMode>(normalizeGameMode(props.gameMode))
+const ratingModeEligible = ref(props.gameMode === 'rating')
+const savingMode = ref(false)
+const modeSaveError = ref('')
 const selectedPpkUserId = ref<number | null>(null)
 const savedPpkUserId = ref<number | null>(null)
 const savingPpk = ref(false)
@@ -240,7 +273,7 @@ const ppkOptions = computed<Array<{ key: string; value: number | null; label: st
   buildPpkOptions()
 ))
 const ppkSelectDisabled = computed(() => {
-  if (loading.value || savingResult.value || savingPpk.value || savingFoulRemovals.value) return true
+  if (loading.value || savingResult.value || savingMode.value || savingPpk.value || savingFoulRemovals.value) return true
   return ppkOptions.value.length <= 1 && selectedPpkUserId.value === null
 })
 const ppkHint = computed(() => {
@@ -269,7 +302,7 @@ const foulRemovalPlayerOptions = computed<Array<{ key: string; value: number; la
   return out
 })
 const foulRemovalControlsDisabled = computed(() => (
-  loading.value || savingResult.value || savingPpk.value || savingFoulRemovals.value || Boolean(props.detailsLoading)
+  loading.value || savingResult.value || savingMode.value || savingPpk.value || savingFoulRemovals.value || Boolean(props.detailsLoading)
 ))
 const foulRemovalHint = computed(() => {
   if (savingFoulRemovals.value || foulRemovalSaveError.value) return ''
@@ -281,6 +314,10 @@ const foulRemovalHint = computed(() => {
 function normalizeGameResult(raw: unknown): GameResult {
   if (raw === 'red' || raw === 'black' || raw === 'draw') return raw
   return 'draw'
+}
+
+function normalizeGameMode(raw: unknown): GameMode {
+  return raw === 'rating' ? 'rating' : 'normal'
 }
 
 function normalizeOptionalUserId(raw: unknown): number | null {
@@ -352,9 +389,14 @@ function applyActionsPayload(data: AdminGameActionsResponse | undefined): void {
   const result = normalizeGameResult(data?.result)
   selectedResult.value = result
   savedResult.value = result
+  const mode = normalizeGameMode(data?.mode)
+  selectedMode.value = mode
+  savedMode.value = mode
+  ratingModeEligible.value = Boolean(data?.rating_mode_eligible) || mode === 'rating'
   selectedPpkUserId.value = normalizeOptionalUserId(data?.ppk_target_user_id)
   savedPpkUserId.value = normalizeOptionalUserId(data?.ppk_target_user_id)
   saveError.value = ''
+  modeSaveError.value = ''
   ppkSaveError.value = ''
   foulRemovalSaveError.value = ''
   items.value = normalizeItems(data?.items)
@@ -371,14 +413,21 @@ function selectValue(event: Event): string {
 
 function selectResult(event: Event): void {
   const next = normalizeGameResult(selectValue(event))
-  if (savingResult.value || savingPpk.value || savingFoulRemovals.value || next === selectedResult.value) return
+  if (savingResult.value || savingMode.value || savingPpk.value || savingFoulRemovals.value || next === selectedResult.value) return
   selectedResult.value = next
   void onResultChange()
 }
 
+function selectGameMode(event: Event): void {
+  const next = normalizeGameMode(selectValue(event))
+  if (savingResult.value || savingMode.value || savingPpk.value || savingFoulRemovals.value || next === selectedMode.value) return
+  selectedMode.value = next
+  void onGameModeChange()
+}
+
 function selectPpk(event: Event): void {
   const next = normalizeOptionalUserId(selectValue(event))
-  if (savingResult.value || savingPpk.value || savingFoulRemovals.value || next === selectedPpkUserId.value) return
+  if (savingResult.value || savingMode.value || savingPpk.value || savingFoulRemovals.value || next === selectedPpkUserId.value) return
   selectedPpkUserId.value = next
   void onPpkChange()
 }
@@ -458,6 +507,7 @@ function openModal(): void {
   if (!isAdmin.value) return
   armed.value = false
   saveError.value = ''
+  modeSaveError.value = ''
   ppkSaveError.value = ''
   foulRemovalSaveError.value = ''
   open.value = true
@@ -468,7 +518,7 @@ async function onResultChange(): Promise<void> {
   const nextResult = normalizeGameResult(selectedResult.value)
   const previousResult = savedResult.value
   saveError.value = ''
-  if (savingResult.value || savingPpk.value || savingFoulRemovals.value || nextResult === previousResult) return
+  if (savingResult.value || savingMode.value || savingPpk.value || savingFoulRemovals.value || nextResult === previousResult) return
 
   savingResult.value = true
   try {
@@ -492,11 +542,47 @@ async function onResultChange(): Promise<void> {
   }
 }
 
+async function onGameModeChange(): Promise<void> {
+  const nextMode = normalizeGameMode(selectedMode.value)
+  const previousMode = savedMode.value
+  modeSaveError.value = ''
+  if (savingResult.value || savingMode.value || savingPpk.value || savingFoulRemovals.value || nextMode === previousMode) return
+
+  savingMode.value = true
+  try {
+    const { data } = await api.patch<AdminGameModeResponse>(`/admin/games/${props.gameId}/mode`, {
+      mode: nextMode,
+    })
+    const actualMode = normalizeGameMode(data?.mode)
+    selectedMode.value = actualMode
+    savedMode.value = actualMode
+    ratingModeEligible.value = Boolean(data?.rating_mode_eligible) || actualMode === 'rating'
+    emit('mode-updated', {
+      gameId: props.gameId,
+      mode: actualMode,
+    })
+    void refreshActionsQuietly()
+  } catch (e: any) {
+    selectedMode.value = previousMode
+    const status = Number(e?.response?.status || 0)
+    const code = String(e?.response?.data?.detail || '')
+    if (status === 404) {
+      modeSaveError.value = 'Игра не найдена'
+    } else if (status === 409 && code === 'rating_mode_not_available') {
+      modeSaveError.value = 'Эта игра изначально была обычной'
+    } else {
+      modeSaveError.value = 'Не удалось изменить режим игры'
+    }
+  } finally {
+    savingMode.value = false
+  }
+}
+
 async function onPpkChange(): Promise<void> {
   const nextUserId = selectedPpkUserId.value
   const previousUserId = savedPpkUserId.value
   ppkSaveError.value = ''
-  if (savingResult.value || savingPpk.value || savingFoulRemovals.value || nextUserId === previousUserId) return
+  if (savingResult.value || savingMode.value || savingPpk.value || savingFoulRemovals.value || nextUserId === previousUserId) return
 
   savingPpk.value = true
   try {
@@ -532,7 +618,7 @@ async function onFoulRemovalsChange(): Promise<void> {
   const nextUserIds = normalizeUserIdList(selectedFoulRemovalUserIds.value)
   const previousUserIds = normalizeUserIdList(savedFoulRemovalUserIds.value)
   foulRemovalSaveError.value = ''
-  if (savingResult.value || savingPpk.value || savingFoulRemovals.value || sameUserIdList(nextUserIds, previousUserIds)) return
+  if (savingResult.value || savingMode.value || savingPpk.value || savingFoulRemovals.value || sameUserIdList(nextUserIds, previousUserIds)) return
 
   const previousPpkUserId = savedPpkUserId.value
   savingFoulRemovals.value = true
@@ -584,6 +670,18 @@ watch(
     selectedResult.value = normalized
     savedResult.value = normalized
     saveError.value = ''
+  },
+)
+
+watch(
+  () => props.gameMode,
+  (value) => {
+    const normalized = normalizeGameMode(value)
+    if (savingMode.value) return
+    selectedMode.value = normalized
+    savedMode.value = normalized
+    ratingModeEligible.value = ratingModeEligible.value || normalized === 'rating'
+    modeSaveError.value = ''
   },
 )
 

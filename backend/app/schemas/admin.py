@@ -486,12 +486,15 @@ class AdminGameActionOut(BaseModel):
 
 
 AdminGameResult = Literal["red", "black", "draw"]
+AdminGameMode = Literal["normal", "rating"]
 
 
 class AdminGameActionsOut(BaseModel):
     id: int
     number: int
     result: AdminGameResult
+    mode: AdminGameMode = "normal"
+    rating_mode_eligible: bool = False
     ppk_target_user_id: Optional[int] = None
     items: List[AdminGameActionOut] = Field(default_factory=list)
 
@@ -504,6 +507,17 @@ class AdminGameResultOut(BaseModel):
     id: int
     number: int
     result: AdminGameResult
+
+
+class AdminGameModeUpdateIn(BaseModel):
+    mode: AdminGameMode
+
+
+class AdminGameModeOut(BaseModel):
+    id: int
+    number: int
+    mode: AdminGameMode = "normal"
+    rating_mode_eligible: bool = False
 
 
 class AdminGamePpkUpdateIn(BaseModel):
