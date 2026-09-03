@@ -282,6 +282,7 @@ type Room = {
   created_at: string
   occupancy: number
   in_game?: boolean
+  game_mode?: 'normal' | 'rating'
   game_phase?: string
   entry_closed?: boolean
 }
@@ -371,11 +372,12 @@ const sortedRooms = computed(() => Array.from(roomsMap.values()).sort((a, b) => 
   const rank = (room: Room): number => {
     switch (roomStatusLabel(room)) {
       case 'HIDE': return 0
-      case 'GAME': return 1
-      case 'LOBBY': return 2
-      case 'DUO': return 3
-      case 'ROOM': return 4
-      default: return 5
+      case 'RATE': return 1
+      case 'GAME': return 2
+      case 'LOBBY': return 3
+      case 'DUO': return 4
+      case 'ROOM': return 5
+      default: return 6
     }
   }
 
@@ -510,7 +512,7 @@ function roomStatusLabel(room: Room): string {
   const limit = Number(room.user_limit)
   if (limit === 2) return 'DUO'
   if (limit === 20) return 'ROOM'
-  if (room.in_game) return 'GAME'
+  if (room.in_game) return room.game_mode === 'rating' ? 'RATE' : 'GAME'
   return 'LOBBY'
 }
 
@@ -518,7 +520,7 @@ function roomStatusClass(room: Room): Record<string, boolean> {
   const label = roomStatusLabel(room)
   return {
     hide: label === 'HIDE',
-    runned: label === 'GAME',
+    runned: label === 'RATE' || label === 'GAME',
     duo: label === 'DUO',
     room: label === 'ROOM',
   }

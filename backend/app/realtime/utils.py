@@ -3100,6 +3100,7 @@ async def get_rooms_brief(r, ids: Iterable[int]) -> List[dict]:
             await p.hmget(f"room:{rid}:params", *fields)
             await p.scard(f"room:{rid}:members")
             await p.hget(f"room:{rid}:game_state", "phase")
+            await p.hget(f"room:{rid}:game", "mode")
             await p.scard(f"room:{rid}:game_alive")
             await p.scard(f"room:{rid}:game_players")
         raw = await p.execute()
@@ -3107,12 +3108,13 @@ async def get_rooms_brief(r, ids: Iterable[int]) -> List[dict]:
     briefs: List[dict] = []
     need_db: set[int] = set()
 
-    for i in range(0, len(raw), 5):
+    for i in range(0, len(raw), 6):
         vals = raw[i]
         occ_members = int(raw[i + 1] or 0)
         phase_raw = raw[i + 2]
-        alive_cnt = int(raw[i + 3] or 0)
-        players_total = int(raw[i + 4] or 0)
+        game_mode_raw = raw[i + 3]
+        alive_cnt = int(raw[i + 4] or 0)
+        players_total = int(raw[i + 5] or 0)
 
         if not vals:
             continue
@@ -3128,6 +3130,7 @@ async def get_rooms_brief(r, ids: Iterable[int]) -> List[dict]:
 
         phase = str(phase_raw or "idle")
         in_game = phase != "idle"
+        game_mode = "rating" if str(game_mode_raw or "").lower() == "rating" else "normal"
         occupancy = alive_cnt if in_game else occ_members
         eff_limit = players_total if in_game and players_total > 0 else int(user_limit)
         entry_closed = str(entry_closed_raw or "0") == "1"
@@ -3144,6 +3147,7 @@ async def get_rooms_brief(r, ids: Iterable[int]) -> List[dict]:
             "anonymity": "hidden" if str(anonymity or "visible") == "hidden" else "visible",
             "occupancy": occupancy,
             "in_game": in_game,
+            "game_mode": game_mode,
             "game_phase": phase,
             "entry_closed": entry_closed,
         })

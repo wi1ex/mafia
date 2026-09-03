@@ -40,6 +40,7 @@ class RoomListItem(TypedDict):
     created_at: str
     occupancy: int
     in_game: bool
+    game_mode: Literal["normal", "rating"]
     game_phase: str
     entry_closed: bool
 
