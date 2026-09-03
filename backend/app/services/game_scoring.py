@@ -474,13 +474,84 @@ def _night_opinion_obvious_colors(
             if target_color:
                 private_colors[target_id] = target_color
                 known_color_sources[target_id] = "личная проверка шерифа"
-        for claimant_id in claimant_ids:
-            if claimant_id != actor_id:
-                private_colors[claimant_id] = "black"
-                known_color_sources[claimant_id] = "контрвскрытие против шерифа"
+
+    frozen_alive_states = tuple(alive_states)
+    known_colors: dict[int, str] = dict(private_colors)
+
+    def set_known_color(user_id: int, color: str, source: str) -> None:
+        if user_id in known_colors:
+            return
+
+        known_colors[user_id] = color
+        known_color_sources[user_id] = source
+
+    if actor_role == "sheriff":
+        counterclaim_ids = claimant_ids - {actor_id}
+        unresolved_counterclaim_ids = counterclaim_ids - set(private_colors)
+        private_black_check_count = sum(
+            color == "black"
+            for user_id, color in private_colors.items()
+            if user_id != actor_id
+        )
+        remaining_black_slots = 3 - private_black_check_count
+
+        if remaining_black_slots <= 0:
+            for claimant_id in unresolved_counterclaim_ids:
+                set_known_color(
+                    claimant_id,
+                    "red",
+                    "чёрная тройка собрана личными проверками шерифа",
+                )
+        elif len(unresolved_counterclaim_ids) <= remaining_black_slots:
+            for claimant_id in unresolved_counterclaim_ids:
+                set_known_color(
+                    claimant_id,
+                    "black",
+                    "контрвскрытие заполняет место чёрной тройки",
+                )
+
+        sheriff_black_teams = _candidate_black_teams(
+            known_colors,
+            player_ids=player_ids,
+            alive_states=frozen_alive_states,
+        )
+        if len(unresolved_counterclaim_ids) > remaining_black_slots > 0:
+            sheriff_black_teams = [
+                black_team
+                for black_team in sheriff_black_teams
+                if len(black_team & unresolved_counterclaim_ids) == remaining_black_slots
+            ]
+
+        for user_id in player_ids:
+            is_black = [user_id in black_team for black_team in sheriff_black_teams]
+            if is_black and all(is_black):
+                set_known_color(
+                    user_id,
+                    "black",
+                    "личные проверки шерифа и состав живых игроков",
+                )
+            elif sheriff_black_teams and not any(is_black):
+                set_known_color(
+                    user_id,
+                    "red",
+                    "личные проверки шерифа и состав живых игроков",
+                )
+
+        known_black_ids = {
+            user_id for user_id, color in known_colors.items() if color == "black"
+        }
+        if len(known_black_ids) == 3:
+            for user_id in player_ids:
+                set_known_color(
+                    user_id,
+                    "black" if user_id in known_black_ids else "red",
+                    "три известных чёрных образуют чёрную тройку",
+                )
+        if sources is not None:
+            sources.update(known_color_sources)
+        return known_colors
 
     if len(claimant_ids) >= 4:
-        known_colors = dict(private_colors)
         for user_id in player_ids - claimant_ids:
             if user_id not in known_colors:
                 known_colors[user_id] = "red"
@@ -489,7 +560,6 @@ def _night_opinion_obvious_colors(
             sources.update(known_color_sources)
         return known_colors
 
-    frozen_alive_states = tuple(alive_states)
     if is_citizen_proxy_author and len(active_versions) > 1 and not explicitly_black_checked:
         own_version = next(
             (
@@ -512,15 +582,6 @@ def _night_opinion_obvious_colors(
                 alive_states=frozen_alive_states,
             ):
                 return {}
-
-    known_colors: dict[int, str] = dict(private_colors)
-
-    def set_known_color(user_id: int, color: str, source: str) -> None:
-        if user_id in known_colors:
-            return
-
-        known_colors[user_id] = color
-        known_color_sources[user_id] = source
 
     false_claimant_ids: set[int] = set()
     possible_black_teams: list[frozenset[int]] = []
@@ -559,6 +620,27 @@ def _night_opinion_obvious_colors(
 
     for claimant_id in false_claimant_ids:
         set_known_color(claimant_id, "black", "очевидно ложное вскрытие")
+
+    if not possible_black_teams:
+        known_color_black_teams = _candidate_black_teams(
+            known_colors,
+            player_ids=player_ids,
+            alive_states=frozen_alive_states,
+        )
+        for user_id in player_ids:
+            is_black = [user_id in black_team for black_team in known_color_black_teams]
+            if is_black and all(is_black):
+                set_known_color(
+                    user_id,
+                    "black",
+                    "известные цвета и состав живых игроков",
+                )
+            elif known_color_black_teams and not any(is_black):
+                set_known_color(
+                    user_id,
+                    "red",
+                    "известные цвета и состав живых игроков",
+                )
 
     known_black_ids = {user_id for user_id, color in known_colors.items() if color == "black"}
     if len(known_black_ids) == 3:
