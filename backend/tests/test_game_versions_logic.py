@@ -724,7 +724,10 @@ class VersionsObviousColorsTests(unittest.TestCase):
                 {"type": "night_check", "actor_id": 1, "target_id": 5},
             ],
         )
-        self.assertEqual([item["obvious"] for item in before_check], [False])
+        self.assertEqual(
+            [item["obvious"] for item in before_check if item.get("type") == "night_opinion"],
+            [False],
+        )
 
         before_new_claim = calculate_game_scoring_audit(
             mode="rating",
@@ -737,7 +740,10 @@ class VersionsObviousColorsTests(unittest.TestCase):
                 {"type": "versions", "versions": later_versions},
             ],
         )
-        self.assertEqual([item["obvious"] for item in before_new_claim], [True, True])
+        self.assertEqual(
+            [item["obvious"] for item in before_new_claim if item.get("type") == "night_opinion"],
+            [True, True],
+        )
 
         before_claim_removal = calculate_game_scoring_audit(
             mode="rating",
@@ -750,4 +756,7 @@ class VersionsObviousColorsTests(unittest.TestCase):
                 {"type": "versions", "versions": first_version},
             ],
         )
-        self.assertEqual([item["obvious"] for item in before_claim_removal], [False, False])
+        self.assertEqual(
+            [item["obvious"] for item in before_claim_removal if item.get("type") == "night_opinion"],
+            [False, False],
+        )

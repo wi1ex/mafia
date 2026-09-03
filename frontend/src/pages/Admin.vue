@@ -229,6 +229,22 @@
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Промах при гарантированной победе" />
                 <UiInput id="scoring-night-shoot-miss-terminal-label" size="low" v-model.trim="scoring.night_shoot_miss_terminal_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
+                <UiInput id="scoring-sheriff-two-unobvious-black-checks" size="low" v-model.number="scoring.sheriff_two_unobvious_black_checks" type="number" step="0.01"
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Две подряд неочевидные чёрные проверки" />
+                <UiInput id="scoring-sheriff-two-unobvious-black-checks-label" size="low" v-model.trim="scoring.sheriff_two_unobvious_black_checks_label" maxlength="255"
+                         autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
+                <UiInput id="scoring-don-missed-sheriff-two-checks" size="low" v-model.number="scoring.don_missed_sheriff_two_checks" type="number" step="0.01"
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Не нашёл шерифа за две проверки" />
+                <UiInput id="scoring-don-missed-sheriff-two-checks-label" size="low" v-model.trim="scoring.don_missed_sheriff_two_checks_label" maxlength="255"
+                         autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
+                <UiInput id="scoring-citizen-false-check" size="low" v-model.number="scoring.citizen_false_check" type="number" step="0.01"
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Ложная проверка будучи мирным" />
+                <UiInput id="scoring-citizen-false-check-label" size="low" v-model.trim="scoring.citizen_false_check_label" maxlength="255"
+                         autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
+                <UiInput id="scoring-sheriff-false-check-black-win" size="low" v-model.number="scoring.sheriff_false_check_black_win" type="number" step="0.01"
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Ложная проверка шерифа при победе чёрных" />
+                <UiInput id="scoring-sheriff-false-check-black-win-label" size="low" v-model.trim="scoring.sheriff_false_check_black_win_label" maxlength="255"
+                         autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 <UiInput id="scoring-vote-opponent-team" size="low" v-model.number="scoring.vote_opponent_team" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Заголосовал игрока другой команды" />
                 <UiInput id="scoring-vote-opponent-team-label" size="low" v-model.trim="scoring.vote_opponent_team_label" maxlength="255"
@@ -1278,6 +1294,10 @@ type GameScoringSettings = {
   vote_lift_opponent_team: number
   nomination_black_prevents_black_win: number
   nomination_red_last_hope: number
+  sheriff_two_unobvious_black_checks: number
+  don_missed_sheriff_two_checks: number
+  citizen_false_check: number
+  sheriff_false_check_black_win: number
   black_day_under_seven: number
   night_opinion_correct: number
   night_opinion_wrong: number
@@ -1307,6 +1327,10 @@ type GameScoringSettings = {
   vote_lift_opponent_team_label: string
   nomination_black_prevents_black_win_label: string
   nomination_red_last_hope_label: string
+  sheriff_two_unobvious_black_checks_label: string
+  don_missed_sheriff_two_checks_label: string
+  citizen_false_check_label: string
+  sheriff_false_check_black_win_label: string
   black_day_under_seven_label: string
   night_opinion_correct_label: string
   night_opinion_wrong_label: string
@@ -1626,6 +1650,10 @@ const scoring = reactive<GameScoringSettings>({
   vote_lift_opponent_team: 0.3,
   nomination_black_prevents_black_win: -0.5,
   nomination_red_last_hope: 0.3,
+  sheriff_two_unobvious_black_checks: 0.2,
+  don_missed_sheriff_two_checks: -0.1,
+  citizen_false_check: -0.1,
+  sheriff_false_check_black_win: -0.5,
   black_day_under_seven: 0.1,
   night_opinion_correct: 0.1,
   night_opinion_wrong: -0.1,
@@ -1655,6 +1683,10 @@ const scoring = reactive<GameScoringSettings>({
   vote_lift_opponent_team_label: 'Подъём игроков другой команды',
   nomination_black_prevents_black_win_label: 'Выставление при гарантированной победе',
   nomination_red_last_hope_label: 'Последняя надежда',
+  sheriff_two_unobvious_black_checks_label: 'Две подряд неочевидные чёрные проверки',
+  don_missed_sheriff_two_checks_label: 'Не нашёл шерифа за две проверки',
+  citizen_false_check_label: 'Ложная проверка будучи мирным',
+  sheriff_false_check_black_win_label: 'Ложная проверка шерифа при победе чёрных',
   black_day_under_seven_label: 'Проход в круг при 3-6х',
   night_opinion_correct_label: 'Ночное мнение: верный цвет',
   night_opinion_wrong_label: 'Ночное мнение: неверный цвет',
@@ -2033,6 +2065,10 @@ function snapshotScoring(): string {
     vote_lift_opponent_team: normalizeScoringValue(scoring.vote_lift_opponent_team),
     nomination_black_prevents_black_win: normalizeScoringValue(scoring.nomination_black_prevents_black_win),
     nomination_red_last_hope: normalizeScoringValue(scoring.nomination_red_last_hope),
+    sheriff_two_unobvious_black_checks: normalizeScoringValue(scoring.sheriff_two_unobvious_black_checks),
+    don_missed_sheriff_two_checks: normalizeScoringValue(scoring.don_missed_sheriff_two_checks),
+    citizen_false_check: normalizeScoringValue(scoring.citizen_false_check),
+    sheriff_false_check_black_win: normalizeScoringValue(scoring.sheriff_false_check_black_win),
     black_day_under_seven: normalizeScoringValue(scoring.black_day_under_seven),
     night_opinion_correct: normalizeScoringValue(scoring.night_opinion_correct),
     night_opinion_wrong: normalizeScoringValue(scoring.night_opinion_wrong),
@@ -2062,6 +2098,10 @@ function snapshotScoring(): string {
     vote_lift_opponent_team_label: normalizeScoringLabel(scoring.vote_lift_opponent_team_label),
     nomination_black_prevents_black_win_label: normalizeScoringLabel(scoring.nomination_black_prevents_black_win_label),
     nomination_red_last_hope_label: normalizeScoringLabel(scoring.nomination_red_last_hope_label),
+    sheriff_two_unobvious_black_checks_label: normalizeScoringLabel(scoring.sheriff_two_unobvious_black_checks_label),
+    don_missed_sheriff_two_checks_label: normalizeScoringLabel(scoring.don_missed_sheriff_two_checks_label),
+    citizen_false_check_label: normalizeScoringLabel(scoring.citizen_false_check_label),
+    sheriff_false_check_black_win_label: normalizeScoringLabel(scoring.sheriff_false_check_black_win_label),
     black_day_under_seven_label: normalizeScoringLabel(scoring.black_day_under_seven_label),
     night_opinion_correct_label: normalizeScoringLabel(scoring.night_opinion_correct_label),
     night_opinion_wrong_label: normalizeScoringLabel(scoring.night_opinion_wrong_label),
@@ -2754,6 +2794,10 @@ async function loadScoring(): Promise<void> {
     scoring.vote_lift_opponent_team = normalizeScoringValue(scoring.vote_lift_opponent_team)
     scoring.nomination_black_prevents_black_win = normalizeScoringValue(scoring.nomination_black_prevents_black_win)
     scoring.nomination_red_last_hope = normalizeScoringValue(scoring.nomination_red_last_hope)
+    scoring.sheriff_two_unobvious_black_checks = normalizeScoringValue(scoring.sheriff_two_unobvious_black_checks)
+    scoring.don_missed_sheriff_two_checks = normalizeScoringValue(scoring.don_missed_sheriff_two_checks)
+    scoring.citizen_false_check = normalizeScoringValue(scoring.citizen_false_check)
+    scoring.sheriff_false_check_black_win = normalizeScoringValue(scoring.sheriff_false_check_black_win)
     scoring.black_day_under_seven = normalizeScoringValue(scoring.black_day_under_seven)
     scoring.night_opinion_correct = normalizeScoringValue(scoring.night_opinion_correct)
     scoring.night_opinion_wrong = normalizeScoringValue(scoring.night_opinion_wrong)
@@ -2783,6 +2827,10 @@ async function loadScoring(): Promise<void> {
     scoring.vote_lift_opponent_team_label = normalizeScoringLabel(scoring.vote_lift_opponent_team_label)
     scoring.nomination_black_prevents_black_win_label = normalizeScoringLabel(scoring.nomination_black_prevents_black_win_label)
     scoring.nomination_red_last_hope_label = normalizeScoringLabel(scoring.nomination_red_last_hope_label)
+    scoring.sheriff_two_unobvious_black_checks_label = normalizeScoringLabel(scoring.sheriff_two_unobvious_black_checks_label)
+    scoring.don_missed_sheriff_two_checks_label = normalizeScoringLabel(scoring.don_missed_sheriff_two_checks_label)
+    scoring.citizen_false_check_label = normalizeScoringLabel(scoring.citizen_false_check_label)
+    scoring.sheriff_false_check_black_win_label = normalizeScoringLabel(scoring.sheriff_false_check_black_win_label)
     scoring.black_day_under_seven_label = normalizeScoringLabel(scoring.black_day_under_seven_label)
     scoring.night_opinion_correct_label = normalizeScoringLabel(scoring.night_opinion_correct_label)
     scoring.night_opinion_wrong_label = normalizeScoringLabel(scoring.night_opinion_wrong_label)

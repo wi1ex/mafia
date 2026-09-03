@@ -172,6 +172,10 @@ class GameScoringSettingsOut(BaseModel):
     vote_lift_opponent_team: float
     nomination_black_prevents_black_win: float
     nomination_red_last_hope: float
+    sheriff_two_unobvious_black_checks: float
+    don_missed_sheriff_two_checks: float
+    citizen_false_check: float
+    sheriff_false_check_black_win: float
     black_day_under_seven: float
     night_opinion_correct: float
     night_opinion_wrong: float
@@ -201,6 +205,10 @@ class GameScoringSettingsOut(BaseModel):
     vote_lift_opponent_team_label: str
     nomination_black_prevents_black_win_label: str
     nomination_red_last_hope_label: str
+    sheriff_two_unobvious_black_checks_label: str
+    don_missed_sheriff_two_checks_label: str
+    citizen_false_check_label: str
+    sheriff_false_check_black_win_label: str
     black_day_under_seven_label: str
     night_opinion_correct_label: str
     night_opinion_wrong_label: str
@@ -235,6 +243,10 @@ class GameScoringSettingsUpdateIn(BaseModel):
     vote_lift_opponent_team: Optional[float] = Field(default=None, ge=-10, le=10)
     nomination_black_prevents_black_win: Optional[float] = Field(default=None, ge=-10, le=10)
     nomination_red_last_hope: Optional[float] = Field(default=None, ge=-10, le=10)
+    sheriff_two_unobvious_black_checks: Optional[float] = Field(default=None, ge=-10, le=10)
+    don_missed_sheriff_two_checks: Optional[float] = Field(default=None, ge=-10, le=10)
+    citizen_false_check: Optional[float] = Field(default=None, ge=-10, le=10)
+    sheriff_false_check_black_win: Optional[float] = Field(default=None, ge=-10, le=10)
     black_day_under_seven: Optional[float] = Field(default=None, ge=-10, le=10)
     night_opinion_correct: Optional[float] = Field(default=None, ge=-10, le=10)
     night_opinion_wrong: Optional[float] = Field(default=None, ge=-10, le=10)
@@ -264,6 +276,10 @@ class GameScoringSettingsUpdateIn(BaseModel):
     vote_lift_opponent_team_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
     nomination_black_prevents_black_win_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
     nomination_red_last_hope_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    sheriff_two_unobvious_black_checks_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    don_missed_sheriff_two_checks_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    citizen_false_check_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    sheriff_false_check_black_win_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
     black_day_under_seven_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
     night_opinion_correct_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
     night_opinion_wrong_label: Optional[str] = Field(default=None, min_length=1, max_length=255)

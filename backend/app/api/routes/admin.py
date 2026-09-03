@@ -1075,6 +1075,7 @@ async def game_actions(game_id: int, session: AsyncSession = Depends(get_session
     actions = normalizeGameActionsForUpdate(actions_raw)
     scoring_audit = calculate_game_scoring_audit(
         mode=mode_raw,
+        result=result_raw,
         roles=roles_raw if isinstance(roles_raw, dict) else {},
         player_ids=uid_to_slot,
         actions=actions,

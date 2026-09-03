@@ -3439,6 +3439,47 @@ def game_scoring_audit_fields(
             continue
 
         action_type = str(audit_item.get("type") or "").strip().lower()
+        if action_type == "check_scoring":
+            label = "Скоринг проверки"
+            check_kind = str(audit_item.get("check_kind") or "").strip().lower()
+            previous_target_id = safe_int(audit_item.get("previous_target_id"))
+            if check_kind == "sheriff_two_unobvious_black_checks":
+                value = (
+                    f"{player_label(actor_id)} проверил чёрными подряд "
+                    f"{player_label(previous_target_id)} и {player_label(target_id)}; "
+                    "на момент проверок они не были зарегистрированными вскрытиями."
+                )
+            elif check_kind == "don_missed_sheriff_two_checks":
+                value = (
+                    f"{player_label(actor_id)} за первые две проверки выбрал "
+                    f"{player_label(previous_target_id)} и {player_label(target_id)}, не найдя шерифа."
+                )
+            elif check_kind == "citizen_false_check":
+                value = (
+                    f"{player_label(actor_id)} указал {player_label(target_id)} как "
+                    f"{color_label(audit_item.get('guess_color'))}; фактический цвет — "
+                    f"{color_label(audit_item.get('actual_color'))}."
+                )
+            elif check_kind == "sheriff_false_check_black_win":
+                value = (
+                    f"В активной версии {player_label(actor_id)} указал "
+                    f"{player_label(target_id)} как {color_label(audit_item.get('guess_color'))}; "
+                    f"фактический цвет — {color_label(audit_item.get('actual_color'))}. "
+                    "Игра завершилась победой чёрных."
+                )
+            else:
+                value = f"Проверка {player_label(actor_id)} → {player_label(target_id)}."
+
+            actor_adjustment = audit_item.get("actor_adjustment")
+            if isinstance(actor_adjustment, Mapping):
+                actor_points = points_label(actor_adjustment.get("points"))
+                actor_rule = str(actor_adjustment.get("label") or "").strip()
+                value += f" Автор: {actor_points}" + (f" ({actor_rule})." if actor_rule else ".")
+            fields_by_order.setdefault(order, []).append(
+                AdminGameActionFieldOut(label=label, value=value)
+            )
+            continue
+
         if action_type == "critical_nomination":
             label = "Скоринг выставления"
             value = (

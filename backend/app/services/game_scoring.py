@@ -6,6 +6,7 @@ from itertools import combinations
 from typing import TYPE_CHECKING, Any
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+
 if TYPE_CHECKING:
     from ..models.game import GameScoringSettings
 
@@ -38,6 +39,10 @@ GAME_SCORING_RULE_DEFAULTS: dict[str, Decimal] = {
     "vote_lift_opponent_team": Decimal("0.30"),
     "nomination_black_prevents_black_win": Decimal("-0.50"),
     "nomination_red_last_hope": Decimal("0.30"),
+    "sheriff_two_unobvious_black_checks": Decimal("0.20"),
+    "don_missed_sheriff_two_checks": Decimal("-0.10"),
+    "citizen_false_check": Decimal("-0.10"),
+    "sheriff_false_check_black_win": Decimal("-0.50"),
     "black_day_under_seven": Decimal("0.10"),
     "night_opinion_correct": Decimal("0.10"),
     "night_opinion_wrong": Decimal("-0.10"),
@@ -70,6 +75,10 @@ GAME_SCORING_LABEL_DEFAULTS: dict[str, str] = {
     "vote_lift_opponent_team": "Подъём игроков другой команды",
     "nomination_black_prevents_black_win": "Выставление при гарантированной победе",
     "nomination_red_last_hope": "Последняя надежда",
+    "sheriff_two_unobvious_black_checks": "Две подряд неочевидные чёрные проверки",
+    "don_missed_sheriff_two_checks": "Не нашёл шерифа за две проверки",
+    "citizen_false_check": "Ложная проверка будучи мирным",
+    "sheriff_false_check_black_win": "Ложная проверка шерифа при победе чёрных",
     "black_day_under_seven": "Проход в круг при 3-6х",
     "night_opinion_correct": "Ночное мнение: верный цвет",
     "night_opinion_wrong": "Ночное мнение: неверный цвет",
@@ -80,6 +89,7 @@ GAME_SCORING_LABEL_DEFAULTS: dict[str, str] = {
     "farewell_black_named_red": "Оставлен красным",
     "farewell_claimant_black_named_red": "Оставлен приоритетной версией",
 }
+
 
 def normalize_game_mode(raw: object) -> str:
     if isinstance(raw, bytes):
@@ -264,12 +274,12 @@ def _team_for_role(role: str) -> str:
 
 
 def _record_scoring_adjustment(
-    breakdown: dict[int, list[dict[str, Any]]] | None,
-    *,
-    user_id: int,
-    rule_key: str,
-    label: str,
-    value: Decimal,
+        breakdown: dict[int, list[dict[str, Any]]] | None,
+        *,
+        user_id: int,
+        rule_key: str,
+        label: str,
+        value: Decimal,
 ) -> None:
     if breakdown is None:
         return
@@ -284,9 +294,9 @@ def _record_scoring_adjustment(
 
 
 def _scoring_rule_label(
-    rules: Mapping[str, object],
-    rule_key: str,
-    **placeholders: object,
+        rules: Mapping[str, object],
+        rule_key: str,
+        **placeholders: object,
 ) -> str:
     default = GAME_SCORING_LABEL_DEFAULTS[rule_key]
     label = _normalize_scoring_label(rules.get(f"{rule_key}_label"), default)
@@ -324,10 +334,10 @@ def _normalize_action_versions(raw: object, player_ids: set[int]) -> list[dict[s
             target_id = _action_user_id(raw_check, "target_id")
             verdict = str(raw_check.get("verdict") or "").strip().lower()
             if (
-                target_id not in player_ids
-                or target_id == claimant_id
-                or target_id in checked_ids
-                or verdict not in {"red", "black"}
+                    target_id not in player_ids
+                    or target_id == claimant_id
+                    or target_id in checked_ids
+                    or verdict not in {"red", "black"}
             ):
                 continue
             checked_ids.add(target_id)
@@ -351,12 +361,12 @@ def _set_fixed_color(colors: dict[int, str], user_id: int, color: str) -> bool:
 
 
 def _candidate_fixed_colors(
-    version: Mapping[str, Any],
-    active_versions: Iterable[Mapping[str, Any]],
-    *,
-    player_ids: set[int],
-    private_colors: Mapping[int, str],
-    proxy_claimant_id: int = 0,
+        version: Mapping[str, Any],
+        active_versions: Iterable[Mapping[str, Any]],
+        *,
+        player_ids: set[int],
+        private_colors: Mapping[int, str],
+        proxy_claimant_id: int = 0,
 ) -> dict[int, str] | None:
     claimant_id = _action_user_id(version, "claimant_id")
     if claimant_id not in player_ids:
@@ -372,8 +382,8 @@ def _candidate_fixed_colors(
             if other_claimant_id == proxy_claimant_id:
                 continue
             if (
-                other_claimant_id not in player_ids
-                or not _set_fixed_color(colors, other_claimant_id, "black")
+                    other_claimant_id not in player_ids
+                    or not _set_fixed_color(colors, other_claimant_id, "black")
             ):
                 return None
 
@@ -403,10 +413,10 @@ def _candidate_fixed_colors(
 
 
 def _candidate_black_teams(
-    fixed_colors: Mapping[int, str],
-    *,
-    player_ids: set[int],
-    alive_states: Iterable[frozenset[int]],
+        fixed_colors: Mapping[int, str],
+        *,
+        player_ids: set[int],
+        alive_states: Iterable[frozenset[int]],
 ) -> list[frozenset[int]]:
     black_ids = {user_id for user_id, color in fixed_colors.items() if color == "black"}
     red_ids = {user_id for user_id, color in fixed_colors.items() if color == "red"}
@@ -422,8 +432,8 @@ def _candidate_black_teams(
     for additional_black_ids in combinations(candidates, missing_black_count):
         black_team = frozenset(black_ids | set(additional_black_ids))
         if any(
-            not _alive_state_can_continue(alive_ids, black_team)
-            for alive_ids in alive_states
+                not _alive_state_can_continue(alive_ids, black_team)
+                for alive_ids in alive_states
         ):
             continue
         compatible_teams.append(black_team)
@@ -450,14 +460,14 @@ def _night_opinion_guess_side(raw: object) -> str:
 
 
 def _night_opinion_obvious_colors(
-    *,
-    actor_id: int,
-    roles: Mapping[object, Any],
-    player_ids: set[int],
-    active_versions: list[dict[str, Any]],
-    sheriff_checks: Mapping[int, set[int]],
-    alive_states: Iterable[frozenset[int]],
-    sources: dict[int, str] | None = None,
+        *,
+        actor_id: int,
+        roles: Mapping[object, Any],
+        player_ids: set[int],
+        active_versions: list[dict[str, Any]],
+        sheriff_checks: Mapping[int, set[int]],
+        alive_states: Iterable[frozenset[int]],
+        sources: dict[int, str] | None = None,
 ) -> dict[int, str]:
     actor_role = _role_for_user(roles, actor_id)
     if actor_role not in RED_ROLES or actor_id not in player_ids:
@@ -585,9 +595,9 @@ def _night_opinion_obvious_colors(
                 private_colors=private_colors,
             )
             if own_fixed_colors is not None and _candidate_black_teams(
-                own_fixed_colors,
-                player_ids=player_ids,
-                alive_states=frozen_alive_states,
+                    own_fixed_colors,
+                    player_ids=player_ids,
+                    alive_states=frozen_alive_states,
             ):
                 return {}
 
@@ -664,12 +674,12 @@ def _night_opinion_obvious_colors(
 
 
 def _apply_night_opinion_points(
-    points: dict[int, Decimal],
-    *,
-    roles: Mapping[object, Any],
-    actions: Iterable[Mapping[str, Any]],
-    apply_rule: Callable[[int, str], dict[str, Any]],
-    audit: list[dict[str, Any]] | None = None,
+        points: dict[int, Decimal],
+        *,
+        roles: Mapping[object, Any],
+        actions: Iterable[Mapping[str, Any]],
+        apply_rule: Callable[[int, str], dict[str, Any]],
+        audit: list[dict[str, Any]] | None = None,
 ) -> None:
     player_ids = set(points)
     if not player_ids:
@@ -710,9 +720,9 @@ def _apply_night_opinion_points(
             actor_id = _action_user_id(action, "actor_id")
             target_id = _action_user_id(action, "target_id")
             if (
-                actor_id in player_ids
-                and target_id in player_ids
-                and _role_for_user(roles, actor_id) == "sheriff"
+                    actor_id in player_ids
+                    and target_id in player_ids
+                    and _role_for_user(roles, actor_id) == "sheriff"
             ):
                 sheriff_checks.setdefault(actor_id, set()).add(target_id)
             continue
@@ -760,10 +770,10 @@ def _apply_night_opinion_points(
                 guess_color = _night_opinion_guess_side(raw_guess)
                 actual_color = _team_for_role(_role_for_user(roles, target_id))
                 if (
-                    target_id not in player_ids
-                    or target_id == actor_id
-                    or not guess_color
-                    or not actual_color
+                        target_id not in player_ids
+                        or target_id == actor_id
+                        or not guess_color
+                        or not actual_color
                 ):
                     continue
 
@@ -794,12 +804,12 @@ def _apply_night_opinion_points(
 
 
 def _apply_farewell_points(
-    points: dict[int, Decimal],
-    *,
-    roles: Mapping[object, Any],
-    actions: Iterable[Mapping[str, Any]],
-    apply_rule: Callable[[int, str], dict[str, Any]],
-    audit: list[dict[str, Any]] | None = None,
+        points: dict[int, Decimal],
+        *,
+        roles: Mapping[object, Any],
+        actions: Iterable[Mapping[str, Any]],
+        apply_rule: Callable[[int, str], dict[str, Any]],
+        audit: list[dict[str, Any]] | None = None,
 ) -> None:
     player_ids = set(points)
     if not player_ids:
@@ -840,9 +850,9 @@ def _apply_farewell_points(
             actor_id = _action_user_id(action, "actor_id")
             target_id = _action_user_id(action, "target_id")
             if (
-                actor_id in player_ids
-                and target_id in player_ids
-                and _role_for_user(roles, actor_id) == "sheriff"
+                    actor_id in player_ids
+                    and target_id in player_ids
+                    and _role_for_user(roles, actor_id) == "sheriff"
             ):
                 sheriff_checks.setdefault(actor_id, set()).add(target_id)
             continue
@@ -865,10 +875,10 @@ def _apply_farewell_points(
             guess_color = _night_opinion_guess_side(raw_guess)
             actual_color = _team_for_role(_role_for_user(roles, target_id))
             if (
-                target_id not in player_ids
-                or target_id == actor_id
-                or not guess_color
-                or not actual_color
+                    target_id not in player_ids
+                    or target_id == actor_id
+                    or not guess_color
+                    or not actual_color
             ):
                 continue
 
@@ -959,9 +969,9 @@ def _apply_farewell_points(
 
 
 def _black_wins_if_a_red_leaves(
-    alive_ids: Iterable[int],
-    *,
-    roles: Mapping[object, Any],
+        alive_ids: Iterable[int],
+        *,
+        roles: Mapping[object, Any],
 ) -> bool:
     red_alive = 0
     black_alive = 0
@@ -974,13 +984,170 @@ def _black_wins_if_a_red_leaves(
     return black_alive > 0 and black_alive >= max(red_alive - 2, 0)
 
 
+def _apply_check_and_version_points(
+        points: dict[int, Decimal],
+        *,
+        roles: Mapping[object, Any],
+        actions: Iterable[Mapping[str, Any]],
+        result: object,
+        apply_rule: Callable[[int, str], dict[str, Any]],
+        audit: list[dict[str, Any]] | None = None,
+) -> None:
+    player_ids = set(points)
+    if not player_ids:
+        return
+
+    active_versions: list[dict[str, Any]] = []
+    last_versions_action_order = 0
+    citizen_false_check_penalized: set[int] = set()
+    sheriff_black_check_streak: dict[int, tuple[int, int]] = {}
+    sheriff_black_check_awarded: set[int] = set()
+    don_first_two_checks: dict[int, list[int]] = {}
+    don_missed_sheriff_penalized: set[int] = set()
+
+    for action_index, action in enumerate(actions, start=1):
+        action_order = _action_user_id(action, "_scoring_action_order") or action_index
+        action_type = _action_type(action)
+        if action_type == "versions":
+            active_versions = _normalize_action_versions(action.get("versions"), player_ids)
+            last_versions_action_order = action_order
+            for version in active_versions:
+                actor_id = _action_user_id(version, "claimant_id")
+                if (
+                        actor_id not in player_ids
+                        or actor_id in citizen_false_check_penalized
+                        or _role_for_user(roles, actor_id) != "citizen"
+                ):
+                    continue
+
+                for check in version.get("checks", []):
+                    if not isinstance(check, Mapping):
+                        continue
+                    target_id = _action_user_id(check, "target_id")
+                    guess_color = str(check.get("verdict") or "").strip().lower()
+                    actual_color = _team_for_role(_role_for_user(roles, target_id))
+                    if target_id not in player_ids or guess_color == actual_color:
+                        continue
+                    citizen_false_check_penalized.add(actor_id)
+                    audit_item = {
+                        "action_order": action_order,
+                        "type": "check_scoring",
+                        "check_kind": "citizen_false_check",
+                        "actor_id": actor_id,
+                        "target_id": target_id,
+                        "guess_color": guess_color,
+                        "actual_color": actual_color,
+                        "actor_adjustment": apply_rule(actor_id, "citizen_false_check")
+                    }
+                    if audit is not None:
+                        audit.append(audit_item)
+                    break
+            continue
+
+        if action_type != "night_check":
+            continue
+
+        actor_id = _action_user_id(action, "actor_id")
+        target_id = _action_user_id(action, "target_id")
+        if actor_id not in player_ids or target_id not in player_ids:
+            continue
+        actor_role = _role_for_user(roles, actor_id)
+
+        if actor_role == "sheriff":
+            claimant_ids = {
+                _action_user_id(version, "claimant_id")
+                for version in active_versions
+            }
+            target_is_unobvious_black = (
+                    _is_black(_role_for_user(roles, target_id))
+                    and target_id not in claimant_ids
+            )
+            if not target_is_unobvious_black:
+                sheriff_black_check_streak[actor_id] = (0, 0)
+                continue
+
+            previous_count, previous_target_id = sheriff_black_check_streak.get(actor_id, (0, 0))
+            current_count = previous_count + 1
+            sheriff_black_check_streak[actor_id] = (current_count, target_id)
+            if current_count < 2 or actor_id in sheriff_black_check_awarded:
+                continue
+
+            sheriff_black_check_awarded.add(actor_id)
+            audit_item = {
+                "action_order": action_order,
+                "type": "check_scoring",
+                "check_kind": "sheriff_two_unobvious_black_checks",
+                "actor_id": actor_id,
+                "target_id": target_id,
+                "previous_target_id": previous_target_id,
+                "actor_adjustment": apply_rule(actor_id, "sheriff_two_unobvious_black_checks")
+            }
+            if audit is not None:
+                audit.append(audit_item)
+            continue
+
+        if actor_role != "don" or actor_id in don_missed_sheriff_penalized:
+            continue
+
+        checked_ids = don_first_two_checks.setdefault(actor_id, [])
+        if len(checked_ids) >= 2:
+            continue
+        checked_ids.append(target_id)
+        if len(checked_ids) < 2 or any(
+                _role_for_user(roles, checked_id) == "sheriff"
+                for checked_id in checked_ids
+        ):
+            continue
+
+        don_missed_sheriff_penalized.add(actor_id)
+        audit_item = {
+            "action_order": action_order,
+            "type": "check_scoring",
+            "check_kind": "don_missed_sheriff_two_checks",
+            "actor_id": actor_id, "target_id": target_id,
+            "previous_target_id": checked_ids[0],
+            "actor_adjustment": apply_rule(actor_id, "don_missed_sheriff_two_checks")
+        }
+        if audit is not None:
+            audit.append(audit_item)
+
+    if str(result or "").strip().lower() != "black" or not active_versions:
+        return
+
+    for version in active_versions:
+        actor_id = _action_user_id(version, "claimant_id")
+        if actor_id not in player_ids or _role_for_user(roles, actor_id) != "sheriff":
+            continue
+        for check in version.get("checks", []):
+            if not isinstance(check, Mapping):
+                continue
+            target_id = _action_user_id(check, "target_id")
+            guess_color = str(check.get("verdict") or "").strip().lower()
+            actual_color = _team_for_role(_role_for_user(roles, target_id))
+            if target_id not in player_ids or guess_color == actual_color:
+                continue
+            audit_item = {
+                "action_order": last_versions_action_order,
+                "type": "check_scoring",
+                "check_kind": "sheriff_false_check_black_win",
+                "actor_id": actor_id,
+                "target_id": target_id,
+                "guess_color": guess_color,
+                "actual_color": actual_color,
+                "actor_adjustment": apply_rule(actor_id, "sheriff_false_check_black_win")
+            }
+            if audit is not None:
+                audit.append(audit_item)
+            break
+
+
 def _apply_critical_nomination_points(
-    points: dict[int, Decimal],
-    *,
-    roles: Mapping[object, Any],
-    actions: Iterable[Mapping[str, Any]],
-    apply_rule: Callable[[int, str], dict[str, Any]],
-    audit: list[dict[str, Any]] | None = None,
+        points: dict[int, Decimal],
+        *,
+        roles: Mapping[object, Any],
+        actions: Iterable[Mapping[str, Any]],
+        apply_rule: Callable[[int, str], dict[str, Any]],
+        audit: list[dict[str, Any]] | None = None,
 ) -> None:
     player_ids = set(points)
     if not player_ids:
@@ -1018,9 +1185,9 @@ def _apply_critical_nomination_points(
             actor_id = _action_user_id(action, "actor_id")
             target_id = _action_user_id(action, "target_id")
             if (
-                actor_id in player_ids
-                and target_id in player_ids
-                and _role_for_user(roles, actor_id) == "sheriff"
+                    actor_id in player_ids
+                    and target_id in player_ids
+                    and _role_for_user(roles, actor_id) == "sheriff"
             ):
                 sheriff_checks.setdefault(actor_id, set()).add(target_id)
             continue
@@ -1044,8 +1211,8 @@ def _apply_critical_nomination_points(
             nomination_alive_ids = context_alive_ids or set(alive_ids)
             nomination_alive_states = tuple(alive_states)
             if (
-                not nomination_alive_states
-                or nomination_alive_states[-1] != frozenset(nomination_alive_ids)
+                    not nomination_alive_states
+                    or nomination_alive_states[-1] != frozenset(nomination_alive_ids)
             ):
                 nomination_alive_states = (*nomination_alive_states, frozenset(nomination_alive_ids))
 
@@ -1147,8 +1314,8 @@ def _apply_critical_nomination_points(
                 audit.append(audit_item)
             continue
         if any(
-            _team_for_role(_role_for_user(roles, speaker_id)) == "red"
-            for speaker_id in speakers_after
+                _team_for_role(_role_for_user(roles, speaker_id)) == "red"
+                for speaker_id in speakers_after
         ):
             audit_item["reason"] = "red_speech_after"
             if audit is not None:
@@ -1198,13 +1365,14 @@ def _apply_critical_nomination_points(
 
 
 def _apply_action_points(
-    points: dict[int, Decimal],
-    *,
-    roles: Mapping[object, Any],
-    actions: Iterable[Mapping[str, Any]],
-    rules: Mapping[str, object],
-    breakdown: dict[int, list[dict[str, Any]]] | None = None,
-    audit: list[dict[str, Any]] | None = None,
+        points: dict[int, Decimal],
+        *,
+        roles: Mapping[object, Any],
+        actions: Iterable[Mapping[str, Any]],
+        rules: Mapping[str, object],
+        result: object = "",
+        breakdown: dict[int, list[dict[str, Any]]] | None = None,
+        audit: list[dict[str, Any]] | None = None,
 ) -> None:
     rule_values: dict[str, Decimal] = {}
     for key, default in GAME_SCORING_RULE_DEFAULTS.items():
@@ -1248,6 +1416,14 @@ def _apply_action_points(
         apply_rule=apply_rule,
         audit=audit,
     )
+    _apply_check_and_version_points(
+        points,
+        roles=roles,
+        actions=normalized_actions,
+        result=result,
+        apply_rule=apply_rule,
+        audit=audit,
+    )
     _apply_critical_nomination_points(
         points,
         roles=roles,
@@ -1265,7 +1441,7 @@ def _apply_action_points(
         target_id = _action_user_id(action, "target_id")
         if target_id in points:
             foul_loss_after[target_id] = (
-                _action_bool(action, "game_lost_after") or _action_bool(action, "ppk")
+                    _action_bool(action, "game_lost_after") or _action_bool(action, "ppk")
             )
 
     for action in normalized_actions:
@@ -1420,10 +1596,10 @@ def _apply_action_points(
                 )
 
             if (
-                reason == "vote"
-                and _action_bool(action, "vote_unique")
-                and not _action_bool(action, "vote_lift")
-                and target_id in points
+                    reason == "vote"
+                    and _action_bool(action, "vote_unique")
+                    and not _action_bool(action, "vote_lift")
+                    and target_id in points
             ):
                 target_team = _team_for_role(_role_for_user(roles, target_id))
                 voters = [voter_id for voter_id in _action_user_ids(action, "by") if voter_id in points]
@@ -1481,13 +1657,13 @@ def _additional_points_bounds(rules: Mapping[str, object]) -> tuple[Decimal, Dec
 
 
 def calculate_game_points(
-    *,
-    mode: object,
-    result: object,
-    roles: Mapping[object, Any],
-    player_ids: Iterable[int | str],
-    actions: Iterable[Mapping[str, Any]] | None = None,
-    scoring_rules: Mapping[object, Any] | None = None,
+        *,
+        mode: object,
+        result: object,
+        roles: Mapping[object, Any],
+        player_ids: Iterable[int | str],
+        actions: Iterable[Mapping[str, Any]] | None = None,
+        scoring_rules: Mapping[object, Any] | None = None,
 ) -> dict[str, float]:
     if normalize_game_mode(mode) != RATING_MODE:
         return {}
@@ -1504,7 +1680,13 @@ def calculate_game_points(
     active_rules = parse_game_scoring_rules_snapshot(scoring_rules)
     if active_rules is not None and actions is not None:
         additional_points = {user_id: Decimal("0") for user_id in players}
-        _apply_action_points(additional_points, roles=roles, actions=actions, rules=active_rules)
+        _apply_action_points(
+            additional_points,
+            roles=roles,
+            actions=actions,
+            rules=active_rules,
+            result=normalized_result,
+        )
         additional_min, additional_max = _additional_points_bounds(active_rules)
         for user_id, value in additional_points.items():
             base_points[user_id] += min(max(value, additional_min), additional_max)
@@ -1513,12 +1695,13 @@ def calculate_game_points(
 
 
 def calculate_game_scoring_audit(
-    *,
-    mode: object,
-    roles: Mapping[object, Any],
-    player_ids: Iterable[int | str],
-    actions: Iterable[Mapping[str, Any]] | None = None,
-    scoring_rules: Mapping[object, Any] | None = None,
+        *,
+        mode: object,
+        result: object = "",
+        roles: Mapping[object, Any],
+        player_ids: Iterable[int | str],
+        actions: Iterable[Mapping[str, Any]] | None = None,
+        scoring_rules: Mapping[object, Any] | None = None,
 ) -> list[dict[str, Any]]:
     if normalize_game_mode(mode) != RATING_MODE:
         return []
@@ -1534,19 +1717,20 @@ def calculate_game_scoring_audit(
         roles=roles,
         actions=actions,
         rules=active_rules,
+        result=result,
         audit=audit,
     )
     return audit
 
 
 def calculate_game_points_breakdown(
-    *,
-    mode: object,
-    result: object,
-    roles: Mapping[object, Any],
-    player_ids: Iterable[int | str],
-    actions: Iterable[Mapping[str, Any]] | None = None,
-    scoring_rules: Mapping[object, Any] | None = None,
+        *,
+        mode: object,
+        result: object,
+        roles: Mapping[object, Any],
+        player_ids: Iterable[int | str],
+        actions: Iterable[Mapping[str, Any]] | None = None,
+        scoring_rules: Mapping[object, Any] | None = None,
 ) -> dict[str, dict[str, Any]]:
     if normalize_game_mode(mode) != RATING_MODE:
         return {}
@@ -1573,6 +1757,7 @@ def calculate_game_points_breakdown(
             roles=roles,
             actions=actions,
             rules=active_rules,
+            result=normalized_result,
             breakdown=adjustments,
         )
         additional_min, additional_max = _additional_points_bounds(active_rules)
@@ -1590,8 +1775,10 @@ def calculate_game_points_breakdown(
             "adjustments": adjustments.get(user_id, []),
             "additional_points_raw": normalize_game_points_value(raw_additional),
             "additional_points": normalize_game_points_value(applied_additional),
-            "additional_points_min": normalize_game_points_value(additional_min) if additional_min is not None else None,
-            "additional_points_max": normalize_game_points_value(additional_max) if additional_max is not None else None,
+            "additional_points_min": normalize_game_points_value(
+                additional_min) if additional_min is not None else None,
+            "additional_points_max": normalize_game_points_value(
+                additional_max) if additional_max is not None else None,
             "additional_points_capped": raw_additional != applied_additional,
             "rules_available": rules_available,
             "final_points": normalize_game_points_value(base_points[user_id] + applied_additional),
