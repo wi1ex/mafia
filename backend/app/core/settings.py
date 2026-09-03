@@ -57,6 +57,9 @@ class Settings(BaseSettings):
     CHAT_OPEN_ENABLED: bool = True
     CHAT_MESSAGES_ENABLED: bool = True
     VERIFICATION_RESTRICTIONS: bool = True
+    RTC_ECHO_CANCELLATION_ENABLED: bool = True
+    RTC_NOISE_SUPPRESSION_ENABLED: bool = True
+    RTC_AUTO_GAIN_CONTROL_ENABLED: bool = True
 
     KASSA_API_KEY: str = ""
     KASSA_PRODUCT_URL: str = ""

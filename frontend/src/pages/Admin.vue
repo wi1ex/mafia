@@ -89,6 +89,9 @@
               <UiSwitch class="switch-item" :width="250" size="low" v-model="site.streams_can_start" label="Запуск трансляций" :disabled="savingSettings" />
               <UiSwitch class="switch-item" :width="250" size="low" v-model="site.games_can_start" label="Запуск игр" :disabled="savingSettings" />
               <UiSwitch class="switch-item" :width="250" size="low" v-model="site.rating_enabled" label="Запуск рейтинга" :disabled="savingSettings" />
+              <UiSwitch class="switch-item" :width="250" size="low" v-model="site.rtc_echo_cancellation_enabled" label="Эхоподавление микрофона" :disabled="savingSettings" />
+              <UiSwitch class="switch-item" :width="250" size="low" v-model="site.rtc_noise_suppression_enabled" label="Шумоподавление микрофона" :disabled="savingSettings" />
+              <UiSwitch class="switch-item" :width="250" size="low" v-model="site.rtc_auto_gain_control_enabled" label="Автоуровень микрофона" :disabled="savingSettings" />
               <div class="bulk-admin-actions">
                 <button class="btn danger width-full" :disabled="endGamesAndKickBusy || compensationSaving" @click="endAllGamesAndKickRooms">
                   Завершить игры и кикнуть всех
@@ -1233,6 +1236,9 @@ type SiteSettings = {
   chat_open_enabled: boolean
   chat_messages_enabled: boolean
   verification_restrictions: boolean
+  rtc_echo_cancellation_enabled: boolean
+  rtc_noise_suppression_enabled: boolean
+  rtc_auto_gain_control_enabled: boolean
   admin_banner_text: string
   admin_banner_link: string
   donation_url: string
@@ -1589,6 +1595,9 @@ const site = reactive<SiteSettings>({
   chat_open_enabled: true,
   chat_messages_enabled: true,
   verification_restrictions: true,
+  rtc_echo_cancellation_enabled: true,
+  rtc_noise_suppression_enabled: true,
+  rtc_auto_gain_control_enabled: true,
   admin_banner_text: '0',
   admin_banner_link: '0',
   donation_url: '',
@@ -2887,6 +2896,9 @@ async function saveSettings(): Promise<void> {
         chat_open_enabled: Boolean(site.chat_open_enabled),
         chat_messages_enabled: Boolean(site.chat_messages_enabled),
         verification_restrictions: Boolean(site.verification_restrictions),
+        rtc_echo_cancellation_enabled: Boolean(site.rtc_echo_cancellation_enabled),
+        rtc_noise_suppression_enabled: Boolean(site.rtc_noise_suppression_enabled),
+        rtc_auto_gain_control_enabled: Boolean(site.rtc_auto_gain_control_enabled),
         admin_banner_text: normalizeAdminBannerText(site.admin_banner_text),
         admin_banner_link: normalizeAdminBannerLink(site.admin_banner_link),
         donation_url: normalizeExternalPaymentUrl(site.donation_url),
@@ -2938,6 +2950,9 @@ async function saveSettings(): Promise<void> {
       chat_open_enabled: site.chat_open_enabled,
       chat_messages_enabled: site.chat_messages_enabled,
       verification_restrictions: site.verification_restrictions,
+      rtc_echo_cancellation_enabled: site.rtc_echo_cancellation_enabled,
+      rtc_noise_suppression_enabled: site.rtc_noise_suppression_enabled,
+      rtc_auto_gain_control_enabled: site.rtc_auto_gain_control_enabled,
       admin_banner_text: site.admin_banner_text,
       admin_banner_link: site.admin_banner_link,
       home_carousel_banner_key: homeCarouselBannerKey.value,

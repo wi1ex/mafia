@@ -17,6 +17,9 @@ export interface PublicSettings {
   chat_open_enabled: boolean
   chat_messages_enabled: boolean
   verification_restrictions: boolean
+  rtc_echo_cancellation_enabled: boolean
+  rtc_noise_suppression_enabled: boolean
+  rtc_auto_gain_control_enabled: boolean
   admin_banner_text: string
   admin_banner_link: string
   home_carousel_banner_key: string | null
@@ -50,6 +53,9 @@ const PUBLIC_SETTINGS_KEYS: readonly (keyof PublicSettings)[] = [
   'chat_open_enabled',
   'chat_messages_enabled',
   'verification_restrictions',
+  'rtc_echo_cancellation_enabled',
+  'rtc_noise_suppression_enabled',
+  'rtc_auto_gain_control_enabled',
   'admin_banner_text',
   'admin_banner_link',
   'home_carousel_banner_key',
@@ -74,6 +80,9 @@ export const useSettingsStore = defineStore('settings', () => {
   const chatOpenEnabled = ref(true)
   const chatMessagesEnabled = ref(true)
   const verificationRestrictions = ref(true)
+  const rtcEchoCancellationEnabled = ref(true)
+  const rtcNoiseSuppressionEnabled = ref(true)
+  const rtcAutoGainControlEnabled = ref(true)
   const adminBannerText = ref('0')
   const adminBannerLink = ref('0')
   const homeCarouselBannerKey = ref<string | null>(null)
@@ -156,6 +165,9 @@ export const useSettingsStore = defineStore('settings', () => {
     chatOpenEnabled.value = Boolean(data.chat_open_enabled)
     chatMessagesEnabled.value = Boolean(data.chat_messages_enabled)
     verificationRestrictions.value = Boolean(data.verification_restrictions)
+    rtcEchoCancellationEnabled.value = Boolean(data.rtc_echo_cancellation_enabled)
+    rtcNoiseSuppressionEnabled.value = Boolean(data.rtc_noise_suppression_enabled)
+    rtcAutoGainControlEnabled.value = Boolean(data.rtc_auto_gain_control_enabled)
     adminBannerText.value = String(data.admin_banner_text || '').trim() || '0'
     adminBannerLink.value = String(data.admin_banner_link || '').trim() || '0'
     const homeCarouselBannerKeyValue = String(data.home_carousel_banner_key || '').trim()
@@ -255,6 +267,9 @@ export const useSettingsStore = defineStore('settings', () => {
     chatOpenEnabled,
     chatMessagesEnabled,
     verificationRestrictions,
+    rtcEchoCancellationEnabled,
+    rtcNoiseSuppressionEnabled,
+    rtcAutoGainControlEnabled,
     adminBannerText,
     adminBannerLink,
     homeCarouselBannerKey,

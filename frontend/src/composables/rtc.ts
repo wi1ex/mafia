@@ -1,4 +1,5 @@
 import { ref, shallowRef, type Ref, watch } from 'vue'
+import { useSettingsStore } from '@/store'
 import {
   createLocalScreenTracks,
   type LocalTrack,
@@ -139,6 +140,7 @@ export type UseRTC = {
 }
 
 export function useRTC(): UseRTC {
+  const appSettings = useSettingsStore()
   let connectInFlight: Promise<void> | null = null
   const lk = shallowRef<LkRoom | null>(null)
   const localId = ref('')
@@ -1470,9 +1472,9 @@ export function useRTC(): UseRTC {
   function audioOptionsFor(deviceId?: string) {
     return {
       deviceId: deviceId ? ({ exact: deviceId } as any) : undefined,
-      echoCancellation: true,
-      noiseSuppression: false,
-      autoGainControl: false,
+      echoCancellation: appSettings.rtcEchoCancellationEnabled,
+      noiseSuppression: appSettings.rtcNoiseSuppressionEnabled,
+      autoGainControl: appSettings.rtcAutoGainControlEnabled,
     } as any
   }
 
@@ -1627,9 +1629,9 @@ export function useRTC(): UseRTC {
         ...(opts?.publishDefaults || {})
       },
       audioCaptureDefaults: {
-        echoCancellation: true,
-        noiseSuppression: false,
-        autoGainControl: false,
+        echoCancellation: appSettings.rtcEchoCancellationEnabled,
+        noiseSuppression: appSettings.rtcNoiseSuppressionEnabled,
+        autoGainControl: appSettings.rtcAutoGainControlEnabled,
         ...(opts?.audioCaptureDefaults || {})
       },
       videoCaptureDefaults: {

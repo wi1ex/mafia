@@ -31,6 +31,9 @@ class AppSettingsSnapshot:
     chat_open_enabled: bool
     chat_messages_enabled: bool
     verification_restrictions: bool
+    rtc_echo_cancellation_enabled: bool
+    rtc_noise_suppression_enabled: bool
+    rtc_auto_gain_control_enabled: bool
     admin_banner_text: str
     admin_banner_link: str
     home_carousel_banner_key: str | None
@@ -90,6 +93,9 @@ async def ensure_app_settings(session: AsyncSession) -> AppSettings:
             chat_open_enabled=defaults.chat_open_enabled,
             chat_messages_enabled=defaults.chat_messages_enabled,
             verification_restrictions=defaults.verification_restrictions,
+            rtc_echo_cancellation_enabled=defaults.rtc_echo_cancellation_enabled,
+            rtc_noise_suppression_enabled=defaults.rtc_noise_suppression_enabled,
+            rtc_auto_gain_control_enabled=defaults.rtc_auto_gain_control_enabled,
             admin_banner_text=normalize_admin_banner_text(defaults.admin_banner_text),
             admin_banner_link=normalize_admin_banner_link(defaults.admin_banner_link),
             home_carousel_banner_key=None,

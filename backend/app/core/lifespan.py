@@ -50,6 +50,24 @@ async def lifespan(app) -> AsyncIterator[None]:
                     "ADD COLUMN IF NOT EXISTS scoring_rules JSONB NOT NULL DEFAULT '{}'::jsonb"
                 )
             )
+            await conn.execute(
+                text(
+                    "ALTER TABLE settings "
+                    "ADD COLUMN IF NOT EXISTS rtc_echo_cancellation_enabled BOOLEAN NOT NULL DEFAULT TRUE"
+                )
+            )
+            await conn.execute(
+                text(
+                    "ALTER TABLE settings "
+                    "ADD COLUMN IF NOT EXISTS rtc_noise_suppression_enabled BOOLEAN NOT NULL DEFAULT TRUE"
+                )
+            )
+            await conn.execute(
+                text(
+                    "ALTER TABLE settings "
+                    "ADD COLUMN IF NOT EXISTS rtc_auto_gain_control_enabled BOOLEAN NOT NULL DEFAULT TRUE"
+                )
+            )
 
 
         async with SessionLocal() as session:

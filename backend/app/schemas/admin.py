@@ -70,6 +70,9 @@ class SiteSettingsOut(BaseModel):
     chat_open_enabled: bool
     chat_messages_enabled: bool
     verification_restrictions: bool
+    rtc_echo_cancellation_enabled: bool
+    rtc_noise_suppression_enabled: bool
+    rtc_auto_gain_control_enabled: bool
     admin_banner_text: str
     admin_banner_link: str
     home_carousel_banner_key: Optional[str] = None
@@ -95,6 +98,9 @@ class SiteSettingsUpdateIn(BaseModel):
     chat_open_enabled: Optional[bool] = None
     chat_messages_enabled: Optional[bool] = None
     verification_restrictions: Optional[bool] = None
+    rtc_echo_cancellation_enabled: Optional[bool] = None
+    rtc_noise_suppression_enabled: Optional[bool] = None
+    rtc_auto_gain_control_enabled: Optional[bool] = None
     admin_banner_text: Optional[str] = Field(default=None, max_length=2048)
     admin_banner_link: Optional[str] = Field(default=None, max_length=2048)
     donation_url: Optional[str] = Field(default=None, max_length=2048)
@@ -310,6 +316,9 @@ class PublicSettingsOut(BaseModel):
     chat_open_enabled: bool
     chat_messages_enabled: bool
     verification_restrictions: bool
+    rtc_echo_cancellation_enabled: bool
+    rtc_noise_suppression_enabled: bool
+    rtc_auto_gain_control_enabled: bool
     admin_banner_text: str
     admin_banner_link: str
     home_carousel_banner_key: Optional[str] = None
