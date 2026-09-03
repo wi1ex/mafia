@@ -4,7 +4,7 @@ from ..sio import sio
 from ..utils import get_rooms_brief, validate_auth, filter_rooms_for_viewer
 from ..connections import register_user_socket, unregister_user_socket
 from ...core.clients import get_redis
-from ...core.roles import ROLE_ADMIN, ROLE_MODER, normalize_user_role
+from ...core.roles import ROLE_ADMIN, normalize_user_role
 from ...security.decorators import rate_limited_sio
 from ...schemas.realtime import RoomsListAck
 
@@ -46,8 +46,6 @@ async def connect(sid, environ, auth):
     role = normalize_user_role(role)
     if role == ROLE_ADMIN:
         await sio.enter_room(sid, "role:admin", namespace="/rooms")
-    elif role == ROLE_MODER:
-        await sio.enter_room(sid, "role:moder", namespace="/rooms")
 
 
 @sio.event(namespace="/rooms")

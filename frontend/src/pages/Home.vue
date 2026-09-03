@@ -850,8 +850,8 @@ function startWS() {
   sio.value.on('connect', syncRoomsSnapshot)
 
   sio.value.on('settings_update', (payload: unknown) => {
-    if (settings.applyPublicPayload(payload)) return
-    void settings.fetchPublic()
+    if (!settings.applyPublicPayload(payload)) void settings.fetchPublic()
+    void syncRoomsSnapshot()
   })
 
   sio.value.on('rooms_upsert', (r: Room) => {

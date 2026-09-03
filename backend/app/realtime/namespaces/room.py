@@ -263,8 +263,13 @@ async def join(sid, data) -> JoinAck:
             if not allowed:
                 pending = await r.sismember(f"room:{rid}:pending", str(uid))
         creator_role_normalized = normalize_user_role(params.get("creator_role"))
+        senior_moderator_user_id = get_cached_settings().senior_moderator_user_id
+        is_senior_moderator = (
+            senior_moderator_user_id is not None
+            and uid == int(senior_moderator_user_id)
+        )
         hidden_role_bypass = base_role_normalized == ROLE_ADMIN or (
-            base_role_normalized == ROLE_MODER and creator_role_normalized != ROLE_ADMIN
+            is_senior_moderator and creator_role_normalized != ROLE_ADMIN
         )
         hidden_visible_to_user = is_creator or bool(allowed) or hidden_role_bypass
 

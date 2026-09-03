@@ -3241,6 +3241,10 @@ async def _load_room_allow_membership(r, room_ids: Iterable[int], viewer_uid: in
     return allow_by_rid
 
 
+def _configured_senior_moderator_id() -> int:
+    return _as_int(getattr(get_cached_settings(), "senior_moderator_user_id", None))
+
+
 async def filter_rooms_for_viewer(r, items: Iterable[Mapping[str, Any]], role: str | None, uid: int | None) -> List[dict]:
     prepared = [dict(item) for item in items]
     viewer_role = normalize_user_role(role)
@@ -3248,7 +3252,7 @@ async def filter_rooms_for_viewer(r, items: Iterable[Mapping[str, Any]], role: s
         return prepared
 
     viewer_uid = _as_int(uid)
-    if viewer_role == ROLE_MODER:
+    if viewer_uid > 0 and viewer_uid == _configured_senior_moderator_id():
         admin_hidden_rids = await _admin_created_hidden_room_ids(r, prepared)
         if not admin_hidden_rids:
             return prepared
@@ -3350,12 +3354,21 @@ async def _hidden_room_viewers(r, rid: int, *, payload: Mapping[str, Any] | None
     return True, viewers, admin_created
 
 
-async def _emit_hidden_rooms_event(event: str, payload: Mapping[str, Any], viewer_ids: Iterable[int], *, include_moder: bool = True) -> None:
+async def _emit_hidden_rooms_event(
+    event: str,
+    payload: Mapping[str, Any],
+    viewer_ids: Iterable[int],
+    *,
+    include_senior_moderator: bool = True,
+) -> None:
     data = dict(payload)
     await sio.emit(event, data, room="role:admin", namespace="/rooms")
-    if include_moder:
-        await sio.emit(event, data, room="role:moder", namespace="/rooms")
-    for uid in sorted(_normalize_user_ids(viewer_ids)):
+    recipients = _normalize_user_ids(viewer_ids)
+    if include_senior_moderator:
+        senior_moderator_id = _configured_senior_moderator_id()
+        if senior_moderator_id > 0:
+            recipients.add(senior_moderator_id)
+    for uid in sorted(recipients):
         await sio.emit(event, data, room=f"user:{uid}", namespace="/rooms")
 
 
@@ -3370,7 +3383,12 @@ async def emit_rooms_upsert_safe(r, rid: int, item: Mapping[str, Any] | None = N
     room_id = _as_int(payload.get("id") or rid)
     is_hidden, viewer_ids, admin_created = await _hidden_room_viewers(r, room_id, payload=payload)
     if is_hidden:
-        await _emit_hidden_rooms_event("rooms_upsert", payload, viewer_ids, include_moder=not admin_created)
+        await _emit_hidden_rooms_event(
+            "rooms_upsert",
+            payload,
+            viewer_ids,
+            include_senior_moderator=not admin_created,
+        )
         return
 
     await sio.emit("rooms_upsert", payload, namespace="/rooms")
@@ -3379,7 +3397,12 @@ async def emit_rooms_upsert_safe(r, rid: int, item: Mapping[str, Any] | None = N
 async def emit_rooms_event_safe(r, rid: int, event: str, payload: Mapping[str, Any]) -> None:
     is_hidden, viewer_ids, admin_created = await _hidden_room_viewers(r, rid)
     if is_hidden:
-        await _emit_hidden_rooms_event(event, payload, viewer_ids, include_moder=not admin_created)
+        await _emit_hidden_rooms_event(
+            event,
+            payload,
+            viewer_ids,
+            include_senior_moderator=not admin_created,
+        )
         return
 
     await sio.emit(event, dict(payload), namespace="/rooms")
@@ -3401,7 +3424,12 @@ async def emit_rooms_remove_safe(r, rid: int, *, hidden: bool | None = None, vie
         _, _, admin_created_hidden = await _hidden_room_viewers(r, room_id)
 
     if is_hidden:
-        await _emit_hidden_rooms_event("rooms_remove", payload, target_ids, include_moder=not admin_created_hidden)
+        await _emit_hidden_rooms_event(
+            "rooms_remove",
+            payload,
+            target_ids,
+            include_senior_moderator=not admin_created_hidden,
+        )
         return
 
     await sio.emit("rooms_remove", payload, namespace="/rooms")
