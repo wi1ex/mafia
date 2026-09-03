@@ -1300,26 +1300,6 @@ async def emit_global_chat_messages_refresh() -> None:
     )
 
 
-async def emit_global_chat_cleared() -> None:
-    await sio.emit(
-        "chat_cleared",
-        {},
-        room=GLOBAL_CHAT_ROOM,
-        namespace="/chat",
-    )
-    await sio.emit(
-        "chat_unread_targets",
-        {"message_ids": []},
-        room=GLOBAL_CHAT_ROOM,
-        namespace="/chat",
-    )
-    await sio.emit(
-        "chat_unread_count",
-        {"count": 0},
-        namespace="/auth",
-    )
-
-
 def normalize_global_chat_image_object_key(raw: object) -> str | None:
     key = str(raw or "").strip()
     if not key:

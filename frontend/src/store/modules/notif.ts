@@ -59,7 +59,6 @@ export const useNotifStore = defineStore('notif', () => {
   let inited = false
   let onNotifyEv: ((e: any) => void) | null = null
   let onRoomAppEv: ((e: any) => void) | null = null
-  let onAllMarkedReadEv: (() => void) | null = null
   let fetchGeneration = 0
 
   const pending = new Set<number>()
@@ -135,7 +134,6 @@ export const useNotifStore = defineStore('notif', () => {
     if (inited) return
     if (onNotifyEv) window.removeEventListener('auth-notify', onNotifyEv)
     if (onRoomAppEv) window.removeEventListener('auth-room_invite', onRoomAppEv)
-    if (onAllMarkedReadEv) window.removeEventListener('auth-notifs_marked_read_all', onAllMarkedReadEv)
     onNotifyEv = (e: any) => {
       const p = e?.detail as WsNotePayload | undefined
       if (!p) return
@@ -158,14 +156,8 @@ export const useNotifStore = defineStore('notif', () => {
       if (!note.read) unread.value++
     }
     onRoomAppEv = (_e: any) => {}
-    onAllMarkedReadEv = () => {
-      items.value.forEach(item => { item.read = true })
-      unread.value = 0
-      pending.clear()
-    }
     window.addEventListener('auth-notify', onNotifyEv)
     window.addEventListener('auth-room_invite', onRoomAppEv)
-    window.addEventListener('auth-notifs_marked_read_all', onAllMarkedReadEv)
     inited = true
   }
 

@@ -19,7 +19,6 @@ from ...models.notif import Notif
 from ...models.subscription import UserSubscription
 from ...models.sanction import UserSanction
 from ...models.user import User
-from ...models.global_chat import GlobalChatMessage, GlobalChatMessageReaction
 from ...core.logging import log_action
 from ...realtime.sio import sio
 from ...realtime.utils import (
@@ -59,7 +58,6 @@ from ...services.nickname import (
 )
 from ...services.global_chat import (
     emit_global_chat_avatar_deleted_notice,
-    emit_global_chat_cleared,
     emit_global_chat_nickname_reset_notice,
     emit_global_chat_permissions_refresh,
     emit_global_chat_role_notice,
@@ -70,7 +68,6 @@ from ...services.global_chat import (
 from ...services.minio import (
     CHAT_IMAGE_PREFIX,
     MAX_BYTES,
-    delete_chat_images_async,
     delete_object_async,
     get_prefix_storage_stats_async,
     put_home_carousel_banner_async,
@@ -1581,36 +1578,6 @@ async def rooms_kick_all(ident: Identity = Depends(require_protected_admin_dep),
     return Ok()
 
 
-@router.post("/chat/clear", response_model=Ok, dependencies=ADMIN_GUARD)
-@log_route("admin.global_chat.clear")
-async def clear_global_chat(ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
-    messages_count = int(await session.scalar(select(func.count(GlobalChatMessage.id))) or 0)
-    reactions_count = int(await session.scalar(select(func.count(GlobalChatMessageReaction.message_id))) or 0)
-
-    await session.execute(delete(GlobalChatMessageReaction))
-    await session.execute(delete(GlobalChatMessage))
-    await session.commit()
-
-    try:
-        images_detail = str(await delete_chat_images_async())
-    except Exception:
-        images_detail = "error"
-        log.exception("admin.global_chat.clear.chat_images_delete_failed")
-
-    await log_action(
-        session,
-        user_id=int(ident["id"]),
-        username=ident["username"],
-        action="admin_global_chat_clear",
-        details=f"Очистка общего чата messages={messages_count} reactions={reactions_count} images={images_detail}",
-    )
-
-    with suppress(Exception):
-        await emit_global_chat_cleared()
-
-    return Ok()
-
-
 @router.post("/games/end-all", response_model=AdminGamesEndAllOut, dependencies=ADMIN_GUARD)
 @log_route("admin.games.end_all")
 async def games_end_all(ident: Identity = Depends(require_protected_admin_dep), session: AsyncSession = Depends(get_session)) -> AdminGamesEndAllOut:
@@ -1685,35 +1652,6 @@ async def games_end_all(ident: Identity = Depends(require_protected_admin_dep), 
         log.exception("admin.games.end_all.log_failed")
 
     return AdminGamesEndAllOut(ended=ended, skipped=skipped, failed=failed)
-
-
-@router.post("/notifs/mark-all-read", response_model=Ok, dependencies=ADMIN_GUARD)
-@log_route("admin.notifs.mark_all_read")
-async def mark_all_notifications_read(ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
-    marked = await session.execute(
-        update(Notif)
-        .where(Notif.read_at.is_(None))
-        .values(read_at=func.now())
-        .returning(Notif.user_id)
-    )
-    marked_user_ids = [int(user_id) for user_id in marked.scalars().all() if int(user_id) > 0]
-    user_ids = set(marked_user_ids)
-
-    await log_action(
-        session,
-        user_id=int(ident["id"]),
-        username=ident["username"],
-        action="admin_notifs_mark_all_read",
-        details=f"Отмечены прочитанными все уведомления count={len(marked_user_ids)}",
-        commit=False,
-    )
-    await session.commit()
-
-    for user_id in user_ids:
-        with suppress(Exception):
-            await sio.emit("notifs_marked_read_all", {}, room=f"user:{user_id}", namespace="/auth")
-
-    return Ok()
 
 
 @router.get("/users", response_model=AdminUsersOut, dependencies=ADMIN_GUARD)

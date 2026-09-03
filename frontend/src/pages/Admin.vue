@@ -90,19 +90,10 @@
               <UiSwitch class="switch-item" :width="250" size="low" v-model="site.games_can_start" label="Запуск игр" :disabled="savingSettings" />
               <UiSwitch class="switch-item" :width="250" size="low" v-model="site.rating_enabled" label="Запуск рейтинга" :disabled="savingSettings" />
               <div class="bulk-admin-actions">
-                <button class="btn danger width-full" :disabled="kickRoomsBusy || clearChatBusy || endGamesBusy || markAllNotifsBusy || compensationSaving" @click="kickAllRooms">
-                  Кик всех из комнат
+                <button class="btn danger width-full" :disabled="endGamesAndKickBusy || compensationSaving" @click="endAllGamesAndKickRooms">
+                  Завершить игры и кикнуть всех
                 </button>
-                <button class="btn danger width-full" :disabled="kickRoomsBusy || clearChatBusy || endGamesBusy || markAllNotifsBusy || compensationSaving" @click="clearGlobalChat">
-                  Очистить сообщения чата
-                </button>
-                <button class="btn danger width-full" :disabled="kickRoomsBusy || clearChatBusy || endGamesBusy || markAllNotifsBusy || compensationSaving" @click="endAllGames">
-                  Завершить все игры
-                </button>
-                <button class="btn width-full" :disabled="kickRoomsBusy || clearChatBusy || endGamesBusy || markAllNotifsBusy || compensationSaving" @click="markAllNotificationsRead">
-                  Прочитать все уведомления
-                </button>
-                <button class="btn confirm width-full" :disabled="kickRoomsBusy || clearChatBusy || endGamesBusy || markAllNotifsBusy || compensationSaving" @click="openSubscriptionCompensation">
+                <button class="btn confirm width-full" :disabled="endGamesAndKickBusy || compensationSaving" @click="openSubscriptionCompensation">
                   Компенсация подписки
                 </button>
                 <button class="btn confirm width-full" :disabled="savingSettings || !isSettingsDirty" @click="saveSettings">
@@ -1855,10 +1846,7 @@ const sanctionAdjustTitle = computed(() => {
   const userLabel = target.username || `user${target.user_id}`
   return `${actionLabel} ${formatSanctionKindLabel(target.kind).toLowerCase()}: ${userLabel}`
 })
-const kickRoomsBusy = ref(false)
-const clearChatBusy = ref(false)
-const endGamesBusy = ref(false)
-const markAllNotifsBusy = ref(false)
+const endGamesAndKickBusy = ref(false)
 let logsUserTimer: number | undefined
 let logsRefreshTimer: number | undefined
 let roomsUserTimer: number | undefined
@@ -3562,99 +3550,34 @@ async function deleteHomeCarouselBanner(): Promise<void> {
   }
 }
 
-async function kickAllRooms(): Promise<void> {
-  if (kickRoomsBusy.value) return
+async function endAllGamesAndKickRooms(): Promise<void> {
+  if (endGamesAndKickBusy.value) return
   const ok = await confirmDialog({
-    title: 'Кик всех из комнат',
-    text: 'Вы уверены, что хотите кикнуть всех пользователей из всех активных комнат?',
-    confirmText: 'Кикнуть',
+    title: 'Завершить игры и кикнуть всех',
+    text: 'Все незавершенные игры будут завершены, после чего все пользователи выйдут из активных комнат. Продолжить?',
+    confirmText: 'Завершить и кикнуть',
     cancelText: 'Отмена',
     checkboxLabel: 'Подтверждаю',
     checkboxRequired: true,
   })
   if (!ok) return
-  kickRoomsBusy.value = true
-  try {
-    await api.post('/admin/rooms/kick')
-    void alertDialog('Пользователи кикнуты из комнат')
-  } catch {
-    void alertDialog('Не удалось кикнуть пользователей')
-  } finally {
-    kickRoomsBusy.value = false
-  }
-}
-
-async function clearGlobalChat(): Promise<void> {
-  if (clearChatBusy.value) return
-  const ok = await confirmDialog({
-    title: 'Очистить сообщения чата',
-    text: 'Вы уверены, что хотите полностью очистить общий чат?',
-    confirmText: 'Очистить',
-    cancelText: 'Отмена',
-    checkboxLabel: 'Подтверждаю',
-    checkboxRequired: true,
-  })
-  if (!ok) return
-  clearChatBusy.value = true
-  try {
-    await api.post('/admin/chat/clear')
-    void alertDialog('Общий чат очищен')
-  } catch {
-    void alertDialog('Не удалось очистить общий чат')
-  } finally {
-    clearChatBusy.value = false
-  }
-}
-
-async function endAllGames(): Promise<void> {
-  if (endGamesBusy.value) return
-  const ok = await confirmDialog({
-    title: 'Завершить все игры',
-    text: 'Все незавершенные игры в активных комнатах будут завершены. Продолжить?',
-    confirmText: 'Завершить',
-    cancelText: 'Отмена',
-    checkboxLabel: 'Подтверждаю',
-    checkboxRequired: true,
-  })
-  if (!ok) return
-  endGamesBusy.value = true
+  endGamesAndKickBusy.value = true
   try {
     const { data } = await api.post('/admin/games/end-all')
     const ended = Math.max(0, Math.floor(Number(data?.ended) || 0))
     const failed = Math.max(0, Math.floor(Number(data?.failed) || 0))
-    if (failed > 0) {
-      void alertDialog(`Завершено игр: ${ended}. Не удалось завершить: ${failed}.`)
-    } else if (ended > 0) {
-      void alertDialog(`Завершено игр: ${ended}.`)
-    } else {
-      void alertDialog('Активных игр нет')
-    }
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 500))
+    await api.post('/admin/rooms/kick')
+    const gameResult = failed > 0
+      ? `Завершено игр: ${ended}. Не удалось завершить: ${failed}.`
+      : ended > 0
+        ? `Завершено игр: ${ended}.`
+        : 'Активных игр нет.'
+    void alertDialog(`${gameResult} Пользователи кикнуты из комнат.`)
   } catch {
-    void alertDialog('Не удалось завершить игры')
+    void alertDialog('Не удалось завершить игры и кикнуть пользователей')
   } finally {
-    endGamesBusy.value = false
-  }
-}
-
-async function markAllNotificationsRead(): Promise<void> {
-  if (markAllNotifsBusy.value) return
-  const ok = await confirmDialog({
-    title: 'Прочитать все уведомления',
-    text: 'Все непрочитанные уведомления у пользователей будут отмечены как прочитанные. Продолжить?',
-    confirmText: 'Прочитать все',
-    cancelText: 'Отмена',
-    checkboxLabel: 'Подтверждаю',
-    checkboxRequired: true,
-  })
-  if (!ok) return
-  markAllNotifsBusy.value = true
-  try {
-    await api.post('/admin/notifs/mark-all-read')
-    void alertDialog('Все уведомления отмечены как прочитанные')
-  } catch {
-    void alertDialog('Не удалось отметить уведомления как прочитанные')
-  } finally {
-    markAllNotifsBusy.value = false
+    endGamesAndKickBusy.value = false
   }
 }
 

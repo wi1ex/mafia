@@ -561,23 +561,6 @@ def delete_avatars(user_id: int) -> int:
     return len(to_delete)
 
 
-def delete_chat_images() -> int:
-    minio = get_minio_private()
-    ensure_bucket(minio)
-    prefix = f"{CHAT_IMAGE_PREFIX}/"
-
-    to_delete = [DeleteObject(o.object_name) for o in minio.list_objects(bucket_name=_bucket, prefix=prefix, recursive=True)]
-    if not to_delete:
-        return 0
-
-    errs = []
-    for err in minio.remove_objects(bucket_name=_bucket, delete_object_list=to_delete):
-        errs.append({"object": getattr(err, "name", None), "code": getattr(err, "code", None)})
-    if errs:
-        log.warning("chat_image.remove.errors", errors=errs)
-    return len(to_delete)
-
-
 def presign_key(key: str, *, expires_hours: int = 1) -> tuple[str, int]:
     minio_pub = get_minio_public()
     minio_priv = get_minio_private()
@@ -618,10 +601,6 @@ async def put_home_carousel_banner_async(content: bytes, content_type: str | Non
 
 async def delete_avatars_async(user_id: int) -> int:
     return await asyncio.to_thread(delete_avatars, user_id)
-
-
-async def delete_chat_images_async() -> int:
-    return await asyncio.to_thread(delete_chat_images)
 
 
 async def delete_stale_pending_chat_images_async() -> int:

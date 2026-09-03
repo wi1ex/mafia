@@ -965,23 +965,6 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
       applyRoleSync(payload)
     })
 
-    socket.on('chat_cleared', () => {
-      messages.value = []
-      hasMore.value = false
-      cursorBeforeId.value = null
-      unread.value = 0
-      unreadTargetMessageIds.value = []
-      clearReplyTarget()
-      if (draftImageObjectKey.value) {
-        draftImageObjectKey.value = ''
-      }
-      Object.keys(reactionBusy).forEach((key) => { delete reactionBusy[Number(key)] })
-      Object.keys(deleteBusy).forEach((key) => { delete deleteBusy[Number(key)] })
-      Object.keys(purgeBusy).forEach((key) => { delete purgeBusy[Number(key)] })
-      clearReactionParticipantsCache()
-      markMutation('reset')
-    })
-
     socket.on('chat_refresh_requested', () => {
       if (!open.value || connectionState.value === 'idle') return
       void bootstrap()
