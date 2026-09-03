@@ -12,7 +12,7 @@ from collections.abc import Iterable, Mapping
 
 try:
     # noinspection PyProtectedMember
-    from ..app.services.game_scoring import (
+    from app.services.game_scoring import (
         _night_opinion_obvious_colors,
         _normalize_action_versions,
         build_game_scoring_rules_snapshot,
@@ -20,7 +20,7 @@ try:
     )
 except ModuleNotFoundError:  # PyCharm may run this file as backend.tests.*.
     # noinspection PyProtectedMember
-    from ..app.services.game_scoring import (
+    from app.services.game_scoring import (
         _night_opinion_obvious_colors,
         _normalize_action_versions,
         build_game_scoring_rules_snapshot,
