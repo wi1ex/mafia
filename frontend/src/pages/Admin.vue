@@ -253,6 +253,14 @@
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Подъём игроков другой команды" />
                 <UiInput id="scoring-vote-lift-opponent-team-label" size="low" v-model.trim="scoring.vote_lift_opponent_team_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
+                <UiInput id="scoring-nomination-black-prevents-black-win" size="low" v-model.number="scoring.nomination_black_prevents_black_win" type="number" step="0.01"
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Выставление при гарантированной победе" />
+                <UiInput id="scoring-nomination-black-prevents-black-win-label" size="low" v-model.trim="scoring.nomination_black_prevents_black_win_label" maxlength="255"
+                         autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
+                <UiInput id="scoring-nomination-red-last-hope" size="low" v-model.number="scoring.nomination_red_last_hope" type="number" step="0.01"
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Последняя надежда" />
+                <UiInput id="scoring-nomination-red-last-hope-label" size="low" v-model.trim="scoring.nomination_red_last_hope_label" maxlength="255"
+                         autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 <UiInput id="scoring-black-day-under-seven" size="low" v-model.number="scoring.black_day_under_seven" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Проход в круг при 3-6х" />
                 <UiInput id="scoring-black-day-under-seven-label" size="low" v-model.trim="scoring.black_day_under_seven_label" maxlength="255"
@@ -1268,6 +1276,8 @@ type GameScoringSettings = {
   black_win_3v3: number
   vote_lift_same_team: number
   vote_lift_opponent_team: number
+  nomination_black_prevents_black_win: number
+  nomination_red_last_hope: number
   black_day_under_seven: number
   night_opinion_correct: number
   night_opinion_wrong: number
@@ -1295,6 +1305,8 @@ type GameScoringSettings = {
   black_win_3v3_label: string
   vote_lift_same_team_label: string
   vote_lift_opponent_team_label: string
+  nomination_black_prevents_black_win_label: string
+  nomination_red_last_hope_label: string
   black_day_under_seven_label: string
   night_opinion_correct_label: string
   night_opinion_wrong_label: string
@@ -1612,6 +1624,8 @@ const scoring = reactive<GameScoringSettings>({
   black_win_3v3: 0.3,
   vote_lift_same_team: -0.3,
   vote_lift_opponent_team: 0.3,
+  nomination_black_prevents_black_win: -0.5,
+  nomination_red_last_hope: 0.3,
   black_day_under_seven: 0.1,
   night_opinion_correct: 0.1,
   night_opinion_wrong: -0.1,
@@ -1639,6 +1653,8 @@ const scoring = reactive<GameScoringSettings>({
   black_win_3v3_label: 'Победа 3в3',
   vote_lift_same_team_label: 'Подъём игроков своей команды',
   vote_lift_opponent_team_label: 'Подъём игроков другой команды',
+  nomination_black_prevents_black_win_label: 'Выставление при гарантированной победе',
+  nomination_red_last_hope_label: 'Последняя надежда',
   black_day_under_seven_label: 'Проход в круг при 3-6х',
   night_opinion_correct_label: 'Ночное мнение: верный цвет',
   night_opinion_wrong_label: 'Ночное мнение: неверный цвет',
@@ -2015,6 +2031,8 @@ function snapshotScoring(): string {
     black_win_3v3: normalizeScoringValue(scoring.black_win_3v3),
     vote_lift_same_team: normalizeScoringValue(scoring.vote_lift_same_team),
     vote_lift_opponent_team: normalizeScoringValue(scoring.vote_lift_opponent_team),
+    nomination_black_prevents_black_win: normalizeScoringValue(scoring.nomination_black_prevents_black_win),
+    nomination_red_last_hope: normalizeScoringValue(scoring.nomination_red_last_hope),
     black_day_under_seven: normalizeScoringValue(scoring.black_day_under_seven),
     night_opinion_correct: normalizeScoringValue(scoring.night_opinion_correct),
     night_opinion_wrong: normalizeScoringValue(scoring.night_opinion_wrong),
@@ -2042,6 +2060,8 @@ function snapshotScoring(): string {
     black_win_3v3_label: normalizeScoringLabel(scoring.black_win_3v3_label),
     vote_lift_same_team_label: normalizeScoringLabel(scoring.vote_lift_same_team_label),
     vote_lift_opponent_team_label: normalizeScoringLabel(scoring.vote_lift_opponent_team_label),
+    nomination_black_prevents_black_win_label: normalizeScoringLabel(scoring.nomination_black_prevents_black_win_label),
+    nomination_red_last_hope_label: normalizeScoringLabel(scoring.nomination_red_last_hope_label),
     black_day_under_seven_label: normalizeScoringLabel(scoring.black_day_under_seven_label),
     night_opinion_correct_label: normalizeScoringLabel(scoring.night_opinion_correct_label),
     night_opinion_wrong_label: normalizeScoringLabel(scoring.night_opinion_wrong_label),
@@ -2732,6 +2752,8 @@ async function loadScoring(): Promise<void> {
     scoring.black_win_3v3 = normalizeScoringValue(scoring.black_win_3v3)
     scoring.vote_lift_same_team = normalizeScoringValue(scoring.vote_lift_same_team)
     scoring.vote_lift_opponent_team = normalizeScoringValue(scoring.vote_lift_opponent_team)
+    scoring.nomination_black_prevents_black_win = normalizeScoringValue(scoring.nomination_black_prevents_black_win)
+    scoring.nomination_red_last_hope = normalizeScoringValue(scoring.nomination_red_last_hope)
     scoring.black_day_under_seven = normalizeScoringValue(scoring.black_day_under_seven)
     scoring.night_opinion_correct = normalizeScoringValue(scoring.night_opinion_correct)
     scoring.night_opinion_wrong = normalizeScoringValue(scoring.night_opinion_wrong)
@@ -2759,6 +2781,8 @@ async function loadScoring(): Promise<void> {
     scoring.black_win_3v3_label = normalizeScoringLabel(scoring.black_win_3v3_label)
     scoring.vote_lift_same_team_label = normalizeScoringLabel(scoring.vote_lift_same_team_label)
     scoring.vote_lift_opponent_team_label = normalizeScoringLabel(scoring.vote_lift_opponent_team_label)
+    scoring.nomination_black_prevents_black_win_label = normalizeScoringLabel(scoring.nomination_black_prevents_black_win_label)
+    scoring.nomination_red_last_hope_label = normalizeScoringLabel(scoring.nomination_red_last_hope_label)
     scoring.black_day_under_seven_label = normalizeScoringLabel(scoring.black_day_under_seven_label)
     scoring.night_opinion_correct_label = normalizeScoringLabel(scoring.night_opinion_correct_label)
     scoring.night_opinion_wrong_label = normalizeScoringLabel(scoring.night_opinion_wrong_label)

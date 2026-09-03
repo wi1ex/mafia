@@ -3439,6 +3439,41 @@ def game_scoring_audit_fields(
             continue
 
         action_type = str(audit_item.get("type") or "").strip().lower()
+        if action_type == "critical_nomination":
+            label = "Скоринг выставления"
+            value = (
+                f"{player_label(actor_id)} → {player_label(target_id)}. "
+                "Единственный чёрный кандидат первого голосования покинул стол."
+            )
+            reason = str(audit_item.get("reason") or "").strip().lower()
+            if reason == "black_win_after_vote":
+                value += " После голосования наступила победа чёрных — 0.00."
+            elif reason == "speech_order_unknown":
+                value += " Нет снимка порядка речей — 0.00."
+            elif reason == "red_speech_after":
+                value += " После выставления оставалась речь красного игрока — 0.00."
+            elif reason == "not_critical":
+                value += " Уход красного не приводил к победе чёрных — 0.00."
+            elif reason == "obvious_color":
+                obvious_reason = str(audit_item.get("obvious_reason") or "").strip()
+                value += " Для выставившего цвет цели был очевидным"
+                if obvious_reason:
+                    value += f" ({obvious_reason})"
+                value += " — 0.00."
+            else:
+                actor_adjustment = audit_item.get("actor_adjustment")
+                if isinstance(actor_adjustment, Mapping):
+                    actor_points = points_label(actor_adjustment.get("points"))
+                    actor_rule = str(actor_adjustment.get("label") or "").strip()
+                    value += f" После выставления не оставалось речи красного игрока: {actor_points}"
+                    value += f" ({actor_rule})." if actor_rule else "."
+                else:
+                    value += " — 0.00."
+            fields_by_order.setdefault(order, []).append(
+                AdminGameActionFieldOut(label=label, value=value)
+            )
+            continue
+
         label = "Скоринг мнения" if action_type == "night_opinion" else "Скоринг завещания"
         value = (
             f"{player_label(actor_id)} → {player_label(target_id)}: заявил {color_label(audit_item.get('guess_color'))}; "

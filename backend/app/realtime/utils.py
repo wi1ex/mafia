@@ -169,6 +169,7 @@ __all__ = [
     "stop_screen_for_user",
     "emit_state_changed_filtered",
     "compute_day_opening_and_closing",
+    "get_day_speakers_after",
     "recompute_day_opening_and_closing_from_state",
     "get_alive_players_in_seat_order",
     "schedule_foul_block",
@@ -3951,6 +3952,51 @@ async def compute_day_opening_and_closing(r, rid: int, last_opening_uid: int | N
         closing = alive_order[idx_open - 1] if idx_open > 0 else alive_order[-1]
 
     return opening, closing, alive_order
+
+
+async def get_day_speakers_after(
+    r,
+    rid: int,
+    raw_gstate: Mapping[str, Any],
+    speaker_uid: int,
+) -> list[int] | None:
+    opening_uid = GameActionContext.as_int(raw_gstate.get("day_opening_uid"), 0)
+    closing_uid = GameActionContext.as_int(raw_gstate.get("day_closing_uid"), 0)
+    if opening_uid <= 0 or closing_uid <= 0 or speaker_uid <= 0:
+        return None
+
+    try:
+        seat_order = await get_players_in_seat_order(r, rid)
+        alive_ids = await get_effective_alive_set(r, rid, seat_order)
+    except Exception:
+        return None
+
+    alive_ids.difference_update(_day_opening_exclude_ids(raw_gstate))
+    if (
+        not seat_order
+        or opening_uid not in seat_order
+        or closing_uid not in alive_ids
+        or speaker_uid not in alive_ids
+    ):
+        return None
+
+    speech_order: list[int] = []
+    opening_index = seat_order.index(opening_uid)
+    for step in range(len(seat_order)):
+        candidate_uid = seat_order[(opening_index + step) % len(seat_order)]
+        if candidate_uid in alive_ids:
+            speech_order.append(candidate_uid)
+        if candidate_uid == closing_uid:
+            break
+
+    if not speech_order or speech_order[-1] != closing_uid:
+        return None
+
+    try:
+        return speech_order[speech_order.index(speaker_uid) + 1:]
+
+    except ValueError:
+        return None
 
 
 def _day_opening_exclude_ids(raw_gstate: Mapping[str, Any]) -> set[int]:

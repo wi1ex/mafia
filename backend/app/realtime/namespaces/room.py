@@ -82,6 +82,7 @@ from ..utils import (
     stop_screen_for_user,
     GameActionContext,
     compute_day_opening_and_closing,
+    get_day_speakers_after,
     recompute_day_opening_and_closing_from_state,
     get_alive_players_in_seat_order,
     get_players_in_seat_order,
@@ -2569,16 +2570,30 @@ async def game_nominate(sid, data):
             await p.execute()
 
         if nominate_mode != "head":
-            await log_game_action(
-                r,
-                rid,
-                {
-                    "type": "nominate",
-                    "actor_id": actor_uid,
-                    "target_id": target_uid,
-                    "day": ctx.gint("day_number"),
-                },
-            )
+            action: dict[str, Any] = {
+                "type": "nominate",
+                "actor_id": actor_uid,
+                "target_id": target_uid,
+                "day": ctx.gint("day_number"),
+            }
+            if normalize_game_mode(raw_game.get("mode")) == RATING_MODE:
+                try:
+                    remaining_speakers = await get_day_speakers_after(
+                        r,
+                        rid,
+                        raw_gstate,
+                        actor_uid,
+                    )
+                    if remaining_speakers is not None:
+                        action["scoring_context"] = {
+                            "alive": sorted(await smembers_ints(r, f"room:{rid}:game_alive")),
+                            "versions": await get_game_versions(r, rid),
+                            "speakers_after": remaining_speakers,
+                        }
+                except Exception:
+                    log.exception("game_nominate.scoring_context_failed", rid=rid, actor=actor_uid)
+
+            await log_game_action(r, rid, action)
 
         ordered = await get_nominees_in_order(r, rid)
         payload = {
@@ -3326,6 +3341,14 @@ async def game_vote_finish(sid, data):
         if not nominees:
             return {"ok": False, "error": "no_nominees", "status": 409}
 
+        vote_alive_ids: list[int] | None = None
+        try:
+            game_mode = normalize_game_mode(await r.hget(f"room:{rid}:game", "mode"))
+            if game_mode == RATING_MODE:
+                vote_alive_ids = sorted(await smembers_ints(r, f"room:{rid}:game_alive"))
+        except Exception:
+            log.exception("game_vote_finish.scoring_alive_context_failed", rid=rid)
+
         try:
             votes_map = await hgetall_int_map(r, f"room:{rid}:game_votes")
         except Exception:
@@ -3349,18 +3372,17 @@ async def game_vote_finish(sid, data):
             passed = alive_cnt > 0 and yes_cnt > (alive_cnt / 2)
             leaders = list(nominees) if passed else []
             leaders_str = ",".join(str(uid) for uid in leaders)
-            await log_game_action(
-                r,
-                rid,
-                {
-                    "type": "vote",
-                    "lift": True,
-                    "targets": nominees,
-                    "by": list(valid_votes.keys()),
-                    "passed": passed,
-                    "day": day_number,
-                },
-            )
+            vote_action: dict[str, Any] = {
+                "type": "vote",
+                "lift": True,
+                "targets": nominees,
+                "by": list(valid_votes.keys()),
+                "passed": passed,
+                "day": day_number,
+            }
+            if vote_alive_ids is not None:
+                vote_action["alive"] = vote_alive_ids
+            await log_game_action(r, rid, vote_action)
 
             payload = {
                 "room_id": rid,
@@ -3470,21 +3492,20 @@ async def game_vote_finish(sid, data):
         elif skip_repeat_farewell:
             payload["speeches_done"] = True
 
-        await log_game_action(
-            r,
-            rid,
-            {
-                "type": "vote",
-                "lift": False,
-                "targets": nominees,
-                "leaders": [] if no_elimination else leaders,
-                "votes": votes_by_target,
-                "will_eliminate": bool(
-                    not no_elimination and not skip_repeat_farewell and len(leaders) == 1
-                ),
-                "day": day_number,
-            },
-        )
+        vote_action = {
+            "type": "vote",
+            "lift": False,
+            "targets": nominees,
+            "leaders": [] if no_elimination else leaders,
+            "votes": votes_by_target,
+            "will_eliminate": bool(
+                not no_elimination and not skip_repeat_farewell and len(leaders) == 1
+            ),
+            "day": day_number,
+        }
+        if vote_alive_ids is not None:
+            vote_action["alive"] = vote_alive_ids
+        await log_game_action(r, rid, vote_action)
 
         await sio.emit("game_vote_result",
                        payload,

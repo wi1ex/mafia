@@ -36,6 +36,8 @@ GAME_SCORING_RULE_DEFAULTS: dict[str, Decimal] = {
     "black_win_3v3": Decimal("0.30"),
     "vote_lift_same_team": Decimal("-0.30"),
     "vote_lift_opponent_team": Decimal("0.30"),
+    "nomination_black_prevents_black_win": Decimal("-0.50"),
+    "nomination_red_last_hope": Decimal("0.30"),
     "black_day_under_seven": Decimal("0.10"),
     "night_opinion_correct": Decimal("0.10"),
     "night_opinion_wrong": Decimal("-0.10"),
@@ -66,6 +68,8 @@ GAME_SCORING_LABEL_DEFAULTS: dict[str, str] = {
     "black_win_3v3": "Победа 3в3",
     "vote_lift_same_team": "Подъём игроков своей команды",
     "vote_lift_opponent_team": "Подъём игроков другой команды",
+    "nomination_black_prevents_black_win": "Выставление при гарантированной победе",
+    "nomination_red_last_hope": "Последняя надежда",
     "black_day_under_seven": "Проход в круг при 3-6х",
     "night_opinion_correct": "Ночное мнение: верный цвет",
     "night_opinion_wrong": "Ночное мнение: неверный цвет",
@@ -954,6 +958,245 @@ def _apply_farewell_points(
                 audit.append(audit_item)
 
 
+def _black_wins_if_a_red_leaves(
+    alive_ids: Iterable[int],
+    *,
+    roles: Mapping[object, Any],
+) -> bool:
+    red_alive = 0
+    black_alive = 0
+    for user_id in alive_ids:
+        team = _team_for_role(_role_for_user(roles, user_id))
+        if team == "red":
+            red_alive += 1
+        elif team == "black":
+            black_alive += 1
+    return black_alive > 0 and black_alive >= max(red_alive - 2, 0)
+
+
+def _apply_critical_nomination_points(
+    points: dict[int, Decimal],
+    *,
+    roles: Mapping[object, Any],
+    actions: Iterable[Mapping[str, Any]],
+    apply_rule: Callable[[int, str], dict[str, Any]],
+    audit: list[dict[str, Any]] | None = None,
+) -> None:
+    player_ids = set(points)
+    if not player_ids:
+        return
+
+    active_versions: list[dict[str, Any]] = []
+    sheriff_checks: dict[int, set[int]] = {}
+    alive_ids = set(player_ids)
+    alive_states: list[frozenset[int]] = [frozenset(alive_ids)]
+    nominations: dict[tuple[int, int], dict[str, Any]] = {}
+    first_votes: dict[int, dict[str, Any]] = {}
+    departed_black_ids_by_day: dict[int, set[int]] = {}
+    black_win_days: set[int] = set()
+
+    def remember_alive_state(next_alive_ids: set[int]) -> None:
+        snapshot = frozenset(next_alive_ids)
+        if alive_states[-1] != snapshot:
+            alive_states.append(snapshot)
+
+    for action_index, action in enumerate(actions, start=1):
+        action_order = _action_user_id(action, "_scoring_action_order") or action_index
+        action_type = _action_type(action)
+        if action_type == "versions":
+            active_versions = _normalize_action_versions(action.get("versions"), player_ids)
+            continue
+
+        if action_type == "day_start":
+            logged_alive_ids = set(_action_user_ids(action, "alive")) & player_ids
+            if logged_alive_ids:
+                alive_ids = logged_alive_ids
+                remember_alive_state(alive_ids)
+            continue
+
+        if action_type == "night_check":
+            actor_id = _action_user_id(action, "actor_id")
+            target_id = _action_user_id(action, "target_id")
+            if (
+                actor_id in player_ids
+                and target_id in player_ids
+                and _role_for_user(roles, actor_id) == "sheriff"
+            ):
+                sheriff_checks.setdefault(actor_id, set()).add(target_id)
+            continue
+
+        if action_type == "nominate":
+            day = _action_user_id(action, "day")
+            actor_id = _action_user_id(action, "actor_id")
+            target_id = _action_user_id(action, "target_id")
+            if day <= 0 or actor_id not in player_ids or target_id not in player_ids:
+                continue
+
+            raw_context = action.get("scoring_context")
+            context = raw_context if isinstance(raw_context, Mapping) else {}
+            raw_versions = context.get("versions")
+            versions = (
+                _normalize_action_versions(raw_versions, player_ids)
+                if isinstance(raw_versions, list)
+                else active_versions
+            )
+            context_alive_ids = set(_action_user_ids(context, "alive")) & player_ids
+            nomination_alive_ids = context_alive_ids or set(alive_ids)
+            nomination_alive_states = tuple(alive_states)
+            if (
+                not nomination_alive_states
+                or nomination_alive_states[-1] != frozenset(nomination_alive_ids)
+            ):
+                nomination_alive_states = (*nomination_alive_states, frozenset(nomination_alive_ids))
+
+            raw_speakers_after = context.get("speakers_after")
+            nominations.setdefault(
+                (day, target_id),
+                {
+                    "action_order": action_order,
+                    "actor_id": actor_id,
+                    "target_id": target_id,
+                    "versions": versions,
+                    "alive_states": nomination_alive_states,
+                    "speakers_after": (
+                        set(_action_user_ids({"speakers_after": raw_speakers_after}, "speakers_after"))
+                        if isinstance(raw_speakers_after, list)
+                        else None
+                    ),
+                },
+            )
+            continue
+
+        if action_type == "vote":
+            day = _action_user_id(action, "day")
+            if day <= 0 or day in first_votes:
+                continue
+            candidates = [
+                target_id
+                for target_id in _action_user_ids(action, "targets")
+                if target_id in player_ids
+            ]
+            if not candidates:
+                continue
+            logged_alive_ids = set(_action_user_ids(action, "alive")) & player_ids
+            first_votes[day] = {
+                "candidates": candidates,
+                "alive": logged_alive_ids or set(alive_ids),
+            }
+            continue
+
+        if action_type != "death":
+            continue
+
+        target_id = _action_user_id(action, "target_id")
+        day = _action_user_id(action, "day")
+        reason = str(action.get("reason") or "").strip().lower()
+        if reason == "vote" and target_id in player_ids and day > 0:
+            if _is_black(_role_for_user(roles, target_id)):
+                departed_black_ids_by_day.setdefault(day, set()).add(target_id)
+            if str(action.get("result_after") or "").strip().lower() == "black":
+                black_win_days.add(day)
+
+        if target_id in alive_ids:
+            alive_ids.remove(target_id)
+            remember_alive_state(alive_ids)
+
+    for day, first_vote in first_votes.items():
+        candidates = first_vote["candidates"]
+        black_candidates = [
+            user_id
+            for user_id in candidates
+            if _is_black(_role_for_user(roles, user_id))
+        ]
+        if len(black_candidates) != 1:
+            continue
+
+        target_id = black_candidates[0]
+        if target_id not in departed_black_ids_by_day.get(day, set()):
+            continue
+
+        nomination = nominations.get((day, target_id))
+        if nomination is None:
+            continue
+
+        actor_id = nomination["actor_id"]
+        actor_team = _team_for_role(_role_for_user(roles, actor_id))
+        if actor_team not in {"red", "black"}:
+            continue
+
+        audit_item = {
+            "action_order": nomination["action_order"],
+            "type": "critical_nomination",
+            "actor_id": actor_id,
+            "target_id": target_id,
+            "actor_team": actor_team,
+            "candidate_ids": candidates,
+            "obvious": False,
+            "reason": "",
+        }
+        if day in black_win_days:
+            audit_item["reason"] = "black_win_after_vote"
+            if audit is not None:
+                audit.append(audit_item)
+            continue
+
+        speakers_after = nomination["speakers_after"]
+        if speakers_after is None:
+            audit_item["reason"] = "speech_order_unknown"
+            if audit is not None:
+                audit.append(audit_item)
+            continue
+        if any(
+            _team_for_role(_role_for_user(roles, speaker_id)) == "red"
+            for speaker_id in speakers_after
+        ):
+            audit_item["reason"] = "red_speech_after"
+            if audit is not None:
+                audit.append(audit_item)
+            continue
+
+        if not _black_wins_if_a_red_leaves(first_vote["alive"], roles=roles):
+            audit_item["reason"] = "not_critical"
+            if audit is not None:
+                audit.append(audit_item)
+            continue
+
+        if actor_team == "black":
+            audit_item["actor_adjustment"] = apply_rule(
+                actor_id,
+                "nomination_black_prevents_black_win",
+            )
+            if audit is not None:
+                audit.append(audit_item)
+            continue
+
+        obvious_color_sources: dict[int, str] = {}
+        obvious_colors = _night_opinion_obvious_colors(
+            actor_id=actor_id,
+            roles=roles,
+            player_ids=player_ids,
+            active_versions=nomination["versions"],
+            sheriff_checks=sheriff_checks,
+            alive_states=nomination["alive_states"],
+            sources=obvious_color_sources,
+        )
+        audit_item["obvious"] = target_id in obvious_colors
+        audit_item["obvious_color"] = obvious_colors.get(target_id)
+        audit_item["obvious_reason"] = obvious_color_sources.get(target_id)
+        if target_id in obvious_colors:
+            audit_item["reason"] = "obvious_color"
+            if audit is not None:
+                audit.append(audit_item)
+            continue
+
+        audit_item["actor_adjustment"] = apply_rule(
+            actor_id,
+            "nomination_red_last_hope",
+        )
+        if audit is not None:
+            audit.append(audit_item)
+
+
 def _apply_action_points(
     points: dict[int, Decimal],
     *,
@@ -999,6 +1242,13 @@ def _apply_action_points(
         audit=audit,
     )
     _apply_farewell_points(
+        points,
+        roles=roles,
+        actions=normalized_actions,
+        apply_rule=apply_rule,
+        audit=audit,
+    )
+    _apply_critical_nomination_points(
         points,
         roles=roles,
         actions=normalized_actions,
