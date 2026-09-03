@@ -2,12 +2,13 @@
   <div class="stats-tab">
     <div class="stats-head">
       <h3>Статистика пользователя</h3>
-      <div class="stats-season-switch">
-        <button v-for="option in seasonOptions" :key="option.key" class="stats-season-btn" type="button"
-                :class="{ active: selectedSeasonKey === option.key }" @click="setSeason(option.season)">
-          {{ option.label }}
-        </button>
-      </div>
+      <UiDropdown
+        id="profile-stats-season"
+        v-model="selectedSeason"
+        class="stats-season-dropdown"
+        :options="seasonOptions"
+        label="Период"
+      />
     </div>
 
     <div v-if="loading && !loaded" class="state">Загрузка...</div>
@@ -127,6 +128,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { api } from '@/services/axios'
 import { useSettingsStore } from '@/store'
+import UiDropdown from '@/components/UiDropdown.vue'
 
 import iconRoleCitizen from '@/assets/svg/iconRoleCitizen.svg'
 import iconRoleMafia from '@/assets/svg/iconRoleMafia.svg'
@@ -181,9 +183,8 @@ type UserStats = {
 }
 
 type SeasonOption = {
-  key: string
+  value: number | null
   label: string
-  season: number | null
 }
 
 const props = withDefaults(defineProps<{
@@ -198,7 +199,6 @@ const error = ref('')
 const intFmt = new Intl.NumberFormat('ru-RU')
 const settingsStore = useSettingsStore()
 const selectedSeason = ref<number | null>(null)
-const selectedSeasonKey = computed(() => (selectedSeason.value === null ? 'all' : `s${selectedSeason.value}`))
 let requestSeq = 0
 
 const stats = reactive<UserStats>({
@@ -307,23 +307,17 @@ function barPct(valueRaw: unknown, maxRaw: unknown): number {
 const game = computed(() => stats.game)
 
 const seasonOptions = computed<SeasonOption[]>(() => {
-  const options: SeasonOption[] = [{ key: 'all', label: 'Все игры', season: null }]
+  const options: SeasonOption[] = [{ value: null, label: 'Все игры' }]
   const starts = settingsStore.seasonStartGameNumbers
-  for (let i = 0; i < starts.length; i += 1) {
+  for (let i = starts.length - 1; i >= 0; i -= 1) {
     const seasonNo = i + 1
     options.push({
-      key: `s${seasonNo}`,
+      value: seasonNo,
       label: `${seasonNo} сезон`,
-      season: seasonNo,
     })
   }
   return options
 })
-
-function setSeason(season: number | null): void {
-  if (selectedSeason.value === season) return
-  selectedSeason.value = season
-}
 
 const lossesCount = computed(() => Math.max(0, safeInt(game.value.games_played) - safeInt(game.value.games_won)))
 
@@ -494,7 +488,7 @@ watch(selectedSeason, () => {
 
 watch(seasonOptions, (options) => {
   if (selectedSeason.value === null) return
-  const exists = options.some((option) => option.season === selectedSeason.value)
+  const exists = options.some((option) => option.value === selectedSeason.value)
   if (!exists) selectedSeason.value = null
 }, { immediate: true })
 
@@ -525,34 +519,8 @@ onMounted(() => {
     h3 {
       margin: 0;
     }
-    .stats-season-switch {
-      display: inline-flex;
-      align-items: center;
-      justify-content: flex-end;
-      flex-wrap: wrap;
-      gap: 5px;
-    }
-    .stats-season-btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 95px;
-      height: 45px;
-      padding: 0 20px;
-      border: none;
-      border-radius: 5px;
-      background-color: $neutral-800;
-      color: $neutral-100;
-      font-size: 16px;
-      cursor: pointer;
-      transition: background-color 0.25s ease-in-out, color 0.25s ease-in-out;
-      &:hover {
-        background-color: $neutral-700;
-      }
-      &.active {
-        background-color: $neutral-100;
-        color: $neutral-black;
-      }
+    .stats-season-dropdown {
+      width: 220px;
     }
   }
   .state {
