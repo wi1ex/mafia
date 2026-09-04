@@ -791,9 +791,13 @@ def _apply_night_opinion_points(
                     "obvious": target_id in obvious_colors,
                     "obvious_color": obvious_colors.get(target_id),
                     "obvious_reason": obvious_color_sources.get(target_id),
-                    "reason": "obvious_color" if target_id in obvious_colors else "",
+                    "reason": (
+                        "obvious_color"
+                        if guess_color == obvious_colors.get(target_id)
+                        else ""
+                    ),
                 }
-                if target_id in obvious_colors:
+                if audit_item["reason"] == "obvious_color":
                     if audit is not None:
                         audit.append(audit_item)
                     continue
@@ -937,9 +941,13 @@ def _apply_farewell_points(
                 "obvious": target_id in obvious_colors,
                 "obvious_color": obvious_colors.get(target_id),
                 "obvious_reason": obvious_color_sources.get(target_id),
-                "reason": "obvious_color" if target_id in obvious_colors else "",
+                "reason": (
+                    "obvious_color"
+                    if guess_color == obvious_colors.get(target_id)
+                    else ""
+                ),
             }
-            if target_id in obvious_colors:
+            if audit_item["reason"] == "obvious_color":
                 if audit is not None:
                     audit.append(audit_item)
                 continue

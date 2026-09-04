@@ -3533,20 +3533,26 @@ def game_scoring_audit_fields(
         reason = str(audit_item.get("reason") or "").strip().lower()
         if reason == "black_author":
             value += " Завещание чёрного автора не оценивается."
-        elif bool(audit_item.get("obvious")):
+        elif reason == "obvious_color":
             obvious_reason = str(audit_item.get("obvious_reason") or "").strip()
-            value += f" Очевидный {color_label(audit_item.get('obvious_color'))} цвет"
+            value += f" Указанный цвет совпадает с очевидным {color_label(audit_item.get('obvious_color'))}"
             if obvious_reason:
                 value += f" ({obvious_reason})"
             value += " — 0.00."
         else:
             actor_adjustment = audit_item.get("actor_adjustment")
+            if bool(audit_item.get("obvious")):
+                obvious_reason = str(audit_item.get("obvious_reason") or "").strip()
+                value += f" Указанный цвет не совпадает с очевидным {color_label(audit_item.get('obvious_color'))}"
+                if obvious_reason:
+                    value += f" ({obvious_reason})"
+                value += "."
             if isinstance(actor_adjustment, Mapping):
                 actor_points = points_label(actor_adjustment.get("points"))
                 actor_rule = str(actor_adjustment.get("label") or "").strip()
-                value += f" Неочевидный цвет — автор: {actor_points}" + (f" ({actor_rule})." if actor_rule else ".")
+                value += f" Обычная оценка — автор: {actor_points}" + (f" ({actor_rule})." if actor_rule else ".")
             else:
-                value += " Неочевидный цвет — 0.00."
+                value += " Обычная оценка — 0.00."
 
             target_adjustment = audit_item.get("target_adjustment")
             if isinstance(target_adjustment, Mapping):
