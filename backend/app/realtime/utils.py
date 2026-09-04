@@ -179,7 +179,6 @@ __all__ = [
     "emit_game_tech_fouls",
     "get_farewell_wills",
     "get_farewell_wills_for",
-    "get_farewell_will_contexts_for",
     "get_farewell_limits",
     "get_game_versions",
     "normalize_game_versions",
@@ -542,6 +541,9 @@ if started ~= tonumber(ARGV[1]) or duration ~= tonumber(ARGV[2]) then
     return 0
 end
 
+local versions = redis.call('GET', KEYS[2]) or ''
+local alive = redis.call('SMEMBERS', KEYS[3])
+
 redis.call(
     'HSET',
     KEYS[1],
@@ -550,7 +552,18 @@ redis.call(
     'night_opinion_duration', '0',
     'night_opinions_required', '0'
 )
-return 1
+return {1, versions, alive}
+"""
+
+PLAYER_DEATH_WITH_FAREWELL_SNAPSHOT_LUA = r"""
+local removed = redis.call('SREM', KEYS[1], ARGV[1])
+if removed ~= 1 then
+    return {0, '', {}}
+end
+
+local versions = redis.call('GET', KEYS[2]) or ''
+local alive = redis.call('SMEMBERS', KEYS[1])
+return {1, versions, alive}
 """
 
 GAME_FINISH_CLAIM_LUA = r"""
@@ -4733,53 +4746,6 @@ async def get_farewell_wills_for(r, rid: int, speaker_uid: int) -> dict[str, str
     return all_wills.get(str(speaker_uid), {})
 
 
-async def get_farewell_will_contexts_for(r, rid: int, speaker_uid: int) -> dict[str, dict[str, Any]]:
-    if speaker_uid <= 0:
-        return {}
-
-    try:
-        raw = await r.hgetall(f"room:{rid}:game_farewell_contexts")
-    except Exception:
-        log.exception("farewell_contexts.load_failed", rid=rid, uid=speaker_uid)
-        return {}
-
-    contexts: dict[str, dict[str, Any]] = {}
-    prefix = f"{speaker_uid}:"
-    for raw_key, raw_value in (raw or {}).items():
-        key = str(raw_key or "")
-        if not key.startswith(prefix):
-            continue
-        target_uid = key.removeprefix(prefix)
-        if not target_uid:
-            continue
-        if isinstance(raw_value, bytes):
-            raw_value = raw_value.decode("utf-8", "ignore")
-        try:
-            context = json.loads(str(raw_value))
-        except (TypeError, ValueError, json.JSONDecodeError):
-            continue
-        if not isinstance(context, Mapping):
-            continue
-
-        versions = normalize_game_versions(context.get("versions"))
-        alive_ids: list[int] = []
-        raw_alive_ids = context.get("alive")
-        if isinstance(raw_alive_ids, list):
-            seen_alive_ids: set[int] = set()
-            for raw_alive_id in raw_alive_ids:
-                try:
-                    alive_id = int(raw_alive_id)
-                except (TypeError, ValueError):
-                    continue
-                if alive_id > 0 and alive_id not in seen_alive_ids:
-                    seen_alive_ids.add(alive_id)
-                    alive_ids.append(alive_id)
-
-        contexts[target_uid] = {"versions": versions, "alive": sorted(alive_ids)}
-
-    return contexts
-
-
 GAME_VERSIONS_MAX_COUNT = 6
 GAME_VERSION_CHECKS_MAX_COUNT = 10
 
@@ -5927,15 +5893,17 @@ async def night_stage_timeout_job(
         if cur_started != expected_started or cur_dur != duration:
             return
 
-        transitioned = await r.eval(
+        transition = await r.eval(
             NIGHT_OPINION_TIMEOUT_LUA,
-            1,
+            3,
             f"room:{rid}:game_state",
+            f"room:{rid}:game_versions",
+            f"room:{rid}:game_alive",
             str(int(expected_started)),
             str(int(duration)),
             next_stage,
         )
-        if int(transitioned or 0) != 1:
+        if not isinstance(transition, (list, tuple)) or not transition or int(transition[0] or 0) != 1:
             return
 
         opinions = await get_night_opinions(r, rid)
@@ -5944,16 +5912,11 @@ async def night_stage_timeout_job(
         except Exception:
             log.exception("night_opinions.roles_load_failed", rid=rid)
             raw_roles = {}
-        opinions_action: dict[str, Any] = {
-            "type": "night_opinions",
-            "night": ctx.gint("day_number"),
-            "opinions": enrich_night_opinions_for_history(opinions, raw_roles or {}),
-        }
-        try:
-            opinions_action["versions"] = await get_game_versions(r, rid)
-            opinions_action["alive"] = sorted(await smembers_ints(r, f"room:{rid}:game_alive"))
-        except Exception:
-            log.exception("night_opinions.context_snapshot_failed", rid=rid)
+        opinions_action: dict[str, Any] = {"type": "night_opinions", "night": ctx.gint("day_number"),
+                                           "opinions": enrich_night_opinions_for_history(opinions, raw_roles or {}),
+                                           "versions": normalize_game_versions(transition[1] if len(transition) > 1 else None)}
+        snapshot_alive = transition[2] if len(transition) > 2 else ()
+        opinions_action["alive"] = sorted(normalize_uid_set(snapshot_alive))
         await log_game_action(r, rid, opinions_action)
 
         raw2 = dict(raw)
@@ -6062,7 +6025,32 @@ async def emit_night_head_picks(r, rid: int, kind: str, head_uid: int) -> None:
 
 
 async def process_player_death(r, rid: int, user_id: int, *, head_uid: int | None = None, actor_role: str = "head", phase_override: str | None = None, reason: str | None = None, defer_finish_check: bool = False, ppk: bool = False) -> bool:
-    removed = int(await r.srem(f"room:{rid}:game_alive", str(user_id)) or 0) > 0
+    farewell_context: dict[str, Any] | None = None
+    if reason in ("vote", "night"):
+        try:
+            death_transition = await r.eval(
+                PLAYER_DEATH_WITH_FAREWELL_SNAPSHOT_LUA,
+                2,
+                f"room:{rid}:game_alive",
+                f"room:{rid}:game_versions",
+                str(user_id),
+            )
+        except Exception:
+            log.exception("process_player_death.farewell_snapshot_failed", rid=rid, uid=user_id)
+            removed = int(await r.srem(f"room:{rid}:game_alive", str(user_id)) or 0) > 0
+        else:
+            removed = (
+                isinstance(death_transition, (list, tuple))
+                and bool(death_transition)
+                and int(death_transition[0] or 0) == 1
+            )
+            if removed:
+                farewell_context = {
+                    "versions": normalize_game_versions(death_transition[1] if len(death_transition) > 1 else None),
+                    "alive": sorted(normalize_uid_set(death_transition[2] if len(death_transition) > 2 else ())),
+                }
+    else:
+        removed = int(await r.srem(f"room:{rid}:game_alive", str(user_id)) or 0) > 0
     if removed:
         try:
             await clear_users_in_active_alive_game([user_id], room_id=rid)
@@ -6104,23 +6092,23 @@ async def process_player_death(r, rid: int, user_id: int, *, head_uid: int | Non
         if reason in ("vote", "night"):
             try:
                 wills_for = await get_farewell_wills_for(r, rid, user_id)
-                will_contexts = await get_farewell_will_contexts_for(r, rid, user_id)
             except Exception:
                 wills_for = {}
-                will_contexts = {}
             if wills_for:
                 mode = "voted" if reason == "vote" else "killed"
+                farewell_action: dict[str, Any] = {
+                    "type": "farewell",
+                    "actor_id": user_id,
+                    "wills": wills_for,
+                    "mode": mode,
+                    "day": day_number,
+                }
+                if farewell_context is not None:
+                    farewell_action["context"] = farewell_context
                 await log_game_action(
                     r,
                     rid,
-                    {
-                        "type": "farewell",
-                        "actor_id": user_id,
-                        "wills": wills_for,
-                        "contexts": will_contexts,
-                        "mode": mode,
-                        "day": day_number,
-                    },
+                    farewell_action,
                 )
 
         action: dict[str, Any] = {

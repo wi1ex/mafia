@@ -876,8 +876,8 @@ def _apply_farewell_points(
             continue
 
         actor_is_red = _role_for_user(roles, actor_id) in RED_ROLES
-        raw_contexts = action.get("contexts")
-        contexts = raw_contexts if isinstance(raw_contexts, Mapping) else {}
+        raw_shared_context = action.get("context")
+        shared_context = raw_shared_context if isinstance(raw_shared_context, Mapping) else None
         for raw_target_id, raw_guess in raw_wills.items():
             target_id = _action_user_id({"target_id": raw_target_id}, "target_id")
             guess_color = _night_opinion_guess_side(raw_guess)
@@ -907,8 +907,7 @@ def _apply_farewell_points(
                     )
                 continue
 
-            raw_context = contexts.get(str(target_id), contexts.get(target_id))
-            context = raw_context if isinstance(raw_context, Mapping) else {}
+            context = shared_context or {}
             raw_versions = context.get("versions") if context else None
             versions = (
                 _normalize_action_versions(raw_versions, player_ids)

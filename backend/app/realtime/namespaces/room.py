@@ -165,6 +165,17 @@ redis.call('SET', KEYS[2], ARGV[2])
 return 1
 """
 
+FAREWELL_WILL_STORE_LUA = r"""
+if redis.call('SISMEMBER', KEYS[1], ARGV[1]) ~= 1 then
+    return -1
+end
+if redis.call('SISMEMBER', KEYS[1], ARGV[2]) ~= 1 then
+    return -2
+end
+redis.call('HSET', KEYS[2], ARGV[3], ARGV[4])
+return 1
+"""
+
 
 @sio.event(namespace="/room")
 async def connect(sid, environ, auth):
@@ -2815,21 +2826,23 @@ async def game_farewell_mark(sid, data):
             return {"ok": False, "error": "already_marked", "status": 409, "limit": limit, "used": used}
 
         try:
-            farewell_context = {
-                "versions": await get_game_versions(r, rid),
-                "alive": sorted(await smembers_ints(r, f"room:{rid}:game_alive")),
-            }
-            async with r.pipeline() as pipeline:
-                await pipeline.hset(f"room:{rid}:game_farewell_wills", tgt_key, verdict)
-                await pipeline.hset(
-                    f"room:{rid}:game_farewell_contexts",
-                    tgt_key,
-                    json.dumps(farewell_context, ensure_ascii=True, separators=(",", ":")),
-                )
-                await pipeline.execute()
+            saved = await r.eval(
+                FAREWELL_WILL_STORE_LUA,
+                2,
+                f"room:{rid}:game_alive",
+                f"room:{rid}:game_farewell_wills",
+                str(speaker_uid),
+                str(target_uid),
+                tgt_key,
+                verdict,
+            )
         except Exception:
             log.exception("game_farewell_mark.save_failed", rid=rid, uid=speaker_uid, target=target_uid)
             return {"ok": False, "error": "internal", "status": 500}
+
+        if int(saved or 0) != 1:
+            error = "no_active_speech" if int(saved or 0) == -1 else "target_not_alive"
+            return {"ok": False, "error": error, "status": 409}
 
         wills_for[str(target_uid)] = verdict
         payload = {
