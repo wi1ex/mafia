@@ -1301,6 +1301,12 @@ def _apply_critical_nomination_points(
             "obvious": False,
             "reason": "",
         }
+        if len(first_vote["alive"]) <= 4:
+            audit_item["reason"] = "small_table"
+            if audit is not None:
+                audit.append(audit_item)
+            continue
+
         if day in black_win_days:
             audit_item["reason"] = "black_win_after_vote"
             if audit is not None:

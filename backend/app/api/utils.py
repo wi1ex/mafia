@@ -3494,7 +3494,9 @@ def game_scoring_audit_fields(
                 "Единственный чёрный кандидат первого голосования покинул стол."
             )
             reason = str(audit_item.get("reason") or "").strip().lower()
-            if reason == "black_win_after_vote":
+            if reason == "small_table":
+                value += " На первом голосовании было 4 или меньше живых игроков — 0.00."
+            elif reason == "black_win_after_vote":
                 value += " После голосования наступила победа чёрных — 0.00."
             elif reason == "speech_order_unknown":
                 value += " Нет снимка порядка речей — 0.00."
