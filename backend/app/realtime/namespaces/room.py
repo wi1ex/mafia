@@ -157,6 +157,13 @@ log = structlog.get_logger()
 BG_STATE_TTL_SECONDS = 300
 ROOM_RECONNECT_GRACE_SECONDS = max(1, int(getattr(settings, "ROOM_RECONNECT_GRACE_SECONDS", 4) or 4))
 GAME_VERSIONS_ALLOWED_PHASES = ("day",)
+GAME_VERSIONS_SET_LUA = r"""
+if redis.call('HGET', KEYS[1], 'game_instance_id') ~= ARGV[1] then
+    return 0
+end
+redis.call('SET', KEYS[2], ARGV[2])
+return 1
+"""
 
 
 @sio.event(namespace="/room")
@@ -1014,7 +1021,11 @@ async def game_host_blur(sid, data) -> GameHostBlurAck:
 
         event_payload = await apply_host_blur_state(ctx.r, ctx.rid, ctx.gstate, want)
         if want:
-            schedule_host_blur_auto_off(ctx.rid, int(event_payload.get("started_at") or int(time())))
+            schedule_host_blur_auto_off(
+                ctx.rid,
+                int(event_payload.get("started_at") or int(time())),
+                game_instance_id=ctx.gstr("game_instance_id"),
+            )
         else:
             cancel_host_blur_auto_task(ctx.rid)
         await sio.emit(
@@ -1987,7 +1998,16 @@ async def game_foul(sid, data):
         except Exception:
             log.exception("game_foul.emit_fouls_failed", rid=rid)
 
-        asyncio.create_task(schedule_foul_block(rid, uid, head_uid, duration, expected_until=until_ts))
+        asyncio.create_task(
+            schedule_foul_block(
+                rid,
+                uid,
+                head_uid,
+                duration,
+                expected_until=until_ts,
+                game_instance_id=ctx.gstr("game_instance_id"),
+            )
+        )
 
         return {"ok": True, "status": 200, "room_id": rid, "user_id": uid, "duration": duration}
 
@@ -2847,6 +2867,11 @@ async def game_versions_set(sid, data):
         if ctx.gbool("game_finished"):
             return {"ok": False, "error": "game_finished", "status": 409}
 
+        game_instance_id = ctx.gstr("game_instance_id")
+        requested_game_instance_id = str(data.get("game_instance_id") or "").strip()
+        if not game_instance_id or requested_game_instance_id != game_instance_id:
+            return {"ok": False, "error": "game_changed", "status": 409}
+
         if ctx.gint("day_number") < 2:
             return {"ok": False, "error": "versions_not_available_yet", "status": 409}
 
@@ -2875,14 +2900,23 @@ async def game_versions_set(sid, data):
 
         current_versions = await get_game_versions(ctx.r, ctx.rid)
         changed = current_versions != versions
-        if changed:
-            try:
-                raw_versions = json.dumps(versions, ensure_ascii=True, separators=(",", ":"))
-                await ctx.r.set(f"room:{ctx.rid}:game_versions", raw_versions)
-            except Exception:
-                log.exception("game_versions.save_failed", rid=ctx.rid, uid=ctx.uid)
-                return {"ok": False, "error": "internal", "status": 500}
+        try:
+            raw_versions = json.dumps(versions, ensure_ascii=True, separators=(",", ":"))
+            saved = await ctx.r.eval(
+                GAME_VERSIONS_SET_LUA,
+                2,
+                f"room:{ctx.rid}:game_state",
+                f"room:{ctx.rid}:game_versions",
+                game_instance_id,
+                raw_versions,
+            )
+            if int(saved or 0) != 1:
+                return {"ok": False, "error": "game_changed", "status": 409}
+        except Exception:
+            log.exception("game_versions.save_failed", rid=ctx.rid, uid=ctx.uid)
+            return {"ok": False, "error": "internal", "status": 500}
 
+        if changed:
             await log_game_action(
                 ctx.r,
                 ctx.rid,
@@ -2895,7 +2929,11 @@ async def game_versions_set(sid, data):
                 },
             )
 
-        payload = {"room_id": ctx.rid, "versions": versions}
+        payload = {
+            "room_id": ctx.rid,
+            "game_instance_id": game_instance_id,
+            "versions": versions,
+        }
         await sio.emit("game_versions_update", payload, room=f"user:{ctx.uid}", namespace="/room")
         return {"ok": True, "status": 200, **payload}
 
@@ -4222,8 +4260,26 @@ async def game_night_opinions_start(sid, data):
         g2["night_opinion_started"] = str(now_ts)
         g2["night_opinion_duration"] = str(duration)
         await emit_game_night_state(rid, g2)
-        asyncio.create_task(night_state_broadcast_job(rid, "opinions", now_ts, duration))
-        asyncio.create_task(night_stage_timeout_job(rid, "opinions", now_ts, duration, "opinions_done"))
+        game_instance_id = ctx.gstr("game_instance_id")
+        asyncio.create_task(
+            night_state_broadcast_job(
+                rid,
+                "opinions",
+                now_ts,
+                duration,
+                game_instance_id=game_instance_id,
+            )
+        )
+        asyncio.create_task(
+            night_stage_timeout_job(
+                rid,
+                "opinions",
+                now_ts,
+                duration,
+                "opinions_done",
+                game_instance_id=game_instance_id,
+            )
+        )
         return {"ok": True, "status": 200, "room_id": rid}
 
     except Exception:
@@ -4347,8 +4403,26 @@ async def game_night_shoot_start(sid, data):
         g2["night_shoot_started"] = str(now_ts)
         g2["night_shoot_duration"] = str(dur)
         await emit_game_night_state(rid, g2)
-        asyncio.create_task(night_state_broadcast_job(rid, "shoot", now_ts, dur))
-        asyncio.create_task(night_stage_timeout_job(rid, "shoot", now_ts, dur, "shoot_done"))
+        game_instance_id = ctx.gstr("game_instance_id")
+        asyncio.create_task(
+            night_state_broadcast_job(
+                rid,
+                "shoot",
+                now_ts,
+                dur,
+                game_instance_id=game_instance_id,
+            )
+        )
+        asyncio.create_task(
+            night_stage_timeout_job(
+                rid,
+                "shoot",
+                now_ts,
+                dur,
+                "shoot_done",
+                game_instance_id=game_instance_id,
+            )
+        )
         return {"ok": True, "status": 200, "room_id": rid}
 
     except Exception:
@@ -4476,8 +4550,26 @@ async def game_night_checks_start(sid, data):
         g2["night_check_started"] = str(now_ts)
         g2["night_check_duration"] = str(dur)
         await emit_game_night_state(rid, g2)
-        asyncio.create_task(night_state_broadcast_job(rid, "checks", now_ts, dur))
-        asyncio.create_task(night_stage_timeout_job(rid, "checks", now_ts, dur, "checks_done"))
+        game_instance_id = ctx.gstr("game_instance_id")
+        asyncio.create_task(
+            night_state_broadcast_job(
+                rid,
+                "checks",
+                now_ts,
+                dur,
+                game_instance_id=game_instance_id,
+            )
+        )
+        asyncio.create_task(
+            night_stage_timeout_job(
+                rid,
+                "checks",
+                now_ts,
+                dur,
+                "checks_done",
+                game_instance_id=game_instance_id,
+            )
+        )
         return {"ok": True, "status": 200, "room_id": rid}
 
     except Exception:

@@ -3,6 +3,7 @@ import asyncio
 import json
 import random
 import structlog
+from secrets import token_urlsafe
 from math import ceil
 from time import time
 from contextlib import suppress
@@ -224,6 +225,7 @@ __all__ = [
     "decide_vote_blocks_on_death",
     "clear_foul_runtime_keys",
     "clear_game_dynamic_keys",
+    "game_runtime_reset_keys",
     "normalize_uid_set",
     "room_request_cleanup_for_game_start",
     "emit_room_requests_pruned_for_game_start",
@@ -294,6 +296,42 @@ SCREEN_QUALITY_LOW = "low"
 SCREEN_QUALITY_MEDIUM = "medium"
 SCREEN_QUALITY_HIGH = "high"
 SCREEN_QUALITIES = {SCREEN_QUALITY_LOW, SCREEN_QUALITY_MEDIUM, SCREEN_QUALITY_HIGH}
+
+GAME_RUNTIME_RESET_SUFFIXES: tuple[str, ...] = (
+    "game_state",
+    "game_seats",
+    "game_players",
+    "game_alive",
+    "game_fouls",
+    "game_tech_fouls",
+    "game_deaths",
+    "game_actions",
+    "game_votes_last",
+    "game_short_speech_used",
+    "game_nominees",
+    "game_nom_speakers",
+    "game_votes",
+    "game_checked:don",
+    "game_checked:sheriff",
+    "game_farewell_wills",
+    "game_farewell_contexts",
+    "game_farewell_limits",
+    "game_night_opinions",
+    "game_versions",
+    "game_winks_left",
+    "game_knocks_left",
+    "roles_cards",
+    "roles_taken",
+    "game_roles",
+    "night_shots",
+    "night_checks",
+    "foul_active",
+)
+
+
+def game_runtime_reset_keys(rid: int) -> tuple[str, ...]:
+    room_id = int(rid)
+    return tuple(f"room:{room_id}:{suffix}" for suffix in GAME_RUNTIME_RESET_SUFFIXES)
 
 LOCK_RELEASE_LUA = r"""
 if redis.call('GET', KEYS[1]) == ARGV[1] then
@@ -1241,7 +1279,7 @@ async def apply_host_blur_state(r, rid: int, raw_state: Mapping[str, Any], enabl
     return payload
 
 
-def schedule_host_blur_auto_off(rid: int, started_at: int) -> None:
+def schedule_host_blur_auto_off(rid: int, started_at: int, *, game_instance_id: str) -> None:
     cancel_host_blur_auto_task(rid)
     task: asyncio.Task[None] | None = None
 
@@ -1259,6 +1297,9 @@ def schedule_host_blur_auto_off(rid: int, started_at: int) -> None:
                 return
 
             if str(raw_state.get("phase") or "idle") == "idle":
+                return
+
+            if str(raw_state.get("game_instance_id") or "") != game_instance_id:
                 return
 
             if str(raw_state.get("host_blur") or "0") != "1":
@@ -4214,12 +4255,27 @@ async def clear_foul_runtime_keys(r, rid: int) -> None:
 
 
 async def clear_game_dynamic_keys(r, rid: int) -> None:
+    try:
+        await r.delete(
+            f"room:{rid}:speaker_alert_cycles",
+            f"room:{rid}:speaker_alert_active",
+        )
+    except Exception:
+        log.warning("game_dynamic.clear_speaker_alerts_failed", rid=rid)
+
     await clear_foul_runtime_keys(r, rid)
     await _clear_room_pattern_keys(
         r,
         f"room:{rid}:game_checked:*",
         warn_scan="game_dynamic.scan_checked_failed",
         warn_delete="game_dynamic.clear_checked_failed",
+        rid=rid,
+    )
+    await _clear_room_pattern_keys(
+        r,
+        f"room:{rid}:speaker_alert_seen:*",
+        warn_scan="game_dynamic.scan_speaker_alert_seen_failed",
+        warn_delete="game_dynamic.clear_speaker_alert_seen_failed",
         rid=rid,
     )
 
@@ -4277,7 +4333,7 @@ async def ensure_game_mics_off_except_active_fouls(
             log.exception("speech_mic_check.reassert_failed", rid=rid, head=head_uid, target=target_uid)
 
 
-def schedule_speech_mic_check(rid: int) -> None:
+def schedule_speech_mic_check(rid: int, *, game_instance_id: str) -> None:
     async def _runner() -> None:
         try:
             await asyncio.sleep(2.5)
@@ -4291,7 +4347,11 @@ def schedule_speech_mic_check(rid: int) -> None:
             try:
                 raw_state = await r.hgetall(f"room:{rid}:game_state")
                 ctx = GameActionContext.from_raw_state(uid=0, rid=rid, r=r, raw_state=raw_state)
-                if ctx.phase == "idle" or not ctx.head_uid:
+                if (
+                    ctx.phase not in ("day", "vote")
+                    or not ctx.head_uid
+                    or ctx.gstr("game_instance_id") != game_instance_id
+                ):
                     return
 
                 active_speaker_uid = 0
@@ -4398,7 +4458,15 @@ async def apply_day_visibility_unblock(r, rid: int, *, head_uid: int, player_ids
     return player_ids
 
 
-async def schedule_foul_block(rid: int, target_uid: int, head_uid: int, duration: int | None = None, *, expected_until: int | None = None) -> None:
+async def schedule_foul_block(
+    rid: int,
+    target_uid: int,
+    head_uid: int,
+    duration: int | None = None,
+    *,
+    expected_until: int | None = None,
+    game_instance_id: str,
+) -> None:
     try:
         sec = int(duration if duration is not None else get_cached_settings().player_foul_seconds)
     except Exception:
@@ -4420,6 +4488,9 @@ async def schedule_foul_block(rid: int, target_uid: int, head_uid: int, duration
 
     phase = str(raw_state.get("phase") or "")
     if phase == "idle":
+        return
+
+    if str(raw_state.get("game_instance_id") or "") != game_instance_id:
         return
 
     if expected_until is not None:
@@ -4515,7 +4586,7 @@ async def finish_day_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker_
             log.exception("day_speech.finish.block_failed", rid=rid, head=head_uid, target=speaker_uid)
 
     if head_uid:
-        schedule_speech_mic_check(rid)
+        schedule_speech_mic_check(rid, game_instance_id=ctx.gstr("game_instance_id"))
 
     opening_uid, closing_uid = await recompute_day_opening_and_closing_from_state(r, rid, raw_gstate)
     day_speeches_done = False
@@ -5270,7 +5341,7 @@ async def _emit_role_assignment_and_pick(rid: int, uid: int, role: str, *, card_
     )
 
 
-async def roles_timeout_job(rid: int, seq: int, deadline: int) -> None:
+async def roles_timeout_job(rid: int, seq: int, deadline: int, *, game_instance_id: str) -> None:
     delay = max(0, deadline - int(time()))
     if delay > 0:
         await asyncio.sleep(delay + 0.05)
@@ -5279,6 +5350,9 @@ async def roles_timeout_job(rid: int, seq: int, deadline: int) -> None:
     raw_state = await r.hgetall(f"room:{rid}:game_state")
     phase = str(raw_state.get("phase") or "idle")
     if phase != "roles_pick":
+        return
+
+    if str(raw_state.get("game_instance_id") or "") != game_instance_id:
         return
 
     try:
@@ -5445,7 +5519,14 @@ async def advance_roles_turn(r, rid: int, *, auto: bool) -> None:
                    room=f"room:{rid}",
                    namespace="/room")
 
-    asyncio.create_task(roles_timeout_job(rid, seq, deadline_ts))
+    asyncio.create_task(
+        roles_timeout_job(
+            rid,
+            seq,
+            deadline_ts,
+            game_instance_id=str(raw_state.get("game_instance_id") or ""),
+        )
+    )
 
 
 async def finish_vote_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker_uid: int, *, reason_override: str | None = None, force_defer_finish_check: bool = False, ppk: bool = False) -> dict[str, Any]:
@@ -5459,7 +5540,7 @@ async def finish_vote_speech(r, rid: int, raw_gstate: Mapping[str, Any], speaker
             log.exception("vote_speech.finish.block_failed", rid=rid, head=head_uid, target=speaker_uid)
 
     if head_uid:
-        schedule_speech_mic_check(rid)
+        schedule_speech_mic_check(rid, game_instance_id=ctx.gstr("game_instance_id"))
 
     kind = ctx.gstr("vote_speech_kind")
     leaders = ctx.gcsv_ints("vote_leaders_order")
@@ -5722,7 +5803,14 @@ async def get_night_head_picks(r, rid: int, kind: str) -> dict[str, int]:
     return out
 
 
-async def night_state_broadcast_job(rid: int, expected_stage: str, expected_started: int, duration: int) -> None:
+async def night_state_broadcast_job(
+    rid: int,
+    expected_stage: str,
+    expected_started: int,
+    duration: int,
+    *,
+    game_instance_id: str,
+) -> None:
     try:
         duration_val = int(duration)
     except Exception:
@@ -5750,6 +5838,9 @@ async def night_state_broadcast_job(rid: int, expected_stage: str, expected_star
 
         ctx = GameActionContext.from_raw_state(uid=0, rid=rid, r=r, raw_state=raw)
         if ctx.phase != "night":
+            return
+
+        if ctx.gstr("game_instance_id") != game_instance_id:
             return
 
         stage = ctx.gstr("night_stage", "sleep")
@@ -5796,7 +5887,15 @@ async def night_state_broadcast_job(rid: int, expected_stage: str, expected_star
         attempts_left -= 1
 
 
-async def night_stage_timeout_job(rid: int, expected_stage: str, expected_started: int, duration: int, next_stage: str) -> None:
+async def night_stage_timeout_job(
+    rid: int,
+    expected_stage: str,
+    expected_started: int,
+    duration: int,
+    next_stage: str,
+    *,
+    game_instance_id: str,
+) -> None:
     try:
         delay = int(duration)
     except Exception:
@@ -5813,6 +5912,9 @@ async def night_stage_timeout_job(rid: int, expected_stage: str, expected_starte
 
     ctx = GameActionContext.from_raw_state(uid=0, rid=rid, r=r, raw_state=raw)
     if ctx.phase != "night":
+        return
+
+    if ctx.gstr("game_instance_id") != game_instance_id:
         return
 
     stage = ctx.gstr("night_stage", "sleep")
@@ -6427,7 +6529,13 @@ async def finish_game(r, rid: int, *, result: str, head_uid: int | None = None, 
         except Exception:
             log.exception("game_finish.auto_state_enable_failed", rid=rid, target=target_uid)
 
-    asyncio.create_task(schedule_auto_game_end(rid, reason=reason))
+    asyncio.create_task(
+        schedule_auto_game_end(
+            rid,
+            reason=reason,
+            game_instance_id=str(raw_state.get("game_instance_id") or ""),
+        )
+    )
 
     try:
         await sio.emit("game_finished",
@@ -6444,7 +6552,7 @@ async def finish_game(r, rid: int, *, result: str, head_uid: int | None = None, 
     return True
 
 
-async def schedule_auto_game_end(rid: int, *, reason: str) -> None:
+async def schedule_auto_game_end(rid: int, *, reason: str, game_instance_id: str) -> None:
     await asyncio.sleep(get_positive_setting_int("GAME_ROLES_REVEAL_SECONDS", 5))
 
     r = get_redis()
@@ -6455,6 +6563,9 @@ async def schedule_auto_game_end(rid: int, *, reason: str) -> None:
         return
 
     if not raw_state:
+        return
+
+    if str(raw_state.get("game_instance_id") or "") != game_instance_id:
         return
 
     if str(raw_state.get("game_finished") or "0") != "1":
@@ -6536,7 +6647,7 @@ async def finish_day_prelude_speech(r, rid: int, raw_gstate: Mapping[str, Any], 
             log.exception("day_prelude.finish.block_failed", rid=rid, head=head_uid, target=speaker_uid)
 
     if head_uid:
-        schedule_speech_mic_check(rid)
+        schedule_speech_mic_check(rid, game_instance_id=ctx.gstr("game_instance_id"))
 
     async with r.pipeline() as p:
         await p.hset(
@@ -7041,6 +7152,7 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
 
     game_runtime: dict[str, Any] = {
         "phase": phase,
+        "game_instance_id": ctx.gstr("game_instance_id"),
         "day_number": ctx.gint("day_number"),
         "min_ready": get_room_min_ready(raw_params),
         "seats": seats_map,
@@ -7815,6 +7927,7 @@ async def game_start_unlocked(sid, data) -> GameStartAck:
             slot += 1
         seats[str(head_uid)] = 11
         now_ts = int(time())
+        game_instance_id = token_urlsafe(16)
         bgm_seed = random.randint(1, 2**31 - 1) if music_enabled else 0
 
         room_request_remove_allow: set[int] = set()
@@ -7829,17 +7942,15 @@ async def game_start_unlocked(sid, data) -> GameStartAck:
                 room_request_removed_ids,
             ) = await room_request_cleanup_for_game_start(r, rid, participant_ids)
 
+        cancel_host_blur_auto_task(rid)
         await clear_game_dynamic_keys(r, rid)
         async with r.pipeline() as p:
-            await p.delete(
-                f"room:{rid}:game_state",
-                f"room:{rid}:game_seats",
-                f"room:{rid}:foul_active",
-            )
+            await p.delete(*game_runtime_reset_keys(rid))
             await p.hset(f"room:{rid}:game_state",
                          mapping={
                              "phase": "roles_pick",
                              "started_at": str(now_ts),
+                             "game_instance_id": game_instance_id,
                              "bgm_seed": str(bgm_seed),
                              "started_by": str(uid),
                              "head": str(head_uid),
@@ -7861,33 +7972,6 @@ async def game_start_unlocked(sid, data) -> GameStartAck:
                 await p.hset(f"room:{rid}:game_seats", mapping={k: str(v) for k, v in seats.items()})
 
             if player_ids:
-                await p.delete(
-                    f"room:{rid}:game_players",
-                    f"room:{rid}:game_alive",
-                    f"room:{rid}:game_fouls",
-                    f"room:{rid}:game_tech_fouls",
-                    f"room:{rid}:game_deaths",
-                    f"room:{rid}:game_short_speech_used",
-                    f"room:{rid}:game_nominees",
-                    f"room:{rid}:game_nom_speakers",
-                    f"room:{rid}:game_votes",
-                    f"room:{rid}:game_actions",
-                    f"room:{rid}:game_votes_last",
-                    f"room:{rid}:game_checked:don",
-                    f"room:{rid}:game_checked:sheriff",
-                    f"room:{rid}:game_farewell_wills",
-                    f"room:{rid}:game_farewell_contexts",
-                    f"room:{rid}:game_farewell_limits",
-                    f"room:{rid}:game_night_opinions",
-                    f"room:{rid}:game_versions",
-                    f"room:{rid}:game_winks_left",
-                    f"room:{rid}:game_knocks_left",
-                    f"room:{rid}:roles_cards",
-                    f"room:{rid}:roles_taken",
-                    f"room:{rid}:game_roles",
-                    f"room:{rid}:night_shots",
-                    f"room:{rid}:night_checks",
-                )
                 await p.sadd(f"room:{rid}:game_players", *player_ids)
                 await p.sadd(f"room:{rid}:game_alive", *player_ids)
                 await p.hset(f"room:{rid}:game_winks_left", mapping=winks_left_map)
@@ -7930,6 +8014,7 @@ async def game_start_unlocked(sid, data) -> GameStartAck:
             "status": 200,
             "room_id": rid,
             "phase": "roles_pick",
+            "game_instance_id": game_instance_id,
             "min_ready": min_ready,
             "seats": {k: int(v) for k, v in seats.items()},
             "bgm_seed": bgm_seed,
@@ -8665,41 +8750,14 @@ async def _perform_game_end_unlocked(ctx, sess: Optional[dict[str, Any]], *, con
         except Exception:
             log.exception("sio.game_end.auto_state_enable_failed", rid=rid, target=target_uid)
 
+    cancel_host_blur_auto_task(rid)
     try:
         await clear_game_dynamic_keys(r, rid)
     except Exception:
         log.warning("sio.game_end.clear_game_dynamic_failed", rid=rid)
 
     async with r.pipeline() as p:
-        await p.delete(
-            f"room:{rid}:game_state",
-            f"room:{rid}:game_seats",
-            f"room:{rid}:game_players",
-            f"room:{rid}:game_alive",
-            f"room:{rid}:game_fouls",
-            f"room:{rid}:game_tech_fouls",
-            f"room:{rid}:game_deaths",
-            f"room:{rid}:game_actions",
-            f"room:{rid}:game_votes_last",
-            f"room:{rid}:game_short_speech_used",
-            f"room:{rid}:game_nominees",
-            f"room:{rid}:game_nom_speakers",
-            f"room:{rid}:roles_cards",
-            f"room:{rid}:roles_taken",
-            f"room:{rid}:game_roles",
-            f"room:{rid}:game_votes",
-            f"room:{rid}:night_shots",
-            f"room:{rid}:night_checks",
-            f"room:{rid}:game_night_opinions",
-            f"room:{rid}:game_checked:don",
-            f"room:{rid}:game_checked:sheriff",
-            f"room:{rid}:game_farewell_wills",
-            f"room:{rid}:game_farewell_contexts",
-            f"room:{rid}:game_farewell_limits",
-            f"room:{rid}:game_versions",
-            f"room:{rid}:game_winks_left",
-            f"room:{rid}:game_knocks_left",
-        )
+        await p.delete(*game_runtime_reset_keys(rid))
         await p.execute()
 
     try:

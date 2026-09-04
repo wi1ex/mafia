@@ -832,6 +832,7 @@ const roomGameSnapshot = ref<RoomGameParams | null>(null)
 const gameVersionsOpen = ref(false)
 const gameVersionsSaving = ref(false)
 const gameVersions = ref<GameVersionPayload[]>([])
+let gameLifecycleEpoch = 0
 const uiReady = ref(false)
 const leaving = ref(false)
 const netReconnecting = ref(false)
@@ -1303,7 +1304,13 @@ function openGameSettings() {
 function applyRoomGameSnapshot(raw: unknown) {
   roomGameSnapshot.value = normalizeRoomGameParams(raw)
 }
-function applyGameVersions(raw: unknown): void {
+function applyGameVersions(raw: unknown, rawGameInstanceId?: unknown): void {
+  const currentGameInstanceId = game.gameInstanceId.value
+  const incomingGameInstanceId = typeof rawGameInstanceId === 'string' ? rawGameInstanceId.trim() : ''
+  if (!currentGameInstanceId || incomingGameInstanceId !== currentGameInstanceId) {
+    gameVersions.value = []
+    return
+  }
   gameVersions.value = Array.isArray(raw) ? raw as GameVersionPayload[] : []
 }
 function openGameVersions(): void {
@@ -1316,9 +1323,13 @@ function cancelGameVersions(): void {
 }
 async function saveGameVersions(versions: GameVersionPayload[]): Promise<void> {
   if (gameVersionsSaving.value || !canManageGameVersions.value) return
+  const lifecycleEpoch = gameLifecycleEpoch
+  const gameInstanceId = game.gameInstanceId.value
+  if (!gameInstanceId) return
   gameVersionsSaving.value = true
   try {
-    const response = await sendAck('game_versions_set', { versions })
+    const response = await sendAck('game_versions_set', { versions, game_instance_id: gameInstanceId })
+    if (lifecycleEpoch !== gameLifecycleEpoch || gameInstanceId !== game.gameInstanceId.value) return
     if (!response?.ok) {
       const error = String(response?.error || '')
       const message = error === 'version_checks_required'
@@ -1329,16 +1340,18 @@ async function saveGameVersions(versions: GameVersionPayload[]): Promise<void> {
             ? 'Версии доступны только в рейтинг-игре'
             : error === 'versions_not_available_yet'
               ? 'Версии становятся доступны со второго игрового дня'
-            : error === 'forbidden'
-              ? 'Только ведущий может изменять версии'
+              : error === 'game_changed'
+                ? 'Игра уже сменилась. Откройте версии заново.'
+              : error === 'forbidden'
+                ? 'Только ведущий может изменять версии'
               : 'Не удалось сохранить версии'
       void alertDialog(message)
       return
     }
-    applyGameVersions(response.versions)
+    applyGameVersions(response.versions, response.game_instance_id)
     gameVersionsOpen.value = false
   } finally {
-    gameVersionsSaving.value = false
+    if (lifecycleEpoch === gameLifecycleEpoch) gameVersionsSaving.value = false
   }
 }
 function onDocClick() {
@@ -1737,33 +1750,56 @@ async function selectKnockCount(count: number) {
   if (knockSending.value) return
   const targetId = knockModalTargetId.value
   if (!targetId) return
+  const lifecycleEpoch = gameLifecycleEpoch
   knockSending.value = true
   try {
     const ok = await game.knockTarget(targetId, count, sendAckGame)
-    if (ok) closeKnockModal()
+    if (lifecycleEpoch === gameLifecycleEpoch && ok) closeKnockModal()
   } finally {
-    knockSending.value = false
+    if (lifecycleEpoch === gameLifecycleEpoch) knockSending.value = false
   }
 }
 
 const foulPending = ref(false)
+function resetGameScopedUi(): void {
+  gameLifecycleEpoch += 1
+  gameVersionsOpen.value = false
+  gameVersionsSaving.value = false
+  gameVersions.value = []
+  closeKnockModal()
+  knockSending.value = false
+  foulPending.value = false
+  hostBlurPending.value = false
+  speakerAlertCycles.clear()
+  speakerAlertSending.clear()
+}
+
 async function takeFoulUi() {
   if (foulPending.value) return
+  const lifecycleEpoch = gameLifecycleEpoch
   foulPending.value = true
   try {
     const ms = await game.takeFoul(sendAckGame)
+    if (lifecycleEpoch !== gameLifecycleEpoch) return
     const delay = typeof ms === 'number' && ms > 0 ? ms : 0
     if (delay > 0) {
       if (!micOn.value) try { await toggleMic() } catch {}
       window.setTimeout(async () => {
+        if (lifecycleEpoch !== gameLifecycleEpoch) return
         try {
           const speakingNow = isCurrentSpeaker.value
           if (!speakingNow && micOn.value) await toggleMic()
         } catch {}
-        finally { foulPending.value = false }
+        finally {
+          if (lifecycleEpoch === gameLifecycleEpoch) foulPending.value = false
+        }
       }, delay)
-    } else { foulPending.value = false }
-  } catch { foulPending.value = false }
+    } else if (lifecycleEpoch === gameLifecycleEpoch) {
+      foulPending.value = false
+    }
+  } catch {
+    if (lifecycleEpoch === gameLifecycleEpoch) foulPending.value = false
+  }
 }
 
 const wantsAudioRequest = computed(() => desiredMedia.mic || (desiredMedia.cam && rtc.hasAudioInput.value))
@@ -2606,6 +2642,7 @@ socket.value?.on('connect', async () => {
   })
 
   socket.value?.on('game_starting', async (p: any) => {
+    resetGameScopedUi()
     const delayMs = Number(p?.delay_ms || 0)
     const ms = Number.isFinite(delayMs) && delayMs > 0 ? delayMs : 1000
     showGameStartOverlay(ms + 250)
@@ -2614,6 +2651,7 @@ socket.value?.on('connect', async () => {
 
   socket.value?.on('game_started', (p: any) => {
     const convertHiddenAdmin = adminSpectator.value
+    resetGameScopedUi()
     game.handleGameStarted(p)
     if (musicEnabled.value) {
       rtc.setBgmSeed(p?.bgm_seed, rid)
@@ -2640,6 +2678,7 @@ socket.value?.on('connect', async () => {
   socket.value?.on('game_ended', async (p: any) => {
     const reason = String(p?.reason || '')
     const spectatorBeforeEnd = isSpectatorInGame.value
+    resetGameScopedUi()
     if (reason !== 'early_leave_before_day') {
       showGameEndOverlay()
       await nextTick()
@@ -2758,7 +2797,7 @@ socket.value?.on('connect', async () => {
   socket.value.on('game_versions_update', (p: any) => {
     const roomId = Number(p?.room_id || 0)
     if (roomId && roomId !== rid) return
-    applyGameVersions(p?.versions)
+    applyGameVersions(p?.versions, p?.game_instance_id)
   })
 
   socket.value.on('game_host_blur', (p: any) => {
@@ -3112,8 +3151,10 @@ function applyJoinAck(j: any) {
   }
 
   const snapshotIds = Object.keys(j.snapshot || {})
+  const previousGameInstanceId = game.gameInstanceId.value
   game.applyFromJoinAck(j, snapshotIds)
-  applyGameVersions(j?.game_runtime?.versions)
+  if (previousGameInstanceId !== game.gameInstanceId.value) resetGameScopedUi()
+  applyGameVersions(j?.game_runtime?.versions, j?.game_runtime?.game_instance_id)
   if (musicEnabled.value) {
     rtc.setBgmSeed(j?.game_runtime?.bgm_seed, rid)
   }
@@ -3345,6 +3386,7 @@ const toggleScreen = async () => {
 
 const toggleHostBlur = async () => {
   if (hostBlurPending.value || !hostBlurToggleEnabled.value) return
+  const lifecycleEpoch = gameLifecycleEpoch
   const wantEnable = !hostBlurActive.value
   const ok = await confirmDialog({
     text: wantEnable
@@ -3352,14 +3394,16 @@ const toggleHostBlur = async () => {
       : 'Завершить паузу?',
   })
   if (!ok) return
+  if (lifecycleEpoch !== gameLifecycleEpoch) return
   hostBlurPending.value = true
   try {
     const resp = await sendAck('game_host_blur', { on: wantEnable })
+    if (lifecycleEpoch !== gameLifecycleEpoch) return
     if (resp?.ok && 'enabled' in resp) {
       hostBlurActive.value = !!(resp as any).enabled
     }
   } finally {
-    hostBlurPending.value = false
+    if (lifecycleEpoch === gameLifecycleEpoch) hostBlurPending.value = false
   }
 }
 

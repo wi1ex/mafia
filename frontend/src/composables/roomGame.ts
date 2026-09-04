@@ -69,6 +69,7 @@ function normalizeGamePoints(raw: unknown): number | null {
 export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>) {
   const settings = useSettingsStore()
   const gamePhase = ref<GamePhase>('idle')
+ const gameInstanceId = ref('')
   const initialMinReady = Number(settings.gameMinReadyPlayers)
   const minReadyToStart = ref<number>(
     Number.isFinite(initialMinReady) && initialMinReady > 0 ? initialMinReady : 4,
@@ -177,11 +178,18 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   })
   const nightResultClearedDay = ref(0)
   const nightTimerId = ref<number | null>(null)
+  const foulClearTimers = new Map<string, number>()
   const roomKey = () => String(roomId?.value ?? '')
+  const nightResultStorageKey = (instanceId = gameInstanceId.value) => {
+    const room = roomKey()
+    return room && instanceId ? `nightResultCleared:${room}:${instanceId}` : ''
+  }
   const loadNightResultCleared = () => {
     if (typeof window === 'undefined') return 0
+    const key = nightResultStorageKey()
+    if (!key) return 0
     try {
-      const raw = window.sessionStorage.getItem(`nightResultCleared:${roomKey()}`)
+      const raw = window.sessionStorage.getItem(key)
       const n = Number(raw || 0)
       return Number.isFinite(n) && n > 0 ? n : 0
     } catch {
@@ -190,9 +198,26 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   }
   const persistNightResultCleared = (day: number) => {
     if (typeof window === 'undefined') return
-    try { window.sessionStorage.setItem(`nightResultCleared:${roomKey()}`, String(day)) } catch {}
+    const key = nightResultStorageKey()
+    if (!key) return
+    try { window.sessionStorage.setItem(key, String(day)) } catch {}
   }
-  nightResultClearedDay.value = loadNightResultCleared()
+  const clearNightResultCleared = (instanceId = gameInstanceId.value) => {
+    if (typeof window === 'undefined') return
+    const key = nightResultStorageKey(instanceId)
+    if (!key) return
+    try { window.sessionStorage.removeItem(key) } catch {}
+  }
+  const setGameInstanceId = (raw: unknown) => {
+    const next = typeof raw === 'string' ? raw.trim() : ''
+    if (next === gameInstanceId.value) return
+    clearNightResultCleared()
+    gameInstanceId.value = next
+    nightResultClearedDay.value = loadNightResultCleared()
+    if (typeof window !== 'undefined') {
+      try { window.sessionStorage.removeItem(`nightResultCleared:${roomKey()}`) } catch {}
+    }
+  }
   const myNightShotTarget = ref<string>('')
   const myNightCheckTarget = ref<string>('')
   const myPrivateRoleKind = ref<GameRoleKind | null>(null)
@@ -982,6 +1007,10 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     !takenCardSet.value.has(n)
 
   function resetRolesUiState() {
+    pickingRole.value = false
+    resetFinishSpeechDelay()
+    resetPassSpeechDelay()
+    resetTakeFoulDelay()
     rolePick.activeUserId = ''
     rolePick.order = []
     rolePick.picked = new Set<string>()
@@ -992,6 +1021,8 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     gameResult.value = ''
     resetStartMafiaTalkDelay()
     resetLeaderSpeechDelay()
+    resetStartDayDelay()
+    resetDayFromNightDelay()
     if (roleOverlayTimerId.value != null) {
       clearTimeout(roleOverlayTimerId.value)
       roleOverlayTimerId.value = null
@@ -1016,7 +1047,11 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     resetDaySpeechState(false)
     replaceIds(dayNominees, undefined)
     nominatedThisSpeechByMe.value = false
+    headNominationWindowOpen.value = false
     resetVoteState(false)
+    foulActive.clear()
+    for (const timerId of foulClearTimers.values()) clearTimeout(timerId)
+    foulClearTimers.clear()
     
     night.stage = 'sleep'
     night.remainingMs = 0
@@ -1233,7 +1268,9 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     }
     hostBlurActive.value = isTrueLike((gr as any).host_blur)
     const phase = (gr.phase as GamePhase) || 'idle'
+    setGameInstanceId(phase === 'idle' ? '' : (gr as any).game_instance_id)
     gamePhase.value = phase
+    if (phase === 'idle') dayNumber.value = 0
     const rawResult = String((gr as any).result || '')
     if (rawResult === 'red' || rawResult === 'black' || rawResult === 'draw') {
       gameResult.value = rawResult as GameResult
@@ -1555,6 +1592,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   }
 
   function handleGameStarted(payload: any) {
+    setGameInstanceId(payload?.game_instance_id)
     resetRolesUiState()
     resetBestMoveState()
     offlineInGame.clear()
@@ -1574,6 +1612,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       musicEnabled.value = isTrueLike((payload as any).music)
     }
     gamePhase.value = (payload?.phase as GamePhase) || 'roles_pick'
+    dayNumber.value = 0
     if ('wink_knock' in (payload || {})) {
       winkKnockEnabled.value = isTrueLike((payload as any).wink_knock)
     }
@@ -1636,7 +1675,9 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     const roleBeforeEnd = myGameRole.value
     resetRolesUiState()
     resetBestMoveState()
+    setGameInstanceId('')
     gamePhase.value = 'idle'
+    dayNumber.value = 0
     hostBlurActive.value = false
     Object.keys(seatsByUser).forEach((k) => { delete seatsByUser[k] })
     gamePlayers.clear()
@@ -1886,9 +1927,13 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     foulActive.add(uid)
     const ms = secondsToMs(p?.duration)
     if (ms <= 0) return
-    window.setTimeout(() => {
+    const existingTimer = foulClearTimers.get(uid)
+    if (existingTimer != null) clearTimeout(existingTimer)
+    const timerId = window.setTimeout(() => {
       foulActive.delete(uid)
+      foulClearTimers.delete(uid)
     }, ms)
+    foulClearTimers.set(uid, timerId)
   }
 
   function handleGameFouls(p: any) {
@@ -3354,6 +3399,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     ROLE_CARD_IMAGES,
 
     gamePhase,
+    gameInstanceId,
     minReadyToStart,
     seatsByUser,
     headUserId,

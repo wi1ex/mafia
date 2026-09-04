@@ -77,6 +77,7 @@ class GameStartAck(TypedDict, total=False):
     error: str
     room_id: int
     phase: str
+    game_instance_id: str
     min_ready: int
     seats: Dict[str, int]
     can_start: bool
