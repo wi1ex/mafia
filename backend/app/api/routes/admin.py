@@ -139,6 +139,7 @@ from ..utils import (
     normalize_admin_banner_link,
     normalize_home_carousel_banner_key,
     normalize_donation_url,
+    normalize_idle_rating_rooms,
     sanction_rules_out,
     parse_cached_deleted_at,
     normalize_game_result,
@@ -412,6 +413,10 @@ async def update_settings(payload: AdminSettingsUpdateIn, session: AsyncSession 
         room_min_ready_snapshots = await snapshot_live_room_min_ready(previous_game_min_ready)
 
     sync_cache_from_row(row)
+    normalized_rating_rooms = 0
+    if changed.get("rating_enabled") is False:
+        normalized_rating_rooms = await normalize_idle_rating_rooms(session)
+
     if changed:
         public_payload = public_settings_out(row).model_dump(mode="json")
         with suppress(Exception):
@@ -427,7 +432,8 @@ async def update_settings(payload: AdminSettingsUpdateIn, session: AsyncSession 
 
     details = (
         f"Обновление настроек keys={','.join(sorted(changed))} season_changed={int(season_changed)} "
-        f"room_min_ready_snapshots={room_min_ready_snapshots}"
+        f"room_min_ready_snapshots={room_min_ready_snapshots} "
+        f"normalized_rating_rooms={normalized_rating_rooms}"
         if changed
         else "Обновление настроек без изменений"
     )
