@@ -1533,11 +1533,15 @@ def _apply_action_points(
             continue
 
         if action_type == "vote":
+            day = _action_user_id(action, "day")
             leaders = _action_user_ids(action, "leaders")
             if not _action_bool(action, "will_eliminate") or len(leaders) != 1:
                 continue
 
             target_id = leaders[0]
+            if day <= 1:
+                continue
+
             target_team = _team_for_role(_role_for_user(roles, target_id))
             votes_raw = action.get("votes")
             votes = votes_raw if isinstance(votes_raw, Mapping) else {}
