@@ -1642,7 +1642,7 @@ const scoring = reactive<GameScoringSettings>({
   best_move_black_3: 0.4,
   night_shoot_miss: -0.2,
   night_shoot_miss_terminal: -0.5,
-  vote_opponent_team: 0.1,
+  vote_opponent_team: 0.15,
   vote_red_terminal: -0.2,
   vote_red_terminal_3v3: -0.3,
   black_win_3v3: 0.3,

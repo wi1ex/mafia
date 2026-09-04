@@ -31,7 +31,7 @@ GAME_SCORING_RULE_DEFAULTS: dict[str, Decimal] = {
     "best_move_black_3": Decimal("0.40"),
     "night_shoot_miss": Decimal("-0.20"),
     "night_shoot_miss_terminal": Decimal("-0.50"),
-    "vote_opponent_team": Decimal("0.10"),
+    "vote_opponent_team": Decimal("0.15"),
     "vote_red_terminal": Decimal("-0.20"),
     "vote_red_terminal_3v3": Decimal("-0.30"),
     "black_win_3v3": Decimal("0.30"),
