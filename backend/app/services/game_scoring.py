@@ -35,6 +35,8 @@ GAME_SCORING_RULE_DEFAULTS: dict[str, Decimal] = {
     "vote_red_terminal": Decimal("-0.20"),
     "vote_red_terminal_3v3": Decimal("-0.30"),
     "black_win_3v3": Decimal("0.30"),
+    "black_win_2v2_1v1_alive": Decimal("0.20"),
+    "black_win_2v2_1v1_dead": Decimal("0.10"),
     "vote_lift_same_team": Decimal("-0.30"),
     "vote_lift_opponent_team": Decimal("0.30"),
     "nomination_black_prevents_black_win": Decimal("-0.50"),
@@ -71,6 +73,8 @@ GAME_SCORING_LABEL_DEFAULTS: dict[str, str] = {
     "vote_red_terminal": "Голосование на поражение",
     "vote_red_terminal_3v3": "Голосование на 3в3",
     "black_win_3v3": "Победа 3в3",
+    "black_win_2v2_1v1_alive": "Победа будучи живым чёрным",
+    "black_win_2v2_1v1_dead": "Победа будучи мертвым чёрным",
     "vote_lift_same_team": "Подъём игроков своей команды",
     "vote_lift_opponent_team": "Подъём игроков другой команды",
     "nomination_black_prevents_black_win": "Выставление при гарантированной победе",
@@ -1450,8 +1454,15 @@ def _apply_action_points(
                     _action_bool(action, "game_lost_after") or _action_bool(action, "ppk")
             )
 
+    alive_player_ids = set(points)
+    black_endgame_bonus_awarded = False
     for action in normalized_actions:
         action_type = str(action.get("type") or "").strip().lower()
+
+        if action_type == "death":
+            departed_id = _action_user_id(action, "target_id")
+            if departed_id in points:
+                alive_player_ids.discard(departed_id)
 
         if action_type == "night_shoot_result":
             if _action_bool(action, "kill_ok"):
@@ -1600,6 +1611,26 @@ def _apply_action_points(
         if action_type == "death":
             target_id = _action_user_id(action, "target_id")
             reason = str(action.get("reason") or "").strip().lower()
+            result_after = str(action.get("result_after") or "").strip().lower()
+            red_alive_after = _action_user_id(action, "red_alive_after")
+            black_alive_after = _action_user_id(action, "black_alive_after")
+
+            if (
+                    not black_endgame_bonus_awarded
+                    and result_after == "black"
+                    and red_alive_after == black_alive_after
+                    and red_alive_after in {1, 2}
+            ):
+                for user_id in points:
+                    if _is_black(_role_for_user(roles, user_id)):
+                        rule_key = (
+                            "black_win_2v2_1v1_alive"
+                            if user_id in alive_player_ids
+                            else "black_win_2v2_1v1_dead"
+                        )
+                        apply_rule(user_id, rule_key)
+                black_endgame_bonus_awarded = True
+
             if target_id in points and reason == "suicide":
                 rule_key = "suicide_lost" if _action_bool(action, "game_lost_after") else "suicide"
                 apply_rule(
@@ -1615,10 +1646,7 @@ def _apply_action_points(
             ):
                 target_team = _team_for_role(_role_for_user(roles, target_id))
                 voters = [voter_id for voter_id in _action_user_ids(action, "by") if voter_id in points]
-                result_after = str(action.get("result_after") or "").strip().lower()
                 if target_team == "red" and result_after == "black":
-                    red_alive_after = _action_user_id(action, "red_alive_after")
-                    black_alive_after = _action_user_id(action, "black_alive_after")
                     is_black_win_3v3 = red_alive_after == 3 and black_alive_after == 3
                     penalty_key = "vote_red_terminal_3v3" if is_black_win_3v3 else "vote_red_terminal"
                     for voter_id in voters:

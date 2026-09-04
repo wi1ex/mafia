@@ -174,6 +174,8 @@ class GameScoringSettingsOut(BaseModel):
     vote_red_terminal: float
     vote_red_terminal_3v3: float
     black_win_3v3: float
+    black_win_2v2_1v1_alive: float
+    black_win_2v2_1v1_dead: float
     vote_lift_same_team: float
     vote_lift_opponent_team: float
     nomination_black_prevents_black_win: float
@@ -207,6 +209,8 @@ class GameScoringSettingsOut(BaseModel):
     vote_red_terminal_label: str
     vote_red_terminal_3v3_label: str
     black_win_3v3_label: str
+    black_win_2v2_1v1_alive_label: str
+    black_win_2v2_1v1_dead_label: str
     vote_lift_same_team_label: str
     vote_lift_opponent_team_label: str
     nomination_black_prevents_black_win_label: str
@@ -245,6 +249,8 @@ class GameScoringSettingsUpdateIn(BaseModel):
     vote_red_terminal: Optional[float] = Field(default=None, ge=-10, le=10)
     vote_red_terminal_3v3: Optional[float] = Field(default=None, ge=-10, le=10)
     black_win_3v3: Optional[float] = Field(default=None, ge=-10, le=10)
+    black_win_2v2_1v1_alive: Optional[float] = Field(default=None, ge=-10, le=10)
+    black_win_2v2_1v1_dead: Optional[float] = Field(default=None, ge=-10, le=10)
     vote_lift_same_team: Optional[float] = Field(default=None, ge=-10, le=10)
     vote_lift_opponent_team: Optional[float] = Field(default=None, ge=-10, le=10)
     nomination_black_prevents_black_win: Optional[float] = Field(default=None, ge=-10, le=10)
@@ -278,6 +284,8 @@ class GameScoringSettingsUpdateIn(BaseModel):
     vote_red_terminal_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
     vote_red_terminal_3v3_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
     black_win_3v3_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    black_win_2v2_1v1_alive_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    black_win_2v2_1v1_dead_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
     vote_lift_same_team_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
     vote_lift_opponent_team_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
     nomination_black_prevents_black_win_label: Optional[str] = Field(default=None, min_length=1, max_length=255)

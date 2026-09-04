@@ -255,6 +255,14 @@
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Победа 3в3" />
                 <UiInput id="scoring-black-win-3v3-label" size="low" v-model.trim="scoring.black_win_3v3_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
+                <UiInput id="scoring-black-win-2v2-1v1-alive" size="low" v-model.number="scoring.black_win_2v2_1v1_alive" type="number" step="0.01"
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Победа будучи живым чёрным" />
+                <UiInput id="scoring-black-win-2v2-1v1-alive-label" size="low" v-model.trim="scoring.black_win_2v2_1v1_alive_label" maxlength="255"
+                         autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
+                <UiInput id="scoring-black-win-2v2-1v1-dead" size="low" v-model.number="scoring.black_win_2v2_1v1_dead" type="number" step="0.01"
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Победа будучи мертвым чёрным" />
+                <UiInput id="scoring-black-win-2v2-1v1-dead-label" size="low" v-model.trim="scoring.black_win_2v2_1v1_dead_label" maxlength="255"
+                         autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 <UiInput id="scoring-vote-lift-same-team" size="low" v-model.number="scoring.vote_lift_same_team" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Подъём игроков своей команды" />
                 <UiInput id="scoring-vote-lift-same-team-label" size="low" v-model.trim="scoring.vote_lift_same_team_label" maxlength="255"
@@ -1287,6 +1295,8 @@ type GameScoringSettings = {
   vote_red_terminal: number
   vote_red_terminal_3v3: number
   black_win_3v3: number
+  black_win_2v2_1v1_alive: number
+  black_win_2v2_1v1_dead: number
   vote_lift_same_team: number
   vote_lift_opponent_team: number
   nomination_black_prevents_black_win: number
@@ -1320,6 +1330,8 @@ type GameScoringSettings = {
   vote_red_terminal_label: string
   vote_red_terminal_3v3_label: string
   black_win_3v3_label: string
+  black_win_2v2_1v1_alive_label: string
+  black_win_2v2_1v1_dead_label: string
   vote_lift_same_team_label: string
   vote_lift_opponent_team_label: string
   nomination_black_prevents_black_win_label: string
@@ -1646,6 +1658,8 @@ const scoring = reactive<GameScoringSettings>({
   vote_red_terminal: -0.2,
   vote_red_terminal_3v3: -0.3,
   black_win_3v3: 0.3,
+  black_win_2v2_1v1_alive: 0.2,
+  black_win_2v2_1v1_dead: 0.1,
   vote_lift_same_team: -0.3,
   vote_lift_opponent_team: 0.3,
   nomination_black_prevents_black_win: -0.5,
@@ -1679,6 +1693,8 @@ const scoring = reactive<GameScoringSettings>({
   vote_red_terminal_label: 'Голосование на поражение',
   vote_red_terminal_3v3_label: 'Голосование на 3в3',
   black_win_3v3_label: 'Победа 3в3',
+  black_win_2v2_1v1_alive_label: 'Победа будучи живым чёрным',
+  black_win_2v2_1v1_dead_label: 'Победа будучи мертвым чёрным',
   vote_lift_same_team_label: 'Подъём игроков своей команды',
   vote_lift_opponent_team_label: 'Подъём игроков другой команды',
   nomination_black_prevents_black_win_label: 'Выставление при гарантированной победе',
@@ -2058,6 +2074,8 @@ function snapshotScoring(): string {
     vote_red_terminal: normalizeScoringValue(scoring.vote_red_terminal),
     vote_red_terminal_3v3: normalizeScoringValue(scoring.vote_red_terminal_3v3),
     black_win_3v3: normalizeScoringValue(scoring.black_win_3v3),
+    black_win_2v2_1v1_alive: normalizeScoringValue(scoring.black_win_2v2_1v1_alive),
+    black_win_2v2_1v1_dead: normalizeScoringValue(scoring.black_win_2v2_1v1_dead),
     vote_lift_same_team: normalizeScoringValue(scoring.vote_lift_same_team),
     vote_lift_opponent_team: normalizeScoringValue(scoring.vote_lift_opponent_team),
     nomination_black_prevents_black_win: normalizeScoringValue(scoring.nomination_black_prevents_black_win),
@@ -2091,6 +2109,8 @@ function snapshotScoring(): string {
     vote_red_terminal_label: normalizeScoringLabel(scoring.vote_red_terminal_label),
     vote_red_terminal_3v3_label: normalizeScoringLabel(scoring.vote_red_terminal_3v3_label),
     black_win_3v3_label: normalizeScoringLabel(scoring.black_win_3v3_label),
+    black_win_2v2_1v1_alive_label: normalizeScoringLabel(scoring.black_win_2v2_1v1_alive_label),
+    black_win_2v2_1v1_dead_label: normalizeScoringLabel(scoring.black_win_2v2_1v1_dead_label),
     vote_lift_same_team_label: normalizeScoringLabel(scoring.vote_lift_same_team_label),
     vote_lift_opponent_team_label: normalizeScoringLabel(scoring.vote_lift_opponent_team_label),
     nomination_black_prevents_black_win_label: normalizeScoringLabel(scoring.nomination_black_prevents_black_win_label),
@@ -2787,6 +2807,8 @@ async function loadScoring(): Promise<void> {
     scoring.vote_red_terminal = normalizeScoringValue(scoring.vote_red_terminal)
     scoring.vote_red_terminal_3v3 = normalizeScoringValue(scoring.vote_red_terminal_3v3)
     scoring.black_win_3v3 = normalizeScoringValue(scoring.black_win_3v3)
+    scoring.black_win_2v2_1v1_alive = normalizeScoringValue(scoring.black_win_2v2_1v1_alive)
+    scoring.black_win_2v2_1v1_dead = normalizeScoringValue(scoring.black_win_2v2_1v1_dead)
     scoring.vote_lift_same_team = normalizeScoringValue(scoring.vote_lift_same_team)
     scoring.vote_lift_opponent_team = normalizeScoringValue(scoring.vote_lift_opponent_team)
     scoring.nomination_black_prevents_black_win = normalizeScoringValue(scoring.nomination_black_prevents_black_win)
@@ -2820,6 +2842,8 @@ async function loadScoring(): Promise<void> {
     scoring.vote_red_terminal_label = normalizeScoringLabel(scoring.vote_red_terminal_label)
     scoring.vote_red_terminal_3v3_label = normalizeScoringLabel(scoring.vote_red_terminal_3v3_label)
     scoring.black_win_3v3_label = normalizeScoringLabel(scoring.black_win_3v3_label)
+    scoring.black_win_2v2_1v1_alive_label = normalizeScoringLabel(scoring.black_win_2v2_1v1_alive_label)
+    scoring.black_win_2v2_1v1_dead_label = normalizeScoringLabel(scoring.black_win_2v2_1v1_dead_label)
     scoring.vote_lift_same_team_label = normalizeScoringLabel(scoring.vote_lift_same_team_label)
     scoring.vote_lift_opponent_team_label = normalizeScoringLabel(scoring.vote_lift_opponent_team_label)
     scoring.nomination_black_prevents_black_win_label = normalizeScoringLabel(scoring.nomination_black_prevents_black_win_label)
