@@ -1460,13 +1460,15 @@ def _apply_action_points(
                 continue
 
             terminal_miss = _action_bool(action, "black_wins_if_kill")
-            if len(shooters) in (1, 2):
+            if len(shooters) == 1:
                 if terminal_miss:
-                    for shooter_id in shooters:
-                        apply_rule(
-                            shooter_id,
-                            "night_shoot_miss_terminal",
-                        )
+                    apply_rule(
+                        shooters[0],
+                        "night_shoot_miss_terminal",
+                    )
+                continue
+
+            if len(shooters) != 3:
                 continue
 
             shots_raw = action.get("shots")
