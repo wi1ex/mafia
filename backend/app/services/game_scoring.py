@@ -1432,7 +1432,7 @@ def _apply_action_points(
         audit=audit,
     )
 
-    foul_loss_after: dict[int, bool] = {}
+    foul_removal_loss_after: dict[int, bool] = {}
     for action in normalized_actions:
         if str(action.get("type") or "").strip().lower() != "death":
             continue
@@ -1440,7 +1440,7 @@ def _apply_action_points(
             continue
         target_id = _action_user_id(action, "target_id")
         if target_id in points:
-            foul_loss_after[target_id] = (
+            foul_removal_loss_after[target_id] = (
                     _action_bool(action, "game_lost_after") or _action_bool(action, "ppk")
             )
 
@@ -1561,8 +1561,8 @@ def _apply_action_points(
                 count = int(action.get("count") or 0)
             except (TypeError, ValueError):
                 count = 0
-            if target_id in points and count == 4:
-                rule_key = "fourth_foul_lost" if foul_loss_after.get(target_id, False) else "fourth_foul"
+            if target_id in points and count == 4 and target_id in foul_removal_loss_after:
+                rule_key = "fourth_foul_lost" if foul_removal_loss_after[target_id] else "fourth_foul"
                 apply_rule(
                     target_id,
                     rule_key,
@@ -1577,7 +1577,7 @@ def _apply_action_points(
                 count = 0
             if target_id not in points or count not in (1, 2):
                 continue
-            rule_key = "second_tech_foul_lost" if count == 2 and foul_loss_after.get(target_id, False) else "tech_foul"
+            rule_key = "second_tech_foul_lost" if count == 2 and foul_removal_loss_after.get(target_id, False) else "tech_foul"
             apply_rule(
                 target_id,
                 rule_key,
