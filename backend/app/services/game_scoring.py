@@ -75,7 +75,7 @@ GAME_SCORING_LABEL_DEFAULTS: dict[str, str] = {
     "vote_lift_opponent_team": "Подъём игроков другой команды",
     "nomination_black_prevents_black_win": "Выставление при гарантированной победе",
     "nomination_red_last_hope": "Последняя надежда",
-    "sheriff_two_unobvious_black_checks": "Две подряд неочевидные чёрные проверки",
+    "sheriff_two_unobvious_black_checks": "Две подряд чёрные проверки",
     "don_missed_sheriff_two_checks": "Не нашёл шерифа за две проверки",
     "citizen_false_check": "Ложная проверка будучи мирным",
     "sheriff_false_check_black_win": "Ложная проверка шерифа при победе чёрных",

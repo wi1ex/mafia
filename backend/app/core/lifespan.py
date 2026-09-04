@@ -27,49 +27,6 @@ async def lifespan(app) -> AsyncIterator[None]:
             await conn.execute(text("SELECT 1"))
             await conn.run_sync(Base.metadata.create_all)
 
-
-            await conn.execute(
-                text(
-                    "ALTER TABLE games "
-                    "ADD COLUMN IF NOT EXISTS mode VARCHAR(8) NOT NULL DEFAULT 'normal'"
-                )
-            )
-            await conn.execute(text("UPDATE games SET mode = 'normal' WHERE mode IS NULL"))
-            await conn.execute(
-                text(
-                    "ALTER TABLE games "
-                    "ADD COLUMN IF NOT EXISTS rating_mode_eligible BOOLEAN NOT NULL DEFAULT FALSE"
-                )
-            )
-            await conn.execute(
-                text("UPDATE games SET rating_mode_eligible = TRUE WHERE mode = 'rating'")
-            )
-            await conn.execute(
-                text(
-                    "ALTER TABLE games "
-                    "ADD COLUMN IF NOT EXISTS scoring_rules JSONB NOT NULL DEFAULT '{}'::jsonb"
-                )
-            )
-            await conn.execute(
-                text(
-                    "ALTER TABLE settings "
-                    "ADD COLUMN IF NOT EXISTS rtc_echo_cancellation_enabled BOOLEAN NOT NULL DEFAULT TRUE"
-                )
-            )
-            await conn.execute(
-                text(
-                    "ALTER TABLE settings "
-                    "ADD COLUMN IF NOT EXISTS rtc_noise_suppression_enabled BOOLEAN NOT NULL DEFAULT TRUE"
-                )
-            )
-            await conn.execute(
-                text(
-                    "ALTER TABLE settings "
-                    "ADD COLUMN IF NOT EXISTS rtc_auto_gain_control_enabled BOOLEAN NOT NULL DEFAULT TRUE"
-                )
-            )
-
-
         async with SessionLocal() as session:
             await ensure_app_settings(session)
             await ensure_game_scoring_settings(session)

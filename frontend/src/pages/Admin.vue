@@ -224,7 +224,7 @@
                 <UiInput id="scoring-night-shoot-miss-terminal-label" size="low" v-model.trim="scoring.night_shoot_miss_terminal_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 <UiInput id="scoring-sheriff-two-unobvious-black-checks" size="low" v-model.number="scoring.sheriff_two_unobvious_black_checks" type="number" step="0.01"
-                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Две подряд неочевидные чёрные проверки" />
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Две подряд чёрные проверки" />
                 <UiInput id="scoring-sheriff-two-unobvious-black-checks-label" size="low" v-model.trim="scoring.sheriff_two_unobvious_black_checks_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 <UiInput id="scoring-don-missed-sheriff-two-checks" size="low" v-model.number="scoring.don_missed_sheriff_two_checks" type="number" step="0.01"
@@ -1683,7 +1683,7 @@ const scoring = reactive<GameScoringSettings>({
   vote_lift_opponent_team_label: 'Подъём игроков другой команды',
   nomination_black_prevents_black_win_label: 'Выставление при гарантированной победе',
   nomination_red_last_hope_label: 'Последняя надежда',
-  sheriff_two_unobvious_black_checks_label: 'Две подряд неочевидные чёрные проверки',
+  sheriff_two_unobvious_black_checks_label: 'Две подряд чёрные проверки',
   don_missed_sheriff_two_checks_label: 'Не нашёл шерифа за две проверки',
   citizen_false_check_label: 'Ложная проверка будучи мирным',
   sheriff_false_check_black_win_label: 'Ложная проверка шерифа при победе чёрных',
