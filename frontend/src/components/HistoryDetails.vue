@@ -66,8 +66,8 @@
               <template v-if="slot.points_breakdown.rules_available">
                 <span class="points-tooltip__section">Дополнительные баллы:</span>
                 <span v-if="slot.points_breakdown.adjustments.length === 0" class="points-tooltip__muted">Нет начислений</span>
-                <span v-for="(adjustment, adjustmentIndex) in slot.points_breakdown.adjustments" :key="`${slot.slot}-${adjustment.rule_key}-${adjustmentIndex}`">
-                  {{ adjustment.label }}: {{ formatPoints(adjustment.points) }}
+                <span v-for="adjustment in groupedAdjustments(slot.points_breakdown.adjustments)" :key="`${slot.slot}-${adjustment.key}`">
+                  {{ adjustment.label }} {{ formatPoints(adjustment.points) }}<template v-if="adjustment.count > 1"> x {{ adjustment.count }}</template>
                 </span>
                 <span>Сумма дополнительных: {{ formatPoints(slot.points_breakdown.additional_points_raw) }}</span>
                 <span v-if="slot.points_breakdown.additional_points_capped">
@@ -130,6 +130,11 @@ interface GameHistoryPointsAdjustment {
   rule_key: string
   label: string
   points: number
+}
+
+interface GroupedPointsAdjustment extends GameHistoryPointsAdjustment {
+  key: string
+  count: number
 }
 
 interface GameHistoryPointsBreakdown {
@@ -361,6 +366,24 @@ function formatPoints(value: number | null | undefined): string {
   const points = Number(value)
   if (!Number.isFinite(points) || points === 0) return '0.00'
   return `${points > 0 ? '+' : '-'}${Math.abs(points).toFixed(2)}`
+}
+
+function groupedAdjustments(adjustments: GameHistoryPointsAdjustment[]): GroupedPointsAdjustment[] {
+  const grouped = new Map<string, GroupedPointsAdjustment>()
+
+  for (const adjustment of adjustments) {
+    const points = Number(adjustment.points)
+    const normalizedPoints = Number.isFinite(points) ? points : 0
+    const key = `${adjustment.label}\u0000${normalizedPoints}`
+    const existing = grouped.get(key)
+    if (existing) {
+      existing.count += 1
+      continue
+    }
+    grouped.set(key, { ...adjustment, points: normalizedPoints, key, count: 1 })
+  }
+
+  return [...grouped.values()]
 }
 
 function basePointsLabel(breakdown: GameHistoryPointsBreakdown): string {
