@@ -48,6 +48,7 @@ GAME_SCORING_RULE_DEFAULTS: dict[str, Decimal] = {
     "black_day_under_seven": Decimal("0.10"),
     "night_opinion_correct": Decimal("0.10"),
     "night_opinion_wrong": Decimal("-0.10"),
+    "night_opinion_black_named_red": Decimal("0.05"),
     "farewell_red_correct": Decimal("0.15"),
     "farewell_red_wrong": Decimal("-0.20"),
     "farewell_black_correct": Decimal("0.20"),
@@ -86,11 +87,12 @@ GAME_SCORING_LABEL_DEFAULTS: dict[str, str] = {
     "black_day_under_seven": "Проход в круг при 3-6х",
     "night_opinion_correct": "Ночное мнение: верный цвет",
     "night_opinion_wrong": "Ночное мнение: неверный цвет",
+    "night_opinion_black_named_red": "Оставлен красным в ночном мнении",
     "farewell_red_correct": "Завещание: верно указан красный",
     "farewell_red_wrong": "Завещание: красный указан чёрным",
     "farewell_black_correct": "Завещание: верно указан чёрный",
     "farewell_black_wrong": "Завещание: чёрный указан красным",
-    "farewell_black_named_red": "Оставлен красным",
+    "farewell_black_named_red": "Оставлен красным в завещании",
     "farewell_claimant_black_named_red": "Оставлен приоритетной версией",
 }
 
@@ -807,6 +809,11 @@ def _apply_night_opinion_points(
                     actor_id,
                     rule_key,
                 )
+                if actual_color == "black" and guess_color == "red":
+                    audit_item["target_adjustment"] = apply_rule(
+                        target_id,
+                        "night_opinion_black_named_red",
+                    )
                 if audit is not None:
                     audit.append(audit_item)
 

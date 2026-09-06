@@ -291,6 +291,10 @@
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Ночное мнение: неверный цвет" />
                 <UiInput id="scoring-night-opinion-wrong-label" size="low" v-model.trim="scoring.night_opinion_wrong_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
+                <UiInput id="scoring-night-opinion-black-named-red" size="low" v-model.number="scoring.night_opinion_black_named_red" type="number" step="0.01"
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Оставлен красным в ночном мнении" />
+                <UiInput id="scoring-night-opinion-black-named-red-label" size="low" v-model.trim="scoring.night_opinion_black_named_red_label" maxlength="255"
+                         autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 <UiInput id="scoring-farewell-red-correct" size="low" v-model.number="scoring.farewell_red_correct" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Завещание: верно указан красный" />
                 <UiInput id="scoring-farewell-red-correct-label" size="low" v-model.trim="scoring.farewell_red_correct_label" maxlength="255"
@@ -308,7 +312,7 @@
                 <UiInput id="scoring-farewell-black-wrong-label" size="low" v-model.trim="scoring.farewell_black_wrong_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 <UiInput id="scoring-farewell-black-named-red" size="low" v-model.number="scoring.farewell_black_named_red" type="number" step="0.01"
-                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Оставлен красным" />
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Оставлен красным в завещании" />
                 <UiInput id="scoring-farewell-black-named-red-label" size="low" v-model.trim="scoring.farewell_black_named_red_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 <UiInput id="scoring-farewell-claimant-black-named-red" size="low" v-model.number="scoring.farewell_claimant_black_named_red" type="number" step="0.01"
@@ -1308,6 +1312,7 @@ type GameScoringSettings = {
   black_day_under_seven: number
   night_opinion_correct: number
   night_opinion_wrong: number
+  night_opinion_black_named_red: number
   farewell_red_correct: number
   farewell_red_wrong: number
   farewell_black_correct: number
@@ -1343,6 +1348,7 @@ type GameScoringSettings = {
   black_day_under_seven_label: string
   night_opinion_correct_label: string
   night_opinion_wrong_label: string
+  night_opinion_black_named_red_label: string
   farewell_red_correct_label: string
   farewell_red_wrong_label: string
   farewell_black_correct_label: string
@@ -1671,6 +1677,7 @@ const scoring = reactive<GameScoringSettings>({
   black_day_under_seven: 0.1,
   night_opinion_correct: 0.1,
   night_opinion_wrong: -0.1,
+  night_opinion_black_named_red: 0.05,
   farewell_red_correct: 0.15,
   farewell_red_wrong: -0.2,
   farewell_black_correct: 0.2,
@@ -1706,11 +1713,12 @@ const scoring = reactive<GameScoringSettings>({
   black_day_under_seven_label: 'Проход в круг при 3-6х',
   night_opinion_correct_label: 'Ночное мнение: верный цвет',
   night_opinion_wrong_label: 'Ночное мнение: неверный цвет',
+  night_opinion_black_named_red_label: 'Оставлен красным в ночном мнении',
   farewell_red_correct_label: 'Завещание: верно указан красный',
   farewell_red_wrong_label: 'Завещание: красный указан чёрным',
   farewell_black_correct_label: 'Завещание: верно указан чёрный',
   farewell_black_wrong_label: 'Завещание: чёрный указан красным',
-  farewell_black_named_red_label: 'Оставлен красным',
+  farewell_black_named_red_label: 'Оставлен красным в завещании',
   farewell_claimant_black_named_red_label: 'Оставлен приоритетной версией',
 })
 
@@ -2087,6 +2095,7 @@ function snapshotScoring(): string {
     black_day_under_seven: normalizeScoringValue(scoring.black_day_under_seven),
     night_opinion_correct: normalizeScoringValue(scoring.night_opinion_correct),
     night_opinion_wrong: normalizeScoringValue(scoring.night_opinion_wrong),
+    night_opinion_black_named_red: normalizeScoringValue(scoring.night_opinion_black_named_red),
     farewell_red_correct: normalizeScoringValue(scoring.farewell_red_correct),
     farewell_red_wrong: normalizeScoringValue(scoring.farewell_red_wrong),
     farewell_black_correct: normalizeScoringValue(scoring.farewell_black_correct),
@@ -2122,6 +2131,7 @@ function snapshotScoring(): string {
     black_day_under_seven_label: normalizeScoringLabel(scoring.black_day_under_seven_label),
     night_opinion_correct_label: normalizeScoringLabel(scoring.night_opinion_correct_label),
     night_opinion_wrong_label: normalizeScoringLabel(scoring.night_opinion_wrong_label),
+    night_opinion_black_named_red_label: normalizeScoringLabel(scoring.night_opinion_black_named_red_label),
     farewell_red_correct_label: normalizeScoringLabel(scoring.farewell_red_correct_label),
     farewell_red_wrong_label: normalizeScoringLabel(scoring.farewell_red_wrong_label),
     farewell_black_correct_label: normalizeScoringLabel(scoring.farewell_black_correct_label),
@@ -2820,6 +2830,7 @@ async function loadScoring(): Promise<void> {
     scoring.black_day_under_seven = normalizeScoringValue(scoring.black_day_under_seven)
     scoring.night_opinion_correct = normalizeScoringValue(scoring.night_opinion_correct)
     scoring.night_opinion_wrong = normalizeScoringValue(scoring.night_opinion_wrong)
+    scoring.night_opinion_black_named_red = normalizeScoringValue(scoring.night_opinion_black_named_red)
     scoring.farewell_red_correct = normalizeScoringValue(scoring.farewell_red_correct)
     scoring.farewell_red_wrong = normalizeScoringValue(scoring.farewell_red_wrong)
     scoring.farewell_black_correct = normalizeScoringValue(scoring.farewell_black_correct)
@@ -2855,6 +2866,7 @@ async function loadScoring(): Promise<void> {
     scoring.black_day_under_seven_label = normalizeScoringLabel(scoring.black_day_under_seven_label)
     scoring.night_opinion_correct_label = normalizeScoringLabel(scoring.night_opinion_correct_label)
     scoring.night_opinion_wrong_label = normalizeScoringLabel(scoring.night_opinion_wrong_label)
+    scoring.night_opinion_black_named_red_label = normalizeScoringLabel(scoring.night_opinion_black_named_red_label)
     scoring.farewell_red_correct_label = normalizeScoringLabel(scoring.farewell_red_correct_label)
     scoring.farewell_red_wrong_label = normalizeScoringLabel(scoring.farewell_red_wrong_label)
     scoring.farewell_black_correct_label = normalizeScoringLabel(scoring.farewell_black_correct_label)
