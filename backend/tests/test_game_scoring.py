@@ -53,18 +53,18 @@ RULE_SPECS = {
     "vote_red_day_one_compensation": (0.15, "Красному, ушедшему в первый день с причиной vote и vote_unique, без vote_lift. Другие дни и массовый подъём не подходят."),
     "vote_red_terminal": (-0.2, "Красному из by, голосовавшему за красного при единственном vote-уходе с result_after=black, кроме 3в3. Массовый подъём исключён."),
     "vote_red_terminal_3v3": (-0.3, "Красному из by, голосовавшему за красного при единственном vote-уходе с result_after=black и составом 3в3. Заменяет обычный штраф голосования на поражение."),
-    "black_win_3v3": (0.3, "Всем чёрным при единственном уходе красного через голосование с result_after=black и составом 3в3, без подъёма. Сейчас используется исход события, не итоговый result партии."),
-    "black_win_2v2_1v1_alive": (0.2, "Один раз за игру каждому ещё живому чёрному при первом death с result_after=black и составом 2в2 либо 1в1. Удаление цели уже учтено. Сейчас используется исход события."),
-    "black_win_2v2_1v1_dead": (0.1, "При том же первом исходе 2в2/1в1 каждому уже ушедшему чёрному вместо бонуса живому. Финальный result отдельно не проверяется."),
+    "black_win_3v3": (0.3, "Один раз каждому чёрному при итоговой победе чёрных и конечном составе 3в3, независимо от причины ухода. Состав восстанавливается по всем уходам журнала; промежуточный состав подъёма не считается итогом."),
+    "black_win_2v2_1v1_alive": (0.2, "Один раз каждому живому чёрному при итоговой победе чёрных на 2в2/1в1 независимо от причины ухода. Учитываются все уходы до завершения партии."),
+    "black_win_2v2_1v1_dead": (0.1, "При итоговой победе чёрных на 2в2/1в1 каждому мёртвому чёрному вместо бонуса живому. При другом итоговом результате бонуса нет."),
     "vote_lift_same_team": (-0.3, "Участнику by успешного подъёма минимум двух уникальных целей, если все цели его команды, включая его самого. Смешанный состав не оценивается; скорер опирается на vote."),
     "vote_lift_opponent_team": (0.3, "Участнику by успешного подъёма минимум двух уникальных целей, если все они противоположной команды. Смешанный состав и непринятый подъём не оцениваются."),
     "nomination_black_prevents_black_win": (-0.5, "Чёрному номинатору единственного чёрного кандидата первого сохранённого vote дня, реально ушедшего через vote. Более четырёх живых, критичность B>=R-2 при B>0, после номинации нет запланированной красной речи, в vote-уходах дня нет победы чёрных. Очевидность не нужна."),
     "nomination_red_last_hope": (0.3, "Красному при тех же условиях критического выставления, если цель неочевидна. Используются версии и живые снимка номинации; текущая реализация использует накопленные до конца журнала проверки шерифа."),
     "sheriff_two_unobvious_black_checks": (0.2, "Шерифу один раз за две подряд чёрные проверки. Каждая цель в момент своей проверки не должна быть автором активной версии. Красная проверка или проверка автора сбрасывает серию; общий алгоритм очевидности здесь не применяется."),
-    "don_missed_sheriff_two_checks": (-0.1, "Дону один раз после двух фактически выполненных проверок, если в первых двух нет настоящего шерифа. Одна проверка недостаточна; поздняя находка штраф не снимает."),
+    "don_missed_sheriff_two_checks": (-0.1, "Дону один раз, если он выполнил проверки именно в первую и вторую ночь и ни одна не нашла шерифа. Пропущенная ночь не заменяется третьей; поздняя находка штраф не снимает. Номер ночи — day события."),
     "citizen_false_check": (-0.1, "Только обычному мирному один раз за игру за фактически неверный цвет в любой сохранённой публичной версии. Исправление или удаление версии штраф не отменяет; шериф считается красным."),
     "sheriff_false_check_black_win": (-0.5, "Шерифу один раз при итоговой победе чёрных за фактически неверный цвет в последней активной версии. Проверять цель на самом деле не обязательно. Исправленная/удалённая ложь не штрафуется."),
-    "black_day_under_seven": (0.1, "Каждому живому чёрному за каждое событие day_start с числом живых меньше семи. Мёртвые не получают. Текущий скорер отдельно не проверяет нижнюю границу и повтор номера дня."),
+    "black_day_under_seven": (0.1, "Каждому живому чёрному за наступление дня с 3–6 живыми включительно. При двух и менее или семи и более начислений нет. Мёртвые не получают; повтор номера дня отдельно не проверяется."),
     "night_opinion_correct": (0.1, "За каждый фактически верный цвет красного автора ночного мнения, кроме совпадения ответа с очевидным цветом. Противоположный очевидному ответ оценивается по факту, а не автоматически как ошибка."),
     "night_opinion_wrong": (-0.1, "За каждый фактически неверный цвет красного автора ночного мнения, кроме совпадения ответа с очевидным цветом. Чёрные авторы и мнение о себе исключены."),
     "night_opinion_black_named_red": (0.05, "Чёрной цели за каждый ответ красного автора «красный», если ответ не совпал с очевидным для автора цветом. Может сочетаться со штрафом автору."),
@@ -144,11 +144,9 @@ for key, count in (("vote_red_terminal", 2), ("vote_red_terminal_3v3", 3)):
     event = death(3, reason="vote", day=2, vote_unique=True, by=[2], result_after="black",
                   red_alive_after=count, black_alive_after=count)
     add_case(key, [event], {2: RULE_SPECS[key][0]}, [{**event, "vote_lift": True}], "black")
-event = death(3, reason="vote", day=2, vote_unique=True, by=[2], result_after="black",
-              red_alive_after=3, black_alive_after=3)
-add_case("black_win_3v3", [event], {8: 0.3, 9: 0.3, 10: 0.3}, [{**event, "result_after": "red"}], "black")
-events = [death(10, reason="vote"), death(3, reason="night", result_after="black",
-                                        red_alive_after=2, black_alive_after=2)]
+events = [death(uid, reason="night") for uid in (4, 5, 6, 7)]
+add_case("black_win_3v3", events, {8: 0.3, 9: 0.3, 10: 0.3}, events[:-1], "black")
+events = [death(uid, reason="night") for uid in (10, 3, 4, 5, 6, 7)]
 add_case("black_win_2v2_1v1_alive", events, {8: 0.2, 9: 0.2}, [death(3, reason="night")], "black")
 add_case("black_win_2v2_1v1_dead", events, {10: 0.1}, [death(3, reason="night")], "black")
 for key, actor in (("vote_lift_same_team", 8), ("vote_lift_opponent_team", 2)):
@@ -166,8 +164,8 @@ add_case("sheriff_two_unobvious_black_checks",
          [dict(type="night_check", actor_id=1, target_id=t) for t in (8, 9)], {1: 0.2},
          [dict(type="night_check", actor_id=1, target_id=t) for t in (8, 2)])
 add_case("don_missed_sheriff_two_checks",
-         [dict(type="night_check", actor_id=10, target_id=t) for t in (2, 3)], {10: -0.1},
-         [dict(type="night_check", actor_id=10, target_id=t) for t in (2, 1)])
+         [dict(type="night_check", actor_id=10, target_id=t, day=n) for n, t in enumerate((2, 3), 1)], {10: -0.1},
+         [dict(type="night_check", actor_id=10, target_id=t, day=n) for n, t in enumerate((2, 1), 1)])
 add_case("citizen_false_check", [dict(type="versions", versions=[v(2, (8, "red"))])], {2: -0.1},
          [dict(type="versions", versions=[v(2, (8, "black"))])])
 add_case("sheriff_false_check_black_win", [dict(type="versions", versions=[v(1, (8, "red"))])], {1: -0.5},
@@ -294,7 +292,7 @@ class ScoringRulesTests(unittest.TestCase):
         """Штрафы/бонусы проверок однократны; отменённая ложь мирного остаётся, шерифа исчезает."""
         actions = [dict(type="night_check", actor_id=1, target_id=t) for t in (8, 9, 10)]
         self.assertEqual(score(actions)[0]["1"], 0.2)
-        actions = [dict(type="night_check", actor_id=10, target_id=t) for t in (2, 3, 1)]
+        actions = [dict(type="night_check", actor_id=10, target_id=t, day=n) for n, t in enumerate((2, 3, 1), 1)]
         self.assertEqual(score(actions)[0]["10"], -0.1)
         self.assertEqual(score(actions[:1])[0]["10"], 0)
         for actor, expected in ((2, 0.9), (1, 1)):
@@ -342,6 +340,67 @@ class ScoringRulesTests(unittest.TestCase):
         for raw, expected in ((1, 1.0), (0.1, 0.1), (0.125, 0.13), (-0.125, -0.13), (0.124, 0.12)):
             self.assertEqual(normalize_game_points_value(raw), expected)
 
+    def test_black_victory_bonus_for_every_departure_reason(self):
+        """Любой способ достижения итоговых 3в3/2в2/1в1 даёт один бонус; проигрыш/ничья не дают."""
+        keys = ("black_win_3v3", "black_win_2v2_1v1_alive", "black_win_2v2_1v1_dead")
+        rules = isolated_rules("black_win_3v3")
+        for key in keys:
+            rules[key] = RULE_SPECS[key][0]
+        for count in (1, 2, 3):
+            alive = set(range(1, count + 1)) | set(range(8, 8 + count))
+            departed = [uid for uid in IDS if uid not in alive]
+            for reason in ("night", "vote", "foul", "suicide"):
+                for result in ("red", "black", "draw"):
+                    with self.subTest(count=count, reason=reason, result=result):
+                        actions = [death(uid, reason=reason) for uid in departed]
+                        points, breakdown = score(actions, result, rules)
+                        for uid in (8, 9, 10):
+                            extra = (0.3 if count == 3 else 0.2 if uid in alive else 0.1) if result == "black" else 0
+                            self.assertEqual(points[str(uid)], (1 if result == "black" else 0) + extra)
+                            bonuses = [item for item in breakdown[str(uid)]["adjustments"] if item["rule_key"] in keys]
+                            self.assertEqual(len(bonuses), int(result == "black"))
+
+    def test_mass_departure_uses_final_composition(self):
+        """Промежуточные 3в3 или 2в2 в подъёме не дают отдельного бонуса; порядок уходов не влияет."""
+        rules = isolated_rules("black_win_3v3")
+        rules.update(black_win_2v2_1v1_alive=0.2, black_win_2v2_1v1_dead=0.1)
+        # Перед подъёмом 4 красных / 3 чёрных. После группы: 2 красных / 2 чёрных.
+        prefix = [death(uid, reason="night") for uid in (5, 6, 7)]
+        for group in ((3, 4, 10), (10, 4, 3), (4, 10, 3)):
+            with self.subTest(group=group):
+                actions = prefix + [death(uid, reason="vote", vote_lift=True,
+                    result_after="black", red_alive_after=3, black_alive_after=3) for uid in group]
+                points, _ = score(actions, "black", rules)
+                self.assertEqual([points[str(uid)] for uid in (8, 9, 10)], [1.2, 1.2, 1.1])
+        # Промежуточное 2в2, затем 2в1: даже ручной итог black не превращает стол в равенство.
+        actions = [death(uid, reason="night") for uid in (4, 5, 6, 7, 10)]
+        actions += [death(3, reason="vote", result_after="black", red_alive_after=2, black_alive_after=2),
+                    death(8, reason="vote")]
+        self.assertEqual([score(actions, "black", rules)[0][str(uid)] for uid in (8, 9, 10)], [1, 1, 1])
+
+    def test_day_bonus_both_boundaries_and_repetition(self):
+        """Дни с 3, 4, 5, 6 живыми оцениваются каждый раз; 0–2 и 7–10 исключены."""
+        for count in range(11):
+            alive = ([8] + [uid for uid in IDS if uid != 8])[:count]
+            actions = [dict(type="day_start", day=day, alive=alive) for day in (2, 3)]
+            points, _ = score(actions)
+            self.assertEqual(points["8"], 0.2 if 2 < count < 7 else 0)
+            if 9 not in alive:
+                self.assertEqual(points["9"], 0)
+
+    def test_don_checks_must_be_in_nights_one_and_two(self):
+        """Проверки ночей 2/3, 1/3, без номера и повтор одной ночи не заменяют две стартовые ночи."""
+        for checks, expected in (
+            (((1, 2), (2, 3)), -0.1),
+            (((1, 2), (2, 3), (3, 1)), -0.1),
+            (((2, 2), (3, 3)), 0), (((1, 2), (3, 3)), 0),
+            (((1, 2),), 0), (((2, 2),), 0), (((0, 2), (0, 3)), 0),
+            (((1, 2), (1, 3)), 0), (((1, 1), (2, 3)), 0), (((1, 2), (2, 1)), 0),
+        ):
+            with self.subTest(checks=checks):
+                actions = [dict(type="night_check", actor_id=10, target_id=uid, day=night) for night, uid in checks]
+                self.assertEqual(score(actions)[0]["10"], expected)
+
 
 def make_rule_test(row, positive):
     key, actions, deltas, negative, result = row
@@ -378,5 +437,3 @@ for scenario in CASES:
     for is_positive in (True, False):
         suffix = "positive" if is_positive else "negative"
         setattr(ScoringRulesTests, "test_" + scenario[0] + "_" + suffix, make_rule_test(scenario, is_positive))
-
-

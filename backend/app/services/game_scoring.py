@@ -1026,7 +1026,7 @@ def _apply_check_and_version_points(
     citizen_false_check_penalized: set[int] = set()
     sheriff_black_check_streak: dict[int, tuple[int, int]] = {}
     sheriff_black_check_awarded: set[int] = set()
-    don_first_two_checks: dict[int, list[int]] = {}
+    don_opening_night_checks: dict[int, dict[int, int]] = {}
     don_missed_sheriff_penalized: set[int] = set()
 
     for action_index, action in enumerate(actions, start=1):
@@ -1113,13 +1113,14 @@ def _apply_check_and_version_points(
         if actor_role != "don" or actor_id in don_missed_sheriff_penalized:
             continue
 
-        checked_ids = don_first_two_checks.setdefault(actor_id, [])
-        if len(checked_ids) >= 2:
+        night_number = _action_user_id(action, "day")
+        if night_number not in (1, 2):
             continue
-        checked_ids.append(target_id)
-        if len(checked_ids) < 2 or any(
+        checked_by_night = don_opening_night_checks.setdefault(actor_id, {})
+        checked_by_night.setdefault(night_number, target_id)
+        if len(checked_by_night) < 2 or any(
                 _role_for_user(roles, checked_id) == "sheriff"
-                for checked_id in checked_ids
+                for checked_id in checked_by_night.values()
         ):
             continue
 
@@ -1129,7 +1130,7 @@ def _apply_check_and_version_points(
             "type": "check_scoring",
             "check_kind": "don_missed_sheriff_two_checks",
             "actor_id": actor_id, "target_id": target_id,
-            "previous_target_id": checked_ids[0],
+            "previous_target_id": checked_by_night[1],
             "actor_adjustment": apply_rule(actor_id, "don_missed_sheriff_two_checks")
         }
         if audit is not None:
@@ -1475,7 +1476,6 @@ def _apply_action_points(
             )
 
     alive_player_ids = set(points)
-    black_endgame_bonus_awarded = False
     black_won = str(result or "").strip().lower() == "black"
     for action in normalized_actions:
         action_type = str(action.get("type") or "").strip().lower()
@@ -1602,7 +1602,7 @@ def _apply_action_points(
 
         if action_type == "day_start":
             alive_ids = _action_user_ids(action, "alive")
-            if len(alive_ids) >= 7:
+            if not 2 < len(alive_ids) < 7:
                 continue
             for user_id in alive_ids:
                 if user_id in points and _is_black(_role_for_user(roles, user_id)):
@@ -1646,22 +1646,6 @@ def _apply_action_points(
             red_alive_after = _action_user_id(action, "red_alive_after")
             black_alive_after = _action_user_id(action, "black_alive_after")
 
-            if (
-                    not black_endgame_bonus_awarded
-                    and result_after == "black"
-                    and red_alive_after == black_alive_after
-                    and red_alive_after in {1, 2}
-            ):
-                for user_id in points:
-                    if _is_black(_role_for_user(roles, user_id)):
-                        rule_key = (
-                            "black_win_2v2_1v1_alive"
-                            if user_id in alive_player_ids
-                            else "black_win_2v2_1v1_dead"
-                        )
-                        apply_rule(user_id, rule_key)
-                black_endgame_bonus_awarded = True
-
             if target_id in points and reason == "suicide":
                 rule_key = "suicide_lost" if _action_bool(action, "game_lost_after") else "suicide"
                 apply_rule(
@@ -1688,10 +1672,6 @@ def _apply_action_points(
                                 voter_id,
                                 penalty_key,
                             )
-                    if is_black_win_3v3:
-                        for user_id in points:
-                            if _is_black(_role_for_user(roles, user_id)):
-                                apply_rule(user_id, "black_win_3v3")
             continue
 
         if action_type != "best_move":
@@ -1717,6 +1697,23 @@ def _apply_action_points(
             actor_id,
             f"best_move_black_{black_count}",
         )
+
+    if black_won:
+        black_alive = sum(_is_black(_role_for_user(roles, uid)) for uid in alive_player_ids)
+        red_alive = sum(_role_for_user(roles, uid) in RED_ROLES for uid in alive_player_ids)
+        if black_alive == red_alive and black_alive in (1, 2, 3):
+            for user_id in points:
+                if not _is_black(_role_for_user(roles, user_id)):
+                    continue
+                if black_alive == 3:
+                    rule_key = "black_win_3v3"
+                else:
+                    rule_key = (
+                        "black_win_2v2_1v1_alive"
+                        if user_id in alive_player_ids
+                        else "black_win_2v2_1v1_dead"
+                    )
+                apply_rule(user_id, rule_key)
 
 
 def _additional_points_bounds(rules: Mapping[str, object]) -> tuple[Decimal, Decimal]:
