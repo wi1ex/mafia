@@ -6,13 +6,12 @@ from typing import cast
 from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...core.clients import get_redis
-from ...core.roles import ADDITIONAL_ROLE_HEAD_RATE, ROLE_ADMIN, has_additional_role, normalize_user_role
+from ...core.roles import ROLE_ADMIN, normalize_user_role
 from ...security.decorators import log_route, rate_limited, require_room_creator
 from ...core.logging import log_action
 from ...security.auth_tokens import get_identity, get_identity_optional
 from ...core.db import get_session
 from ...models.room import Room
-from ...models.user import User
 from ...realtime.sio import sio
 from ...schemas.common import Identity, Ok
 from ...schemas.room import (
@@ -85,11 +84,6 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
     gp = payload.game
     if not app_settings.rating_enabled and gp.mode == "rating":
         gp = gp.model_copy(update={"mode": "normal"})
-    if gp.mode == "rating":
-        creator = await session.get(User, uid)
-        if not creator or not has_additional_role(creator.additional_roles, ADDITIONAL_ROLE_HEAD_RATE):
-            gp = gp.model_copy(update={"mode": "normal"})
-
     anonymity = payload.anonymity
     spectators_limit = normalize_spectators_limit(gp.spectators_limit)
     if anonymity == "hidden":
@@ -302,7 +296,8 @@ async def update_game(room_id: int, payload: GameParams, ident: Identity = Depen
     params = await get_room_params_or_404(r, room_id)
     actor_id = int(ident["id"])
     actor_role = normalize_user_role(ident.get("role"))
-    if int(params.get("creator") or 0) != actor_id and actor_role != ROLE_ADMIN:
+    is_creator = int(params.get("creator") or 0) == actor_id
+    if not is_creator and actor_role != ROLE_ADMIN:
         raise HTTPException(status_code=403, detail="forbidden")
 
     raw_gstate = await r.hgetall(f"room:{room_id}:game_state")
@@ -313,11 +308,6 @@ async def update_game(room_id: int, payload: GameParams, ident: Identity = Depen
     game_params = payload
     if not get_cached_settings().rating_enabled and game_params.mode == "rating":
         game_params = game_params.model_copy(update={"mode": "normal"})
-    if game_params.mode == "rating":
-        actor = await session.get(User, actor_id)
-        if not actor or not has_additional_role(actor.additional_roles, ADDITIONAL_ROLE_HEAD_RATE):
-            raise HTTPException(status_code=403, detail="rating_head_required")
-
     spectators_limit = normalize_spectators_limit(game_params.spectators_limit)
     game_dict = {
         "mode": game_params.mode,

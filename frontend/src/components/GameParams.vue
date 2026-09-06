@@ -128,7 +128,7 @@
 import { computed, ref, watch } from 'vue'
 import { api } from '@/services/axios'
 import { alertDialog } from '@/services/confirm'
-import { useSettingsStore, useUserStore } from '@/store'
+import { useSettingsStore } from '@/store'
 import {
   normalizeRoomGameParams,
   roomGameDefault,
@@ -161,14 +161,9 @@ const paramsScroll = ref<HTMLElement | null>(null)
 const game = ref<RoomGameParams>({ ...roomGameDefault })
 const initialGame = ref<RoomGameParams | null>(null)
 const settings = useSettingsStore()
-const userStore = useUserStore()
 const gameParamsDisabled = computed(() => loading.value || !props.canEdit)
 const ratingEnabled = computed(() => settings.ratingEnabled)
-const isRatingHead = computed(() => (
-  Array.isArray(userStore.user?.additional_roles)
-  && userStore.user.additional_roles.some(role => String(role || '').trim().toLowerCase() === 'head_rate')
-))
-const ratingModeDisabled = computed(() => gameParamsDisabled.value || !ratingEnabled.value || !isRatingHead.value)
+const ratingModeDisabled = computed(() => gameParamsDisabled.value || !ratingEnabled.value)
 
 const isRating = computed<boolean>({
   get: () => game.value.mode === 'rating',
