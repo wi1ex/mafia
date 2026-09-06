@@ -171,6 +171,7 @@ class GameScoringSettingsOut(BaseModel):
     night_shoot_miss: float
     night_shoot_miss_terminal: float
     vote_opponent_team: float
+    vote_red_day_one_compensation: float
     vote_red_terminal: float
     vote_red_terminal_3v3: float
     black_win_3v3: float
@@ -207,6 +208,7 @@ class GameScoringSettingsOut(BaseModel):
     night_shoot_miss_label: str
     night_shoot_miss_terminal_label: str
     vote_opponent_team_label: str
+    vote_red_day_one_compensation_label: str
     vote_red_terminal_label: str
     vote_red_terminal_3v3_label: str
     black_win_3v3_label: str
@@ -248,6 +250,7 @@ class GameScoringSettingsUpdateIn(BaseModel):
     night_shoot_miss: Optional[float] = Field(default=None, ge=-10, le=10)
     night_shoot_miss_terminal: Optional[float] = Field(default=None, ge=-10, le=10)
     vote_opponent_team: Optional[float] = Field(default=None, ge=-10, le=10)
+    vote_red_day_one_compensation: Optional[float] = Field(default=None, ge=-10, le=10)
     vote_red_terminal: Optional[float] = Field(default=None, ge=-10, le=10)
     vote_red_terminal_3v3: Optional[float] = Field(default=None, ge=-10, le=10)
     black_win_3v3: Optional[float] = Field(default=None, ge=-10, le=10)
@@ -284,6 +287,7 @@ class GameScoringSettingsUpdateIn(BaseModel):
     night_shoot_miss_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
     night_shoot_miss_terminal_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
     vote_opponent_team_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    vote_red_day_one_compensation_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
     vote_red_terminal_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
     vote_red_terminal_3v3_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
     black_win_3v3_label: Optional[str] = Field(default=None, min_length=1, max_length=255)

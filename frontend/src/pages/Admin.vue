@@ -243,6 +243,10 @@
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Заголосовал игрока другой команды" />
                 <UiInput id="scoring-vote-opponent-team-label" size="low" v-model.trim="scoring.vote_opponent_team_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
+                <UiInput id="scoring-vote-red-day-one-compensation" size="low" v-model.number="scoring.vote_red_day_one_compensation" type="number" step="0.01"
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Компенсация: заголосован в 1й день" />
+                <UiInput id="scoring-vote-red-day-one-compensation-label" size="low" v-model.trim="scoring.vote_red_day_one_compensation_label" maxlength="255"
+                         autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 <UiInput id="scoring-vote-red-terminal" size="low" v-model.number="scoring.vote_red_terminal" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Голосование на поражение" />
                 <UiInput id="scoring-vote-red-terminal-label" size="low" v-model.trim="scoring.vote_red_terminal_label" maxlength="255"
@@ -1296,6 +1300,7 @@ type GameScoringSettings = {
   night_shoot_miss: number
   night_shoot_miss_terminal: number
   vote_opponent_team: number
+  vote_red_day_one_compensation: number
   vote_red_terminal: number
   vote_red_terminal_3v3: number
   black_win_3v3: number
@@ -1332,6 +1337,7 @@ type GameScoringSettings = {
   night_shoot_miss_label: string
   night_shoot_miss_terminal_label: string
   vote_opponent_team_label: string
+  vote_red_day_one_compensation_label: string
   vote_red_terminal_label: string
   vote_red_terminal_3v3_label: string
   black_win_3v3_label: string
@@ -1661,6 +1667,7 @@ const scoring = reactive<GameScoringSettings>({
   night_shoot_miss: -0.2,
   night_shoot_miss_terminal: -0.5,
   vote_opponent_team: 0.15,
+  vote_red_day_one_compensation: 0.15,
   vote_red_terminal: -0.2,
   vote_red_terminal_3v3: -0.3,
   black_win_3v3: 0.3,
@@ -1697,6 +1704,7 @@ const scoring = reactive<GameScoringSettings>({
   night_shoot_miss_label: 'Промахнувшийся черный',
   night_shoot_miss_terminal_label: 'Промах при гарантированной победе',
   vote_opponent_team_label: 'Заголосовал игрока другой команды',
+  vote_red_day_one_compensation_label: 'Компенсация: заголосован в 1й день',
   vote_red_terminal_label: 'Голосование на поражение',
   vote_red_terminal_3v3_label: 'Голосование на 3в3',
   black_win_3v3_label: 'Победа 3в3',
@@ -2079,6 +2087,7 @@ function snapshotScoring(): string {
     night_shoot_miss: normalizeScoringValue(scoring.night_shoot_miss),
     night_shoot_miss_terminal: normalizeScoringValue(scoring.night_shoot_miss_terminal),
     vote_opponent_team: normalizeScoringValue(scoring.vote_opponent_team),
+    vote_red_day_one_compensation: normalizeScoringValue(scoring.vote_red_day_one_compensation),
     vote_red_terminal: normalizeScoringValue(scoring.vote_red_terminal),
     vote_red_terminal_3v3: normalizeScoringValue(scoring.vote_red_terminal_3v3),
     black_win_3v3: normalizeScoringValue(scoring.black_win_3v3),
@@ -2115,6 +2124,7 @@ function snapshotScoring(): string {
     night_shoot_miss_label: normalizeScoringLabel(scoring.night_shoot_miss_label),
     night_shoot_miss_terminal_label: normalizeScoringLabel(scoring.night_shoot_miss_terminal_label),
     vote_opponent_team_label: normalizeScoringLabel(scoring.vote_opponent_team_label),
+    vote_red_day_one_compensation_label: normalizeScoringLabel(scoring.vote_red_day_one_compensation_label),
     vote_red_terminal_label: normalizeScoringLabel(scoring.vote_red_terminal_label),
     vote_red_terminal_3v3_label: normalizeScoringLabel(scoring.vote_red_terminal_3v3_label),
     black_win_3v3_label: normalizeScoringLabel(scoring.black_win_3v3_label),
@@ -2814,6 +2824,7 @@ async function loadScoring(): Promise<void> {
     scoring.night_shoot_miss = normalizeScoringValue(scoring.night_shoot_miss)
     scoring.night_shoot_miss_terminal = normalizeScoringValue(scoring.night_shoot_miss_terminal)
     scoring.vote_opponent_team = normalizeScoringValue(scoring.vote_opponent_team)
+    scoring.vote_red_day_one_compensation = normalizeScoringValue(scoring.vote_red_day_one_compensation)
     scoring.vote_red_terminal = normalizeScoringValue(scoring.vote_red_terminal)
     scoring.vote_red_terminal_3v3 = normalizeScoringValue(scoring.vote_red_terminal_3v3)
     scoring.black_win_3v3 = normalizeScoringValue(scoring.black_win_3v3)
@@ -2850,6 +2861,7 @@ async function loadScoring(): Promise<void> {
     scoring.night_shoot_miss_label = normalizeScoringLabel(scoring.night_shoot_miss_label)
     scoring.night_shoot_miss_terminal_label = normalizeScoringLabel(scoring.night_shoot_miss_terminal_label)
     scoring.vote_opponent_team_label = normalizeScoringLabel(scoring.vote_opponent_team_label)
+    scoring.vote_red_day_one_compensation_label = normalizeScoringLabel(scoring.vote_red_day_one_compensation_label)
     scoring.vote_red_terminal_label = normalizeScoringLabel(scoring.vote_red_terminal_label)
     scoring.vote_red_terminal_3v3_label = normalizeScoringLabel(scoring.vote_red_terminal_3v3_label)
     scoring.black_win_3v3_label = normalizeScoringLabel(scoring.black_win_3v3_label)

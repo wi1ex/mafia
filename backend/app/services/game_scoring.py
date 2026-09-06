@@ -32,6 +32,7 @@ GAME_SCORING_RULE_DEFAULTS: dict[str, Decimal] = {
     "night_shoot_miss": Decimal("-0.20"),
     "night_shoot_miss_terminal": Decimal("-0.50"),
     "vote_opponent_team": Decimal("0.15"),
+    "vote_red_day_one_compensation": Decimal("0.15"),
     "vote_red_terminal": Decimal("-0.20"),
     "vote_red_terminal_3v3": Decimal("-0.30"),
     "black_win_3v3": Decimal("0.30"),
@@ -71,6 +72,7 @@ GAME_SCORING_LABEL_DEFAULTS: dict[str, str] = {
     "night_shoot_miss": "Промахнувшийся черный",
     "night_shoot_miss_terminal": "Промах при гарантированной победе",
     "vote_opponent_team": "Заголосовал игрока другой команды",
+    "vote_red_day_one_compensation": "Компенсация: заголосован в 1й день",
     "vote_red_terminal": "Голосование на поражение",
     "vote_red_terminal_3v3": "Голосование на 3в3",
     "black_win_3v3": "Победа 3в3",
@@ -1659,6 +1661,8 @@ def _apply_action_points(
                     and target_id in points
             ):
                 target_team = _team_for_role(_role_for_user(roles, target_id))
+                if target_team == "red" and _action_user_id(action, "day") == 1:
+                    apply_rule(target_id, "vote_red_day_one_compensation")
                 voters = [voter_id for voter_id in _action_user_ids(action, "by") if voter_id in points]
                 if target_team == "red" and result_after == "black":
                     is_black_win_3v3 = red_alive_after == 3 and black_alive_after == 3
