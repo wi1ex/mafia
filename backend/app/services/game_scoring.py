@@ -31,6 +31,8 @@ GAME_SCORING_RULE_DEFAULTS: dict[str, Decimal] = {
     "best_move_black_3": Decimal("0.40"),
     "night_shoot_miss": Decimal("-0.20"),
     "night_shoot_miss_terminal": Decimal("-0.50"),
+    "night_self_shot_black_win_1": Decimal("0.25"),
+    "night_self_shot_black_win_2": Decimal("0.15"),
     "vote_opponent_team": Decimal("0.15"),
     "vote_red_day_one_compensation": Decimal("0.15"),
     "vote_red_terminal": Decimal("-0.20"),
@@ -71,6 +73,8 @@ GAME_SCORING_LABEL_DEFAULTS: dict[str, str] = {
     "best_move_black_3": "Лучший ход: 3 из 3",
     "night_shoot_miss": "Промахнувшийся черный",
     "night_shoot_miss_terminal": "Промах при гарантированной победе",
+    "night_self_shot_black_win_1": "Компенсация: самострел в 1ю ночь",
+    "night_self_shot_black_win_2": "Компенсация: самострел во 2ю ночь",
     "vote_opponent_team": "Заголосовал игрока другой команды",
     "vote_red_day_one_compensation": "Компенсация: заголосован в 1й день",
     "vote_red_terminal": "Голосование на поражение",
@@ -1472,6 +1476,7 @@ def _apply_action_points(
 
     alive_player_ids = set(points)
     black_endgame_bonus_awarded = False
+    black_won = str(result or "").strip().lower() == "black"
     for action in normalized_actions:
         action_type = str(action.get("type") or "").strip().lower()
 
@@ -1482,6 +1487,16 @@ def _apply_action_points(
 
         if action_type == "night_shoot_result":
             if _action_bool(action, "kill_ok"):
+                night_number = _action_user_id(action, "day")
+                target_id = _action_user_id(action, "kill_uid")
+                if (
+                        black_won
+                        and target_id in points
+                        and _is_black(_role_for_user(roles, target_id))
+                        and night_number in (1, 2)
+                ):
+                    rule_key = f"night_self_shot_black_win_{night_number}"
+                    apply_rule(target_id, rule_key)
                 continue
 
             shooters = [

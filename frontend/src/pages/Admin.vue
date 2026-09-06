@@ -223,6 +223,14 @@
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Промах при гарантированной победе" />
                 <UiInput id="scoring-night-shoot-miss-terminal-label" size="low" v-model.trim="scoring.night_shoot_miss_terminal_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
+                <UiInput id="scoring-night-self-shot-black-win-1" size="low" v-model.number="scoring.night_self_shot_black_win_1" type="number" step="0.01"
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Компенсация: самострел в 1ю ночь" />
+                <UiInput id="scoring-night-self-shot-black-win-1-label" size="low" v-model.trim="scoring.night_self_shot_black_win_1_label" maxlength="255"
+                         autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
+                <UiInput id="scoring-night-self-shot-black-win-2" size="low" v-model.number="scoring.night_self_shot_black_win_2" type="number" step="0.01"
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Компенсация: самострел во 2ю ночь" />
+                <UiInput id="scoring-night-self-shot-black-win-2-label" size="low" v-model.trim="scoring.night_self_shot_black_win_2_label" maxlength="255"
+                         autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 <UiInput id="scoring-sheriff-two-unobvious-black-checks" size="low" v-model.number="scoring.sheriff_two_unobvious_black_checks" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Две подряд чёрные проверки" />
                 <UiInput id="scoring-sheriff-two-unobvious-black-checks-label" size="low" v-model.trim="scoring.sheriff_two_unobvious_black_checks_label" maxlength="255"
@@ -1299,6 +1307,8 @@ type GameScoringSettings = {
   best_move_black_3: number
   night_shoot_miss: number
   night_shoot_miss_terminal: number
+  night_self_shot_black_win_1: number
+  night_self_shot_black_win_2: number
   vote_opponent_team: number
   vote_red_day_one_compensation: number
   vote_red_terminal: number
@@ -1336,6 +1346,8 @@ type GameScoringSettings = {
   best_move_black_3_label: string
   night_shoot_miss_label: string
   night_shoot_miss_terminal_label: string
+  night_self_shot_black_win_1_label: string
+  night_self_shot_black_win_2_label: string
   vote_opponent_team_label: string
   vote_red_day_one_compensation_label: string
   vote_red_terminal_label: string
@@ -1666,6 +1678,8 @@ const scoring = reactive<GameScoringSettings>({
   best_move_black_3: 0.4,
   night_shoot_miss: -0.2,
   night_shoot_miss_terminal: -0.5,
+  night_self_shot_black_win_1: 0.25,
+  night_self_shot_black_win_2: 0.15,
   vote_opponent_team: 0.15,
   vote_red_day_one_compensation: 0.15,
   vote_red_terminal: -0.2,
@@ -1703,6 +1717,8 @@ const scoring = reactive<GameScoringSettings>({
   best_move_black_3_label: 'Лучший ход: 3 из 3',
   night_shoot_miss_label: 'Промахнувшийся черный',
   night_shoot_miss_terminal_label: 'Промах при гарантированной победе',
+  night_self_shot_black_win_1_label: 'Компенсация: самострел в 1ю ночь',
+  night_self_shot_black_win_2_label: 'Компенсация: самострел во 2ю ночь',
   vote_opponent_team_label: 'Заголосовал игрока другой команды',
   vote_red_day_one_compensation_label: 'Компенсация: заголосован в 1й день',
   vote_red_terminal_label: 'Голосование на поражение',
@@ -2086,6 +2102,8 @@ function snapshotScoring(): string {
     best_move_black_3: normalizeScoringValue(scoring.best_move_black_3),
     night_shoot_miss: normalizeScoringValue(scoring.night_shoot_miss),
     night_shoot_miss_terminal: normalizeScoringValue(scoring.night_shoot_miss_terminal),
+    night_self_shot_black_win_1: normalizeScoringValue(scoring.night_self_shot_black_win_1),
+    night_self_shot_black_win_2: normalizeScoringValue(scoring.night_self_shot_black_win_2),
     vote_opponent_team: normalizeScoringValue(scoring.vote_opponent_team),
     vote_red_day_one_compensation: normalizeScoringValue(scoring.vote_red_day_one_compensation),
     vote_red_terminal: normalizeScoringValue(scoring.vote_red_terminal),
@@ -2123,6 +2141,8 @@ function snapshotScoring(): string {
     best_move_black_3_label: normalizeScoringLabel(scoring.best_move_black_3_label),
     night_shoot_miss_label: normalizeScoringLabel(scoring.night_shoot_miss_label),
     night_shoot_miss_terminal_label: normalizeScoringLabel(scoring.night_shoot_miss_terminal_label),
+    night_self_shot_black_win_1_label: normalizeScoringLabel(scoring.night_self_shot_black_win_1_label),
+    night_self_shot_black_win_2_label: normalizeScoringLabel(scoring.night_self_shot_black_win_2_label),
     vote_opponent_team_label: normalizeScoringLabel(scoring.vote_opponent_team_label),
     vote_red_day_one_compensation_label: normalizeScoringLabel(scoring.vote_red_day_one_compensation_label),
     vote_red_terminal_label: normalizeScoringLabel(scoring.vote_red_terminal_label),
@@ -2823,6 +2843,8 @@ async function loadScoring(): Promise<void> {
     scoring.best_move_black_3 = normalizeScoringValue(scoring.best_move_black_3)
     scoring.night_shoot_miss = normalizeScoringValue(scoring.night_shoot_miss)
     scoring.night_shoot_miss_terminal = normalizeScoringValue(scoring.night_shoot_miss_terminal)
+    scoring.night_self_shot_black_win_1 = normalizeScoringValue(scoring.night_self_shot_black_win_1)
+    scoring.night_self_shot_black_win_2 = normalizeScoringValue(scoring.night_self_shot_black_win_2)
     scoring.vote_opponent_team = normalizeScoringValue(scoring.vote_opponent_team)
     scoring.vote_red_day_one_compensation = normalizeScoringValue(scoring.vote_red_day_one_compensation)
     scoring.vote_red_terminal = normalizeScoringValue(scoring.vote_red_terminal)
@@ -2860,6 +2882,8 @@ async function loadScoring(): Promise<void> {
     scoring.best_move_black_3_label = normalizeScoringLabel(scoring.best_move_black_3_label)
     scoring.night_shoot_miss_label = normalizeScoringLabel(scoring.night_shoot_miss_label)
     scoring.night_shoot_miss_terminal_label = normalizeScoringLabel(scoring.night_shoot_miss_terminal_label)
+    scoring.night_self_shot_black_win_1_label = normalizeScoringLabel(scoring.night_self_shot_black_win_1_label)
+    scoring.night_self_shot_black_win_2_label = normalizeScoringLabel(scoring.night_self_shot_black_win_2_label)
     scoring.vote_opponent_team_label = normalizeScoringLabel(scoring.vote_opponent_team_label)
     scoring.vote_red_day_one_compensation_label = normalizeScoringLabel(scoring.vote_red_day_one_compensation_label)
     scoring.vote_red_terminal_label = normalizeScoringLabel(scoring.vote_red_terminal_label)

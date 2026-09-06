@@ -170,6 +170,8 @@ class GameScoringSettingsOut(BaseModel):
     best_move_black_3: float
     night_shoot_miss: float
     night_shoot_miss_terminal: float
+    night_self_shot_black_win_1: float
+    night_self_shot_black_win_2: float
     vote_opponent_team: float
     vote_red_day_one_compensation: float
     vote_red_terminal: float
@@ -207,6 +209,8 @@ class GameScoringSettingsOut(BaseModel):
     best_move_black_3_label: str
     night_shoot_miss_label: str
     night_shoot_miss_terminal_label: str
+    night_self_shot_black_win_1_label: str
+    night_self_shot_black_win_2_label: str
     vote_opponent_team_label: str
     vote_red_day_one_compensation_label: str
     vote_red_terminal_label: str
@@ -249,6 +253,8 @@ class GameScoringSettingsUpdateIn(BaseModel):
     best_move_black_3: Optional[float] = Field(default=None, ge=-10, le=10)
     night_shoot_miss: Optional[float] = Field(default=None, ge=-10, le=10)
     night_shoot_miss_terminal: Optional[float] = Field(default=None, ge=-10, le=10)
+    night_self_shot_black_win_1: Optional[float] = Field(default=None, ge=-10, le=10)
+    night_self_shot_black_win_2: Optional[float] = Field(default=None, ge=-10, le=10)
     vote_opponent_team: Optional[float] = Field(default=None, ge=-10, le=10)
     vote_red_day_one_compensation: Optional[float] = Field(default=None, ge=-10, le=10)
     vote_red_terminal: Optional[float] = Field(default=None, ge=-10, le=10)
@@ -286,6 +292,8 @@ class GameScoringSettingsUpdateIn(BaseModel):
     best_move_black_3_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
     night_shoot_miss_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
     night_shoot_miss_terminal_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    night_self_shot_black_win_1_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    night_self_shot_black_win_2_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
     vote_opponent_team_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
     vote_red_day_one_compensation_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
     vote_red_terminal_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
