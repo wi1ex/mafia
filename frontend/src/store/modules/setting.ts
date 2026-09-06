@@ -15,7 +15,6 @@ export interface PublicSettings {
   rating_enabled: boolean
   streams_can_start: boolean
   chat_open_enabled: boolean
-  chat_messages_enabled: boolean
   verification_restrictions: boolean
   rtc_echo_cancellation_enabled: boolean
   rtc_noise_suppression_enabled: boolean
@@ -51,7 +50,6 @@ const PUBLIC_SETTINGS_KEYS: readonly (keyof PublicSettings)[] = [
   'rating_enabled',
   'streams_can_start',
   'chat_open_enabled',
-  'chat_messages_enabled',
   'verification_restrictions',
   'rtc_echo_cancellation_enabled',
   'rtc_noise_suppression_enabled',
@@ -78,7 +76,6 @@ export const useSettingsStore = defineStore('settings', () => {
   const ratingEnabled = ref(true)
   const streamsCanStart = ref(true)
   const chatOpenEnabled = ref(true)
-  const chatMessagesEnabled = ref(true)
   const verificationRestrictions = ref(true)
   const rtcEchoCancellationEnabled = ref(true)
   const rtcNoiseSuppressionEnabled = ref(true)
@@ -163,7 +160,6 @@ export const useSettingsStore = defineStore('settings', () => {
     ratingEnabled.value = Boolean(data.rating_enabled)
     streamsCanStart.value = Boolean(data.streams_can_start)
     chatOpenEnabled.value = Boolean(data.chat_open_enabled)
-    chatMessagesEnabled.value = Boolean(data.chat_messages_enabled)
     verificationRestrictions.value = Boolean(data.verification_restrictions)
     rtcEchoCancellationEnabled.value = Boolean(data.rtc_echo_cancellation_enabled)
     rtcNoiseSuppressionEnabled.value = Boolean(data.rtc_noise_suppression_enabled)
@@ -265,7 +261,6 @@ export const useSettingsStore = defineStore('settings', () => {
     ratingEnabled,
     streamsCanStart,
     chatOpenEnabled,
-    chatMessagesEnabled,
     verificationRestrictions,
     rtcEchoCancellationEnabled,
     rtcNoiseSuppressionEnabled,

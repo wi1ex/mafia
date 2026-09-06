@@ -728,7 +728,7 @@ async def resolve_global_chat_permissions(session: AsyncSession, user_id: int) -
         can_open = False
         error = "not_verified"
 
-    can_send = can_open and (is_admin or bool(app_settings.chat_messages_enabled))
+    can_send = can_open
     can_react = can_open
     can_delete_own = can_open
 
@@ -763,9 +763,6 @@ def global_chat_send_error(permissions: GlobalChatPermissions) -> str:
 
     if not permissions.can_open:
         return permissions.error or "forbidden"
-
-    if not permissions.can_send and not bool(get_cached_settings().chat_messages_enabled):
-        return "chat_messages_disabled"
 
     return "forbidden"
 

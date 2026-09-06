@@ -29,7 +29,6 @@ class AppSettingsSnapshot:
     rating_enabled: bool
     streams_can_start: bool
     chat_open_enabled: bool
-    chat_messages_enabled: bool
     verification_restrictions: bool
     rtc_echo_cancellation_enabled: bool
     rtc_noise_suppression_enabled: bool
@@ -91,7 +90,6 @@ async def ensure_app_settings(session: AsyncSession) -> AppSettings:
             rating_enabled=defaults.rating_enabled,
             streams_can_start=defaults.streams_can_start,
             chat_open_enabled=defaults.chat_open_enabled,
-            chat_messages_enabled=defaults.chat_messages_enabled,
             verification_restrictions=defaults.verification_restrictions,
             rtc_echo_cancellation_enabled=defaults.rtc_echo_cancellation_enabled,
             rtc_noise_suppression_enabled=defaults.rtc_noise_suppression_enabled,

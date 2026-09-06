@@ -20,7 +20,6 @@ class AppSettings(Base):
     rating_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.RATING_ENABLED))
     streams_can_start: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.STREAMS_CAN_START))
     chat_open_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.CHAT_OPEN_ENABLED))
-    chat_messages_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.CHAT_MESSAGES_ENABLED))
     verification_restrictions: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.VERIFICATION_RESTRICTIONS))
     rtc_echo_cancellation_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.RTC_ECHO_CANCELLATION_ENABLED))
     rtc_noise_suppression_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.RTC_NOISE_SUPPRESSION_ENABLED))

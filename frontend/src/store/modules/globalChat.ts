@@ -823,8 +823,6 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
         return 'Во время активной игры общий чат недоступен.'
       case 'chat_disabled':
         return 'Общий чат временно закрыт администратором.'
-      case 'chat_messages_disabled':
-        return 'Отправка сообщений в общий чат временно отключена.'
       case 'not_verified':
         return 'Для доступа к общему чату необходимо пройти верификацию.'
       case 'user_timeout':

@@ -85,7 +85,6 @@
               <UiSwitch class="switch-item" :width="250" size="low" v-model="site.rooms_can_create" label="Создание комнат" :disabled="savingSettings" />
               <UiSwitch class="switch-item" :width="250" size="low" v-model="site.rooms_can_enter" label="Вход в комнату" :disabled="savingSettings" />
               <UiSwitch class="switch-item" :width="250" size="low" v-model="site.chat_open_enabled" label="Открытие чата" :disabled="savingSettings" />
-              <UiSwitch class="switch-item" :width="250" size="low" v-model="site.chat_messages_enabled" label="Сообщения в чат" :disabled="savingSettings" />
               <UiSwitch class="switch-item" :width="250" size="low" v-model="site.streams_can_start" label="Запуск трансляций" :disabled="savingSettings" />
               <UiSwitch class="switch-item" :width="250" size="low" v-model="site.games_can_start" label="Запуск игр" :disabled="savingSettings" />
               <UiSwitch class="switch-item" :width="250" size="low" v-model="site.rating_enabled" label="Запуск рейтинга" :disabled="savingSettings" />
@@ -1258,7 +1257,6 @@ type SiteSettings = {
   rating_enabled: boolean
   streams_can_start: boolean
   chat_open_enabled: boolean
-  chat_messages_enabled: boolean
   verification_restrictions: boolean
   rtc_echo_cancellation_enabled: boolean
   rtc_noise_suppression_enabled: boolean
@@ -1629,7 +1627,6 @@ const site = reactive<SiteSettings>({
   rating_enabled: true,
   streams_can_start: true,
   chat_open_enabled: true,
-  chat_messages_enabled: true,
   verification_restrictions: true,
   rtc_echo_cancellation_enabled: true,
   rtc_noise_suppression_enabled: true,
@@ -2052,7 +2049,6 @@ function snapshotSite(): string {
     rating_enabled: Boolean(site.rating_enabled),
     streams_can_start: Boolean(site.streams_can_start),
     chat_open_enabled: Boolean(site.chat_open_enabled),
-    chat_messages_enabled: Boolean(site.chat_messages_enabled),
     verification_restrictions: Boolean(site.verification_restrictions),
     admin_banner_text: normalizeAdminBannerText(site.admin_banner_text),
     admin_banner_link: normalizeAdminBannerLink(site.admin_banner_link),
@@ -2966,7 +2962,6 @@ async function saveSettings(): Promise<void> {
         rating_enabled: Boolean(site.rating_enabled),
         streams_can_start: Boolean(site.streams_can_start),
         chat_open_enabled: Boolean(site.chat_open_enabled),
-        chat_messages_enabled: Boolean(site.chat_messages_enabled),
         verification_restrictions: Boolean(site.verification_restrictions),
         rtc_echo_cancellation_enabled: Boolean(site.rtc_echo_cancellation_enabled),
         rtc_noise_suppression_enabled: Boolean(site.rtc_noise_suppression_enabled),
@@ -3020,7 +3015,6 @@ async function saveSettings(): Promise<void> {
       rating_enabled: site.rating_enabled,
       streams_can_start: site.streams_can_start,
       chat_open_enabled: site.chat_open_enabled,
-      chat_messages_enabled: site.chat_messages_enabled,
       verification_restrictions: site.verification_restrictions,
       rtc_echo_cancellation_enabled: site.rtc_echo_cancellation_enabled,
       rtc_noise_suppression_enabled: site.rtc_noise_suppression_enabled,

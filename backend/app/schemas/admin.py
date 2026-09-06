@@ -68,7 +68,6 @@ class SiteSettingsOut(BaseModel):
     rating_enabled: bool
     streams_can_start: bool
     chat_open_enabled: bool
-    chat_messages_enabled: bool
     verification_restrictions: bool
     rtc_echo_cancellation_enabled: bool
     rtc_noise_suppression_enabled: bool
@@ -96,7 +95,6 @@ class SiteSettingsUpdateIn(BaseModel):
     rating_enabled: Optional[bool] = None
     streams_can_start: Optional[bool] = None
     chat_open_enabled: Optional[bool] = None
-    chat_messages_enabled: Optional[bool] = None
     verification_restrictions: Optional[bool] = None
     rtc_echo_cancellation_enabled: Optional[bool] = None
     rtc_noise_suppression_enabled: Optional[bool] = None
@@ -338,7 +336,6 @@ class PublicSettingsOut(BaseModel):
     rating_enabled: bool
     streams_can_start: bool
     chat_open_enabled: bool
-    chat_messages_enabled: bool
     verification_restrictions: bool
     rtc_echo_cancellation_enabled: bool
     rtc_noise_suppression_enabled: bool

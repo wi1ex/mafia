@@ -55,7 +55,6 @@ class Settings(BaseSettings):
     RATING_ENABLED: bool = True
     STREAMS_CAN_START: bool = True
     CHAT_OPEN_ENABLED: bool = True
-    CHAT_MESSAGES_ENABLED: bool = True
     VERIFICATION_RESTRICTIONS: bool = True
     RTC_ECHO_CANCELLATION_ENABLED: bool = True
     RTC_NOISE_SUPPRESSION_ENABLED: bool = True
