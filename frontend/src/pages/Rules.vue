@@ -236,6 +236,8 @@ onBeforeUnmount(() => {
     flex-direction: column;
     gap: 20px;
     min-width: 0;
+    -webkit-user-select: text;
+    user-select: text;
   }
   .rules-toc {
     display: flex;
