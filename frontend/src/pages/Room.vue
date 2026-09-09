@@ -989,6 +989,12 @@ let gameStartOverlayTimerId: number | null = null
 let gameEndOverlayTimerId: number | null = null
 let bgRestorePending = false
 let backgroundedPhase: GamePhase | null = null
+let backgroundRevision = 0
+let idleBeforeBackground: typeof local | null = null
+let backgroundSave: Promise<void> = Promise.resolve()
+let backgroundRestoreRun: { revision: number; task: Promise<void> } | null = null
+let backgroundRestoreTimer: number | null = null
+let roomJoinPending = false
 let foregroundMediaRetryShortId: number | null = null
 let foregroundMediaRetryLongId: number | null = null
 function showGameStartOverlay(ms = 1000) {
@@ -2408,21 +2414,29 @@ function connectSocket() {
 socket.value?.on('connect', async () => {
   netReconnecting.value = false
   clearRoomDisconnectFailClosedTimer()
-  if (!leaving.value) {
-    rtc.setVideoSubscriptionsForAll(false)
-    const ack = await safeJoin()
-    if (!ack?.ok) {
-      await handleJoinFailure(ack)
-      return
+  roomJoinPending = true
+  const revision = backgroundRevision
+  let joined = false
+  try {
+    if (!leaving.value) {
+      rtc.setVideoSubscriptionsForAll(false)
+      const ack = await safeJoin()
+      if (!ack?.ok) {
+        await handleJoinFailure(ack)
+        return
+      }
+      if (uiReady.value) {
+        applyJoinAck(ack)
+        pendingState.reconcile({ ...local, ready: readyOn.value })
+        joined = true
+      }
     }
-    if (uiReady.value) applyJoinAck(ack)
+  } finally { roomJoinPending = false }
+  if (joined && revision === backgroundRevision && !backgrounded.value) {
     if (bgRestorePending) void restoreAfterBackgroundFromServer()
+    else await reconcileLocalMedia()
   }
-  if (pendingDeltas.length) {
-    const merged = Object.assign({}, ...pendingDeltas.splice(0))
-    const resp = await sendAck('state', merged)
-    if (!resp?.ok) pendingDeltas.unshift(merged)
-  }
+  void flushPendingState()
 })
 
   socket.value?.on('disconnect', () => {
@@ -2456,15 +2470,19 @@ socket.value?.on('connect', async () => {
       speakerAlertSending.delete(id)
     }
     if (id !== String(localId.value)) return
+    p = { ...p }
+    for (const key of Object.keys(local) as (keyof typeof local)[]) {
+      if (pendingState.hasNewerIntent(key)) delete p[key]
+    }
 
-    const nextMic = !blockedSelf.value.mic && norm01(p?.mic, local.mic ? 1 : 0) === 1
+    const nextMic = !backgrounded.value && !blockedSelf.value.mic && norm01(p?.mic, local.mic ? 1 : 0) === 1
     if ('mic' in (p || {}) && (local.mic !== nextMic || desiredMedia.mic !== nextMic)) {
       local.mic = nextMic
       desiredMedia.mic = nextMic
       void applyLocalControlWithRetry('mic', nextMic)
     }
 
-    const nextCam = !blockedSelf.value.cam && norm01(p?.cam, local.cam ? 1 : 0) === 1
+    const nextCam = !backgrounded.value && !blockedSelf.value.cam && norm01(p?.cam, local.cam ? 1 : 0) === 1
     if ('cam' in (p || {}) && (local.cam !== nextCam || desiredMedia.cam !== nextCam)) {
       local.cam = nextCam
       desiredMedia.cam = nextCam
@@ -2477,7 +2495,7 @@ socket.value?.on('connect', async () => {
       void applyLocalControlWithRetry('speakers', nextSpeakers)
     }
 
-    const nextVisibility = !blockedSelf.value.visibility && norm01(p?.visibility, local.visibility ? 1 : 0) === 1
+    const nextVisibility = !backgrounded.value && !blockedSelf.value.visibility && norm01(p?.visibility, local.visibility ? 1 : 0) === 1
     if ('visibility' in (p || {}) && local.visibility !== nextVisibility) {
       local.visibility = nextVisibility
       void applyLocalControlWithRetry('visibility', nextVisibility)
@@ -3060,6 +3078,10 @@ function syncSubscriptionsFromState(): void {
 }
 
 function clampLocalVisibilityForCurrentPhase(): void {
+  if (backgrounded.value) {
+    local.visibility = false
+    return
+  }
   const phase = gamePhase.value
   if (phase === 'idle') return
   const target = gameReturnTargets(phase)
@@ -3139,6 +3161,10 @@ function applyJoinAck(j: any) {
   }
 
   if (j.self_pref) applySelfPref(j.self_pref)
+  if (backgrounded.value) {
+    local.mic = local.cam = local.visibility = false
+    desiredMedia.mic = desiredMedia.cam = false
+  }
   setScreenOwner(j.screen_owner ? String(j.screen_owner) : '', j.screen_quality)
   const keepKey = screenOwnerId.value ? rtc.screenKey(screenOwnerId.value) : ''
   for (const k in volUi) {
@@ -3172,7 +3198,68 @@ type PublishDelta = Partial<{
   visibility: boolean
   ready: boolean
 }>
-const pendingDeltas: PublishDelta[] = []
+class LatestStateQueue<T extends object> {
+  private pending = new Map<keyof T, { value: T[keyof T]; revision: number }>()
+  private revision = 0
+  private running: Promise<boolean> | null = null
+  private inFlight = new Map<keyof T, { value: T[keyof T]; revision: number }>()
+
+  get size(): number { return this.pending.size }
+
+  update(delta: Partial<T>): void {
+    for (const key of Object.keys(delta) as (keyof T)[]) {
+      this.pending.set(key, { value: delta[key] as T[keyof T], revision: ++this.revision })
+    }
+  }
+
+  hasNewerIntent(key: keyof T): boolean {
+    const sent = this.inFlight.get(key)
+    const pending = this.pending.get(key)
+    return !!sent && !!pending && pending.revision !== sent.revision
+  }
+
+  reconcile(state: Partial<T>): void {
+    for (const key of this.pending.keys()) {
+      if (key in state) this.pending.set(key, { value: state[key] as T[keyof T], revision: ++this.revision })
+    }
+  }
+
+  flush(send: (delta: Partial<T>) => Promise<boolean>, ready: () => boolean): Promise<boolean> {
+    if (this.running) return this.running
+    const run = async () => {
+      while (this.pending.size && ready()) {
+        const batch = new Map(this.pending)
+        const delta = Object.fromEntries([...batch].map(([key, entry]) => [key, entry.value])) as Partial<T>
+        this.inFlight = batch
+        let ok: boolean
+        try { ok = await send(delta) } finally { this.inFlight = new Map() }
+        if (!ok) return false
+        for (const [key, entry] of batch) {
+          if (this.pending.get(key)?.revision === entry.revision) this.pending.delete(key)
+        }
+      }
+      return this.pending.size === 0
+    }
+    this.running = run().finally(() => { this.running = null })
+    return this.running
+  }
+}
+
+const pendingState = new LatestStateQueue<Required<PublishDelta>>()
+let stateRetryTimer: number | null = null
+
+async function flushPendingState(): Promise<boolean> {
+  if (stateRetryTimer != null) window.clearTimeout(stateRetryTimer)
+  stateRetryTimer = null
+  const ok = await pendingState.flush(
+    async delta => !!(await sendAck('state', delta))?.ok,
+    () => !leaving.value && !roomJoinPending && !!socket.value?.connected,
+  )
+  if (!ok && !leaving.value && socket.value?.connected) {
+    stateRetryTimer = window.setTimeout(() => { void flushPendingState() }, 1500)
+  }
+  return ok
+}
 
 type RetriableLocalControl = 'mic' | 'cam' | 'speakers' | 'visibility' | 'screen'
 
@@ -3205,6 +3292,7 @@ function waitLocalControlRetry(ms: number): Promise<void> {
 
 async function applyLocalControlOnce(control: RetriableLocalControl, on: boolean): Promise<boolean> {
   if (!rtc.lk.value) return false
+  if (on && (leaving.value || (backgrounded.value && (control === 'mic' || control === 'cam' || control === 'visibility')))) return false
   try {
     if (control === 'mic') return on ? await rtc.enable('audioinput') : await rtc.disable('audioinput')
     if (control === 'cam') return on ? await rtc.enable('videoinput') : await rtc.disable('videoinput')
@@ -3263,14 +3351,8 @@ function applyLocalControlWithRetry(control: RetriableLocalControl, on: boolean)
 }
 
 async function publishState(delta: PublishDelta) {
-  if (!socket.value || !socket.value.connected) {
-    pendingDeltas.push(delta)
-    return false
-  }
-  const resp = await sendAck('state', delta)
-  if (resp?.ok) return true
-  pendingDeltas.push(delta)
-  return false
+  pendingState.update(delta)
+  return await flushPendingState()
 }
 
 const toggleFactory = (k: keyof typeof local, onEnable?: () => Promise<boolean | void>, onDisable?: () => Promise<boolean | void>) => async () => {
@@ -3537,6 +3619,9 @@ async function handleJoinFailure(j: any) {
 async function onLeave(goHome = true) {
   if (leaving.value) return
   leaving.value = true
+  backgroundRevision += 1
+  if (backgroundRestoreTimer != null) window.clearTimeout(backgroundRestoreTimer)
+  if (stateRetryTimer != null) window.clearTimeout(stateRetryTimer)
   await releaseScreenWakeLock()
   try {
       document.removeEventListener('click', onDocClick)
@@ -3570,19 +3655,14 @@ async function onLeave(goHome = true) {
   }
 }
 
-async function rememberIdleStateOnServer(): Promise<void> {
+async function rememberIdleStateOnServer(state: typeof local): Promise<void> {
   if (!IS_MOBILE) return
   if (gamePhase.value !== 'idle') return
   if (!socket.value || !socket.value.connected) return
   try {
     await sendAck('bg_state', {
-      state: {
-        mic: local.mic,
-        cam: local.cam,
-        speakers: local.speakers,
-        visibility: local.visibility,
-      },
-    })
+      state,
+    }, 3000)
   } catch {}
 }
 
@@ -3597,7 +3677,8 @@ function mergeBlockedState(blocks: any): BlockState {
   }
 }
 
-async function applyLocalStateFromServer(state: any, blocks: any): Promise<void> {
+async function applyLocalStateFromServer(state: any, blocks: any, isCurrent = () => !leaving.value && !backgrounded.value): Promise<void> {
+  if (!isCurrent()) return
   if (!state || typeof state !== 'object') return
   const lid = localId.value
   const hasBlocks = !!blocks && typeof blocks === 'object'
@@ -3624,15 +3705,17 @@ async function applyLocalStateFromServer(state: any, blocks: any): Promise<void>
   }
 
   if (mergedBlocks.screen && screenOwnerId.value === lid) {
-    await applyLocalControlWithRetry('screen', false)
+    void applyLocalControlWithRetry('screen', false)
     setScreenOwner('')
   }
 
-  await applyLocalControlWithRetry('mic', nextMic)
-  await applyLocalControlWithRetry('cam', nextCam)
-  await applyLocalControlWithRetry('speakers', nextSpeakers)
-  await applyLocalControlWithRetry('visibility', nextVisibility)
-  if (nextSpeakers && !mergedBlocks.speakers) {
+  await Promise.all([
+    applyLocalControlWithRetry('mic', nextMic),
+    applyLocalControlWithRetry('cam', nextCam),
+    applyLocalControlWithRetry('speakers', nextSpeakers),
+    applyLocalControlWithRetry('visibility', nextVisibility),
+  ])
+  if (isCurrent() && nextSpeakers && !mergedBlocks.speakers) {
     try { void rtc.resumeAudio() } catch {}
   }
 }
@@ -3670,24 +3753,19 @@ async function applyGameReturnState(): Promise<void> {
   const nextCam = target.cam && !blockedSelf.value.cam
   const nextSpeakers = target.speakers && !blockedSelf.value.speakers
   const nextVisibility = target.visibility && !blockedSelf.value.visibility
-  const canTouchMedia = !!rtc.lk.value
+  const revision = backgroundRevision
+  const isCurrent = () => !leaving.value && !backgrounded.value && revision === backgroundRevision && gamePhase.value === phase
 
   const delta: PublishDelta = {}
   if (local.mic !== nextMic) {
     local.mic = nextMic
     desiredMedia.mic = nextMic
     delta.mic = nextMic
-    if (canTouchMedia) {
-      await applyLocalControlWithRetry('mic', nextMic)
-    }
   }
   if (local.cam !== nextCam) {
     local.cam = nextCam
     desiredMedia.cam = nextCam
     delta.cam = nextCam
-    if (canTouchMedia) {
-      await applyLocalControlWithRetry('cam', nextCam)
-    }
   }
   if (local.speakers !== nextSpeakers) {
     local.speakers = nextSpeakers
@@ -3698,40 +3776,98 @@ async function applyGameReturnState(): Promise<void> {
     delta.visibility = nextVisibility
   }
 
-  await applyLocalControlWithRetry('speakers', nextSpeakers)
-  await applyLocalControlWithRetry('visibility', nextVisibility)
-  if (nextSpeakers && !blockedSelf.value.speakers) {
-    try { void rtc.resumeAudio() } catch {}
-  }
-
   if (Object.keys(delta).length) {
-    try { await publishState(delta) } catch {}
+    void publishState(delta)
   }
+  await applyLocalStateFromServer({ mic: nextMic, cam: nextCam, speakers: nextSpeakers, visibility: nextVisibility }, null, isCurrent)
 }
 
 async function restoreAfterBackgroundFromServer(): Promise<void> {
-  if (!IS_MOBILE) return
+  if (!IS_MOBILE || backgrounded.value || leaving.value) return
+  const revision = backgroundRevision
+  if (backgroundRestoreRun?.revision === revision) return backgroundRestoreRun.task
+  const task = restoreBackgroundRevision(revision)
+  backgroundRestoreRun = { revision, task }
+  try { await task } finally {
+    if (backgroundRestoreRun?.task === task) backgroundRestoreRun = null
+  }
+}
+
+async function restoreBackgroundRevision(revision: number): Promise<void> {
+  const isCurrent = () => revision === backgroundRevision && !backgrounded.value && !leaving.value
+  bgRestorePending = true
+  await backgroundSave
+  if (!isCurrent()) return
   if (!socket.value || !socket.value.connected) {
-    bgRestorePending = true
     return
   }
-
-  bgRestorePending = false
-  const nowPhase = gamePhase.value
-  const phase = nowPhase === 'idle' ? (backgroundedPhase ?? nowPhase) : nowPhase
-  backgroundedPhase = null
+  if (!await flushPendingState()) {
+    if (isCurrent()) scheduleBackgroundRestore(revision)
+    return
+  }
+  if (!isCurrent()) return
+  const phase = gamePhase.value
   if (phase === 'idle') {
-    const resp = await sendAck('bg_restore', {})
-    if (resp?.ok && resp?.state) {
-      await applyLocalStateFromServer(resp.state, resp.blocked ?? resp.blocks)
-      scheduleForegroundMediaRecovery()
+    let resp = await sendAck('bg_restore', {}, 3000)
+    if (!isCurrent()) return
+    if (gamePhase.value !== phase) {
+      scheduleBackgroundRestore(revision)
       return
     }
-  }
-  if (phase !== 'idle') {
+    if (!resp?.ok) {
+      scheduleBackgroundRestore(revision)
+      return
+    }
+    if (!resp.state) {
+      resp = await sendAck('self_state', {}, 3000)
+      if (!isCurrent()) return
+      if (!resp?.ok || !resp.state || gamePhase.value !== phase) {
+        scheduleBackgroundRestore(revision)
+        return
+      }
+      const saved = idleBeforeBackground ?? { mic: false, cam: false, speakers: true, visibility: true }
+      const blocks = mergeBlockedState(resp.blocked ?? resp.blocks)
+      const restored = {
+        mic: saved.mic && !blocks.mic,
+        cam: saved.cam && !blocks.cam,
+        speakers: saved.speakers && !blocks.speakers,
+        visibility: saved.visibility && !blocks.visibility,
+      }
+      const published = await publishState(restored)
+      if (!isCurrent()) return
+      if (!published || gamePhase.value !== phase) {
+        scheduleBackgroundRestore(revision)
+        return
+      }
+      resp = await sendAck('self_state', {}, 3000)
+      if (!isCurrent()) return
+      if (!resp?.ok || !resp.state || gamePhase.value !== phase) {
+        scheduleBackgroundRestore(revision)
+        return
+      }
+    }
+    await applyLocalStateFromServer(resp.state, resp.blocked ?? resp.blocks, () => isCurrent() && gamePhase.value === phase)
+  } else {
     await applyGameReturnState()
   }
+  if (!isCurrent()) return
+  if (gamePhase.value !== phase) {
+    scheduleBackgroundRestore(revision)
+    return
+  }
+  bgRestorePending = false
+  backgroundedPhase = null
+  idleBeforeBackground = null
   scheduleForegroundMediaRecovery()
+}
+
+function scheduleBackgroundRestore(revision: number): void {
+  if (revision !== backgroundRevision || leaving.value || backgrounded.value) return
+  if (backgroundRestoreTimer != null) window.clearTimeout(backgroundRestoreTimer)
+  backgroundRestoreTimer = window.setTimeout(() => {
+    backgroundRestoreTimer = null
+    void restoreAfterBackgroundFromServer()
+  }, 1500)
 }
 
 function clearForegroundMediaRecoveryTimers(): void {
@@ -3748,12 +3884,21 @@ function clearForegroundMediaRecoveryTimers(): void {
 async function reassertForegroundMediaTracks(): Promise<void> {
   if (!IS_MOBILE || leaving.value || backgrounded.value) return
   if (!rtc.lk.value) return
-  if (local.cam && desiredMedia.cam && !blockedSelf.value.cam) {
-    await applyLocalControlWithRetry('cam', true)
+  await applyLocalStateFromServer({ ...local }, null)
+}
+
+async function reconcileLocalMedia(): Promise<void> {
+  if (!rtc.lk.value || leaving.value) return
+  if (backgrounded.value) {
+    await Promise.all([
+      applyLocalControlWithRetry('mic', false),
+      applyLocalControlWithRetry('cam', false),
+      applyLocalControlWithRetry('visibility', false),
+    ])
+    return
   }
-  if (local.mic && desiredMedia.mic && !blockedSelf.value.mic) {
-    await applyLocalControlWithRetry('mic', true)
-  }
+  if (gamePhase.value !== 'idle') await applyGameReturnState()
+  else await applyLocalStateFromServer({ ...local }, null)
 }
 
 function scheduleForegroundMediaRecovery(): void {
@@ -3771,9 +3916,10 @@ function scheduleForegroundMediaRecovery(): void {
 
 function handleForegroundSignal() {
   if (!IS_MOBILE) return
-  if (leaving.value) return
+  if (leaving.value || document.visibilityState === 'hidden') return
   void acquireScreenWakeLock()
   if (!backgrounded.value) return
+  backgroundRevision += 1
   local.visibility = false
   rtc.setVideoSubscriptionsForAll(false)
   backgrounded.value = false
@@ -3785,37 +3931,34 @@ function handleForegroundSignal() {
 
 async function applyBackgroundMute(): Promise<void> {
   if (backgrounded.value) return
+  backgroundRevision += 1
   backgroundedPhase = gamePhase.value
-  await rememberIdleStateOnServer()
+  const saved = idleBeforeBackground ?? { ...local }
+  if (gamePhase.value === 'idle') idleBeforeBackground = saved
   backgrounded.value = true
+  bgRestorePending = true
+  if (backgroundRestoreTimer != null) window.clearTimeout(backgroundRestoreTimer)
+  clearForegroundMediaRecoveryTimers()
+  backgroundSave = rememberIdleStateOnServer(saved)
 
   desiredMedia.mic = false
   desiredMedia.cam = false
 
-  const delta: PublishDelta = {}
-  if (local.mic) {
-    local.mic = false
-    delta.mic = false
-  }
-  if (local.cam) {
-    local.cam = false
-    delta.cam = false
-  }
-  if (local.visibility) {
-    local.visibility = false
-    delta.visibility = false
-  }
-  await applyLocalControlWithRetry('mic', false)
-  await applyLocalControlWithRetry('cam', false)
+  const delta: PublishDelta = { mic: false, cam: false, visibility: false }
+  local.mic = local.cam = local.visibility = false
+  const muted = Promise.all([
+    applyLocalControlWithRetry('mic', false),
+    applyLocalControlWithRetry('cam', false),
+    applyLocalControlWithRetry('visibility', false),
+  ])
   try { rtc.setVideoSubscriptionsForAll(false) } catch {}
   if (local.speakers && !blockedSelf.value.speakers) {
     try { rtc.setAudioSubscriptionsForAll(true) } catch {}
     try { void rtc.resumeAudio() } catch {}
   }
 
-  if (Object.keys(delta).length) {
-    try { await publishState(delta) } catch {}
-  }
+  void publishState(delta)
+  await muted
 }
 
 function onBackgroundVisibility(e?: Event) {
@@ -3979,8 +4122,9 @@ onMounted(async () => {
           try { await sendAck('screen', { on: false }) } catch {}
         }
       },
-      onRemoteScreenShareEnded: (id: string) => {
-        if (screenOwnerId.value === id) setScreenOwner('')
+      onReconnected: async () => {
+        if (bgRestorePending && !backgrounded.value) await restoreAfterBackgroundFromServer()
+        else await reconcileLocalMedia()
       },
       onDisconnected: async () => {
         if (leaving.value) return

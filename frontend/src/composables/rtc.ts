@@ -90,7 +90,7 @@ export type UseRTC = {
   getLastScreenShareError: () => 'canceled' | 'failed' | null
   initRoom: (opts?: {
     onScreenShareEnded?: () => void | Promise<void>
-    onRemoteScreenShareEnded?: (id: string) => void | Promise<void>
+    onReconnected?: () => void | Promise<void>
     publishDefaults?: RoomOptions['publishDefaults']
     audioCaptureDefaults?: RoomOptions['audioCaptureDefaults']
     videoCaptureDefaults?: RoomOptions['videoCaptureDefaults']
@@ -1600,7 +1600,7 @@ export function useRTC(): UseRTC {
 
   function initRoom(opts?: {
     onScreenShareEnded?: () => void | Promise<void>
-    onRemoteScreenShareEnded?: (id: string) => void | Promise<void>
+    onReconnected?: () => void | Promise<void>
     publishDefaults?: RoomOptions['publishDefaults']
     audioCaptureDefaults?: RoomOptions['audioCaptureDefaults']
     videoCaptureDefaults?: RoomOptions['videoCaptureDefaults']
@@ -1671,6 +1671,7 @@ export function useRTC(): UseRTC {
       })
       refreshAudibleIds()
       void resumeAudio()
+      try { void Promise.resolve(opts?.onReconnected?.()).catch(() => {}) } catch {}
     })
 
     room.on(RoomEvent.Disconnected, () => {
@@ -1787,7 +1788,6 @@ export function useRTC(): UseRTC {
         } else {
           try { t.detach() } catch {}
         }
-        if (isScreenV) { try { opts?.onRemoteScreenShareEnded?.(id) } catch {} }
         syncVideoTrackPresence(room)
       } else if (t.kind === Track.Kind.Audio) {
         const source = (pub as RemoteTrackPublication).source
