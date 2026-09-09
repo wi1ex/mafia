@@ -75,7 +75,10 @@
                 <button v-if="canAdminSpectateRoom" :disabled="entering" @click="onAdminSpectateRoom" aria-label="Войти зрителем">
                   <UiIcon class="room-icon" :icon="iconVisOn" />
                 </button>
-                <button v-if="canCloseRooms" :disabled="adminKickBusy || selectedRoom?.in_game || selectedRoom?.entry_closed || selectedRoom?.occupancy === 0" @click="onAdminKickRoom" aria-label="Удалить комнату">
+                <button v-if="canCloseRooms && selectedRoom?.in_game" :disabled="adminEndGameBusy" @click="onAdminEndGame" aria-label="Распустить игру">
+                  <UiIcon class="room-icon" :icon="iconGameStop" />
+                </button>
+                <button v-else-if="canCloseRooms" :disabled="adminKickBusy || adminEndGameBusy || selectedRoom?.entry_closed || selectedRoom?.occupancy === 0" @click="onAdminKickRoom" aria-label="Удалить комнату">
                   <UiIcon class="room-icon" :icon="iconDelete" />
                 </button>
                 <button @click="clearSelection" aria-label="Закрыть">
@@ -260,6 +263,7 @@ import iconLockOpen from '@/assets/svg/iconLockOpen.svg'
 import iconLockClose from '@/assets/svg/iconLockClose.svg'
 import iconClose from '@/assets/svg/iconClose.svg'
 import iconDelete from '@/assets/svg/iconDelete.svg'
+import iconGameStop from '@/assets/svg/iconStop.svg'
 import iconVisOn from '@/assets/svg/iconVisOn.svg'
 import iconArrowNext from '@/assets/svg/iconArrowNext.svg'
 import iconAddPlus from '@/assets/svg/iconAddPlus.svg'
@@ -344,6 +348,7 @@ const selArmed = ref(false)
 const entering = ref(false)
 const applying = ref(false)
 const adminKickBusy = ref(false)
+const adminEndGameBusy = ref(false)
 
 const infoTimers = new Map<number, number>()
 const infoInFlight = new Set<number>()
@@ -684,6 +689,34 @@ async function onApply() {
       void alertDialog('Ошибка при отправке заявки')
     }
   } finally { applying.value = false }
+}
+
+async function onAdminEndGame() {
+  const room = selectedRoom.value
+  if (!room?.in_game || adminEndGameBusy.value || !canCloseRooms.value) return
+  adminEndGameBusy.value = true
+  try {
+    const ok = await confirmDialog({
+      title: 'Завершение игры',
+      text: `Вы уверены, что хотите завершить игру в «${room.title}»?`,
+      confirmText: 'Подтвердить',
+      cancelText: 'Отмена',
+    })
+    if (!ok) return
+    await api.post(`/rooms/${room.id}/game/end`)
+    await fetchRoomInfo(room.id)
+  } catch (e: any) {
+    const detail = e?.response?.data?.detail
+    if (detail === 'no_game') {
+      void alertDialog('Игра не запущена')
+    } else if (e?.response?.status === 403) {
+      void alertDialog('Недостаточно прав для завершения игры')
+    } else if (detail === 'game_end_in_progress') {
+      void alertDialog('Игра уже завершается')
+    } else {
+      void alertDialog('Не удалось завершить игру')
+    }
+  } finally { adminEndGameBusy.value = false }
 }
 
 async function onAdminKickRoom() {

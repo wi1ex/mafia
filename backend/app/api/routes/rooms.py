@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...core.clients import get_redis
 from ...core.roles import ROLE_ADMIN, normalize_user_role
-from ...security.decorators import log_route, rate_limited, require_room_creator
+from ...security.decorators import log_route, rate_limited, require_room_creator, require_roles_dep
 from ...core.logging import log_action
 from ...security.auth_tokens import get_identity, get_identity_optional
 from ...core.db import get_session
@@ -43,9 +43,28 @@ from ..utils import (
     ensure_verification_allowed,
     schedule_room_gc,
 )
-from ...realtime.utils import get_rooms_brief, filter_rooms_for_viewer, get_public_spectators_count
+from ...realtime.utils import GameActionContext, perform_game_end, get_rooms_brief, filter_rooms_for_viewer, get_public_spectators_count
 
 router = APIRouter()
+
+
+@router.post("/{room_id}/game/end", response_model=Ok)
+@log_route("rooms.end_game")
+async def end_room_game(room_id: int, ident: Identity = Depends(require_roles_dep("admin", "moder"))) -> Ok:
+    r = get_redis()
+    raw_state = await r.hgetall(f"room:{room_id}:game_state") or {}
+    ctx = GameActionContext.from_raw_state(uid=int(ident["id"]), rid=room_id, r=r, raw_state=raw_state)
+    result = await perform_game_end(
+        ctx,
+        {"username": str(ident["username"] or f"user{ident['id']}")},
+        confirm=True,
+        allow_non_head=True,
+        reason="manual",
+    )
+    if not result.get("ok"):
+        raise HTTPException(status_code=int(result.get("status") or 400), detail=result.get("error") or "game_end_failed")
+
+    return Ok()
 
 
 @router.post("", response_model=RoomIdOut, status_code=status.HTTP_201_CREATED)
