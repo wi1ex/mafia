@@ -1434,6 +1434,7 @@ def _apply_marked_vote_break_points(
     second_day_votes: set[int] = set()
     second_day_started = False
     second_day_unique: set[int] = set()
+    early_removals: set[int] = set()
     for action in actions:
         kind = _action_type(action)
         day = _action_user_id(action, "day")
@@ -1444,7 +1445,13 @@ def _apply_marked_vote_break_points(
                 mark_order = _action_user_id(action, "_scoring_action_order")
         if kind == "day_start" and day == 2:
             second_day_started = True
-        if kind != "death" or str(action.get("reason") or "") != "vote":
+        if kind != "death":
+            continue
+        reason = str(action.get("reason") or "")
+        # Оба вида удаления по фолам записываются с причиной foul.
+        if day in (1, 2) and reason in {"foul", "suicide"}:
+            early_removals.add(_action_user_id(action, "target_id"))
+        if reason != "vote":
             continue
         unique = _action_bool(action, "vote_unique") and not _action_bool(action, "vote_lift")
         if day == 1 and unique:
@@ -1467,15 +1474,20 @@ def _apply_marked_vote_break_points(
                        and _role_for_user(roles, _action_user_id(event, "target_id")) in target_roles), None)
         second_day_valid = True
         if key == "vote_break_red_to_red":
-            second_day_valid = actor_id in second_day_unique
+            second_day_valid = actor_id in second_day_unique or actor_id in early_removals
         elif key == "vote_break_red_to_black":
-            second_day_valid = second_day_started and actor_id not in second_day_votes
+            second_day_valid = (
+                second_day_started
+                and actor_id not in second_day_votes
+                and actor_id not in early_removals
+            )
         item = {
             "action_order": mark_order, "type": "marked_vote_break",
             "actor_id": actor_id, "target_id": _action_user_id(target or {}, "target_id") or actor_id,
             "rule_key": key,
             "reason": "wrong_team" if not role_valid else "no_first_day_vote" if target is None else
-                      "second_day_condition" if not second_day_valid else "",
+                      ("departure_condition" if key == "vote_break_red_to_red" else "second_day_condition")
+                      if not second_day_valid else "",
         }
         if not item["reason"]:
             item["actor_adjustment"] = apply_rule(actor_id, key)

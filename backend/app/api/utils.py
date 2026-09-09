@@ -3460,6 +3460,7 @@ def game_scoring_audit_fields(
                 "wrong_team": "Команда отмеченного игрока не соответствует условию",
                 "no_first_day_vote": "Нет подходящего ухода в первый день с голосом отмеченного игрока",
                 "second_day_condition": "Условие второго дня не выполнено",
+                "departure_condition": "Нет единственного ухода на голосовании во второй день или удаления по фолам/самоубийства в первый либо второй день",
             }
             rule_label = GAME_SCORING_LABEL_DEFAULTS.get(str(audit_item.get("rule_key")), "Слом")
             value = f"{player_label(actor_id)}: "
