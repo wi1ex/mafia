@@ -14,16 +14,15 @@
           <p v-if="validationError" class="game-versions-modal__error" role="alert">{{ validationError }}</p>
 
           <div class="game-versions-modal__marks">
-            <fieldset v-for="rule in markRules" :key="rule.key" :disabled="saving">
-              <legend>{{ rule.label }}</legend>
-              <div class="mark-options">
-                <label v-for="player in players" :key="player.id">
-                  <input v-model="marks[rule.key]" type="radio" :name="`scoring-mark-${rule.key}`" :value="Number(player.id)">
+            <div v-for="rule in markRules" :key="rule.key" class="scoring-mark">
+              <label :for="`scoring-mark-${rule.key}`">{{ rule.label }}</label>
+              <select :id="`scoring-mark-${rule.key}`" v-model.number="marks[rule.key]" :disabled="saving">
+                <option :value="0">Не отмечен</option>
+                <option v-for="player in players" :key="player.id" :value="Number(player.id)">
                   {{ player.label }}
-                </label>
-                <button type="button" :disabled="saving || !marks[rule.key]" @click="marks[rule.key] = 0">Снять отметку</button>
-              </div>
-            </fieldset>
+                </option>
+              </select>
+            </div>
           </div>
 
           <div class="game-versions-modal__list-header">
@@ -315,7 +314,7 @@ function requestCancel(): void {
   .game-versions-modal {
     display: flex;
     flex-direction: column;
-    width: min(1200px, 100%);
+    width: calc(100% - 100px);
     max-height: calc(100% - 48px);
     border: 2px solid $green-700;
     border-radius: 20px;
@@ -323,27 +322,37 @@ function requestCancel(): void {
     box-shadow: 0 16px 48px rgba($neutral-black, 0.5);
     overflow: auto;
     .game-versions-modal__marks {
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
       padding: 0 24px 16px;
       flex-shrink: 0;
       color: $neutral-100;
-      fieldset {
-        margin: 8px 0;
-        border: 1px solid $neutral-500;
-        border-radius: 8px;
-      }
-      .mark-options {
+      .scoring-mark {
         display: flex;
-        flex-wrap: wrap;
-        gap: 12px;
+        flex-direction: column;
+        flex: 1 1 250px;
+        min-width: 0;
+        gap: 6px;
       }
       label {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        cursor: pointer;
+        color: $neutral-300;
+        font-family: Hauora-Regular;
+        font-size: 13px;
+        line-height: 18px;
       }
-      input {
-        accent-color: $green-500;
+      select {
+        width: 100%;
+        height: 40px;
+        padding: 0 10px;
+        border: 1px solid $green-300;
+        border-radius: 10px;
+        background-color: $neutral-900;
+        color: $neutral-100;
+        font-family: Hauora-Regular;
+        font-size: 14px;
+        line-height: 18px;
       }
     }
     header {
