@@ -7223,6 +7223,7 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
         and normalize_game_mode(raw_game.get("mode")) == RATING_MODE
     ):
         game_runtime["versions"] = await get_game_versions(r, rid)
+        game_runtime["scoring_marks"] = json.loads(ctx.gstr("scoring_marks") or "{}")
 
     best_move = best_move_payload_from_state(ctx)
     if best_move is not None:
@@ -7955,6 +7956,7 @@ async def game_start_unlocked(sid, data) -> GameStartAck:
                              "best_move_active": "0",
                              "best_move_targets": "",
                              "scoring_rules": json.dumps(scoring_rules_snapshot, ensure_ascii=True, separators=(",", ":")),
+                             "scoring_marks": "{}",
                          })
             if seats:
                 await p.hset(f"room:{rid}:game_seats", mapping={k: str(v) for k, v in seats.items()})

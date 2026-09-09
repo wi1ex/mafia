@@ -16,6 +16,28 @@ RED_ROLES = {"citizen", "sheriff"}
 BLACK_ROLES = {"mafia", "don"}
 POINTS_QUANTUM = Decimal("0.01")
 
+GAME_SCORING_MARK_KEYS = (
+    "vote_break_red_to_red",
+    "vote_break_red_to_black",
+    "vote_break_black_to_sheriff",
+)
+
+
+def parse_game_scoring_marks(raw: object, player_ids: Iterable[int | str]) -> dict[str, int] | None:
+    if not isinstance(raw, Mapping) or set(raw) - set(GAME_SCORING_MARK_KEYS):
+        return None
+
+    players = {int(uid) for uid in player_ids}
+    marks: dict[str, int] = {}
+    for key in GAME_SCORING_MARK_KEYS:
+        value = raw.get(key, 0)
+        if isinstance(value, bool) or not isinstance(value, int) or (value != 0 and value not in players):
+            return None
+
+        marks[key] = value
+
+    return marks
+
 GAME_SCORING_RULE_DEFAULTS: dict[str, Decimal] = {
     "additional_points_min": Decimal("-1.00"),
     "additional_points_max": Decimal("1.00"),
@@ -44,6 +66,9 @@ GAME_SCORING_RULE_DEFAULTS: dict[str, Decimal] = {
     "vote_lift_opponent_team": Decimal("0.30"),
     "nomination_black_prevents_black_win": Decimal("-0.50"),
     "nomination_red_last_hope": Decimal("0.30"),
+    "vote_break_red_to_red": Decimal("-0.50"),
+    "vote_break_red_to_black": Decimal("0.20"),
+    "vote_break_black_to_sheriff": Decimal("0.20"),
     "sheriff_two_unobvious_black_checks": Decimal("0.20"),
     "don_missed_sheriff_two_checks": Decimal("-0.10"),
     "citizen_false_check": Decimal("-0.10"),
@@ -86,6 +111,9 @@ GAME_SCORING_LABEL_DEFAULTS: dict[str, str] = {
     "vote_lift_opponent_team": "Подъём игроков другой команды",
     "nomination_black_prevents_black_win": "Выставление при гарантированной победе",
     "nomination_red_last_hope": "Последняя надежда",
+    "vote_break_red_to_red": "Слом в красного будучи красным",
+    "vote_break_red_to_black": "Слом в черного будучи красным",
+    "vote_break_black_to_sheriff": "Слом в шерифа будучи черным",
     "sheriff_two_unobvious_black_checks": "Две подряд чёрные проверки",
     "don_missed_sheriff_two_checks": "Не нашёл шерифа за две проверки",
     "citizen_false_check": "Ложная проверка будучи мирным",
@@ -1395,6 +1423,66 @@ def _apply_critical_nomination_points(
             audit.append(audit_item)
 
 
+def _apply_marked_vote_break_points(
+        *, player_ids: set[int], roles: Mapping[object, Any],
+        actions: list[dict[str, Any]], apply_rule: Callable[[int, str], dict[str, Any]],
+        audit: list[dict[str, Any]] | None,
+) -> None:
+    marks: dict[str, int] = {}
+    mark_order = 0
+    first_day_departures: list[dict[str, Any]] = []
+    second_day_votes: set[int] = set()
+    second_day_started = False
+    second_day_unique: set[int] = set()
+    for action in actions:
+        kind = _action_type(action)
+        day = _action_user_id(action, "day")
+        if kind == "versions" and "scoring_marks" in action:
+            parsed = parse_game_scoring_marks(action["scoring_marks"], player_ids)
+            if parsed is not None:
+                marks = parsed
+                mark_order = _action_user_id(action, "_scoring_action_order")
+        if kind == "day_start" and day == 2:
+            second_day_started = True
+        if kind != "death" or str(action.get("reason") or "") != "vote":
+            continue
+        unique = _action_bool(action, "vote_unique") and not _action_bool(action, "vote_lift")
+        if day == 1 and unique:
+            first_day_departures.append(action)
+        if day == 2:
+            second_day_votes.add(_action_user_id(action, "target_id"))
+            if unique:
+                second_day_unique.add(_action_user_id(action, "target_id"))
+
+    for key, actor_id in marks.items():
+        if not actor_id:
+            continue
+        actor_role = _role_for_user(roles, actor_id)
+        is_black_rule = key == "vote_break_black_to_sheriff"
+        role_valid = actor_role in (BLACK_ROLES if is_black_rule else RED_ROLES)
+        target_roles = {"sheriff"} if is_black_rule else RED_ROLES if key == "vote_break_red_to_red" else BLACK_ROLES
+        target = next((event for event in first_day_departures
+                       if actor_id in _action_user_ids(event, "by")
+                       and _action_user_id(event, "target_id") != actor_id
+                       and _role_for_user(roles, _action_user_id(event, "target_id")) in target_roles), None)
+        second_day_valid = True
+        if key == "vote_break_red_to_red":
+            second_day_valid = actor_id in second_day_unique
+        elif key == "vote_break_red_to_black":
+            second_day_valid = second_day_started and actor_id not in second_day_votes
+        item = {
+            "action_order": mark_order, "type": "marked_vote_break",
+            "actor_id": actor_id, "target_id": _action_user_id(target or {}, "target_id") or actor_id,
+            "rule_key": key,
+            "reason": "wrong_team" if not role_valid else "no_first_day_vote" if target is None else
+                      "second_day_condition" if not second_day_valid else "",
+        }
+        if not item["reason"]:
+            item["actor_adjustment"] = apply_rule(actor_id, key)
+        if audit is not None:
+            audit.append(item)
+
+
 def _apply_action_points(
         points: dict[int, Decimal],
         *,
@@ -1432,6 +1520,11 @@ def _apply_action_points(
         for action_order, action in enumerate(actions, start=1)
         if isinstance(action, Mapping)
     ]
+
+    _apply_marked_vote_break_points(
+        player_ids=set(points), roles=roles, actions=normalized_actions,
+        apply_rule=apply_rule, audit=audit,
+    )
 
     _apply_night_opinion_points(
         points,

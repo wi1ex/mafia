@@ -13,6 +13,19 @@
 
           <p v-if="validationError" class="game-versions-modal__error" role="alert">{{ validationError }}</p>
 
+          <div class="game-versions-modal__marks">
+            <fieldset v-for="rule in markRules" :key="rule.key" :disabled="saving">
+              <legend>{{ rule.label }}</legend>
+              <div class="mark-options">
+                <label v-for="player in players" :key="player.id">
+                  <input v-model="marks[rule.key]" type="radio" :name="`scoring-mark-${rule.key}`" :value="Number(player.id)">
+                  {{ player.label }}
+                </label>
+                <button type="button" :disabled="saving || !marks[rule.key]" @click="marks[rule.key] = 0">Снять отметку</button>
+              </div>
+            </fieldset>
+          </div>
+
           <div class="game-versions-modal__list-header">
             <span>Текущие версии: {{ rows.length }} / {{ maxVersions }}</span>
             <button type="button" :disabled="saving || rows.length >= maxVersions" @click="addVersion">
@@ -108,24 +121,35 @@ type VersionPayload = {
 }
 
 const maxVersions = 6
+const markRules = [
+  { key: 'vote_break_red_to_red', label: 'Красный сломал в красного и ушел на след день' },
+  { key: 'vote_break_red_to_black', label: 'Красный сломал в черного и не ушел на след день' },
+  { key: 'vote_break_black_to_sheriff', label: 'Черный сломал в шерифа' },
+]
 const maxChecksPerVersion = 10
 
 const props = withDefaults(defineProps<{
   versions?: unknown
+  scoringMarks?: Record<string, number>
   players?: PlayerOption[]
   saving?: boolean
 }>(), {
   versions: () => [],
+  scoringMarks: () => ({}),
   players: () => [],
   saving: false,
 })
 
 const emit = defineEmits<{
   cancel: []
-  save: [versions: VersionPayload[]]
+  save: [versions: VersionPayload[], scoringMarks: Record<string, number>]
 }>()
 
 const rows = ref<VersionDraft[]>(emptyRows())
+const marks = ref<Record<string, number>>({})
+watch(() => props.scoringMarks, (value) => {
+  marks.value = Object.fromEntries(markRules.map(rule => [rule.key, Number(value[rule.key]) || 0]))
+}, { immediate: true })
 const validationError = ref('')
 const overlayArmed = ref(false)
 
@@ -267,7 +291,7 @@ function requestSave(): void {
   overlayArmed.value = false
   if (props.saving) return
   const payload = buildPayload()
-  if (payload) emit('save', payload)
+  if (payload) emit('save', payload, { ...marks.value })
 }
 
 function requestCancel(): void {
@@ -297,7 +321,31 @@ function requestCancel(): void {
     border-radius: 20px;
     background-color: $neutral-900;
     box-shadow: 0 16px 48px rgba($neutral-black, 0.5);
-    overflow: hidden;
+    overflow: auto;
+    .game-versions-modal__marks {
+      padding: 0 24px 16px;
+      flex-shrink: 0;
+      color: $neutral-100;
+      fieldset {
+        margin: 8px 0;
+        border: 1px solid $neutral-500;
+        border-radius: 8px;
+      }
+      .mark-options {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+      label {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        cursor: pointer;
+      }
+      input {
+        accent-color: $green-500;
+      }
+    }
     header {
       display: flex;
       align-items: flex-start;

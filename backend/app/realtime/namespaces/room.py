@@ -19,7 +19,7 @@ from ...security.parameters import get_cached_settings
 from ...schemas.realtime import StateAck, ModerateAck, JoinAck, ScreenAck, GameStartAck, GameRolePickAck, GameHostBlurAck
 from ...api.utils import game_from_redis_to_model, normalize_spectators_limit
 from ...services.blacklist import is_user_blacklisted_by, user_has_active_subscription
-from ...services.game_scoring import RATING_MODE, normalize_game_mode
+from ...services.game_scoring import RATING_MODE, normalize_game_mode, parse_game_scoring_marks
 from ...services.livekit import get_livekit_room_name, make_livekit_token, remove_livekit_participant
 from ..utils import (
     SANCTION_TIMEOUT,
@@ -161,7 +161,13 @@ GAME_VERSIONS_SET_LUA = r"""
 if redis.call('HGET', KEYS[1], 'game_instance_id') ~= ARGV[1] then
     return 0
 end
+if redis.call('HGET', KEYS[1], 'game_finished') == '1'
+    or redis.call('HGET', KEYS[1], 'phase') ~= 'day'
+    or tonumber(redis.call('HGET', KEYS[1], 'day_number') or '0') < 2 then
+    return 0
+end
 redis.call('SET', KEYS[2], ARGV[2])
+redis.call('HSET', KEYS[1], 'scoring_marks', ARGV[3])
 return 1
 """
 
@@ -2902,6 +2908,11 @@ async def game_versions_set(sid, data):
             return {"ok": False, "error": parse_error or "bad_versions", "status": 400}
 
         player_ids = await smembers_ints(ctx.r, f"room:{ctx.rid}:game_players")
+        current_marks = json.loads(ctx.gstr("scoring_marks") or "{}")
+        scoring_marks = parse_game_scoring_marks(data.get("scoring_marks", current_marks), player_ids)
+        if scoring_marks is None:
+            return {"ok": False, "error": "bad_scoring_marks", "status": 400}
+
         for version in versions:
             claimant_id = int(version["claimant_id"])
             if claimant_id not in player_ids:
@@ -2912,7 +2923,7 @@ async def game_versions_set(sid, data):
                     return {"ok": False, "error": "version_player_not_found", "status": 404}
 
         current_versions = await get_game_versions(ctx.r, ctx.rid)
-        changed = current_versions != versions
+        changed = current_versions != versions or current_marks != scoring_marks
         try:
             raw_versions = json.dumps(versions, ensure_ascii=True, separators=(",", ":"))
             saved = await ctx.r.eval(
@@ -2922,6 +2933,7 @@ async def game_versions_set(sid, data):
                 f"room:{ctx.rid}:game_versions",
                 game_instance_id,
                 raw_versions,
+                json.dumps(scoring_marks, separators=(",", ":")),
             )
             if int(saved or 0) != 1:
                 return {"ok": False, "error": "game_changed", "status": 409}
@@ -2939,6 +2951,7 @@ async def game_versions_set(sid, data):
                     "day": ctx.gint("day_number"),
                     "phase": ctx.phase,
                     "versions": versions,
+                    "scoring_marks": scoring_marks,
                 },
             )
 
@@ -2946,6 +2959,7 @@ async def game_versions_set(sid, data):
             "room_id": ctx.rid,
             "game_instance_id": game_instance_id,
             "versions": versions,
+            "scoring_marks": scoring_marks,
         }
         await sio.emit("game_versions_update", payload, room=f"user:{ctx.uid}", namespace="/room")
         return {"ok": True, "status": 200, **payload}

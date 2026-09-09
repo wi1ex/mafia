@@ -494,6 +494,7 @@
       <GameVersions
         v-if="gameVersionsOpen"
         :versions="gameVersions"
+        :scoring-marks="gameScoringMarks"
         :players="gameVersionPlayerOptions"
         :saving="gameVersionsSaving"
         @cancel="cancelGameVersions"
@@ -832,6 +833,7 @@ const roomGameSnapshot = ref<RoomGameParams | null>(null)
 const gameVersionsOpen = ref(false)
 const gameVersionsSaving = ref(false)
 const gameVersions = ref<GameVersionPayload[]>([])
+const gameScoringMarks = ref<Record<string, number>>({})
 let gameLifecycleEpoch = 0
 const uiReady = ref(false)
 const leaving = ref(false)
@@ -1310,14 +1312,17 @@ function openGameSettings() {
 function applyRoomGameSnapshot(raw: unknown) {
   roomGameSnapshot.value = normalizeRoomGameParams(raw)
 }
-function applyGameVersions(raw: unknown, rawGameInstanceId?: unknown): void {
+function applyGameVersions(raw: unknown, rawGameInstanceId?: unknown, rawMarks?: unknown): void {
   const currentGameInstanceId = game.gameInstanceId.value
   const incomingGameInstanceId = typeof rawGameInstanceId === 'string' ? rawGameInstanceId.trim() : ''
   if (!currentGameInstanceId || incomingGameInstanceId !== currentGameInstanceId) {
     gameVersions.value = []
+    gameScoringMarks.value = {}
     return
   }
   gameVersions.value = Array.isArray(raw) ? raw as GameVersionPayload[] : []
+  gameScoringMarks.value = rawMarks && typeof rawMarks === 'object' && !Array.isArray(rawMarks)
+    ? rawMarks as Record<string, number> : {}
 }
 function openGameVersions(): void {
   if (!canManageGameVersions.value) return
@@ -1327,14 +1332,14 @@ function cancelGameVersions(): void {
   if (gameVersionsSaving.value) return
   gameVersionsOpen.value = false
 }
-async function saveGameVersions(versions: GameVersionPayload[]): Promise<void> {
+async function saveGameVersions(versions: GameVersionPayload[], scoringMarks: Record<string, number>): Promise<void> {
   if (gameVersionsSaving.value || !canManageGameVersions.value) return
   const lifecycleEpoch = gameLifecycleEpoch
   const gameInstanceId = game.gameInstanceId.value
   if (!gameInstanceId) return
   gameVersionsSaving.value = true
   try {
-    const response = await sendAck('game_versions_set', { versions, game_instance_id: gameInstanceId })
+    const response = await sendAck('game_versions_set', { versions, scoring_marks: scoringMarks, game_instance_id: gameInstanceId })
     if (lifecycleEpoch !== gameLifecycleEpoch || gameInstanceId !== game.gameInstanceId.value) return
     if (!response?.ok) {
       const error = String(response?.error || '')
@@ -1354,7 +1359,7 @@ async function saveGameVersions(versions: GameVersionPayload[]): Promise<void> {
       void alertDialog(message)
       return
     }
-    applyGameVersions(response.versions, response.game_instance_id)
+    applyGameVersions(response.versions, response.game_instance_id, response.scoring_marks)
     gameVersionsOpen.value = false
   } finally {
     if (lifecycleEpoch === gameLifecycleEpoch) gameVersionsSaving.value = false
@@ -1772,6 +1777,7 @@ function resetGameScopedUi(): void {
   gameVersionsOpen.value = false
   gameVersionsSaving.value = false
   gameVersions.value = []
+  gameScoringMarks.value = {}
   closeKnockModal()
   knockSending.value = false
   foulPending.value = false
@@ -2815,7 +2821,7 @@ socket.value?.on('connect', async () => {
   socket.value.on('game_versions_update', (p: any) => {
     const roomId = Number(p?.room_id || 0)
     if (roomId && roomId !== rid) return
-    applyGameVersions(p?.versions, p?.game_instance_id)
+    applyGameVersions(p?.versions, p?.game_instance_id, p?.scoring_marks)
   })
 
   socket.value.on('game_host_blur', (p: any) => {
@@ -3180,7 +3186,7 @@ function applyJoinAck(j: any) {
   const previousGameInstanceId = game.gameInstanceId.value
   game.applyFromJoinAck(j, snapshotIds)
   if (previousGameInstanceId !== game.gameInstanceId.value) resetGameScopedUi()
-  applyGameVersions(j?.game_runtime?.versions, j?.game_runtime?.game_instance_id)
+  applyGameVersions(j?.game_runtime?.versions, j?.game_runtime?.game_instance_id, j?.game_runtime?.scoring_marks)
   if (musicEnabled.value) {
     rtc.setBgmSeed(j?.game_runtime?.bgm_seed, rid)
   }

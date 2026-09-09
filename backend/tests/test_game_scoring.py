@@ -1,6 +1,8 @@
 """Исполняемое описание текущего скоринга (базовая линия на 06.09.2026).
 
 У каждого параметра в RULE_SPECS есть русское описание и стандартная ставка.
+Отметки сломов ведущим проверяются по последнему сохранённому scoring_marks:
+ни одна отметка не заменяет проверку фактических голосов, ролей и уходов.
 Положительный/отрицательный тест проверяет все десять результатов и записи
 breakdown, в том числе при изменённой админской ставке и подписи. Ожидания
 сценариев заданы отдельно от проверяемого расчёта.
@@ -24,6 +26,7 @@ from app.services.game_scoring import (
     calculate_game_points_breakdown,
     calculate_game_scoring_audit,
     normalize_game_points_value,
+    parse_game_scoring_marks,
 )
 
 IDS = list(range(1, 11))
@@ -33,6 +36,9 @@ BOUNDS = {"additional_points_min", "additional_points_max"}
 
 # Ключ: (стандартный балл, правило применения).
 RULE_SPECS = {
+    "vote_break_red_to_red": (-0.5, "Один раз отмеченному ведущим красному: в день 1 он голосовал за единственного ушедшего красного без подъёма, а в день 2 сам ушёл единственным лидером без подъёма. Последний сохранённый выбор определяет получателя."),
+    "vote_break_red_to_black": (0.2, "Один раз отмеченному красному: в день 1 голосовал за единственного ушедшего чёрного без подъёма, день 2 наступил и в этот день сам не ушёл через голосование, в том числе подъём. Смерть ночью/по фолам не является уходом через голосование."),
+    "vote_break_black_to_sheriff": (0.2, "Один раз отмеченному чёрному: в день 1 голосовал за фактически ушедшего шерифа, единственного лидера без подъёма. Второй день и победа команды не требуются. Снятая ведущим отметка исключает начисление."),
     "additional_points_min": (-1, "Нижняя граница применяется один раз к сумме всех допбаллов, до прибавления базы. Настраивается; положительная граница поднимает даже нулевую сумму."),
     "additional_points_max": (1, "Верхняя граница применяется один раз к сумме всех допбаллов, до прибавления базы. Настраивается и может превышать +1."),
     "fourth_foul": (-0.3, "Четвёртый фол со связанным уходом по фолам без признака поражения/ППК. Первые три фола не штрафуются."),
@@ -184,6 +190,24 @@ for key, target, guess in (("farewell_red_correct", 3, "red"), ("farewell_red_wr
     event = dict(type="farewell", actor_id=2, wills={target: guess}, context={"versions": versions, "alive": IDS})
     recipient = 8 if "named_red" in key else 2
     add_case(key, [event], {recipient: RULE_SPECS[key][0]}, [{**event, "actor_id": 10}])
+
+
+def marked_break_actions(key, actor, target):
+    actions = [dict(type="versions", versions=[], scoring_marks={key: actor}),
+               death(target, reason="vote", day=1, vote_unique=True, by=[actor]),
+               dict(type="day_start", day=2, alive=[uid for uid in IDS if uid != target])]
+    if key == "vote_break_red_to_red":
+        actions.append(death(actor, reason="vote", day=2, vote_unique=True))
+    return actions
+
+
+for key, actor, target in (("vote_break_red_to_red", 2, 3),
+                           ("vote_break_red_to_black", 2, 8),
+                           ("vote_break_black_to_sheriff", 8, 1)):
+    actions = marked_break_actions(key, actor, target)
+    negative = copy.deepcopy(actions)
+    negative[1]["by"] = []
+    add_case(key, actions, {actor: RULE_SPECS[key][0]}, negative)
 
 
 class ScoringRulesTests(unittest.TestCase):
@@ -339,6 +363,74 @@ class ScoringRulesTests(unittest.TestCase):
         """Округление до сотых ROUND_HALF_UP для положительных и отрицательных чисел."""
         for raw, expected in ((1, 1.0), (0.1, 0.1), (0.125, 0.13), (-0.125, -0.13), (0.124, 0.12)):
             self.assertEqual(normalize_game_points_value(raw), expected)
+
+    def test_vote_break_marks_validate(self):
+        """Принимаются только одиночные ID игроков; ведущего, неизвестные ключи и некорректные значения отклоняем."""
+        key = "vote_break_red_to_red"
+        for raw in ([], {key: [2]}, {key: True}, {key: 11}, {key: -1}, {key: "2"}, {"unknown": 2}):
+            with self.subTest(raw=raw):
+                self.assertIsNone(parse_game_scoring_marks(raw, IDS))
+        self.assertEqual(parse_game_scoring_marks({key: 2}, IDS)[key], 2)
+        self.assertEqual(parse_game_scoring_marks({}, IDS)[key], 0)
+
+    def test_vote_break_conditions_and_latest_selection(self):
+        """Роль, первый день, голос, отсутствие подъёма и последняя отметка обязательны; повтор отметки не удваивает балл."""
+        for key, actor, target in (("vote_break_red_to_red", 2, 3),
+                                   ("vote_break_red_to_black", 2, 8),
+                                   ("vote_break_black_to_sheriff", 8, 1)):
+            rules = isolated_rules(key)
+            original = marked_break_actions(key, actor, target)
+            for changes in ({"day": 2}, {"vote_lift": True}, {"vote_unique": False},
+                            {"reason": "foul"}, {"target_id": 9 if target != 8 else 3}):
+                actions = copy.deepcopy(original)
+                actions[1].update(changes)
+                self.assertEqual(score(actions, rules=rules)[0][str(actor)], 0, (key, changes))
+            self.assertEqual(score(original[1:], rules=rules)[0][str(actor)], 0)
+            # Любое сохранённое снятие отметки отменяет её; повтор сохранения не дублирует начисление.
+            self.assertEqual(score(original + [original[0]], rules=rules)[0][str(actor)], RULE_SPECS[key][0])
+            self.assertEqual(score(original + [dict(type="versions", versions=[], scoring_marks={})], rules=rules)[0][str(actor)], 0)
+            replacement = 4 if actor == 2 else 9
+            changed = original + [dict(type="versions", versions=[], scoring_marks={key: replacement})]
+            self.assertEqual(score(changed, rules=rules)[0][str(actor)], 0)
+            self.assertEqual(score(original, mode="normal", rules=rules), ({}, {}))
+
+    def test_vote_break_second_day(self):
+        """Для красного в красного нужен единственный уход во второй день; для красного в чёрного любой vote-уход исключает бонус."""
+        key = "vote_break_red_to_red"
+        actions = marked_break_actions(key, 2, 3)
+        for changes in ({"day": 3}, {"vote_lift": True}, {"vote_unique": False}, {"reason": "suicide"}):
+            changed = copy.deepcopy(actions)
+            changed[-1].update(changes)
+            self.assertEqual(score(changed, rules=isolated_rules(key))[0]["2"], 0)
+        key = "vote_break_red_to_black"
+        actions = marked_break_actions(key, 2, 8)
+        self.assertEqual(score(actions[:2], rules=isolated_rules(key))[0]["2"], 0)
+        for lift in (False, True):
+            self.assertEqual(score(actions + [death(2, reason="vote", day=2, vote_lift=lift)], rules=isolated_rules(key))[0]["2"], 0)
+        self.assertEqual(score(actions + [death(2, reason="night", day=1)], rules=isolated_rules(key))[0]["2"], 0.2)
+
+    def test_vote_break_roles_and_audit(self):
+        """Неверная команда автора исключает начисление; аудит привязан к последней отметке и объясняет отказ."""
+        for key, actor, target in (("vote_break_red_to_red", 8, 3),
+                                   ("vote_break_red_to_black", 9, 8),
+                                   ("vote_break_black_to_sheriff", 2, 1)):
+            actions = marked_break_actions(key, actor, target)
+            rules = isolated_rules(key)
+            self.assertEqual(score(actions, rules=rules)[0][str(actor)], 0)
+            audit = calculate_game_scoring_audit(mode="rating", roles=ROLES, player_ids=IDS,
+                actions=actions, scoring_rules=rules)
+            item = next(item for item in audit if item["type"] == "marked_vote_break")
+            self.assertEqual(item["reason"], "wrong_team")
+            self.assertNotIn("actor_adjustment", item)
+        key = "vote_break_black_to_sheriff"
+        actions = marked_break_actions(key, 8, 1)[:2]  # Второй день этому правилу не нужен.
+        actions.append(copy.deepcopy(actions[0]))
+        audit = calculate_game_scoring_audit(mode="rating", roles=ROLES, player_ids=IDS,
+            actions=actions, scoring_rules=isolated_rules(key))
+        items = [item for item in audit if item["type"] == "marked_vote_break"]
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0]["action_order"], 3)
+        self.assertEqual(items[0]["actor_adjustment"]["points"], 0.2)
 
     def test_black_victory_bonus_for_every_departure_reason(self):
         """Любой способ достижения итоговых 3в3/2в2/1в1 даёт один бонус; проигрыш/ничья не дают."""

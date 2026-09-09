@@ -290,6 +290,18 @@
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Последняя надежда" />
                 <UiInput id="scoring-nomination-red-last-hope-label" size="low" v-model.trim="scoring.nomination_red_last_hope_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
+                <UiInput id="scoring-vote_break_red_to_red" size="low" v-model.number="scoring.vote_break_red_to_red" type="number" step="0.01"
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Слом в красного будучи красным" />
+                <UiInput id="scoring-vote_break_red_to_red-label" size="low" v-model.trim="scoring.vote_break_red_to_red_label" maxlength="255"
+                         autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
+                <UiInput id="scoring-vote_break_red_to_black" size="low" v-model.number="scoring.vote_break_red_to_black" type="number" step="0.01"
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Слом в черного будучи красным" />
+                <UiInput id="scoring-vote_break_red_to_black-label" size="low" v-model.trim="scoring.vote_break_red_to_black_label" maxlength="255"
+                         autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
+                <UiInput id="scoring-vote_break_black_to_sheriff" size="low" v-model.number="scoring.vote_break_black_to_sheriff" type="number" step="0.01"
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Слом в шерифа будучи черным" />
+                <UiInput id="scoring-vote_break_black_to_sheriff-label" size="low" v-model.trim="scoring.vote_break_black_to_sheriff_label" maxlength="255"
+                         autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 <UiInput id="scoring-black-day-under-seven" size="low" v-model.number="scoring.black_day_under_seven" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Проход в круг при 3-6х" />
                 <UiInput id="scoring-black-day-under-seven-label" size="low" v-model.trim="scoring.black_day_under_seven_label" maxlength="255"
@@ -1318,6 +1330,9 @@ type GameScoringSettings = {
   vote_lift_opponent_team: number
   nomination_black_prevents_black_win: number
   nomination_red_last_hope: number
+  vote_break_red_to_red: number
+  vote_break_red_to_black: number
+  vote_break_black_to_sheriff: number
   sheriff_two_unobvious_black_checks: number
   don_missed_sheriff_two_checks: number
   citizen_false_check: number
@@ -1357,6 +1372,9 @@ type GameScoringSettings = {
   vote_lift_opponent_team_label: string
   nomination_black_prevents_black_win_label: string
   nomination_red_last_hope_label: string
+  vote_break_red_to_red_label: string
+  vote_break_red_to_black_label: string
+  vote_break_black_to_sheriff_label: string
   sheriff_two_unobvious_black_checks_label: string
   don_missed_sheriff_two_checks_label: string
   citizen_false_check_label: string
@@ -1688,6 +1706,9 @@ const scoring = reactive<GameScoringSettings>({
   vote_lift_opponent_team: 0.3,
   nomination_black_prevents_black_win: -0.5,
   nomination_red_last_hope: 0.3,
+  vote_break_red_to_red: -0.5,
+  vote_break_red_to_black: 0.2,
+  vote_break_black_to_sheriff: 0.2,
   sheriff_two_unobvious_black_checks: 0.2,
   don_missed_sheriff_two_checks: -0.1,
   citizen_false_check: -0.1,
@@ -1727,6 +1748,9 @@ const scoring = reactive<GameScoringSettings>({
   vote_lift_opponent_team_label: 'Подъём игроков другой команды',
   nomination_black_prevents_black_win_label: 'Выставление при гарантированной победе',
   nomination_red_last_hope_label: 'Последняя надежда',
+  vote_break_red_to_red_label: 'Слом в красного будучи красным',
+  vote_break_red_to_black_label: 'Слом в черного будучи красным',
+  vote_break_black_to_sheriff_label: 'Слом в шерифа будучи черным',
   sheriff_two_unobvious_black_checks_label: 'Две подряд чёрные проверки',
   don_missed_sheriff_two_checks_label: 'Не нашёл шерифа за две проверки',
   citizen_false_check_label: 'Ложная проверка будучи мирным',
@@ -2111,6 +2135,9 @@ function snapshotScoring(): string {
     vote_lift_opponent_team: normalizeScoringValue(scoring.vote_lift_opponent_team),
     nomination_black_prevents_black_win: normalizeScoringValue(scoring.nomination_black_prevents_black_win),
     nomination_red_last_hope: normalizeScoringValue(scoring.nomination_red_last_hope),
+    vote_break_red_to_red: normalizeScoringValue(scoring.vote_break_red_to_red),
+    vote_break_red_to_black: normalizeScoringValue(scoring.vote_break_red_to_black),
+    vote_break_black_to_sheriff: normalizeScoringValue(scoring.vote_break_black_to_sheriff),
     sheriff_two_unobvious_black_checks: normalizeScoringValue(scoring.sheriff_two_unobvious_black_checks),
     don_missed_sheriff_two_checks: normalizeScoringValue(scoring.don_missed_sheriff_two_checks),
     citizen_false_check: normalizeScoringValue(scoring.citizen_false_check),
@@ -2150,6 +2177,9 @@ function snapshotScoring(): string {
     vote_lift_opponent_team_label: normalizeScoringLabel(scoring.vote_lift_opponent_team_label),
     nomination_black_prevents_black_win_label: normalizeScoringLabel(scoring.nomination_black_prevents_black_win_label),
     nomination_red_last_hope_label: normalizeScoringLabel(scoring.nomination_red_last_hope_label),
+    vote_break_red_to_red_label: normalizeScoringLabel(scoring.vote_break_red_to_red_label),
+    vote_break_red_to_black_label: normalizeScoringLabel(scoring.vote_break_red_to_black_label),
+    vote_break_black_to_sheriff_label: normalizeScoringLabel(scoring.vote_break_black_to_sheriff_label),
     sheriff_two_unobvious_black_checks_label: normalizeScoringLabel(scoring.sheriff_two_unobvious_black_checks_label),
     don_missed_sheriff_two_checks_label: normalizeScoringLabel(scoring.don_missed_sheriff_two_checks_label),
     citizen_false_check_label: normalizeScoringLabel(scoring.citizen_false_check_label),
@@ -2852,6 +2882,9 @@ async function loadScoring(): Promise<void> {
     scoring.vote_lift_opponent_team = normalizeScoringValue(scoring.vote_lift_opponent_team)
     scoring.nomination_black_prevents_black_win = normalizeScoringValue(scoring.nomination_black_prevents_black_win)
     scoring.nomination_red_last_hope = normalizeScoringValue(scoring.nomination_red_last_hope)
+    scoring.vote_break_red_to_red = normalizeScoringValue(scoring.vote_break_red_to_red)
+    scoring.vote_break_red_to_black = normalizeScoringValue(scoring.vote_break_red_to_black)
+    scoring.vote_break_black_to_sheriff = normalizeScoringValue(scoring.vote_break_black_to_sheriff)
     scoring.sheriff_two_unobvious_black_checks = normalizeScoringValue(scoring.sheriff_two_unobvious_black_checks)
     scoring.don_missed_sheriff_two_checks = normalizeScoringValue(scoring.don_missed_sheriff_two_checks)
     scoring.citizen_false_check = normalizeScoringValue(scoring.citizen_false_check)
@@ -2891,6 +2924,9 @@ async function loadScoring(): Promise<void> {
     scoring.vote_lift_opponent_team_label = normalizeScoringLabel(scoring.vote_lift_opponent_team_label)
     scoring.nomination_black_prevents_black_win_label = normalizeScoringLabel(scoring.nomination_black_prevents_black_win_label)
     scoring.nomination_red_last_hope_label = normalizeScoringLabel(scoring.nomination_red_last_hope_label)
+    scoring.vote_break_red_to_red_label = normalizeScoringLabel(scoring.vote_break_red_to_red_label)
+    scoring.vote_break_red_to_black_label = normalizeScoringLabel(scoring.vote_break_red_to_black_label)
+    scoring.vote_break_black_to_sheriff_label = normalizeScoringLabel(scoring.vote_break_black_to_sheriff_label)
     scoring.sheriff_two_unobvious_black_checks_label = normalizeScoringLabel(scoring.sheriff_two_unobvious_black_checks_label)
     scoring.don_missed_sheriff_two_checks_label = normalizeScoringLabel(scoring.don_missed_sheriff_two_checks_label)
     scoring.citizen_false_check_label = normalizeScoringLabel(scoring.citizen_false_check_label)

@@ -3352,6 +3352,14 @@ def game_action_fields(action: dict[str, Any], *, uid_to_slot: dict[int, int], h
         return "Мнения", f"Мнения игроков за ночь {night_number if night_number > 0 else '-'}", fields
 
     if action_type == "versions":
+        from ..services.game_scoring import GAME_SCORING_MARK_KEYS, GAME_SCORING_LABEL_DEFAULTS
+
+        marks = action.get("scoring_marks")
+        if isinstance(marks, Mapping):
+            for key in GAME_SCORING_MARK_KEYS:
+                marked_id = safe_int(marks.get(key))
+                slot = uid_to_slot.get(marked_id)
+                add_field(GAME_SCORING_LABEL_DEFAULTS[key], f"Игрок {slot}" if slot else "Не отмечен")
         phase = str(action.get("phase") or "").strip().lower()
         phase_label = {
             "roles_pick": "Выбор ролей",
@@ -3444,6 +3452,23 @@ def game_scoring_audit_fields(
             continue
 
         action_type = str(audit_item.get("type") or "").strip().lower()
+        if action_type == "marked_vote_break":
+            from ..services.game_scoring import GAME_SCORING_LABEL_DEFAULTS
+
+            adjustment = audit_item.get("actor_adjustment")
+            reasons = {
+                "wrong_team": "Команда отмеченного игрока не соответствует условию",
+                "no_first_day_vote": "Нет подходящего ухода в первый день с голосом отмеченного игрока",
+                "second_day_condition": "Условие второго дня не выполнено",
+            }
+            rule_label = GAME_SCORING_LABEL_DEFAULTS.get(str(audit_item.get("rule_key")), "Слом")
+            value = f"{player_label(actor_id)}: "
+            if isinstance(adjustment, Mapping):
+                value += f"условия выполнены; {points_label(adjustment.get('points'))} ({adjustment.get('label')})."
+            else:
+                value += reasons.get(str(audit_item.get("reason")), "Условия не выполнены") + " — 0.00."
+            fields_by_order.setdefault(order, []).append(AdminGameActionFieldOut(label=rule_label, value=value))
+            continue
         if action_type == "check_scoring":
             label = "Скоринг проверки"
             check_kind = str(audit_item.get("check_kind") or "").strip().lower()

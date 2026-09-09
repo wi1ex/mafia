@@ -181,6 +181,9 @@ class GameScoringSettingsOut(BaseModel):
     vote_lift_opponent_team: float
     nomination_black_prevents_black_win: float
     nomination_red_last_hope: float
+    vote_break_red_to_red: float
+    vote_break_red_to_black: float
+    vote_break_black_to_sheriff: float
     sheriff_two_unobvious_black_checks: float
     don_missed_sheriff_two_checks: float
     citizen_false_check: float
@@ -220,6 +223,9 @@ class GameScoringSettingsOut(BaseModel):
     vote_lift_opponent_team_label: str
     nomination_black_prevents_black_win_label: str
     nomination_red_last_hope_label: str
+    vote_break_red_to_red_label: str
+    vote_break_red_to_black_label: str
+    vote_break_black_to_sheriff_label: str
     sheriff_two_unobvious_black_checks_label: str
     don_missed_sheriff_two_checks_label: str
     citizen_false_check_label: str
@@ -264,6 +270,9 @@ class GameScoringSettingsUpdateIn(BaseModel):
     vote_lift_opponent_team: Optional[float] = Field(default=None, ge=-10, le=10)
     nomination_black_prevents_black_win: Optional[float] = Field(default=None, ge=-10, le=10)
     nomination_red_last_hope: Optional[float] = Field(default=None, ge=-10, le=10)
+    vote_break_red_to_red: Optional[float] = Field(default=None, ge=-10, le=10)
+    vote_break_red_to_black: Optional[float] = Field(default=None, ge=-10, le=10)
+    vote_break_black_to_sheriff: Optional[float] = Field(default=None, ge=-10, le=10)
     sheriff_two_unobvious_black_checks: Optional[float] = Field(default=None, ge=-10, le=10)
     don_missed_sheriff_two_checks: Optional[float] = Field(default=None, ge=-10, le=10)
     citizen_false_check: Optional[float] = Field(default=None, ge=-10, le=10)
@@ -303,6 +312,9 @@ class GameScoringSettingsUpdateIn(BaseModel):
     vote_lift_opponent_team_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
     nomination_black_prevents_black_win_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
     nomination_red_last_hope_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    vote_break_red_to_red_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    vote_break_red_to_black_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    vote_break_black_to_sheriff_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
     sheriff_two_unobvious_black_checks_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
     don_missed_sheriff_two_checks_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
     citizen_false_check_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
