@@ -427,7 +427,7 @@ onBeforeUnmount(() => {
           color: $neutral-black;
           font-family: Hauora-Medium;
           font-size: 16px;
-          line-height: 20px;
+          line-height: 22px;
           letter-spacing: -0.32px;
           white-space: nowrap;
           overflow: hidden;
