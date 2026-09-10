@@ -81,7 +81,7 @@
                      @pointerenter="onReactionDetailsHover(message.id, reaction.emoji)" @pointerleave="closeReactionDetails(message.id, reaction.emoji)"
                      @focusin="onReactionDetailsFocus(message.id, reaction.emoji)" @focusout="onReactionDetailsFocusOut($event, message.id, reaction.emoji)">
                   <button :class="['reaction-chip', { 'reaction-chip--active': reaction.reacted_by_me }]"
-                          type="button" :disabled="chat.isReactionBusy(message.id)" @click="onToggleReaction(message.id, reaction.emoji)">
+                          type="button" :disabled="!permissions.can_react || user.timeoutActive || chat.isReactionBusy(message.id)" @click="onToggleReaction(message.id, reaction.emoji)">
                     <span>{{ reaction.emoji }}</span>
                     <span>{{ reaction.count }}</span>
                   </button>
@@ -105,7 +105,7 @@
                 </div>
 
                 <div v-if="reactionsAllowlist.length > 0" class="reaction-details-anchor">
-                  <button class="reaction-chip reaction-chip--picker" type="button" :disabled="chat.isReactionBusy(message.id)"
+                  <button class="reaction-chip reaction-chip--picker" type="button" :disabled="!permissions.can_react || user.timeoutActive || chat.isReactionBusy(message.id)"
                           @pointerdown.stop @click="toggleMessageReactionPicker(message.id)">
                     <img :src="iconAddReaction" alt="" />
                   </button>
@@ -426,7 +426,7 @@ const showLauncher = computed(() => {
   if (!auth.ready || !settings.ready || !auth.isAuthed) return false
   if (!settings.chatOpenEnabled && !isAdminUser.value) return false
   if (!user.user) return false
-  if (user.banActive || user.timeoutActive || user.inActiveGameAsPlayer) return false
+  if (user.banActive || user.inActiveGameAsPlayer) return false
   return !(settings.verificationRestrictions && !user.telegramVerified);
 })
 const canRender = computed(() => (settings.chatOpenEnabled || isAdminUser.value) && (showLauncher.value || chat.open))
@@ -447,6 +447,7 @@ const statusText = computed(() => {
   if (connectionState.value === 'connecting') return 'Подключение к общему чату…'
   if (connectionState.value === 'reconnecting') return 'Соединение потеряно. Переподключаемся…'
   if (connectionState.value === 'error') return lastError.value || 'Не удалось подключиться к общему чату'
+  if (user.timeoutActive) return 'Во время таймаута можно читать чат, но нельзя отправлять сообщения и ставить реакции'
   if (!permissions.value.can_send) return 'Отправка сообщений временно недоступна'
   return ''
 })
@@ -456,12 +457,13 @@ const floatingChatActionsStyle = computed(() => ({ bottom: `${floatingChatAction
 const composerDisabled = computed(() => {
   return connectionState.value !== 'ready'
     || !permissions.value.can_send
+    || user.timeoutActive
     || sending.value
     || uploadingImage.value
 })
 const reactionPickerItems = computed(() => reactionsAllowlist.value.filter((item, index, list) => Boolean(item) && list.indexOf(item) === index))
 const composerPlaceholder = computed(() => (
-  permissions.value.can_send ? 'Введите текст...' : 'Чат временно отключен...'
+  user.timeoutActive ? 'Только чтение — действует таймаут' : permissions.value.can_send ? 'Введите текст...' : 'Чат временно отключен...'
 ))
 const showLoadMore = computed(() => hasMore.value && (loadingMore.value || listAtTop.value))
 const mentionDropdownVisible = computed(() => Boolean(activeMentionRange.value?.query) && !composerDisabled.value && (mentionLoading.value || mentionHasSearched.value))
@@ -1264,6 +1266,7 @@ function onToggleReaction(messageId: number, emoji: string): void {
 }
 
 function toggleMessageReactionPicker(messageId: number): void {
+  if (!permissions.value.can_react || user.timeoutActive) return
   reactionPickerMessageId.value = reactionPickerMessageId.value === messageId ? null : messageId
 }
 
@@ -1576,6 +1579,8 @@ watch(draft, () => {
 
 watch(composerDisabled, (disabled) => {
   if (disabled) {
+    reactionPickerMessageId.value = null
+    composerPickerOpen.value = false
     resetComposerDragState()
     clearMentionSuggestions()
     return
@@ -1698,6 +1703,10 @@ onBeforeUnmount(() => {
   closeDeletedPreview()
   closeImageLightbox()
   resetComposerDragState()
+})
+
+watch(() => user.timeoutActive, () => {
+  if (chat.open) void chat.refreshPermissions(false)
 })
 </script>
 

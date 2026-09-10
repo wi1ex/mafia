@@ -718,9 +718,6 @@ async def resolve_global_chat_permissions(session: AsyncSession, user_id: int) -
     elif ban_active:
         can_open = False
         error = "user_banned"
-    elif timeout_active:
-        can_open = False
-        error = "user_timeout"
     elif in_active_game_as_player:
         can_open = False
         error = "active_game_player"
@@ -728,9 +725,9 @@ async def resolve_global_chat_permissions(session: AsyncSession, user_id: int) -
         can_open = False
         error = "not_verified"
 
-    can_send = can_open
-    can_react = can_open
-    can_delete_own = can_open
+    can_send = can_open and not timeout_active
+    can_react = can_open and not timeout_active
+    can_delete_own = can_open and not timeout_active
 
     return GlobalChatPermissions(
         can_open=can_open,

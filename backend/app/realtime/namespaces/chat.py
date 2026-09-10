@@ -393,7 +393,7 @@ async def chat_react_toggle(sid, data):
         async with SessionLocal() as db:
             permissions = await resolve_global_chat_permissions(db, uid)
             if not permissions.can_open or not permissions.can_react:
-                return {"ok": False, "status": permissions_status(permissions.error), "error": permissions.error or "forbidden"}
+                return {"ok": False, "status": permissions_status(permissions.error), "error": global_chat_send_error(permissions)}
 
             message = await get_global_chat_message(db, message_id)
             if message is None:

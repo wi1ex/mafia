@@ -853,7 +853,7 @@ const showRoomFriendsButton = computed(() => gamePhase.value === 'idle' && !admi
 const showGlobalChatButton = computed(() => {
   if (!canUseVerifiedFeatures.value) return false
   if (!settings.chatOpenEnabled && !isAdminUser.value) return false
-  return !(userStore.banActive || userStore.timeoutActive || userStore.inActiveGameAsPlayer)
+  return !(userStore.banActive || userStore.inActiveGameAsPlayer)
 })
 function onAppsCounts(p: { total?: number; unread?: number }) {
   appsCounts.total = Number(p?.total || 0)

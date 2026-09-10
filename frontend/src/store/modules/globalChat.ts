@@ -245,6 +245,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
     if (!open.value || sending.value || uploadingImage.value) return false
     if (connectionState.value !== 'ready') return false
     if (!permissions.value.can_send) return false
+    if (useUserStore().timeoutActive) return false
     return Boolean(draft.value.trim() || draftHasImage.value)
   })
 
@@ -877,10 +878,15 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
 
   function maybeApplyAccessLoss(status: number, error: string): void {
     if (status !== 403) return
+    if (error === 'user_timeout') {
+      permissions.value = { ...permissions.value, can_send: false, can_react: false, can_delete_own: false }
+      void refreshPermissions(false)
+      return
+    }
     if (error === 'active_game_player') {
       useUserStore().setInActiveGameAsPlayer(true)
     }
-    if (error === 'active_game_player' || error === 'chat_disabled' || error === 'not_verified' || error === 'user_timeout' || error === 'user_banned') {
+    if (error === 'active_game_player' || error === 'chat_disabled' || error === 'not_verified' || error === 'user_banned') {
       closePanel()
     }
   }
@@ -1307,6 +1313,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
   }
 
   async function toggleReaction(messageId: number, emoji: string): Promise<void> {
+    if (!open.value || connectionState.value !== 'ready' || !permissions.value.can_react || useUserStore().timeoutActive) return
     const normalizedMessageId = asPositiveInt(messageId)
     if (normalizedMessageId <= 0 || !emoji || reactionBusy[normalizedMessageId]) return
 
@@ -1585,6 +1592,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
     clearUnreadTargetMessageIds,
     openPanel,
     closePanel,
+    refreshPermissions,
     hardReset,
     loadMore,
     sendDraft,
