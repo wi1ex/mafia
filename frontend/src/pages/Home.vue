@@ -1630,7 +1630,7 @@ onBeforeUnmount(() => {
           line-height: 26px;
           letter-spacing: -0.48px;
           .right-extra-copy-accent {
-            margin-left: 6px;
+            margin-left: 8px;
             color: $green-500;
           }
         }
