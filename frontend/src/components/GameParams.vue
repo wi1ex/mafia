@@ -21,7 +21,7 @@
               on-label="Рейтинг"
               tooltip="Рейтинговую игру сможет запустить только пользователь с ролью «Ведущий»"
               tooltip-target="on"
-              tooltip-placement="top-left"
+              tooltip-placement="bottom-left"
               tooltip-bubble-width="320px"
               aria-label="Режим"
               :disabled="ratingModeDisabled"
