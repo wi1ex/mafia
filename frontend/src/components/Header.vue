@@ -38,8 +38,7 @@
           <UiIcon class="page-icon" :icon="iconInfo" />
           <span class="page-text" data-nosnippet>Правила</span>
         </router-link>
-<!--        <router-link v-if="showHistoryButton" class="page" :to="{ name: 'history' }" aria-label="История игр">-->
-        <router-link v-if="showHistoryButton && user.user?.role === 'admin'" class="page" :to="{ name: 'history' }" aria-label="История игр">
+        <router-link v-if="showHistoryButton" class="page" :to="{ name: 'history' }" aria-label="История игр">
           <UiIcon class="page-icon" :icon="iconGamesHistory" />
           <span class="page-text" data-nosnippet>История игр</span>
         </router-link>
