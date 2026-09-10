@@ -2308,6 +2308,18 @@ async def game_wink(sid, data):
         if not await r.sismember(f"room:{rid}:members", str(target_uid)):
             return {"ok": False, "error": "target_offline", "status": 404}
 
+        raw_seats = await hgetall_int_map(r, f"room:{rid}:game_seats")
+        total_seats = max((seat for seat in raw_seats.values() if seat > 0 and seat != 11), default=0)
+        seat_num = raw_seats.get(uid, 0)
+        seat_target = raw_seats.get(target_uid, 0)
+        if not (1 <= seat_num <= total_seats and 1 <= seat_target <= total_seats):
+            return {"ok": False, "error": "bad_seat", "status": 400}
+
+        left_seat = seat_num - 1 if seat_num > 1 else total_seats
+        right_seat = seat_num + 1 if seat_num < total_seats else 1
+        if seat_target in (left_seat, right_seat):
+            return {"ok": False, "error": "neighbor_target", "status": 400}
+
         try:
             left_raw = await r.hget(f"room:{rid}:game_winks_left", str(uid))
             left = int(left_raw or 0)
@@ -2326,15 +2338,6 @@ async def game_wink(sid, data):
         if left_after < 0:
             left_after = 0
             await r.hset(f"room:{rid}:game_winks_left", str(uid), "0")
-
-        try:
-            seat_num = int(await r.hget(f"room:{rid}:game_seats", str(uid)) or 0)
-        except Exception:
-            seat_num = 0
-        try:
-            seat_target = int(await r.hget(f"room:{rid}:game_seats", str(target_uid)) or 0)
-        except Exception:
-            seat_target = 0
 
         spotted = False
         await sio.emit("game_winked",
