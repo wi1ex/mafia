@@ -169,7 +169,6 @@ const tocLinks = computed<TocItem[]>(() => [
   { id: 'sanctions', label: 'Нотация санкций' },
   ...settingsStore.sanctionRules.map(({ id, title }) => ({ id, label: title })),
   { id: 'scoring', label: 'Скоринг' },
-  ...SCORING_SECTIONS.map(({ id, title }) => ({ id, label: title })),
 ])
 const rulesStateText = computed(() => (
   settingsStore.sanctionRulesLoadFailed ? 'Не удалось загрузить правила.' : 'Загрузка правил…'
@@ -368,7 +367,7 @@ onBeforeUnmount(() => {
   }
   .scoring-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
   }
   .scoring-tile {
