@@ -4,6 +4,7 @@
       <h3>Статистика пользователя</h3>
       <UiDropdown
         id="profile-stats-season"
+        size="low"
         v-model="selectedSeason"
         class="stats-season-dropdown"
         :options="seasonOptions"
