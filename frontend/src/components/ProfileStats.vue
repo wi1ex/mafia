@@ -84,7 +84,6 @@
       </div>
 
       <section class="block">
-        <h4>Дополнительные показатели</h4>
         <div class="extra-grid">
           <article class="metric-card">
             <span>Завещания</span>
@@ -531,7 +530,7 @@ onMounted(() => {
       justify-content: space-between;
       padding: 10px;
       gap: 5px;
-      height: 72px;
+      height: 60px;
       border-radius: 5px;
       border: 1px solid rgba($neutral-500, 0.5);
       background: linear-gradient(150deg, rgba($neutral-800, 0.75), rgba($neutral-700, 0.75));
@@ -636,7 +635,7 @@ onMounted(() => {
       .role-rings {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 20px;
+        gap: 210px;
         .role-ring-card {
           display: flex;
           justify-content: center;
@@ -724,7 +723,7 @@ onMounted(() => {
       .rank-row {
         display: flex;
         flex-direction: column;
-        padding: 10px;
+        padding: 5px 10px;
         gap: 5px;
         border-radius: 5px;
         background-color: $neutral-900;
@@ -734,6 +733,7 @@ onMounted(() => {
           grid-template-columns: auto 1fr auto;
           align-items: center;
           gap: 5px;
+          font-size: 14px;
           .rank-pos {
             color: $neutral-300;
           }
@@ -767,7 +767,7 @@ onMounted(() => {
       .best-bars {
         display: flex;
         flex-direction: column;
-        gap: 10px;
+        gap: 5px;
         .best-row {
           display: grid;
           grid-template-columns: auto 1fr auto;

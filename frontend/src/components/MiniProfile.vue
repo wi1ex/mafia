@@ -2160,6 +2160,7 @@ onBeforeUnmount(() => {
     scrollbar-width: none;
     transition: width 0.25s ease-in-out, height 0.25s ease-in-out;
     &.stats-mode {
+      gap: 10px;
       width: min(1350px, calc(var(--app-viewport-width) - 96px));
       height: calc(var(--app-viewport-height) - 96px);
     }
