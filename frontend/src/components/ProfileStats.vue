@@ -1,7 +1,6 @@
 <template>
   <div class="stats-tab">
     <div class="stats-head">
-      <h3>Статистика пользователя</h3>
       <UiDropdown
         id="profile-stats-season"
         size="low"
@@ -481,11 +480,8 @@ onMounted(() => {
     display: flex;
     flex-wrap: wrap;
     align-items: flex-start;
-    justify-content: space-between;
+    justify-content: flex-end;
     gap: 10px;
-    h3 {
-      margin: 0;
-    }
     .stats-season-dropdown {
       width: 220px;
     }
