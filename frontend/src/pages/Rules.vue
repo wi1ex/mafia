@@ -61,6 +61,41 @@
           </article>
         </section>
         <p v-else class="rules-state">{{ rulesStateText }}</p>
+        <section id="scoring" class="scoring-intro">
+          <p class="scoring-eyebrow">Рейтинговые игры</p>
+          <h2>Скоринг</h2>
+          <p>За победу команда получает по 1 базовому баллу на игрока. Дополнительные баллы начисляются за действия ниже и прибавляются к базовому результату после применения лимитов.</p>
+          <p>Здесь указаны текущие настройки. Для каждой игры значения фиксируются при её старте: изменения в админке действуют только на следующие игры.</p>
+          <div class="scoring-legend" aria-label="Обозначения баллов">
+            <span class="positive">+ Начисление</span><span class="negative">− Штраф</span><span>0 — без изменения баллов</span>
+          </div>
+          <div v-if="scoringLoadFailed" class="scoring-state" role="alert">
+            <p>Не удалось загрузить баллы. Условия доступны ниже.</p>
+            <button type="button" class="scoring-retry" @click="loadScoring">Повторить загрузку</button>
+          </div>
+          <p v-else-if="!scoringValues" role="status">Загрузка актуальных баллов…</p>
+        </section>
+        <section v-for="(section, index) in SCORING_SECTIONS" :id="section.id" :key="section.id" class="scoring-section" :aria-labelledby="`${section.id}-title`">
+          <header class="scoring-section-header">
+            <span class="scoring-number" aria-hidden="true">{{ String(index + 1).padStart(2, '0') }}</span>
+            <div>
+              <h3 :id="`${section.id}-title`">{{ section.title }}</h3>
+              <p>{{ section.description }}</p>
+            </div>
+          </header>
+          <div class="scoring-grid">
+            <article v-for="rule in section.rules" :key="rule.key" class="scoring-tile" :class="scoreTone(rule.key)">
+              <div class="scoring-tile-top">
+                <h4>{{ rule.title }}</h4>
+                <div class="scoring-value">
+                  <strong>{{ formatScore(rule.key) }}</strong>
+                  <span>{{ scoreValue(rule.key) === null ? 'нет данных' : section.id === 'scoring-limits' ? 'граница' : 'доп. баллы' }}</span>
+                </div>
+              </div>
+              <p>{{ rule.description }}</p>
+            </article>
+          </div>
+        </section>
       </div>
 
       <aside class="rules-toc" aria-label="Содержание страницы">
@@ -83,6 +118,8 @@
 import { computed, nextTick, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { SUSPEND_SANCTION_BADGES, TIMEOUT_SANCTION_BADGES, getSanctionBadge, type SanctionRule } from '@/constants/sanctionReasons'
 import { useSettingsStore } from '@/store'
+import { api } from '@/services/axios'
+import { SCORING_SECTIONS } from '@/constants/scoringRules'
 
 type TocItem = {
   id: string
@@ -90,10 +127,49 @@ type TocItem = {
 }
 
 const settingsStore = useSettingsStore()
+const scoringValues = ref<Record<string, number> | null>(null)
+const scoringLoadFailed = ref(false)
+
+async function loadScoring() {
+  scoringLoadFailed.value = false
+  try {
+    const { data } = await api.get('/admin/scoring/public', { __skipAuth: true })
+    const values: Record<string, number> = {}
+    for (const { rules } of SCORING_SECTIONS) {
+      for (const { key } of rules) {
+        const value = data?.[key]
+        if (typeof value !== 'number' || !Number.isFinite(value)) throw new Error('invalid_scoring_response')
+        values[key] = value
+      }
+    }
+    scoringValues.value = values
+  } catch {
+    scoringLoadFailed.value = true
+  }
+}
+
+function scoreValue(key: string): number | null {
+  return scoringValues.value?.[key] ?? null
+}
+
+function scoreTone(key: string): string {
+  const value = scoreValue(key)
+  if (key.startsWith('additional_points_') || value === null || value === 0) return 'neutral'
+  return value > 0 ? 'positive' : 'negative'
+}
+
+function formatScore(key: string): string {
+  const value = scoreValue(key)
+  if (value === null) return '—'
+  return `${value > 0 ? '+' : value < 0 ? '−' : ''}${Math.abs(value).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
 const tocLinks = computed<TocItem[]>(() => [
   { id: 'intro', label: 'Введение' },
   { id: 'sanctions', label: 'Нотация санкций' },
   ...settingsStore.sanctionRules.map(({ id, title }) => ({ id, label: title })),
+  { id: 'scoring', label: 'Скоринг' },
+  ...SCORING_SECTIONS.map(({ id, title }) => ({ id, label: title })),
 ])
 const rulesStateText = computed(() => (
   settingsStore.sanctionRulesLoadFailed ? 'Не удалось загрузить правила.' : 'Загрузка правил…'
@@ -174,6 +250,7 @@ function onScroll() {
 }
 
 onMounted(() => {
+  void loadScoring()
   collectSections()
   if (window.location.hash) {
     history.replaceState(null, '', `${window.location.pathname}${window.location.search}`)
@@ -239,6 +316,87 @@ onBeforeUnmount(() => {
     -webkit-user-select: text;
     user-select: text;
   }
+  .scoring-intro {
+    padding: 24px;
+    border: 1px solid $orange-500;
+    border-radius: 14px;
+    background: linear-gradient(120deg, $neutral-700, $neutral-900);
+    h2 { margin: 4px 0 12px; font-size: 30px; }
+    p { margin: 10px 0 0; color: $neutral-100; }
+    .scoring-eyebrow { margin: 0; color: $orange-300; font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; }
+  }
+  .scoring-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    margin-top: 18px;
+    font-size: 13px;
+    color: $neutral-300;
+    .positive { color: $green-300; }
+    .negative { color: $red-300; }
+  }
+  .scoring-retry {
+    margin-top: 10px;
+    padding: 8px 14px;
+    border: 1px solid $neutral-500;
+    border-radius: 8px;
+    background: $neutral-800;
+    color: $neutral-100;
+    cursor: pointer;
+    &:hover { background: $neutral-700; }
+  }
+  .scoring-section { min-width: 0; padding-top: 12px; }
+  .scoring-section-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 16px;
+    h3 { margin: 0 0 6px; font-size: 21px; color: $neutral-100; }
+    p { margin: 0; color: $neutral-300; font-size: 14px; }
+  }
+  .scoring-number {
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    border: 1px solid $neutral-500;
+    border-radius: 10px;
+    background: $neutral-800;
+    color: $orange-300;
+    font-variant-numeric: tabular-nums;
+  }
+  .scoring-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+    gap: 12px;
+  }
+  .scoring-tile {
+    padding: 18px;
+    border: 1px solid $neutral-600;
+    border-top: 3px solid $neutral-400;
+    border-radius: 12px;
+    background: $neutral-800;
+    p { margin: 14px 0 0; color: $neutral-200; font-size: 14px; line-height: 1.65; }
+    &.positive { border-top-color: $green-400; .scoring-value strong { color: $green-300; } }
+    &.negative { border-top-color: $red-400; .scoring-value strong { color: $red-300; } }
+  }
+  .scoring-tile-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    h4 { flex: 1 1 130px; margin: 0; font-size: 16px; color: $neutral-100; }
+  }
+  .scoring-value {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    flex-shrink: 0;
+    strong { font-size: 26px; line-height: 1.15; font-variant-numeric: tabular-nums; color: $neutral-100; }
+    span { margin-top: 4px; font-size: 11px; color: $neutral-300; }
+  }
   .rules-toc {
     display: flex;
     position: sticky;
@@ -279,6 +437,8 @@ onBeforeUnmount(() => {
     .toc-links {
       display: flex;
       flex-direction: column;
+      max-height: calc(100dvh - 210px);
+      overflow-y: auto;
       gap: 5px;
       a {
         padding: 5px 20px;

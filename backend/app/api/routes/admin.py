@@ -448,6 +448,13 @@ async def update_settings(payload: AdminSettingsUpdateIn, session: AsyncSession 
     return AdminSettingsOut(site=site_settings_out(row), game=game_settings_out(row))
 
 
+@public_router.get("/scoring/public", response_model=GameScoringSettingsOut)
+@log_route("admin.scoring_public")
+async def public_game_scoring_settings(session: AsyncSession = Depends(get_session)) -> GameScoringSettingsOut:
+    row = await ensure_game_scoring_settings(session)
+    return GameScoringSettingsOut.model_validate(build_game_scoring_rules_snapshot(row.rules))
+
+
 @router.get("/scoring", response_model=GameScoringSettingsOut, dependencies=ADMIN_GUARD)
 @log_route("admin.scoring_get")
 async def get_game_scoring_settings(session: AsyncSession = Depends(get_session)) -> GameScoringSettingsOut:
