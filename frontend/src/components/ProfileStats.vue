@@ -8,7 +8,6 @@
         v-model="selectedSeason"
         class="stats-season-dropdown"
         :options="seasonOptions"
-        label="Период"
       />
     </div>
 
@@ -636,7 +635,7 @@ onMounted(() => {
       .role-rings {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 210px;
+        gap: 10px;
         .role-ring-card {
           display: flex;
           justify-content: center;
@@ -646,8 +645,8 @@ onMounted(() => {
           position: relative;
           align-items: center;
           justify-content: center;
-          width: 200px;
-          height: 200px;
+          width: 188px;
+          height: 188px;
           border-radius: 50%;
           border: 1px solid $neutral-500;
           &::before {
