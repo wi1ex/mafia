@@ -85,7 +85,7 @@
       <section class="block">
         <div class="extra-grid">
           <article class="metric-card">
-            <span>Завещания</span>
+            <span>Достоверность завещаний</span>
             <strong>{{ formatFarewellSuccess(game.farewell_success_percent, game.farewell_correct_count, game.farewell_total_count) }}</strong>
           </article>
           <article class="metric-card">
@@ -105,7 +105,7 @@
             <strong>{{ formatTimes(game.vote_for_red_on_black_win_count) }}</strong>
           </article>
           <article class="metric-card">
-            <span>Средний доп балл</span>
+            <span>Средний доп. балл</span>
             <strong>{{ game.average_additional_points.toFixed(2) }}</strong>
           </article>
         </div>
