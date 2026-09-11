@@ -1,8 +1,10 @@
 from __future__ import annotations
-from typing import Any
+from decimal import Decimal, ROUND_HALF_UP
+from typing import Any, TYPE_CHECKING
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from ..models.game import Game
+if TYPE_CHECKING:
+    from ..models.game import Game
 
 DECISIVE_RESULTS = {"red", "black"}
 BLACK_ROLES = {"mafia", "don"}
@@ -16,8 +18,6 @@ GAME_STATS_FIELDS: tuple[str, ...] = (
     "vote_out_sheriff_day12_black_count",
     "vote_out_don_day12_citizen_count",
     "vote_out_sheriff_day12_citizen_count",
-    "foul_removed_count",
-    "ppk_removed_count",
     "vote_for_red_on_black_win_count",
     "farewell_total",
     "farewell_correct",
@@ -26,10 +26,8 @@ GAME_STATS_FIELDS: tuple[str, ...] = (
     "best_move_black_1",
     "best_move_black_2",
     "best_move_black_3",
-    "current_win_streak",
-    "current_loss_streak",
-    "best_win_streak",
-    "best_loss_streak",
+    "rating_games",
+    "additional_points_hundredths",
     "citizen_games",
     "citizen_wins",
     "sheriff_games",
@@ -130,8 +128,6 @@ def _inc(d: dict[int, int], key: int, delta: int = 1) -> None:
 def _parse_actions(actions: list[dict[str, Any]], roles: dict[int, str]) -> dict[str, Any]:
     vote_out_don_day12_by_voter: dict[int, int] = {}
     vote_out_sheriff_day12_by_voter: dict[int, int] = {}
-    foul_removed_count: dict[int, int] = {}
-    ppk_removed_count: dict[int, int] = {}
     vote_for_red_on_black_win_count: dict[int, int] = {}
     leave_vote_day12: dict[int, int] = {}
     farewell_total: dict[int, int] = {}
@@ -141,8 +137,6 @@ def _parse_actions(actions: list[dict[str, Any]], roles: dict[int, str]) -> dict
     last_vote_targets: dict[int, int] = {}
     last_vote_day_number = 0
     final_vote_red_voters_on_red_target: set[int] = set()
-    foul_death_seen: set[int] = set()
-    ppk_death_seen: set[int] = set()
 
     for action in actions:
         action_type = _safe_str(action.get("type"))
@@ -187,13 +181,6 @@ def _parse_actions(actions: list[dict[str, Any]], roles: dict[int, str]) -> dict
                                 if voter_role in RED_ROLES:
                                     red_voters.add(voter_id)
                 final_vote_red_voters_on_red_target = red_voters
-            is_ppk = bool(action.get("ppk")) or _safe_str(action.get("format")).upper() == "PPK"
-            if reason == "foul" and target_id > 0 and target_id not in foul_death_seen:
-                _inc(foul_removed_count, target_id, 1)
-                foul_death_seen.add(target_id)
-            if reason == "foul" and is_ppk and target_id > 0 and target_id not in ppk_death_seen:
-                _inc(ppk_removed_count, target_id, 1)
-                ppk_death_seen.add(target_id)
             continue
 
         if action_type == "vote":
@@ -273,8 +260,6 @@ def _parse_actions(actions: list[dict[str, Any]], roles: dict[int, str]) -> dict
     return {
         "vote_out_don_day12_by_voter": vote_out_don_day12_by_voter,
         "vote_out_sheriff_day12_by_voter": vote_out_sheriff_day12_by_voter,
-        "foul_removed_count": foul_removed_count,
-        "ppk_removed_count": ppk_removed_count,
         "vote_for_red_on_black_win_count": vote_for_red_on_black_win_count,
         "leave_vote_day12": leave_vote_day12,
         "farewell_total": farewell_total,
@@ -296,15 +281,6 @@ def _apply_game_to_row(row: dict[str, int], *, uid: int, roles: dict[int, str], 
         won = _did_win(role, result)
         if won:
             row["games_won"] += 1
-            row["current_win_streak"] += 1
-            row["current_loss_streak"] = 0
-            if row["current_win_streak"] > row["best_win_streak"]:
-                row["best_win_streak"] = row["current_win_streak"]
-        else:
-            row["current_loss_streak"] += 1
-            row["current_win_streak"] = 0
-            if row["current_loss_streak"] > row["best_loss_streak"]:
-                row["best_loss_streak"] = row["current_loss_streak"]
 
         if role == "citizen":
             row["citizen_games"] += 1
@@ -332,8 +308,6 @@ def _apply_game_to_row(row: dict[str, int], *, uid: int, roles: dict[int, str], 
         elif role == "citizen":
             row["vote_out_don_day12_citizen_count"] += vote_out_don_day12
             row["vote_out_sheriff_day12_citizen_count"] += vote_out_sheriff_day12
-        row["foul_removed_count"] += _safe_int(parsed["foul_removed_count"].get(uid))
-        row["ppk_removed_count"] += _safe_int(parsed["ppk_removed_count"].get(uid))
         if result == "black":
             row["vote_for_red_on_black_win_count"] += _safe_int(parsed["vote_for_red_on_black_win_count"].get(uid))
         row["farewell_total"] += _safe_int(parsed["farewell_total"].get(uid))
@@ -364,7 +338,34 @@ def _build_game_payload(game: Game) -> dict[str, Any] | None:
     }
 
 
+def _apply_rating_points(row: dict[str, int], game: Game, uid: int) -> None:
+    if game.mode != "rating" or game.result not in {"red", "black", "draw"}:
+        return
+
+    roles = _normalize_roles(game.roles)
+    if uid not in roles:
+        return
+
+    base = 1 if _did_win(roles[uid], game.result) else 0
+    points = game.points if isinstance(game.points, dict) else {}
+    total = Decimal(str(points.get(str(uid), base)))
+    row["rating_games"] += 1
+    row["additional_points_hundredths"] += int(((total - base) * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+
+
+def average_additional_points(row: dict[str, int]) -> float:
+    count = row.get("rating_games", 0)
+    if count <= 0:
+        return 0.0
+
+    average = Decimal(row.get("additional_points_hundredths", 0)) / (100 * count)
+    rounded = average.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    return float(rounded) if rounded else 0.0
+
+
 async def build_user_game_stats_row(session: AsyncSession, user_id: int, *, game_id_min: int | None = None, game_id_max: int | None = None) -> dict[str, int]:
+    from ..models.game import Game
+
     uid = _safe_int(user_id)
     if uid <= 0:
         raise ValueError("invalid_user_id")
@@ -380,6 +381,7 @@ async def build_user_game_stats_row(session: AsyncSession, user_id: int, *, game
     row = empty_game_stats_row()
     game_rows = await session.execute(select(Game).where(*filters).order_by(Game.finished_at.asc(), Game.id.asc()))
     for game in game_rows.scalars().all():
+        _apply_rating_points(row, game, uid)
         payload = _build_game_payload(game)
         if not payload:
             continue

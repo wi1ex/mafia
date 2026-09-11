@@ -103,20 +103,12 @@
             <strong>{{ formatDonSheriffSplit(game.vote_out_don_day12_citizen_count, game.vote_out_sheriff_day12_citizen_count) }}</strong>
           </article>
           <article class="metric-card">
-            <span>Удален по фолам (с ППК)</span>
-            <strong>{{ formatFoulRemovedWithPpk(game.foul_removed_count, game.ppk_removed_count) }}</strong>
-          </article>
-          <article class="metric-card">
             <span>Проголосовал на поражение</span>
             <strong>{{ formatTimes(game.vote_for_red_on_black_win_count) }}</strong>
           </article>
           <article class="metric-card">
-            <span>Лучший WinStreak</span>
-            <strong>{{ formatInt(game.best_win_streak) }} {{ gameWord(game.best_win_streak) }}</strong>
-          </article>
-          <article class="metric-card">
-            <span>Худший LoseStreak</span>
-            <strong>{{ formatInt(game.best_loss_streak) }} {{ gameWord(game.best_loss_streak) }}</strong>
+            <span>Средний доп балл</span>
+            <strong>{{ game.average_additional_points.toFixed(2) }}</strong>
           </article>
         </div>
       </section>
@@ -162,14 +154,11 @@ type UserGameStats = {
   vote_out_sheriff_day12_black_count: number
   vote_out_don_day12_citizen_count: number
   vote_out_sheriff_day12_citizen_count: number
-  foul_removed_count: number
-  ppk_removed_count: number
   vote_for_red_on_black_win_count: number
   farewell_success_percent: number
   farewell_correct_count: number
   farewell_total_count: number
-  best_win_streak: number
-  best_loss_streak: number
+  average_additional_points: number
   role_citizen: UserRoleStats
   role_sheriff: UserRoleStats
   role_don: UserRoleStats
@@ -210,14 +199,11 @@ const stats = reactive<UserStats>({
     vote_out_sheriff_day12_black_count: 0,
     vote_out_don_day12_citizen_count: 0,
     vote_out_sheriff_day12_citizen_count: 0,
-    foul_removed_count: 0,
-    ppk_removed_count: 0,
     vote_for_red_on_black_win_count: 0,
     farewell_success_percent: 0,
     farewell_correct_count: 0,
     farewell_total_count: 0,
-    best_win_streak: 0,
-    best_loss_streak: 0,
+    average_additional_points: 0,
     role_citizen: { games: 0, wins: 0 },
     role_sheriff: { games: 0, wins: 0 },
     role_don: { games: 0, wins: 0 },
@@ -271,24 +257,8 @@ function formatTimes(raw: unknown): string {
   return `${formatInt(value)} ${timesWord(value)}`
 }
 
-function formatFoulRemovedWithPpk(foulRaw: unknown, ppkRaw: unknown): string {
-  const foulRemoved = safeInt(foulRaw)
-  const ppkRemoved = safeInt(ppkRaw)
-  return `${formatInt(foulRemoved)}(${formatInt(ppkRemoved)})`
-}
-
 function formatDonSheriffSplit(donRaw: unknown, sheriffRaw: unknown): string {
   return `${formatInt(donRaw)}/${formatInt(sheriffRaw)}`
-}
-
-function gameWord(raw: unknown): string {
-  const value = safeInt(raw)
-  const mod100 = value % 100
-  const mod10 = value % 10
-  if (mod100 >= 11 && mod100 <= 14) return 'игр'
-  if (mod10 === 1) return 'игра'
-  if (mod10 >= 2 && mod10 <= 4) return 'игры'
-  return 'игр'
 }
 
 function formatPctWithGames(percentRaw: unknown, countRaw: unknown): string {
@@ -307,7 +277,7 @@ function barPct(valueRaw: unknown, maxRaw: unknown): number {
 const game = computed(() => stats.game)
 
 const seasonOptions = computed<SeasonOption[]>(() => {
-  const options: SeasonOption[] = [{ value: null, label: 'Все игры' }]
+  const options: SeasonOption[] = [{ value: null, label: 'Все сезоны' }]
   const starts = settingsStore.seasonStartGameNumbers
   for (let i = starts.length - 1; i >= 0; i -= 1) {
     const seasonNo = i + 1
@@ -438,14 +408,12 @@ function normalizeGame(raw: any): UserGameStats {
     vote_out_sheriff_day12_black_count: safeInt(raw?.vote_out_sheriff_day12_black_count),
     vote_out_don_day12_citizen_count: safeInt(raw?.vote_out_don_day12_citizen_count),
     vote_out_sheriff_day12_citizen_count: safeInt(raw?.vote_out_sheriff_day12_citizen_count),
-    foul_removed_count: safeInt(raw?.foul_removed_count),
-    ppk_removed_count: safeInt(raw?.ppk_removed_count),
     vote_for_red_on_black_win_count: safeInt(raw?.vote_for_red_on_black_win_count),
     farewell_success_percent: clampPct(raw?.farewell_success_percent),
     farewell_correct_count: safeInt(raw?.farewell_correct_count),
     farewell_total_count: safeInt(raw?.farewell_total_count),
-    best_win_streak: safeInt(raw?.best_win_streak),
-    best_loss_streak: safeInt(raw?.best_loss_streak),
+    average_additional_points: Number.isFinite(Number(raw?.average_additional_points))
+      ? Number(raw.average_additional_points) : 0,
     role_citizen: normalizeRoleStats(raw?.role_citizen),
     role_sheriff: normalizeRoleStats(raw?.role_sheriff),
     role_don: normalizeRoleStats(raw?.role_don),
@@ -831,7 +799,7 @@ onMounted(() => {
     }
     .extra-grid {
       display: grid;
-      grid-template-columns: repeat(8, minmax(0, 1fr));
+      grid-template-columns: repeat(6, minmax(0, 1fr));
       gap: 10px;
     }
   }

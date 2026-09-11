@@ -9,7 +9,7 @@ from ..core.clients import get_redis
 from ..models.game import Game
 from ..schemas.user import UserGameStatsOut, UserBestMoveStatsOut, UserTopPlayerOut
 from ..security.parameters import get_cached_settings
-from ..services.game_stats import build_user_game_stats_row
+from ..services.game_stats import average_additional_points, build_user_game_stats_row
 from ..services.user_cache import get_user_profiles_cached
 
 log = structlog.get_logger()
@@ -66,7 +66,7 @@ def _settings_hash() -> str:
 
 def _cache_key(user_id: int, season: int | None) -> str:
     season_part = "all" if season is None else f"s{int(season)}"
-    return f"user:{int(user_id)}:stats:game:{_settings_hash()}:{season_part}"
+    return f"user:{int(user_id)}:stats:game:v2:{_settings_hash()}:{season_part}"
 
 
 def _cache_key_prefix(user_id: int) -> str:
@@ -157,8 +157,6 @@ def _build_game_stats(stats_row: dict[str, int], top_players: list[UserTopPlayer
     vote_out_sheriff_day12_black_count = _safe_int(stats_row.get("vote_out_sheriff_day12_black_count"))
     vote_out_don_day12_citizen_count = _safe_int(stats_row.get("vote_out_don_day12_citizen_count"))
     vote_out_sheriff_day12_citizen_count = _safe_int(stats_row.get("vote_out_sheriff_day12_citizen_count"))
-    foul_removed_count = _safe_int(stats_row.get("foul_removed_count"))
-    ppk_removed_count = _safe_int(stats_row.get("ppk_removed_count"))
     vote_for_red_on_black_win_count = _safe_int(stats_row.get("vote_for_red_on_black_win_count"))
     farewell_total = _safe_int(stats_row.get("farewell_total"))
     farewell_correct = _safe_int(stats_row.get("farewell_correct"))
@@ -171,14 +169,11 @@ def _build_game_stats(stats_row: dict[str, int], top_players: list[UserTopPlayer
         vote_out_sheriff_day12_black_count=vote_out_sheriff_day12_black_count,
         vote_out_don_day12_citizen_count=vote_out_don_day12_citizen_count,
         vote_out_sheriff_day12_citizen_count=vote_out_sheriff_day12_citizen_count,
-        foul_removed_count=foul_removed_count,
-        ppk_removed_count=ppk_removed_count,
         vote_for_red_on_black_win_count=vote_for_red_on_black_win_count,
         farewell_success_percent=_pct(farewell_correct, farewell_total),
         farewell_correct_count=farewell_correct,
         farewell_total_count=farewell_total,
-        best_win_streak=_safe_int(stats_row.get("best_win_streak")),
-        best_loss_streak=_safe_int(stats_row.get("best_loss_streak")),
+        average_additional_points=average_additional_points(stats_row),
         role_citizen={
             "games": _safe_int(stats_row.get("citizen_games")),
             "wins": _safe_int(stats_row.get("citizen_wins")),

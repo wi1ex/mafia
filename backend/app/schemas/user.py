@@ -152,14 +152,11 @@ class UserGameStatsOut(BaseModel):
     vote_out_sheriff_day12_black_count: int = 0
     vote_out_don_day12_citizen_count: int = 0
     vote_out_sheriff_day12_citizen_count: int = 0
-    foul_removed_count: int = 0
-    ppk_removed_count: int = 0
     vote_for_red_on_black_win_count: int = 0
     farewell_success_percent: float = 0.0
     farewell_correct_count: int = 0
     farewell_total_count: int = 0
-    best_win_streak: int = 0
-    best_loss_streak: int = 0
+    average_additional_points: float = 0.0
     role_citizen: UserRoleStatsOut
     role_sheriff: UserRoleStatsOut
     role_don: UserRoleStatsOut
