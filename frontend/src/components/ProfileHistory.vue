@@ -580,6 +580,7 @@ onBeforeUnmount(() => {
       }
       .history-main {
         display: flex;
+        position: relative;
         align-items: center;
         justify-content: space-between;
         padding: 15px;
@@ -667,6 +668,8 @@ onBeforeUnmount(() => {
         }
         .history-main-stats {
           display: flex;
+          position: absolute;
+          right: 50px;
           flex-direction: column;
           align-items: flex-end;
           gap: 5px;
