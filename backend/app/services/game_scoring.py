@@ -77,6 +77,7 @@ GAME_SCORING_RULE_DEFAULTS: dict[str, Decimal] = {
     "sheriff_two_unobvious_black_checks": Decimal("0.20"),
     "don_missed_sheriff_two_checks": Decimal("-0.10"),
     "citizen_false_check": Decimal("-0.10"),
+    "citizen_active_version_after_death": Decimal("-0.50"),
     "sheriff_false_check_black_win": Decimal("-0.50"),
     "black_day_under_seven": Decimal("0.10"),
     "night_opinion_correct": Decimal("0.10"),
@@ -128,6 +129,7 @@ GAME_SCORING_LABEL_DEFAULTS: dict[str, str] = {
     "sheriff_two_unobvious_black_checks": "Две подряд чёрные проверки",
     "don_missed_sheriff_two_checks": "Не нашёл шерифа за две проверки",
     "citizen_false_check": "Ложная проверка будучи мирным",
+    "citizen_active_version_after_death": "Не откатил после ухода",
     "sheriff_false_check_black_win": "Ложная проверка шерифа при победе чёрных",
     "black_day_under_seven": "Проход в круг при 3-6х",
     "night_opinion_correct": "Ночное мнение: верный цвет",
@@ -1075,10 +1077,26 @@ def _apply_check_and_version_points(
     sheriff_black_check_awarded: set[int] = set()
     don_opening_night_checks: dict[int, dict[int, int]] = {}
     don_missed_sheriff_penalized: set[int] = set()
+    departed: set[int] = set()
+    vote_start_departed: set[int] | None = None
+    vote_start_day = 0
+    vote_start_lift = False
+    completed_vote_after_death: set[int] = set()
 
     for action_index, action in enumerate(actions, start=1):
         action_order = _action_user_id(action, "_scoring_action_order") or action_index
         action_type = _action_type(action)
+        if action_type == "death":
+            departed.add(_action_user_id(action, "target_id"))
+        elif action_type == "vote_start":
+            vote_start_departed = set(departed)
+            vote_start_day = _action_user_id(action, "day")
+            vote_start_lift = _action_bool(action, "lift")
+        elif action_type == "vote":
+            if (vote_start_departed is not None and vote_start_day == _action_user_id(action, "day")
+                    and vote_start_lift == _action_bool(action, "lift")):
+                completed_vote_after_death.update(vote_start_departed)
+            vote_start_departed = None
         if action_type == "versions":
             active_versions = _normalize_action_versions(action.get("versions"), player_ids)
             last_versions_action_order = action_order
@@ -1188,6 +1206,13 @@ def _apply_check_and_version_points(
 
     for version in active_versions:
         actor_id = _action_user_id(version, "claimant_id")
+        if (_role_for_user(roles, actor_id) == "citizen" and actor_id in departed
+                and actor_id in completed_vote_after_death):
+            adjustment = apply_rule(actor_id, "citizen_active_version_after_death")
+            if audit is not None:
+                audit.append({"action_order": last_versions_action_order,
+                              "type": "active_version_after_death", "actor_id": actor_id,
+                              "target_id": actor_id, "actor_adjustment": adjustment})
         if actor_id not in player_ids or _role_for_user(roles, actor_id) != "sheriff":
             continue
         for check in version.get("checks", []):
@@ -1545,9 +1570,6 @@ def _apply_action_points(
         deduction = rule_values["farewell_voted_correct_deduction"] if voted_correct else Decimal("0")
         value = rule_values[rule_key] - deduction
         label = _scoring_rule_label(rules, rule_key, **placeholders)
-        if deduction:
-            deduction_label = _scoring_rule_label(rules, "farewell_voted_correct_deduction")
-            label += f" ({deduction_label}: −{deduction:.2f})"
         points[user_id] += value
         _record_scoring_adjustment(
             breakdown,

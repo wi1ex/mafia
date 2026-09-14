@@ -3211,6 +3211,8 @@ async def game_vote_control(sid, data):
                 return {"ok": True, "status": 200, "room_id": rid, "done": True}
 
             now_ts = int(time())
+            if cur_idx == 0:
+                await log_game_action(r, rid, {"type": "vote_start", "day": ctx.gint("day_number"), "lift": False})
             async with r.pipeline() as p:
                 await p.hset(
                     f"room:{rid}:game_state",
@@ -3803,6 +3805,7 @@ async def game_vote_lift_start(sid, data):
 
         now_ts = int(time())
         vote_duration = get_positive_setting_int("VOTE_SECONDS", 3)
+        await log_game_action(r, rid, {"type": "vote_start", "day": ctx.gint("day_number"), "lift": True})
         async with r.pipeline() as p:
             await p.hset(
                 f"room:{rid}:game_state",

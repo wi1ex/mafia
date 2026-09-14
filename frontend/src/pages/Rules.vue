@@ -94,6 +94,10 @@
                 </div>
               </div>
               <p>{{ rule.description }}</p>
+              <p v-if="rule.key === 'farewell_red_correct' || rule.key === 'farewell_black_correct'">
+                После ночного убийства: {{ formatScore(rule.key) }}.
+                Если заголосован, в том числе в подъёме: {{ formatVotedFarewellScore(rule.key) }}.
+              </p>
             </article>
           </div>
         </section>
@@ -180,6 +184,7 @@ const SCORING_SECTIONS: ScoringSection[] = [
       rule('sheriff_two_unobvious_black_checks', 'Шериф проверил двух чёрных подряд', 'Один раз за игру: две последовательные проверки шерифа попали в чёрных, которые на момент каждой проверки не были записаны как вскрывшиеся шерифы. Красная проверка или проверка вскрывшегося прерывает серию.'),
       rule('don_missed_sheriff_two_checks', 'Дон не нашёл шерифа', 'Один раз за игру, если дон сделал проверки и в первую, и во вторую ночь, но ни одна не попала в настоящего шерифа. Одной проверки недостаточно.'),
       rule('citizen_false_check', 'Мирный вскрылся с неверной проверкой', 'Один раз за игру обычному мирному, если в его записанной версии шерифа появилась хотя бы одна проверка с цветом, не соответствующим реальной роли цели. Последующее исправление версии не отменяет штраф.'),
+      rule('citizen_active_version_after_death', 'Мирный оставил активное вскрытие после ухода', 'Один раз обычному мирному (не шерифу), если чёрные победили, его версия активна на момент завершения игры, а после его ухода успело начаться и закончиться хотя бы одно голосование. Причина ухода любая. Учитываются переголосование, подъём и голосование без вывода; начавшееся до ухода или не завершённое голосование не подходит. Проверки могут быть верными. Если версию удалили и снова добавили, учитывается её конечное состояние.'),
       rule('sheriff_false_check_black_win', 'Шериф оставил неверную проверку', 'При победе чёрных: в последней сохранённой версии настоящего шерифа осталась хотя бы одна проверка с неверным цветом. Штраф применяется один раз; уход шерифа не является обязательным условием.'),
     ],
   },
@@ -273,10 +278,21 @@ function scoreTone(key: string): string {
   return value > 0 ? 'positive' : 'negative'
 }
 
-function formatScore(key: string): string {
-  const value = scoreValue(key)
+function formatScoreValue(value: number | null): string {
   if (value === null) return '—'
   return `${value > 0 ? '+' : value < 0 ? '−' : ''}${Math.abs(value).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
+function formatScore(key: string): string {
+  return formatScoreValue(scoreValue(key))
+}
+
+function formatVotedFarewellScore(key: string): string {
+  const value = scoreValue(key)
+  const deduction = scoreValue('farewell_voted_correct_deduction')
+  return formatScoreValue(value === null || deduction === null
+    ? null
+    : (Math.round(value * 100) - Math.round(deduction * 100)) / 100)
 }
 
 const tocLinks = computed<TocItem[]>(() => [

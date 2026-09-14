@@ -39,6 +39,7 @@ CONFIG_PARAMETERS = BOUNDS | {"farewell_voted_correct_deduction"}
 
 # Ключ: (стандартный балл, правило применения).
 RULE_SPECS = {
+    "citizen_active_version_after_death": (-0.5, "Один раз обычному мирному при итоговой победе чёрных: его версия активна в конце и он ушёл до начала хотя бы одного завершённого голосования. Любая причина ухода, любой день; переголосование, подъём, отсутствие вывода подходят. Голосование, начавшееся до смерти, не подходит. Проверки могут быть верны; удаление и восстановление версии оцениваются по конечному состоянию. Без события vote_start штраф не выводится предположительно."),
     "farewell_voted_correct_deduction": (0.1, "Настраиваемый вычет из каждой ставки за верный цвет завещания после голосования, включая подъём. Сохраняется при старте игры. Ноль отключает снижение; вычет больше ставки делает результат отрицательным. Ночь, неверные цвета и бонусы цели не затрагиваются. Это параметр расчёта, не самостоятельное начисление."),
     "vote_black_unchecked_nine_ten": (-0.1, "Со второго дня чёрному за фактический единоличный vote-уход при 9–10 живых на итогах результирующего голосования. Не подъём/ночь/фолы/самоубийство. Ни в одной активной версии на момент ухода нет его чёрной проверки. Личные проверки шерифа и алгоритм очевидности не используются; автор версии может быть любым, даже умершим. Удаление проверки до ухода разрешает штраф; поздние версии не меняют оценку. Один штраф за уход."),
     "vote_sheriff_nine_red": (-0.1, "Со второго дня только красным участникам результирующего вывода настоящего шерифа: он фактически ушёл единолично, без подъёма; на момент итогов результирующего голосования девять или десять живых. При переголосовании используем его снимок alive. Без снимка итогов не начисляем; не голосовавшие не штрафуются."),
@@ -183,6 +184,11 @@ add_case("don_missed_sheriff_two_checks",
          [dict(type="night_check", actor_id=10, target_id=t, day=n) for n, t in enumerate((2, 1), 1)])
 add_case("citizen_false_check", [dict(type="versions", versions=[v(2, (8, "red"))])], {2: -0.1},
          [dict(type="versions", versions=[v(2, (8, "black"))])])
+add_case("citizen_active_version_after_death",
+         [dict(type="versions", versions=[v(2, (8, "black"))]), death(2, reason="night", day=1),
+          dict(type="vote_start", day=2), dict(type="vote", day=2, leaders=[])], {2: -0.5},
+         [dict(type="versions", versions=[v(2, (8, "black"))]), dict(type="vote_start", day=2),
+          death(2, reason="foul", day=2), dict(type="vote", day=2)], "black")
 add_case("sheriff_false_check_black_win", [dict(type="versions", versions=[v(1, (8, "red"))])], {1: -0.5},
          [dict(type="versions", versions=[v(1, (8, "black"))])], "black")
 add_case("black_day_under_seven", [dict(type="day_start", alive=[1, 2, 3, 4, 8, 9])], {8: 0.1, 9: 0.1},
@@ -250,6 +256,39 @@ add_case("vote_black_unchecked_nine_ten", black_unchecked_actions(), {8: -0.1},
 class ScoringRulesTests(unittest.TestCase):
     maxDiff = None
 
+    def test_citizen_active_version_departure_and_vote(self):
+        """Любая смерть, но строго до начала завершённого голосования; победа красных/ничья и другие роли исключены."""
+        rules = isolated_rules("citizen_active_version_after_death")
+        for actor in (1, 2, 8, 10):
+            for reason in ("vote", "night", "foul", "suicide"):
+                for lift in (False, True):
+                    for result in ("black", "red", "draw"):
+                        actions = [dict(type="versions", versions=[v(actor, (3, "red"))]),
+                                   death(actor, reason=reason, day=2),
+                                   dict(type="vote_start", day=2, lift=lift),
+                                   dict(type="vote", day=2, lift=lift, passed=False, leaders=[])]
+                        points, _ = score(actions, result=result, rules=rules)
+                        base = int((result == "red" and actor <= 7) or (result == "black" and actor >= 8))
+                        self.assertEqual(points[str(actor)], base - (0.5 if actor == 2 and result == "black" else 0))
+
+    def test_citizen_active_version_timing_and_final_state(self):
+        """Начало/конец должны обрамлять голосование после смерти; конечная активность версии, а не история её удаления."""
+        rules = isolated_rules("citizen_active_version_after_death")
+        version = dict(type="versions", versions=[v(2, (8, "black"))])
+        clear = dict(type="versions", versions=[])
+        died = death(2, reason="vote", day=2)
+        start = dict(type="vote_start", day=3)
+        end = dict(type="vote", day=3)
+        for events, expected in (([start, died, end], 0), ([died, start], 0), ([died, end], 0),
+                                 ([start, end], 0), ([died, start, end], -0.5),
+                                 ([died, start, end, clear], 0),
+                                 ([died, clear, start, end, version], -0.5),
+                                 ([died, start, end, start, end], -0.5),
+                                 ([died, start, {**end, "day": 4}], 0),
+                                 ([died, start, {**end, "lift": True}], 0)):
+            self.assertEqual(score([version] + events, result="black", rules=rules)[0]["2"], expected)
+        self.assertEqual(score([version, died, start, end], mode="normal", result="black", rules=rules), ({}, {}))
+
     def test_farewell_configurable_deduction(self):
         """Вычет настраивается независимо от ставки; снимок неизменен, ноль отключает, превышение даёт отрицательный результат."""
         for deduction in (0, 0.05, 0.1, 0.25):
@@ -265,7 +304,7 @@ class ScoringRulesTests(unittest.TestCase):
                     expected = Decimal("0.2") - (Decimal(str(deduction)) if mode == "voted" else Decimal(0))
                     self.assertEqual(points["2"], float(expected))
                     if mode == "voted" and deduction:
-                        self.assertIn("Моё снижение", breakdown["2"]["adjustments"][0]["label"])
+                        self.assertEqual(breakdown["2"]["adjustments"][0]["label"], snapshot[f"{key}_label"])
                 wrong = dict(type="farewell", mode="voted", actor_id=2, wills={3: "black"})
                 self.assertEqual(score([wrong], rules=snapshot)[0]["2"], 0)
 
@@ -286,8 +325,7 @@ class ScoringRulesTests(unittest.TestCase):
                             self.assertEqual(points["2"], normalize_game_points_value(expected))
                             if expected:
                                 label = breakdown["2"]["adjustments"][0]["label"]
-                                self.assertTrue(label.startswith("Моя подпись"))
-                                self.assertEqual("−0.10" in label, mode == "voted")
+                                self.assertEqual(label, "Моя подпись")
 
     def test_voted_farewell_wrong_and_target_bonus_unchanged(self):
         """Неверные цвета, включая бонус чёрной цели/вскрывшейся цели, сохраняют полные ставки после голосования."""
@@ -303,7 +341,7 @@ class ScoringRulesTests(unittest.TestCase):
             self.assertEqual(score([event], rules=isolated_rules(key))[0][str(recipient)], RULE_SPECS[key][0])
 
     def test_voted_farewell_precision_audit_and_exclusions(self):
-        """Два бонуса по (0.15 - 0.1) дают 0.10; аудит объясняет вычет, очевидные цвета и чёрный автор исключены."""
+        """Два бонуса по (0.15 - 0.1) дают 0.10; в истории и аудите обычная подпись с уменьшенным баллом, без пояснения вычета."""
         rules = isolated_rules("farewell_red_correct", 0.15)
         event = dict(type="farewell", mode="voted", actor_id=2, wills={3: "red", 4: "red"})
         self.assertEqual(score([event], rules=rules)[0]["2"], 0.1)
@@ -311,7 +349,8 @@ class ScoringRulesTests(unittest.TestCase):
                                              actions=[event], scoring_rules=rules)
         items = [item for item in audit if item["type"] == "farewell"]
         self.assertEqual(len(items), 2)
-        self.assertTrue(all("−0.10" in item["actor_adjustment"]["label"] for item in items))
+        self.assertTrue(all(item["actor_adjustment"]["label"] == rules["farewell_red_correct_label"] for item in items))
+        self.assertTrue(all(item["actor_adjustment"]["points"] == 0.05 for item in items))
         self.assertEqual(score([event], mode="normal", rules=rules), ({}, {}))
         self.assertEqual(score([{**event, "actor_id": 8}], rules=rules)[0]["8"], 0)
         obvious = {**event, "context": {"versions": [v(1, (3, "red"), (4, "red"))], "alive": IDS}}

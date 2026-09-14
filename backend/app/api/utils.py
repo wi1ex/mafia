@@ -3306,6 +3306,11 @@ def game_action_fields(action: dict[str, Any], *, uid_to_slot: dict[int, int], h
         add_field("Кого выставили", target_label)
         return "Выставление", f"{actor_label} выставил игрока {target_label}", fields
 
+    if action_type == "vote_start":
+        add_field("Этап", "Голосование")
+        add_field("Тип", "На поднятие" if action.get("lift") else "Обычное")
+        return "Начало голосования", "Началось голосование на поднятие" if action.get("lift") else "Началось голосование", fields
+
     if action_type == "vote":
         targets = game_action_slot_labels(uid_to_slot, action.get("targets"), head_uid=head_uid)
         is_lift = bool(action.get("lift"))
@@ -3509,6 +3514,16 @@ def game_scoring_audit_fields(
             fields_by_order.setdefault(order, []).append(
                 AdminGameActionFieldOut(label=label, value=value)
             )
+            continue
+
+        if action_type == "active_version_after_death":
+            adjustment = audit_item.get("actor_adjustment") or {}
+            fields_by_order.setdefault(order, []).append(AdminGameActionFieldOut(
+                label="Скоринг активного вскрытия после ухода",
+                value=f"{player_label(actor_id)}: после ухода началось и завершилось голосование; "
+                      f"при победе чёрных версия осталась активной. "
+                      f"{points_label(adjustment.get('points'))} ({adjustment.get('label')}).",
+            ))
             continue
 
         if action_type == "critical_nomination":

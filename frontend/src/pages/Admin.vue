@@ -242,6 +242,10 @@
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Ложная проверка будучи мирным" />
                 <UiInput id="scoring-citizen-false-check-label" size="low" v-model.trim="scoring.citizen_false_check_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
+                <UiInput id="scoring-citizen-active-version-after-death" size="low" v-model.number="scoring.citizen_active_version_after_death" type="number" step="0.01"
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Не откатил после ухода" />
+                <UiInput id="scoring-citizen-active-version-after-death-label" size="low" v-model.trim="scoring.citizen_active_version_after_death_label" maxlength="255"
+                         autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 <UiInput id="scoring-sheriff-false-check-black-win" size="low" v-model.number="scoring.sheriff_false_check_black_win" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Ложная проверка шерифа при победе чёрных" />
                 <UiInput id="scoring-sheriff-false-check-black-win-label" size="low" v-model.trim="scoring.sheriff_false_check_black_win_label" maxlength="255"
@@ -1365,6 +1369,7 @@ type GameScoringSettings = {
   sheriff_two_unobvious_black_checks: number
   don_missed_sheriff_two_checks: number
   citizen_false_check: number
+  citizen_active_version_after_death: number
   sheriff_false_check_black_win: number
   black_day_under_seven: number
   night_opinion_correct: number
@@ -1413,6 +1418,7 @@ type GameScoringSettings = {
   sheriff_two_unobvious_black_checks_label: string
   don_missed_sheriff_two_checks_label: string
   citizen_false_check_label: string
+  citizen_active_version_after_death_label: string
   sheriff_false_check_black_win_label: string
   black_day_under_seven_label: string
   night_opinion_correct_label: string
@@ -1753,6 +1759,7 @@ const scoring = reactive<GameScoringSettings>({
   sheriff_two_unobvious_black_checks: 0.2,
   don_missed_sheriff_two_checks: -0.1,
   citizen_false_check: -0.1,
+  citizen_active_version_after_death: -0.5,
   sheriff_false_check_black_win: -0.5,
   black_day_under_seven: 0.1,
   night_opinion_correct: 0.1,
@@ -1801,6 +1808,7 @@ const scoring = reactive<GameScoringSettings>({
   sheriff_two_unobvious_black_checks_label: 'Две подряд чёрные проверки',
   don_missed_sheriff_two_checks_label: 'Не нашёл шерифа за две проверки',
   citizen_false_check_label: 'Ложная проверка будучи мирным',
+  citizen_active_version_after_death_label: 'Не откатил после ухода',
   sheriff_false_check_black_win_label: 'Ложная проверка шерифа при победе чёрных',
   black_day_under_seven_label: 'Проход в круг при 3-6х',
   night_opinion_correct_label: 'Ночное мнение: верный цвет',
@@ -2194,6 +2202,7 @@ function snapshotScoring(): string {
     sheriff_two_unobvious_black_checks: normalizeScoringValue(scoring.sheriff_two_unobvious_black_checks),
     don_missed_sheriff_two_checks: normalizeScoringValue(scoring.don_missed_sheriff_two_checks),
     citizen_false_check: normalizeScoringValue(scoring.citizen_false_check),
+    citizen_active_version_after_death: normalizeScoringValue(scoring.citizen_active_version_after_death),
     sheriff_false_check_black_win: normalizeScoringValue(scoring.sheriff_false_check_black_win),
     black_day_under_seven: normalizeScoringValue(scoring.black_day_under_seven),
     night_opinion_correct: normalizeScoringValue(scoring.night_opinion_correct),
@@ -2242,6 +2251,7 @@ function snapshotScoring(): string {
     sheriff_two_unobvious_black_checks_label: normalizeScoringLabel(scoring.sheriff_two_unobvious_black_checks_label),
     don_missed_sheriff_two_checks_label: normalizeScoringLabel(scoring.don_missed_sheriff_two_checks_label),
     citizen_false_check_label: normalizeScoringLabel(scoring.citizen_false_check_label),
+    citizen_active_version_after_death_label: normalizeScoringLabel(scoring.citizen_active_version_after_death_label),
     sheriff_false_check_black_win_label: normalizeScoringLabel(scoring.sheriff_false_check_black_win_label),
     black_day_under_seven_label: normalizeScoringLabel(scoring.black_day_under_seven_label),
     night_opinion_correct_label: normalizeScoringLabel(scoring.night_opinion_correct_label),
@@ -2953,6 +2963,7 @@ async function loadScoring(): Promise<void> {
     scoring.sheriff_two_unobvious_black_checks = normalizeScoringValue(scoring.sheriff_two_unobvious_black_checks)
     scoring.don_missed_sheriff_two_checks = normalizeScoringValue(scoring.don_missed_sheriff_two_checks)
     scoring.citizen_false_check = normalizeScoringValue(scoring.citizen_false_check)
+    scoring.citizen_active_version_after_death = normalizeScoringValue(scoring.citizen_active_version_after_death)
     scoring.sheriff_false_check_black_win = normalizeScoringValue(scoring.sheriff_false_check_black_win)
     scoring.black_day_under_seven = normalizeScoringValue(scoring.black_day_under_seven)
     scoring.night_opinion_correct = normalizeScoringValue(scoring.night_opinion_correct)
@@ -3001,6 +3012,7 @@ async function loadScoring(): Promise<void> {
     scoring.sheriff_two_unobvious_black_checks_label = normalizeScoringLabel(scoring.sheriff_two_unobvious_black_checks_label)
     scoring.don_missed_sheriff_two_checks_label = normalizeScoringLabel(scoring.don_missed_sheriff_two_checks_label)
     scoring.citizen_false_check_label = normalizeScoringLabel(scoring.citizen_false_check_label)
+    scoring.citizen_active_version_after_death_label = normalizeScoringLabel(scoring.citizen_active_version_after_death_label)
     scoring.sheriff_false_check_black_win_label = normalizeScoringLabel(scoring.sheriff_false_check_black_win_label)
     scoring.black_day_under_seven_label = normalizeScoringLabel(scoring.black_day_under_seven_label)
     scoring.night_opinion_correct_label = normalizeScoringLabel(scoring.night_opinion_correct_label)
