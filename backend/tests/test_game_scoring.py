@@ -38,8 +38,9 @@ BOUNDS = {"additional_points_min", "additional_points_max"}
 
 # Ключ: (стандартный балл, правило применения).
 RULE_SPECS = {
-    "vote_sheriff_nine_red": (-0.1, "Со второго дня только красным участникам результирующего вывода настоящего шерифа: он фактически ушёл единолично, без подъёма; на момент итогов результирующего голосования ровно девять живых. При переголосовании используем его снимок alive. Без снимка итогов не начисляем; не голосовавшие не штрафуются."),
-    "vote_sheriff_nine_black": (0.1, "При тех же условиях единоличного вывода шерифа в девятке со второго дня — только чёрным, голосовавшим в него. Бонус дополнительный к vote_opponent_team, не заменяет его; действует общий лимит. Повтор события смерти не удваивает этот бонус."),
+    "vote_black_unchecked_nine_ten": (-0.1, "Со второго дня чёрному за фактический единоличный vote-уход при 9–10 живых на итогах результирующего голосования. Не подъём/ночь/фолы/самоубийство. Ни в одной активной версии на момент ухода нет его чёрной проверки. Личные проверки шерифа и алгоритм очевидности не используются; автор версии может быть любым, даже умершим. Удаление проверки до ухода разрешает штраф; поздние версии не меняют оценку. Один штраф за уход."),
+    "vote_sheriff_nine_red": (-0.1, "Со второго дня только красным участникам результирующего вывода настоящего шерифа: он фактически ушёл единолично, без подъёма; на момент итогов результирующего голосования девять или десять живых. При переголосовании используем его снимок alive. Без снимка итогов не начисляем; не голосовавшие не штрафуются."),
+    "vote_sheriff_nine_black": (0.1, "При тех же условиях единоличного вывода шерифа при 9–10 живых со второго дня — только чёрным, голосовавшим в него. Бонус дополнительный к vote_opponent_team, не заменяет его; действует общий лимит. Повтор события смерти не удваивает этот бонус."),
     "vote_break_red_to_red": (-0.5, "Отмеченный красный в день 1 голосовал за другого красного, единолично ушедшего без подъёма. Штраф один раз, если сам ушёл на предрешённое поражение через голосование/подъём в день 2 либо фолы/техфолы/самоубийство в день 1/2; учитывается вся группа подъёма и потенциальный отстрел. Также применяется при итоговой победе чёрных до наступления дня 2. Обычные штрафы удаления сохраняются; последний выбор ведущего определяет автора."),
     "vote_break_red_to_red_safe": (-0.2, "Те же обязательные отметка, красные команды, первый день, голос и единоличный уход цели. Применяется вместо -0.5, если нет собственного ухода на предрешённое поражение и нет победы чёрных до дня 2. Уход другого на поражение, собственный нефатальный уход, ночная смерть или отсутствие ухода не повышают штраф."),
     "vote_break_red_to_sheriff_extra": (-0.2, "Один раз дополнительно к -0.2 или -0.5 по той же отметке слома в красного, если выведенная в первый день цель — настоящий шериф. Проверяются исходные голос, команды и единоличный уход; дополнительная отметка ведущего не нужна. Сумма проходит общий лимит допбаллов."),
@@ -234,18 +235,81 @@ for key, actor in (("vote_sheriff_nine_red", 2), ("vote_sheriff_nine_black", 8))
     add_case(key, sheriff_nine_actions(), {actor: RULE_SPECS[key][0]}, sheriff_nine_actions(day=1))
 
 
+def black_unchecked_actions(day=2, alive=None, target=8):
+    return [dict(type="vote", day=day, targets=[target], leaders=[target], will_eliminate=True,
+                 alive=list(range(1, 10)) if alive is None else alive, votes={str(target): [2]}),
+            death(target, reason="vote", day=day, vote_unique=True, vote_lift=False, by=[2])]
+
+
+add_case("vote_black_unchecked_nine_ten", black_unchecked_actions(), {8: -0.1},
+         [dict(type="versions", versions=[v(1, (8, "black"))])] + black_unchecked_actions())
+
+
 class ScoringRulesTests(unittest.TestCase):
     maxDiff = None
 
+    def test_black_unchecked_table_and_departure(self):
+        """9/10 живых, день >= 2 и единоличный уход чёрного обязательны; ставка относится к ушедшему, не к голосовавшим."""
+        rules = isolated_rules("vote_black_unchecked_nine_ten")
+        for count in (8, 9, 10):
+            for day in (1, 2, 3):
+                for target in (2, 8, 10):
+                    alive = [uid for uid in IDS if uid != target][:count - 1] + [target]
+                    points, _ = score(black_unchecked_actions(day, alive, target), rules=rules)
+                    expected = -0.1 if count in (9, 10) and day >= 2 and target in (8, 10) else 0
+                    self.assertEqual(points[str(target)], expected)
+                    self.assertEqual(points["3"], 0)
+        for changes in ({"reason": "night"}, {"reason": "foul"}, {"reason": "suicide"},
+                        {"vote_unique": False}, {"vote_lift": True}):
+            actions = black_unchecked_actions()
+            actions[-1].update(changes)
+            self.assertEqual(score(actions, rules=rules)[0]["8"], 0)
+        actions = black_unchecked_actions()
+        self.assertEqual(score(actions, mode="normal", rules=rules), ({}, {}))
+        self.assertEqual(score(actions[:1], rules=rules)[0]["8"], 0)
+        actions[0].pop("alive")
+        self.assertEqual(score(actions, rules=rules)[0]["8"], 0)
+
+    def test_black_unchecked_versions_at_departure(self):
+        """Проверяем активные публичные версии именно при уходе, включая изменения во время прощальной речи."""
+        rules = isolated_rules("vote_black_unchecked_nine_ten")
+        checked = dict(type="versions", versions=[v(1, (8, "black"))])
+        cleared = dict(type="versions", versions=[])
+        vote, departure = black_unchecked_actions()
+        for actions, expected in (
+            ([checked, vote, departure, cleared], 0),
+            ([checked, vote, cleared, departure], -0.1),
+            ([vote, checked, departure], 0),
+            ([vote, departure, checked], -0.1),
+            ([dict(type="versions", versions=[v(1, (8, "red"))]), vote, departure], -0.1),
+            ([dict(type="versions", versions=[v(1, (9, "black"))]), vote, departure], -0.1),
+            ([checked, death(1, reason="night", day=1), vote, departure], 0),
+            ([dict(type="versions", versions=[v(9, (8, "black"))]), vote, departure], 0),
+            ([vote, departure, cleared, departure], -0.1),
+            ([checked, vote, departure, cleared, departure], 0),
+        ):
+            with self.subTest(actions=actions):
+                self.assertEqual(score(actions, rules=rules)[0]["8"], expected)
+
+    def test_black_unchecked_revote_snapshot(self):
+        """Снимок итогов переголосования имеет приоритет над первым туром и не меняется будущими событиями."""
+        rules = isolated_rules("vote_black_unchecked_nine_ten")
+        actions = black_unchecked_actions(alive=list(range(1, 9)))
+        actions.insert(0, dict(type="vote", day=2, alive=IDS, leaders=[8, 9], will_eliminate=False))
+        self.assertEqual(score(actions, rules=rules)[0]["8"], 0)
+        actions[1]["alive"] = IDS
+        actions[0]["alive"] = list(range(1, 9))
+        self.assertEqual(score(actions, rules=rules)[0]["8"], -0.1)
+
     def test_sheriff_nine_conditions(self):
-        """Обязательны девятка на момент итогов голосования, день >= 2, реальная роль шерифа и единоличная vote-смерть с голосом автора."""
+        """Обязательны 9–10 живых на момент итогов голосования, день >= 2, реальная роль шерифа и единоличная vote-смерть с голосом автора."""
         rules = isolated_rules("vote_sheriff_nine_red")
         rules["vote_sheriff_nine_black"] = 0.1
         for count in (8, 9, 10):
             for day in (1, 2, 3):
                 actions = sheriff_nine_actions(day=day, alive=list(range(1, count + 1)))
                 points, _ = score(actions, rules=rules)
-                valid = count == 9 and day >= 2
+                valid = count in (9, 10) and day >= 2
                 self.assertEqual(points["2"], -0.1 if valid else 0)
                 self.assertEqual(points["8"], 0.1 if valid else 0)
                 self.assertEqual(points["3"], 0)
@@ -262,7 +326,7 @@ class ScoringRulesTests(unittest.TestCase):
         self.assertTrue(all(value == 0 for value in score(actions, rules=rules)[0].values()))
 
     def test_sheriff_nine_revote_and_additive_bonus(self):
-        """Девятку берём с итогов результирующего голосования, голоса — с итогового ухода; +0.1 складывается с +0.15."""
+        """Число живых берём с итогов результирующего голосования, голоса — с итогового ухода; +0.1 складывается с +0.15."""
         rules = isolated_rules("vote_sheriff_nine_red")
         rules.update(vote_sheriff_nine_black=0.1, vote_opponent_team=0.15)
         actions = sheriff_nine_actions()

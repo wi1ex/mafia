@@ -251,11 +251,15 @@
                 <UiInput id="scoring-vote-opponent-team-label" size="low" v-model.trim="scoring.vote_opponent_team_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 <UiInput id="scoring-vote-sheriff-nine-red" size="low" v-model.number="scoring.vote_sheriff_nine_red" type="number" step="0.01"
-                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Снял шерифа в 9ке будучи красным" />
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Снял шерифа при 9–10х будучи красным" />
                 <UiInput id="scoring-vote-sheriff-nine-red-label" size="low" v-model.trim="scoring.vote_sheriff_nine_red_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
+                <UiInput id="scoring-vote-black-unchecked-nine-ten" size="low" v-model.number="scoring.vote_black_unchecked_nine_ten" type="number" step="0.01"
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Заголосован вне версии при 9–10х" />
+                <UiInput id="scoring-vote-black-unchecked-nine-ten-label" size="low" v-model.trim="scoring.vote_black_unchecked_nine_ten_label" maxlength="255"
+                         autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 <UiInput id="scoring-vote-sheriff-nine-black" size="low" v-model.number="scoring.vote_sheriff_nine_black" type="number" step="0.01"
-                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Снял шерифа в 9ке будучи черным" />
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Снял шерифа при 9–10х будучи черным" />
                 <UiInput id="scoring-vote-sheriff-nine-black-label" size="low" v-model.trim="scoring.vote_sheriff_nine_black_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 <UiInput id="scoring-vote-red-day-one-compensation" size="low" v-model.number="scoring.vote_red_day_one_compensation" type="number" step="0.01"
@@ -1337,6 +1341,7 @@ type GameScoringSettings = {
   night_self_shot_black_win_2: number
   vote_opponent_team: number
   vote_sheriff_nine_red: number
+  vote_black_unchecked_nine_ten: number
   vote_sheriff_nine_black: number
   vote_red_day_one_compensation: number
   vote_red_terminal: number
@@ -1383,6 +1388,7 @@ type GameScoringSettings = {
   night_self_shot_black_win_2_label: string
   vote_opponent_team_label: string
   vote_sheriff_nine_red_label: string
+  vote_black_unchecked_nine_ten_label: string
   vote_sheriff_nine_black_label: string
   vote_red_day_one_compensation_label: string
   vote_red_terminal_label: string
@@ -1721,6 +1727,7 @@ const scoring = reactive<GameScoringSettings>({
   night_self_shot_black_win_2: 0.15,
   vote_opponent_team: 0.15,
   vote_sheriff_nine_red: -0.1,
+  vote_black_unchecked_nine_ten: -0.1,
   vote_sheriff_nine_black: 0.1,
   vote_red_day_one_compensation: 0.15,
   vote_red_terminal: -0.2,
@@ -1766,8 +1773,9 @@ const scoring = reactive<GameScoringSettings>({
   night_self_shot_black_win_1_label: 'Компенсация: самострел в 1ю ночь',
   night_self_shot_black_win_2_label: 'Компенсация: самострел во 2ю ночь',
   vote_opponent_team_label: 'Заголосовал игрока другой команды',
-  vote_sheriff_nine_red_label: 'Снял шерифа в 9ке будучи красным',
-  vote_sheriff_nine_black_label: 'Снял шерифа в 9ке будучи черным',
+  vote_sheriff_nine_red_label: 'Снял шерифа при 9–10х будучи красным',
+  vote_black_unchecked_nine_ten_label: 'УЗаголосован вне версии при 9–10х',
+  vote_sheriff_nine_black_label: 'Снял шерифа при 9–10х будучи черным',
   vote_red_day_one_compensation_label: 'Компенсация: заголосован в 1й день',
   vote_red_terminal_label: 'Голосование на поражение',
   vote_red_terminal_3v3_label: 'Голосование на 3в3',
@@ -2158,6 +2166,7 @@ function snapshotScoring(): string {
     night_self_shot_black_win_2: normalizeScoringValue(scoring.night_self_shot_black_win_2),
     vote_opponent_team: normalizeScoringValue(scoring.vote_opponent_team),
     vote_sheriff_nine_red: normalizeScoringValue(scoring.vote_sheriff_nine_red),
+    vote_black_unchecked_nine_ten: normalizeScoringValue(scoring.vote_black_unchecked_nine_ten),
     vote_sheriff_nine_black: normalizeScoringValue(scoring.vote_sheriff_nine_black),
     vote_red_day_one_compensation: normalizeScoringValue(scoring.vote_red_day_one_compensation),
     vote_red_terminal: normalizeScoringValue(scoring.vote_red_terminal),
@@ -2204,6 +2213,7 @@ function snapshotScoring(): string {
     night_self_shot_black_win_2_label: normalizeScoringLabel(scoring.night_self_shot_black_win_2_label),
     vote_opponent_team_label: normalizeScoringLabel(scoring.vote_opponent_team_label),
     vote_sheriff_nine_red_label: normalizeScoringLabel(scoring.vote_sheriff_nine_red_label),
+    vote_black_unchecked_nine_ten_label: normalizeScoringLabel(scoring.vote_black_unchecked_nine_ten_label),
     vote_sheriff_nine_black_label: normalizeScoringLabel(scoring.vote_sheriff_nine_black_label),
     vote_red_day_one_compensation_label: normalizeScoringLabel(scoring.vote_red_day_one_compensation_label),
     vote_red_terminal_label: normalizeScoringLabel(scoring.vote_red_terminal_label),
@@ -2913,6 +2923,7 @@ async function loadScoring(): Promise<void> {
     scoring.night_self_shot_black_win_2 = normalizeScoringValue(scoring.night_self_shot_black_win_2)
     scoring.vote_opponent_team = normalizeScoringValue(scoring.vote_opponent_team)
     scoring.vote_sheriff_nine_red = normalizeScoringValue(scoring.vote_sheriff_nine_red)
+    scoring.vote_black_unchecked_nine_ten = normalizeScoringValue(scoring.vote_black_unchecked_nine_ten)
     scoring.vote_sheriff_nine_black = normalizeScoringValue(scoring.vote_sheriff_nine_black)
     scoring.vote_red_day_one_compensation = normalizeScoringValue(scoring.vote_red_day_one_compensation)
     scoring.vote_red_terminal = normalizeScoringValue(scoring.vote_red_terminal)
@@ -2959,6 +2970,7 @@ async function loadScoring(): Promise<void> {
     scoring.night_self_shot_black_win_2_label = normalizeScoringLabel(scoring.night_self_shot_black_win_2_label)
     scoring.vote_opponent_team_label = normalizeScoringLabel(scoring.vote_opponent_team_label)
     scoring.vote_sheriff_nine_red_label = normalizeScoringLabel(scoring.vote_sheriff_nine_red_label)
+    scoring.vote_black_unchecked_nine_ten_label = normalizeScoringLabel(scoring.vote_black_unchecked_nine_ten_label)
     scoring.vote_sheriff_nine_black_label = normalizeScoringLabel(scoring.vote_sheriff_nine_black_label)
     scoring.vote_red_day_one_compensation_label = normalizeScoringLabel(scoring.vote_red_day_one_compensation_label)
     scoring.vote_red_terminal_label = normalizeScoringLabel(scoring.vote_red_terminal_label)

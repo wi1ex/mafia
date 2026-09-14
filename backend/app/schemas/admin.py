@@ -172,6 +172,7 @@ class GameScoringSettingsOut(BaseModel):
     night_self_shot_black_win_2: float
     vote_opponent_team: float
     vote_sheriff_nine_red: float
+    vote_black_unchecked_nine_ten: float
     vote_sheriff_nine_black: float
     vote_red_day_one_compensation: float
     vote_red_terminal: float
@@ -218,6 +219,7 @@ class GameScoringSettingsOut(BaseModel):
     night_self_shot_black_win_2_label: str
     vote_opponent_team_label: str
     vote_sheriff_nine_red_label: str
+    vote_black_unchecked_nine_ten_label: str
     vote_sheriff_nine_black_label: str
     vote_red_day_one_compensation_label: str
     vote_red_terminal_label: str
@@ -269,6 +271,7 @@ class GameScoringSettingsUpdateIn(BaseModel):
     night_self_shot_black_win_2: Optional[float] = Field(default=None, ge=-10, le=10)
     vote_opponent_team: Optional[float] = Field(default=None, ge=-10, le=10)
     vote_sheriff_nine_red: Optional[float] = Field(default=None, ge=-10, le=10)
+    vote_black_unchecked_nine_ten: Optional[float] = Field(default=None, ge=-10, le=10)
     vote_sheriff_nine_black: Optional[float] = Field(default=None, ge=-10, le=10)
     vote_red_day_one_compensation: Optional[float] = Field(default=None, ge=-10, le=10)
     vote_red_terminal: Optional[float] = Field(default=None, ge=-10, le=10)
@@ -315,6 +318,7 @@ class GameScoringSettingsUpdateIn(BaseModel):
     night_self_shot_black_win_2_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
     vote_opponent_team_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
     vote_sheriff_nine_red_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    vote_black_unchecked_nine_ten_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
     vote_sheriff_nine_black_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
     vote_red_day_one_compensation_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
     vote_red_terminal_label: Optional[str] = Field(default=None, min_length=1, max_length=255)

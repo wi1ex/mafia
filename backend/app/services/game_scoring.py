@@ -58,6 +58,7 @@ GAME_SCORING_RULE_DEFAULTS: dict[str, Decimal] = {
     "vote_opponent_team": Decimal("0.15"),
     "vote_sheriff_nine_red": Decimal("-0.10"),
     "vote_sheriff_nine_black": Decimal("0.10"),
+    "vote_black_unchecked_nine_ten": Decimal("-0.10"),
     "vote_red_day_one_compensation": Decimal("0.15"),
     "vote_red_terminal": Decimal("-0.20"),
     "vote_red_terminal_3v3": Decimal("-0.30"),
@@ -105,8 +106,9 @@ GAME_SCORING_LABEL_DEFAULTS: dict[str, str] = {
     "night_self_shot_black_win_1": "Компенсация: самострел в 1ю ночь",
     "night_self_shot_black_win_2": "Компенсация: самострел во 2ю ночь",
     "vote_opponent_team": "Заголосовал игрока другой команды",
-    "vote_sheriff_nine_red": "Снял шерифа в 9ке будучи красным",
-    "vote_sheriff_nine_black": "Снял шерифа в 9ке будучи черным",
+    "vote_sheriff_nine_red": "Снял шерифа при 9–10х будучи красным",
+    "vote_sheriff_nine_black": "Снял шерифа при 9–10х будучи черным",
+    "vote_black_unchecked_nine_ten": "Заголосован вне версии при 9–10х",
     "vote_red_day_one_compensation": "Компенсация: заголосован в 1й день",
     "vote_red_terminal": "Голосование на поражение",
     "vote_red_terminal_3v3": "Голосование на 3в3",
@@ -1591,6 +1593,8 @@ def _apply_action_points(
     # Используем существующий снимок итогов последнего голосования перед уходом.
     latest_votes: dict[int, dict[str, Any]] = {}
     sheriff_nine_awarded: set[int] = set()
+    black_unchecked_awarded: set[int] = set()
+    departure_versions: list[dict[str, Any]] = []
 
     foul_removal_loss_after: dict[int, bool] = {}
     for action in normalized_actions:
@@ -1611,6 +1615,8 @@ def _apply_action_points(
 
         if action_type == "vote":
             latest_votes[_action_user_id(action, "day")] = action
+        if action_type == "versions":
+            departure_versions = _normalize_action_versions(action.get("versions"), set(points))
 
         if action_type == "death":
             departed_id = _action_user_id(action, "target_id")
@@ -1798,16 +1804,25 @@ def _apply_action_points(
                 day = _action_user_id(action, "day")
                 vote = latest_votes.get(day, {})
                 vote_alive = set(_action_user_ids(vote, "alive")) & set(points)
-                if (day > 1 and _role_for_user(roles, target_id) == "sheriff" and
+                large_table_vote = (day > 1 and
                         _action_bool(vote, "will_eliminate") and not _action_bool(vote, "lift") and
                         _action_user_ids(vote, "leaders") == [target_id] and
-                        len(vote_alive) == 9 and target_id in vote_alive and
+                        len(vote_alive) in (9, 10) and target_id in vote_alive)
+                if (large_table_vote and _role_for_user(roles, target_id) == "sheriff" and
                         target_id not in sheriff_nine_awarded):
                     sheriff_nine_awarded.add(target_id)
                     for voter_id in voters:
                         team = _team_for_role(_role_for_user(roles, voter_id))
                         if team in {"red", "black"} and voter_id != target_id:
                             apply_rule(voter_id, f"vote_sheriff_nine_{team}")
+                if large_table_vote and target_team == "black" and target_id not in black_unchecked_awarded:
+                    black_unchecked_awarded.add(target_id)
+                    publicly_checked_black = any(
+                        check["target_id"] == target_id and check["verdict"] == "black"
+                        for version in departure_versions for check in version["checks"]
+                    )
+                    if not publicly_checked_black:
+                        apply_rule(target_id, "vote_black_unchecked_nine_ten")
                 if target_team == "red" and result_after == "black":
                     is_black_win_3v3 = red_alive_after == 3 and black_alive_after == 3
                     penalty_key = "vote_red_terminal_3v3" if is_black_win_3v3 else "vote_red_terminal"
