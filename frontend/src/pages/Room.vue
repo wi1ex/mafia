@@ -1074,7 +1074,7 @@ const isRatingGame = computed(() => settings.ratingEnabled && roomGameSnapshot.v
 const canManageGameVersions = computed(() => (
   isHead.value
   && roomGameSnapshot.value?.mode === 'rating'
-  && gamePhase.value === 'day'
+  && (gamePhase.value === 'day' || gamePhase.value === 'vote')
   && !gameFinished.value
   && dayNumber.value >= 2
 ))

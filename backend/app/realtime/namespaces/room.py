@@ -156,13 +156,14 @@ log = structlog.get_logger()
 
 BG_STATE_TTL_SECONDS = 300
 ROOM_RECONNECT_GRACE_SECONDS = max(1, int(getattr(settings, "ROOM_RECONNECT_GRACE_SECONDS", 4) or 4))
-GAME_VERSIONS_ALLOWED_PHASES = ("day",)
+GAME_VERSIONS_ALLOWED_PHASES = ("day", "vote")
 GAME_VERSIONS_SET_LUA = r"""
 if redis.call('HGET', KEYS[1], 'game_instance_id') ~= ARGV[1] then
     return 0
 end
 if redis.call('HGET', KEYS[1], 'game_finished') == '1'
-    or redis.call('HGET', KEYS[1], 'phase') ~= 'day'
+    or (redis.call('HGET', KEYS[1], 'phase') ~= 'day'
+        and redis.call('HGET', KEYS[1], 'phase') ~= 'vote')
     or tonumber(redis.call('HGET', KEYS[1], 'day_number') or '0') < 2 then
     return 0
 end
