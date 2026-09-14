@@ -38,9 +38,11 @@ BOUNDS = {"additional_points_min", "additional_points_max"}
 
 # Ключ: (стандартный балл, правило применения).
 RULE_SPECS = {
+    "vote_sheriff_nine_red": (-0.1, "Со второго дня только красным участникам результирующего вывода настоящего шерифа: он фактически ушёл единолично, без подъёма; на момент итогов результирующего голосования ровно девять живых. При переголосовании используем его снимок alive. Без снимка итогов не начисляем; не голосовавшие не штрафуются."),
+    "vote_sheriff_nine_black": (0.1, "При тех же условиях единоличного вывода шерифа в девятке со второго дня — только чёрным, голосовавшим в него. Бонус дополнительный к vote_opponent_team, не заменяет его; действует общий лимит. Повтор события смерти не удваивает этот бонус."),
     "vote_break_red_to_red": (-0.5, "Отмеченный красный в день 1 голосовал за другого красного, единолично ушедшего без подъёма. Штраф один раз, если сам ушёл на предрешённое поражение через голосование/подъём в день 2 либо фолы/техфолы/самоубийство в день 1/2; учитывается вся группа подъёма и потенциальный отстрел. Также применяется при итоговой победе чёрных до наступления дня 2. Обычные штрафы удаления сохраняются; последний выбор ведущего определяет автора."),
     "vote_break_red_to_red_safe": (-0.2, "Те же обязательные отметка, красные команды, первый день, голос и единоличный уход цели. Применяется вместо -0.5, если нет собственного ухода на предрешённое поражение и нет победы чёрных до дня 2. Уход другого на поражение, собственный нефатальный уход, ночная смерть или отсутствие ухода не повышают штраф."),
-    "vote_break_red_to_sheriff_extra": (-0.1, "Один раз дополнительно к -0.2 или -0.5 по той же отметке слома в красного, если выведенная в первый день цель — настоящий шериф. Проверяются исходные голос, команды и единоличный уход; дополнительная отметка ведущего не нужна. Сумма проходит общий лимит допбаллов."),
+    "vote_break_red_to_sheriff_extra": (-0.2, "Один раз дополнительно к -0.2 или -0.5 по той же отметке слома в красного, если выведенная в первый день цель — настоящий шериф. Проверяются исходные голос, команды и единоличный уход; дополнительная отметка ведущего не нужна. Сумма проходит общий лимит допбаллов."),
     "vote_break_red_to_black": (0.2, "Один раз отмеченному красному: в день 1 голосовал за единственного ушедшего чёрного без подъёма, день 2 наступил и в этот день сам не ушёл через голосование, в том числе подъём. Уход по фолам, техфолам или самоубийством в день 1/2 отменяет бонус; ночной отстрел и такие удаления начиная с дня 3 его не отменяют."),
     "vote_break_black_to_sheriff": (0.2, "Один раз отмеченному чёрному: в день 1 голосовал за фактически ушедшего шерифа, единственного лидера без подъёма. Второй день и победа команды не требуются. Снятая ведущим отметка исключает начисление."),
     "additional_points_min": (-1, "Нижняя граница применяется один раз к сумме всех допбаллов, до прибавления базы. Настраивается; положительная граница поднимает даже нулевую сумму."),
@@ -221,8 +223,68 @@ for key, target in (("vote_break_red_to_red_safe", 3), ("vote_break_red_to_sheri
     add_case(key, actions, {2: RULE_SPECS[key][0]}, negative)
 
 
+def sheriff_nine_actions(day=2, alive=None):
+    return [dict(type="vote", day=day, targets=[1], leaders=[1], will_eliminate=True,
+                 alive=list(range(1, 10)) if alive is None else alive,
+                 votes={"1": [2, 8]}),
+            death(1, reason="vote", day=day, vote_unique=True, vote_lift=False, by=[2, 8])]
+
+
+for key, actor in (("vote_sheriff_nine_red", 2), ("vote_sheriff_nine_black", 8)):
+    add_case(key, sheriff_nine_actions(), {actor: RULE_SPECS[key][0]}, sheriff_nine_actions(day=1))
+
+
 class ScoringRulesTests(unittest.TestCase):
     maxDiff = None
+
+    def test_sheriff_nine_conditions(self):
+        """Обязательны девятка на момент итогов голосования, день >= 2, реальная роль шерифа и единоличная vote-смерть с голосом автора."""
+        rules = isolated_rules("vote_sheriff_nine_red")
+        rules["vote_sheriff_nine_black"] = 0.1
+        for count in (8, 9, 10):
+            for day in (1, 2, 3):
+                actions = sheriff_nine_actions(day=day, alive=list(range(1, count + 1)))
+                points, _ = score(actions, rules=rules)
+                valid = count == 9 and day >= 2
+                self.assertEqual(points["2"], -0.1 if valid else 0)
+                self.assertEqual(points["8"], 0.1 if valid else 0)
+                self.assertEqual(points["3"], 0)
+                self.assertEqual(points["9"], 0)
+        for change in ({"reason": "night"}, {"reason": "foul"}, {"reason": "suicide"},
+                       {"vote_unique": False}, {"vote_lift": True}, {"by": []}, {"target_id": 3}):
+            actions = sheriff_nine_actions()
+            actions[-1].update(change)
+            self.assertTrue(all(value == 0 for value in score(actions, rules=rules)[0].values()), change)
+        actions = sheriff_nine_actions()
+        self.assertEqual(score(actions, rules=rules, mode="normal"), ({}, {}))
+        self.assertTrue(all(value == 0 for value in score(actions[:1], rules=rules)[0].values()))
+        del actions[0]["alive"]
+        self.assertTrue(all(value == 0 for value in score(actions, rules=rules)[0].values()))
+
+    def test_sheriff_nine_revote_and_additive_bonus(self):
+        """Девятку берём с итогов результирующего голосования, голоса — с итогового ухода; +0.1 складывается с +0.15."""
+        rules = isolated_rules("vote_sheriff_nine_red")
+        rules.update(vote_sheriff_nine_black=0.1, vote_opponent_team=0.15)
+        actions = sheriff_nine_actions()
+        first = dict(type="vote", day=2, alive=IDS,
+                     targets=[1, 4], leaders=[1, 4], will_eliminate=False, votes={"1": [3, 9]})
+        actions[0]["alive"] = list(range(1, 10))
+        actions.insert(0, first)
+        points, breakdown = score(actions, rules=rules)
+        self.assertEqual(points["2"], -0.1)
+        self.assertEqual(points["8"], 0.25)
+        self.assertEqual(points["3"], 0)
+        self.assertEqual(points["9"], 0)
+        self.assertEqual({item["rule_key"] for item in breakdown["8"]["adjustments"]},
+                         {"vote_sheriff_nine_black", "vote_opponent_team"})
+        actions.append(copy.deepcopy(actions[-1]))
+        self.assertEqual(score(actions, rules=rules)[0]["8"], 0.25)
+        first["alive"] = list(range(1, 10))
+        actions[1]["alive"] = list(range(1, 9))
+        self.assertEqual(score(actions, rules=rules)[0]["8"], 0.15)
+        # Позднее голосование не изменяет оценку уже произошедшего ухода.
+        actions.append(dict(type="vote", day=2, alive=list(range(1, 10)), leaders=[1], will_eliminate=True))
+        self.assertEqual(score(actions, rules=rules)[0]["8"], 0.15)
 
     def test_every_parameter_has_description_and_test(self):
         """Новый параметр требует русского описания, ставки и двух сценариев."""
