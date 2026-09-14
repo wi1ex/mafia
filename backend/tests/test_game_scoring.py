@@ -35,9 +35,11 @@ IDS = list(range(1, 11))
 ROLES = {str(i): "citizen" for i in IDS}
 ROLES.update({"1": "sheriff", "8": "mafia", "9": "mafia", "10": "don"})
 BOUNDS = {"additional_points_min", "additional_points_max"}
+CONFIG_PARAMETERS = BOUNDS | {"farewell_voted_correct_deduction"}
 
 # Ключ: (стандартный балл, правило применения).
 RULE_SPECS = {
+    "farewell_voted_correct_deduction": (0.1, "Настраиваемый вычет из каждой ставки за верный цвет завещания после голосования, включая подъём. Сохраняется при старте игры. Ноль отключает снижение; вычет больше ставки делает результат отрицательным. Ночь, неверные цвета и бонусы цели не затрагиваются. Это параметр расчёта, не самостоятельное начисление."),
     "vote_black_unchecked_nine_ten": (-0.1, "Со второго дня чёрному за фактический единоличный vote-уход при 9–10 живых на итогах результирующего голосования. Не подъём/ночь/фолы/самоубийство. Ни в одной активной версии на момент ухода нет его чёрной проверки. Личные проверки шерифа и алгоритм очевидности не используются; автор версии может быть любым, даже умершим. Удаление проверки до ухода разрешает штраф; поздние версии не меняют оценку. Один штраф за уход."),
     "vote_sheriff_nine_red": (-0.1, "Со второго дня только красным участникам результирующего вывода настоящего шерифа: он фактически ушёл единолично, без подъёма; на момент итогов результирующего голосования девять или десять живых. При переголосовании используем его снимок alive. Без снимка итогов не начисляем; не голосовавшие не штрафуются."),
     "vote_sheriff_nine_black": (0.1, "При тех же условиях единоличного вывода шерифа при 9–10 живых со второго дня — только чёрным, голосовавшим в него. Бонус дополнительный к vote_opponent_team, не заменяет его; действует общий лимит. Повтор события смерти не удваивает этот бонус."),
@@ -81,9 +83,9 @@ RULE_SPECS = {
     "night_opinion_correct": (0.1, "За каждый фактически верный цвет красного автора ночного мнения, кроме совпадения ответа с очевидным цветом. Противоположный очевидному ответ оценивается по факту, а не автоматически как ошибка."),
     "night_opinion_wrong": (-0.1, "За каждый фактически неверный цвет красного автора ночного мнения, кроме совпадения ответа с очевидным цветом. Чёрные авторы и мнение о себе исключены."),
     "night_opinion_black_named_red": (0.05, "Чёрной цели за каждый ответ красного автора «красный», если ответ не совпал с очевидным для автора цветом. Может сочетаться со штрафом автору."),
-    "farewell_red_correct": (0.15, "Красному автору завещания за фактически красную цель, оставленную красной, кроме совпадения с очевидным цветом."),
+    "farewell_red_correct": (0.15, "Красному автору завещания за фактически красную цель, оставленную красной, кроме совпадения с очевидным цветом. При mode=voted (включая подъём) из сохранённой ставки вычитается параметр farewell_voted_correct_deduction (по умолчанию 0.1) (без дополнительного ограничения снизу), при killed или отсутствии mode — полная. Расчёт точный, округление до сотых при выдаче результата."),
     "farewell_red_wrong": (-0.2, "Красному автору завещания за фактически красную цель, оставленную чёрной, кроме совпадения с очевидным цветом."),
-    "farewell_black_correct": (0.2, "Красному автору завещания за фактически чёрную цель, оставленную чёрной, кроме совпадения с очевидным цветом."),
+    "farewell_black_correct": (0.2, "Красному автору завещания за фактически чёрную цель, оставленную чёрной, кроме совпадения с очевидным цветом. При mode=voted (включая подъём) начисляется сохранённая ставка минус 0.1. Ночная жертва получает полную ставку. Неверные цвета и бонусы чёрной цели не уменьшаются."),
     "farewell_black_wrong": (-0.25, "Красному автору завещания за фактически чёрную цель, оставленную красной, кроме совпадения с очевидным цветом."),
     "farewell_black_named_red": (0.1, "Чёрной цели, не являющейся автором версии снимка, за каждое завещание красного «красный», прошедшее фильтр очевидности. Все цвета используют общий context завершения речи."),
     "farewell_claimant_black_named_red": (0.15, "Чёрной цели — автору активной версии снимка — за завещание красного «красный», прошедшее фильтр очевидности. Заменяет обычный бонус цели, не складывается с ним; используется общий context завещания."),
@@ -111,7 +113,7 @@ def score(actions, result="draw", rules=None, mode="rating"):
 def isolated_rules(key, value=None):
     rules = dict(DEFAULTS)
     for name in RULE_SPECS:
-        if name not in BOUNDS:
+        if name not in CONFIG_PARAMETERS:
             rules[name] = 0
     rules[key] = RULE_SPECS[key][0] if value is None else value
     return rules
@@ -248,6 +250,73 @@ add_case("vote_black_unchecked_nine_ten", black_unchecked_actions(), {8: -0.1},
 class ScoringRulesTests(unittest.TestCase):
     maxDiff = None
 
+    def test_farewell_configurable_deduction(self):
+        """Вычет настраивается независимо от ставки; снимок неизменен, ноль отключает, превышение даёт отрицательный результат."""
+        for deduction in (0, 0.05, 0.1, 0.25):
+            for key, target, color in (("farewell_red_correct", 3, "red"), ("farewell_black_correct", 8, "black")):
+                rules = isolated_rules(key, 0.2)
+                rules.update(farewell_voted_correct_deduction=deduction,
+                             farewell_voted_correct_deduction_label="Моё снижение")
+                snapshot = build_game_scoring_rules_snapshot(rules)
+                rules["farewell_voted_correct_deduction"] = 9
+                for mode in ("voted", "killed"):
+                    event = dict(type="farewell", mode=mode, actor_id=2, wills={target: color})
+                    points, breakdown = score([event], rules=snapshot)
+                    expected = Decimal("0.2") - (Decimal(str(deduction)) if mode == "voted" else Decimal(0))
+                    self.assertEqual(points["2"], float(expected))
+                    if mode == "voted" and deduction:
+                        self.assertIn("Моё снижение", breakdown["2"]["adjustments"][0]["label"])
+                wrong = dict(type="farewell", mode="voted", actor_id=2, wills={3: "black"})
+                self.assertEqual(score([wrong], rules=snapshot)[0]["2"], 0)
+
+    def test_voted_farewell_correct_colors_reduced_rate(self):
+        """После единоличного голосования и подъёма бонус за верный цвет равен ставке минус 0.1; после ночи/без mode ставка полная."""
+        for key, target, color in (("farewell_red_correct", 3, "red"), ("farewell_black_correct", 8, "black")):
+            for value in (0.15, 0.2, 0.37, 0, -0.15):
+                for mode in ("voted", "killed", None):
+                    for lift in (False, True):
+                        with self.subTest(key=key, value=value, mode=mode, lift=lift):
+                            rules = isolated_rules(key, value)
+                            rules[f"{key}_label"] = "Моя подпись"
+                            event = dict(type="farewell", actor_id=2, wills={target: color}, vote_lift=lift)
+                            if mode is not None:
+                                event["mode"] = mode
+                            points, breakdown = score([event], rules=rules)
+                            expected = Decimal(str(value)) - (Decimal("0.1") if mode == "voted" else Decimal(0))
+                            self.assertEqual(points["2"], normalize_game_points_value(expected))
+                            if expected:
+                                label = breakdown["2"]["adjustments"][0]["label"]
+                                self.assertTrue(label.startswith("Моя подпись"))
+                                self.assertEqual("−0.10" in label, mode == "voted")
+
+    def test_voted_farewell_wrong_and_target_bonus_unchanged(self):
+        """Неверные цвета, включая бонус чёрной цели/вскрывшейся цели, сохраняют полные ставки после голосования."""
+        for key, target, guess, recipient in (
+            ("farewell_red_wrong", 3, "black", 2),
+            ("farewell_black_wrong", 8, "red", 2),
+            ("farewell_black_named_red", 8, "red", 8),
+            ("farewell_claimant_black_named_red", 8, "red", 8),
+        ):
+            versions = [v(8, (3, "red")), v(9, (4, "red"))] if "claimant" in key else []
+            event = dict(type="farewell", mode="voted", actor_id=2, wills={target: guess},
+                         context={"versions": versions, "alive": IDS})
+            self.assertEqual(score([event], rules=isolated_rules(key))[0][str(recipient)], RULE_SPECS[key][0])
+
+    def test_voted_farewell_precision_audit_and_exclusions(self):
+        """Два бонуса по (0.15 - 0.1) дают 0.10; аудит объясняет вычет, очевидные цвета и чёрный автор исключены."""
+        rules = isolated_rules("farewell_red_correct", 0.15)
+        event = dict(type="farewell", mode="voted", actor_id=2, wills={3: "red", 4: "red"})
+        self.assertEqual(score([event], rules=rules)[0]["2"], 0.1)
+        audit = calculate_game_scoring_audit(mode="rating", roles=ROLES, player_ids=IDS,
+                                             actions=[event], scoring_rules=rules)
+        items = [item for item in audit if item["type"] == "farewell"]
+        self.assertEqual(len(items), 2)
+        self.assertTrue(all("−0.10" in item["actor_adjustment"]["label"] for item in items))
+        self.assertEqual(score([event], mode="normal", rules=rules), ({}, {}))
+        self.assertEqual(score([{**event, "actor_id": 8}], rules=rules)[0]["8"], 0)
+        obvious = {**event, "context": {"versions": [v(1, (3, "red"), (4, "red"))], "alive": IDS}}
+        self.assertEqual(score([obvious], rules=rules)[0]["2"], 0)
+
     def test_black_unchecked_table_and_departure(self):
         """9/10 живых, день >= 2 и единоличный уход чёрного обязательны; ставка относится к ушедшему, не к голосовавшим."""
         rules = isolated_rules("vote_black_unchecked_nine_ten")
@@ -353,8 +422,8 @@ class ScoringRulesTests(unittest.TestCase):
     def test_every_parameter_has_description_and_test(self):
         """Новый параметр требует русского описания, ставки и двух сценариев."""
         self.assertEqual(set(RULE_SPECS), set(GAME_SCORING_RULE_DEFAULTS))
-        self.assertEqual({row[0] for row in CASES}, set(RULE_SPECS) - BOUNDS)
-        self.assertEqual(len(CASES), len(RULE_SPECS) - len(BOUNDS))
+        self.assertEqual({row[0] for row in CASES}, set(RULE_SPECS) - CONFIG_PARAMETERS)
+        self.assertEqual(len(CASES), len(RULE_SPECS) - len(CONFIG_PARAMETERS))
         for key, (value, description) in RULE_SPECS.items():
             with self.subTest(rule=key):
                 self.assertTrue(any("а" <= letter.lower() <= "я" for letter in description))

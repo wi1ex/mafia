@@ -198,6 +198,7 @@ class GameScoringSettingsOut(BaseModel):
     night_opinion_wrong: float
     night_opinion_black_named_red: float
     farewell_red_correct: float
+    farewell_voted_correct_deduction: float
     farewell_red_wrong: float
     farewell_black_correct: float
     farewell_black_wrong: float
@@ -245,6 +246,7 @@ class GameScoringSettingsOut(BaseModel):
     night_opinion_wrong_label: str
     night_opinion_black_named_red_label: str
     farewell_red_correct_label: str
+    farewell_voted_correct_deduction_label: str
     farewell_red_wrong_label: str
     farewell_black_correct_label: str
     farewell_black_wrong_label: str
@@ -297,6 +299,7 @@ class GameScoringSettingsUpdateIn(BaseModel):
     night_opinion_wrong: Optional[float] = Field(default=None, ge=-10, le=10)
     night_opinion_black_named_red: Optional[float] = Field(default=None, ge=-10, le=10)
     farewell_red_correct: Optional[float] = Field(default=None, ge=-10, le=10)
+    farewell_voted_correct_deduction: Optional[float] = Field(default=None, ge=0, le=10)
     farewell_red_wrong: Optional[float] = Field(default=None, ge=-10, le=10)
     farewell_black_correct: Optional[float] = Field(default=None, ge=-10, le=10)
     farewell_black_wrong: Optional[float] = Field(default=None, ge=-10, le=10)
@@ -344,6 +347,7 @@ class GameScoringSettingsUpdateIn(BaseModel):
     night_opinion_wrong_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
     night_opinion_black_named_red_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
     farewell_red_correct_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    farewell_voted_correct_deduction_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
     farewell_red_wrong_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
     farewell_black_correct_label: Optional[str] = Field(default=None, min_length=1, max_length=255)
     farewell_black_wrong_label: Optional[str] = Field(default=None, min_length=1, max_length=255)

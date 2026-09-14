@@ -83,6 +83,7 @@ GAME_SCORING_RULE_DEFAULTS: dict[str, Decimal] = {
     "night_opinion_wrong": Decimal("-0.10"),
     "night_opinion_black_named_red": Decimal("0.05"),
     "farewell_red_correct": Decimal("0.15"),
+    "farewell_voted_correct_deduction": Decimal("0.10"),
     "farewell_red_wrong": Decimal("-0.20"),
     "farewell_black_correct": Decimal("0.20"),
     "farewell_black_wrong": Decimal("-0.25"),
@@ -133,6 +134,7 @@ GAME_SCORING_LABEL_DEFAULTS: dict[str, str] = {
     "night_opinion_wrong": "Ночное мнение: неверный цвет",
     "night_opinion_black_named_red": "Оставлен красным в ночном мнении",
     "farewell_red_correct": "Завещание: верно указан красный",
+    "farewell_voted_correct_deduction": "Вычет за верный цвет после голосования",
     "farewell_red_wrong": "Завещание: красный указан чёрным",
     "farewell_black_correct": "Завещание: верно указан чёрный",
     "farewell_black_wrong": "Завещание: чёрный указан красным",
@@ -867,7 +869,7 @@ def _apply_farewell_points(
         *,
         roles: Mapping[object, Any],
         actions: Iterable[Mapping[str, Any]],
-        apply_rule: Callable[[int, str], dict[str, Any]],
+        apply_rule: Callable[..., dict[str, Any]],
         audit: list[dict[str, Any]] | None = None,
 ) -> None:
     player_ids = set(points)
@@ -927,6 +929,7 @@ def _apply_farewell_points(
             continue
 
         actor_is_red = _role_for_user(roles, actor_id) in RED_ROLES
+        voted_farewell = str(action.get("mode") or "").strip().lower() == "voted"
         raw_shared_context = action.get("context")
         shared_context = raw_shared_context if isinstance(raw_shared_context, Mapping) else None
         for raw_target_id, raw_guess in raw_wills.items():
@@ -1004,13 +1007,19 @@ def _apply_farewell_points(
 
             if actual_color == "red":
                 rule_key = "farewell_red_correct" if guess_color == "red" else "farewell_red_wrong"
-                audit_item["actor_adjustment"] = apply_rule(actor_id, rule_key)
+                audit_item["actor_adjustment"] = apply_rule(
+                    actor_id, rule_key,
+                    voted_correct=voted_farewell and guess_color == actual_color,
+                )
                 if audit is not None:
                     audit.append(audit_item)
                 continue
 
             rule_key = "farewell_black_correct" if guess_color == "black" else "farewell_black_wrong"
-            audit_item["actor_adjustment"] = apply_rule(actor_id, rule_key)
+            audit_item["actor_adjustment"] = apply_rule(
+                actor_id, rule_key,
+                voted_correct=voted_farewell and guess_color == actual_color,
+            )
             if guess_color != "red":
                 if audit is not None:
                     audit.append(audit_item)
@@ -1532,9 +1541,13 @@ def _apply_action_points(
         parsed = _as_decimal(rules.get(key))
         rule_values[key] = default if parsed is None else parsed
 
-    def apply_rule(user_id: int, rule_key: str, **placeholders: object) -> dict[str, Any]:
-        value = rule_values[rule_key]
+    def apply_rule(user_id: int, rule_key: str, *, voted_correct: bool = False, **placeholders: object) -> dict[str, Any]:
+        deduction = rule_values["farewell_voted_correct_deduction"] if voted_correct else Decimal("0")
+        value = rule_values[rule_key] - deduction
         label = _scoring_rule_label(rules, rule_key, **placeholders)
+        if deduction:
+            deduction_label = _scoring_rule_label(rules, "farewell_voted_correct_deduction")
+            label += f" ({deduction_label}: −{deduction:.2f})"
         points[user_id] += value
         _record_scoring_adjustment(
             breakdown,

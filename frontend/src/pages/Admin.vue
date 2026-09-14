@@ -342,6 +342,10 @@
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Завещание: верно указан красный" />
                 <UiInput id="scoring-farewell-red-correct-label" size="low" v-model.trim="scoring.farewell_red_correct_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
+                <UiInput id="scoring-farewell-voted-correct-deduction" size="low" v-model.number="scoring.farewell_voted_correct_deduction" type="number" min="0" max="10" step="0.01"
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Вычет за верный цвет после голосования" />
+                <UiInput id="scoring-farewell-voted-correct-deduction-label" size="low" v-model.trim="scoring.farewell_voted_correct_deduction_label" maxlength="255"
+                         autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 <UiInput id="scoring-farewell-red-wrong" size="low" v-model.number="scoring.farewell_red_wrong" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Завещание: красный указан чёрным" />
                 <UiInput id="scoring-farewell-red-wrong-label" size="low" v-model.trim="scoring.farewell_red_wrong_label" maxlength="255"
@@ -1367,6 +1371,7 @@ type GameScoringSettings = {
   night_opinion_wrong: number
   night_opinion_black_named_red: number
   farewell_red_correct: number
+  farewell_voted_correct_deduction: number
   farewell_red_wrong: number
   farewell_black_correct: number
   farewell_black_wrong: number
@@ -1414,6 +1419,7 @@ type GameScoringSettings = {
   night_opinion_wrong_label: string
   night_opinion_black_named_red_label: string
   farewell_red_correct_label: string
+  farewell_voted_correct_deduction_label: string
   farewell_red_wrong_label: string
   farewell_black_correct_label: string
   farewell_black_wrong_label: string
@@ -1753,6 +1759,7 @@ const scoring = reactive<GameScoringSettings>({
   night_opinion_wrong: -0.1,
   night_opinion_black_named_red: 0.05,
   farewell_red_correct: 0.15,
+  farewell_voted_correct_deduction: 0.1,
   farewell_red_wrong: -0.2,
   farewell_black_correct: 0.2,
   farewell_black_wrong: -0.25,
@@ -1800,6 +1807,7 @@ const scoring = reactive<GameScoringSettings>({
   night_opinion_wrong_label: 'Ночное мнение: неверный цвет',
   night_opinion_black_named_red_label: 'Оставлен красным в ночном мнении',
   farewell_red_correct_label: 'Завещание: верно указан красный',
+  farewell_voted_correct_deduction_label: 'Вычет за верный цвет после голосования',
   farewell_red_wrong_label: 'Завещание: красный указан чёрным',
   farewell_black_correct_label: 'Завещание: верно указан чёрный',
   farewell_black_wrong_label: 'Завещание: чёрный указан красным',
@@ -2192,6 +2200,7 @@ function snapshotScoring(): string {
     night_opinion_wrong: normalizeScoringValue(scoring.night_opinion_wrong),
     night_opinion_black_named_red: normalizeScoringValue(scoring.night_opinion_black_named_red),
     farewell_red_correct: normalizeScoringValue(scoring.farewell_red_correct),
+    farewell_voted_correct_deduction: normalizeScoringValue(scoring.farewell_voted_correct_deduction),
     farewell_red_wrong: normalizeScoringValue(scoring.farewell_red_wrong),
     farewell_black_correct: normalizeScoringValue(scoring.farewell_black_correct),
     farewell_black_wrong: normalizeScoringValue(scoring.farewell_black_wrong),
@@ -2239,6 +2248,7 @@ function snapshotScoring(): string {
     night_opinion_wrong_label: normalizeScoringLabel(scoring.night_opinion_wrong_label),
     night_opinion_black_named_red_label: normalizeScoringLabel(scoring.night_opinion_black_named_red_label),
     farewell_red_correct_label: normalizeScoringLabel(scoring.farewell_red_correct_label),
+    farewell_voted_correct_deduction_label: normalizeScoringLabel(scoring.farewell_voted_correct_deduction_label),
     farewell_red_wrong_label: normalizeScoringLabel(scoring.farewell_red_wrong_label),
     farewell_black_correct_label: normalizeScoringLabel(scoring.farewell_black_correct_label),
     farewell_black_wrong_label: normalizeScoringLabel(scoring.farewell_black_wrong_label),
@@ -2949,6 +2959,7 @@ async function loadScoring(): Promise<void> {
     scoring.night_opinion_wrong = normalizeScoringValue(scoring.night_opinion_wrong)
     scoring.night_opinion_black_named_red = normalizeScoringValue(scoring.night_opinion_black_named_red)
     scoring.farewell_red_correct = normalizeScoringValue(scoring.farewell_red_correct)
+    scoring.farewell_voted_correct_deduction = normalizeScoringValue(scoring.farewell_voted_correct_deduction)
     scoring.farewell_red_wrong = normalizeScoringValue(scoring.farewell_red_wrong)
     scoring.farewell_black_correct = normalizeScoringValue(scoring.farewell_black_correct)
     scoring.farewell_black_wrong = normalizeScoringValue(scoring.farewell_black_wrong)
@@ -2996,6 +3007,7 @@ async function loadScoring(): Promise<void> {
     scoring.night_opinion_wrong_label = normalizeScoringLabel(scoring.night_opinion_wrong_label)
     scoring.night_opinion_black_named_red_label = normalizeScoringLabel(scoring.night_opinion_black_named_red_label)
     scoring.farewell_red_correct_label = normalizeScoringLabel(scoring.farewell_red_correct_label)
+    scoring.farewell_voted_correct_deduction_label = normalizeScoringLabel(scoring.farewell_voted_correct_deduction_label)
     scoring.farewell_red_wrong_label = normalizeScoringLabel(scoring.farewell_red_wrong_label)
     scoring.farewell_black_correct_label = normalizeScoringLabel(scoring.farewell_black_correct_label)
     scoring.farewell_black_wrong_label = normalizeScoringLabel(scoring.farewell_black_wrong_label)
