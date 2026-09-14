@@ -67,6 +67,8 @@ GAME_SCORING_RULE_DEFAULTS: dict[str, Decimal] = {
     "nomination_black_prevents_black_win": Decimal("-0.50"),
     "nomination_red_last_hope": Decimal("0.30"),
     "vote_break_red_to_red": Decimal("-0.50"),
+    "vote_break_red_to_red_safe": Decimal("-0.20"),
+    "vote_break_red_to_sheriff_extra": Decimal("-0.20"),
     "vote_break_red_to_black": Decimal("0.20"),
     "vote_break_black_to_sheriff": Decimal("0.20"),
     "sheriff_two_unobvious_black_checks": Decimal("0.20"),
@@ -111,7 +113,9 @@ GAME_SCORING_LABEL_DEFAULTS: dict[str, str] = {
     "vote_lift_opponent_team": "Подъём игроков другой команды",
     "nomination_black_prevents_black_win": "Выставление при гарантированной победе",
     "nomination_red_last_hope": "Последняя надежда",
-    "vote_break_red_to_red": "Слом в красного будучи красным",
+    "vote_break_red_to_red": "Слом в красного будучи красным и уход",
+    "vote_break_red_to_red_safe": "Слом в красного будучи красным",
+    "vote_break_red_to_sheriff_extra": "Слом в шерифа будучи красным",
     "vote_break_red_to_black": "Слом в черного будучи красным",
     "vote_break_black_to_sheriff": "Слом в шерифа будучи черным",
     "sheriff_two_unobvious_black_checks": "Две подряд чёрные проверки",
@@ -1426,15 +1430,15 @@ def _apply_critical_nomination_points(
 def _apply_marked_vote_break_points(
         *, player_ids: set[int], roles: Mapping[object, Any],
         actions: list[dict[str, Any]], apply_rule: Callable[[int, str], dict[str, Any]],
-        audit: list[dict[str, Any]] | None,
+        audit: list[dict[str, Any]] | None, result: object = "",
 ) -> None:
     marks: dict[str, int] = {}
     mark_order = 0
     first_day_departures: list[dict[str, Any]] = []
     second_day_votes: set[int] = set()
     second_day_started = False
-    second_day_unique: set[int] = set()
     early_removals: set[int] = set()
+    terminal_departures: set[int] = set()
     for action in actions:
         kind = _action_type(action)
         day = _action_user_id(action, "day")
@@ -1448,6 +1452,14 @@ def _apply_marked_vote_break_points(
         if kind != "death":
             continue
         reason = str(action.get("reason") or "")
+        # Предрешённость фиксируется после всей группы подъёма, а не её первого ухода.
+        if ((day == 2 and reason == "vote") or
+                (day in (1, 2) and reason in {"foul", "suicide"})):
+            lost = (_action_bool(action, "vote_break_lost_after") if "vote_break_lost_after" in action else
+                    (_action_bool(action, "game_lost_after") or
+                     _action_bool(action, "ppk") or action.get("result_after") == "black"))
+            if lost:
+                terminal_departures.add(_action_user_id(action, "target_id"))
         # Оба вида удаления по фолам записываются с причиной foul.
         if day in (1, 2) and reason in {"foul", "suicide"}:
             early_removals.add(_action_user_id(action, "target_id"))
@@ -1458,8 +1470,6 @@ def _apply_marked_vote_break_points(
             first_day_departures.append(action)
         if day == 2:
             second_day_votes.add(_action_user_id(action, "target_id"))
-            if unique:
-                second_day_unique.add(_action_user_id(action, "target_id"))
 
     for key, actor_id in marks.items():
         if not actor_id:
@@ -1473,9 +1483,7 @@ def _apply_marked_vote_break_points(
                        and _action_user_id(event, "target_id") != actor_id
                        and _role_for_user(roles, _action_user_id(event, "target_id")) in target_roles), None)
         second_day_valid = True
-        if key == "vote_break_red_to_red":
-            second_day_valid = actor_id in second_day_unique or actor_id in early_removals
-        elif key == "vote_break_red_to_black":
+        if key == "vote_break_red_to_black":
             second_day_valid = (
                 second_day_started
                 and actor_id not in second_day_votes
@@ -1486,11 +1494,19 @@ def _apply_marked_vote_break_points(
             "actor_id": actor_id, "target_id": _action_user_id(target or {}, "target_id") or actor_id,
             "rule_key": key,
             "reason": "wrong_team" if not role_valid else "no_first_day_vote" if target is None else
-                      ("departure_condition" if key == "vote_break_red_to_red" else "second_day_condition")
-                      if not second_day_valid else "",
+                      "second_day_condition" if not second_day_valid else "",
         }
         if not item["reason"]:
-            item["actor_adjustment"] = apply_rule(actor_id, key)
+            applied_key = key
+            if key == "vote_break_red_to_red":
+                terminal = actor_id in terminal_departures or (not second_day_started and result == "black")
+                applied_key = key if terminal else "vote_break_red_to_red_safe"
+                item["rule_key"] = applied_key
+            item["actor_adjustment"] = apply_rule(actor_id, applied_key)
+            if key == "vote_break_red_to_red" and _role_for_user(roles, _action_user_id(target, "target_id")) == "sheriff":
+                extra = apply_rule(actor_id, "vote_break_red_to_sheriff_extra")
+                if audit is not None:
+                    audit.append({**item, "rule_key": "vote_break_red_to_sheriff_extra", "actor_adjustment": extra})
         if audit is not None:
             audit.append(item)
 
@@ -1535,7 +1551,7 @@ def _apply_action_points(
 
     _apply_marked_vote_break_points(
         player_ids=set(points), roles=roles, actions=normalized_actions,
-        apply_rule=apply_rule, audit=audit,
+        apply_rule=apply_rule, audit=audit, result=result,
     )
 
     _apply_night_opinion_points(

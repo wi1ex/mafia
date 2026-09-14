@@ -121,7 +121,7 @@ type VersionPayload = {
 
 const maxVersions = 6
 const markRules = [
-  { key: 'vote_break_red_to_red', label: 'Красный сломал в красного и ушел на след день' },
+  { key: 'vote_break_red_to_red', label: 'Красный сломал в красного в нуле' },
   { key: 'vote_break_red_to_black', label: 'Красный сломал в черного и не ушел на след день' },
   { key: 'vote_break_black_to_sheriff', label: 'Черный сломал в шерифа' },
 ]

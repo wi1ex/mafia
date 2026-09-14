@@ -6159,6 +6159,12 @@ async def process_player_death(r, rid: int, user_id: int, *, head_uid: int | Non
                     leader_ids.append(leader_id)
             action["vote_lift"] = bool(vote_lift_state)
             action["vote_unique"] = not vote_lift_state and leader_ids == [user_id]
+            remaining_ids = alive_ids - get_farewell_doomed_ids(
+                alive_ids, user_id, mode="voted", lift_state=vote_lift_state, leaders=leader_ids,
+            )
+            action["vote_break_lost_after"] = player_lost_after_removal_from_snapshot(
+                raw_roles, remaining_ids, user_id, phase="vote",
+            )
             voters: list[int] = []
             votes = await get_last_votes_snapshot(r, rid)
             if not votes:

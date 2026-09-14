@@ -291,8 +291,16 @@
                 <UiInput id="scoring-nomination-red-last-hope-label" size="low" v-model.trim="scoring.nomination_red_last_hope_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 <UiInput id="scoring-vote_break_red_to_red" size="low" v-model.number="scoring.vote_break_red_to_red" type="number" step="0.01"
-                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Слом в красного будучи красным" />
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Слом в красного будучи красным и уход" />
                 <UiInput id="scoring-vote_break_red_to_red-label" size="low" v-model.trim="scoring.vote_break_red_to_red_label" maxlength="255"
+                         autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
+                <UiInput id="scoring-vote_break_red_to_red_safe" size="low" v-model.number="scoring.vote_break_red_to_red_safe" type="number" step="0.01"
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Слом в красного будучи красным" />
+                <UiInput id="scoring-vote_break_red_to_red_safe-label" size="low" v-model.trim="scoring.vote_break_red_to_red_safe_label" maxlength="255"
+                         autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
+                <UiInput id="scoring-vote_break_red_to_sheriff_extra" size="low" v-model.number="scoring.vote_break_red_to_sheriff_extra" type="number" step="0.01"
+                         autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Слом в шерифа будучи красным" />
+                <UiInput id="scoring-vote_break_red_to_sheriff_extra-label" size="low" v-model.trim="scoring.vote_break_red_to_sheriff_extra_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 <UiInput id="scoring-vote_break_red_to_black" size="low" v-model.number="scoring.vote_break_red_to_black" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Слом в черного будучи красным" />
@@ -1331,6 +1339,8 @@ type GameScoringSettings = {
   nomination_black_prevents_black_win: number
   nomination_red_last_hope: number
   vote_break_red_to_red: number
+  vote_break_red_to_red_safe: number
+  vote_break_red_to_sheriff_extra: number
   vote_break_red_to_black: number
   vote_break_black_to_sheriff: number
   sheriff_two_unobvious_black_checks: number
@@ -1373,6 +1383,8 @@ type GameScoringSettings = {
   nomination_black_prevents_black_win_label: string
   nomination_red_last_hope_label: string
   vote_break_red_to_red_label: string
+  vote_break_red_to_red_safe_label: string
+  vote_break_red_to_sheriff_extra_label: string
   vote_break_red_to_black_label: string
   vote_break_black_to_sheriff_label: string
   sheriff_two_unobvious_black_checks_label: string
@@ -1707,6 +1719,8 @@ const scoring = reactive<GameScoringSettings>({
   nomination_black_prevents_black_win: -0.5,
   nomination_red_last_hope: 0.3,
   vote_break_red_to_red: -0.5,
+  vote_break_red_to_red_safe: -0.2,
+  vote_break_red_to_sheriff_extra: -0.2,
   vote_break_red_to_black: 0.2,
   vote_break_black_to_sheriff: 0.2,
   sheriff_two_unobvious_black_checks: 0.2,
@@ -1748,7 +1762,9 @@ const scoring = reactive<GameScoringSettings>({
   vote_lift_opponent_team_label: 'Подъём игроков другой команды',
   nomination_black_prevents_black_win_label: 'Выставление при гарантированной победе',
   nomination_red_last_hope_label: 'Последняя надежда',
-  vote_break_red_to_red_label: 'Слом в красного будучи красным',
+  vote_break_red_to_red_label: 'Слом в красного будучи красным и уход',
+  vote_break_red_to_red_safe_label: 'Слом в красного будучи красным',
+  vote_break_red_to_sheriff_extra_label: 'Слом в шерифа будучи красным',
   vote_break_red_to_black_label: 'Слом в черного будучи красным',
   vote_break_black_to_sheriff_label: 'Слом в шерифа будучи черным',
   sheriff_two_unobvious_black_checks_label: 'Две подряд чёрные проверки',
@@ -2136,6 +2152,8 @@ function snapshotScoring(): string {
     nomination_black_prevents_black_win: normalizeScoringValue(scoring.nomination_black_prevents_black_win),
     nomination_red_last_hope: normalizeScoringValue(scoring.nomination_red_last_hope),
     vote_break_red_to_red: normalizeScoringValue(scoring.vote_break_red_to_red),
+    vote_break_red_to_red_safe: normalizeScoringValue(scoring.vote_break_red_to_red_safe),
+    vote_break_red_to_sheriff_extra: normalizeScoringValue(scoring.vote_break_red_to_sheriff_extra),
     vote_break_red_to_black: normalizeScoringValue(scoring.vote_break_red_to_black),
     vote_break_black_to_sheriff: normalizeScoringValue(scoring.vote_break_black_to_sheriff),
     sheriff_two_unobvious_black_checks: normalizeScoringValue(scoring.sheriff_two_unobvious_black_checks),
@@ -2178,6 +2196,8 @@ function snapshotScoring(): string {
     nomination_black_prevents_black_win_label: normalizeScoringLabel(scoring.nomination_black_prevents_black_win_label),
     nomination_red_last_hope_label: normalizeScoringLabel(scoring.nomination_red_last_hope_label),
     vote_break_red_to_red_label: normalizeScoringLabel(scoring.vote_break_red_to_red_label),
+    vote_break_red_to_red_safe_label: normalizeScoringLabel(scoring.vote_break_red_to_red_safe_label),
+    vote_break_red_to_sheriff_extra_label: normalizeScoringLabel(scoring.vote_break_red_to_sheriff_extra_label),
     vote_break_red_to_black_label: normalizeScoringLabel(scoring.vote_break_red_to_black_label),
     vote_break_black_to_sheriff_label: normalizeScoringLabel(scoring.vote_break_black_to_sheriff_label),
     sheriff_two_unobvious_black_checks_label: normalizeScoringLabel(scoring.sheriff_two_unobvious_black_checks_label),
@@ -2883,6 +2903,8 @@ async function loadScoring(): Promise<void> {
     scoring.nomination_black_prevents_black_win = normalizeScoringValue(scoring.nomination_black_prevents_black_win)
     scoring.nomination_red_last_hope = normalizeScoringValue(scoring.nomination_red_last_hope)
     scoring.vote_break_red_to_red = normalizeScoringValue(scoring.vote_break_red_to_red)
+    scoring.vote_break_red_to_red_safe = normalizeScoringValue(scoring.vote_break_red_to_red_safe)
+    scoring.vote_break_red_to_sheriff_extra = normalizeScoringValue(scoring.vote_break_red_to_sheriff_extra)
     scoring.vote_break_red_to_black = normalizeScoringValue(scoring.vote_break_red_to_black)
     scoring.vote_break_black_to_sheriff = normalizeScoringValue(scoring.vote_break_black_to_sheriff)
     scoring.sheriff_two_unobvious_black_checks = normalizeScoringValue(scoring.sheriff_two_unobvious_black_checks)
@@ -2925,6 +2947,8 @@ async function loadScoring(): Promise<void> {
     scoring.nomination_black_prevents_black_win_label = normalizeScoringLabel(scoring.nomination_black_prevents_black_win_label)
     scoring.nomination_red_last_hope_label = normalizeScoringLabel(scoring.nomination_red_last_hope_label)
     scoring.vote_break_red_to_red_label = normalizeScoringLabel(scoring.vote_break_red_to_red_label)
+    scoring.vote_break_red_to_red_safe_label = normalizeScoringLabel(scoring.vote_break_red_to_red_safe_label)
+    scoring.vote_break_red_to_sheriff_extra_label = normalizeScoringLabel(scoring.vote_break_red_to_sheriff_extra_label)
     scoring.vote_break_red_to_black_label = normalizeScoringLabel(scoring.vote_break_red_to_black_label)
     scoring.vote_break_black_to_sheriff_label = normalizeScoringLabel(scoring.vote_break_black_to_sheriff_label)
     scoring.sheriff_two_unobvious_black_checks_label = normalizeScoringLabel(scoring.sheriff_two_unobvious_black_checks_label)
