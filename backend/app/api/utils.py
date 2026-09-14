@@ -3311,6 +3311,13 @@ def game_action_fields(action: dict[str, Any], *, uid_to_slot: dict[int, int], h
         add_field("Тип", "На поднятие" if action.get("lift") else "Обычное")
         return "Начало голосования", "Началось голосование на поднятие" if action.get("lift") else "Началось голосование", fields
 
+    if action_type == "scoring_marks":
+        from ..services.game_scoring import GAME_SCORING_MARK_KEYS, GAME_SCORING_LABEL_DEFAULTS
+        marks = action.get("scoring_marks") or {}
+        for key in GAME_SCORING_MARK_KEYS:
+            add_field(GAME_SCORING_LABEL_DEFAULTS[key], game_action_slot_label(uid_to_slot, marks.get(key), head_uid=head_uid))
+        return "Исправление сломов", "Администратор изменил отметки сломов", fields
+
     if action_type == "vote":
         targets = game_action_slot_labels(uid_to_slot, action.get("targets"), head_uid=head_uid)
         is_lift = bool(action.get("lift"))

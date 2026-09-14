@@ -32,6 +32,7 @@
                   @mode-updated="handleGameModeUpdated"
                   @ppk-updated="handleGamePpkUpdated"
                   @foul-removals-updated="handleGameFoulRemovalsUpdated"
+                  @scoring-marks-updated="reloadGameDetails"
                 />
               </div>
               <div class="game-head">

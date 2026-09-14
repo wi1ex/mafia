@@ -41,6 +41,8 @@ from ...services.game_scoring import (
     calculate_game_scoring_audit,
     ensure_game_scoring_settings,
     normalize_game_mode,
+    parse_game_scoring_marks,
+    game_scoring_marks_from_actions,
 )
 from ...services.profile_theme import (
     compute_subscription_end,
@@ -103,6 +105,8 @@ from ...schemas.admin import (
     AdminRoomsOut,
     AdminGameActionOut,
     AdminGameActionsOut,
+    AdminGameScoringMarksUpdateIn,
+    AdminGameScoringMarksOut,
     AdminGameModeOut,
     AdminGameModeUpdateIn,
     AdminGamePpkOut,
@@ -1126,7 +1130,42 @@ async def game_actions(game_id: int, session: AsyncSession = Depends(get_session
         rating_mode_eligible=bool(rating_mode_eligible_raw),
         ppk_target_user_id=findGamePpkTargetUserId(actions),
         items=items,
+        scoring_marks=game_scoring_marks_from_actions(actions, uid_to_slot),
     )
+
+
+@router.patch("/games/{game_id}/scoring-marks", response_model=AdminGameScoringMarksOut, dependencies=ADMIN_GUARD)
+@log_route("admin.games.scoring_marks_update")
+async def update_game_scoring_marks(game_id: int, payload: AdminGameScoringMarksUpdateIn,
+                                   ident: Identity = Depends(get_identity),
+                                   session: AsyncSession = Depends(get_session)) -> AdminGameScoringMarksOut:
+    game = await session.get(Game, game_id, with_for_update=True)
+    if not game:
+        raise HTTPException(status_code=404, detail="game_not_found")
+
+    if normalize_game_mode(game.mode) != "rating":
+        raise HTTPException(status_code=409, detail="rating_only")
+
+    players = {safe_int(uid) for uid, slot in (game.seats or {}).items() if 1 <= safe_int(slot) <= 10 and safe_int(uid) > 0}
+    marks = parse_game_scoring_marks(payload.scoring_marks, players)
+    if marks is None:
+        raise HTTPException(status_code=422, detail="bad_scoring_marks")
+
+    actions = normalizeGameActionsForUpdate(game.actions)
+    previous = game_scoring_marks_from_actions(actions, players)
+    if marks != previous:
+        cache_user_ids = game_stats_cache_user_ids(game)
+        game.actions = [*actions, {"type": "scoring_marks", "scoring_marks": marks,
+                                  "actor_id": int(ident["id"]), "ts": int(time()), "source": "admin"}]
+        recalculate_game_points(game)
+        await log_action(session, user_id=int(ident["id"]), username=ident["username"],
+                         action="admin_game_scoring_marks_update",
+                         details=f"Исправление сломов game_id={game_id} from={previous} to={marks}", commit=False)
+        await session.commit()
+        await invalidate_game_stats_cache_for_game_users(
+            cache_user_ids, "admin.games.scoring_marks_update.invalidate_stats_cache_failed", game_id=game_id,
+        )
+    return AdminGameScoringMarksOut(id=game_id, scoring_marks=marks)
 
 
 @router.patch("/games/{game_id}/result", response_model=AdminGameResultOut, dependencies=ADMIN_GUARD)

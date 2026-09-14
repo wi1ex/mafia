@@ -38,6 +38,17 @@ def parse_game_scoring_marks(raw: object, player_ids: Iterable[int | str]) -> di
 
     return marks
 
+def game_scoring_marks_from_actions(actions: Iterable[object], player_ids: Iterable[int]) -> dict[str, int]:
+    marks = dict.fromkeys(GAME_SCORING_MARK_KEYS, 0)
+    players = set(player_ids)
+    for action in actions:
+        if isinstance(action, Mapping) and action.get("type") in {"versions", "scoring_marks"} and "scoring_marks" in action:
+            parsed = parse_game_scoring_marks(action["scoring_marks"], players)
+            if parsed is not None:
+                marks = parsed
+    return marks
+
+
 GAME_SCORING_RULE_DEFAULTS: dict[str, Decimal] = {
     "additional_points_min": Decimal("-1.00"),
     "additional_points_max": Decimal("1.00"),
@@ -1482,7 +1493,7 @@ def _apply_marked_vote_break_points(
     for action in actions:
         kind = _action_type(action)
         day = _action_user_id(action, "day")
-        if kind == "versions" and "scoring_marks" in action:
+        if kind in {"versions", "scoring_marks"} and "scoring_marks" in action:
             parsed = parse_game_scoring_marks(action["scoring_marks"], player_ids)
             if parsed is not None:
                 marks = parsed

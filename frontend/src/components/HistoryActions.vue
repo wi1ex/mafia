@@ -18,7 +18,7 @@
                     :id="`game-history-result-${gameId}`"
                     :value="selectedResult"
                     aria-label="Выбрать исход игры"
-                    :disabled="loading || savingResult || savingMode || savingPpk || savingFoulRemovals"
+                    :disabled="loading || savingResult || savingMode || savingPpk || (savingFoulRemovals || savingScoringMarks)"
                     @change="selectResult"
                   >
                     <option v-for="option in RESULT_OPTIONS" :key="option.value" :value="option.value">{{ option.label }}</option>
@@ -33,7 +33,7 @@
                     :id="`game-history-mode-${gameId}`"
                     :value="selectedMode"
                     aria-label="Выбрать режим игры"
-                    :disabled="loading || savingResult || savingMode || savingPpk || savingFoulRemovals"
+                    :disabled="loading || savingResult || savingMode || savingPpk || savingFoulRemovals || savingScoringMarks"
                     @change="selectGameMode"
                   >
                     <option value="normal">Обычная</option>
@@ -61,6 +61,19 @@
               </div>
 
               <div class="foul-removal-editor">
+                <div v-if="selectedMode === 'rating'" class="editors">
+                  <div v-for="mark in SCORING_MARKS" :key="mark.key" class="editor">
+                    <label :for="`scoring-mark-${gameId}-${mark.key}`">{{ mark.label }}</label>
+                    <select :id="`scoring-mark-${gameId}-${mark.key}`" :value="scoringMarks[mark.key] || 0"
+                            :disabled="foulRemovalControlsDisabled || !loaded || Boolean(error)"
+                            @change="saveScoringMark(mark.key, $event)">
+                      <option :value="0">Не отмечен</option>
+                      <option v-for="option in foulRemovalPlayerOptions" :key="option.key" :value="option.value">{{ option.label }}</option>
+                    </select>
+                  </div>
+                  <span v-if="savingScoringMarks" class="editor-status">Сохраняем...</span>
+                  <span v-if="scoringMarksError" class="editor-status editor-status--error">{{ scoringMarksError }}</span>
+                </div>
                 <div class="foul-removal-head">
                   <span>Удаление по фолам</span>
                   <small v-if="savingFoulRemovals">Сохраняем...</small>
@@ -157,6 +170,7 @@ interface GameHistorySlot {
 }
 
 interface AdminGameActionsResponse {
+  scoring_marks?: Record<string, number>
   id: number
   number: number
   result: GameResult
@@ -202,6 +216,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
+  (e: 'scoring-marks-updated', gameId: number): void
   (e: 'result-updated', payload: { gameId: number; result: GameResult; previousResult: GameResult }): void
   (e: 'mode-updated', payload: { gameId: number; mode: GameMode }): void
   (e: 'ppk-updated', payload: { gameId: number; userId: number | null; previousUserId: number | null }): void
@@ -234,6 +249,32 @@ const selectedFoulRemovalUserIds = ref<number[]>([])
 const savedFoulRemovalUserIds = ref<number[]>([])
 const savingFoulRemovals = ref(false)
 const foulRemovalSaveError = ref('')
+const scoringMarks = ref<Record<string, number>>({})
+const savingScoringMarks = ref(false)
+const scoringMarksError = ref('')
+const SCORING_MARKS = [
+  { key: 'vote_break_red_to_red', label: 'Красный сломал в красного/шерифа в нуле' },
+  { key: 'vote_break_red_to_black', label: 'Красный сломал в чёрного в нуле' },
+  { key: 'vote_break_black_to_sheriff', label: 'Чёрный сломал в шерифа в нуле' },
+]
+
+async function saveScoringMark(key: string, event: Event): Promise<void> {
+  if (!isAdmin.value || foulRemovalControlsDisabled.value || !loaded.value || error.value) return
+  const marks = { ...scoringMarks.value, [key]: Number((event.target as HTMLSelectElement).value) }
+  savingScoringMarks.value = true
+  scoringMarksError.value = ''
+  try {
+    const { data } = await api.patch<{ scoring_marks: Record<string, number> }>(`/admin/games/${props.gameId}/scoring-marks`, { scoring_marks: marks })
+    scoringMarks.value = data.scoring_marks
+    emit('scoring-marks-updated', props.gameId)
+    await refreshActionsQuietly()
+  } catch {
+    scoringMarksError.value = 'Не удалось сохранить отметки сломов'
+    ;(event.target as HTMLSelectElement).value = String(scoringMarks.value[key] || 0)
+  } finally {
+    savingScoringMarks.value = false
+  }
+}
 
 const DATE_OPTIONS: Intl.DateTimeFormatOptions = {
   year: 'numeric',
@@ -273,7 +314,7 @@ const ppkOptions = computed<Array<{ key: string; value: number | null; label: st
   buildPpkOptions()
 ))
 const ppkSelectDisabled = computed(() => {
-  if (loading.value || savingResult.value || savingMode.value || savingPpk.value || savingFoulRemovals.value) return true
+  if (loading.value || savingResult.value || savingMode.value || savingPpk.value || (savingFoulRemovals.value || savingScoringMarks.value)) return true
   return ppkOptions.value.length <= 1 && selectedPpkUserId.value === null
 })
 const ppkHint = computed(() => {
@@ -302,10 +343,10 @@ const foulRemovalPlayerOptions = computed<Array<{ key: string; value: number; la
   return out
 })
 const foulRemovalControlsDisabled = computed(() => (
-  loading.value || savingResult.value || savingMode.value || savingPpk.value || savingFoulRemovals.value || Boolean(props.detailsLoading)
+  loading.value || savingResult.value || savingMode.value || savingPpk.value || (savingFoulRemovals.value || savingScoringMarks.value) || Boolean(props.detailsLoading)
 ))
 const foulRemovalHint = computed(() => {
-  if (savingFoulRemovals.value || foulRemovalSaveError.value) return ''
+  if ((savingFoulRemovals.value || savingScoringMarks.value) || foulRemovalSaveError.value) return ''
   if (props.detailsLoading) return 'Загружаем игроков...'
   if (foulRemovalPlayerOptions.value.length === 0) return 'Игроки не загружены'
   return ''
@@ -413,21 +454,21 @@ function selectValue(event: Event): string {
 
 function selectResult(event: Event): void {
   const next = normalizeGameResult(selectValue(event))
-  if (savingResult.value || savingMode.value || savingPpk.value || savingFoulRemovals.value || next === selectedResult.value) return
+  if (savingResult.value || savingMode.value || savingPpk.value || (savingFoulRemovals.value || savingScoringMarks.value) || next === selectedResult.value) return
   selectedResult.value = next
   void onResultChange()
 }
 
 function selectGameMode(event: Event): void {
   const next = normalizeGameMode(selectValue(event))
-  if (savingResult.value || savingMode.value || savingPpk.value || savingFoulRemovals.value || next === selectedMode.value) return
+  if (savingResult.value || savingMode.value || savingPpk.value || (savingFoulRemovals.value || savingScoringMarks.value) || next === selectedMode.value) return
   selectedMode.value = next
   void onGameModeChange()
 }
 
 function selectPpk(event: Event): void {
   const next = normalizeOptionalUserId(selectValue(event))
-  if (savingResult.value || savingMode.value || savingPpk.value || savingFoulRemovals.value || next === selectedPpkUserId.value) return
+  if (savingResult.value || savingMode.value || savingPpk.value || (savingFoulRemovals.value || savingScoringMarks.value) || next === selectedPpkUserId.value) return
   selectedPpkUserId.value = next
   void onPpkChange()
 }
@@ -475,8 +516,9 @@ function normalizeItems(raw: unknown): AdminGameActionItem[] {
 }
 
 async function fetchActionsPayload(): Promise<AdminGameActionsResponse> {
-  const { data } = await api.get<AdminGameActionsResponse>(`/admin/games/${props.gameId}/actions`)
-  return data
+    const { data } = await api.get<AdminGameActionsResponse>(`/admin/games/${props.gameId}/actions`)
+    scoringMarks.value = data.scoring_marks || {}
+    return data
 }
 
 async function loadActions(force = false): Promise<void> {
@@ -518,7 +560,7 @@ async function onResultChange(): Promise<void> {
   const nextResult = normalizeGameResult(selectedResult.value)
   const previousResult = savedResult.value
   saveError.value = ''
-  if (savingResult.value || savingMode.value || savingPpk.value || savingFoulRemovals.value || nextResult === previousResult) return
+  if (savingResult.value || savingMode.value || savingPpk.value || (savingFoulRemovals.value || savingScoringMarks.value) || nextResult === previousResult) return
 
   savingResult.value = true
   try {
@@ -546,7 +588,7 @@ async function onGameModeChange(): Promise<void> {
   const nextMode = normalizeGameMode(selectedMode.value)
   const previousMode = savedMode.value
   modeSaveError.value = ''
-  if (savingResult.value || savingMode.value || savingPpk.value || savingFoulRemovals.value || nextMode === previousMode) return
+  if (savingResult.value || savingMode.value || savingPpk.value || (savingFoulRemovals.value || savingScoringMarks.value) || nextMode === previousMode) return
 
   savingMode.value = true
   try {
@@ -582,7 +624,7 @@ async function onPpkChange(): Promise<void> {
   const nextUserId = selectedPpkUserId.value
   const previousUserId = savedPpkUserId.value
   ppkSaveError.value = ''
-  if (savingResult.value || savingMode.value || savingPpk.value || savingFoulRemovals.value || nextUserId === previousUserId) return
+  if (savingResult.value || savingMode.value || savingPpk.value || (savingFoulRemovals.value || savingScoringMarks.value) || nextUserId === previousUserId) return
 
   savingPpk.value = true
   try {
@@ -618,7 +660,7 @@ async function onFoulRemovalsChange(): Promise<void> {
   const nextUserIds = normalizeUserIdList(selectedFoulRemovalUserIds.value)
   const previousUserIds = normalizeUserIdList(savedFoulRemovalUserIds.value)
   foulRemovalSaveError.value = ''
-  if (savingResult.value || savingMode.value || savingPpk.value || savingFoulRemovals.value || sameUserIdList(nextUserIds, previousUserIds)) return
+  if (savingResult.value || savingMode.value || savingPpk.value || (savingFoulRemovals.value || savingScoringMarks.value) || sameUserIdList(nextUserIds, previousUserIds)) return
 
   const previousPpkUserId = savedPpkUserId.value
   savingFoulRemovals.value = true

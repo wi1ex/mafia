@@ -4,6 +4,9 @@
 При изменении алгоритма синхронно обновляются реализация, сценарии и русские
 объяснения в обоих тестовых модулях и на странице frontend/src/pages/Rules.vue.
 Отметки сломов ведущим проверяются по последнему сохранённому scoring_marks:
+исправление администратором в истории заменяет отметки отдельным событием
+scoring_marks, не затрагивая активные версии. После сохранения API пересчитывает
+баллы по снимку ставок игры и инвалидирует кеш статистики участников.
 ни одна отметка не заменяет проверку фактических голосов, ролей и уходов.
 Положительный/отрицательный тест проверяет все десять результатов и записи
 breakdown, в том числе при изменённой админской ставке и подписи. Ожидания
@@ -29,6 +32,7 @@ from app.services.game_scoring import (
     calculate_game_scoring_audit,
     normalize_game_points_value,
     parse_game_scoring_marks,
+    game_scoring_marks_from_actions,
 )
 
 IDS = list(range(1, 11))
@@ -255,6 +259,32 @@ add_case("vote_black_unchecked_nine_ten", black_unchecked_actions(), {8: -0.1},
 
 class ScoringRulesTests(unittest.TestCase):
     maxDiff = None
+
+    def test_admin_marks_override_without_changing_versions(self):
+        """Админ может назначить, заменить и снять три отметки; исправление не меняет версии и не обходит условия слома."""
+        for key, actor, target in (("vote_break_red_to_red", 2, 3),
+                                   ("vote_break_red_to_black", 2, 8),
+                                   ("vote_break_black_to_sheriff", 8, 1)):
+            rules = isolated_rules(key)
+            actions = marked_break_actions(key, actor, target)
+            # Добавление админом вместо отсутствовавшей отметки ведущего.
+            actions[0]["scoring_marks"] = {}
+            override = dict(type="scoring_marks", scoring_marks={key: actor})
+            actions.append(override)
+            self.assertEqual(score(actions, rules=rules)[0][str(actor)], RULE_SPECS[key][0])
+            self.assertEqual(game_scoring_marks_from_actions(actions, IDS)[key], actor)
+            actions.append(dict(type="scoring_marks", scoring_marks={key: 4}))
+            self.assertEqual(score(actions, rules=rules)[0][str(actor)], 0)
+            self.assertEqual(score(actions, rules=rules)[0]["4"], 0)
+            actions.append(override)
+            self.assertEqual(score(actions, rules=rules)[0][str(actor)], RULE_SPECS[key][0])
+            actions.append(dict(type="scoring_marks", scoring_marks={}))
+            self.assertEqual(score(actions, rules=rules)[0][str(actor)], 0)
+            self.assertEqual(game_scoring_marks_from_actions(actions, IDS)[key], 0)
+        # Отдельное событие отметок не сбрасывает активную версию с ложной проверкой шерифа.
+        actions = [dict(type="versions", versions=[v(1, (8, "red"))]),
+                   dict(type="scoring_marks", scoring_marks={})]
+        self.assertEqual(score(actions, result="black", rules=isolated_rules("sheriff_false_check_black_win"))[0]["1"], -0.5)
 
     def test_citizen_active_version_departure_and_vote(self):
         """Любая смерть, но строго до начала завершённого голосования; победа красных/ничья и другие роли исключены."""

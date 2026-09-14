@@ -591,6 +591,16 @@ class AdminGameActionsOut(BaseModel):
     rating_mode_eligible: bool = False
     ppk_target_user_id: Optional[int] = None
     items: List[AdminGameActionOut] = Field(default_factory=list)
+    scoring_marks: dict[str, int] = Field(default_factory=dict)
+
+
+class AdminGameScoringMarksUpdateIn(BaseModel):
+    scoring_marks: dict[str, object]
+
+
+class AdminGameScoringMarksOut(BaseModel):
+    id: int
+    scoring_marks: dict[str, int]
 
 
 class AdminGameResultUpdateIn(BaseModel):
