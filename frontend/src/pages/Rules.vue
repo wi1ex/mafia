@@ -90,7 +90,7 @@
                 <h4>{{ rule.title }}</h4>
                 <div class="scoring-value">
                   <strong>{{ formatScore(rule.key) }}</strong>
-                  <span>{{ scoreValue(rule.key) === null ? 'нет данных' : section.id === 'scoring-limits' ? 'граница' : rule.key === 'farewell_voted_correct_deduction' ? 'снижение' : 'доп. баллы' }}</span>
+                  <span>{{ scoreValue(rule.key) === null ? 'нет данных' : section.id === 'scoring-limits' ? 'граница' : 'доп. баллы' }}</span>
                 </div>
               </div>
               <p>{{ rule.description }}</p>
@@ -230,7 +230,6 @@ const SCORING_SECTIONS: ScoringSection[] = [
   {
     id: 'scoring-farewells', title: 'Завещания', description: `Учитываются завещания красных игроков — мирных и шерифа. Завещания чёрных не дают этих начислений. ${obviousColors}`,
     rules: [
-      rule('farewell_voted_correct_deduction', 'Снижение бонуса за верный цвет после голосования', 'Вычитается из ставки за каждый верный учитываемый цвет завещания после голосования, включая подъём. Это размер снижения, а не отдельный бонус. Ноль отключает снижение; если оно больше ставки, результат отрицательный. Неверные цвета, бонусы цели и завещания ночных жертв не меняются.'),
       rule('farewell_red_correct', 'Верно указан красный', 'Красному автору завещания за каждого настоящего красного, оставленного красным, с учётом общего исключения очевидных цветов. После голосования, включая общий подъём, начисляется указанная ставка минус настроенное снижение бонуса; после ночного убийства — полная ставка. Если ставка меньше настроенного снижения, результат этого начисления будет отрицательным.'),
       rule('farewell_red_wrong', 'Красный указан чёрным', 'Красному автору завещания за каждого настоящего красного, оставленного чёрным, с учётом общего исключения очевидных цветов.'),
       rule('farewell_black_correct', 'Верно указан чёрный', 'Красному автору завещания за каждого настоящего чёрного, оставленного чёрным, с учётом общего исключения очевидных цветов. После голосования, включая общий подъём, начисляется указанная ставка минус настроенное снижение бонуса; после ночного убийства — полная ставка. Штрафы за неверные цвета и бонусы чёрным, оставленным красными, не уменьшаются.'),
@@ -262,6 +261,9 @@ async function loadScoring() {
         values[key] = value
       }
     }
+    const deduction = data?.farewell_voted_correct_deduction
+    if (typeof deduction !== 'number' || !Number.isFinite(deduction)) throw new Error('invalid_scoring_response')
+    values.farewell_voted_correct_deduction = deduction
     scoringValues.value = values
   } catch {
     scoringLoadFailed.value = true
@@ -274,7 +276,7 @@ function scoreValue(key: string): number | null {
 
 function scoreTone(key: string): string {
   const value = scoreValue(key)
-  if (key.startsWith('additional_points_') || key === 'farewell_voted_correct_deduction' || value === null || value === 0) return 'neutral'
+  if (key.startsWith('additional_points_') || value === null || value === 0) return 'neutral'
   return value > 0 ? 'positive' : 'negative'
 }
 

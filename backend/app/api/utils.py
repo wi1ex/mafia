@@ -1888,6 +1888,18 @@ def _schedule_user_telegram_notice(uid: int, telegram_id: int | None, title: str
     loop.create_task(_send_user_telegram_notice(uid, telegram_id, title, text, log_event=log_event))
 
 
+async def send_user_telegram_notice(uid: int, telegram_id: int | None, title: str, text: str, *, log_event: str) -> bool:
+    try:
+        return await asyncio.wait_for(
+            _send_user_telegram_notice(uid, telegram_id, title, text, log_event=log_event),
+            timeout=40,
+        )
+
+    except asyncio.TimeoutError:
+        log.warning(log_event, uid=uid, reason="timeout")
+        return False
+
+
 def schedule_user_telegram_notice(uid: int, telegram_id: int | None, title: str, text: str, *, log_event: str) -> None:
     _schedule_user_telegram_notice(uid, telegram_id, title, text, log_event=log_event)
 

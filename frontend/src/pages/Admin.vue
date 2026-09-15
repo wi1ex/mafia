@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <section class="admin">
     <header>
       <nav class="tabs" aria-label="Админ" role="tablist">
@@ -1086,6 +1086,7 @@
                   <th>Контактные данные</th>
                   <th>Тема обращения</th>
                   <th>Текст обращения</th>
+                <th>Ответы</th>
                   <th>Связь</th>
                   <th>Действия</th>
                 </tr>
@@ -1106,6 +1107,13 @@
                   <td class="contact-cell">{{ row.contact }}</td>
                   <td class="topic-cell">{{ row.topic }}</td>
                   <td class="text-cell">{{ row.text }}</td>
+                <td class="replies-cell">
+                  <div v-for="reply in row.replies" :key="reply.id" class="contact-reply">
+                    <div class="contact-reply__meta">{{ reply.author_username }} (ID: {{ reply.author_id }}) · {{ formatLocalDateTime(reply.created_at) }}</div>
+                    <div class="contact-reply__text">{{ reply.text }}</div>
+                  </div>
+                  <span v-if="!row.replies?.length" class="muted">—</span>
+                </td>
                   <td>
                     <button v-if="canReplyToContactRequest(row)" class="btn" type="button" @click="openContactRequestReply(row)" :disabled="contactRequestReplySaving || contactRequestsDeleting[row.id]">
                       Ответить
@@ -1120,7 +1128,7 @@
                   </td>
                 </tr>
                 <tr v-if="contactRequests.length === 0">
-                  <td colspan="8" class="muted">Нет данных</td>
+                  <td colspan="9" class="muted">Нет данных</td>
                 </tr>
               </tbody>
             </table>
@@ -1495,6 +1503,7 @@ type LogRow = {
 }
 
 type ContactRequestRow = {
+  replies: Array<{ id: number; author_id: number; author_username: string; created_at: string; text: string }>
   id: number
   user_id?: number | null
   username?: string | null
@@ -3455,14 +3464,17 @@ async function sendContactRequestReply(): Promise<void> {
 
   contactRequestReplySaving.value = true
   try {
-    await api.post(`/admin/contact_requests/${target.id}/reply`, { text })
+    await api.post(`/admin/contact_requests/${target.id}/reply`, { text }, { timeout: 60_000 })
     clearContactRequestReplyModalState()
+    await loadContactRequests()
     void alertDialog('Ответ отправлен пользователю')
   } catch (e: any) {
     const status = Number(e?.response?.status || 0)
     const detail = String(e?.response?.data?.detail || '')
     if (status === 404 && detail === 'contact_request_not_found') void alertDialog('Обращение не найдено')
     else if (status === 404 && detail === 'contact_request_user_not_found') void alertDialog('Пользователь не найден')
+    else if (detail === 'contact_request_telegram_missing') void alertDialog('У пользователя не привязан Telegram. Ответ не отправлен и не сохранён')
+    else if (detail === 'contact_request_telegram_failed') void alertDialog('Telegram не подтвердил отправку. Ответ не сохранён')
     else if (status === 409 && detail === 'contact_request_guest') void alertDialog('На обращение гостя ответить через сайт нельзя')
     else if (status === 422 && detail === 'contact_request_reply_empty') void alertDialog('Введите текст ответа')
     else void alertDialog('Не удалось отправить ответ')
@@ -4783,5 +4795,27 @@ onBeforeUnmount(() => {
   opacity: 0;
 }
 
+
+.contact-requests-table .replies-cell {
+  min-width: 280px;
+  max-width: 520px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.contact-reply + .contact-reply {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid $neutral-700;
+}
+.contact-reply__meta {
+  margin-bottom: 6px;
+  color: $neutral-300;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.contact-reply__text {
+  white-space: pre-wrap;
+  line-height: 1.4;
+}
 </style>
 

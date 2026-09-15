@@ -459,6 +459,14 @@ class AdminLogActionsOut(BaseModel):
     actions: List[str]
 
 
+class AdminContactRequestReplyOut(BaseModel):
+    id: int
+    author_id: int
+    author_username: str
+    created_at: datetime
+    text: str
+
+
 class AdminContactRequestOut(BaseModel):
     id: int
     user_id: Optional[int] = None
@@ -470,6 +478,7 @@ class AdminContactRequestOut(BaseModel):
     topic: str
     text: str
     created_at: datetime
+    replies: List[AdminContactRequestReplyOut] = Field(default_factory=list)
 
 
 class AdminContactRequestsOut(BaseModel):

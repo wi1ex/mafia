@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 from contextlib import suppress
 from datetime import datetime, timedelta, timezone
 from typing import Literal, cast
@@ -10,7 +10,7 @@ from ...core.clients import get_redis
 from ...core.db import get_session
 from ...core.logging import log_action
 from ...core.roles import ADDITIONAL_ROLE_HEAD_RATE, normalize_additional_roles
-from ...models.contact_request import ContactRequestRecord
+from ...models.contact_request import ContactRequestRecord, ContactRequestReply
 from ...models.notif import Notif
 from ...models.sanction import UserSanction
 from ...models.user import User
@@ -77,7 +77,7 @@ from ..utils import (
     send_sanction_finished_telegram_notice,
     revoke_active_suspend,
     schedule_contact_request_admin_telegram_message,
-    schedule_user_telegram_notice,
+    send_user_telegram_notice,
     sanction_actor_display,
     sanction_finished_at,
     sanction_served_seconds,
@@ -331,6 +331,13 @@ async def moderation_contact_requests_list(page: int = 1, limit: int = 20, usern
                 avatar_name=avatar_name,
                 role=role,
                 deleted_at=deleted_at,
+                replies=[{
+                    "id": reply.id,
+                    "author_id": reply.author_id,
+                    "author_username": reply.author_username,
+                    "created_at": reply.created_at,
+                    "text": reply.text,
+                } for reply in row.replies],
                 contact=row.contact,
                 topic=row.topic,
                 text=row.text,
@@ -367,18 +374,30 @@ async def moderation_reply_to_contact_request(contact_request_id: int, payload: 
         title="Ответ администрации по обращению",
         text=reply_text,
     )
-    session.add(note)
-    await session.commit()
-    await session.refresh(note)
+    if not target_user.telegram_id:
+        raise HTTPException(status_code=409, detail="contact_request_telegram_missing")
 
-    await emit_notify(target_user_id, note, kind="contact_request_reply")
-    schedule_user_telegram_notice(
+    delivered = await send_user_telegram_notice(
         target_user_id,
         target_user.telegram_id,
         note.title,
         note.text,
         log_event="contact_request.reply_telegram_notify_failed",
     )
+    if not delivered:
+        raise HTTPException(status_code=502, detail="contact_request_telegram_failed")
+
+    session.add(ContactRequestReply(
+        contact_request_id=int(row.id),
+        author_id=int(ident["id"]),
+        author_username=str(ident["username"]),
+        text=reply_text,
+    ))
+    session.add(note)
+    await session.commit()
+    await session.refresh(note)
+
+    await emit_notify(target_user_id, note, kind="contact_request_reply")
     schedule_contact_request_admin_telegram_message(
         "Ответ на обращение с сайта\n\n"
         f"Модератор: {ident['username']}\n"

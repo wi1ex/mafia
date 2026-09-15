@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 from typing import Literal, cast
 import asyncio
 import structlog
@@ -12,7 +12,7 @@ from ...core.clients import get_redis
 from ...core.db import get_session
 from ...models.log import AppLog
 from ...core.roles import ADDITIONAL_ROLE_HEAD_RATE, ROLE_MODER, normalize_additional_roles
-from ...models.contact_request import ContactRequestRecord
+from ...models.contact_request import ContactRequestRecord, ContactRequestReply
 from ...models.game import Game
 from ...models.room import Room
 from ...models.notif import Notif
@@ -237,6 +237,7 @@ from ..utils import (
     format_subscription_purchase_duration,
     format_subscription_until,
     schedule_user_telegram_notice,
+    send_user_telegram_notice,
     delete_gif_avatar_for_inactive_subscription,
 )
 
@@ -762,6 +763,13 @@ async def contact_requests_list(page: int = 1, limit: int = 20, username: str | 
                 avatar_name=avatar_name,
                 role=role,
                 deleted_at=deleted_at,
+                replies=[{
+                    "id": reply.id,
+                    "author_id": reply.author_id,
+                    "author_username": reply.author_username,
+                    "created_at": reply.created_at,
+                    "text": reply.text,
+                } for reply in row.replies],
                 contact=row.contact,
                 topic=row.topic,
                 text=row.text,
@@ -823,18 +831,30 @@ async def reply_to_contact_request(contact_request_id: int, payload: AdminContac
         title="Ответ администрации по обращению",
         text=reply_text,
     )
-    session.add(note)
-    await session.commit()
-    await session.refresh(note)
+    if not target_user.telegram_id:
+        raise HTTPException(status_code=409, detail="contact_request_telegram_missing")
 
-    await emit_notify(target_user_id, note, kind="contact_request_reply")
-    schedule_user_telegram_notice(
+    delivered = await send_user_telegram_notice(
         target_user_id,
         target_user.telegram_id,
         note.title,
         note.text,
         log_event="contact_request.reply_telegram_notify_failed",
     )
+    if not delivered:
+        raise HTTPException(status_code=502, detail="contact_request_telegram_failed")
+
+    session.add(ContactRequestReply(
+        contact_request_id=int(row.id),
+        author_id=int(ident["id"]),
+        author_username=str(ident["username"]),
+        text=reply_text,
+    ))
+    session.add(note)
+    await session.commit()
+    await session.refresh(note)
+
+    await emit_notify(target_user_id, note, kind="contact_request_reply")
 
     await log_action(
         session,
