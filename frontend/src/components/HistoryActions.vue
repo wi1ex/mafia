@@ -789,8 +789,7 @@ watch(
       }
       .editors {
         display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
+        gap: 20px;
         .editor {
           display: flex;
           flex-direction: column;
@@ -801,6 +800,7 @@ watch(
             color: $neutral-500;
             font-size: 13px;
             line-height: 1.2;
+            width: max-content;
           }
           .editor-status {
             color: $neutral-300;

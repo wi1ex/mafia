@@ -17,7 +17,8 @@
 
       <form v-if="isAdmin" class="history-admin-filters" @submit.prevent="applyAdminFilters">
         <div class="history-admin-filters-grid">
-          <UiInput size="low"
+          <UiInput
+            size="low"
             id="history-duration-lt"
             v-model.number="adminFilters.durationLtMinutes"
             type="number"
@@ -28,7 +29,8 @@
             :disabled="loading"
             label="Длительность меньше, мин"
           />
-          <UiInput size="low"
+          <UiInput
+            size="low"
             id="history-duration-gt"
             v-model.number="adminFilters.durationGtMinutes"
             type="number"
@@ -39,7 +41,8 @@
             :disabled="loading"
             label="Длительность больше, мин"
           />
-          <UiInput size="low"
+          <UiInput
+            size="low"
             id="history-number-from"
             v-model.number="adminFilters.gameNumberFrom"
             type="number"
@@ -50,7 +53,8 @@
             :disabled="loading"
             label="Номер игры от"
           />
-          <UiInput size="low"
+          <UiInput
+            size="low"
             id="history-number-to"
             v-model.number="adminFilters.gameNumberTo"
             type="number"
@@ -61,7 +65,8 @@
             :disabled="loading"
             label="Номер игры до"
           />
-          <UiInput size="low"
+          <UiInput
+            size="low"
             id="history-foul-removals"
             v-model.number="adminFilters.foulRemovals"
             type="number"
@@ -72,7 +77,8 @@
             :disabled="loading"
             label="Удалений по фолам"
           />
-          <UiInput size="low"
+          <UiInput
+            size="low"
             id="history-suicides"
             v-model.number="adminFilters.suicides"
             type="number"
@@ -83,14 +89,16 @@
             :disabled="loading"
             label="Самоубийств"
           />
-          <UiDropdown size="low"
+          <UiDropdown
+            size="low"
             id="history-result-filter"
             v-model="adminFilters.result"
             :options="resultFilterOptions"
             :disabled="loading"
             label="Результат"
           />
-          <UiDropdown size="low"
+          <UiDropdown
+            size="low"
             id="history-mode-filter"
             v-model="adminFilters.mode"
             :options="modeFilterOptions"
@@ -98,13 +106,15 @@
             label="Режим игры"
           />
           <div class="history-admin-filters-actions">
-            <UiButton size="low"
+            <UiButton
+              size="low"
               class="history-filter-action"
               type="submit"
               text="Применить"
               :disabled="loading"
             />
-            <UiButton size="low"
+            <UiButton
+              size="low"
               class="history-filter-action"
               type="button"
               variant="white"
@@ -142,6 +152,7 @@
                   @scoring-marks-updated="reloadGameDetails"
                 />
               </div>
+              <span class="game-mode">Режим: {{ game.mode === 'rating' ? 'Рейтинг' : 'Обычный' }}</span>
               <div class="game-head">
                 <span>Ведущий:</span>
                 <template v-if="game.head.auto">
@@ -825,6 +836,9 @@ onBeforeUnmount(() => {
             .game-number {
               color: $neutral-100;
               font-size: 16px;
+            }
+            .game-mode {
+              color: $neutral-300;
             }
             .game-head {
               display: flex;
