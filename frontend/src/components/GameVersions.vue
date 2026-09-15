@@ -4,13 +4,6 @@
       <div class="game-versions-overlay" role="dialog" aria-modal="true" aria-labelledby="game-versions-title"
            @pointerdown.self="overlayArmed = true" @pointerup.self="overlayArmed && requestCancel()" @pointerleave.self="overlayArmed = false" @pointercancel.self="overlayArmed = false">
         <section class="game-versions-modal" @click.stop>
-          <header>
-            <div>
-              <h2 id="game-versions-title">Версии</h2>
-              <p>Отметьте вскрытия шерифом и озвученные проверки.</p>
-            </div>
-          </header>
-
           <p v-if="validationError" class="game-versions-modal__error" role="alert">{{ validationError }}</p>
 
           <div class="game-versions-modal__marks">
@@ -121,7 +114,7 @@ type VersionPayload = {
 
 const maxVersions = 6
 const markRules = [
-  { key: 'vote_break_red_to_red', label: 'Красный сломал в красного в нуле' },
+  { key: 'vote_break_red_to_red', label: 'Красный сломал в красного/шерифа в нуле' },
   { key: 'vote_break_red_to_black', label: 'Красный сломал в черного и не ушел на след день' },
   { key: 'vote_break_black_to_sheriff', label: 'Черный сломал в шерифа' },
 ]
@@ -342,12 +335,13 @@ function requestCancel(): void {
       justify-content: space-between;
       flex-wrap: wrap;
       gap: 16px;
-      padding: 0 24px 16px;
+      padding: 16px 24px;
       flex-shrink: 0;
       color: $neutral-100;
       .scoring-mark {
         display: flex;
         flex-direction: column;
+        justify-content: space-between;
         flex: 1 1 250px;
         min-width: 0;
         gap: 6px;
@@ -369,28 +363,6 @@ function requestCancel(): void {
         font-family: Hauora-Regular;
         font-size: 14px;
         line-height: 18px;
-      }
-    }
-    header {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      padding: 24px 24px 16px;
-      gap: 16px;
-      h2 {
-        margin: 0;
-        color: $neutral-white;
-        font-family: Involve-Medium;
-        font-size: 24px;
-        line-height: 30px;
-      }
-      p {
-        margin: 8px 0 0;
-        max-width: 650px;
-        color: $neutral-300;
-        font-family: Hauora-Regular;
-        font-size: 14px;
-        line-height: 20px;
       }
     }
     .version-check__remove {
@@ -601,17 +573,10 @@ function requestCancel(): void {
       > * {
         flex-shrink: 0;
       }
-      header {
-        padding: 16px 12px;
-        p {
-          font-size: 16px;
-          line-height: 22px;
-        }
-      }
       .game-versions-modal__marks {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        padding: 0 12px 16px;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        padding: 16px 12px;
         gap: 12px;
       }
       .game-versions-modal__marks label,
