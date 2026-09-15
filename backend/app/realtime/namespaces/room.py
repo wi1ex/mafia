@@ -2998,15 +2998,27 @@ async def game_best_move_start(sid, data):
         if ctx.gbool("best_move_active"):
             return {"ok": False, "error": "already_active", "status": 409}
 
+        now_ts = int(time())
         try:
-            await r.hset(f"room:{rid}:game_state", mapping={"best_move_active": "1"})
+            duration = int(get_cached_settings().night_action_seconds)
+        except Exception:
+            duration = 10
+        if duration <= 0:
+            duration = 10
+        best_move_timing = {
+            "best_move_active": "1",
+            "best_move_started": str(now_ts),
+            "best_move_duration": str(duration),
+        }
+        try:
+            await r.hset(f"room:{rid}:game_state", mapping=best_move_timing)
         except Exception:
             log.exception("game_best_move_start.save_failed", rid=rid, uid=ctx.uid)
             return {"ok": False, "error": "internal", "status": 500}
 
         raw_state = dict(ctx.gstate)
         raw_state["best_move_uid"] = str(best_uid)
-        raw_state["best_move_active"] = "1"
+        raw_state.update(best_move_timing)
         best_move = best_move_payload_from_state(GameActionContext.from_raw_state(uid=ctx.uid, rid=rid, r=r, raw_state=raw_state), include_empty=True)
         killed_uid, kill_ok = await compute_night_kill(r, rid, log_action_bool=False)
         payload = {

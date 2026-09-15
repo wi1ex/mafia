@@ -5665,7 +5665,8 @@ def best_move_payload_from_state(ctx: GameActionContext, *, include_empty: bool 
     if not include_empty and not (best_uid or active or targets):
         return None
 
-    return {"uid": best_uid, "active": active, "targets": targets}
+    deadline = ctx.deadline("best_move_started", "best_move_duration") if active else 0
+    return {"uid": best_uid, "active": active, "targets": targets, "deadline": deadline}
 
 
 async def compute_best_move_eligible(r, rid: int, victim_uid: int) -> bool:
@@ -8499,6 +8500,11 @@ async def game_phase_next_unlocked(sid, data):
             best_move_active = ctx.gbool("best_move_active")
             if best_move_uid and not best_move_active:
                 return {"ok": False, "error": "best_move_required", "status": 409, "user_id": best_move_uid}
+
+            if best_move_uid and len(ctx.gcsv_ints("best_move_targets")) < 3:
+                remaining = ctx.deadline("best_move_started", "best_move_duration")
+                if remaining > 0:
+                    return {"ok": False, "error": "best_move_not_finished", "status": 409, "deadline": remaining}
 
             killed_uid, ok = await compute_night_kill(r, rid)
             draw_base_day = ctx.gint("draw_base_day")

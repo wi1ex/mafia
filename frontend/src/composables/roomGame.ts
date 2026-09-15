@@ -132,6 +132,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     uid: '',
     active: false,
     targets: [] as string[],
+    unlockAt: 0,
   })
   const vote = reactive({
     currentId: '',
@@ -476,7 +477,6 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   }
 
   const DAY_BUTTON_DELAY_MS = 1000
-  const DAY_FROM_NIGHT_WITH_BEST_MOVE_DELAY_MS = 5000
   const startDayUnlocked = ref(false)
   let startDayTimer: number | null = null
   function resetStartDayDelay() {
@@ -518,7 +518,11 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     resetDayFromNightDelay()
     if (typeof window === 'undefined') return
     if (!canShowDayFromNightNow()) return
-    const delayMs = bestMove.uid ? DAY_FROM_NIGHT_WITH_BEST_MOVE_DELAY_MS : DAY_BUTTON_DELAY_MS
+    const delayMs = bestMove.uid ? Math.max(0, bestMove.unlockAt - Date.now()) : DAY_BUTTON_DELAY_MS
+    if (delayMs === 0) {
+      dayFromNightUnlocked.value = true
+      return
+    }
     dayFromNightTimer = window.setTimeout(() => {
       if (canShowDayFromNightNow()) dayFromNightUnlocked.value = true
       dayFromNightTimer = null
@@ -628,7 +632,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   })
 
   const canHeadDayFromNightControl = computed(() => {
-    return canShowDayFromNightNow() && dayFromNightUnlocked.value
+    return canShowDayFromNightNow() && (dayFromNightUnlocked.value || (bestMove.active && bestMove.targets.length >= 3))
   })
 
   const canStartDayFromNight = computed(() => {
@@ -893,6 +897,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     bestMove.uid = ''
     bestMove.active = false
     bestMove.targets = []
+    bestMove.unlockAt = 0
   }
 
   function syncBestMove(raw: any) {
@@ -919,6 +924,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     bestMove.uid = uid
     bestMove.active = isTrueLike((raw as any).active) && !!uid
     bestMove.targets = nextTargets
+    bestMove.unlockAt = bestMove.active ? Date.now() + secondsToMs(raw.deadline) : 0
     if (!uid) {
       bestMove.active = false
       bestMove.targets = []
@@ -2176,7 +2182,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       onCleanup(() => resetStartDayDelay())
   }, { immediate: true })
 
-  watch(() => [isHead.value, gamePhase.value, night.stage, bestMove.uid, bestMove.active], (_v, _ov, onCleanup) => {
+  watch(() => [isHead.value, gamePhase.value, night.stage, bestMove.uid, bestMove.active, bestMove.unlockAt], (_v, _ov, onCleanup) => {
       scheduleDayFromNightUnlock()
       onCleanup(() => resetDayFromNightDelay())
   }, { immediate: true })
