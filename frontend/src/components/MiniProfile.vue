@@ -721,6 +721,10 @@ const profileAdditionalRoles = computed(() => {
   return raw.map(role => String(role || '').trim().toLowerCase()).filter(Boolean)
 })
 const targetHasHeadRate = computed(() => profileAdditionalRoles.value.includes('head_rate'))
+const canManageHeadRate = computed(() => (
+  isAdminViewer.value
+  || (isModerViewer.value && viewerUserId.value === settingsStore.seniorModeratorUserId)
+))
 const profileRoleTagsLabel = computed(() => getProfileRoleTags(profileRole.value, profileAdditionalRoles.value).join(' '))
 const profilePanelStyle = computed(() => buildProfileThemeBgStyle(profileThemeColor.value))
 const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(profileThemeIcon.value, profileRole.value, { userId: targetUserId.value }))
@@ -1088,7 +1092,7 @@ const staffActionItems = computed<StaffActionItem[]>(() => {
         disabled: staffRoleBusy.value,
         ariaLabel: targetHasHeadRate.value ? `Снять ведущего ${displayName.value}` : `Выдать ведущего ${displayName.value}`,
       },
-    ]
+    ].filter(item => item.key !== 'head_rate' || canManageHeadRate.value) as StaffActionItem[]
   }
   return []
 })
@@ -1520,7 +1524,7 @@ async function toggleStaffRole(): Promise<void> {
 }
 
 async function toggleStaffHeadRate(): Promise<void> {
-  if ((!isAdminViewer.value && !isModerViewer.value) || staffActionDisabled('head_rate')) return
+  if (!canManageHeadRate.value || staffActionDisabled('head_rate')) return
   const uid = targetUserId.value
   if (uid <= 0 || staffRoleBusy.value) return
   const isHeadRate = targetHasHeadRate.value

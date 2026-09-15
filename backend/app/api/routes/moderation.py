@@ -105,6 +105,7 @@ ModerationUserSortKey = Literal[
 @router.patch("/users/{user_id}/additional_roles", response_model=AdminUserAdditionalRolesOut, dependencies=MODERATION_GUARD)
 @log_route("moderation.users.additional_role")
 async def moderation_update_user_additional_role(user_id: int, payload: AdminUserAdditionalRoleIn, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> AdminUserAdditionalRolesOut:
+    ensure_senior_moderator(ident)
     role = str(payload.role)
     if role != ADDITIONAL_ROLE_HEAD_RATE:
         raise HTTPException(status_code=403, detail="forbidden")
