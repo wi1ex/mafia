@@ -17,7 +17,7 @@
 
       <form v-if="isAdmin" class="history-admin-filters" @submit.prevent="applyAdminFilters">
         <div class="history-admin-filters-grid">
-          <UiInput
+          <UiInput size="low"
             id="history-duration-lt"
             v-model.number="adminFilters.durationLtMinutes"
             type="number"
@@ -28,7 +28,7 @@
             :disabled="loading"
             label="Длительность меньше, мин"
           />
-          <UiInput
+          <UiInput size="low"
             id="history-duration-gt"
             v-model.number="adminFilters.durationGtMinutes"
             type="number"
@@ -39,7 +39,7 @@
             :disabled="loading"
             label="Длительность больше, мин"
           />
-          <UiInput
+          <UiInput size="low"
             id="history-number-from"
             v-model.number="adminFilters.gameNumberFrom"
             type="number"
@@ -50,7 +50,7 @@
             :disabled="loading"
             label="Номер игры от"
           />
-          <UiInput
+          <UiInput size="low"
             id="history-number-to"
             v-model.number="adminFilters.gameNumberTo"
             type="number"
@@ -61,7 +61,7 @@
             :disabled="loading"
             label="Номер игры до"
           />
-          <UiInput
+          <UiInput size="low"
             id="history-foul-removals"
             v-model.number="adminFilters.foulRemovals"
             type="number"
@@ -72,7 +72,7 @@
             :disabled="loading"
             label="Удалений по фолам"
           />
-          <UiInput
+          <UiInput size="low"
             id="history-suicides"
             v-model.number="adminFilters.suicides"
             type="number"
@@ -83,21 +83,28 @@
             :disabled="loading"
             label="Самоубийств"
           />
-          <UiDropdown
+          <UiDropdown size="low"
             id="history-result-filter"
             v-model="adminFilters.result"
             :options="resultFilterOptions"
             :disabled="loading"
             label="Результат"
           />
+          <UiDropdown size="low"
+            id="history-mode-filter"
+            v-model="adminFilters.mode"
+            :options="modeFilterOptions"
+            :disabled="loading"
+            label="Режим игры"
+          />
           <div class="history-admin-filters-actions">
-            <UiButton
+            <UiButton size="low"
               class="history-filter-action"
               type="submit"
               text="Применить"
               :disabled="loading"
             />
-            <UiButton
+            <UiButton size="low"
               class="history-filter-action"
               type="button"
               variant="white"
@@ -192,6 +199,7 @@ type GameHistoryRole = 'citizen' | 'mafia' | 'don' | 'sheriff'
 type GameResult = 'red' | 'black' | 'draw'
 type GameMode = 'normal' | 'rating'
 type GameResultFilter = 'all' | GameResult
+type GameModeFilter = 'all' | GameMode
 type AdminNumberFilterValue = number | ''
 type LeaveReason = 'vote' | 'foul' | 'suicide' | 'night'
 type FarewellVerdict = 'citizen' | 'mafia'
@@ -206,6 +214,7 @@ interface AdminGameHistoryFilters {
   foulRemovals: AdminNumberFilterValue
   suicides: AdminNumberFilterValue
   result: GameResultFilter
+  mode: GameModeFilter
 }
 
 interface ResultFilterOption {
@@ -331,6 +340,12 @@ const resultFilterOptions: ResultFilterOption[] = [
   { value: 'draw', label: 'Ничья' },
 ]
 
+const modeFilterOptions: { value: GameModeFilter; label: string }[] = [
+  { value: 'all', label: 'Все режимы' },
+  { value: 'normal', label: 'Обычный' },
+  { value: 'rating', label: 'Рейтинг' },
+]
+
 const isAdmin = computed(() => String(userStore.user?.role || '').trim().toLowerCase() === 'admin')
 const hasAnyAdminFilters = computed(() => hasAdminFilterValues(adminFilters.value) || hasAdminFilterValues(appliedAdminFilters.value))
 
@@ -343,6 +358,7 @@ function emptyAdminFilters(): AdminGameHistoryFilters {
     foulRemovals: '',
     suicides: '',
     result: 'all',
+    mode: 'all',
   }
 }
 
@@ -533,6 +549,7 @@ function normalizeAdminFilters(raw: AdminGameHistoryFilters): AdminGameHistoryFi
     foulRemovals: normalizedNumberFilterValue(raw.foulRemovals, true),
     suicides: normalizedNumberFilterValue(raw.suicides, true),
     result,
+    mode: raw.mode === 'normal' || raw.mode === 'rating' ? raw.mode : 'all',
   }
 }
 
@@ -544,6 +561,7 @@ function hasAdminFilterValues(filters: AdminGameHistoryFilters): boolean {
     || filters.foulRemovals !== ''
     || filters.suicides !== ''
     || filters.result !== 'all'
+    || filters.mode !== 'all'
 }
 
 function appendNumberParam(params: Record<string, number | string>, key: string, value: AdminNumberFilterValue): void {
@@ -563,6 +581,7 @@ function buildHistoryParams(): Record<string, number | string> {
   appendNumberParam(params, 'foul_removals', filters.foulRemovals)
   appendNumberParam(params, 'suicides', filters.suicides)
   if (filters.result !== 'all') params.result = filters.result
+  if (filters.mode !== 'all') params.mode = filters.mode
   return params
 }
 
@@ -736,6 +755,7 @@ onBeforeUnmount(() => {
       }
       .history-admin-filters-actions {
         display: flex;
+        grid-column: 1 / -1;
         align-items: center;
         justify-content: flex-end;
         gap: 10px;
