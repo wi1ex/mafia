@@ -35,6 +35,7 @@
                   @scoring-marks-updated="reloadGameDetails"
                 />
               </div>
+              <span class="game-mode">Режим: {{ game.mode === 'rating' ? 'Рейтинг' : 'Обычный' }}</span>
               <div class="game-head">
                 <span>Ведущий:</span>
                 <template v-if="game.head.auto">
@@ -607,14 +608,15 @@ onBeforeUnmount(() => {
             }
             .game-number {
               color: $neutral-100;
-              font-size: 16px;
+            }
+            .game-mode {
+              color: $neutral-100;
             }
             .game-head {
               display: flex;
               align-items: center;
               gap: 5px;
               min-width: 0;
-              color: $neutral-300;
               img {
                 width: 20px;
                 height: 20px;

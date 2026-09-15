@@ -835,17 +835,15 @@ onBeforeUnmount(() => {
             }
             .game-number {
               color: $neutral-100;
-              font-size: 16px;
             }
             .game-mode {
-              color: $neutral-300;
+              color: $neutral-100;
             }
             .game-head {
               display: flex;
               align-items: center;
               gap: 5px;
               min-width: 0;
-              color: $neutral-300;
               img {
                 width: 20px;
                 height: 20px;
