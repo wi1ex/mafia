@@ -483,6 +483,7 @@ async function saveNick() {
       void alertDialog('Лимит изменений никнейма исчерпан')
     }
     else if (st === 422 && moderationText)                  void alertDialog({ title: 'Отказ в сохранении', text: moderationText })
+    else if (st === 422 && d === 'reserved_username')       void alertDialog('Названия «Модератор» и «Ведущий» зарезервированы для ролей')
     else if (st === 422 && d === 'invalid_username_format') void alertDialog('Никнейм не должен начинаться с deleted_ или user_ и не должен содержать символы кроме ()._-')
     else                                                    void alertDialog('Не удалось сохранить никнейм')
   } finally { busyNick.value = false }

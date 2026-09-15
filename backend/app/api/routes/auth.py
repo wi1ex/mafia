@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import APIRouter, HTTPException, Depends, Response, Request, status
 from ...models.user import User
 from ...core.db import get_session
+from ...core.roles import is_reserved_role_nickname
 from ...core.settings import settings
 from ...security.parameters import get_cached_settings
 from ...core.logging import log_action
@@ -49,6 +50,9 @@ async def register(payload: PasswordRegisterIn, resp: Response, request: Request
         raise HTTPException(status_code=status.HTTP_428_PRECONDITION_REQUIRED, detail="adult_confirmation_required")
 
     username = normalize_username(payload.username)
+    if is_reserved_role_nickname(username):
+        raise HTTPException(status_code=422, detail="reserved_username")
+
     password = normalize_password(payload.password)
     if username.lower().startswith(("deleted_", "user_")):
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="invalid_username_format")

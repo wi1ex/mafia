@@ -68,8 +68,8 @@
                     <template v-for="(segment, index) in buildTextSegments(message.text, message.mentions)" :key="`${message.id}-text-${index}`">
                       <a v-if="segment.kind === 'link'" class="message-link" :href="segment.href" target="_blank" rel="noopener noreferrer nofollow" @click.stop>{{ segment.text }}</a>
                       <button v-else-if="segment.kind === 'mention' && segment.mention && canOpenMentionMiniProfile(segment.mention)"
-                              class="message-mention message-mention-trigger" type="button" @click.stop="openMentionMiniProfile(segment.mention)">{{ segment.text }}</button>
-                      <span v-else-if="segment.kind === 'mention'" class="message-mention">{{ segment.text }}</span>
+                              class="message-mention message-mention-trigger" :class="roleMentionClass(segment.text)" type="button" @click.stop="openMentionMiniProfile(segment.mention)">{{ segment.text }}</button>
+                      <span v-else-if="segment.kind === 'mention'" class="message-mention" :class="roleMentionClass(segment.text)">{{ segment.text }}</span>
                       <span v-else>{{ segment.text }}</span>
                     </template>
                   </p>
@@ -183,7 +183,7 @@
             <div ref="composerMirrorEl" class="composer-highlight-overlay" aria-hidden="true">
               <p class="composer-highlight-content">
                 <template v-for="(segment, index) in buildDraftTextSegments(draft)" :key="`draft-text-${index}`">
-                  <span v-if="segment.kind === 'mention'" class="message-mention composer-mention">{{ segment.text }}</span>
+                  <span v-if="segment.kind === 'mention'" class="message-mention composer-mention" :class="roleMentionClass(segment.text)">{{ segment.text }}</span>
                   <span v-else>{{ segment.text }}</span>
                 </template>
               </p>
@@ -250,8 +250,8 @@
                 <template v-for="(segment, index) in buildTextSegments(deletedPreview.text, deletedPreview.mentions)" :key="`deleted-preview-text-${index}`">
                   <a v-if="segment.kind === 'link'" class="message-link" :href="segment.href" target="_blank" rel="noopener noreferrer nofollow" @click.stop>{{ segment.text }}</a>
                   <button v-else-if="segment.kind === 'mention' && segment.mention && canOpenMentionMiniProfile(segment.mention)"
-                          class="message-mention message-mention-trigger" type="button" @click.stop="openMentionMiniProfile(segment.mention)">{{ segment.text }}</button>
-                  <span v-else-if="segment.kind === 'mention'" class="message-mention">{{ segment.text }}</span>
+                          class="message-mention message-mention-trigger" :class="roleMentionClass(segment.text)" type="button" @click.stop="openMentionMiniProfile(segment.mention)">{{ segment.text }}</button>
+                  <span v-else-if="segment.kind === 'mention'" class="message-mention" :class="roleMentionClass(segment.text)">{{ segment.text }}</span>
                   <span v-else>{{ segment.text }}</span>
                 </template>
               </p>
@@ -755,8 +755,18 @@ function normalizeUrlHref(rawUrl: string): string | null {
   return null
 }
 
+function roleMentionClass(text: string): string {
+  const name = text.toLowerCase()
+  if (name === '@модератор' || name === '@admin') return 'message-mention--moderator'
+  if (name === '@ведущий') return 'message-mention--head'
+  return ''
+}
+
 function buildMentionLookup(mentions: GlobalChatMention[] = []): Map<string, GlobalChatMention> {
   const lookup = new Map<string, GlobalChatMention>()
+  for (const username of ['Модератор', 'Ведущий']) {
+    lookup.set(username.toLowerCase(), { id: 0, username, avatar_name: null })
+  }
   for (const mention of mentions) {
     const username = String(mention.username || '').trim()
     if (!username) continue
@@ -989,6 +999,12 @@ async function fetchMentionSuggestions(query: string, token: number): Promise<vo
         })
         .filter((item): item is ChatMentionCandidate => Boolean(item))
       : []
+    const roleCandidates = ['Модератор', 'Ведущий']
+      .filter(name => name.toLowerCase().startsWith(query.toLowerCase()))
+      .map((username, index) => ({ id: -index - 1, username, avatar_name: null }))
+    mentionSuggestions.value = [...roleCandidates, ...mentionSuggestions.value.filter(
+      candidate => !['модератор', 'ведущий'].includes(candidate.username.toLowerCase()),
+    )].slice(0, 8)
     rememberMentionCandidates(mentionSuggestions.value)
     mentionSelectedIndex.value = mentionSuggestions.value.length > 0 ? 0 : -1
   } catch {
@@ -1711,6 +1727,12 @@ watch(() => user.timeoutActive, () => {
 </script>
 
 <style scoped lang="scss">
+.message-mention--moderator {
+  --mention-color: #{$red-500};
+}
+.message-mention--head {
+  --mention-color: #{$blue-500};
+}
 .global-chat-dock {
   position: fixed;
   bottom: 10px;
@@ -1718,7 +1740,7 @@ watch(() => user.timeoutActive, () => {
   pointer-events: none;
   z-index: 70;
   .message-mention {
-    color: $orange-500;
+    color: var(--mention-color, #{$orange-500});
     font-family: Hauora-SemiBold;
   }
   .message-mention-trigger {
@@ -2575,7 +2597,7 @@ watch(() => user.timeoutActive, () => {
         word-break: break-word;
       }
       .message-mention {
-        color: $orange-500;
+        color: var(--mention-color, #{$orange-500});
         font-family: Hauora-SemiBold;
       }
       .deleted-preview-empty {

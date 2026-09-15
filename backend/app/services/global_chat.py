@@ -19,6 +19,7 @@ from ..models.sanction import UserSanction
 from ..models.user import User
 from ..core.db import SessionLocal
 from ..core.roles import (
+    ROLE_MENTION_NAMES,
     ROLE_ADMIN,
     ROLE_MODER,
     can_moderate_chat_message,
@@ -176,6 +177,7 @@ def _extract_mention_matches(text: str) -> list[dict[str, int | str]]:
 
 
 async def _resolve_mentioned_users(session: AsyncSession, usernames: set[str]) -> dict[str, dict[str, Any]]:
+    usernames = {name for name in usernames if name.casefold() not in ROLE_MENTION_NAMES}
     if not usernames:
         return {}
 
@@ -890,6 +892,7 @@ async def _build_global_chat_alert_user_ids_map(session: AsyncSession, messages:
     mention_spans_by_message_id, _, mentioned_usernames = _collect_message_mention_context(messages)
     resolved_mentions = await _resolve_mentioned_users(session, mentioned_usernames)
     moderator_user_ids: set[int] | None = None
+    head_user_ids: set[int] | None = None
 
     out: dict[int, set[int]] = {}
     for message in messages:
@@ -922,7 +925,8 @@ async def _build_global_chat_alert_user_ids_map(session: AsyncSession, messages:
                 }
             )
 
-        if mentions_admin:
+        role_mentions = {name.casefold() for name in _extract_mentioned_usernames(str(message.text or ""))} & ROLE_MENTION_NAMES
+        if mentions_admin or "модератор" in role_mentions:
             if moderator_user_ids is None:
                 moderator_rows = await session.execute(
                     select(User.id).where(
@@ -939,6 +943,17 @@ async def _build_global_chat_alert_user_ids_map(session: AsyncSession, messages:
                     if user_id > 0
                 }
             alert_user_ids.update(moderator_user_ids)
+
+        if "ведущий" in role_mentions:
+            if head_user_ids is None:
+                head_rows = await session.execute(
+                    select(User.id).where(
+                        User.deleted_at.is_(None),
+                        User.additional_roles.contains(["head_rate"]),
+                    )
+                )
+                head_user_ids = {int(uid) for uid in head_rows.scalars().all() if _positive_int(uid) > 0}
+            alert_user_ids.update(head_user_ids)
 
         author_user_id = _positive_int(message.user_id)
         if author_user_id > 0:

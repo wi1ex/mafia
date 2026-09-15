@@ -2,6 +2,7 @@ from __future__ import annotations
 from contextlib import suppress
 from datetime import datetime, timezone
 from typing import cast, Literal
+from ...core.roles import is_reserved_role_nickname
 from sqlalchemy import select, update, exists, func, literal, and_, case
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Response, Request
@@ -1058,6 +1059,9 @@ async def sanctions_history(ident: Identity = Depends(get_identity), db: AsyncSe
 async def update_username(payload: UsernameUpdateIn, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UsernameUpdateOut:
     uid = int(ident["id"])
     new = normalize_username(payload.username)
+    if is_reserved_role_nickname(new):
+        raise HTTPException(status_code=422, detail="reserved_username")
+
     if new.lower().startswith(("deleted_", "user_")):
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="invalid_username_format")
 

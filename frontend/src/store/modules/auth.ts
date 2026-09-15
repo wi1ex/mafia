@@ -386,6 +386,8 @@ export const useAuthStore = defineStore('auth', () => {
         void alertDialog('Никнейм уже занят')
       } else if (st === 422 && moderationText) {
         void alertDialog({ title: 'Отказ в регистрации', text: moderationText })
+      } else if (st === 422 && detail === 'reserved_username') {
+        void alertDialog('Названия «Модератор» и «Ведущий» зарезервированы для ролей')
       } else if (st === 422 && detail === 'invalid_username_format') {
         void alertDialog('Никнейм не должен начинаться с deleted_ или user_ и не должен содержать символы кроме ()._-')
       } else if (st === 422 && detail === 'invalid_password') {

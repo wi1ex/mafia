@@ -1,6 +1,7 @@
 from __future__ import annotations
 import json
 import re
+import unicodedata
 
 ROLE_ADMIN = "admin"
 ROLE_MODER = "moder"
@@ -11,6 +12,12 @@ _ADDITIONAL_ROLE_RE = re.compile(r"^[a-z][a-z0-9_]{0,31}$")
 
 ROOM_ROLE_HEAD = "head"
 ROOM_ROLE_HOST = "host"
+
+ROLE_MENTION_NAMES = frozenset({"модератор", "ведущий"})
+
+
+def is_reserved_role_nickname(value: str) -> bool:
+    return unicodedata.normalize("NFKC", value).strip().casefold() in ROLE_MENTION_NAMES
 
 
 def normalize_user_role(raw: object) -> str:
