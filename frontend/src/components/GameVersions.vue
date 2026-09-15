@@ -306,7 +306,13 @@ function requestCancel(): void {
   position: fixed;
   align-items: center;
   justify-content: center;
-  inset: 0;
+  top: 0;
+  left: 0;
+  box-sizing: border-box;
+  width: 100vw;
+  height: 100dvh;
+  transform: scale(calc(1 / var(--desktop-scale, 1)));
+  transform-origin: top left;
   padding: 24px;
   background-color: rgba($neutral-black, 0.64);
   backdrop-filter: blur(12px);
@@ -314,13 +320,23 @@ function requestCancel(): void {
   .game-versions-modal {
     display: flex;
     flex-direction: column;
-    width: calc(100% - 100px);
-    max-height: calc(100% - 48px);
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 1500px;
+    max-height: 100%;
     border: 2px solid $green-700;
     border-radius: 20px;
     background-color: $neutral-900;
     box-shadow: 0 16px 48px rgba($neutral-black, 0.5);
     overflow: auto;
+    overscroll-behavior: contain;
+    > * {
+      flex-shrink: 0;
+    }
+    select {
+      box-sizing: border-box;
+      min-width: 0;
+    }
     .game-versions-modal__marks {
       display: flex;
       justify-content: space-between;
@@ -435,7 +451,7 @@ function requestCancel(): void {
       grid-template-columns: repeat(3, minmax(0, 1fr));
       padding: 4px 24px 24px;
       gap: 12px;
-      overflow-y: auto;
+      overflow: visible;
     }
     .version-card {
       padding: 16px;
@@ -512,6 +528,9 @@ function requestCancel(): void {
       gap: 8px;
     }
     footer {
+      position: sticky;
+      bottom: 0;
+      background-color: $neutral-900;
       display: flex;
       justify-content: flex-end;
       flex-wrap: wrap;
@@ -562,6 +581,120 @@ function requestCancel(): void {
 .game-versions-overlay-enter-from,
 .game-versions-overlay-leave-to {
   opacity: 0;
+}
+
+@media (max-width: 1000px) {
+  .game-versions-overlay {
+    padding: 8px;
+    padding-top: max(8px, env(safe-area-inset-top));
+    padding-right: max(8px, env(safe-area-inset-right));
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+    padding-left: max(8px, env(safe-area-inset-left));
+    .game-versions-modal {
+      box-sizing: border-box;
+      width: 100%;
+      max-height: 100%;
+      min-height: 0;
+      border-radius: 14px;
+      overscroll-behavior: contain;
+      overflow-x: hidden;
+      > * {
+        flex-shrink: 0;
+      }
+      header {
+        padding: 16px 12px;
+        p {
+          font-size: 16px;
+          line-height: 22px;
+        }
+      }
+      .game-versions-modal__marks {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        padding: 0 12px 16px;
+        gap: 12px;
+      }
+      .game-versions-modal__marks label,
+      .version-card label {
+        font-size: 16px;
+        line-height: 22px;
+        overflow-wrap: anywhere;
+      }
+      .game-versions-modal__marks select,
+      .version-card select {
+        box-sizing: border-box;
+        min-width: 0;
+        height: 44px;
+        font-size: 16px;
+      }
+      .game-versions-modal__list-header {
+        padding: 0 12px 12px;
+        flex-wrap: wrap;
+        font-size: 16px;
+        line-height: 22px;
+        button {
+          min-height: 44px;
+          height: auto;
+          font-size: 16px;
+        }
+      }
+      .game-versions-modal__list {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        padding: 0 12px 12px;
+        overflow: visible;
+      }
+      .version-card {
+        min-width: 0;
+        padding: 12px;
+        .version-card__heading,
+        .version-card__checks-heading {
+          flex-wrap: wrap;
+          > span {
+            font-size: 16px;
+            line-height: 22px;
+          }
+        }
+        button:not(.version-check__remove) {
+          min-height: 44px;
+          font-size: 16px;
+          line-height: 22px;
+          text-align: left;
+        }
+      }
+      .version-check {
+        grid-template-columns: minmax(0, 1fr) 44px;
+        > select:first-child {
+          grid-column: 1 / -1;
+        }
+      }
+      .version-check__remove {
+        width: 44px;
+        height: 44px;
+      }
+      footer {
+        position: sticky;
+        bottom: 0;
+        padding: 12px;
+        gap: 8px;
+        background-color: $neutral-900;
+        .game-versions-modal__cancel,
+        .game-versions-modal__save {
+          flex: 1 1 240px;
+          min-width: 0;
+          min-height: 44px;
+          height: auto;
+          padding: 10px 12px;
+          font-size: 16px;
+          line-height: 22px;
+        }
+      }
+      button:focus-visible,
+      select:focus-visible {
+        outline: 2px solid $green-300;
+        outline-offset: 2px;
+      }
+    }
+  }
 }
 
 </style>
