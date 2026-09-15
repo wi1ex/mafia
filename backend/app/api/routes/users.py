@@ -581,6 +581,7 @@ async def games_history(
     foul_removals: int | None = None,
     suicides: int | None = None,
     result: Literal["red", "black", "draw"] | None = None,
+    mode: Literal["normal", "rating"] | None = None,
     ident: Identity = Depends(get_identity),
     db: AsyncSession = Depends(get_session),
 ) -> UserGamesHistoryOut:
@@ -595,6 +596,7 @@ async def games_history(
             "foul_removals": foul_removals,
             "suicides": suicides,
             "result": result,
+            "mode": mode,
         }
     return await fetch_games_history_page(
         db,

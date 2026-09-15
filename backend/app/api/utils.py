@@ -3687,6 +3687,8 @@ async def fetch_games_history_page(
     suicides_count = _history_filter_nonnegative_int(filters.get("suicides"))
     result_filter_raw = str(filters.get("result") or "").strip().lower()
     result_filter = result_filter_raw if result_filter_raw in {"red", "black", "draw"} else None
+    mode_filter_raw = str(filters.get("mode") or "").strip().lower()
+    mode_filter = mode_filter_raw if mode_filter_raw in {"normal", "rating"} else None
 
     total_stmt = select(func.count(Game.id))
     result_stmt = select(Game.result, func.count(Game.id)).group_by(Game.result)
@@ -3729,6 +3731,8 @@ async def fetch_games_history_page(
         filter_exprs.append(_game_action_reason_count_expr("suicide") == suicides_count)
     if result_filter is not None:
         filter_exprs.append(Game.result == result_filter)
+    if mode_filter is not None:
+        filter_exprs.append(Game.mode == mode_filter)
 
     if filter_exprs:
         total_stmt = total_stmt.where(*filter_exprs)
