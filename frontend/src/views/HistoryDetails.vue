@@ -98,7 +98,7 @@ import { computed, ref } from 'vue'
 
 import { canOpenMiniProfileTarget, normalizeMiniProfileRole, normalizeMiniProfileUserId } from '@/services/miniProfile'
 import { useUserStore } from '@/store'
-import MiniProfile from '@/components/MiniProfile.vue'
+import MiniProfile from '@/views/MiniProfile.vue'
 import defaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
 import iconRoleCitizen from '@/assets/svg/iconRoleCitizen.svg'
 import iconRoleMafia from '@/assets/svg/iconRoleMafia.svg'

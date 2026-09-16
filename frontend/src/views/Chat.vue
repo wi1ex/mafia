@@ -295,7 +295,7 @@ import { alertDialog, confirmDialog } from '@/services/confirm'
 import { formatChatTimestamp } from '@/services/datetime'
 import { canOpenMiniProfileTarget, normalizeMiniProfileUserId, normalizeMiniProfileRole } from '@/services/miniProfile'
 import { useAuthStore, useGlobalChatStore, useSettingsStore, useUserStore } from '@/store'
-import MiniProfile from '@/components/MiniProfile.vue'
+import MiniProfile from '@/views/MiniProfile.vue'
 
 import defaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
 import iconClose from '@/assets/svg/iconClose.svg'

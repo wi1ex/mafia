@@ -108,7 +108,7 @@ import {
   type ProfileThemeIcon,
 } from '@/constants/profileIcons'
 
-import Subscription from '@/components/Subscription.vue'
+import Subscription from '@/views/Subscription.vue'
 import UiTooltip from '@/components/UiTooltip.vue'
 import UiButton from '@/components/UiButton.vue'
 import UiIcon from '@/components/UiIcon.vue'

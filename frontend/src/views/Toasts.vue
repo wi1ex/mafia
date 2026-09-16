@@ -61,7 +61,7 @@ import { canOpenMiniProfileTarget, normalizeMiniProfileUserId } from '@/services
 import { getProfileThemeOption } from '@/constants/profileThemes'
 import { getProfileThemeBadgeSources } from '@/constants/profileIcons'
 
-import MiniProfile from '@/components/MiniProfile.vue'
+import MiniProfile from '@/views/MiniProfile.vue'
 import UiIcon from '@/components/UiIcon.vue'
 import UiButton from '@/components/UiButton.vue'
 

@@ -91,8 +91,8 @@
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { api } from '@/services/axios'
 import { formatLocalDateTime } from '@/services/datetime'
-import HistoryDetails from '@/components/HistoryDetails.vue'
-import HistoryActions from '@/components/HistoryActions.vue'
+import HistoryDetails from '@/views/HistoryDetails.vue'
+import HistoryActions from '@/views/HistoryActions.vue'
 
 import defaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
 import iconArrowDown from '@/assets/svg/iconArrow.svg'

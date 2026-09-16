@@ -112,8 +112,8 @@ if (!router.includes("{ path: '/:pathMatch(.*)*', redirect: { name: 'home' } }")
 }
 
 const home = read(resolve(frontendRoot, 'src/pages/Home.vue'))
-const header = read(resolve(frontendRoot, 'src/components/Header.vue'))
-const carousel = read(resolve(frontendRoot, 'src/components/Carousel.vue'))
+const header = read(resolve(frontendRoot, 'src/views/Header.vue'))
+const carousel = read(resolve(frontendRoot, 'src/views/Carousel.vue'))
 if (home.includes('home-seo-summary') || header.includes('href="/mafia-online/"')) {
   fail('visitor-visible SEO content or navigation must not be added')
 }

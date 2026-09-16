@@ -143,10 +143,10 @@
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, watch, ref, computed } from 'vue'
 import { useAuthStore, useUserStore, useNotifStore, useFriendsStore, useSettingsStore, useGlobalChatStore } from '@/store'
-import Notifs from '@/components/Notifs.vue'
-import Friends from '@/components/Friends.vue'
-import Auth from '@/components/Auth.vue'
-import MiniProfile from '@/components/MiniProfile.vue'
+import Notifs from '@/views/Notifs.vue'
+import Friends from '@/views/Friends.vue'
+import Auth from '@/views/Auth.vue'
+import MiniProfile from '@/views/MiniProfile.vue'
 import UiIcon from '@/components/UiIcon.vue'
 
 import iconTelegram from "@/assets/svg/iconTelegram.svg"

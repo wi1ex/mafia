@@ -329,10 +329,10 @@ import {
   type FriendApiAction,
   type FriendStatus,
 } from '@/store'
-import ProfileStats from '@/components/ProfileStats.vue'
-import ProfileHistory from '@/components/ProfileHistory.vue'
-import Sanction from '@/components/Sanction.vue'
-import SubscriptionModal from '@/components/SubscriptionModal.vue'
+import ProfileStats from '@/views/ProfileStats.vue'
+import ProfileHistory from '@/views/ProfileHistory.vue'
+import Sanction from '@/views/Sanction.vue'
+import SubscriptionModal from '@/views/SubscriptionModal.vue'
 import UiIcon from '@/components/UiIcon.vue'
 import UiLoaderIcon from '@/components/UiLoaderIcon.vue'
 import UiButton from '@/components/UiButton.vue'

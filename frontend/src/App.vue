@@ -26,10 +26,10 @@ import { alertDialog } from '@/services/confirm'
 import { createPublicSocket, disposeAuthedSocket } from '@/services/sio'
 import rotateDeviceVideo from '@/assets/video/rotate-device.mp4'
 
-import Header from '@/components/Header.vue'
-import Toast from '@/components/Toasts.vue'
-import Confirms from '@/components/Confirms.vue'
-import Chat from '@/components/Chat.vue'
+import Header from '@/views/Header.vue'
+import Toast from '@/views/Toasts.vue'
+import Confirms from '@/views/Confirms.vue'
+import Chat from '@/views/Chat.vue'
 
 const route = useRoute()
 const router = useRouter()

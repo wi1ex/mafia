@@ -66,7 +66,7 @@ import { formatLocalDateTime } from '@/services/datetime'
 import { canOpenMiniProfileTarget, normalizeMiniProfileUserId } from '@/services/miniProfile'
 import { useUserStore } from '@/store'
 
-import MiniProfile from '@/components/MiniProfile.vue'
+import MiniProfile from '@/views/MiniProfile.vue'
 import UiIcon from '@/components/UiIcon.vue'
 import UiScrollbar from '@/components/UiScrollbar.vue'
 

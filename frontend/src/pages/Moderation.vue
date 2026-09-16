@@ -321,9 +321,9 @@ import { formatLocalDateTime } from '@/services/datetime'
 import { canOpenMiniProfileTarget, normalizeMiniProfileUserId } from '@/services/miniProfile'
 import { useSettingsStore, useUserStore } from '@/store'
 
-import ContactModal from '@/components/ContactModal.vue'
-import MiniProfile from '@/components/MiniProfile.vue'
-import Sanction from '@/components/Sanction.vue'
+import ContactModal from '@/views/ContactModal.vue'
+import MiniProfile from '@/views/MiniProfile.vue'
+import Sanction from '@/views/Sanction.vue'
 import UiInput from '@/components/UiInput.vue'
 
 import defaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
