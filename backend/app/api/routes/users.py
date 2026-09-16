@@ -247,19 +247,19 @@ async def user_subscription_payments(ident: Identity = Depends(get_identity), db
 @router.get("/stats", response_model=UserStatsOut)
 @log_route("users.stats")
 @rate_limited(lambda ident, **_: f"rl:user_stats:{ident['id']}", limit=10, window_s=1)
-async def user_stats(season: int | None = None, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserStatsOut:
+async def user_stats(season: int | None = None, mode: Literal["all", "rating"] = "all", ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserStatsOut:
     uid = int(ident["id"])
     user = await db.get(User, uid)
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
-    return await build_user_stats_out(db, uid, season)
+    return await build_user_stats_out(db, uid, season, mode)
 
 
 @router.get("/{user_id}/stats", response_model=UserStatsOut)
 @log_route("users.public_stats")
 @rate_limited(lambda ident, user_id, **_: f"rl:user_public_stats:{ident['id']}:{user_id}", limit=10, window_s=1)
-async def public_user_stats(user_id: int, season: int | None = None, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserStatsOut:
+async def public_user_stats(user_id: int, season: int | None = None, mode: Literal["all", "rating"] = "all", ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserStatsOut:
     viewer_id = int(ident["id"])
     viewer_role = str(ident["role"] or "").strip().lower()
     uid = int(user_id)
@@ -275,7 +275,7 @@ async def public_user_stats(user_id: int, season: int | None = None, ident: Iden
         if friendship_status != "friends":
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="friends_only")
 
-    return await build_user_stats_out(db, uid, season)
+    return await build_user_stats_out(db, uid, season, mode)
 
 
 @router.get("/{user_id}/mini_profile", response_model=UserMiniProfileOut)

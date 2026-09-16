@@ -2447,13 +2447,13 @@ async def subscriptions_delete(user_id: int, ident: Identity = Depends(get_ident
 
 @router.get("/users/{user_id}/stats", response_model=UserStatsOut, dependencies=ADMIN_GUARD)
 @log_route("admin.users.stats")
-async def user_stats(user_id: int, season: int | None = None, session: AsyncSession = Depends(get_session)) -> UserStatsOut:
+async def user_stats(user_id: int, season: int | None = None, mode: Literal["all", "rating"] = "all", session: AsyncSession = Depends(get_session)) -> UserStatsOut:
     uid = int(user_id)
     user = await session.get(User, uid)
     if not user:
         raise HTTPException(status_code=404, detail="user_not_found")
 
-    return await build_user_stats_out(session, uid, season)
+    return await build_user_stats_out(session, uid, season, mode)
 
 
 @router.get("/users/{user_id}/games/history", response_model=UserGamesHistoryOut, dependencies=ADMIN_GUARD)

@@ -64,9 +64,9 @@ def _settings_hash() -> str:
     return hashlib.sha1(season_csv.encode("utf-8")).hexdigest()[:12]
 
 
-def _cache_key(user_id: int, season: int | None) -> str:
+def _cache_key(user_id: int, season: int | None, mode: str = "all") -> str:
     season_part = "all" if season is None else f"s{int(season)}"
-    return f"user:{int(user_id)}:stats:game:{_settings_hash()}:{season_part}"
+    return f"user:{int(user_id)}:stats:game:{_settings_hash()}:{season_part}:{mode}"
 
 
 def _cache_key_prefix(user_id: int) -> str:
@@ -202,8 +202,10 @@ def _build_game_stats(stats_row: dict[str, int], top_players: list[UserTopPlayer
     )
 
 
-async def _build_top_players_season(session: AsyncSession, uid: int, *, game_id_min: int, game_id_max: int | None = None) -> list[UserTopPlayerOut]:
+async def _build_top_players_season(session: AsyncSession, uid: int, *, game_id_min: int, game_id_max: int | None = None, mode: str = "all") -> list[UserTopPlayerOut]:
     filters = [Game.roles.has_key(str(uid)), Game.id >= int(game_id_min)]
+    if mode == "rating":
+        filters.append(Game.mode == "rating")
     if game_id_max is not None and int(game_id_max) > 0:
         filters.append(Game.id <= int(game_id_max))
 
@@ -262,7 +264,7 @@ def _normalize_season_or_raise(season: int | None) -> int | None:
     return season_no
 
 
-async def _compute_user_game_stats(session: AsyncSession, user_id: int, season: int | None) -> UserGameStatsOut:
+async def _compute_user_game_stats(session: AsyncSession, user_id: int, season: int | None, mode: str = "all") -> UserGameStatsOut:
     uid = _safe_int(user_id)
     if uid <= 0:
         raise ValueError("invalid_user_id")
@@ -274,13 +276,13 @@ async def _compute_user_game_stats(session: AsyncSession, user_id: int, season: 
         starts = get_cached_settings().season_start_game_numbers
         start_id, end_id = season_bounds(starts, season_no)
 
-    stats_row = await build_user_game_stats_row(session, uid, game_id_min=start_id, game_id_max=end_id)
-    top_players = await _build_top_players_season(session, uid, game_id_min=start_id, game_id_max=end_id)
+    stats_row = await build_user_game_stats_row(session, uid, game_id_min=start_id, game_id_max=end_id, mode=mode)
+    top_players = await _build_top_players_season(session, uid, game_id_min=start_id, game_id_max=end_id, mode=mode)
     return _build_game_stats(stats_row, top_players)
 
 
-async def _read_cached_game_stats(user_id: int, season: int | None) -> UserGameStatsOut | None:
-    key = _cache_key(user_id, season)
+async def _read_cached_game_stats(user_id: int, season: int | None, mode: str = "all") -> UserGameStatsOut | None:
+    key = _cache_key(user_id, season, mode)
     r = get_redis()
     try:
         raw = await r.get(key)
@@ -302,8 +304,8 @@ async def _read_cached_game_stats(user_id: int, season: int | None) -> UserGameS
         return None
 
 
-async def _write_cached_game_stats(user_id: int, season: int | None, game_stats: UserGameStatsOut) -> None:
-    key = _cache_key(user_id, season)
+async def _write_cached_game_stats(user_id: int, season: int | None, game_stats: UserGameStatsOut, mode: str = "all") -> None:
+    key = _cache_key(user_id, season, mode)
     r = get_redis()
     try:
         raw = json.dumps(game_stats.model_dump(), ensure_ascii=False, separators=(",", ":"))
@@ -312,12 +314,12 @@ async def _write_cached_game_stats(user_id: int, season: int | None, game_stats:
         log.warning("user_stats_cache.write_failed", user_id=int(user_id), season=season if season is not None else "all")
 
 
-async def get_user_game_stats_cached(session: AsyncSession, user_id: int, season: int | None) -> UserGameStatsOut:
+async def get_user_game_stats_cached(session: AsyncSession, user_id: int, season: int | None, mode: str = "all") -> UserGameStatsOut:
     season_no = _normalize_season_or_raise(season)
-    cached = await _read_cached_game_stats(user_id, season_no)
+    cached = await _read_cached_game_stats(user_id, season_no, mode)
     if cached:
         return cached
 
-    game_stats = await _compute_user_game_stats(session, user_id, season_no)
-    await _write_cached_game_stats(user_id, season_no, game_stats)
+    game_stats = await _compute_user_game_stats(session, user_id, season_no, mode)
+    await _write_cached_game_stats(user_id, season_no, game_stats, mode)
     return game_stats

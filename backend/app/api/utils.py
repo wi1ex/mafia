@@ -5729,12 +5729,12 @@ async def build_user_mini_profile_nomination_stats_out(db: AsyncSession, uid: in
     )
 
 
-async def build_user_stats_out(db: AsyncSession, uid: int, season: int | None = None) -> UserStatsOut:
+async def build_user_stats_out(db: AsyncSession, uid: int, season: int | None = None, mode: str = "all") -> UserStatsOut:
     from ..schemas.user import UserStatsOut, UserTopPlayerOut
     from ..services.user_stats import get_user_game_stats_cached
 
     try:
-        game_stats = await get_user_game_stats_cached(db, uid, season)
+        game_stats = await get_user_game_stats_cached(db, uid, season, mode)
     except ValueError as exc:
         detail = str(exc) or "season_invalid"
         if detail not in {"season_invalid", "season_not_found"}:

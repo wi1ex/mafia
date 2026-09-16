@@ -2,6 +2,13 @@
   <div class="stats-tab">
     <div class="stats-head">
       <UiDropdown
+        id="profile-stats-mode"
+        size="low"
+        v-model="selectedMode"
+        class="stats-season-dropdown"
+        :options="modeOptions"
+      />
+      <UiDropdown
         id="profile-stats-season"
         size="low"
         v-model="selectedSeason"
@@ -187,6 +194,11 @@ const error = ref('')
 const intFmt = new Intl.NumberFormat('ru-RU')
 const settingsStore = useSettingsStore()
 const selectedSeason = ref<number | null>(null)
+const selectedMode = ref('all')
+const modeOptions = [
+  { value: 'all', label: 'Все игры' },
+  { value: 'rating', label: 'Рейтинговые игры' },
+]
 let requestSeq = 0
 
 const stats = reactive<UserStats>({
@@ -445,7 +457,7 @@ async function load(force = false) {
   loading.value = true
   error.value = ''
   try {
-    const params: { season?: number } = {}
+    const params: { season?: number; mode: string } = { mode: selectedMode.value }
     if (selectedSeason.value !== null) params.season = selectedSeason.value
     const { data } = await api.get<UserStats>(props.statsUrl, { params })
     if (seq !== requestSeq) return
@@ -460,7 +472,7 @@ async function load(force = false) {
   }
 }
 
-watch(selectedSeason, () => {
+watch([selectedSeason, selectedMode], () => {
   void load(true)
 })
 

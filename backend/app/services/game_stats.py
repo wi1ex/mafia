@@ -363,7 +363,7 @@ def average_additional_points(row: dict[str, int]) -> float:
     return float(rounded) if rounded else 0.0
 
 
-async def build_user_game_stats_row(session: AsyncSession, user_id: int, *, game_id_min: int | None = None, game_id_max: int | None = None) -> dict[str, int]:
+async def build_user_game_stats_row(session: AsyncSession, user_id: int, *, game_id_min: int | None = None, game_id_max: int | None = None, mode: str = "all") -> dict[str, int]:
     from ..models.game import Game
 
     uid = _safe_int(user_id)
@@ -371,6 +371,8 @@ async def build_user_game_stats_row(session: AsyncSession, user_id: int, *, game
         raise ValueError("invalid_user_id")
 
     filters = [Game.roles.has_key(str(uid))]
+    if mode == "rating":
+        filters.append(Game.mode == "rating")
     min_id = _safe_int(game_id_min) if game_id_min is not None else 0
     max_id = _safe_int(game_id_max) if game_id_max is not None else 0
     if min_id > 0:

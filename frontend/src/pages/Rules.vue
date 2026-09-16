@@ -62,9 +62,7 @@
         </section>
         <p v-else class="rules-state">{{ rulesStateText }}</p>
         <section id="scoring" class="scoring-intro">
-          <p class="scoring-eyebrow">Рейтинговые игры</p>
           <h2>6. Скоринг</h2>
-
           <div v-if="scoringLoadFailed" class="scoring-state" role="alert">
             <p>Не удалось загрузить баллы. Условия доступны ниже.</p>
             <button type="button" class="scoring-retry" @click="loadScoring">Повторить загрузку</button>
@@ -455,13 +453,6 @@ onBeforeUnmount(() => {
     p {
       margin: 10px 0 0;
       color: $neutral-100;
-    }
-    .scoring-eyebrow {
-      margin: 0;
-      color: $orange-300;
-      font-size: 12px;
-      letter-spacing: 1.5px;
-      text-transform: uppercase;
     }
   }
   .scoring-retry {
