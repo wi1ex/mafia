@@ -66,7 +66,7 @@ def _settings_hash() -> str:
 
 def _cache_key(user_id: int, season: int | None) -> str:
     season_part = "all" if season is None else f"s{int(season)}"
-    return f"user:{int(user_id)}:stats:game:v2:{_settings_hash()}:{season_part}"
+    return f"user:{int(user_id)}:stats:game:{_settings_hash()}:{season_part}"
 
 
 def _cache_key_prefix(user_id: int) -> str:
@@ -174,6 +174,7 @@ def _build_game_stats(stats_row: dict[str, int], top_players: list[UserTopPlayer
         farewell_correct_count=farewell_correct,
         farewell_total_count=farewell_total,
         average_additional_points=average_additional_points(stats_row),
+        rating_games=_safe_int(stats_row.get("rating_games")),
         role_citizen={
             "games": _safe_int(stats_row.get("citizen_games")),
             "wins": _safe_int(stats_row.get("citizen_wins")),

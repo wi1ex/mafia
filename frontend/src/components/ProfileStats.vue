@@ -85,12 +85,20 @@
       <section class="block">
         <div class="extra-grid">
           <article class="metric-card">
+            <span>Средний доп. балл</span>
+            <strong>{{ game.average_additional_points.toFixed(2) }} ({{ formatGames(game.rating_games) }})</strong>
+          </article>
+          <article class="metric-card">
             <span>Достоверность завещаний</span>
-            <strong>{{ formatFarewellSuccess(game.farewell_success_percent, game.farewell_correct_count, game.farewell_total_count) }}</strong>
+            <strong>{{ formatFarewellSuccess(game.farewell_success_percent, game.farewell_total_count) }}</strong>
           </article>
           <article class="metric-card">
             <span>Заголосован в 1-2 день</span>
             <strong>{{ formatPct(game.vote_leave_day12_percent) }}</strong>
+          </article>
+          <article class="metric-card">
+            <span>Проголосовал на поражение</span>
+            <strong>{{ formatTimes(game.vote_for_red_on_black_win_count) }}</strong>
           </article>
           <article class="metric-card">
             <span>Снял Дона/Шерифа в 1-2 день (черный)</span>
@@ -99,14 +107,6 @@
           <article class="metric-card">
             <span>Снял Дона/Шерифа в 1-2 день (мирный)</span>
             <strong>{{ formatDonSheriffSplit(game.vote_out_don_day12_citizen_count, game.vote_out_sheriff_day12_citizen_count) }}</strong>
-          </article>
-          <article class="metric-card">
-            <span>Проголосовал на поражение</span>
-            <strong>{{ formatTimes(game.vote_for_red_on_black_win_count) }}</strong>
-          </article>
-          <article class="metric-card">
-            <span>Средний доп. балл</span>
-            <strong>{{ game.average_additional_points.toFixed(2) }}</strong>
           </article>
         </div>
       </section>
@@ -157,6 +157,7 @@ type UserGameStats = {
   farewell_correct_count: number
   farewell_total_count: number
   average_additional_points: number
+  rating_games: number
   role_citizen: UserRoleStats
   role_sheriff: UserRoleStats
   role_don: UserRoleStats
@@ -202,6 +203,7 @@ const stats = reactive<UserStats>({
     farewell_correct_count: 0,
     farewell_total_count: 0,
     average_additional_points: 0,
+    rating_games: 0,
     role_citizen: { games: 0, wins: 0 },
     role_sheriff: { games: 0, wins: 0 },
     role_don: { games: 0, wins: 0 },
@@ -232,12 +234,21 @@ function formatInt(raw: unknown): string {
   return intFmt.format(safeInt(raw))
 }
 
+function formatGames(raw: unknown): string {
+  const count = safeInt(raw)
+  const mod100 = count % 100
+  const mod10 = count % 10
+  const word = mod100 >= 11 && mod100 <= 14 ? 'игр'
+    : mod10 === 1 ? 'игра' : mod10 >= 2 && mod10 <= 4 ? 'игры' : 'игр'
+  return `${formatInt(count)} ${word}`
+}
+
 function formatPct(raw: unknown): string {
   return `${clampPct(raw).toFixed(2)}%`
 }
 
-function formatFarewellSuccess(percentRaw: unknown, correctRaw: unknown, totalRaw: unknown): string {
-  return `${formatPct(percentRaw)} (${formatInt(correctRaw)} из ${formatInt(totalRaw)})`
+function formatFarewellSuccess(percentRaw: unknown, totalRaw: unknown): string {
+  return `${formatPct(percentRaw)} (${formatInt(totalRaw)} шт)`
 }
 
 function timesWord(raw: unknown): string {
@@ -412,6 +423,7 @@ function normalizeGame(raw: any): UserGameStats {
     farewell_total_count: safeInt(raw?.farewell_total_count),
     average_additional_points: Number.isFinite(Number(raw?.average_additional_points))
       ? Number(raw.average_additional_points) : 0,
+    rating_games: safeInt(raw?.rating_games),
     role_citizen: normalizeRoleStats(raw?.role_citizen),
     role_sheriff: normalizeRoleStats(raw?.role_sheriff),
     role_don: normalizeRoleStats(raw?.role_don),

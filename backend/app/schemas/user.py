@@ -157,6 +157,7 @@ class UserGameStatsOut(BaseModel):
     farewell_correct_count: int = 0
     farewell_total_count: int = 0
     average_additional_points: float = 0.0
+    rating_games: int = 0
     role_citizen: UserRoleStatsOut
     role_sheriff: UserRoleStatsOut
     role_don: UserRoleStatsOut
