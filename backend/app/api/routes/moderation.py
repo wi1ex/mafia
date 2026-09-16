@@ -434,14 +434,14 @@ async def moderation_user_stats(user_id: int, season: int | None = None, mode: L
 
 @router.get("/users/{user_id}/games/history", response_model=UserGamesHistoryOut, dependencies=MODERATION_GUARD)
 @log_route("moderation.users.games_history")
-async def moderation_user_games_history(user_id: int, page: int = 1, role: Literal["citizen", "mafia", "don", "sheriff"] | None = None, per_page: int = 10, session: AsyncSession = Depends(get_session)) -> UserGamesHistoryOut:
+async def moderation_user_games_history(user_id: int, page: int = 1, role: Literal["citizen", "mafia", "don", "sheriff"] | None = None, mode: Literal["all", "rating"] = "all", per_page: int = 10, session: AsyncSession = Depends(get_session)) -> UserGamesHistoryOut:
     uid = int(user_id)
     user = await session.get(User, uid)
     if not user:
         raise HTTPException(status_code=404, detail="user_not_found")
 
     per_page_i = max(1, min(int(per_page or 10), 10))
-    return await fetch_games_history_page(session, page=page, player_uid=uid, player_role=role, per_page=per_page_i)
+    return await fetch_games_history_page(session, page=page, player_uid=uid, player_role=role, per_page=per_page_i, history_filters={"mode": mode})
 
 
 @router.post("/rooms/{room_id}/close", response_model=Ok, dependencies=MODERATION_GUARD)

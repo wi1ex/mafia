@@ -1,11 +1,20 @@
 <template>
   <section class="profile-history">
     <div class="history-filters">
-      <button v-for="option in roleFilterOptions" :key="option.value" class="history-filter-btn" type="button"
-              :class="{ active: roleFilter === option.value }" @click="setRoleFilter(option.value)">
-        <span v-if="option.value === 'all'">{{ option.label }}</span>
-        <img v-else class="history-filter-icon" :src="filterOptionIcon(option)" :alt="option.label" />
-      </button>
+      <UiDropdown
+        id="profile-history-mode"
+        v-model="modeFilter"
+        size="low"
+        class="history-mode-filter"
+        :options="modeFilterOptions"
+      />
+      <UiDropdown
+        id="profile-history-role"
+        v-model="roleFilter"
+        size="low"
+        class="history-role-filter"
+        :options="roleFilterOptions"
+      />
     </div>
 
     <div v-if="loading" class="history-state">Загрузка...</div>
@@ -89,6 +98,7 @@
 
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import UiDropdown from '@/components/UiDropdown.vue'
 import { api } from '@/services/axios'
 import { formatLocalDateTime } from '@/services/datetime'
 import HistoryDetails from '@/views/HistoryDetails.vue'
@@ -113,6 +123,7 @@ type NightCheckVerdict = 'citizen' | 'mafia' | 'sheriff'
 interface RoleFilterOption {
   value: GameHistoryRoleFilter
   label: string
+  icon?: string
 }
 
 interface GameHistoryHost {
@@ -197,6 +208,11 @@ const page = ref(1)
 const pages = ref(1)
 const total = ref(0)
 const roleFilter = ref<GameHistoryRoleFilter>('all')
+const modeFilter = ref('all')
+const modeFilterOptions = [
+  { value: 'all', label: 'Все игры' },
+  { value: 'rating', label: 'Рейтинговые игры' },
+]
 const items = ref<GameHistoryListItem[]>([])
 const expanded = ref<Set<number>>(new Set())
 const detailsByGameId = ref<Record<number, GameHistorySlot[]>>({})
@@ -214,11 +230,11 @@ const DATE_OPTIONS: Intl.DateTimeFormatOptions = {
 }
 
 const roleFilterOptions: RoleFilterOption[] = [
-  { value: 'all', label: 'Все игры' },
-  { value: 'citizen', label: 'Мирный' },
-  { value: 'sheriff', label: 'Шериф' },
-  { value: 'mafia', label: 'Мафия' },
-  { value: 'don', label: 'Дон' },
+  { value: 'all', label: 'Все роли' },
+  { value: 'citizen', label: 'Мирный', icon: iconRoleCitizen },
+  { value: 'sheriff', label: 'Шериф', icon: iconRoleSheriff },
+  { value: 'mafia', label: 'Мафия', icon: iconRoleMafia },
+  { value: 'don', label: 'Дон', icon: iconRoleDon },
 ]
 
 const roleIcons: Record<GameHistoryRole, string> = {
@@ -393,11 +409,6 @@ function playerRoleIcon(role: GameHistoryRole): string {
   return roleIcons[role]
 }
 
-function filterOptionIcon(option: RoleFilterOption): string {
-  if (option.value === 'all') return ''
-  return roleIcons[option.value]
-}
-
 function headName(game: GameHistoryListItem): string {
   const name = (game.head.username || '').trim()
   if (name) return name
@@ -432,19 +443,13 @@ function formatSignedPoints(valueRaw: number | null | undefined): string {
   return `${value > 0 ? '+' : '-'}${Math.abs(value).toFixed(2)}`
 }
 
-function setRoleFilter(nextRole: GameHistoryRoleFilter): void {
-  if (roleFilter.value === nextRole) return
-  roleFilter.value = nextRole
-  page.value = 1
-  void fetchHistory()
-}
-
 async function fetchHistory(): Promise<void> {
   const seq = ++requestSeq
   loading.value = true
   error.value = ''
   try {
-    const params: { page: number; per_page: number; role?: GameHistoryRole } = {
+    const params: { page: number; per_page: number; role?: GameHistoryRole; mode: string } = {
+      mode: modeFilter.value,
       page: page.value,
       per_page: Math.max(1, Math.trunc(Number(props.perPage) || 10)),
     }
@@ -498,7 +503,7 @@ onMounted(() => {
   void fetchHistory()
 })
 
-watch([() => props.historyUrl, () => props.perPage], () => {
+watch([() => props.historyUrl, () => props.perPage, modeFilter, roleFilter], () => {
   page.value = 1
   clearDetailsCache()
   clearExpanded()
@@ -520,33 +525,17 @@ onBeforeUnmount(() => {
   width: min(1100px, 100%);
   .history-filters {
     display: flex;
-    justify-content: center;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
     gap: 10px;
-    .history-filter-btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0 20px;
-      height: 45px;
-      border: none;
-      border-radius: 5px;
-      background-color: $neutral-800;
-      color: $neutral-100;
-      font-size: 16px;
-      cursor: pointer;
-      transition: background-color 0.25s ease-in-out, color 0.25s ease-in-out;
-      &:hover {
-        background-color: $neutral-700;
-      }
-      &.active {
-        background-color: $neutral-100;
-        color: $neutral-black;
-      }
-      .history-filter-icon {
-        width: 30px;
-        height: 30px;
-        object-fit: contain;
-      }
+    .history-mode-filter,
+    .history-role-filter {
+      width: 220px;
+      max-width: 100%;
+    }
+    .history-role-filter {
+      margin-left: auto;
     }
   }
   .history-state {
