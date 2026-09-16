@@ -534,9 +534,6 @@ onBeforeUnmount(() => {
       width: 220px;
       max-width: 100%;
     }
-    .history-role-filter {
-      margin-left: auto;
-    }
   }
   .history-state {
     padding: 20px 10px;
