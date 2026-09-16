@@ -14,7 +14,7 @@
 
     <ul v-else class="history-list">
       <li v-for="game in items" :key="game.id" class="history-item"
-          :class="{ open: isExpanded(game.id), 'history-item--red': game.result === 'red', 'history-item--black': game.result === 'black' }">
+          :class="{ open: isExpanded(game.id), 'history-item--red': game.result === 'red', 'history-item--black': game.result === 'black', 'history-item--rating': game.mode === 'rating' }">
         <button class="history-main" type="button" :aria-expanded="isExpanded(game.id)" @click="toggleExpanded(game.id)">
           <div class="history-main-div">
             <div class="history-main-left">
@@ -575,6 +575,9 @@ onBeforeUnmount(() => {
       }
       &.history-item--black:not(.open) {
         background-color: $neutral-800;
+      }
+      &.history-item--rating:not(.open) {
+        background-image: linear-gradient(90deg, rgba($green-500, 0.2) 0%, rgba($green-500, 0) 55%);
       }
       &.open {
         background-color: $neutral-700;
