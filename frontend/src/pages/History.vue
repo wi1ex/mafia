@@ -805,7 +805,7 @@ onBeforeUnmount(() => {
           background-color: $neutral-800;
         }
         &.history-item--rating:not(.open) {
-          background-image: linear-gradient(90deg, rgba($green-500, 0.2) 0%, rgba($green-500, 0) 55%);
+          background-image: linear-gradient(90deg, rgba($green-500, 0.50) 0%, rgba($green-500, 0) 50%);
         }
         &.open {
           background-color: $neutral-700;
