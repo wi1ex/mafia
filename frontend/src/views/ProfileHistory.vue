@@ -526,13 +526,11 @@ onBeforeUnmount(() => {
   .history-filters {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
+    justify-content: flex-end;
     gap: 10px;
     .history-mode-filter,
     .history-role-filter {
       width: 220px;
-      max-width: 100%;
     }
   }
   .history-state {
@@ -696,8 +694,7 @@ onBeforeUnmount(() => {
   .history-pager {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding-top: 10px;
+    justify-content: center;
     gap: 10px;
     color: $neutral-300;
     font-size: 14px;
