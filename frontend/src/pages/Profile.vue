@@ -18,31 +18,31 @@
             <UiIcon class="tab-btn-img" :icon="iconSettings" />
             <span class="tab-btn-text">Аккаунт</span>
           </button>
-          <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'profile' }" :aria-selected="activeTab === 'profile'" :disabled="isTabButtonDisabled('profile')" @click="activeTab = 'profile'">
+          <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'profile' }" :aria-selected="activeTab === 'profile'" :disabled="profileTabsDisabled" @click="activeTab = 'profile'">
             <UiIcon class="tab-btn-img" :icon="iconDefaultAvatar" />
             <span class="tab-btn-text">Аватар и никнейм</span>
           </button>
-          <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'theme' }" :aria-selected="activeTab === 'theme'" :disabled="isTabButtonDisabled('theme')" @click="activeTab = 'theme'">
+          <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'theme' }" :aria-selected="activeTab === 'theme'" :disabled="profileTabsDisabled" @click="activeTab = 'theme'">
             <UiIcon class="tab-btn-img" :icon="iconDesign" />
             <span class="tab-btn-text">Оформление профиля</span>
           </button>
-          <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'stats' }" :aria-selected="activeTab === 'stats'" :disabled="isTabButtonDisabled('stats')" @click="activeTab = 'stats'">
+          <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'stats' }" :aria-selected="activeTab === 'stats'" :disabled="profileTabsDisabled" @click="activeTab = 'stats'">
             <UiIcon class="tab-btn-img" :icon="iconStats" />
             <span class="tab-btn-text">Статистика</span>
           </button>
-          <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'history' }" :aria-selected="activeTab === 'history'" :disabled="isTabButtonDisabled('history')" @click="activeTab = 'history'">
+          <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'history' }" :aria-selected="activeTab === 'history'" :disabled="profileTabsDisabled" @click="activeTab = 'history'">
             <UiIcon class="tab-btn-img" :icon="iconHistory" />
             <span class="tab-btn-text">История игр</span>
           </button>
-          <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'sanctions' }" :aria-selected="activeTab === 'sanctions'" :disabled="isTabButtonDisabled('sanctions')" @click="activeTab = 'sanctions'">
+          <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'sanctions' }" :aria-selected="activeTab === 'sanctions'" :disabled="profileTabsDisabled" @click="activeTab = 'sanctions'">
             <UiIcon class="tab-btn-img" :icon="iconJudgeHummer" />
             <span class="tab-btn-text">Санкции</span>
           </button>
-          <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'payments' }" :aria-selected="activeTab === 'payments'" :disabled="isTabButtonDisabled('payments')" @click="activeTab = 'payments'">
+          <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'payments' }" :aria-selected="activeTab === 'payments'" :disabled="profileTabsDisabled" @click="activeTab = 'payments'">
             <UiIcon class="tab-btn-img" :icon="iconCard" />
             <span class="tab-btn-text">Платежи</span>
           </button>
-          <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'blacklist' }" :aria-selected="activeTab === 'blacklist'" :disabled="isTabButtonDisabled('blacklist')" @click="activeTab = 'blacklist'">
+          <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'blacklist' }" :aria-selected="activeTab === 'blacklist'" :disabled="profileTabsDisabled" @click="activeTab = 'blacklist'">
             <UiIcon class="tab-btn-img" :icon="iconBlockPlayer" />
             <span class="tab-btn-text">Черный список</span>
           </button>
@@ -134,7 +134,6 @@ type SubscriptionSite = {
 const TAB_KEYS = ['profile', 'theme', 'account', 'stats', 'payments', 'history', 'sanctions', 'blacklist'] as const
 type TabKey = typeof TAB_KEYS[number]
 const DEFAULT_TAB: TabKey = 'account'
-const DISABLED_FEATURE_TABS = new Set<TabKey>(['stats', 'history', 'sanctions', 'payments', 'blacklist'])
 
 const userStore = useUserStore()
 const auth = useAuthStore()
@@ -157,10 +156,6 @@ function normalizeTab(value: unknown): TabKey {
 
 function resolveProfileTabAccess(tab: TabKey): TabKey {
   return profileTabsDisabled.value && tab !== 'account' ? 'account' : tab
-}
-
-function isTabButtonDisabled(tab: TabKey): boolean {
-  return profileTabsDisabled.value || DISABLED_FEATURE_TABS.has(tab)
 }
 
 function navigateHome(event: MouseEvent) {

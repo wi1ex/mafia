@@ -1731,7 +1731,7 @@ watch(() => user.timeoutActive, () => {
   --mention-color: #{$red-500};
 }
 .message-mention--head {
-  --mention-color: #{$blue-500};
+  --mention-color: #{$green-500};
 }
 .global-chat-dock {
   position: fixed;
