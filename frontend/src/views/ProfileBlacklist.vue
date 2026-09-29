@@ -16,19 +16,31 @@
     <div v-else-if="blacklistItems.length === 0" class="blacklist-empty">В ЧС пока никого нет</div>
     <div v-else class="blacklist-list">
       <article v-for="item in blacklistItems" :key="item.id" class="blacklist-card">
-        <div class="blacklist-user">
+        <button class="blacklist-user" type="button" :disabled="!canOpenMiniProfile(item)" :aria-label="`Открыть профиль ${item.username || `user${item.id}`}`" @click="openMiniProfile(item)">
           <img class="blacklist-avatar" v-minio-img="{ key: blacklistAvatarKey(item), placeholder: iconDefaultAvatar, lazy: true, animated: true }" alt="avatar" />
           <div class="blacklist-main">
             <span>{{ item.username || `user${item.id}` }}</span>
             <small>Добавлен: {{ formatLocalDateTime(item.created_at || '') }}</small>
           </div>
-        </div>
-        <button class="btn danger blacklist-remove" type="button" :disabled="blacklistRemoving[item.id]" @click="removeFromBlacklistProfile(item)">
-          {{ blacklistRemoving[item.id] ? '...' : 'Удалить из ЧС' }}
         </button>
+        <UiButton
+          class="blacklist-remove"
+          variant="red"
+          size="middle"
+          :icon="iconDelete"
+          :text="blacklistRemoving[item.id] ? '...' : 'Удалить из ЧС'"
+          :disabled="blacklistRemoving[item.id]"
+          @click="removeFromBlacklistProfile(item)"
+        />
       </article>
     </div>
   </section>
+  <MiniProfile
+    v-model:open="miniProfileOpen"
+    :user-id="miniProfileUserId"
+    :initial-profile="miniProfileInitial"
+    :show-stats-button="true"
+  />
 </template>
 
 <script setup lang="ts">
@@ -37,8 +49,12 @@ import { storeToRefs } from 'pinia'
 import { useFriendsStore, useUserStore, type BlacklistItem } from '@/store'
 import { alertDialog, confirmDialog } from '@/services/confirm'
 import { formatLocalDateTime } from '@/services/datetime'
+import { canOpenMiniProfileTarget, normalizeMiniProfileUserId } from '@/services/miniProfile'
+import UiButton from '@/components/UiButton.vue'
+import MiniProfile from '@/views/MiniProfile.vue'
 
 import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
+import iconDelete from '@/assets/svg/iconDelete.svg'
 
 const friendsStore = useFriendsStore()
 const userStore = useUserStore()
@@ -46,6 +62,9 @@ const { subscriptionActive } = storeToRefs(userStore)
 const blacklistLoading = ref(false)
 const blacklistError = ref('')
 const blacklistRemoving = reactive<Record<number, boolean>>({})
+const miniProfileOpen = ref(false)
+const miniProfileUserId = ref<number | null>(null)
+const miniProfileInitial = ref<BlacklistItem | null>(null)
 const blacklistItems = computed<BlacklistItem[]>(() => (
   Array.isArray(friendsStore.blacklist) ? friendsStore.blacklist : []
 ))
@@ -72,6 +91,22 @@ function blacklistAvatarKey(item: BlacklistItem): string {
   const name = String(item.avatar_name || '').trim()
   if (!name) return ''
   return name.startsWith('avatars/') ? name : `avatars/${name}`
+}
+
+function canOpenMiniProfile(item: BlacklistItem): boolean {
+  return canOpenMiniProfileTarget({
+    targetId: item.id,
+    viewerId: userStore.user?.id,
+    viewerRole: userStore.user?.role,
+    targetRole: item.role,
+  })
+}
+
+function openMiniProfile(item: BlacklistItem): void {
+  if (!canOpenMiniProfile(item)) return
+  miniProfileUserId.value = normalizeMiniProfileUserId(item.id)
+  miniProfileInitial.value = item
+  miniProfileOpen.value = true
 }
 
 async function removeFromBlacklistProfile(item: BlacklistItem): Promise<void> {
@@ -184,6 +219,19 @@ onMounted(() => {
         align-items: center;
         gap: 10px;
         min-width: 0;
+        padding: 0;
+        border: none;
+        border-radius: 12px;
+        background: transparent;
+        text-align: left;
+        cursor: pointer;
+        &:disabled {
+          cursor: default;
+        }
+        &:focus-visible {
+          outline: 2px solid $green-500;
+          outline-offset: 4px;
+        }
         .blacklist-avatar {
           flex: 0 0 auto;
           width: 48px;

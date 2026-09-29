@@ -29,8 +29,7 @@
             <div class="nickname-title">
               <span class="title">Никнейм</span>
               <UiTooltip
-                text="Никнейм также является логином - используйте его для авторизации.
-                Без подписки доступно 1 изменение никнейма в месяц. При наличии подписки лимит увеличен до 30."
+                :text="nicknameHint"
                 placement="bottom-right"
                 bubble-width="320px"
               />
@@ -75,7 +74,7 @@
           <div class="nickname-history-header">
             <span class="nickname-history-title">История никнеймов</span>
             <UiTooltip
-              text="Список всех ранее использованных никнеймов. Обнуление истории никнеймов доступно только при наличии подписки."
+              :text="nicknameHistoryHint"
               placement="bottom-right"
               bubble-width="320px"
             />
@@ -201,6 +200,7 @@ import { api, refreshAccessTokenFull } from '@/services/axios'
 import { alertDialog, confirmDialog } from '@/services/confirm'
 import { formatModerationAlert } from '@/services/moderation'
 import { useUserStore } from '@/store'
+import { useSubscriptionStatus } from '@/services/useSubscriptionStatus'
 
 import UiInput from '@/components/UiInput.vue'
 import UiSlider from '@/components/UiSlider.vue'
@@ -254,6 +254,20 @@ type GifPicker = {
 }
 
 const userStore = useUserStore()
+const { subscriptionHint } = useSubscriptionStatus()
+const nicknameHint = computed(() => {
+  const loginHint = 'Никнейм также является логином - используйте его для авторизации.'
+  const limitHint = userStore.subscriptionActive
+    ? `Лимит — 30 изменений никнейма в месяц. ${subscriptionHint('')}.`
+    : 'Без подписки доступно 1 изменение никнейма в месяц. При наличии подписки лимит увеличен до 30.'
+  return `${loginHint} ${limitHint}`
+})
+const nicknameHistoryHint = computed(() => {
+  const resetHint = userStore.subscriptionActive
+    ? `Обнуление истории никнеймов: ${subscriptionHint('')}.`
+    : 'Обнуление истории никнеймов доступно только при наличии подписки.'
+  return `Список всех ранее использованных никнеймов. ${resetHint}`
+})
 const me = reactive({
   id: 0,
   username: '',

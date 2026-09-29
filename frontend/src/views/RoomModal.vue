@@ -53,7 +53,7 @@
           theme="light"
           :width="274"
           :disabled="!canCreateHiddenRoom"
-          :tooltip="!canCreateHiddenRoom ? hiddenRoomHint : undefined"
+          :tooltip="hiddenRoomHint"
           tooltip-target="on"
           tooltip-placement="top-left"
           tooltip-bubble-width="320px"
@@ -86,6 +86,7 @@ import {
 } from '@/services/gameParams'
 import { formatModerationAlert } from '@/services/moderation'
 import { useUserStore, useSettingsStore } from '@/store'
+import { useSubscriptionStatus } from '@/services/useSubscriptionStatus'
 
 import UiInput from '@/components/UiInput.vue'
 import UiSwitch from '@/components/UiSwitch.vue'
@@ -95,6 +96,7 @@ import UiIcon from '@/components/UiIcon.vue'
 import iconClose from '@/assets/svg/iconClose.svg'
 
 const user = useUserStore()
+const { subscriptionHint } = useSubscriptionStatus()
 const settings = useSettingsStore()
 
 const armed = ref(false)
@@ -167,7 +169,8 @@ const initialLimit = (() => {
   return normalizeRoomLimit(initialBasic.user_limit)
 })()
 const limit = ref<RoomLimit>(initialLimit)
-const hiddenRoomHint = 'Создание скрытых комнат доступно только при наличии подписки'
+const HIDDEN_ROOM_SUBSCRIPTION_REQUIRED = 'Создание скрытых комнат доступно только при наличии подписки'
+const hiddenRoomHint = computed(() => subscriptionHint(HIDDEN_ROOM_SUBSCRIPTION_REQUIRED))
 
 const privacy = ref<'open' | 'private'>(initialBasic.privacy === 'private' ? 'private' : 'open')
 const initialAnonymity = initialBasic.anonymity === 'hidden' && canCreateHiddenRoom.value ? 'hidden' : 'visible'
@@ -249,7 +252,7 @@ async function create() {
     else if (st === 403 && d === 'user_timeout') void alertDialog('Вам выдан таймаут, создание комнаты недоступно')
     else if (st === 403 && d === 'user_banned') void alertDialog('Аккаунт забанен, создание комнаты недоступно')
     else if (st === 403 && d === 'not_verified') void alertDialog('Для создания комнаты требуется верификация')
-    else if (st === 403 && d === 'subscription_required') void alertDialog(hiddenRoomHint)
+    else if (st === 403 && d === 'subscription_required') void alertDialog(HIDDEN_ROOM_SUBSCRIPTION_REQUIRED)
     else if (st === 409 && d === 'rooms_limit_global') void alertDialog('Достигнут общий лимит комнат')
     else if (st === 409 && d === 'rooms_limit_user') void alertDialog('Достигнут личный лимит комнат')
     else if (st === 422 && moderationText) void alertDialog({ title: 'Отказ в создании', text: moderationText })

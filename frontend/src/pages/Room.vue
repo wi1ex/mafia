@@ -132,7 +132,7 @@
           @pointercancel="endScreenStageDrag"
         >
           <video :ref="(el) => stableScreenRef(screenOwnerId)(el as HTMLVideoElement | null)" playsinline autoplay muted />
-          <div v-if="screenOwnerId" class="screen-quality" :aria-label="`${screenQualityLabel}: ${SCREEN_QUALITY_HINT}`">
+          <div v-if="screenOwnerId" class="screen-quality" :aria-label="`${screenQualityLabel}: ${screenQualityHint}`">
             <UiIcon class="dot-img" :icon="iconDotBig" />
             <span class="screen-text">{{ screenQualityLabel }}</span>
           </div>
@@ -531,6 +531,7 @@ import {
   useRoomGame
 } from '@/composables/roomGame'
 import { type CameraQuality, type ScreenShareQuality, useRTC, type VQ } from '@/composables/rtc'
+import { useSubscriptionStatus } from '@/services/useSubscriptionStatus'
 import { api } from '@/services/axios'
 import { alertDialog, confirmDialog, confirmDialogWithRadio, useConfirmState } from '@/services/confirm'
 import { normalizeRoomGameParams, type RoomGameParams } from '@/services/gameParams'
@@ -626,6 +627,7 @@ const router = useRouter()
 const auth = useAuthStore()
 const settings = useSettingsStore()
 const userStore = useUserStore()
+const { subscriptionHint } = useSubscriptionStatus()
 const friends = useFriendsStore()
 const chat = useGlobalChatStore()
 const confirmState = useConfirmState()
@@ -889,7 +891,7 @@ const ws_url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.
 const isTheater = computed(() => !!screenOwnerId.value)
 const isMyScreen = computed(() => !!localId.value && screenOwnerId.value === localId.value)
 const streamAudioKey = computed(() => screenOwnerId.value ? rtc.screenKey(screenOwnerId.value) : '')
-const SCREEN_QUALITY_HINT = 'Качество 720p и 1080p доступно только для обладателей подписки'
+const screenQualityHint = computed(() => subscriptionHint('Качество 720p и 1080p доступно только для обладателей подписки'))
 const SCREEN_QUALITY_OPTIONS = [
   { value: 'low', label: '540p' },
   { value: 'medium', label: '720p' },
@@ -3426,8 +3428,8 @@ const toggleScreen = async () => {
       radioOptions: SCREEN_QUALITY_OPTIONS.map(option => ({
         ...option,
         disabled: !hasSubscription && option.value !== 'low',
-        tooltip: !hasSubscription && option.value !== 'low'
-          ? SCREEN_QUALITY_HINT
+        tooltip: option.value !== 'low'
+          ? screenQualityHint.value
           : undefined,
       })),
       radioDefault: hasSubscription ? 'high' : 'low',

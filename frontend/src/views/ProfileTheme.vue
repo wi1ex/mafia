@@ -5,7 +5,7 @@
         <div class="theme-title">
           <span class="title">Кастомизация профиля</span>
           <UiTooltip
-            text="Кастомизация профиля доступна только при наличии подписки."
+            :text="subscriptionHint('Кастомизация профиля доступна только при наличии подписки.')"
             placement="bottom-right"
             bubble-width="320px"
           />
@@ -93,6 +93,7 @@ import { storeToRefs } from 'pinia'
 import { api } from '@/services/axios'
 import { alertDialog } from '@/services/confirm'
 import { useUserStore } from '@/store'
+import { useSubscriptionStatus } from '@/services/useSubscriptionStatus'
 import {
   buildProfileThemeBgStyle,
   getProfileThemeOptions,
@@ -125,6 +126,7 @@ type SubscriptionSite = {
 }
 
 const userStore = useUserStore()
+const { subscriptionHint } = useSubscriptionStatus()
 const { now: userNow } = storeToRefs(userStore)
 
 const me = reactive({

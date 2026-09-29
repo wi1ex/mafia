@@ -81,7 +81,7 @@
 
         <ProfileStats v-if="activeTab === 'stats'" />
 
-        <ProfileHistory v-if="activeTab === 'history'" />
+        <ProfileHistory v-if="activeTab === 'history'" :per-page="5" />
 
         <ProfileSanctions v-if="activeTab === 'sanctions'" />
 

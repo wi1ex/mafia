@@ -5,7 +5,7 @@
         <span class="section-title">История платежей</span>
         <span class="section-hint">Ваши успешные платежи за подписку</span>
       </div>
-      <span class="section-count">{{ paymentsItems.length }}</span>
+      <span class="section-count">{{ subscriptionStatusText }}</span>
     </header>
     <div v-if="paymentsLoading" class="payments-state">Загрузка...</div>
     <div v-else-if="paymentsError" class="payments-state danger">{{ paymentsError }}</div>
@@ -39,6 +39,7 @@
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { api } from '@/services/axios'
 import { formatLocalDateTime } from '@/services/datetime'
+import { useSubscriptionStatus } from '@/services/useSubscriptionStatus'
 
 type SubscriptionPaymentPlan = 'month' | 'year'
 
@@ -57,6 +58,7 @@ type SubscriptionPaymentsResponse = {
   items?: SubscriptionPaymentItem[] | null
 }
 
+const { subscriptionStatusText } = useSubscriptionStatus()
 const paymentsItems = ref<SubscriptionPaymentItem[]>([])
 const paymentsLoading = ref(false)
 const paymentsLoaded = ref(false)
@@ -171,6 +173,7 @@ onBeforeUnmount(() => {
   background-color: $soft-purple-900;
   .section-header {
     display: flex;
+    flex-wrap: wrap;
     align-items: flex-start;
     justify-content: space-between;
     gap: 16px;
@@ -191,7 +194,6 @@ onBeforeUnmount(() => {
     font-size: 14px;
   }
   .section-count {
-    min-width: 32px;
     padding: 8px 10px;
     border-radius: 12px;
     background-color: $blue-100;
