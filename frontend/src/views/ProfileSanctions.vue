@@ -3,10 +3,9 @@
     <div class="sanctions-panel">
       <header class="section-header">
         <div>
-          <span class="section-title">История ограничений</span>
+          <span class="section-title">История санкций</span>
           <span class="section-hint">Отстранения от игр, таймауты и баны</span>
         </div>
-        <span v-if="sanctionsLoaded" class="summary-badge">{{ sanctionsSummary.total }}</span>
       </header>
       <div v-if="sanctionsLoaded" class="sanctions-summary">
         <span>Таймауты {{ sanctionsSummary.timeout }}</span>
@@ -195,18 +194,6 @@ onBeforeUnmount(() => {
     .section-hint {
       margin-top: 12px;
       color: $neutral-300;
-      font-size: 14px;
-    }
-    .summary-badge {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 32px;
-      height: 32px;
-      padding: 0 10px;
-      border-radius: 12px;
-      background-color: $blue-100;
-      color: $blue-500;
       font-size: 14px;
     }
   }
