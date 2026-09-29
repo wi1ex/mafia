@@ -25,16 +25,16 @@
         </div>
         <div class="sanction-grid">
           <div class="sanction-cell">
+            <span>Срок изначальный</span>
+            <strong>{{ formatSanctionDuration(item.duration_seconds) }}</strong>
+          </div>
+          <div class="sanction-cell">
             <span>Дата выдачи</span>
             <strong>{{ formatLocalDateTime(item.issued_at) }}</strong>
           </div>
           <div class="sanction-cell">
-            <span>Пункт правил</span>
-            <strong>{{ item.reason || 'Причина не указана' }}</strong>
-          </div>
-          <div class="sanction-cell">
-            <span>Срок изначальный</span>
-            <strong>{{ formatSanctionDuration(item.duration_seconds) }}</strong>
+            <span>Срок по факту</span>
+            <strong>{{ formatDurationSeconds(item.served_seconds, '0м') }}</strong>
           </div>
           <div class="sanction-cell">
             <span>Дата снятия</span>
@@ -45,8 +45,8 @@
             <strong>{{ formatSanctionCompletionReason(item) }}</strong>
           </div>
           <div class="sanction-cell">
-            <span>Срок по факту</span>
-            <strong>{{ formatDurationSeconds(item.served_seconds, '0м') }}</strong>
+            <span>Пункт правил</span>
+            <strong>{{ item.reason || 'Причина не указана' }}</strong>
           </div>
           <div v-if="item.kind === 'suspend'" class="sanction-cell">
             <span>Отработка ведущим</span>
@@ -172,7 +172,7 @@ onBeforeUnmount(() => {
   width: 100%;
   .sanctions-panel,
   .sanction-card {
-    padding: 24px;
+    padding: 12px 24px;
     border-radius: 24px;
     background-color: $soft-purple-900;
   }
