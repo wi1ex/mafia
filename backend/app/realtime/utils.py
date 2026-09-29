@@ -316,6 +316,7 @@ GAME_RUNTIME_RESET_SUFFIXES: tuple[str, ...] = (
     "game_farewell_contexts",
     "game_farewell_limits",
     "game_night_opinions",
+    "game_night_opinion_targets",
     "game_versions",
     "game_winks_left",
     "game_knocks_left",
@@ -478,7 +479,7 @@ if redis.call('SISMEMBER', KEYS[4], target_uid) ~= 1 then
 end
 
 local field = actor_uid .. ':' .. target_uid
-if redis.call('HEXISTS', KEYS[2], field) == 1 then
+if redis.call('HEXISTS', KEYS[2], field) == 1 or redis.call('SISMEMBER', KEYS[5], field) == 1 then
     return {0, 'already_marked'}
 end
 
@@ -500,6 +501,7 @@ if used >= limit then
 end
 
 redis.call('HSET', KEYS[2], field, ARGV[3])
+redis.call('SADD', KEYS[5], field)
 return {1, ''}
 """
 
@@ -5026,6 +5028,15 @@ async def ensure_farewell_limit(r, rid: int, speaker_uid: int, *, mode: str = "k
     return limit
 
 
+async def get_night_opinion_targets_for(r, rid: int, actor_uid: int) -> list[int]:
+    if actor_uid <= 0:
+        return []
+
+    fields = await r.smembers(f"room:{rid}:game_night_opinion_targets")
+    prefix = f"{actor_uid}:"
+    return sorted(int(field.removeprefix(prefix)) for field in fields if field.startswith(prefix))
+
+
 async def get_night_opinions_for(r, rid: int, actor_uid: int) -> dict[str, str]:
     if actor_uid <= 0:
         return {}
@@ -5179,11 +5190,12 @@ async def claim_night_opinion(
 
     result = await r.eval(
         NIGHT_OPINION_CLAIM_LUA,
-        4,
+        5,
         f"room:{rid}:game_state",
         f"room:{rid}:game_night_opinions",
         f"room:{rid}:game_roles",
         f"room:{rid}:game_alive",
+        f"room:{rid}:game_night_opinion_targets",
         str(uid),
         str(target_uid),
         verdict,
@@ -7172,6 +7184,9 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
 
     if phase == "idle":
         return game_runtime, {}, None
+
+    if my_game_role in ("citizen", "sheriff"):
+        game_runtime["night_opinion_targets"] = await get_night_opinion_targets_for(r, rid, uid)
 
     if my_game_role in ("don", "sheriff"):
         checked_key = f"room:{rid}:game_checked:{my_game_role}"

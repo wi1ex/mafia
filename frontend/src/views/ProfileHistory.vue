@@ -522,7 +522,7 @@ onBeforeUnmount(() => {
   align-self: center;
   justify-self: center;
   gap: 10px;
-  width: min(1100px, 100%);
+  width: 100%;
   .history-filters {
     display: flex;
     align-items: center;
@@ -582,7 +582,7 @@ onBeforeUnmount(() => {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          min-width: 400px;
+          min-width: 450px;
           .history-main-left {
             display: flex;
             flex-direction: column;

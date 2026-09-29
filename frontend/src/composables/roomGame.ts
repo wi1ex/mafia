@@ -128,6 +128,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   const farewellWills = reactive(new Map<string, Map<string, FarewellVerdict>>())
   const nightOpinionLimit = ref(0)
   const myNightOpinions = reactive(new Map<string, NightOpinionVerdict>())
+  const myNightOpinionTargets = reactive(new Set<string>())
   const bestMove = reactive({
     uid: '',
     active: false,
@@ -214,6 +215,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (next === gameInstanceId.value) return
     clearNightResultCleared()
     gameInstanceId.value = next
+    myNightOpinionTargets.clear()
     nightResultClearedDay.value = loadNightResultCleared()
     if (typeof window !== 'undefined') {
       try { window.sessionStorage.removeItem(`nightResultCleared:${roomKey()}`) } catch {}
@@ -884,7 +886,10 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     for (const [targetId, verdictRaw] of Object.entries(picks)) {
       const verdict = verdictRaw === 'citizen' || verdictRaw === 'mafia' ? verdictRaw : ''
       const id = String(targetId || '')
-      if (id && verdict) myNightOpinions.set(id, verdict)
+      if (id && verdict) {
+        myNightOpinions.set(id, verdict)
+        myNightOpinionTargets.add(id)
+      }
     }
   }
 
@@ -1043,6 +1048,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     farewellLimits.clear()
     farewellWills.clear()
     resetNightOpinions()
+    myNightOpinionTargets.clear()
     currentFarewellSpeech.value = false
     activeFarewellSpeakerId.value = ''
     mafiaTalk.remainingMs = 0
@@ -1188,7 +1194,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (!me || targetId === me) return false
     const seat = seatIndex(targetId)
     if (seat == null || seat === 11 || !gameAlive.has(targetId)) return false
-    if (myNightOpinions.has(targetId)) return false
+    if (myNightOpinionTargets.has(targetId) || myNightOpinions.has(targetId)) return false
     return myNightOpinions.size < nightOpinionLimit.value
   }
 
@@ -1275,6 +1281,11 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     hostBlurActive.value = isTrueLike((gr as any).host_blur)
     const phase = (gr.phase as GamePhase) || 'idle'
     setGameInstanceId(phase === 'idle' ? '' : (gr as any).game_instance_id)
+    myNightOpinionTargets.clear()
+    const opinionTargets = (gr as any).night_opinion_targets
+    if (Array.isArray(opinionTargets)) {
+      for (const targetId of opinionTargets) myNightOpinionTargets.add(String(targetId))
+    }
     gamePhase.value = phase
     if (phase === 'idle') dayNumber.value = 0
     const rawResult = String((gr as any).result || '')
@@ -2704,7 +2715,10 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       for (const [targetId, verdictRaw] of Object.entries(opinions)) {
         const value = verdictRaw === 'citizen' || verdictRaw === 'mafia' ? verdictRaw : ''
         const id = String(targetId || '')
-        if (id && value) myNightOpinions.set(id, value)
+        if (id && value) {
+          myNightOpinions.set(id, value)
+          myNightOpinionTargets.add(id)
+        }
       }
     }
   }
