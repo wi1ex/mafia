@@ -1,13 +1,18 @@
 <template>
-  <div class="profile-tab-block block-sanctions">
-    <div class="sanctions-head">
-      <h3>История отстранений от игр, таймаутов и банов</h3>
-    </div>
-    <div v-if="sanctionsLoaded" class="sanctions-summary">
-      <span>Всего: {{ sanctionsSummary.total }}</span>
-      <span>Таймауты: {{ sanctionsSummary.timeout }}</span>
-      <span>Отстранения: {{ sanctionsSummary.suspend }}</span>
-      <span>Баны: {{ sanctionsSummary.ban }}</span>
+  <section class="block-sanctions">
+    <div class="sanctions-panel">
+      <header class="section-header">
+        <div>
+          <span class="section-title">История ограничений</span>
+          <span class="section-hint">Отстранения от игр, таймауты и баны</span>
+        </div>
+        <span v-if="sanctionsLoaded" class="summary-badge">{{ sanctionsSummary.total }}</span>
+      </header>
+      <div v-if="sanctionsLoaded" class="sanctions-summary">
+        <span>Таймауты {{ sanctionsSummary.timeout }}</span>
+        <span>Отстранения {{ sanctionsSummary.suspend }}</span>
+        <span>Баны {{ sanctionsSummary.ban }}</span>
+      </div>
     </div>
     <div v-if="sanctionsLoading" class="sanctions-empty">Загрузка…</div>
     <div v-else-if="sanctionsError" class="sanctions-empty danger">{{ sanctionsError }}</div>
@@ -51,7 +56,7 @@
         </div>
       </article>
     </div>
-  </div>
+  </section>
 </template>
 
 <script setup lang="ts">
@@ -162,19 +167,62 @@ onBeforeUnmount(() => {
 
 <style scoped lang="scss">
 .block-sanctions {
-  .sanctions-head {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  .sanctions-panel,
+  .sanction-card {
+    padding: 24px;
+    border-radius: 24px;
+    background-color: $soft-purple-900;
+  }
+  .section-header {
     display: flex;
-    flex-wrap: wrap;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 10px;
+    gap: 16px;
+    .section-title,
+    .section-hint {
+      display: block;
+    }
+    .section-title {
+      color: $neutral-white;
+      font-family: Involve-Medium;
+      font-size: 24px;
+      line-height: 26px;
+    }
+    .section-hint {
+      margin-top: 12px;
+      color: $neutral-300;
+      font-size: 14px;
+    }
+    .summary-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 32px;
+      height: 32px;
+      padding: 0 10px;
+      border-radius: 12px;
+      background-color: $blue-100;
+      color: $blue-500;
+      font-size: 14px;
+    }
   }
   .sanctions-summary {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
-    font-size: 14px;
-    color: $neutral-100;
+    margin-top: 20px;
+    gap: 8px;
+    color: $neutral-300;
+    span {
+      padding: 8px 12px;
+      border-radius: 12px;
+      background-color: $soft-purple-800;
+      font-size: 13px;
+    }
   }
   .sanctions-empty {
     padding: 20px 0;
@@ -187,22 +235,18 @@ onBeforeUnmount(() => {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
     gap: 10px;
-    margin-top: 10px;
+    margin-top: 0;
     .sanction-card {
-      border: 3px solid $neutral-700;
-      border-radius: 5px;
-      padding: 10px;
+      border: none;
+      min-width: 0;
       &.sanction-card--timeout {
-        border-color: rgba($yellow-500, 0.5);
-        background-color: rgba($yellow-500, 0.25);
+        box-shadow: inset 3px 0 $yellow-500;
       }
       &.sanction-card--suspend {
-        border-color: rgba($orange-500, 0.5);
-        background-color: rgba($orange-500, 0.25);
+        box-shadow: inset 3px 0 $orange-500;
       }
       &.sanction-card--ban {
-        border-color: rgba($red-500, 0.5);
-        background-color: rgba($red-500, 0.25);
+        box-shadow: inset 3px 0 $red-500;
       }
       .sanction-head {
         display: flex;
@@ -221,7 +265,7 @@ onBeforeUnmount(() => {
             padding: 5px 10px;
             min-width: 30px;
             border-radius: 999px;
-            background-color: $neutral-900;
+            background-color: $soft-purple-800;
             font-size: 12px;
             color: $neutral-100;
           }

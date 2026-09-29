@@ -1,7 +1,10 @@
 <template>
-  <div class="profile-tab-block block-blacklist">
+  <section class="block-blacklist">
     <div class="blacklist-head">
-      <h3>Черный список</h3>
+      <div>
+        <span class="section-title">Черный список</span>
+        <span class="section-hint">Пользователи, от которых вы не хотите получать заявки и уведомления</span>
+      </div>
     </div>
     <div class="blacklist-rules">
       <p>Игроки из ЧС не смогут отправлять Вам заявки в друзья и заявки на вход в Ваши приватные комнаты.</p>
@@ -25,7 +28,7 @@
         </button>
       </article>
     </div>
-  </div>
+  </section>
 </template>
 
 <script setup lang="ts">
@@ -111,6 +114,28 @@ onMounted(() => {
 
 <style scoped lang="scss">
 .block-blacklist {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  padding: 24px;
+  border-radius: 24px;
+  background-color: $soft-purple-900;
+  .section-title,
+  .section-hint {
+    display: block;
+  }
+  .section-title {
+    color: $neutral-white;
+    font-family: Involve-Medium;
+    font-size: 24px;
+    line-height: 26px;
+  }
+  .section-hint {
+    margin-top: 12px;
+    color: $neutral-300;
+    font-size: 14px;
+  }
   .blacklist-head {
     display: flex;
     flex-wrap: wrap;
@@ -123,8 +148,8 @@ onMounted(() => {
     gap: 6px;
     margin-top: 10px;
     padding: 12px;
-    border: 3px solid $neutral-700;
-    border-radius: 5px;
+    border: 1px solid $soft-purple-800;
+    border-radius: 20px;
     background-color: rgba(black, 0.08);
     p {
       margin: 0;
@@ -151,9 +176,9 @@ onMounted(() => {
       justify-content: space-between;
       gap: 10px;
       padding: 10px;
-      border: 3px solid $neutral-700;
-      border-radius: 5px;
-      background-color: rgba(black, 0.12);
+      border: 1px solid $soft-purple-800;
+      border-radius: 20px;
+      background-color: $soft-purple-800;
       .blacklist-user {
         display: flex;
         align-items: center;

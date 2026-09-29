@@ -1,6 +1,12 @@
 <template>
-  <div class="profile-tab-block block-payments">
-    <h3>История платежей</h3>
+  <section class="block-payments">
+    <header class="section-header">
+      <div>
+        <span class="section-title">История платежей</span>
+        <span class="section-hint">Ваши успешные платежи за подписку</span>
+      </div>
+      <span class="section-count">{{ paymentsItems.length }}</span>
+    </header>
     <div v-if="paymentsLoading" class="payments-state">Загрузка...</div>
     <div v-else-if="paymentsError" class="payments-state danger">{{ paymentsError }}</div>
     <div v-else-if="paymentsItems.length === 0" class="payments-state">Успешных платежей пока нет</div>
@@ -26,7 +32,7 @@
         </tbody>
       </table>
     </div>
-  </div>
+  </section>
 </template>
 
 <script setup lang="ts">
@@ -156,6 +162,43 @@ onBeforeUnmount(() => {
 
 <style scoped lang="scss">
 .block-payments {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+  padding: 24px;
+  border-radius: 24px;
+  background-color: $soft-purple-900;
+  .section-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .section-title,
+  .section-hint {
+    display: block;
+  }
+  .section-title {
+    color: $neutral-white;
+    font-family: Involve-Medium;
+    font-size: 24px;
+    line-height: 26px;
+  }
+  .section-hint {
+    margin-top: 12px;
+    color: $neutral-300;
+    font-size: 14px;
+  }
+  .section-count {
+    min-width: 32px;
+    padding: 8px 10px;
+    border-radius: 12px;
+    background-color: $blue-100;
+    color: $blue-500;
+    text-align: center;
+    font-size: 14px;
+  }
   .payments-state {
     padding: 20px 10px;
     text-align: center;
@@ -167,9 +210,9 @@ onBeforeUnmount(() => {
   .payments-table-wrap {
     width: 100%;
     overflow-x: auto;
-    border: 1px solid rgba($neutral-500, 0.5);
-    border-radius: 5px;
-    background-color: rgba($neutral-800, 0.45);
+    border: 1px solid $soft-purple-800;
+    border-radius: 20px;
+    background-color: $soft-purple-800;
     .payments-table {
       width: 100%;
       min-width: 820px;
@@ -177,8 +220,8 @@ onBeforeUnmount(() => {
       color: $neutral-100;
       th,
       td {
-        padding: 12px 14px;
-        border-bottom: 1px solid rgba($neutral-500, 0.35);
+        padding: 14px 16px;
+        border-bottom: 1px solid rgba($neutral-500, 0.2);
         text-align: left;
         vertical-align: top;
         line-height: 1.25;
