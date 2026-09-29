@@ -466,7 +466,7 @@ async function load(force = false) {
   } catch (e: any) {
     if (seq !== requestSeq) return
     const detail = String(e?.response?.data?.detail || '')
-    error.value = detail === 'friends_only' ? 'Статистика доступна только друзьям' : 'Не удалось загрузить статистику'
+    error.value = detail === 'subscription_required' ? 'Для просмотра чужой статистики требуется активная подписка' : 'Не удалось загрузить статистику'
   } finally {
     if (seq === requestSeq) loading.value = false
   }

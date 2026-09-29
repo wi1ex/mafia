@@ -870,7 +870,7 @@ const showFriendAction = computed(() => (
 const showProfileDataButtons = computed(() => Boolean(
   props.showStatsButton
   && targetUserId.value > 0
-  && (isSelfProfile.value || privilegedViewer.value || friendStatus.value === 'friends')
+  && (isSelfProfile.value || isAdminViewer.value || viewerSubscriptionActive.value)
 ))
 const showStatsButton = computed(() => showProfileDataButtons.value)
 const showGameHistoryButton = computed(() => showProfileDataButtons.value)

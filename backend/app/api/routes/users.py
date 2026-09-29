@@ -270,10 +270,10 @@ async def public_user_stats(user_id: int, season: int | None = None, mode: Liter
     if not user or user.deleted_at:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user_not_found")
 
-    if uid != viewer_id and viewer_role not in {"admin", "moder"}:
-        friendship_status = await friend_status_for(db, viewer_id, uid)
-        if friendship_status != "friends":
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="friends_only")
+    if uid != viewer_id and viewer_role != "admin":
+        theme_state = await resolve_profile_theme_state(db, viewer_id)
+        if not theme_state.subscription_active:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="subscription_required")
 
     return await build_user_stats_out(db, uid, season, mode)
 
@@ -638,10 +638,10 @@ async def public_games_history(user_id: int, page: int = 1, role: Literal["citiz
     if not user or user.deleted_at:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user_not_found")
 
-    if uid != viewer_id and viewer_role not in {"admin", "moder"}:
-        friendship_status = await friend_status_for(db, viewer_id, uid)
-        if friendship_status != "friends":
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="friends_only")
+    if uid != viewer_id and viewer_role != "admin":
+        theme_state = await resolve_profile_theme_state(db, viewer_id)
+        if not theme_state.subscription_active:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="subscription_required")
 
     per_page_i = max(1, min(int(per_page or PERSONAL_GAME_HISTORY_PER_PAGE), PERSONAL_GAME_HISTORY_PER_PAGE))
     return await fetch_games_history_page(

@@ -472,8 +472,11 @@ async function fetchHistory(): Promise<void> {
   } catch (e: any) {
     if (seq !== requestSeq) return
     const status = Number(e?.response?.status || 0)
+    const detail = String(e?.response?.data?.detail || '')
     if (status === 429) {
       error.value = 'Слишком много запросов, попробуйте позже'
+    } else if (detail === 'subscription_required') {
+      error.value = 'Для просмотра чужой истории игр требуется активная подписка'
     } else {
       error.value = 'Не удалось загрузить личную историю игр'
     }
