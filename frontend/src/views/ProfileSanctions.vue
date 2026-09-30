@@ -29,7 +29,7 @@
           </div>
           <div class="sanction-cell">
             <span>Срок изначальный/по факту</span>
-            <strong>{{ formatSanctionDuration(item.duration_seconds) }}/{{ formatDurationSeconds(item.served_seconds, '0м') }}</strong>
+            <strong>{{ formatSanctionDuration(item.duration_seconds) }} / {{ formatDurationSeconds(item.served_seconds, '0м') }}</strong>
           </div>
           <div class="sanction-cell">
             <span>Пункт правил</span>

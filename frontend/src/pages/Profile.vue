@@ -38,13 +38,9 @@
             <UiIcon class="tab-btn-img" :icon="iconJudgeHummer" />
             <span class="tab-btn-text">Санкции</span>
           </button>
-          <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'payments' }" :aria-selected="activeTab === 'payments'" :disabled="profileTabsDisabled" @click="activeTab = 'payments'">
+          <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'subscription' }" :aria-selected="activeTab === 'subscription'" :disabled="profileTabsDisabled" @click="activeTab = 'subscription'">
             <UiIcon class="tab-btn-img" :icon="iconCard" />
-            <span class="tab-btn-text">Платежи</span>
-          </button>
-          <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'blacklist' }" :aria-selected="activeTab === 'blacklist'" :disabled="profileTabsDisabled" @click="activeTab = 'blacklist'">
-            <UiIcon class="tab-btn-img" :icon="iconBlockPlayer" />
-            <span class="tab-btn-text">Черный список</span>
+            <span class="tab-btn-text">Подписка</span>
           </button>
         </nav>
       </div>
@@ -85,9 +81,7 @@
 
         <ProfileSanctions v-if="activeTab === 'sanctions'" />
 
-        <ProfilePayments v-if="activeTab === 'payments'" />
-
-        <ProfileBlacklist v-if="activeTab === 'blacklist'" />
+        <ProfileSubscription v-if="activeTab === 'subscription'" />
       </div>
     </Transition>
 
@@ -107,8 +101,7 @@ import ProfileAccount from '@/views/ProfileAccount.vue'
 import ProfileAvatarNick from '@/views/ProfileAvatarNick.vue'
 import ProfileTheme from '@/views/ProfileTheme.vue'
 import ProfileSanctions from '@/views/ProfileSanctions.vue'
-import ProfilePayments from '@/views/ProfilePayments.vue'
-import ProfileBlacklist from '@/views/ProfileBlacklist.vue'
+import ProfileSubscription from '@/views/ProfileSubscription.vue'
 import Subscription from '@/views/Subscription.vue'
 import UiIcon from '@/components/UiIcon.vue'
 import UiButton from '@/components/UiButton.vue'
@@ -122,7 +115,6 @@ import iconStats from '@/assets/svg/iconStats.svg'
 import iconHistory from '@/assets/svg/iconHistory.svg'
 import iconJudgeHummer from '@/assets/svg/iconJudgeHummer.svg'
 import iconCard from '@/assets/svg/iconCard.svg'
-import iconBlockPlayer from '@/assets/svg/iconBlockPlayer.svg'
 import iconLeave from '@/assets/svg/iconLeave.svg'
 
 type SubscriptionSite = {
@@ -131,7 +123,7 @@ type SubscriptionSite = {
   url: string
 }
 
-const TAB_KEYS = ['profile', 'theme', 'account', 'stats', 'payments', 'history', 'sanctions', 'blacklist'] as const
+const TAB_KEYS = ['profile', 'theme', 'account', 'stats', 'subscription', 'history', 'sanctions'] as const
 type TabKey = typeof TAB_KEYS[number]
 const DEFAULT_TAB: TabKey = 'account'
 
