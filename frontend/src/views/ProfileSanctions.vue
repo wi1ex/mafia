@@ -8,9 +8,9 @@
           </div>
         </header>
         <div v-if="sanctionsLoaded" class="sanctions-summary">
-          <span>Таймауты {{ sanctionsSummary.timeout }}</span>
-          <span>Отстранения {{ sanctionsSummary.suspend }}</span>
-          <span>Баны {{ sanctionsSummary.ban }}</span>
+          <span>Таймауты — {{ sanctionsSummary.timeout }}</span>
+          <span>Отстранения — {{ sanctionsSummary.suspend }}</span>
+          <span>Баны — {{ sanctionsSummary.ban }}</span>
         </div>
       </div>
       <div v-if="sanctionsLoading" class="sanctions-empty">Загрузка…</div>
@@ -53,15 +53,11 @@ import { api } from '@/services/axios'
 import { formatLocalDateTime } from '@/services/datetime'
 
 type SanctionKind = 'timeout' | 'ban' | 'suspend'
-type SanctionCompletionReason = 'active' | 'expired' | 'revoked_staff' | 'hosted_game'
-
 type SanctionItem = {
   id: number
   kind: SanctionKind
-  completion_reason: SanctionCompletionReason
   reason?: string | null
   issued_at: string
-  finished_at?: string | null
   duration_seconds?: number | null
   served_seconds: number
   hosted_workoff_seconds?: number | null
@@ -124,22 +120,6 @@ function formatSanctionDuration(seconds?: number | null): string {
   return formatDurationSeconds(seconds, 'без срока')
 }
 
-function isSanctionCompleted(item: SanctionItem): boolean {
-  return item.completion_reason !== 'active'
-}
-
-function formatSanctionFinishedAt(item: SanctionItem): string {
-  if (!isSanctionCompleted(item) || !item.finished_at) return '-'
-  return formatLocalDateTime(item.finished_at)
-}
-
-function formatSanctionCompletionReason(item: SanctionItem): string {
-  if (item.completion_reason === 'expired') return 'Истекла'
-  if (item.completion_reason === 'revoked_staff') return 'Досрочное снятие'
-  if (item.completion_reason === 'hosted_game') return 'Проведение игры'
-  return '-'
-}
-
 onMounted(() => {
   void loadSanctions(true)
   onSanctionsUpdate = () => {
@@ -174,7 +154,7 @@ onBeforeUnmount(() => {
   }
   .sanction-card {
     padding: 12px 24px;
-    border-radius: 24px;
+    border-radius: 18px;
     background-color: $soft-purple-800;
   }
   .section-header {
@@ -194,12 +174,12 @@ onBeforeUnmount(() => {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
-    color: $neutral-300;
+    color: $neutral-white;
     span {
       padding: 8px 12px;
       border-radius: 12px;
       background-color: $soft-purple-800;
-      font-size: 13px;
+      font-size: 14px;
     }
   }
   .sanctions-empty {
@@ -213,19 +193,19 @@ onBeforeUnmount(() => {
   .sanctions-list {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
-    gap: 10px;
+    gap: 12px;
     margin-top: 0;
     .sanction-card {
       border: none;
       min-width: 0;
       &.sanction-card--timeout {
-        box-shadow: inset 3px 0 $yellow-500;
+        box-shadow: inset 5px 0 $yellow-500;
       }
       &.sanction-card--suspend {
-        box-shadow: inset 3px 0 $orange-500;
+        box-shadow: inset 5px 0 $orange-500;
       }
       &.sanction-card--ban {
-        box-shadow: inset 3px 0 $red-500;
+        box-shadow: inset 5px 0 $red-500;
       }
       .sanction-head {
         display: flex;
@@ -244,8 +224,8 @@ onBeforeUnmount(() => {
             padding: 5px 10px;
             min-width: 30px;
             border-radius: 999px;
-            background-color: $soft-purple-800;
-            font-size: 12px;
+            background-color: $soft-purple-900;
+            font-size: 14px;
             color: $neutral-100;
           }
         }
@@ -259,7 +239,7 @@ onBeforeUnmount(() => {
           display: flex;
           flex-direction: column;
           gap: 3px;
-          font-size: 14px;
+          font-size: 13px;
           span {
             color: $neutral-300;
             font-size: 12px;
@@ -267,6 +247,7 @@ onBeforeUnmount(() => {
           strong {
             color: $neutral-100;
             overflow-wrap: anywhere;
+            font-family: Hauora-SemiBold;
           }
         }
       }
