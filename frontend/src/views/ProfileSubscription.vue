@@ -15,8 +15,8 @@
                 <tr>
                   <th>Дата платежа</th>
                   <th>Email</th>
-                  <th>Срок подписки</th>
-                  <th>Оплаченная стоимость</th>
+                  <th>Срок</th>
+                  <th>Стоимость</th>
                   <th>Промокод</th>
                 </tr>
               </thead>
@@ -332,7 +332,6 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 20px;
-  width: 100%;
   padding: 24px;
   border-radius: 24px;
   background-color: $soft-purple-900;
@@ -405,7 +404,6 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  width: 100%;
   padding: 24px;
   border-radius: 24px;
   background-color: $soft-purple-900;
