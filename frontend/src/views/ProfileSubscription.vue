@@ -45,7 +45,7 @@
           </div>
           <div v-if="blacklistLoading" class="blacklist-empty">Загрузка…</div>
           <div v-else-if="blacklistError" class="blacklist-empty danger">{{ blacklistError }}</div>
-          <div v-else-if="blacklistItems.length === 0" class="blacklist-empty">В черном списке пока никого нет.</div>
+          <div v-else-if="blacklistItems.length === 0" class="blacklist-empty">В ЧС пока никого нет</div>
           <div v-else class="blacklist-table-wrap">
             <table class="blacklist-table">
               <thead>
@@ -365,7 +365,7 @@ onMounted(() => {
 .block-blacklist {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 20px;
   padding: 24px;
   border-radius: 24px;
   background-color: $soft-purple-900;
@@ -389,6 +389,7 @@ onMounted(() => {
     gap: 10px;
   }
   .blacklist-empty {
+    text-align: center;
     padding: 20px 0;
     color: $neutral-300;
     &.danger {
