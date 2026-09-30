@@ -379,9 +379,9 @@ const sortedRooms = computed(() => Array.from(roomsMap.values()).sort((a, b) => 
       case 'HIDE': return 0
       case 'RATE': return 1
       case 'GAME': return 2
-      case 'LOBBY': return 3
-      case 'DUO': return 4
-      case 'ROOM': return 5
+      case 'DUO': return 3
+      case 'ROOM': return 4
+      case 'LOBBY': return 5
       default: return 6
     }
   }

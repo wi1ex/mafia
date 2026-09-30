@@ -365,12 +365,10 @@ onMounted(() => {
   .payments-table-wrap {
     width: 100%;
     overflow-x: auto;
-    border: 1px solid $soft-purple-800;
     border-radius: 20px;
     background-color: $soft-purple-800;
     .payments-table {
       width: 100%;
-      min-width: 820px;
       border-collapse: collapse;
       color: $neutral-100;
       th,
@@ -380,6 +378,10 @@ onMounted(() => {
         text-align: left;
         vertical-align: top;
         line-height: 1.25;
+      }
+      th:not(:first-child),
+      td:not(:first-child) {
+        text-align: center;
       }
       th {
         color: $neutral-300;
@@ -443,7 +445,6 @@ onMounted(() => {
       justify-content: space-between;
       gap: 10px;
       padding: 10px;
-      border: 1px solid $soft-purple-800;
       border-radius: 20px;
       background-color: $soft-purple-800;
       .blacklist-user {
