@@ -4,7 +4,6 @@
       <header class="section-header">
         <div>
           <span class="section-title">История санкций</span>
-          <span class="section-hint">Отстранения от игр, таймауты и баны</span>
         </div>
       </header>
       <div v-if="sanctionsLoaded" class="sanctions-summary">
@@ -181,26 +180,17 @@ onBeforeUnmount(() => {
     align-items: flex-start;
     justify-content: space-between;
     gap: 16px;
-    .section-title,
-    .section-hint {
-      display: block;
-    }
     .section-title {
+      display: block;
       color: $neutral-white;
       font-family: Involve-Medium;
       font-size: 24px;
       line-height: 26px;
     }
-    .section-hint {
-      margin-top: 12px;
-      color: $neutral-300;
-      font-size: 14px;
-    }
   }
   .sanctions-summary {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
     margin-top: 20px;
     gap: 8px;
     color: $neutral-300;

@@ -3,17 +3,12 @@
     <div class="blacklist-head">
       <div>
         <span class="section-title">Черный список</span>
-        <span class="section-hint">Пользователи, от которых вы не хотите получать заявки и уведомления</span>
+        <span class="section-hint">Вы не сможете получать от пользователей из ЧС заявки в друзья и комнаты, а также уведомления из чата.</span>
       </div>
-    </div>
-    <div class="blacklist-rules">
-      <p>Игроки из ЧС не смогут отправлять Вам заявки в друзья и заявки на вход в Ваши приватные комнаты.</p>
-      <p>При добавлении в ЧС текущая дружба, входящая заявка или исходящая заявка с этим игроком удаляется.</p>
-      <p>Вы не будете получать уведомления, если игрок из ЧС отметит Вас в чате или поставит реакцию на Ваше сообщение.</p>
     </div>
     <div v-if="blacklistLoading" class="blacklist-empty">Загрузка…</div>
     <div v-else-if="blacklistError" class="blacklist-empty danger">{{ blacklistError }}</div>
-    <div v-else-if="blacklistItems.length === 0" class="blacklist-empty">В ЧС пока никого нет</div>
+    <div v-else-if="blacklistItems.length === 0" class="blacklist-empty">В черном списке пока никого нет.</div>
     <div v-else class="blacklist-list">
       <article v-for="item in blacklistItems" :key="item.id" class="blacklist-card">
         <button class="blacklist-user" type="button" :disabled="!canOpenMiniProfile(item)" :aria-label="`Открыть профиль ${item.username || `user${item.id}`}`" @click="openMiniProfile(item)">
@@ -177,21 +172,6 @@ onMounted(() => {
     align-items: flex-start;
     justify-content: space-between;
     gap: 10px;
-  }
-  .blacklist-rules {
-    display: grid;
-    gap: 6px;
-    margin-top: 10px;
-    padding: 12px;
-    border: 1px solid $soft-purple-800;
-    border-radius: 20px;
-    background-color: rgba(black, 0.08);
-    p {
-      margin: 0;
-      color: $neutral-300;
-      font-size: 14px;
-      line-height: 1.35;
-    }
   }
   .blacklist-empty {
     padding: 20px 0;

@@ -3,7 +3,6 @@
     <header class="section-header">
       <div>
         <span class="section-title">История платежей</span>
-        <span class="section-hint">Ваши успешные платежи за подписку</span>
       </div>
       <span class="section-count">{{ subscriptionStatusText }}</span>
     </header>
@@ -178,20 +177,12 @@ onBeforeUnmount(() => {
     justify-content: space-between;
     gap: 16px;
   }
-  .section-title,
-  .section-hint {
-    display: block;
-  }
   .section-title {
+    display: block;
     color: $neutral-white;
     font-family: Involve-Medium;
     font-size: 24px;
     line-height: 26px;
-  }
-  .section-hint {
-    margin-top: 12px;
-    color: $neutral-300;
-    font-size: 14px;
   }
   .section-count {
     padding: 8px 10px;
