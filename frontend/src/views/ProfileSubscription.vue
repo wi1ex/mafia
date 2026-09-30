@@ -14,7 +14,7 @@
               <thead>
                 <tr>
                   <th>Дата платежа</th>
-                  <th>Срок</th>
+                  <th>Срок подписки</th>
                   <th>Стоимость</th>
                   <th>Промокод</th>
                 </tr>
@@ -46,33 +46,41 @@
           <div v-if="blacklistLoading" class="blacklist-empty">Загрузка…</div>
           <div v-else-if="blacklistError" class="blacklist-empty danger">{{ blacklistError }}</div>
           <div v-else-if="blacklistItems.length === 0" class="blacklist-empty">В черном списке пока никого нет.</div>
-          <div v-else class="blacklist-list">
-            <article v-for="item in blacklistItems" :key="item.id" class="blacklist-card">
-              <button class="blacklist-user" type="button" :disabled="!canOpenMiniProfile(item)" :aria-label="`Открыть профиль ${item.username || `user${item.id}`}`" @click="openMiniProfile(item)">
-                <img class="blacklist-avatar" v-minio-img="{ key: blacklistAvatarKey(item), placeholder: iconDefaultAvatar, lazy: true, animated: true }" alt="avatar" />
-                <div class="blacklist-main">
-                  <span>{{ item.username || `user${item.id}` }}</span>
-                  <small>Добавлен: {{ formatLocalDateTime(item.created_at || '') }}</small>
-                </div>
-              </button>
-              <UiButton
-                class="blacklist-remove"
-                variant="red"
-                size="middle"
-                :icon="iconDelete"
-                :text="blacklistRemoving[item.id] ? '...' : 'Удалить из ЧС'"
-                :disabled="blacklistRemoving[item.id]"
-                @click="removeFromBlacklistProfile(item)"
-              />
-            </article>
+          <div v-else class="blacklist-table-wrap">
+            <table class="blacklist-table">
+              <thead>
+                <tr>
+                  <th>Пользователь</th>
+                  <th>Дата добавления</th>
+                  <th>Удалить из ЧС</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="item in blacklistItems" :key="item.id">
+                  <td>
+                    <button class="blacklist-user" type="button" :disabled="!canOpenMiniProfile(item)" :aria-label="`Открыть профиль ${item.username || `user${item.id}`}`" @click="openMiniProfile(item)">
+                      <img class="blacklist-avatar" v-minio-img="{ key: blacklistAvatarKey(item), placeholder: iconDefaultAvatar, lazy: true, animated: true }" alt="avatar" />
+                      <span>{{ item.username || `user${item.id}` }}</span>
+                    </button>
+                  </td>
+                  <td>{{ formatLocalDateTime(item.created_at || '') }}</td>
+                  <td>
+                    <UiButton
+                      class="blacklist-remove"
+                      variant="red"
+                      size="middle"
+                      :icon="iconDelete"
+                      icon-label="Удалить из ЧС"
+                      aria-label="Удалить из ЧС"
+                      :disabled="blacklistRemoving[item.id]"
+                      @click="removeFromBlacklistProfile(item)"
+                    />
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </section>
-        <MiniProfile
-          v-model:open="miniProfileOpen"
-          :user-id="miniProfileUserId"
-          :initial-profile="miniProfileInitial"
-          :show-stats-button="true"
-        />
     </div>
   </div>
   <MiniProfile
@@ -386,7 +394,7 @@ onMounted(() => {
       th {
         color: $neutral-300;
         font-family: Hauora-SemiBold;
-        font-size: 14px;
+        font-size: 16px;
         white-space: nowrap;
       }
       td {
@@ -408,17 +416,15 @@ onMounted(() => {
   background-color: $soft-purple-900;
   .section-title {
     display: block;
+    color: $neutral-white;
+    font-family: Involve-Medium;
+    font-size: 24px;
+    line-height: 26px;
   }
   .blacklist-title {
     display: flex;
     align-items: center;
     gap: 8px;
-  }
-  .section-title {
-    color: $neutral-white;
-    font-family: Involve-Medium;
-    font-size: 24px;
-    line-height: 26px;
   }
   .blacklist-head {
     display: flex;
@@ -434,72 +440,83 @@ onMounted(() => {
       color: $red-500;
     }
   }
-  .blacklist-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 10px;
-    margin-top: 10px;
-    .blacklist-card {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      padding: 10px;
-      border-radius: 20px;
-      background-color: $soft-purple-800;
-      .blacklist-user {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        min-width: 0;
-        padding: 0;
-        border: none;
-        border-radius: 12px;
-        background: transparent;
-        text-align: left;
-        cursor: pointer;
-        &:disabled {
-          cursor: default;
-        }
-        &:focus-visible {
-          outline: 2px solid $green-500;
-          outline-offset: 4px;
-        }
-        .blacklist-avatar {
-          flex: 0 0 auto;
-          width: 48px;
-          height: 48px;
-          border-radius: 50%;
-          object-fit: cover;
-          background-color: black;
-        }
-        .blacklist-main {
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-          min-width: 0;
-          span {
-            color: $neutral-100;
-            font-family: Hauora-SemiBold;
-            font-size: 16px;
-            line-height: 1.2;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-          }
-          small {
-            color: $neutral-300;
-            font-size: 12px;
-            line-height: 1.2;
-          }
-        }
-      }
-      .blacklist-remove {
-        flex: 0 0 auto;
-        max-width: none;
-        min-width: 130px;
-      }
+  .blacklist-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+    border: 1px solid $soft-purple-800;
+    border-radius: 20px;
+    background-color: $soft-purple-800;
+  }
+  .blacklist-table {
+    width: 100%;
+    border-collapse: collapse;
+    color: $neutral-100;
+    th,
+    td {
+      padding: 12px 16px;
+      border-bottom: 1px solid rgba($neutral-500, 0.2);
+      text-align: center;
+      vertical-align: middle;
+      line-height: 1.25;
     }
+    th:first-child,
+    td:first-child {
+      text-align: left;
+    }
+    th {
+      color: $neutral-300;
+      font-family: Hauora-SemiBold;
+      font-size: 14px;
+      white-space: nowrap;
+    }
+    td {
+      font-size: 15px;
+    }
+    tbody tr:last-child td {
+      border-bottom: none;
+    }
+  }
+  .blacklist-user {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    padding: 0;
+    border: none;
+    border-radius: 12px;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+    &:disabled {
+      cursor: default;
+    }
+    &:focus-visible {
+      outline: 2px solid $green-500;
+      outline-offset: 4px;
+    }
+    .blacklist-avatar {
+      flex: 0 0 auto;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      object-fit: cover;
+      background-color: black;
+    }
+    span {
+      color: $neutral-100;
+      font-family: Hauora-SemiBold;
+      font-size: 16px;
+      line-height: 1.2;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+  .blacklist-remove {
+    --ui-icon-width: 20px;
+    --ui-icon-height: 20px;
+    min-width: 40px;
+    padding: 0;
   }
 }
 </style>
