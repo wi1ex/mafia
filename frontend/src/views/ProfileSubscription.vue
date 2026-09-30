@@ -52,7 +52,6 @@
                 <tr>
                   <th>Пользователь</th>
                   <th>Дата добавления</th>
-                  <th>Удалить из ЧС</th>
                 </tr>
               </thead>
               <tbody>
@@ -64,18 +63,6 @@
                     </button>
                   </td>
                   <td>{{ formatLocalDateTime(item.created_at || '') }}</td>
-                  <td>
-                    <UiButton
-                      class="blacklist-remove"
-                      variant="red"
-                      size="middle"
-                      :icon="iconDelete"
-                      icon-label="Удалить из ЧС"
-                      aria-label="Удалить из ЧС"
-                      :disabled="blacklistRemoving[item.id]"
-                      @click="removeFromBlacklistProfile(item)"
-                    />
-                  </td>
                 </tr>
               </tbody>
             </table>
@@ -92,19 +79,16 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { api } from '@/services/axios'
 import { formatLocalDateTime } from '@/services/datetime'
 import { useSubscriptionStatus } from '@/services/useSubscriptionStatus'
 import { storeToRefs } from 'pinia'
 import { useFriendsStore, useUserStore, type BlacklistItem } from '@/store'
-import { alertDialog, confirmDialog } from '@/services/confirm'
 import { canOpenMiniProfileTarget, normalizeMiniProfileUserId } from '@/services/miniProfile'
-import UiButton from '@/components/UiButton.vue'
 import UiTooltip from '@/components/UiTooltip.vue'
 import MiniProfile from '@/views/MiniProfile.vue'
 import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
-import iconDelete from '@/assets/svg/iconDelete.svg'
 
 type SubscriptionPaymentPlan = 'month' | 'year'
 
@@ -235,7 +219,6 @@ const blacklistHint = computed(() => {
 })
 const blacklistLoading = ref(false)
 const blacklistError = ref('')
-const blacklistRemoving = reactive<Record<number, boolean>>({})
 const miniProfileOpen = ref(false)
 const miniProfileUserId = ref<number | null>(null)
 const miniProfileInitial = ref<BlacklistItem | null>(null)
@@ -283,34 +266,6 @@ function openMiniProfile(item: BlacklistItem): void {
   miniProfileOpen.value = true
 }
 
-async function removeFromBlacklistProfile(item: BlacklistItem): Promise<void> {
-  const uid = Number(item?.id || 0)
-  if (!Number.isFinite(uid) || uid <= 0 || blacklistRemoving[Math.trunc(uid)]) return
-  const userLabel = item.username || `user${Math.trunc(uid)}`
-  const ok = await confirmDialog({
-    title: 'Удалить из Черного списка',
-    text: `Вы уверены, что хотите удалить пользователя ${userLabel} из ЧС?`,
-    confirmText: 'Удалить',
-    cancelText: 'Отмена',
-  })
-  if (!ok) return
-  const id = Math.trunc(uid)
-  blacklistRemoving[id] = true
-  try {
-    await friendsStore.removeFromBlacklist(id)
-  } catch (e: any) {
-    const detail = String(e?.response?.data?.detail || '').trim()
-    if (detail === 'subscription_required') {
-      void userStore.fetchMe().catch(() => {})
-      void alertDialog('Черный список доступен только при активной подписке')
-    } else {
-      void alertDialog('Не удалось удалить пользователя из ЧС')
-    }
-  } finally {
-    delete blacklistRemoving[id]
-  }
-}
-
 watch(subscriptionActive, () => {
   void loadBlacklist()
 })
@@ -352,7 +307,7 @@ onMounted(() => {
     color: $neutral-white;
     font-family: Involve-Medium;
     font-size: 24px;
-    line-height: 26px;
+    line-height: 30px;
   }
   .section-count {
     padding: 8px 10px;
@@ -419,7 +374,7 @@ onMounted(() => {
     color: $neutral-white;
     font-family: Involve-Medium;
     font-size: 24px;
-    line-height: 26px;
+    line-height: 30px;
   }
   .blacklist-title {
     display: flex;
@@ -453,7 +408,7 @@ onMounted(() => {
     color: $neutral-100;
     th,
     td {
-      padding: 12px 16px;
+      padding: 14px 16px;
       border-bottom: 1px solid rgba($neutral-500, 0.2);
       text-align: center;
       vertical-align: middle;
@@ -466,7 +421,7 @@ onMounted(() => {
     th {
       color: $neutral-300;
       font-family: Hauora-SemiBold;
-      font-size: 14px;
+      font-size: 16px;
       white-space: nowrap;
     }
     td {
@@ -479,7 +434,7 @@ onMounted(() => {
   .blacklist-user {
     display: inline-flex;
     align-items: center;
-    gap: 10px;
+    gap: 4px;
     min-width: 0;
     padding: 0;
     border: none;
@@ -496,8 +451,8 @@ onMounted(() => {
     }
     .blacklist-avatar {
       flex: 0 0 auto;
-      width: 48px;
-      height: 48px;
+      width: 24px;
+      height: 24px;
       border-radius: 50%;
       object-fit: cover;
       background-color: black;
@@ -511,12 +466,6 @@ onMounted(() => {
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-  }
-  .blacklist-remove {
-    --ui-icon-width: 20px;
-    --ui-icon-height: 20px;
-    min-width: 40px;
-    padding: 0;
   }
 }
 </style>
