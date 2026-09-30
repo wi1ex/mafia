@@ -1,9 +1,13 @@
 <template>
   <section class="block-blacklist">
     <div class="blacklist-head">
-      <div>
+      <div class="blacklist-title">
         <span class="section-title">Черный список</span>
-        <span class="section-hint">Вы не сможете получать от пользователей из ЧС заявки в друзья и комнаты, а также уведомления из чата.</span>
+        <UiTooltip
+          :text="blacklistHint"
+          placement="bottom-right"
+          bubble-width="320px"
+        />
       </div>
     </div>
     <div v-if="blacklistLoading" class="blacklist-empty">Загрузка…</div>
@@ -45,7 +49,9 @@ import { useFriendsStore, useUserStore, type BlacklistItem } from '@/store'
 import { alertDialog, confirmDialog } from '@/services/confirm'
 import { formatLocalDateTime } from '@/services/datetime'
 import { canOpenMiniProfileTarget, normalizeMiniProfileUserId } from '@/services/miniProfile'
+import { useSubscriptionStatus } from '@/services/useSubscriptionStatus'
 import UiButton from '@/components/UiButton.vue'
+import UiTooltip from '@/components/UiTooltip.vue'
 import MiniProfile from '@/views/MiniProfile.vue'
 
 import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
@@ -53,7 +59,12 @@ import iconDelete from '@/assets/svg/iconDelete.svg'
 
 const friendsStore = useFriendsStore()
 const userStore = useUserStore()
+const { subscriptionHint } = useSubscriptionStatus()
 const { subscriptionActive } = storeToRefs(userStore)
+const blacklistHint = computed(() => {
+  const explanation = 'Вы не сможете получать от пользователей из ЧС заявки в друзья и комнаты, а также уведомления из чата.'
+  return `${explanation} ${subscriptionHint('Черный список доступен только при наличии подписки.')}`
+})
 const blacklistLoading = ref(false)
 const blacklistError = ref('')
 const blacklistRemoving = reactive<Record<number, boolean>>({})
@@ -151,20 +162,19 @@ onMounted(() => {
   padding: 24px;
   border-radius: 24px;
   background-color: $soft-purple-900;
-  .section-title,
-  .section-hint {
+  .section-title {
     display: block;
+  }
+  .blacklist-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
   .section-title {
     color: $neutral-white;
     font-family: Involve-Medium;
     font-size: 24px;
     line-height: 26px;
-  }
-  .section-hint {
-    margin-top: 12px;
-    color: $neutral-300;
-    font-size: 14px;
   }
   .blacklist-head {
     display: flex;
