@@ -14,7 +14,7 @@
     </div>
     <div v-if="sanctionsLoading" class="sanctions-empty">Загрузка…</div>
     <div v-else-if="sanctionsError" class="sanctions-empty danger">{{ sanctionsError }}</div>
-    <div v-else-if="sanctions.length === 0" class="sanctions-empty">Ограничений пока не было</div>
+    <div v-else-if="sanctions.length === 0" class="sanctions-empty">Список санкций пуст</div>
     <div v-else class="sanctions-list">
       <article v-for="item in sanctions" :key="item.id" class="sanction-card" :class="`sanction-card--${item.kind}`">
         <div class="sanction-head">
@@ -24,24 +24,12 @@
         </div>
         <div class="sanction-grid">
           <div class="sanction-cell">
-            <span>Срок изначальный</span>
-            <strong>{{ formatSanctionDuration(item.duration_seconds) }}</strong>
-          </div>
-          <div class="sanction-cell">
             <span>Дата выдачи</span>
             <strong>{{ formatLocalDateTime(item.issued_at) }}</strong>
           </div>
           <div class="sanction-cell">
-            <span>Срок по факту</span>
-            <strong>{{ formatDurationSeconds(item.served_seconds, '0м') }}</strong>
-          </div>
-          <div class="sanction-cell">
-            <span>Дата снятия</span>
-            <strong>{{ formatSanctionFinishedAt(item) }}</strong>
-          </div>
-          <div class="sanction-cell">
-            <span>Причина снятия</span>
-            <strong>{{ formatSanctionCompletionReason(item) }}</strong>
+            <span>Срок изначальный/по факту</span>
+            <strong>{{ formatSanctionDuration(item.duration_seconds) }}/{{ formatDurationSeconds(item.served_seconds, '0м') }}</strong>
           </div>
           <div class="sanction-cell">
             <span>Пункт правил</span>
