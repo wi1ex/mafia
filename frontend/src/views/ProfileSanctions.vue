@@ -159,14 +159,23 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 10px;
   width: 100%;
-  .sanctions-panel,
-  .sanction-card {
-    padding: 12px 24px;
+  .sanctions-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 24px;
     border-radius: 24px;
     background-color: $soft-purple-900;
   }
   .sanctions-div {
     display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .sanction-card {
+    padding: 12px 24px;
+    border-radius: 24px;
+    background-color: $soft-purple-800;
   }
   .section-header {
     display: flex;
@@ -184,7 +193,6 @@ onBeforeUnmount(() => {
   .sanctions-summary {
     display: flex;
     flex-wrap: wrap;
-    margin-top: 20px;
     gap: 8px;
     color: $neutral-300;
     span {
