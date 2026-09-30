@@ -14,7 +14,6 @@
               <thead>
                 <tr>
                   <th>Дата платежа</th>
-                  <th>Email</th>
                   <th>Срок</th>
                   <th>Стоимость</th>
                   <th>Промокод</th>
@@ -23,7 +22,6 @@
               <tbody>
                 <tr v-for="item in paymentsItems" :key="item.id">
                   <td>{{ formatPaymentPaidAt(item.paid_at) }}</td>
-                  <td>{{ item.email || '-' }}</td>
                   <td>{{ formatPaymentSubscriptionTerm(item) }}</td>
                   <td>{{ formatPaymentMoney(item.amount, item.currency) }}</td>
                   <td>{{ formatPaymentPromoDiscount(item.promo_discount_percent) }}</td>
@@ -105,7 +103,6 @@ type SubscriptionPaymentPlan = 'month' | 'year'
 type SubscriptionPaymentItem = {
   id: number
   paid_at: string
-  email?: string | null
   plan?: SubscriptionPaymentPlan | null
   subscription_months: number
   amount?: string | null
