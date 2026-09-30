@@ -243,11 +243,11 @@ const kassaPaymentPrices: Record<KassaCurrency, Record<KassaPlan, string>> = {
 }
 
 const subscriptionBenefits: readonly string[] = [
-  'анимированные GIF-аватары',
-  'выбор цвета и иконки профиля',
+  'GIF-аватар, выбор цвета и иконки профиля',
+  'статистика и история игр пользователей',
+  'вход зрителем игры сверх лимита',
   'трансляции в высоком качестве',
   'создание скрытых комнат',
-  'вход зрителем сверх лимита',
   'черный список пользователей',
   'безлимитное изменение никнейма и его истории',
 ]
@@ -645,8 +645,8 @@ onBeforeUnmount(() => {
                 span {
                   color: $neutral-white;
                   font-family: Hauora-Regular;
-                  font-size: 18px;
-                  line-height: 18px;
+                  font-size: 16px;
+                  line-height: 16px;
                   letter-spacing: -0.32px;
                 }
               }

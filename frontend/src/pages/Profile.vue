@@ -242,6 +242,7 @@ onBeforeUnmount(() => {
     display: flex;
     flex-direction: column;
     justify-content: space-between;
+    gap: 24px;
     width: 298px;
     .tab-div {
       display: flex;
