@@ -413,7 +413,7 @@ onMounted(() => {
         text-align: center;
       }
       th {
-        color: $neutral-300;
+        color: $neutral-white;
         font-family: Hauora-SemiBold;
         font-size: 16px;
         white-space: nowrap;
@@ -486,7 +486,7 @@ onMounted(() => {
       text-align: left;
     }
     th {
-      color: $neutral-300;
+      color: $neutral-white;
       font-family: Hauora-SemiBold;
       font-size: 16px;
       white-space: nowrap;
