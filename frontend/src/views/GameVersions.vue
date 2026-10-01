@@ -306,8 +306,8 @@ function requestCancel(): void {
     flex-direction: column;
     box-sizing: border-box;
     padding: 24px;
-    gap: 24px;
-    width: 100%;
+    gap: 12px;
+    width: 75%;
     max-width: 1500px;
     max-height: 100%;
     min-height: 0;
@@ -325,7 +325,7 @@ function requestCancel(): void {
     }
     .game-versions-modal__header {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: space-between;
       gap: 24px;
       .game-versions-modal__heading {
@@ -457,7 +457,7 @@ function requestCancel(): void {
         background-color: $soft-purple-800;
         .version-card__heading {
           display: flex;
-          align-items: center;
+          align-items: flex-start;
           justify-content: space-between;
           margin-bottom: 4px;
           gap: 12px;
@@ -507,7 +507,7 @@ function requestCancel(): void {
         }
         .version-card__checks-heading {
           display: flex;
-          align-items: center;
+          align-items: flex-start;
           justify-content: space-between;
           margin-top: 4px;
           gap: 12px;
