@@ -29,3 +29,4 @@ class SubscriptionGrant(Base):
     months: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     days: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     payment_id: Mapped[int | None] = mapped_column(Integer, nullable=True, unique=True)
+    source_log_id: Mapped[int | None] = mapped_column(Integer, nullable=True, unique=True, index=True)

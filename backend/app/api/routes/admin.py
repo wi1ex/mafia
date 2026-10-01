@@ -2169,7 +2169,8 @@ async def subscriptions_upsert(payload: AdminSubscriptionCreateIn, ident: Identi
     if should_issue_subscription_nickname_limit:
         set_user_nickname_changes(user, SUBSCRIPTION_NICKNAME_CHANGE_LIMIT)
     await ensure_profile_theme_defaults(session, uid, now=now)
-    session.add(SubscriptionGrant(user_id=uid, issued_at=now, reason="Донат", months=months, days=days))
+    grant = SubscriptionGrant(user_id=uid, issued_at=now, reason="Донат", months=months, days=days)
+    session.add(grant)
 
     await session.commit()
     await session.refresh(subscription)
@@ -2184,7 +2185,7 @@ async def subscriptions_upsert(payload: AdminSubscriptionCreateIn, ident: Identi
         details=(
             f"Подписка user_id={uid} username={user.username or f'user{uid}'} "
             f"months={months} days={days} starts_at={subscription.starts_at.isoformat()} "
-            f"ends_at={subscription.ends_at.isoformat()}"
+            f"ends_at={subscription.ends_at.isoformat()} subscription_grant_id={grant.id}"
         ),
     )
 

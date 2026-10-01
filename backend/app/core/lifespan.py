@@ -7,6 +7,9 @@ from ..security.admin_guard import assert_protected_admin_invariants
 from ..security.parameters import ensure_app_settings
 from ..services.game_scoring import ensure_game_scoring_settings
 from ..models.sanction_rules import ensure_sanction_rules
+##############################################################
+from ..scripts.import_manual_subscription_grants import import_manual_grants
+##############################################################
 from .background_tasks import LifespanBackgroundTasks, verify_runtime_dependencies
 from .clients import close_clients, init_clients
 from .db import Base, SessionLocal, engine
@@ -26,10 +29,12 @@ async def lifespan(app) -> AsyncIterator[None]:
         async with engine.begin() as conn:
             await conn.execute(text("SELECT 1"))
             await conn.run_sync(Base.metadata.create_all)
-
+            ##############################################################
             await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS rating_host_minutes BIGINT NOT NULL DEFAULT 0"))
             await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS rating_host_reward_days BIGINT NOT NULL DEFAULT 0"))
             await conn.execute(text("ALTER TABLE games ADD COLUMN IF NOT EXISTS host_reward_minutes INTEGER"))
+            await conn.execute(text("ALTER TABLE subscription_grants ADD COLUMN IF NOT EXISTS source_log_id INTEGER"))
+            await conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_subscription_grants_source_log_id ON subscription_grants (source_log_id)"))
             await conn.execute(text("""
                 INSERT INTO subscription_grants (user_id, issued_at, reason, months, days, payment_id)
                 SELECT user_id, processed_at, 'Оплата', subscription_months, 0, id
@@ -38,8 +43,14 @@ async def lifespan(app) -> AsyncIterator[None]:
                     AND user_id IS NOT NULL AND subscription_months > 0
                 ON CONFLICT (payment_id) DO NOTHING
             """))
+            ##############################################################
 
         async with SessionLocal() as session:
+            ##############################################################
+            imported_grants = await import_manual_grants(session)
+            await session.commit()
+            log.info("subscription.manual_history.imported", **imported_grants)
+            ##############################################################
             await ensure_app_settings(session)
             await ensure_game_scoring_settings(session)
             await ensure_sanction_rules(session)
