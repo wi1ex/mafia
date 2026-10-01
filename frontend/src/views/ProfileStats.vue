@@ -557,7 +557,7 @@ onMounted(() => {
         background: $soft-purple-900;
         display: flex;
         flex-direction: column;
-        gap: 24px;
+        gap: 12px;
         min-width: 0;
         h3 {
           margin: 0;
@@ -614,8 +614,8 @@ onMounted(() => {
                   justify-content: center;
                   gap: 6px;
                   .legend-dot {
-                    flex: 0 0 6px;
-                    height: 6px;
+                    flex: 0 0 10px;
+                    height: 10px;
                     border-radius: 50%;
                     &.wins {
                       background: $green-500;
@@ -625,11 +625,11 @@ onMounted(() => {
                     }
                   }
                   .legend-label {
-                    font-size: 12px;
+                    font-size: 14px;
                   }
                   .legend-pct {
                     font-family: Hauora-Regular;
-                    font-size: 12px;
+                    font-size: 16px;
                     color: $neutral-100;
                     white-space: nowrap;
                   }
@@ -645,7 +645,7 @@ onMounted(() => {
               display: flex;
               flex-direction: column;
               align-items: center;
-              gap: 8px;
+              gap: 4px;
               min-width: 0;
               .role-name {
                 font-size: 14px;
@@ -715,7 +715,7 @@ onMounted(() => {
                       }
                       .legend-pct {
                         font-family: Hauora-Regular;
-                        font-size: 12px;
+                        font-size: 14px;
                         color: $neutral-100;
                         white-space: nowrap;
                       }
@@ -734,7 +734,7 @@ onMounted(() => {
         background: $soft-purple-900;
         display: flex;
         flex-direction: column;
-        gap: 24px;
+        gap: 12px;
         min-width: 0;
         h3 {
           margin: 0;
@@ -746,7 +746,7 @@ onMounted(() => {
           letter-spacing: -0.48px;
         }
         .section-hint {
-          margin: -8px 0 0;
+          margin: -8px 0 8px;
           color: $neutral-300;
           font-size: 14px;
         }
@@ -779,17 +779,17 @@ onMounted(() => {
             display: flex;
             flex-direction: column;
             padding: 12px 16px;
-            gap: 10px;
+            gap: 6px;
             border-radius: 16px;
             background: $soft-purple-800;
             .rank-top {
               display: grid;
               grid-template-columns: 24px minmax(0, 1fr) auto;
               align-items: center;
-              gap: 8px;
+              gap: 4px;
               .rank-pos {
                 color: $neutral-300;
-                font-size: 14px;
+                font-size: 16px;
               }
               .rank-name {
                 overflow: hidden;
@@ -797,7 +797,7 @@ onMounted(() => {
                 text-overflow: ellipsis;
               }
               .rank-val {
-                color: $green-500;
+                color: $neutral-white;
                 font-family: Hauora-Medium;
                 font-weight: 500;
               }
@@ -820,7 +820,7 @@ onMounted(() => {
     }
     .performance-row {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr);
+      grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
       gap: 10px;
       .block {
         box-sizing: border-box;
@@ -862,9 +862,10 @@ onMounted(() => {
               font-size: 14px;
             }
             strong {
+              text-align: end;
               font-family: Involve-Medium;
               font-weight: 500;
-              font-size: 24px;
+              font-size: 26px;
               line-height: 1.2;
               overflow-wrap: anywhere;
             }
@@ -872,14 +873,14 @@ onMounted(() => {
           .best-bars {
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 6px;
             .best-row {
               display: grid;
               grid-template-columns: 32px minmax(0, 1fr) 40px;
               align-items: center;
-              gap: 16px;
+              gap: 8px;
               strong {
-                text-align: right;
+                text-align: center;
                 font-weight: 500;
               }
               .best-label {
@@ -903,7 +904,7 @@ onMounted(() => {
         }
         .extra-grid {
           display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
+          grid-template-columns: repeat(4, minmax(0, 1fr));
           gap: 10px;
           .metric-card {
             display: flex;
@@ -921,9 +922,10 @@ onMounted(() => {
               font-size: 14px;
             }
             strong {
+              text-align: end;
               font-family: Involve-Medium;
               font-weight: 500;
-              font-size: 24px;
+              font-size: 18px;
               line-height: 1.2;
               overflow-wrap: anywhere;
             }

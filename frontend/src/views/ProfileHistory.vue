@@ -35,7 +35,6 @@
               <div class="game-number-row">
                 <span class="game-number">Игра #{{ game.number }}</span>
               </div>
-              <span class="game-mode" :class="{ 'game-mode--rating': game.mode === 'rating' }">{{ game.mode === 'rating' ? 'Рейтинговая игра' : 'Обычная игра' }}</span>
               <div class="game-head">
                 <span>Ведущий:</span>
                 <template v-if="game.head.auto">
@@ -46,6 +45,7 @@
                   <span>{{ headName(game) }}</span>
                 </template>
               </div>
+              <span class="game-mode" :class="{ 'game-mode--rating': game.mode === 'rating' }">{{ game.mode === 'rating' ? 'Рейтинговая игра' : 'Обычная игра' }}</span>
             </div>
             <div v-if="game.player_role" class="game-role-badge">
               <img class="game-role-icon" :src="playerRoleIcon(game.player_role)" :alt="roleLabel(game.player_role)" />
@@ -63,7 +63,7 @@
           </div>
 
           <div v-if="game.mode === 'rating'" class="history-main-stats">
-            <span>Баллы: {{ formatSignedPoints(game.player_points) }}</span>
+            <span>{{ formatSignedPoints(game.player_points) }}</span>
 <!--            <span>MMR: {{ formatSignedValue(game.player_mmr) }}</span>-->
           </div>
 

@@ -138,7 +138,6 @@
               <div class="game-number-row">
                 <span class="game-number">Игра #{{ game.number }}</span>
               </div>
-              <span class="game-mode" :class="{ 'game-mode--rating': game.mode === 'rating' }">{{ game.mode === 'rating' ? 'Рейтинговая игра' : 'Обычная игра' }}</span>
               <div class="game-head">
                 <span>Ведущий:</span>
                 <template v-if="game.head.auto">
@@ -149,6 +148,7 @@
                   <span>{{ headName(game) }}</span>
                 </template>
               </div>
+              <span class="game-mode" :class="{ 'game-mode--rating': game.mode === 'rating' }">{{ game.mode === 'rating' ? 'Рейтинговая игра' : 'Обычная игра' }}</span>
             </div>
 
             <div class="history-main-mid">
