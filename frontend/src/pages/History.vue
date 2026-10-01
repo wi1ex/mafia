@@ -813,13 +813,13 @@ onBeforeUnmount(() => {
           display: grid;
           grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
           align-items: center;
-          padding: 24px;
+          padding: 12px 24px;
           gap: 24px;
           .history-main-left {
             display: flex;
             flex-direction: column;
             align-items: flex-start;
-            gap: 12px;
+            gap: 6px;
             min-width: 0;
             .game-number-row {
               display: flex;
@@ -837,7 +837,7 @@ onBeforeUnmount(() => {
               padding: 6px 10px;
               border-radius: 8px;
               background: $soft-purple-800;
-              color: $neutral-300;
+              color: $neutral-100;
               font-size: 12px;
               line-height: 16px;
               &--rating {
@@ -848,7 +848,7 @@ onBeforeUnmount(() => {
             .game-head {
               display: flex;
               align-items: center;
-              gap: 6px;
+              gap: 4px;
               max-width: 100%;
               min-width: 0;
               font-size: 14px;
@@ -873,7 +873,7 @@ onBeforeUnmount(() => {
           .history-main-mid {
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 4px;
             color: $neutral-300;
             font-size: 14px;
             min-width: 0;
@@ -889,6 +889,7 @@ onBeforeUnmount(() => {
             align-items: center;
             justify-content: center;
             gap: 8px;
+            min-width: 130px;
             min-height: 40px;
             padding: 0 12px;
             border: 1px solid $soft-purple-700;

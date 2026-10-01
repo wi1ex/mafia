@@ -417,7 +417,7 @@ function basePointsLabel(breakdown: GameHistoryPointsBreakdown): string {
       .slot-top {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 4px;
         min-width: 0;
         .slot-num-label {
           display: inline-flex;
@@ -467,6 +467,7 @@ function basePointsLabel(breakdown: GameHistoryPointsBreakdown): string {
             overflow: hidden;
             text-overflow: ellipsis;
             min-width: 0;
+            transition: color 0.25s ease-in-out;
           }
           &:not(:disabled):hover span {
             color: $green-500;
@@ -487,6 +488,7 @@ function basePointsLabel(breakdown: GameHistoryPointsBreakdown): string {
       .slot-metrics {
         display: flex;
         flex-direction: column;
+        align-items: flex-end;
         gap: 5px;
         color: $neutral-100;
         font-size: 14px;

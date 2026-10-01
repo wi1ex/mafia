@@ -596,7 +596,7 @@ onBeforeUnmount(() => {
         display: grid;
         grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) 136px 126px;
         align-items: center;
-        padding: 24px;
+        padding: 12px 24px;
         gap: 24px;
         .history-main-div {
           display: flex;
@@ -608,7 +608,7 @@ onBeforeUnmount(() => {
             display: flex;
             flex-direction: column;
             align-items: flex-start;
-            gap: 12px;
+            gap: 6px;
             min-width: 0;
             .game-number-row {
               display: flex;
@@ -626,7 +626,7 @@ onBeforeUnmount(() => {
               padding: 6px 10px;
               border-radius: 8px;
               background: $soft-purple-800;
-              color: $neutral-300;
+              color: $neutral-100;
               font-size: 12px;
               line-height: 16px;
               &--rating {
@@ -637,7 +637,7 @@ onBeforeUnmount(() => {
             .game-head {
               display: flex;
               align-items: center;
-              gap: 6px;
+              gap: 4px;
               max-width: 100%;
               min-width: 0;
               font-size: 14px;
@@ -663,9 +663,8 @@ onBeforeUnmount(() => {
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 8px;
             flex: 0 0 100px;
-            padding: 12px 8px;
+            padding: 8px;
             box-sizing: border-box;
             border-radius: 20px;
             background: $soft-purple-800;
@@ -678,11 +677,8 @@ onBeforeUnmount(() => {
               display: flex;
               flex-direction: column;
               align-items: center;
-              gap: 4px;
-              font-size: 12px;
-              .game-role-name {
-                color: $neutral-300;
-              }
+              font-size: 14px;
+              .game-role-name,
               .game-role-outcome {
                 color: $neutral-100;
               }
@@ -692,7 +688,7 @@ onBeforeUnmount(() => {
         .history-main-mid {
           display: flex;
           flex-direction: column;
-          gap: 10px;
+          gap: 4px;
           color: $neutral-300;
           font-size: 14px;
           min-width: 0;
@@ -794,7 +790,7 @@ onBeforeUnmount(() => {
   }
   .history-pager {
     box-sizing: border-box;
-    padding: 24px;
+    padding: 12px 24px;
     border-radius: 24px;
     background: $soft-purple-900;
     display: flex;
