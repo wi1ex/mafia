@@ -8,9 +8,8 @@
             <img v-minio-img="{ key: slot.avatar_name ? `avatars/${slot.avatar_name}` : '', placeholder: defaultAvatar }" alt="avatar" />
             <span>{{ slot.username || 'Пусто' }}</span>
           </button>
+          <img v-if="slot.role" class="slot-role-icon" :src="roleIcon(slot.role)" alt="role" />
         </div>
-
-        <img v-if="slot.role" class="slot-role-icon" :src="roleIcon(slot.role)" alt="role" />
 
         <div v-if="slot.leave_day && slot.leave_reason" class="slot-leave">
           <span>{{ leaveMomentLabel(slot.leave_day, slot.leave_reason) }}</span>
@@ -395,8 +394,10 @@ function basePointsLabel(breakdown: GameHistoryPointsBreakdown): string {
 
 <style scoped lang="scss">
 .history-details {
-  padding: 10px;
-  border-top: 1px solid $neutral-700;
+  padding: 0;
+  font-family: Hauora-Regular;
+  line-height: 1.4;
+  color: $neutral-100;
   .slots-grid {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -405,47 +406,30 @@ function basePointsLabel(breakdown: GameHistoryPointsBreakdown): string {
       display: flex;
       position: relative;
       flex-direction: column;
-      padding: 10px;
-      gap: 5px;
-      min-height: 130px;
-      border-radius: 5px;
-      background-color: $neutral-900;
-      border: 1px solid rgba($neutral-500, 0.25);
-      &.role-citizen {
-        background-color: rgba($red-500, 0.2);
-      }
-      &.role-sheriff {
-        background-color: rgba($yellow-500, 0.2);
-      }
-      &.role-mafia {
-        background-color: $neutral-900;
-      }
-      &.role-don {
-        background-color: $neutral-black;
-      }
-      .slot-role-icon {
-        position: absolute;
-        top: 10px;
-        right: 10px;
-        width: 25px;
-        height: 25px;
-        z-index: 1;
-      }
+      padding: 16px;
+      gap: 12px;
+      min-height: 200px;
+      border-radius: 20px;
+      background-color: $soft-purple-800;
+      border: none;
+      box-sizing: border-box;
+      min-width: 0;
       .slot-top {
         display: flex;
         align-items: center;
-        gap: 5px;
+        gap: 8px;
+        min-width: 0;
         .slot-num-label {
           display: inline-flex;
           align-items: center;
           justify-content: center;
           flex: 0 0 auto;
-          width: 25px;
-          height: 25px;
-          border-radius: 5px;
-          background-color: $neutral-700;
-          color: $neutral-100;
-          font-family: Hauora-SemiBold;
+          width: 28px;
+          height: 28px;
+          border-radius: 8px;
+          background-color: $soft-purple-900;
+          color: $neutral-300;
+          font-family: Hauora-Medium;
           font-size: 14px;
           line-height: 18px;
         }
@@ -460,6 +444,8 @@ function basePointsLabel(breakdown: GameHistoryPointsBreakdown): string {
           color: inherit;
           font: inherit;
           text-align: left;
+          flex: 1;
+          font-size: 14px;
           &:not(:disabled) {
             cursor: pointer;
           }
@@ -472,28 +458,42 @@ function basePointsLabel(breakdown: GameHistoryPointsBreakdown): string {
             height: 20px;
             border-radius: 50%;
             object-fit: cover;
+            flex-shrink: 0;
           }
           span {
-            width: 105px;
-            height: 14px;
             color: $neutral-100;
-            font-size: 12px;
+            font-size: 14px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            min-width: 0;
           }
+          &:not(:disabled):hover span {
+            color: $green-500;
+          }
+          &:focus-visible {
+            outline: 2px solid $green-500;
+            outline-offset: 4px;
+            border-radius: 8px;
+          }
+        }
+        .slot-role-icon {
+          width: 24px;
+          height: 24px;
+          flex-shrink: 0;
+          object-fit: contain;
         }
       }
       .slot-metrics {
         display: flex;
-        position: absolute;
-        left: 10px;
-        bottom: 10px;
         flex-direction: column;
         gap: 5px;
-        color: $neutral-300;
-        font-size: 12px;
+        color: $neutral-100;
+        font-size: 14px;
         font-variant-numeric: tabular-nums;
+        margin-top: auto;
+        padding-top: 12px;
+        border-top: 1px solid $soft-purple-700;
         .points-metric {
           display: inline-flex;
           position: relative;
@@ -518,16 +518,16 @@ function basePointsLabel(breakdown: GameHistoryPointsBreakdown): string {
             bottom: calc(100% + 8px);
             left: 0;
             flex-direction: column;
-            width: min(300px, calc(100vw - 32px));
-            padding: 12px;
-            gap: 5px;
-            border: 1px solid $neutral-600;
-            border-radius: 8px;
-            background-color: $neutral-900;
+            width: 300px;
+            padding: 16px;
+            gap: 8px;
+            border: 1px solid $soft-purple-700;
+            border-radius: 16px;
+            background-color: $soft-purple-900;
             box-shadow: 0 8px 22px rgba($neutral-black, 0.45);
             color: $neutral-100;
-            font-size: 12px;
-            line-height: 16px;
+            font-size: 14px;
+            line-height: 20px;
             white-space: normal;
             pointer-events: none;
             visibility: hidden;
@@ -554,11 +554,12 @@ function basePointsLabel(breakdown: GameHistoryPointsBreakdown): string {
       .slot-extra {
         color: $neutral-300;
         font-size: 12px;
-        line-height: 1.2;
+        line-height: 18px;
         &.slot-extra-best-move {
           display: flex;
           align-items: center;
-          gap: 5px;
+          gap: 6px;
+          flex-wrap: wrap;
           .slot-extra-label {
             color: $neutral-300;
           }
@@ -571,19 +572,20 @@ function basePointsLabel(breakdown: GameHistoryPointsBreakdown): string {
               display: inline-flex;
               align-items: center;
               justify-content: center;
-              min-width: 16px;
-              height: 16px;
-              border-radius: 5px;
-              background-color: $orange-500;
-              color: $neutral-black;
-              font-size: 10px;
+              min-width: 20px;
+              height: 20px;
+              border-radius: 6px;
+              background-color: rgba($green-500, 0.16);
+              color: $green-400;
+              font-size: 12px;
             }
           }
         }
         &.slot-extra-farewell {
           display: flex;
           align-items: center;
-          gap: 5px;
+          gap: 6px;
+          flex-wrap: wrap;
           .slot-extra-label {
             color: $neutral-300;
           }
@@ -596,11 +598,11 @@ function basePointsLabel(breakdown: GameHistoryPointsBreakdown): string {
               display: inline-flex;
               align-items: center;
               justify-content: center;
-              min-width: 16px;
-              height: 16px;
-              border-radius: 5px;
+              min-width: 20px;
+              height: 20px;
+              border-radius: 6px;
               color: $neutral-100;
-              font-size: 10px;
+              font-size: 12px;
               &.citizen {
                 background-color: $red-500;
               }
@@ -613,7 +615,8 @@ function basePointsLabel(breakdown: GameHistoryPointsBreakdown): string {
         &.slot-extra-night-checks {
           display: flex;
           align-items: center;
-          gap: 5px;
+          gap: 6px;
+          flex-wrap: wrap;
           .slot-extra-label {
             color: $neutral-300;
           }
@@ -626,11 +629,11 @@ function basePointsLabel(breakdown: GameHistoryPointsBreakdown): string {
               display: inline-flex;
               align-items: center;
               justify-content: center;
-              min-width: 16px;
-              height: 16px;
-              border-radius: 5px;
+              min-width: 20px;
+              height: 20px;
+              border-radius: 6px;
               color: $neutral-100;
-              font-size: 10px;
+              font-size: 12px;
               &.citizen {
                 background-color: $red-500;
               }
@@ -648,11 +651,12 @@ function basePointsLabel(breakdown: GameHistoryPointsBreakdown): string {
       .slot-leave {
         display: inline-flex;
         align-items: center;
-        gap: 5px;
-        max-width: calc(100% - 70px);
-        color: $orange-500;
+        gap: 6px;
+        max-width: 100%;
+        color: $orange-300;
         font-size: 12px;
-        line-height: 1.2;
+        line-height: 18px;
+        flex-wrap: wrap;
         span {
           min-width: fit-content;
         }
@@ -660,11 +664,11 @@ function basePointsLabel(breakdown: GameHistoryPointsBreakdown): string {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          padding: 3px 5px;
-          border-radius: 5px;
-          background-color: rgba($red-500, 0.75);
-          color: $neutral-white;
-          font-size: 10px;
+          padding: 4px 6px;
+          border-radius: 6px;
+          background-color: rgba($red-500, 0.16);
+          color: $red-300;
+          font-size: 12px;
           font-family: Hauora-SemiBold;
           line-height: 1.1;
         }
@@ -677,12 +681,12 @@ function basePointsLabel(breakdown: GameHistoryPointsBreakdown): string {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            min-width: 16px;
-            height: 16px;
-            border-radius: 5px;
-            background-color: $neutral-300;
-            color: $neutral-black;
-            font-size: 10px;
+            min-width: 20px;
+            height: 20px;
+            border-radius: 6px;
+            background-color: $soft-purple-900;
+            color: $neutral-100;
+            font-size: 12px;
           }
         }
         .leave-reason-icon {
@@ -695,8 +699,17 @@ function basePointsLabel(breakdown: GameHistoryPointsBreakdown): string {
           }
         }
       }
+      &:nth-child(5n) {
+        .slot-metrics {
+          .points-metric {
+            .points-tooltip {
+              left: auto;
+              right: 0;
+            }
+          }
+        }
+      }
     }
   }
 }
-
 </style>

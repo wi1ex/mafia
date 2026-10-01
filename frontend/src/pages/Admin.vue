@@ -1200,7 +1200,7 @@
       </div>
     </Transition>
 
-    <Sanction
+    <SanctionModal
       :open="sanctionAdjustModalOpen"
       :title="sanctionAdjustTitle"
       :saving="sanctionAdjustSaving"
@@ -1280,7 +1280,7 @@ import { normalizeNotificationText, parseNotificationText } from '@/services/not
 import SubscriptionModal from '@/views/SubscriptionModal.vue'
 import ContactModal from '@/views/ContactModal.vue'
 import MiniProfile from '@/views/MiniProfile.vue'
-import Sanction from '@/views/Sanction.vue'
+import SanctionModal from '@/views/SanctionModal.vue'
 import UiSwitch from '@/components/UiSwitch.vue'
 import UiInput from '@/components/UiInput.vue'
 import UiIcon from '@/components/UiIcon.vue'

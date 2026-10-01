@@ -516,7 +516,6 @@ onMounted(() => {
   gap: 10px;
   width: 100%;
   min-width: 0;
-  container-type: inline-size;
   color: $neutral-100;
   font-family: Hauora-Regular;
   line-height: 1.4;
@@ -603,7 +602,7 @@ onMounted(() => {
             justify-content: center;
             margin: auto;
             width: 100%;
-            max-width: 280px;
+            max-width: 300px;
             aspect-ratio: 1;
             border-radius: 50%;
             &::before {

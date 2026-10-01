@@ -536,7 +536,6 @@ onBeforeUnmount(() => {
   gap: 10px;
   width: 100%;
   min-width: 0;
-  container-type: inline-size;
   color: $neutral-100;
   font-family: Hauora-Regular;
   line-height: 1.4;
@@ -595,7 +594,7 @@ onBeforeUnmount(() => {
       background: $soft-purple-900;
       .history-main {
         display: grid;
-        grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto auto;
+        grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) 136px 126px;
         align-items: center;
         padding: 24px;
         gap: 24px;
@@ -776,17 +775,6 @@ onBeforeUnmount(() => {
         margin: 0 24px 24px;
         padding-top: 16px;
         border-top: 1px solid $soft-purple-800;
-        :deep(.history-details) {
-          padding: 0;
-          border-top: 0;
-          .slots-grid {
-            .slot-card {
-              border-radius: 16px;
-              background-color: $soft-purple-800;
-              border-color: transparent;
-            }
-          }
-        }
         .history-extra-state {
           padding: 24px;
           text-align: center;
@@ -816,8 +804,6 @@ onBeforeUnmount(() => {
     gap: 16px;
     color: $neutral-300;
     font-size: 14px;
-    > span {
-    }
   }
 }
 </style>

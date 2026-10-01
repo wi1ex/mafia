@@ -284,7 +284,7 @@
         </section>
       </div>
     </Transition>
-    <Sanction
+    <SanctionModal
       :open="staffSanctionModalOpen"
       :title="staffSanctionTitle"
       :saving="staffSanctionSaving"
@@ -331,7 +331,7 @@ import {
 } from '@/store'
 import ProfileStats from '@/views/ProfileStats.vue'
 import ProfileHistory from '@/views/ProfileHistory.vue'
-import Sanction from '@/views/Sanction.vue'
+import SanctionModal from '@/views/SanctionModal.vue'
 import SubscriptionModal from '@/views/SubscriptionModal.vue'
 import UiIcon from '@/components/UiIcon.vue'
 import UiLoaderIcon from '@/components/UiLoaderIcon.vue'

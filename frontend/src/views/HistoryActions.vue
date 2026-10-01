@@ -1,7 +1,5 @@
 <template>
-  <span v-if="isAdmin" class="actions-trigger" @pointerdown.stop @click.stop.prevent="openModal">
-    Подробности
-  </span>
+  <UiButton v-if="isAdmin" variant="white" size="low" text="Действия игры" @pointerdown.stop @click.stop.prevent="openModal" />
 
   <Teleport to="#desktop-teleport-root">
     <Transition name="overlay">
@@ -10,7 +8,7 @@
         <div class="modal" role="dialog" aria-modal="true" :aria-label="`Подробности игры #${gameNumber}`">
           <header class="modal-header">
             <div class="modal-header-main">
-              <span>Подробности игры #{{ gameNumber }}</span>
+              <h2 class="modal-title">Подробности игры #{{ gameNumber }}</h2>
               <div class="editors">
                 <div class="editor">
                   <label :for="`game-history-result-${gameId}`">Исход игры</label>
@@ -94,7 +92,7 @@
               </div>
             </div>
             <button class="icon" type="button" aria-label="Закрыть" @click="closeModal">
-              <img :src="iconClose" alt="close" />
+              <UiIcon class="close-icon" :icon="iconClose" />
             </button>
           </header>
 
@@ -139,6 +137,9 @@ import { computed, ref, watch } from 'vue'
 import { api } from '@/services/axios'
 import { formatLocalDateTime } from '@/services/datetime'
 import { useUserStore } from '@/store'
+
+import UiButton from '@/components/UiButton.vue'
+import UiIcon from '@/components/UiIcon.vue'
 
 import iconClose from '@/assets/svg/iconClose.svg'
 
@@ -742,150 +743,259 @@ watch(
 </script>
 
 <style scoped lang="scss">
-.actions-trigger {
-  display: inline-flex;
-  align-items: center;
-  color: $orange-500;
-  font-size: 12px;
-  line-height: 1;
-  text-decoration: underline;
-  cursor: pointer;
-  transition: opacity 0.25s ease-in-out;
-}
 .overlay {
   position: fixed;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: rgba($neutral-800, 0.2);
+  background-color: rgba($neutral-black, 0.6);
   backdrop-filter: blur(12px);
   z-index: 1100;
   .modal {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    width: min(980px, calc(100% - 30px));
-    max-height: calc(var(--app-viewport-height) - 40px);
-    padding: 10px;
-    border-radius: 5px;
-    background-color: $neutral-800;
+    gap: 24px;
+    width: 1120px;
+    max-height: calc(var(--app-viewport-height, 100dvh) - 80px);
+    padding: 24px;
+    border-radius: 24px;
+    background-color: $soft-purple-900;
     box-sizing: border-box;
+    overflow: auto;
+    scrollbar-width: thin;
+    scrollbar-color: $soft-purple-700 transparent;
+    font-family: Hauora-Regular;
+    line-height: 1.4;
+    color: $neutral-100;
     .modal-header {
       display: flex;
       align-items: flex-start;
       justify-content: space-between;
-      gap: 10px;
+      gap: 24px;
+      flex-shrink: 0;
       .modal-header-main {
         display: flex;
         flex-direction: column;
-        gap: 10px;
+        gap: 24px;
         min-width: 0;
-        span {
-          color: $neutral-100;
-          font-size: 18px;
-          font-family: Hauora-Regular;
+        flex: 1;
+        .modal-title {
+          color: $neutral-white;
+          font-size: 24px;
+          font-family: Involve-Medium;
+          margin: 0;
+          font-weight: 500;
+          line-height: 26px;
+          letter-spacing: -0.48px;
         }
-      }
-      .editors {
-        display: flex;
-        gap: 20px;
-        .editor {
+        .editors {
+          display: grid;
+          gap: 16px;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          .editor {
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 8px;
+            min-width: 0;
+            label {
+              color: $neutral-300;
+              font-size: 14px;
+              line-height: 20px;
+              min-height: 40px;
+            }
+            .editor-status {
+              color: $neutral-300;
+              font-size: 12px;
+              line-height: 1.2;
+              &.editor-status--error {
+                color: $orange-500;
+              }
+            }
+            select {
+              box-sizing: border-box;
+              width: 100%;
+              height: 40px;
+              padding: 0 12px;
+              border: 1px solid $green-200;
+              border-radius: 12px;
+              background-color: $soft-purple-900;
+              color: $neutral-100;
+              font-family: Hauora-Regular;
+              font-size: 16px;
+              cursor: pointer;
+              color-scheme: dark;
+              &:not(:disabled):hover {
+                border-color: $green-500;
+              }
+              &:focus-visible {
+                outline: 2px solid $green-500;
+                outline-offset: 3px;
+              }
+              &:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+              }
+              option {
+                background-color: $soft-purple-900;
+                color: $neutral-100;
+              }
+            }
+          }
+        }
+        .foul-removal-editor {
           display: flex;
           flex-direction: column;
-          align-items: flex-start;
-          gap: 5px;
-          width: min(320px, 100%);
-          label {
-            color: $neutral-500;
-            font-size: 13px;
-            line-height: 1.2;
-            width: max-content;
-          }
-          .editor-status {
-            color: $neutral-300;
-            font-size: 12px;
-            line-height: 1.2;
-            &.editor-status--error {
-              color: $orange-500;
+          gap: 16px;
+          padding: 16px;
+          border-radius: 20px;
+          background-color: $soft-purple-800;
+          .editors {
+            display: grid;
+            gap: 16px;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            .editor {
+              display: flex;
+              flex-direction: column;
+              align-items: stretch;
+              gap: 8px;
+              min-width: 0;
+              label {
+                color: $neutral-300;
+                font-size: 14px;
+                line-height: 20px;
+                min-height: 40px;
+              }
+              .editor-status {
+                color: $neutral-300;
+                font-size: 12px;
+                line-height: 1.2;
+                &.editor-status--error {
+                  color: $orange-500;
+                }
+              }
+              select {
+                box-sizing: border-box;
+                width: 100%;
+                height: 40px;
+                padding: 0 12px;
+                border: 1px solid $green-200;
+                border-radius: 12px;
+                background-color: $soft-purple-800;
+                color: $neutral-100;
+                font-family: Hauora-Regular;
+                font-size: 16px;
+                cursor: pointer;
+                color-scheme: dark;
+                &:not(:disabled):hover {
+                  border-color: $green-500;
+                }
+                &:focus-visible {
+                  outline: 2px solid $green-500;
+                  outline-offset: 3px;
+                }
+                &:disabled {
+                  opacity: 0.5;
+                  cursor: not-allowed;
+                }
+                option {
+                  background-color: $soft-purple-900;
+                  color: $neutral-100;
+                }
+              }
             }
           }
-        }
-      }
-      .foul-removal-editor {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        width: min(520px, 100%);
-        .foul-removal-head {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          span {
-            color: $neutral-100;
-            font-size: 14px;
-            font-family: Hauora-SemiBold;
-            line-height: 1.2;
-          }
-          small {
-            color: $neutral-300;
-            font-size: 12px;
-            line-height: 1.2;
-            &.editor-status--error {
-              color: $orange-500;
+          .foul-removal-head {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            span {
+              color: $neutral-100;
+              font-size: 14px;
+              font-family: Hauora-SemiBold;
+              line-height: 1.2;
+            }
+            small {
+              color: $neutral-300;
+              font-size: 12px;
+              line-height: 1.2;
+              &.editor-status--error {
+                color: $orange-500;
+              }
             }
           }
-        }
-        .foul-removal-grid {
-          display: grid;
-          grid-template-columns: repeat(5, minmax(0, 1fr));
-          gap: 6px;
-        }
-        .foul-removal-option {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          min-width: 0;
-          color: $neutral-100;
-          font-size: 12px;
-          line-height: 1.2;
-          cursor: pointer;
-          input {
-            flex: 0 0 auto;
-            width: 14px;
-            height: 14px;
-            margin: 0;
-          }
-          span {
-            min-width: 0;
-            color: inherit;
-            font-size: 12px;
-            line-height: 1.2;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+          .foul-removal-grid {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 10px;
+            .foul-removal-option {
+              display: inline-flex;
+              align-items: center;
+              gap: 8px;
+              min-width: 0;
+              color: $neutral-100;
+              font-size: 14px;
+              line-height: 1.2;
+              cursor: pointer;
+              padding: 10px;
+              border-radius: 12px;
+              background-color: $soft-purple-900;
+              input {
+                flex: 0 0 auto;
+                width: 16px;
+                height: 16px;
+                margin: 0;
+                accent-color: $green-500;
+              }
+              span {
+                min-width: 0;
+                color: inherit;
+                font-size: 14px;
+                line-height: 20px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+              }
+            }
           }
         }
       }
       .icon {
         flex: 0 0 auto;
-        width: 25px;
-        height: 25px;
+        width: 32px;
+        height: 32px;
         border: none;
         background: none;
         cursor: pointer;
-        img {
-          width: 20px;
-          height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        border-radius: 8px;
+        .close-icon {
+          --ui-icon-width: 24px;
+          --ui-icon-height: 24px;
+          --ui-icon-color: #{$neutral-300};
+        }
+        &:hover {
+          background-color: $soft-purple-800;
+        }
+        &:focus-visible {
+          outline: 2px solid $green-500;
+          outline-offset: 3px;
         }
       }
     }
     .modal-body {
-      overflow: auto;
+      flex-shrink: 0;
       .state {
-        padding: 30px 10px;
+        padding: 40px 24px;
         color: $neutral-300;
         text-align: center;
+        border-radius: 20px;
+        background-color: $soft-purple-800;
         &.state-error {
           color: $orange-500;
         }
@@ -897,16 +1007,16 @@ watch(
         .action-card {
           display: flex;
           flex-direction: column;
-          gap: 10px;
-          padding: 10px;
-          border: 1px solid rgba($neutral-500, 0.25);
-          border-radius: 5px;
-          background-color: rgba($neutral-700, 0.75);
+          gap: 16px;
+          padding: 24px;
+          border: none;
+          border-radius: 20px;
+          background-color: $soft-purple-800;
           .action-head {
             display: flex;
             align-items: flex-start;
             justify-content: space-between;
-            gap: 10px;
+            gap: 16px;
             .action-head-main {
               display: flex;
               align-items: center;
@@ -916,19 +1026,20 @@ watch(
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
-                min-width: 30px;
-                height: 25px;
-                padding: 0 5px;
-                border-radius: 5px;
-                background-color: $neutral-100;
-                color: $neutral-black;
-                font-size: 12px;
+                min-width: 32px;
+                height: 32px;
+                padding: 0 8px;
+                border-radius: 8px;
+                background-color: $soft-purple-900;
+                color: $green-400;
+                font-size: 14px;
                 font-family: Hauora-SemiBold;
               }
               .action-title {
                 color: $neutral-100;
-                font-size: 16px;
-                font-family: Hauora-SemiBold;
+                font-size: 20px;
+                font-family: Involve-Medium;
+                line-height: 24px;
               }
             }
             .action-head-meta {
@@ -940,7 +1051,7 @@ watch(
               font-size: 12px;
               text-align: right;
               .action-type {
-                color: $orange-500;
+                color: $green-400;
                 text-transform: lowercase;
               }
             }
@@ -948,34 +1059,35 @@ watch(
           .action-summary {
             margin: 0;
             color: $neutral-100;
-            font-size: 14px;
-            line-height: 1.2;
+            font-size: 16px;
+            line-height: 22px;
           }
           .action-fields {
             display: grid;
-            grid-template-columns: repeat(7, minmax(0, 1fr));
-            gap: 5px 10px;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 10px;
             .action-field {
               display: flex;
               flex-direction: column;
-              gap: 5px;
-              padding: 10px;
-              border-radius: 5px;
-              background-color: rgba($neutral-900, 0.5);
+              gap: 8px;
+              padding: 16px;
+              border-radius: 12px;
+              background-color: $soft-purple-900;
+              min-width: 0;
               .field-label {
-                color: $neutral-500;
-                font-size: 12px;
-                line-height: 1.2;
+                color: $neutral-300;
+                font-size: 14px;
+                line-height: 20px;
               }
               .field-value {
                 color: $neutral-100;
-                font-size: 14px;
-                line-height: 1.2;
+                font-size: 16px;
+                line-height: 22px;
                 word-break: break-word;
                 white-space: pre-wrap;
               }
               &.action-field--scoring {
-                grid-column: span 3;
+                grid-column: span 2;
               }
             }
           }
@@ -984,15 +1096,12 @@ watch(
     }
   }
 }
-
 .overlay-enter-active,
 .overlay-leave-active {
   transition: opacity 0.25s ease-in-out;
 }
-
 .overlay-enter-from,
 .overlay-leave-to {
   opacity: 0;
 }
-
 </style>

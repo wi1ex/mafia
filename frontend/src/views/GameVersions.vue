@@ -4,6 +4,7 @@
       <div class="game-versions-overlay" role="dialog" aria-modal="true" aria-labelledby="game-versions-title"
            @pointerdown.self="overlayArmed = true" @pointerup.self="overlayArmed && requestCancel()" @pointerleave.self="overlayArmed = false" @pointercancel.self="overlayArmed = false">
         <section class="game-versions-modal" @click.stop>
+          <h2 id="game-versions-title" class="game-versions-modal__title">Версии игры</h2>
           <p v-if="validationError" class="game-versions-modal__error" role="alert">{{ validationError }}</p>
 
           <div class="game-versions-modal__marks">
@@ -20,21 +21,15 @@
 
           <div class="game-versions-modal__list-header">
             <span>Текущие версии: {{ rows.length }} / {{ maxVersions }}</span>
-            <button type="button" :disabled="saving || rows.length >= maxVersions" @click="addVersion">
-              Добавить версию
-            </button>
+            <UiButton size="low" text="Добавить версию" :disabled="saving || rows.length >= maxVersions" @click="addVersion" />
           </div>
 
           <div class="game-versions-modal__list">
             <section v-for="(version, versionIndex) in rows" :key="versionIndex" class="version-card" :class="{ 'version-card--empty': !version.claimantId }">
               <div class="version-card__heading">
                 <span>Версия {{ versionIndex + 1 }}</span>
-                <button v-if="rows.length > 1" type="button" :disabled="saving" @click="removeVersion(versionIndex)">
-                  Удалить версию
-                </button>
-                <button v-else-if="version.claimantId" type="button" :disabled="saving" @click="cancelVersion(versionIndex)">
-                  Отменить вскрытие
-                </button>
+                <UiButton v-if="rows.length > 1" variant="white" size="low" text="Удалить версию" :disabled="saving" @click="removeVersion(versionIndex)" />
+                <UiButton v-else-if="version.claimantId" variant="white" size="low" text="Отменить вскрытие" :disabled="saving" @click="cancelVersion(versionIndex)" />
               </div>
 
               <label :for="`game-version-claimant-${versionIndex}`">Вскрылся шерифом</label>
@@ -48,9 +43,7 @@
               <template v-if="version.claimantId">
                 <div class="version-card__checks-heading">
                   <span>Проверки</span>
-                  <button type="button" :disabled="saving || version.checks.length >= maxChecksPerVersion" @click="addCheck(versionIndex)">
-                    Добавить проверку
-                  </button>
+                  <UiButton variant="white" size="low" text="Добавить проверку" :disabled="saving || version.checks.length >= maxChecksPerVersion" @click="addCheck(versionIndex)" />
                 </div>
 
                 <div v-for="(check, checkIndex) in version.checks" :key="checkIndex" class="version-check">
@@ -66,22 +59,16 @@
                     <option value="red">Красный</option>
                     <option value="black">Чёрный</option>
                   </select>
-                  <button class="version-check__remove" type="button" :disabled="saving || version.checks.length <= 1"
-                          :aria-label="`Удалить проверку ${checkIndex + 1}`" @click="removeCheck(versionIndex, checkIndex)">
-                    ×
-                  </button>
+                  <UiButton class="version-check__remove" variant="white" size="low" :icon="iconClose" width="40px" :disabled="saving || version.checks.length <= 1"
+                            :aria-label="`Удалить проверку ${checkIndex + 1}`" @click="removeCheck(versionIndex, checkIndex)" />
                 </div>
               </template>
             </section>
           </div>
 
           <footer>
-            <button class="game-versions-modal__cancel" type="button" :disabled="saving" @click="requestCancel">
-              Отменить изменения и закрыть
-            </button>
-            <button class="game-versions-modal__save" type="button" :disabled="saving" @click="requestSave">
-              {{ saving ? 'Сохранение…' : 'Сохранить и закрыть' }}
-            </button>
+            <UiButton variant="white" size="middle" text="Отменить изменения и закрыть" :disabled="saving" @click="requestCancel" />
+            <UiButton size="middle" :text="saving ? 'Сохранение…' : 'Сохранить и закрыть'" :disabled="saving" @click="requestSave" />
           </footer>
         </section>
       </div>
@@ -91,6 +78,8 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import UiButton from '@/components/UiButton.vue'
+import iconClose from '@/assets/svg/iconClose.svg'
 
 type PlayerOption = {
   id: string
@@ -297,255 +286,249 @@ function requestCancel(): void {
 .game-versions-overlay {
   display: flex;
   position: fixed;
+  inset: 0;
   align-items: center;
   justify-content: center;
-  top: 0;
-  left: 0;
   box-sizing: border-box;
-  width: 100vw;
-  height: 100dvh;
-  transform: scale(calc(1 / var(--desktop-scale, 1)));
-  transform-origin: top left;
-  padding: 24px;
-  background-color: rgba($neutral-black, 0.64);
+  padding: 40px;
+  background-color: rgba($neutral-black, 0.6);
   backdrop-filter: blur(12px);
   z-index: 1200;
   .game-versions-modal {
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
+    padding: 24px;
+    gap: 24px;
     width: 100%;
     max-width: 1500px;
     max-height: 100%;
-    border: 2px solid $green-700;
-    border-radius: 20px;
-    background-color: $neutral-900;
-    box-shadow: 0 16px 48px rgba($neutral-black, 0.5);
+    min-height: 0;
+    border-radius: 24px;
+    background-color: $soft-purple-900;
+    color: $neutral-100;
+    font-family: Hauora-Regular;
+    line-height: 1.4;
     overflow: auto;
     overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: $soft-purple-700 transparent;
     > * {
       flex-shrink: 0;
     }
-    select {
-      box-sizing: border-box;
-      min-width: 0;
+    .game-versions-modal__title {
+      margin: 0;
+      color: $neutral-white;
+      font-family: Involve-Medium;
+      font-weight: 500;
+      font-size: 24px;
+      line-height: 26px;
+      letter-spacing: -0.48px;
+    }
+    .game-versions-modal__error {
+      margin: 0;
+      padding: 16px;
+      border-radius: 16px;
+      background-color: rgba($red-500, 0.12);
+      color: $red-300;
+      font-size: 14px;
+      line-height: 20px;
     }
     .game-versions-modal__marks {
-      display: flex;
-      justify-content: space-between;
-      flex-wrap: wrap;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      padding: 16px;
       gap: 16px;
-      padding: 16px 24px;
-      flex-shrink: 0;
-      color: $neutral-100;
+      border-radius: 20px;
+      background-color: $soft-purple-800;
       .scoring-mark {
         display: flex;
         flex-direction: column;
         justify-content: space-between;
-        flex: 1 1 250px;
         min-width: 0;
-        gap: 6px;
+        gap: 12px;
+        label {
+          color: $neutral-300;
+          font-size: 14px;
+          line-height: 20px;
+        }
+        select {
+          box-sizing: border-box;
+          width: 100%;
+          min-width: 0;
+          height: 40px;
+          padding: 0 12px;
+          border: 1px solid $green-200;
+          border-radius: 12px;
+          background-color: $soft-purple-800;
+          color: $neutral-100;
+          font-family: Hauora-Regular;
+          font-size: 16px;
+          line-height: 20px;
+          color-scheme: dark;
+          cursor: pointer;
+          &:not(:disabled):hover {
+            border-color: $green-500;
+          }
+          &:focus-visible {
+            outline: 2px solid $green-500;
+            outline-offset: 3px;
+          }
+          &:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+          }
+          option {
+            background-color: $soft-purple-900;
+            color: $neutral-100;
+          }
+        }
       }
-      label {
-        color: $neutral-300;
-        font-family: Hauora-Regular;
-        font-size: 13px;
-        line-height: 18px;
-      }
-      select {
-        width: 100%;
-        height: 40px;
-        padding: 0 10px;
-        border: 1px solid $green-300;
-        border-radius: 10px;
-        background-color: $neutral-900;
-        color: $neutral-100;
-        font-family: Hauora-Regular;
-        font-size: 14px;
-        line-height: 18px;
-      }
-    }
-    .version-check__remove {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex: 0 0 auto;
-      width: 36px;
-      height: 36px;
-      padding: 0;
-      border: 0;
-      border-radius: 10px;
-      background-color: $soft-purple-900;
-      color: $neutral-100;
-      font-size: 25px;
-      line-height: 1;
-      cursor: pointer;
-      &:hover:not(:disabled),
-      &:focus-visible:not(:disabled) {
-        background-color: $soft-purple-800;
-      }
-    }
-    .game-versions-modal__error {
-      margin: 0 24px 12px;
-      color: $red-400;
-      font-family: Hauora-Regular;
-      font-size: 14px;
-      line-height: 20px;
     }
     .game-versions-modal__list-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 24px 12px;
-      gap: 12px;
-      color: $neutral-300;
-      font-family: Hauora-Regular;
-      font-size: 14px;
-      line-height: 20px;
-      button {
-        height: 36px;
-        padding: 0 12px;
-        border: 1px solid $green-500;
-        border-radius: 10px;
-        background-color: transparent;
-        color: $green-400;
-        font-family: Hauora-Medium;
-        font-size: 14px;
-        cursor: pointer;
-        &:hover:not(:disabled),
-        &:focus-visible:not(:disabled) {
-          background-color: rgba($green-500, 0.15);
-        }
+      gap: 16px;
+      > span {
+        color: $neutral-300;
+        font-size: 16px;
+        line-height: 20px;
       }
     }
     .game-versions-modal__list {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
-      padding: 4px 24px 24px;
-      gap: 12px;
-      overflow: visible;
-    }
-    .version-card {
-      padding: 16px;
-      border: 1px solid $neutral-700;
-      border-radius: 14px;
-      background-color: $neutral-800;
-      &.version-card--empty {
-        opacity: 0.86;
-      }
-      .version-card__heading,
-      .version-card__checks-heading {
+      align-items: start;
+      gap: 10px;
+      .version-card {
         display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 8px;
-      }
-      .version-card__heading {
-        margin-bottom: 14px;
-        > span {
-          color: $neutral-white;
-          font-family: Involve-Medium;
-          font-size: 16px;
+        flex-direction: column;
+        padding: 16px;
+        gap: 12px;
+        min-width: 0;
+        border-radius: 20px;
+        background-color: $soft-purple-800;
+        .version-card__heading {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 4px;
+          gap: 12px;
+          > span {
+            color: $neutral-white;
+            font-family: Involve-Medium;
+            font-size: 20px;
+            line-height: 24px;
+            letter-spacing: -0.4px;
+          }
+        }
+        > label {
+          color: $neutral-300;
+          font-size: 14px;
           line-height: 20px;
         }
-      }
-      .version-card__checks-heading {
-        margin-top: 16px;
-        > span {
-          color: $neutral-200;
-          font-family: Hauora-Medium;
-          font-size: 14px;
-          line-height: 18px;
+        > select {
+          box-sizing: border-box;
+          width: 100%;
+          min-width: 0;
+          height: 40px;
+          padding: 0 12px;
+          border: 1px solid $green-200;
+          border-radius: 12px;
+          background-color: $soft-purple-800;
+          color: $neutral-100;
+          font-family: Hauora-Regular;
+          font-size: 16px;
+          line-height: 20px;
+          color-scheme: dark;
+          cursor: pointer;
+          &:not(:disabled):hover {
+            border-color: $green-500;
+          }
+          &:focus-visible {
+            outline: 2px solid $green-500;
+            outline-offset: 3px;
+          }
+          &:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+          }
+          option {
+            background-color: $soft-purple-900;
+            color: $neutral-100;
+          }
+        }
+        .version-card__checks-heading {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-top: 4px;
+          gap: 12px;
+          > span {
+            color: $neutral-100;
+            font-family: Hauora-Medium;
+            font-size: 16px;
+            line-height: 20px;
+          }
+        }
+        .version-check {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) 112px 40px;
+          align-items: center;
+          gap: 8px;
+          select {
+            box-sizing: border-box;
+            width: 100%;
+            min-width: 0;
+            height: 40px;
+            padding: 0 12px;
+            border: 1px solid $green-200;
+            border-radius: 12px;
+            background-color: $soft-purple-800;
+            color: $neutral-100;
+            font-family: Hauora-Regular;
+            font-size: 16px;
+            line-height: 20px;
+            color-scheme: dark;
+            cursor: pointer;
+            &:not(:disabled):hover {
+              border-color: $green-500;
+            }
+            &:focus-visible {
+              outline: 2px solid $green-500;
+              outline-offset: 3px;
+            }
+            &:disabled {
+              opacity: 0.5;
+              cursor: not-allowed;
+            }
+            option {
+              background-color: $soft-purple-900;
+              color: $neutral-100;
+            }
+          }
+          .version-check__remove {
+            --ui-button-height: 40px;
+            --ui-button-padding-x: 0;
+          }
         }
       }
-      label {
-        display: block;
-        margin-bottom: 6px;
-        color: $neutral-300;
-        font-family: Hauora-Regular;
-        font-size: 13px;
-        line-height: 18px;
-      }
-      select {
-        width: 100%;
-        height: 40px;
-        padding: 0 10px;
-        border: 1px solid $green-300;
-        border-radius: 10px;
-        background-color: $neutral-900;
-        color: $neutral-100;
-        font-family: Hauora-Regular;
-        font-size: 14px;
-        line-height: 18px;
-      }
-      button:not(.version-check__remove) {
-        padding: 0;
-        border: 0;
-        background: transparent;
-        color: $green-400;
-        font-family: Hauora-Medium;
-        font-size: 13px;
-        line-height: 18px;
-        cursor: pointer;
-        &:hover:not(:disabled),
-        &:focus-visible:not(:disabled) {
-          color: $green-300;
-        }
-      }
-    }
-    .version-check {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) 112px 36px;
-      margin-top: 8px;
-      gap: 8px;
     }
     footer {
-      position: sticky;
-      bottom: 0;
-      background-color: $neutral-900;
       display: flex;
+      position: sticky;
+      bottom: -24px;
       justify-content: flex-end;
-      flex-wrap: wrap;
-      padding: 16px 24px 24px;
-      border-top: 1px solid $neutral-700;
+      margin: 0 -24px -24px;
+      padding: 24px;
       gap: 12px;
-      .game-versions-modal__cancel,
-      .game-versions-modal__save {
-        min-width: 190px;
-        height: 40px;
-        padding: 0 16px;
-        border: 0;
-        border-radius: 10px;
-        font-family: Hauora-Medium;
-        font-size: 14px;
-        cursor: pointer;
-      }
-      .game-versions-modal__cancel {
-        border: 1px solid $neutral-500;
-        background-color: transparent;
-        color: $neutral-100;
-        &:hover:not(:disabled),
-        &:focus-visible:not(:disabled) {
-          background-color: $neutral-800;
-        }
-      }
-      .game-versions-modal__save {
-        background-color: $green-500;
-        color: $neutral-black;
-        &:hover:not(:disabled),
-        &:focus-visible:not(:disabled) {
-          background-color: $green-400;
-        }
-      }
-    }
-    button:disabled,
-    select:disabled {
-      cursor: default;
-      opacity: 0.5;
+      border-top: 1px solid $soft-purple-800;
+      background-color: $soft-purple-900;
+      z-index: 1;
     }
   }
 }
-
 .game-versions-overlay-enter-active,
 .game-versions-overlay-leave-active {
   transition: opacity 0.25s ease-in-out;
@@ -554,112 +537,4 @@ function requestCancel(): void {
 .game-versions-overlay-leave-to {
   opacity: 0;
 }
-
-@media (max-width: 1000px) {
-  .game-versions-overlay {
-    padding: 8px;
-    padding-top: max(8px, env(safe-area-inset-top));
-    padding-right: max(8px, env(safe-area-inset-right));
-    padding-bottom: max(8px, env(safe-area-inset-bottom));
-    padding-left: max(8px, env(safe-area-inset-left));
-    .game-versions-modal {
-      box-sizing: border-box;
-      width: 100%;
-      max-height: 100%;
-      min-height: 0;
-      border-radius: 14px;
-      overscroll-behavior: contain;
-      overflow-x: hidden;
-      > * {
-        flex-shrink: 0;
-      }
-      .game-versions-modal__marks {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        padding: 16px 12px;
-        gap: 12px;
-      }
-      .game-versions-modal__marks label,
-      .version-card label {
-        font-size: 16px;
-        line-height: 22px;
-        overflow-wrap: anywhere;
-      }
-      .game-versions-modal__marks select,
-      .version-card select {
-        box-sizing: border-box;
-        min-width: 0;
-        height: 44px;
-        font-size: 16px;
-      }
-      .game-versions-modal__list-header {
-        padding: 0 12px 12px;
-        flex-wrap: wrap;
-        font-size: 16px;
-        line-height: 22px;
-        button {
-          min-height: 44px;
-          height: auto;
-          font-size: 16px;
-        }
-      }
-      .game-versions-modal__list {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        padding: 0 12px 12px;
-        overflow: visible;
-      }
-      .version-card {
-        min-width: 0;
-        padding: 12px;
-        .version-card__heading,
-        .version-card__checks-heading {
-          flex-wrap: wrap;
-          > span {
-            font-size: 16px;
-            line-height: 22px;
-          }
-        }
-        button:not(.version-check__remove) {
-          min-height: 44px;
-          font-size: 16px;
-          line-height: 22px;
-          text-align: left;
-        }
-      }
-      .version-check {
-        grid-template-columns: minmax(0, 1fr) 44px;
-        > select:first-child {
-          grid-column: 1 / -1;
-        }
-      }
-      .version-check__remove {
-        width: 44px;
-        height: 44px;
-      }
-      footer {
-        position: sticky;
-        bottom: 0;
-        padding: 12px;
-        gap: 8px;
-        background-color: $neutral-900;
-        .game-versions-modal__cancel,
-        .game-versions-modal__save {
-          flex: 1 1 240px;
-          min-width: 0;
-          min-height: 44px;
-          height: auto;
-          padding: 10px 12px;
-          font-size: 16px;
-          line-height: 22px;
-        }
-      }
-      button:focus-visible,
-      select:focus-visible {
-        outline: 2px solid $green-300;
-        outline-offset: 2px;
-      }
-    }
-  }
-}
-
 </style>

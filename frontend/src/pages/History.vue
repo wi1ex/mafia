@@ -16,6 +16,7 @@
       </header>
 
       <form v-if="isAdmin" class="history-admin-filters" @submit.prevent="applyAdminFilters">
+        <h2>Фильтры игр</h2>
         <div class="history-admin-filters-grid">
           <UiInput
             size="low"
@@ -131,28 +132,13 @@
       <div v-else-if="items.length === 0" class="history-state">История пока пуста</div>
 
       <ul v-else class="history-list">
-        <li v-for="game in items" :key="game.id" class="history-item"
-            :class="{ open: isExpanded(game.id), 'history-item--red': game.result === 'red', 'history-item--black': game.result === 'black', 'history-item--rating': game.mode === 'rating' }">
-          <button class="history-main" type="button" :aria-expanded="isExpanded(game.id)" @click="toggleExpanded(game.id)">
+        <li v-for="game in items" :key="game.id" class="history-item" :class="{ open: isExpanded(game.id) }">
+          <div class="history-main">
             <div class="history-main-left">
               <div class="game-number-row">
                 <span class="game-number">Игра #{{ game.number }}</span>
-                <HistoryActions
-                  v-if="isExpanded(game.id)"
-                  :game-id="game.id"
-                  :game-number="game.number"
-                  :game-result="game.result"
-                  :game-mode="game.mode"
-                  :details-slots="detailsSlots(game.id)"
-                  :details-loading="isDetailsLoading(game.id)"
-                  @result-updated="handleGameResultUpdated"
-                  @mode-updated="handleGameModeUpdated"
-                  @ppk-updated="handleGamePpkUpdated"
-                  @foul-removals-updated="handleGameFoulRemovalsUpdated"
-                  @scoring-marks-updated="reloadGameDetails"
-                />
               </div>
-              <span class="game-mode">Режим: {{ game.mode === 'rating' ? 'Рейтинг' : 'Обычный' }}</span>
+              <span class="game-mode" :class="{ 'game-mode--rating': game.mode === 'rating' }">{{ game.mode === 'rating' ? 'Рейтинговая игра' : 'Обычная игра' }}</span>
               <div class="game-head">
                 <span>Ведущий:</span>
                 <template v-if="game.head.auto">
@@ -171,11 +157,29 @@
               <span>Длительность: {{ formatDuration(game.duration_seconds) }}</span>
             </div>
 
-            <img class="arrow" :class="{ open: isExpanded(game.id) }" :src="iconArrowDown" alt="" />
-          </button>
+            <button class="history-toggle" type="button" :aria-expanded="isExpanded(game.id)" :aria-controls="`history-details-${game.id}`" @click="toggleExpanded(game.id)">
+              <span>{{ isExpanded(game.id) ? 'Свернуть' : 'Подробнее' }}</span>
+              <img class="arrow" :class="{ open: isExpanded(game.id) }" :src="iconArrowDown" alt="" />
+            </button>
+          </div>
+          <div v-if="isExpanded(game.id)" class="history-actions">
+            <HistoryActions
+              :game-id="game.id"
+              :game-number="game.number"
+              :game-result="game.result"
+              :game-mode="game.mode"
+              :details-slots="detailsSlots(game.id)"
+              :details-loading="isDetailsLoading(game.id)"
+              @result-updated="handleGameResultUpdated"
+              @mode-updated="handleGameModeUpdated"
+              @ppk-updated="handleGamePpkUpdated"
+              @foul-removals-updated="handleGameFoulRemovalsUpdated"
+              @scoring-marks-updated="reloadGameDetails"
+            />
+          </div>
 
           <Transition name="history-expand">
-            <div v-if="isExpanded(game.id)" class="history-extra">
+            <div v-if="isExpanded(game.id)" :id="`history-details-${game.id}`" class="history-extra">
               <div v-if="isDetailsLoading(game.id)" class="history-extra-state">Загрузка деталей игры...</div>
               <div v-else-if="detailsErrorFor(game.id)" class="history-extra-state history-extra-state--error">{{ detailsErrorFor(game.id) }}</div>
               <HistoryDetails v-else :slots="detailsSlots(game.id)" :mode="game.mode" />
@@ -185,9 +189,9 @@
       </ul>
 
       <footer class="history-pager">
-        <button class="btn" type="button" :disabled="loading || page <= 1" @click="prevPage">Назад</button>
+        <UiButton variant="white" size="middle" text="Назад" :disabled="loading || page <= 1" @click="prevPage" />
         <span>Страница {{ page }} из {{ pages }} · Игр: {{ total }}</span>
-        <button class="btn" type="button" :disabled="loading || page >= pages" @click="nextPage">Вперед</button>
+        <UiButton variant="white" size="middle" text="Вперёд" :disabled="loading || page >= pages" @click="nextPage" />
       </footer>
     </section>
   </main>
@@ -680,67 +684,63 @@ onBeforeUnmount(() => {
 .history-page {
   display: flex;
   justify-content: center;
-  padding: 10px;
-  width: 100%;
   box-sizing: border-box;
-  scrollbar-width: none;
+  padding: 30px 40px 20px;
+  width: 100%;
+  min-height: 0;
   overflow: auto;
+  scrollbar-width: none;
+  color: $neutral-100;
+  font-family: Hauora-Regular;
+  line-height: 1.4;
   .history-card {
     display: flex;
     flex-direction: column;
-    margin-bottom: 10px;
     gap: 10px;
-    width: min(1100px, 100%);
+    width: min(1600px, 100%);
+    min-width: 0;
+    height: fit-content;
     .history-header {
       display: flex;
-      position: relative;
-      flex-direction: column;
-      align-items: flex-start;
-      padding: 50px 15px 15px;
-      border-radius: 5px;
-      background-color: $neutral-100;
-      box-shadow: 0 15px 20px rgba($neutral-white, 0.1), 0 5px 10px rgba($neutral-white, 0.1);
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      padding: 24px;
+      gap: 24px;
+      border-radius: 24px;
+      background-color: $soft-purple-900;
       h1 {
-        position: absolute;
-        top: 15px;
         margin: 0;
-        color: $neutral-black;
-        font-size: 26px;
+        color: $neutral-white;
+        font-family: Involve-Medium;
+        font-weight: 500;
+        font-size: 24px;
+        line-height: 26px;
+        letter-spacing: -0.48px;
       }
       .history-header-stats {
-        display: grid;
-        grid-template-columns: repeat(1, minmax(0, 1fr));
+        display: flex;
+        flex-wrap: wrap;
         gap: 10px;
-        width: 100%;
         .history-header-stat {
           display: flex;
           align-items: center;
-          justify-self: flex-end;
-          gap: 5px;
-          min-width: 0;
-        }
-        .history-header-stat-label {
-          text-align: center;
-          color: $neutral-black;
-          font-size: 14px;
-          line-height: 1.2;
-        }
-        .history-header-stat-value {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          padding: 0 10px;
-          min-width: 50px;
-          height: 25px;
-          border-radius: 5px;
-          color: $neutral-100;
-          font-size: 14px;
-          font-weight: bold;
-          &.history-header-stat-value--red {
-            background-color: $red-500;
+          padding: 12px 16px;
+          gap: 16px;
+          border-radius: 20px;
+          background-color: $soft-purple-800;
+          .history-header-stat-label {
+            color: $neutral-300;
+            font-size: 14px;
           }
-          &.history-header-stat-value--black {
-            background-color: $neutral-800;
+          .history-header-stat-value {
+            color: $neutral-white;
+            font-family: Involve-Medium;
+            font-size: 24px;
+            line-height: 26px;
+            &--red {
+              color: $red-400;
+            }
           }
         }
       }
@@ -748,41 +748,54 @@ onBeforeUnmount(() => {
     .history-admin-filters {
       display: flex;
       flex-direction: column;
-      padding: 15px;
-      gap: 12px;
-      border-radius: 5px;
-      border: 1px solid rgba($neutral-500, 0.3);
-      background-color: $neutral-900;
+      padding: 24px;
+      gap: 24px;
+      border-radius: 24px;
+      background-color: $soft-purple-900;
+      --ui-input-label-bg: #{$soft-purple-900};
+      h2 {
+        margin: 0;
+        color: $neutral-white;
+        font-family: Involve-Medium;
+        font-weight: 500;
+        font-size: 24px;
+        line-height: 26px;
+        letter-spacing: -0.48px;
+      }
       .history-admin-filters-grid {
         display: grid;
         grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 12px;
-        :deep(input),
-        :deep(label),
-        :deep(.ui-dropdown__trigger),
-        :deep(.option),
-        :deep(.empty) {
-          letter-spacing: 0;
+        gap: 16px;
+        .ui-input {
+          :deep(input) {
+            box-sizing: content-box;
+          }
         }
-      }
-      .history-admin-filters-actions {
-        display: flex;
-        grid-column: 1 / -1;
-        align-items: center;
-        justify-content: flex-end;
-        gap: 10px;
-        .history-filter-action {
-          width: 120px;
-          --ui-button-letter-spacing: 0;
+        .history-admin-filters-actions {
+          display: flex;
+          grid-column: 1 / -1;
+          align-items: center;
+          justify-content: flex-end;
+          flex-wrap: wrap;
+          gap: 10px;
+          .history-filter-action {
+            width: 120px;
+          }
         }
       }
     }
     .history-state {
-      padding: 40px 10px;
-      text-align: center;
+      box-sizing: border-box;
+      padding: 24px;
+      border-radius: 24px;
+      background: $soft-purple-900;
+      display: grid;
+      place-content: center;
+      min-height: 180px;
       color: $neutral-300;
-      &.history-state--error {
-        color: $orange-500;
+      text-align: center;
+      &--error {
+        color: $orange-400;
       }
     }
     .history-list {
@@ -793,153 +806,159 @@ onBeforeUnmount(() => {
       gap: 10px;
       list-style: none;
       .history-item {
-        border-radius: 5px;
-        background-color: $neutral-800;
-        box-shadow: 0 5px 10px rgba(black, 0.25);
-        overflow: visible;
-        transition: background-color 0.25s ease-in-out;
-        &.history-item--red:not(.open) {
-          background-color: rgba($red-500, 0.5);
-        }
-        &.history-item--black:not(.open) {
-          background-color: $neutral-800;
-        }
-        &.history-item--rating:not(.open) {
-          background-image: linear-gradient(90deg, rgba($green-500, 0.50) 0%, rgba($green-500, 0) 50%);
-        }
-        &.open {
-          background-color: $neutral-700;
-        }
+        min-width: 0;
+        border-radius: 24px;
+        background: $soft-purple-900;
         .history-main {
           display: grid;
-          grid-template-columns: minmax(220px, 1fr) minmax(320px, 1fr) 24px;
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
           align-items: center;
-          padding: 15px;
-          gap: 10px;
-          width: 100%;
-          border: none;
-          background: none;
-          color: inherit;
-          text-align: left;
-          cursor: pointer;
-          .history-main-left,
-          .history-main-mid {
+          padding: 24px;
+          gap: 24px;
+          .history-main-left {
             display: flex;
             flex-direction: column;
-            gap: 5px;
+            align-items: flex-start;
+            gap: 12px;
             min-width: 0;
-          }
-          .history-main-left {
             .game-number-row {
               display: flex;
               align-items: center;
-              gap: 10px;
               min-width: 0;
-            }
-            .game-number {
-              color: $neutral-100;
+              .game-number {
+                color: $neutral-white;
+                font-family: Involve-Medium;
+                font-size: 20px;
+                line-height: 24px;
+                letter-spacing: -0.4px;
+              }
             }
             .game-mode {
-              color: $neutral-100;
+              padding: 6px 10px;
+              border-radius: 8px;
+              background: $soft-purple-800;
+              color: $neutral-300;
+              font-size: 12px;
+              line-height: 16px;
+              &--rating {
+                background: rgba($green-500, 0.12);
+                color: $green-500;
+              }
             }
             .game-head {
               display: flex;
               align-items: center;
-              gap: 5px;
+              gap: 6px;
+              max-width: 100%;
               min-width: 0;
+              font-size: 14px;
               img {
+                flex: 0 0 20px;
                 width: 20px;
                 height: 20px;
                 border-radius: 50%;
                 object-fit: cover;
               }
               span {
-                color: $neutral-100;
-                white-space: nowrap;
                 overflow: hidden;
                 text-overflow: ellipsis;
+                white-space: nowrap;
+              }
+              span:first-child {
+                flex-shrink: 0;
+                color: $neutral-300;
               }
             }
           }
           .history-main-mid {
-            span {
-              color: $neutral-300;
-              white-space: nowrap;
-              overflow: hidden;
-              text-overflow: ellipsis;
-            }
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            color: $neutral-300;
+            font-size: 14px;
+            min-width: 0;
+            overflow-wrap: anywhere;
             .game-result {
               color: $neutral-100;
+              font-size: 16px;
             }
           }
-          .arrow {
-            width: 20px;
-            height: 20px;
-            transition: transform 0.25s ease-in-out;
-            &.open {
-              transform: rotate(180deg);
+          .history-toggle {
+            display: inline-flex;
+            grid-column: 3;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            min-height: 40px;
+            padding: 0 12px;
+            border: 1px solid $soft-purple-700;
+            border-radius: 12px;
+            background: transparent;
+            color: $neutral-100;
+            font-family: Hauora-Regular;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background-color 0.2s, border-color 0.2s;
+            &:hover {
+              background: $soft-purple-800;
+              border-color: $neutral-300;
+            }
+            &:focus-visible {
+              outline: 2px solid $green-500;
+              outline-offset: 3px;
+            }
+            .arrow {
+              width: 16px;
+              height: 16px;
+              transition: transform 0.25s;
+              &.open {
+                transform: rotate(180deg);
+              }
             }
           }
         }
+        .history-actions {
+          display: flex;
+          justify-content: flex-end;
+          padding: 0 24px 12px;
+          &:empty {
+            display: none;
+          }
+        }
         .history-extra {
-          overflow: visible;
+          margin: 0 24px 24px;
+          padding-top: 16px;
+          border-top: 1px solid $soft-purple-800;
           .history-extra-state {
-            padding: 15px 10px;
+            padding: 24px;
             text-align: center;
             color: $neutral-300;
-            font-size: 14px;
-            &.history-extra-state--error {
-              color: $orange-500;
+            &--error {
+              color: $orange-400;
             }
           }
+        }
+        .history-expand-enter-active, .history-expand-leave-active {
+          transition: opacity 0.15s ease;
+        }
+        .history-expand-enter-from, .history-expand-leave-to {
+          opacity: 0;
         }
       }
     }
     .history-pager {
+      box-sizing: border-box;
+      padding: 24px;
+      border-radius: 24px;
+      background: $soft-purple-900;
       display: flex;
       align-items: center;
-      justify-content: center;
-      padding: 10px 0 20px;
-      gap: 10px;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
       color: $neutral-300;
       font-size: 14px;
-      .btn {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-width: 90px;
-        height: 40px;
-        border: none;
-        border-radius: 5px;
-        background-color: $neutral-800;
-        color: $neutral-100;
-        cursor: pointer;
-        transition: background-color 0.25s ease-in-out, opacity 0.25s ease-in-out;
-        &:hover {
-          background-color: $neutral-700;
-        }
-        &:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-      }
     }
   }
-
-  .history-expand-enter-active,
-  .history-expand-leave-active {
-    transition: max-height 0.25s ease-in-out, opacity 0.25s ease-in-out;
-  }
-  .history-expand-enter-from,
-  .history-expand-leave-to {
-    max-height: 0;
-    opacity: 0;
-  }
-  .history-expand-enter-to,
-  .history-expand-leave-from {
-    max-height: 1000px;
-    opacity: 1;
-  }
 }
-
 </style>
