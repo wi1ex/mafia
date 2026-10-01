@@ -6,12 +6,10 @@
         <div class="modal" role="dialog" aria-modal="true" :aria-label="title" @pointerdown.stop @pointerup.stop @click.stop>
           <header>
             <div class="heading">
-              <span>{{ title }}</span>
+              <h2>{{ title }}</h2>
               <small v-if="statusText">{{ statusText }}</small>
             </div>
-            <button class="icon" type="button" aria-label="Закрыть" @click="requestClose">
-              <img :src="iconClose" alt="close" />
-            </button>
+            <UiButton variant="white" size="low" :icon="iconClose" width="40px" aria-label="Закрыть" @click="requestClose" />
           </header>
           <div class="modal-body">
             <div v-if="target" class="selected-user">
@@ -20,34 +18,37 @@
                 <span>{{ target.username || `user${target.user_id}` }}</span>
               </div>
             </div>
-            <div class="grid duration-grid">
-              <UiInput
-                id="subscription-modal-months"
-                v-model.number="form.months"
-                type="number"
-                min="0"
-                max="240"
-                step="1"
-                label="Месяцы"
-                :disabled="saving"
-              />
-              <UiInput
-                id="subscription-modal-days"
-                v-model.number="form.days"
-                type="number"
-                min="0"
-                max="31"
-                step="1"
-                label="Дни"
-                :disabled="saving"
-              />
+            <div class="duration-card">
+              <h3>Срок</h3>
+              <div class="duration-grid">
+                <UiInput
+                  id="subscription-modal-months"
+                  v-model.number="form.months"
+                  type="number"
+                  min="0"
+                  max="240"
+                  step="1"
+                  label="Месяцы"
+                  size="low"
+                  :disabled="saving"
+                />
+                <UiInput
+                  id="subscription-modal-days"
+                  v-model.number="form.days"
+                  type="number"
+                  min="0"
+                  max="31"
+                  step="1"
+                  label="Дни"
+                  size="low"
+                  :disabled="saving"
+                />
+              </div>
             </div>
           </div>
           <div class="modal-actions">
-            <button class="btn dark" type="button" @click="requestClose">Отмена</button>
-            <button class="btn confirm" type="button" :disabled="saving || !canSave" @click="$emit('save')">
-              {{ saving ? '...' : saveLabel }}
-            </button>
+            <UiButton variant="white" size="middle" text="Отмена" @click="requestClose" />
+            <UiButton size="middle" :text="saving ? 'Сохранение…' : saveLabel" :disabled="saving || !canSave" @click="$emit('save')" />
           </div>
         </div>
       </div>
@@ -59,6 +60,7 @@
 import { ref } from 'vue'
 
 import UiInput from '@/components/UiInput.vue'
+import UiButton from '@/components/UiButton.vue'
 
 import defaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
 import iconClose from '@/assets/svg/iconClose.svg'
@@ -101,143 +103,139 @@ function requestClose(): void {
 
 <style scoped lang="scss">
 .overlay {
+  display: flex;
   position: fixed;
   inset: 0;
-  display: flex;
   align-items: center;
   justify-content: center;
-  background-color: rgba($neutral-800, 0.2);
+  box-sizing: border-box;
+  padding: 40px;
+  background-color: rgba($neutral-black, 0.6);
   backdrop-filter: blur(12px);
   z-index: 1000;
   .modal {
-    width: 420px;
-    max-width: calc(100% - 30px);
-    border-radius: 5px;
-    background-color: $neutral-800;
-    padding: 10px;
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    .btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0 20px;
-      gap: 5px;
-      height: 40px;
-      border: none;
-      border-radius: 5px;
-      background-color: $neutral-100;
-      font-size: 14px;
-      color: $neutral-black;
-      font-family: Hauora-Regular;
-      line-height: 1;
-      cursor: pointer;
-      transition: opacity 0.25s ease-in-out, color 0.25s ease-in-out, border-radius 0.25s ease-in-out, background-color 0.25s ease-in-out;
-      &:hover {
-        background-color: $neutral-white;
-      }
-      &.confirm {
-        background-color: rgba($green-500, 0.75);
-        &:hover {
-          background-color: $green-500;
-        }
-      }
-      &.dark {
-        background-color: $neutral-700;
-        color: $neutral-100;
-        &:hover {
-          background-color: rgba($neutral-500, 0.5);
-        }
-      }
-      &:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-      }
+    box-sizing: border-box;
+    width: 560px;
+    max-width: 100%;
+    max-height: 100%;
+    min-height: 0;
+    padding: 24px;
+    gap: 24px;
+    border-radius: 24px;
+    background-color: $soft-purple-900;
+    color: $neutral-100;
+    font-family: Hauora-Regular;
+    line-height: 1.4;
+    overflow: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: $soft-purple-700 transparent;
+    > * {
+      flex-shrink: 0;
     }
     header {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: space-between;
-      gap: 10px;
+      gap: 24px;
       .heading {
         display: flex;
         flex-direction: column;
-        gap: 5px;
-      }
-      span {
-        font-size: 18px;
-        font-family: Hauora-Regular;
-      }
-      small {
-        color: $neutral-500;
-        font-size: 12px;
-      }
-      .icon {
-        width: 28px;
-        height: 28px;
-        border: none;
-        background: none;
-        cursor: pointer;
-        img {
-          width: 20px;
-          height: 20px;
+        min-width: 0;
+        gap: 10px;
+        h2 {
+          min-width: 0;
+          margin: 0;
+          color: $neutral-white;
+          font-family: Involve-Medium;
+          font-weight: 500;
+          font-size: 24px;
+          line-height: 26px;
+          letter-spacing: -0.48px;
+        }
+        small {
+          color: $neutral-300;
+          font-size: 14px;
+          line-height: 20px;
         }
       }
     }
     .modal-body {
       display: flex;
       flex-direction: column;
+      min-width: 0;
       gap: 10px;
-      .grid {
-        display: grid;
-        gap: 10px;
+      --ui-input-label-bg: #{$soft-purple-800};
+      .selected-user {
+        padding: 20px;
+        border-radius: 20px;
+        background-color: $soft-purple-800;
+        .user-cell {
+          display: flex;
+          align-items: center;
+          min-width: 0;
+          gap: 12px;
+          .user-avatar {
+            flex: 0 0 40px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+          }
+          span {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-family: Hauora-Medium;
+            font-size: 16px;
+            line-height: 22px;
+          }
+        }
       }
-      .duration-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-    }
-    .selected-user {
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-      padding: 10px;
-      border: 1px solid $neutral-700;
-      border-radius: 5px;
-      background-color: rgba(black, 0.08);
-      box-shadow: 3px 3px 5px rgba(black, 0.25);
-      .user-cell {
-        display: inline-flex;
-        align-items: center;
-        gap: 5px;
-        span {
-          font-family: Hauora-Regular;
+      .duration-card {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        padding: 20px;
+        gap: 20px;
+        border-radius: 20px;
+        background-color: $soft-purple-800;
+        h3 {
+          margin: 0;
+          color: $neutral-white;
+          font-family: Involve-Medium;
+          font-weight: 500;
+          font-size: 20px;
+          line-height: 24px;
+          letter-spacing: -0.4px;
+        }
+        .duration-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 12px;
+          :deep(input) {
+            box-sizing: content-box;
+          }
         }
       }
     }
-    .user-avatar {
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      object-fit: cover;
-    }
     .modal-actions {
       display: flex;
+      align-items: center;
       justify-content: flex-end;
-      margin-top: 10px;
-      gap: 10px;
+      gap: 12px;
     }
   }
 }
-
 .overlay-enter-active,
 .overlay-leave-active {
   transition: opacity 0.25s ease-in-out;
 }
-
 .overlay-enter-from,
 .overlay-leave-to {
   opacity: 0;
 }
-
 </style>
