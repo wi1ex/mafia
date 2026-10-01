@@ -148,10 +148,6 @@ class UserGameStatsOut(BaseModel):
     games_played: int = 0
     games_won: int = 0
     vote_leave_day12_percent: float = 0.0
-    vote_out_don_day12_black_count: int = 0
-    vote_out_sheriff_day12_black_count: int = 0
-    vote_out_don_day12_citizen_count: int = 0
-    vote_out_sheriff_day12_citizen_count: int = 0
     vote_for_red_on_black_win_count: int = 0
     farewell_success_percent: float = 0.0
     farewell_correct_count: int = 0

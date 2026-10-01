@@ -153,10 +153,6 @@ def _build_game_stats(stats_row: dict[str, int], top_players: list[UserTopPlayer
     games_played = _safe_int(stats_row.get("games_decisive"))
     games_won = _safe_int(stats_row.get("games_won"))
     vote_leave_day12 = _safe_int(stats_row.get("vote_leave_day12"))
-    vote_out_don_day12_black_count = _safe_int(stats_row.get("vote_out_don_day12_black_count"))
-    vote_out_sheriff_day12_black_count = _safe_int(stats_row.get("vote_out_sheriff_day12_black_count"))
-    vote_out_don_day12_citizen_count = _safe_int(stats_row.get("vote_out_don_day12_citizen_count"))
-    vote_out_sheriff_day12_citizen_count = _safe_int(stats_row.get("vote_out_sheriff_day12_citizen_count"))
     vote_for_red_on_black_win_count = _safe_int(stats_row.get("vote_for_red_on_black_win_count"))
     farewell_total = _safe_int(stats_row.get("farewell_total"))
     farewell_correct = _safe_int(stats_row.get("farewell_correct"))
@@ -165,10 +161,6 @@ def _build_game_stats(stats_row: dict[str, int], top_players: list[UserTopPlayer
         games_played=games_played,
         games_won=games_won,
         vote_leave_day12_percent=_pct(vote_leave_day12, games_played),
-        vote_out_don_day12_black_count=vote_out_don_day12_black_count,
-        vote_out_sheriff_day12_black_count=vote_out_sheriff_day12_black_count,
-        vote_out_don_day12_citizen_count=vote_out_don_day12_citizen_count,
-        vote_out_sheriff_day12_citizen_count=vote_out_sheriff_day12_citizen_count,
         vote_for_red_on_black_win_count=vote_for_red_on_black_win_count,
         farewell_success_percent=_pct(farewell_correct, farewell_total),
         farewell_correct_count=farewell_correct,

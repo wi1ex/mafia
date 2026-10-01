@@ -14,10 +14,6 @@ GAME_STATS_FIELDS: tuple[str, ...] = (
     "games_decisive",
     "games_won",
     "vote_leave_day12",
-    "vote_out_don_day12_black_count",
-    "vote_out_sheriff_day12_black_count",
-    "vote_out_don_day12_citizen_count",
-    "vote_out_sheriff_day12_citizen_count",
     "vote_for_red_on_black_win_count",
     "farewell_total",
     "farewell_correct",
@@ -126,8 +122,6 @@ def _inc(d: dict[int, int], key: int, delta: int = 1) -> None:
 
 
 def _parse_actions(actions: list[dict[str, Any]], roles: dict[int, str]) -> dict[str, Any]:
-    vote_out_don_day12_by_voter: dict[int, int] = {}
-    vote_out_sheriff_day12_by_voter: dict[int, int] = {}
     vote_for_red_on_black_win_count: dict[int, int] = {}
     leave_vote_day12: dict[int, int] = {}
     farewell_total: dict[int, int] = {}
@@ -147,26 +141,6 @@ def _parse_actions(actions: list[dict[str, Any]], roles: dict[int, str]) -> dict
             reason = _safe_str(action.get("reason"))
             if reason == "vote" and day_number in (1, 2):
                 _inc(leave_vote_day12, target_id, 1)
-                voters_for_final_vote: set[int] = set()
-                by_raw = action.get("by")
-                if isinstance(by_raw, list):
-                    for voter_raw in by_raw:
-                        voter_id = _safe_int(voter_raw)
-                        if voter_id > 0:
-                            voters_for_final_vote.add(voter_id)
-                if not voters_for_final_vote and target_id > 0 and last_vote_targets:
-                    same_day = 0 < day_number == last_vote_day_number > 0
-                    if same_day or day_number <= 0 or last_vote_day_number <= 0:
-                        for voter_id, voted_target in last_vote_targets.items():
-                            if voter_id > 0 and voted_target == target_id:
-                                voters_for_final_vote.add(voter_id)
-                target_role_day12 = roles.get(target_id, "")
-                if target_role_day12 == "don":
-                    for voter_id in voters_for_final_vote:
-                        _inc(vote_out_don_day12_by_voter, voter_id, 1)
-                elif target_role_day12 == "sheriff":
-                    for voter_id in voters_for_final_vote:
-                        _inc(vote_out_sheriff_day12_by_voter, voter_id, 1)
             if reason == "vote":
                 red_voters: set[int] = set()
                 if target_id > 0 and last_vote_targets:
@@ -258,8 +232,6 @@ def _parse_actions(actions: list[dict[str, Any]], roles: dict[int, str]) -> dict
         vote_for_red_on_black_win_count[voter_id] = 1
 
     return {
-        "vote_out_don_day12_by_voter": vote_out_don_day12_by_voter,
-        "vote_out_sheriff_day12_by_voter": vote_out_sheriff_day12_by_voter,
         "vote_for_red_on_black_win_count": vote_for_red_on_black_win_count,
         "leave_vote_day12": leave_vote_day12,
         "farewell_total": farewell_total,
@@ -300,14 +272,6 @@ def _apply_game_to_row(row: dict[str, int], *, uid: int, roles: dict[int, str], 
                 row["don_wins"] += 1
 
         row["vote_leave_day12"] += _safe_int(parsed["leave_vote_day12"].get(uid))
-        vote_out_don_day12 = _safe_int(parsed["vote_out_don_day12_by_voter"].get(uid))
-        vote_out_sheriff_day12 = _safe_int(parsed["vote_out_sheriff_day12_by_voter"].get(uid))
-        if role in BLACK_ROLES:
-            row["vote_out_don_day12_black_count"] += vote_out_don_day12
-            row["vote_out_sheriff_day12_black_count"] += vote_out_sheriff_day12
-        elif role == "citizen":
-            row["vote_out_don_day12_citizen_count"] += vote_out_don_day12
-            row["vote_out_sheriff_day12_citizen_count"] += vote_out_sheriff_day12
         if result == "black":
             row["vote_for_red_on_black_win_count"] += _safe_int(parsed["vote_for_red_on_black_win_count"].get(uid))
         row["farewell_total"] += _safe_int(parsed["farewell_total"].get(uid))

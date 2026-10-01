@@ -84,54 +84,48 @@
         </section>
       </div>
 
-      <section class="block">
-        <h3>Лучший ход</h3>
-        <div class="best-move">
-          <article class="metric-card">
-            <span>Количество ПУ</span>
-            <strong>{{ formatInt(game.best_move.first_killed_total) }}</strong>
-          </article>
-          <div class="best-bars">
-            <div v-for="item in bestMoveItems" :key="item.key" class="best-row">
-              <span class="best-label">{{ item.label }}</span>
-              <div class="best-bar">
-                <span :style="{ width: `${barPct(item.value, bestMoveMax)}%` }"></span>
+      <div class="performance-row">
+        <section class="block">
+          <h3>Игровые показатели</h3>
+          <div class="extra-grid">
+            <article class="metric-card">
+              <span>Средний доп. балл</span>
+              <strong>{{ game.average_additional_points.toFixed(2) }} ({{ formatGames(game.rating_games) }})</strong>
+            </article>
+            <article class="metric-card">
+              <span>Достоверность завещаний</span>
+              <strong>{{ formatFarewellSuccess(game.farewell_success_percent, game.farewell_total_count) }}</strong>
+            </article>
+            <article class="metric-card">
+              <span>Заголосован в 1-2 день</span>
+              <strong>{{ formatPct(game.vote_leave_day12_percent) }}</strong>
+            </article>
+            <article class="metric-card">
+              <span>Проголосовал на поражение</span>
+              <strong>{{ formatTimes(game.vote_for_red_on_black_win_count) }}</strong>
+            </article>
+          </div>
+        </section>
+
+        <section class="block">
+          <h3>Лучший ход</h3>
+          <div class="best-move">
+            <article class="metric-card">
+              <span>Количество ПУ</span>
+              <strong>{{ formatInt(game.best_move.first_killed_total) }}</strong>
+            </article>
+            <div class="best-bars">
+              <div v-for="item in bestMoveItems" :key="item.key" class="best-row">
+                <span class="best-label">{{ item.label }}</span>
+                <div class="best-bar">
+                  <span :style="{ width: `${barPct(item.value, bestMoveMax)}%` }"></span>
+                </div>
+                <strong>{{ formatInt(item.value) }}</strong>
               </div>
-              <strong>{{ formatInt(item.value) }}</strong>
             </div>
           </div>
-        </div>
-      </section>
-
-      <section class="block">
-        <h3>Игровые показатели</h3>
-        <div class="extra-grid">
-          <article class="metric-card">
-            <span>Средний доп. балл</span>
-            <strong>{{ game.average_additional_points.toFixed(2) }} ({{ formatGames(game.rating_games) }})</strong>
-          </article>
-          <article class="metric-card">
-            <span>Достоверность завещаний</span>
-            <strong>{{ formatFarewellSuccess(game.farewell_success_percent, game.farewell_total_count) }}</strong>
-          </article>
-          <article class="metric-card">
-            <span>Заголосован в 1-2 день</span>
-            <strong>{{ formatPct(game.vote_leave_day12_percent) }}</strong>
-          </article>
-          <article class="metric-card">
-            <span>Проголосовал на поражение</span>
-            <strong>{{ formatTimes(game.vote_for_red_on_black_win_count) }}</strong>
-          </article>
-          <article class="metric-card">
-            <span>Снял Дона/Шерифа в 1-2 день (черный)</span>
-            <strong>{{ formatDonSheriffSplit(game.vote_out_don_day12_black_count, game.vote_out_sheriff_day12_black_count) }}</strong>
-          </article>
-          <article class="metric-card">
-            <span>Снял Дона/Шерифа в 1-2 день (мирный)</span>
-            <strong>{{ formatDonSheriffSplit(game.vote_out_don_day12_citizen_count, game.vote_out_sheriff_day12_citizen_count) }}</strong>
-          </article>
-        </div>
-      </section>
+        </section>
+      </div>
     </div>
   </div>
 </template>
@@ -170,10 +164,6 @@ type UserGameStats = {
   games_played: number
   games_won: number
   vote_leave_day12_percent: number
-  vote_out_don_day12_black_count: number
-  vote_out_sheriff_day12_black_count: number
-  vote_out_don_day12_citizen_count: number
-  vote_out_sheriff_day12_citizen_count: number
   vote_for_red_on_black_win_count: number
   farewell_success_percent: number
   farewell_correct_count: number
@@ -221,10 +211,6 @@ const stats = reactive<UserStats>({
     games_played: 0,
     games_won: 0,
     vote_leave_day12_percent: 0,
-    vote_out_don_day12_black_count: 0,
-    vote_out_sheriff_day12_black_count: 0,
-    vote_out_don_day12_citizen_count: 0,
-    vote_out_sheriff_day12_citizen_count: 0,
     vote_for_red_on_black_win_count: 0,
     farewell_success_percent: 0,
     farewell_correct_count: 0,
@@ -291,10 +277,6 @@ function timesWord(raw: unknown): string {
 function formatTimes(raw: unknown): string {
   const value = safeInt(raw)
   return `${formatInt(value)} ${timesWord(value)}`
-}
-
-function formatDonSheriffSplit(donRaw: unknown, sheriffRaw: unknown): string {
-  return `${formatInt(donRaw)}/${formatInt(sheriffRaw)}`
 }
 
 function formatPctWithGames(percentRaw: unknown, countRaw: unknown): string {
@@ -440,10 +422,6 @@ function normalizeGame(raw: any): UserGameStats {
     games_played: safeInt(raw?.games_played),
     games_won: safeInt(raw?.games_won),
     vote_leave_day12_percent: clampPct(raw?.vote_leave_day12_percent),
-    vote_out_don_day12_black_count: safeInt(raw?.vote_out_don_day12_black_count),
-    vote_out_sheriff_day12_black_count: safeInt(raw?.vote_out_sheriff_day12_black_count),
-    vote_out_don_day12_citizen_count: safeInt(raw?.vote_out_don_day12_citizen_count),
-    vote_out_sheriff_day12_citizen_count: safeInt(raw?.vote_out_sheriff_day12_citizen_count),
     vote_for_red_on_black_win_count: safeInt(raw?.vote_for_red_on_black_win_count),
     farewell_success_percent: clampPct(raw?.farewell_success_percent),
     farewell_correct_count: safeInt(raw?.farewell_correct_count),
@@ -840,109 +818,115 @@ onMounted(() => {
         }
       }
     }
-    > .block {
-      box-sizing: border-box;
-      padding: 24px;
-      border-radius: 24px;
-      background: $soft-purple-900;
-      display: flex;
-      flex-direction: column;
-      gap: 24px;
-      min-width: 0;
-      h3 {
-        margin: 0;
-        color: $neutral-white;
-        font-family: Involve-Medium;
-        font-weight: 500;
-        font-size: 24px;
-        line-height: 26px;
-        letter-spacing: -0.48px;
-      }
-      .best-move {
-        display: grid;
-        grid-template-columns: minmax(180px, 1fr) minmax(0, 3fr);
+    .performance-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr);
+      gap: 10px;
+      .block {
+        box-sizing: border-box;
+        padding: 24px;
+        border-radius: 24px;
+        background: $soft-purple-900;
+        display: flex;
+        flex-direction: column;
         gap: 24px;
-        align-items: center;
-        .metric-card {
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-          box-sizing: border-box;
-          padding: 16px;
-          gap: 16px;
-          min-width: 0;
-          min-height: 112px;
-          border-radius: 20px;
-          background: $soft-purple-800;
-          span {
-            color: $neutral-300;
-            font-size: 14px;
-          }
-          strong {
-            font-family: Involve-Medium;
-            font-weight: 500;
-            font-size: 24px;
-            line-height: 1.2;
-            overflow-wrap: anywhere;
-          }
+        min-width: 0;
+        h3 {
+          margin: 0;
+          color: $neutral-white;
+          font-family: Involve-Medium;
+          font-weight: 500;
+          font-size: 24px;
+          line-height: 26px;
+          letter-spacing: -0.48px;
         }
-        .best-bars {
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-          .best-row {
-            display: grid;
-            grid-template-columns: 32px minmax(0, 1fr) 40px;
-            align-items: center;
+        .best-move {
+          flex: 1;
+          display: grid;
+          grid-template-columns: minmax(120px, 1fr) minmax(0, 1.6fr);
+          gap: 24px;
+          align-items: center;
+          .metric-card {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            box-sizing: border-box;
+            padding: 16px;
             gap: 16px;
-            strong {
-              text-align: right;
-              font-weight: 500;
-            }
-            .best-label {
+            min-width: 0;
+            min-height: 112px;
+            border-radius: 20px;
+            background: $soft-purple-800;
+            span {
               color: $neutral-300;
               font-size: 14px;
             }
-            .best-bar {
-              height: 6px;
-              border-radius: 999px;
-              background: $soft-purple-800;
-              overflow: hidden;
-              span {
-                display: block;
-                height: 100%;
-                border-radius: inherit;
-                background: $green-500;
+            strong {
+              font-family: Involve-Medium;
+              font-weight: 500;
+              font-size: 24px;
+              line-height: 1.2;
+              overflow-wrap: anywhere;
+            }
+          }
+          .best-bars {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            .best-row {
+              display: grid;
+              grid-template-columns: 32px minmax(0, 1fr) 40px;
+              align-items: center;
+              gap: 16px;
+              strong {
+                text-align: right;
+                font-weight: 500;
+              }
+              .best-label {
+                color: $neutral-300;
+                font-size: 14px;
+              }
+              .best-bar {
+                height: 6px;
+                border-radius: 999px;
+                background: $soft-purple-800;
+                overflow: hidden;
+                span {
+                  display: block;
+                  height: 100%;
+                  border-radius: inherit;
+                  background: $green-500;
+                }
               }
             }
           }
         }
-      }
-      .extra-grid {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 10px;
-        .metric-card {
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-          box-sizing: border-box;
-          padding: 16px;
-          gap: 16px;
-          min-width: 0;
-          min-height: 112px;
-          border-radius: 20px;
-          background: $soft-purple-800;
-          span {
-            color: $neutral-300;
-            font-size: 14px;
-          }
-          strong {
-            font-family: Involve-Medium;
-            font-weight: 500;
-            font-size: 24px;
-            line-height: 1.2;
-            overflow-wrap: anywhere;
+        .extra-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 10px;
+          .metric-card {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            box-sizing: border-box;
+            padding: 16px;
+            gap: 16px;
+            min-width: 0;
+            min-height: 112px;
+            border-radius: 20px;
+            background: $soft-purple-800;
+            span {
+              color: $neutral-300;
+              font-size: 14px;
+            }
+            strong {
+              font-family: Involve-Medium;
+              font-weight: 500;
+              font-size: 24px;
+              line-height: 1.2;
+              overflow-wrap: anywhere;
+            }
           }
         }
       }
