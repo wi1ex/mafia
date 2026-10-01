@@ -4,10 +4,17 @@
       <div class="game-versions-overlay" role="dialog" aria-modal="true" aria-labelledby="game-versions-title"
            @pointerdown.self="overlayArmed = true" @pointerup.self="overlayArmed && requestCancel()" @pointerleave.self="overlayArmed = false" @pointercancel.self="overlayArmed = false">
         <section class="game-versions-modal" @click.stop>
-          <h2 id="game-versions-title" class="game-versions-modal__title">Версии игры</h2>
+          <header class="game-versions-modal__header">
+            <div class="game-versions-modal__heading">
+              <h2 id="game-versions-title">Версии игры</h2>
+              <p>Вскрытия шерифов, проверки и игровые отметки</p>
+            </div>
+            <UiButton variant="white" size="low" :icon="iconClose" width="40px" aria-label="Закрыть версии игры без сохранения" :disabled="saving" @click="requestCancel" />
+          </header>
           <p v-if="validationError" class="game-versions-modal__error" role="alert">{{ validationError }}</p>
 
           <div class="game-versions-modal__marks">
+            <h3>Игровые отметки</h3>
             <div v-for="rule in markRules" :key="rule.key" class="scoring-mark">
               <label :for="`scoring-mark-${rule.key}`">{{ rule.label }}</label>
               <select :id="`scoring-mark-${rule.key}`" v-model.number="marks[rule.key]" :disabled="saving">
@@ -20,7 +27,7 @@
           </div>
 
           <div class="game-versions-modal__list-header">
-            <span>Текущие версии: {{ rows.length }} / {{ maxVersions }}</span>
+            <h3>Вскрытия <span>{{ rows.length }} / {{ maxVersions }}</span></h3>
             <UiButton size="low" text="Добавить версию" :disabled="saving || rows.length >= maxVersions" @click="addVersion" />
           </div>
 
@@ -316,14 +323,31 @@ function requestCancel(): void {
     > * {
       flex-shrink: 0;
     }
-    .game-versions-modal__title {
-      margin: 0;
-      color: $neutral-white;
-      font-family: Involve-Medium;
-      font-weight: 500;
-      font-size: 24px;
-      line-height: 26px;
-      letter-spacing: -0.48px;
+    .game-versions-modal__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      .game-versions-modal__heading {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        h2 {
+          margin: 0;
+          color: $neutral-white;
+          font-family: Involve-Medium;
+          font-weight: 500;
+          font-size: 24px;
+          line-height: 26px;
+          letter-spacing: -0.48px;
+        }
+        p {
+          margin: 0;
+          color: $neutral-300;
+          font-size: 14px;
+          line-height: 20px;
+        }
+      }
     }
     .game-versions-modal__error {
       margin: 0;
@@ -341,6 +365,14 @@ function requestCancel(): void {
       gap: 16px;
       border-radius: 20px;
       background-color: $soft-purple-800;
+      h3 {
+        grid-column: 1 / -1;
+        margin: 0;
+        font-family: Involve-Medium;
+        font-weight: 500;
+        font-size: 20px;
+        line-height: 24px;
+      }
       .scoring-mark {
         display: flex;
         flex-direction: column;
@@ -390,10 +422,24 @@ function requestCancel(): void {
       align-items: center;
       justify-content: space-between;
       gap: 16px;
-      > span {
-        color: $neutral-300;
-        font-size: 16px;
-        line-height: 20px;
+      h3 {
+        display: flex;
+        align-items: center;
+        margin: 0;
+        gap: 12px;
+        font-family: Involve-Medium;
+        font-weight: 500;
+        font-size: 20px;
+        line-height: 24px;
+        span {
+          padding: 6px 12px;
+          border-radius: 12px;
+          background-color: $soft-purple-800;
+          color: $neutral-300;
+          font-family: Hauora-Regular;
+          font-size: 14px;
+          line-height: 20px;
+        }
       }
     }
     .game-versions-modal__list {
