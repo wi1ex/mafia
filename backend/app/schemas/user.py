@@ -186,6 +186,8 @@ class GameHistoryHostOut(BaseModel):
     id: Optional[int] = None
     username: Optional[str] = None
     avatar_name: Optional[str] = None
+    profile_role: Optional[str] = None
+    deleted: bool = False
     auto: bool = False
 
 

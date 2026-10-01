@@ -995,6 +995,8 @@ async def game_history_details(game_id: int, ident: Identity = Depends(get_ident
             id=head_uid if not head_auto else None,
             username=head_username,
             avatar_name=head_avatar_name,
+            profile_role=non_empty_str((head_profile or {}).get("role")),
+            deleted=non_empty_str((head_profile or {}).get("deleted_at")) is not None,
             auto=head_auto,
         ),
         mode=game_mode,

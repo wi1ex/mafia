@@ -140,13 +140,11 @@
               </div>
               <div class="game-head">
                 <span>Ведущий:</span>
-                <template v-if="game.head.auto">
-                  <span>Авто</span>
-                </template>
-                <template v-else>
-                  <img v-minio-img="{ key: game.head.avatar_name ? `avatars/${game.head.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
-                  <span>{{ headName(game) }}</span>
-                </template>
+                <span v-if="game.head.auto">Авто</span>
+                <button v-else class="head-player" type="button" :disabled="!canOpenHostMiniProfile(game.head)" :aria-label="`Открыть профиль ведущего ${headName(game.head)}`" @click.stop="openHostMiniProfile(game.head)">
+                  <img v-minio-img="{ key: game.head.avatar_name ? `avatars/${game.head.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
+                  <span>{{ headName(game.head) }}</span>
+                </button>
               </div>
               <span class="game-mode" :class="{ 'game-mode--rating': game.mode === 'rating' }">{{ game.mode === 'rating' ? 'Рейтинговая игра' : 'Обычная игра' }}</span>
             </div>
@@ -194,6 +192,13 @@
         <UiButton variant="white" size="middle" text="Вперёд" :disabled="loading || page >= pages" @click="nextPage" />
       </footer>
     </section>
+    <MiniProfile
+      v-model:open="hostMiniProfileOpen"
+      :user-id="hostMiniProfileUserId"
+      :initial-profile="hostMiniProfileInitial"
+      :stats-url="hostMiniProfileStatsUrl"
+      :show-stats-button="true"
+    />
   </main>
 </template>
 
@@ -208,7 +213,9 @@ import UiButton from '@/components/UiButton.vue'
 import UiDropdown from '@/components/UiDropdown.vue'
 import UiInput from '@/components/UiInput.vue'
 
+import MiniProfile from '@/views/MiniProfile.vue'
 import defaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
+import { canOpenMiniProfileTarget, normalizeMiniProfileRole, normalizeMiniProfileUserId } from '@/services/miniProfile'
 import iconArrowDown from '@/assets/svg/iconArrow.svg'
 
 type GameHistoryRole = 'citizen' | 'mafia' | 'don' | 'sheriff'
@@ -239,6 +246,8 @@ interface ResultFilterOption {
 }
 
 interface GameHistoryHost {
+  profile_role?: string | null
+  deleted?: boolean | null
   id?: number | null
   username?: string | null
   avatar_name?: string | null
@@ -336,6 +345,46 @@ const detailsByGameId = ref<Record<number, GameHistorySlot[]>>({})
 const detailsErrors = ref<Record<number, string>>({})
 const detailsLoading = ref<Set<number>>(new Set())
 const userStore = useUserStore()
+const hostMiniProfileOpen = ref(false)
+const hostMiniProfile = ref<GameHistoryHost | null>(null)
+const hostMiniProfileUserId = computed(() => normalizeMiniProfileUserId(hostMiniProfile.value?.id))
+const hostMiniProfileInitial = computed(() => hostMiniProfile.value ? {
+  id: hostMiniProfileUserId.value,
+  username: hostMiniProfile.value.username || null,
+  avatar_name: hostMiniProfile.value.avatar_name || null,
+  role: hostMiniProfile.value.profile_role || null,
+  deleted: Boolean(hostMiniProfile.value.deleted),
+} : null)
+const hostMiniProfileStatsUrl = computed(() => {
+  const uid = hostMiniProfileUserId.value
+  if (!uid) return null
+  const role = normalizeMiniProfileRole(userStore.user?.role)
+  if (role === 'admin') return `/admin/users/${uid}/stats`
+  if (role === 'moder') return `/moderation/users/${uid}/stats`
+  return null
+})
+
+function headName(head: GameHistoryHost): string {
+  const uid = normalizeMiniProfileUserId(head.id)
+  return head.username?.trim() || (uid ? `user${uid}` : 'Авто')
+}
+
+function canOpenHostMiniProfile(head: GameHistoryHost): boolean {
+  return !head.auto && canOpenMiniProfileTarget({
+    targetId: head.id,
+    viewerId: userStore.user?.id,
+    viewerRole: userStore.user?.role,
+    targetRole: head.profile_role,
+    targetDeletedAt: head.deleted,
+  })
+}
+
+function openHostMiniProfile(head: GameHistoryHost): void {
+  if (!canOpenHostMiniProfile(head)) return
+  hostMiniProfile.value = head
+  hostMiniProfileOpen.value = true
+}
+
 const adminFilters = ref<AdminGameHistoryFilters>(emptyAdminFilters())
 const appliedAdminFilters = ref<AdminGameHistoryFilters>(emptyAdminFilters())
 
@@ -524,12 +573,6 @@ function handleGameFoulRemovalsUpdated(payload: { gameId: number; ppkUserId: num
   reloadGameDetails(payload.gameId)
 }
 
-function headName(game: GameHistoryListItem): string {
-  const name = (game.head.username || '').trim()
-  if (name) return name
-  const id = intOr(game.head.id, 0)
-  return id > 0 ? `user${id}` : 'Авто'
-}
 
 function formatStart(value: string): string {
   return formatLocalDateTime(value, DATE_OPTIONS)
@@ -852,19 +895,48 @@ onBeforeUnmount(() => {
               max-width: 100%;
               min-width: 0;
               font-size: 14px;
-              img {
-                flex: 0 0 20px;
-                width: 20px;
-                height: 20px;
-                border-radius: 50%;
-                object-fit: cover;
+              .head-player {
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                min-width: 0;
+                padding: 0;
+                border: none;
+                background: transparent;
+                color: inherit;
+                font: inherit;
+                text-align: left;
+                &:not(:disabled) {
+                  cursor: pointer;
+                }
+                &:disabled {
+                  cursor: default;
+                  opacity: 1;
+                }
+                img {
+                  flex: 0 0 20px;
+                  width: 20px;
+                  height: 20px;
+                  border-radius: 50%;
+                  object-fit: cover;
+                }
+                span {
+                  min-width: 0;
+                  overflow: hidden;
+                  text-overflow: ellipsis;
+                  white-space: nowrap;
+                  transition: color 0.25s ease-in-out;
+                }
+                &:not(:disabled):hover span {
+                  color: $green-500;
+                }
+                &:focus-visible {
+                  outline: 2px solid $green-500;
+                  outline-offset: 4px;
+                  border-radius: 8px;
+                }
               }
-              span {
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
-              }
-              span:first-child {
+              > span {
                 flex-shrink: 0;
                 color: $neutral-300;
               }
