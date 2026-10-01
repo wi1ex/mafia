@@ -1,25 +1,26 @@
 <template>
   <section class="moderation">
     <header>
+      <h1>Модерация</h1>
       <nav class="tabs" aria-label="Модерация">
-        <button class="tab" type="button" :class="{ active: activeTab === 'users' }" @click="activeTab = 'users'">
+        <button class="tab" type="button" :class="{ active: activeTab === 'users' }" :aria-pressed="activeTab === 'users'" @click="activeTab = 'users'">
           Пользователи
         </button>
-        <button class="tab" type="button" :class="{ active: activeTab === 'sanctions' }" @click="activeTab = 'sanctions'">
+        <button class="tab" type="button" :class="{ active: activeTab === 'sanctions' }" :aria-pressed="activeTab === 'sanctions'" @click="activeTab = 'sanctions'">
           Санкции
         </button>
-        <button class="tab" type="button" :class="{ active: activeTab === 'contact_requests' }" @click="activeTab = 'contact_requests'">
+        <button class="tab" type="button" :class="{ active: activeTab === 'contact_requests' }" :aria-pressed="activeTab === 'contact_requests'" @click="activeTab = 'contact_requests'">
           Обращения
         </button>
       </nav>
-      <router-link class="btn nav" :to="{ name: 'home' }" aria-label="На главную">На главную</router-link>
+      <router-link class="home-link" :to="{ name: 'home' }" aria-label="На главную">На главную</router-link>
     </header>
 
     <div class="panel">
-      <div v-if="activeTab === 'users'">
+      <div v-if="activeTab === 'users'" class="tab-panel">
         <div class="filters">
           <div class="field">
-            <UiInput id="moderation-users-user" v-model.trim="usersUser" label="Никнейм" :disabled="usersLoading" />
+            <UiInput id="moderation-users-user" v-model.trim="usersUser" label="Никнейм" size="low" :disabled="usersLoading" />
           </div>
           <div class="field">
             <label for="moderation-users-limit">Отображать по</label>
@@ -30,89 +31,102 @@
         </div>
 
         <div v-if="usersLoading" class="loading">Загрузка...</div>
-        <div v-else>
-          <table class="table">
-            <thead>
-              <tr>
-                <th>Никнейм</th>
-                <th>
-                  <button class="table-sort" :class="{ active: usersSort === 'registered_at' }" type="button" title="Сортировать по убыванию" @click="sortUsers('registered_at')">
-                    Регистрация <span aria-hidden="true">↓</span>
-                  </button>
-                </th>
-                <th>
-                  <button class="table-sort" :class="{ active: usersSort === 'last_game' }" type="button" title="Сортировать по убыванию" @click="sortUsers('last_game')">
-                    Последняя игра <span aria-hidden="true">↓</span>
-                  </button>
-                </th>
-                <th>
-                  <button class="table-sort" :class="{ active: usersSort === 'last_online' }" type="button" title="Сортировать по убыванию" @click="sortUsers('last_online')">
-                    Последний онлайн <span aria-hidden="true">↓</span>
-                  </button>
-                </th>
-                <th>
-                  <button class="table-sort" :class="{ active: usersSort === 'last_room' }" type="button" title="Сортировать по убыванию" @click="sortUsers('last_room')">
-                    Последнее общение <span aria-hidden="true">↓</span>
-                  </button>
-                </th>
-                <th>
-                  <button class="table-sort" :class="{ active: usersSort === 'last_spectator' }" type="button" title="Сортировать по убыванию" @click="sortUsers('last_spectator')">
-                    Последний зритель <span aria-hidden="true">↓</span>
-                  </button>
-                </th>
-                <th>
-                  <button class="table-sort" :class="{ active: usersSort === 'suspends_count' }" type="button" title="Сортировать по убыванию" @click="sortUsers('suspends_count')">
-                    Отстранения <span aria-hidden="true">↓</span>
-                  </button>
-                </th>
-                <th>
-                  <button class="table-sort" :class="{ active: usersSort === 'timeouts_count' }" type="button" title="Сортировать по убыванию" @click="sortUsers('timeouts_count')">
-                    Таймауты <span aria-hidden="true">↓</span>
-                  </button>
-                </th>
-                <th>
-                  <button class="table-sort" :class="{ active: usersSort === 'bans_count' }" type="button" title="Сортировать по убыванию" @click="sortUsers('bans_count')">
-                    Баны <span aria-hidden="true">↓</span>
-                  </button>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="row in users" :key="row.id">
-                <td>
-                  <div class="user-cell">
-                    <button class="user-link user-profile-trigger" type="button" :disabled="!canOpenModerationUserMiniProfile(row)" @click="openUserMiniProfile(row)">
-                      <img class="user-avatar" v-minio-img="{ key: row.avatar_name ? `avatars/${row.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
-                      <span>{{ row.username || `user${row.id}` }}</span>
+        <div v-else class="results">
+          <div class="table-wrap">
+            <table class="table">
+              <colgroup>
+                <col class="user-column" />
+                <col class="registered-column" />
+                <col class="last-game-column" />
+                <col class="online-column" />
+                <col class="room-column" />
+                <col class="spectator-column" />
+                <col class="count-column" />
+                <col class="count-column" />
+                <col class="count-column" />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>Никнейм</th>
+                  <th>
+                    <button class="table-sort" :class="{ active: usersSort === 'registered_at' }" type="button" title="Сортировать по убыванию" @click="sortUsers('registered_at')">
+                      Регистрация <span aria-hidden="true">↓</span>
                     </button>
-                  </div>
-                </td>
-                <td>{{ formatLocalDateTime(row.registered_at) }}</td>
-                <td>{{ formatModerationLastGame(row) }}</td>
-                <td>{{ formatModerationLastOnline(row.last_visit_at, row.online) }}</td>
-                <td>{{ formatRoomIdLabel(row.last_room_id) }}</td>
-                <td>{{ formatRoomIdLabel(row.last_spectator_room_id) }}</td>
-                <td>{{ row.suspends_count }}</td>
-                <td>{{ row.timeouts_count }}</td>
-                <td>{{ row.bans_count }}</td>
-              </tr>
-              <tr v-if="users.length === 0">
-                <td colspan="9" class="muted">Нет данных</td>
-              </tr>
-            </tbody>
-          </table>
+                  </th>
+                  <th>
+                    <button class="table-sort" :class="{ active: usersSort === 'last_game' }" type="button" title="Сортировать по убыванию" @click="sortUsers('last_game')">
+                      Последняя игра <span aria-hidden="true">↓</span>
+                    </button>
+                  </th>
+                  <th>
+                    <button class="table-sort" :class="{ active: usersSort === 'last_online' }" type="button" title="Сортировать по убыванию" @click="sortUsers('last_online')">
+                      Последний онлайн <span aria-hidden="true">↓</span>
+                    </button>
+                  </th>
+                  <th>
+                    <button class="table-sort" :class="{ active: usersSort === 'last_room' }" type="button" title="Сортировать по убыванию" @click="sortUsers('last_room')">
+                      Последнее общение <span aria-hidden="true">↓</span>
+                    </button>
+                  </th>
+                  <th>
+                    <button class="table-sort" :class="{ active: usersSort === 'last_spectator' }" type="button" title="Сортировать по убыванию" @click="sortUsers('last_spectator')">
+                      Последний зритель <span aria-hidden="true">↓</span>
+                    </button>
+                  </th>
+                  <th>
+                    <button class="table-sort" :class="{ active: usersSort === 'suspends_count' }" type="button" title="Сортировать по убыванию" @click="sortUsers('suspends_count')">
+                      Отстранения <span aria-hidden="true">↓</span>
+                    </button>
+                  </th>
+                  <th>
+                    <button class="table-sort" :class="{ active: usersSort === 'timeouts_count' }" type="button" title="Сортировать по убыванию" @click="sortUsers('timeouts_count')">
+                      Таймауты <span aria-hidden="true">↓</span>
+                    </button>
+                  </th>
+                  <th>
+                    <button class="table-sort" :class="{ active: usersSort === 'bans_count' }" type="button" title="Сортировать по убыванию" @click="sortUsers('bans_count')">
+                      Баны <span aria-hidden="true">↓</span>
+                    </button>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in users" :key="row.id">
+                  <td>
+                    <div class="user-cell">
+                      <button class="user-link user-profile-trigger" type="button" :disabled="!canOpenModerationUserMiniProfile(row)" @click="openUserMiniProfile(row)">
+                        <img class="user-avatar" v-minio-img="{ key: row.avatar_name ? `avatars/${row.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                        <span>{{ row.username || `user${row.id}` }}</span>
+                      </button>
+                    </div>
+                  </td>
+                  <td>{{ formatLocalDateTime(row.registered_at) }}</td>
+                  <td>{{ formatModerationLastGame(row) }}</td>
+                  <td>{{ formatModerationLastOnline(row.last_visit_at, row.online) }}</td>
+                  <td>{{ formatRoomIdLabel(row.last_room_id) }}</td>
+                  <td>{{ formatRoomIdLabel(row.last_spectator_room_id) }}</td>
+                  <td>{{ row.suspends_count }}</td>
+                  <td>{{ row.timeouts_count }}</td>
+                  <td>{{ row.bans_count }}</td>
+                </tr>
+                <tr v-if="users.length === 0">
+                  <td colspan="9" class="muted">Нет данных</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
           <div class="pager">
-            <button class="btn" :disabled="usersPage <= 1" @click="prevUsers">Назад</button>
-            <span>{{ usersPage }} / {{ usersPages }}</span>
-            <button class="btn" :disabled="usersPage >= usersPages" @click="nextUsers">Вперед</button>
+            <UiButton variant="white" size="middle" text="Назад" :disabled="usersPage <= 1" @click="prevUsers" />
+            <span>Страница {{ usersPage }} из {{ usersPages }}</span>
+            <UiButton variant="white" size="middle" text="Вперёд" :disabled="usersPage >= usersPages" @click="nextUsers" />
           </div>
         </div>
       </div>
 
-      <div v-else-if="activeTab === 'sanctions'">
+      <div v-else-if="activeTab === 'sanctions'" class="tab-panel">
         <div class="filters">
           <div class="field">
-            <UiInput id="moderation-sanctions-user" v-model.trim="sanctionsUser" label="Никнейм" :disabled="sanctionsLoading" />
+            <UiInput id="moderation-sanctions-user" v-model.trim="sanctionsUser" label="Никнейм" size="low" :disabled="sanctionsLoading" />
           </div>
           <div class="field">
             <label for="moderation-sanctions-limit">Отображать по</label>
@@ -123,89 +137,103 @@
         </div>
 
         <div v-if="sanctionsLoading" class="loading">Загрузка...</div>
-        <div v-else>
-          <table class="table sanctions-table">
-            <thead>
-              <tr>
-                <th>Пользователь</th>
-                <th>Тип санкции</th>
-                <th>Статус</th>
-                <th>Дата выдачи</th>
-                <th>Дата окончания</th>
-                <th>Кем выдана</th>
-                <th>Кем снята</th>
-                <th>Срок изначальный</th>
-                <th>Срок по факту</th>
-                <th>Отработка ведущим</th>
-                <th>Пункт правил</th>
-                <th>Описание</th>
-                <th>Уменьшить</th>
-                <th>Увеличить</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="row in sanctions" :key="row.id">
-                <td>
-                  <div class="user-cell">
-                    <button class="user-link user-profile-trigger" type="button" :disabled="!canOpenSanctionUserMiniProfile(row)" @click="openSanctionUserMiniProfile(row)">
-                      <img class="user-avatar" v-minio-img="{ key: row.avatar_name ? `avatars/${row.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
-                      <span>{{ row.username || `user${row.user_id}` }}</span>
-                    </button>
-                  </div>
-                </td>
-                <td>{{ formatSanctionKindLabel(row.kind) }}</td>
-                <td>
-                  <span class="status-badge" :class="sanctionStatusClass(row.status)">{{ formatSanctionStatusLabel(row.status) }}</span>
-                </td>
-                <td>{{ formatLocalDateTime(row.issued_at) }}</td>
-                <td>{{ row.finished_at ? formatLocalDateTime(row.finished_at) : '-' }}</td>
-                <td>{{ row.issued_by_display }}</td>
-                <td>{{ row.revoked_by_display || '-' }}</td>
-                <td>{{ formatSanctionDuration(row.duration_seconds) }}</td>
-                <td>{{ formatSanctionDuration(row.served_seconds) }}</td>
-                <td>{{ formatSanctionWorkoff(row) }}</td>
-                <td class="rule-cell">
-                  <select :value="row.reason || ''" :disabled="isSanctionReasonChanging(row)" :aria-label="`Пункт правил для санкции ${row.id}`" @change="updateSanctionReason(row, $event)">
-                    <option v-if="!row.reason" value="" disabled>Пункт не указан</option>
-                    <option v-else-if="!isCurrentSanctionReason(row.reason)" :value="row.reason">
-                      Устаревший пункт: {{ row.reason }}
-                    </option>
-                    <option v-for="reason in sanctionReasons" :key="reason.value" :value="reason.value">
-                      {{ reason.label }}
-                    </option>
-                  </select>
-                </td>
-                <td class="description-cell">{{ row.description || '-' }}</td>
-                <td class="actions-cell">
-                  <button v-if="canAdjustSanction(row)" class="btn dark" :disabled="isSanctionAdjustBusy(row, 'decrease')" @click="openSanctionAdjust(row, 'decrease')">
-                    Уменьшить
-                  </button>
-                  <span v-else>-</span>
-                </td>
-                <td class="actions-cell">
-                  <button v-if="canAdjustSanction(row)" class="btn" :disabled="isSanctionAdjustBusy(row, 'increase')" @click="openSanctionAdjust(row, 'increase')">
-                    Увеличить
-                  </button>
-                  <span v-else>-</span>
-                </td>
-              </tr>
-              <tr v-if="sanctions.length === 0">
-                <td colspan="14" class="muted">Нет данных</td>
-              </tr>
-            </tbody>
-          </table>
+        <div v-else class="results">
+          <div class="table-wrap">
+            <table class="table sanctions-table">
+              <colgroup>
+                <col class="user-column" />
+                <col class="kind-column" />
+                <col class="status-column" />
+                <col class="date-column" />
+                <col class="date-column" />
+                <col class="author-column" />
+                <col class="author-column" />
+                <col class="duration-column" />
+                <col class="duration-column" />
+                <col class="workoff-column" />
+                <col class="rule-column" />
+                <col class="description-column" />
+                <col class="action-column" />
+                <col class="action-column" />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>Пользователь</th>
+                  <th>Тип санкции</th>
+                  <th>Статус</th>
+                  <th>Дата выдачи</th>
+                  <th>Дата окончания</th>
+                  <th>Кем выдана</th>
+                  <th>Кем снята</th>
+                  <th>Срок изначальный</th>
+                  <th>Срок по факту</th>
+                  <th>Отработка ведущим</th>
+                  <th>Пункт правил</th>
+                  <th>Описание</th>
+                  <th>Уменьшить</th>
+                  <th>Увеличить</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in sanctions" :key="row.id">
+                  <td>
+                    <div class="user-cell">
+                      <button class="user-link user-profile-trigger" type="button" :disabled="!canOpenSanctionUserMiniProfile(row)" @click="openSanctionUserMiniProfile(row)">
+                        <img class="user-avatar" v-minio-img="{ key: row.avatar_name ? `avatars/${row.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                        <span>{{ row.username || `user${row.user_id}` }}</span>
+                      </button>
+                    </div>
+                  </td>
+                  <td>{{ formatSanctionKindLabel(row.kind) }}</td>
+                  <td>
+                    <span class="status-badge" :class="sanctionStatusClass(row.status)">{{ formatSanctionStatusLabel(row.status) }}</span>
+                  </td>
+                  <td>{{ formatLocalDateTime(row.issued_at) }}</td>
+                  <td>{{ row.finished_at ? formatLocalDateTime(row.finished_at) : '-' }}</td>
+                  <td>{{ row.issued_by_display }}</td>
+                  <td>{{ row.revoked_by_display || '-' }}</td>
+                  <td>{{ formatSanctionDuration(row.duration_seconds) }}</td>
+                  <td>{{ formatSanctionDuration(row.served_seconds) }}</td>
+                  <td>{{ formatSanctionWorkoff(row) }}</td>
+                  <td class="rule-cell">
+                    <select :value="row.reason || ''" :disabled="isSanctionReasonChanging(row)" :aria-label="`Пункт правил для санкции ${row.id}`" @change="updateSanctionReason(row, $event)">
+                      <option v-if="!row.reason" value="" disabled>Пункт не указан</option>
+                      <option v-else-if="!isCurrentSanctionReason(row.reason)" :value="row.reason">
+                        Устаревший пункт: {{ row.reason }}
+                      </option>
+                      <option v-for="reason in sanctionReasons" :key="reason.value" :value="reason.value">
+                        {{ reason.label }}
+                      </option>
+                    </select>
+                  </td>
+                  <td class="description-cell">{{ row.description || '-' }}</td>
+                  <td class="actions-cell">
+                    <UiButton v-if="canAdjustSanction(row)" variant="white" size="low" text="Уменьшить" :disabled="isSanctionAdjustBusy(row, 'decrease')" @click="openSanctionAdjust(row, 'decrease')" />
+                    <span v-else>-</span>
+                  </td>
+                  <td class="actions-cell">
+                    <UiButton v-if="canAdjustSanction(row)" size="low" text="Увеличить" :disabled="isSanctionAdjustBusy(row, 'increase')" @click="openSanctionAdjust(row, 'increase')" />
+                    <span v-else>-</span>
+                  </td>
+                </tr>
+                <tr v-if="sanctions.length === 0">
+                  <td colspan="14" class="muted">Нет данных</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
           <div class="pager">
-            <button class="btn" :disabled="sanctionsPage <= 1" @click="prevSanctions">Назад</button>
-            <span>{{ sanctionsPage }} / {{ sanctionsPages }}</span>
-            <button class="btn" :disabled="sanctionsPage >= sanctionsPages" @click="nextSanctions">Вперед</button>
+            <UiButton variant="white" size="middle" text="Назад" :disabled="sanctionsPage <= 1" @click="prevSanctions" />
+            <span>Страница {{ sanctionsPage }} из {{ sanctionsPages }}</span>
+            <UiButton variant="white" size="middle" text="Вперёд" :disabled="sanctionsPage >= sanctionsPages" @click="nextSanctions" />
           </div>
         </div>
       </div>
 
-      <div v-else>
+      <div v-else class="tab-panel">
         <div class="filters">
           <div class="field">
-            <UiInput id="moderation-contact-requests-user" v-model.trim="contactRequestsUser" label="Никнейм" :disabled="contactRequestsLoading" />
+            <UiInput id="moderation-contact-requests-user" v-model.trim="contactRequestsUser" label="Никнейм" size="low" :disabled="contactRequestsLoading" />
           </div>
           <div class="field">
             <label for="moderation-contact-requests-limit">Отображать по</label>
@@ -216,59 +244,69 @@
         </div>
 
         <div v-if="contactRequestsLoading" class="loading">Загрузка...</div>
-        <div v-else>
-          <table class="table contact-requests-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Дата</th>
-                <th>Никнейм</th>
-                <th>Контактные данные</th>
-                <th>Тема обращения</th>
-                <th>Текст обращения</th>
-                <th>Ответы</th>
-                <th v-if="isSeniorModerator">Связь</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="row in contactRequests" :key="row.id">
-                <td>{{ row.id }}</td>
-                <td>{{ formatLocalDateTime(row.created_at) }}</td>
-                <td>
-                  <div v-if="row.user_id" class="user-cell">
-                    <button class="user-link user-profile-trigger" type="button" :disabled="!canOpenContactRequestUserMiniProfile(row)" @click="openContactRequestUserMiniProfile(row)">
-                      <img class="user-avatar" v-minio-img="{ key: row.avatar_name ? `avatars/${row.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
-                      <span>{{ row.username || `user${row.user_id}` }}</span>
-                    </button>
-                  </div>
-                  <span v-else>-</span>
-                </td>
-                <td class="contact-cell">{{ row.contact }}</td>
-                <td class="topic-cell">{{ row.topic }}</td>
-                <td class="text-cell">{{ row.text }}</td>
-                <td class="replies-cell">
-                  <div v-for="reply in row.replies" :key="reply.id" class="contact-reply">
-                    <div class="contact-reply__meta">{{ reply.author_username }} (ID: {{ reply.author_id }}) · {{ formatLocalDateTime(reply.created_at) }}</div>
-                    <div class="contact-reply__text">{{ reply.text }}</div>
-                  </div>
-                  <span v-if="!row.replies?.length" class="muted">—</span>
-                </td>
-                <td v-if="isSeniorModerator">
-                  <button v-if="canReplyToContactRequest(row)" class="btn" type="button" @click="openContactRequestReply(row)" :disabled="contactRequestReplySaving">
-                    Ответить
-                  </button>
-                  <span v-else>-</span>
-                </td>
-              </tr>
-              <tr v-if="contactRequests.length === 0">
-                <td :colspan="isSeniorModerator ? 8 : 7" class="muted">Нет данных</td>
-              </tr>
-            </tbody>
-          </table>
+        <div v-else class="results">
+          <div class="table-wrap">
+            <table class="table contact-requests-table">
+              <colgroup>
+                <col class="id-column" />
+                <col class="date-column" />
+                <col class="user-column" />
+                <col class="contact-column" />
+                <col class="topic-column" />
+                <col class="text-column" />
+                <col class="replies-column" />
+                <col class="action-column" v-if="isSeniorModerator" />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Дата</th>
+                  <th>Никнейм</th>
+                  <th>Контактные данные</th>
+                  <th>Тема обращения</th>
+                  <th>Текст обращения</th>
+                  <th>Ответы</th>
+                  <th v-if="isSeniorModerator">Связь</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in contactRequests" :key="row.id">
+                  <td>{{ row.id }}</td>
+                  <td>{{ formatLocalDateTime(row.created_at) }}</td>
+                  <td>
+                    <div v-if="row.user_id" class="user-cell">
+                      <button class="user-link user-profile-trigger" type="button" :disabled="!canOpenContactRequestUserMiniProfile(row)" @click="openContactRequestUserMiniProfile(row)">
+                        <img class="user-avatar" v-minio-img="{ key: row.avatar_name ? `avatars/${row.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                        <span>{{ row.username || `user${row.user_id}` }}</span>
+                      </button>
+                    </div>
+                    <span v-else>-</span>
+                  </td>
+                  <td class="contact-cell">{{ row.contact }}</td>
+                  <td class="topic-cell">{{ row.topic }}</td>
+                  <td class="text-cell">{{ row.text }}</td>
+                  <td class="replies-cell">
+                    <div v-for="reply in row.replies" :key="reply.id" class="contact-reply">
+                      <div class="contact-reply__meta">{{ reply.author_username }} (ID: {{ reply.author_id }}) · {{ formatLocalDateTime(reply.created_at) }}</div>
+                      <div class="contact-reply__text">{{ reply.text }}</div>
+                    </div>
+                    <span v-if="!row.replies?.length" class="muted">—</span>
+                  </td>
+                  <td v-if="isSeniorModerator">
+                    <UiButton v-if="canReplyToContactRequest(row)" size="low" text="Ответить" :disabled="contactRequestReplySaving" @click="openContactRequestReply(row)" />
+                    <span v-else>-</span>
+                  </td>
+                </tr>
+                <tr v-if="contactRequests.length === 0">
+                  <td :colspan="isSeniorModerator ? 8 : 7" class="muted">Нет данных</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
           <div class="pager">
-            <button class="btn" :disabled="contactRequestsPage <= 1" @click="prevContactRequests">Назад</button>
-            <span>{{ contactRequestsPage }} / {{ contactRequestsPages }}</span>
-            <button class="btn" :disabled="contactRequestsPage >= contactRequestsPages" @click="nextContactRequests">Вперед</button>
+            <UiButton variant="white" size="middle" text="Назад" :disabled="contactRequestsPage <= 1" @click="prevContactRequests" />
+            <span>Страница {{ contactRequestsPage }} из {{ contactRequestsPages }}</span>
+            <UiButton variant="white" size="middle" text="Вперёд" :disabled="contactRequestsPage >= contactRequestsPages" @click="nextContactRequests" />
           </div>
         </div>
       </div>
@@ -325,6 +363,7 @@ import ContactModal from '@/views/ContactModal.vue'
 import MiniProfile from '@/views/MiniProfile.vue'
 import SanctionModal from '@/views/SanctionModal.vue'
 import UiInput from '@/components/UiInput.vue'
+import UiButton from '@/components/UiButton.vue'
 
 import defaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
 
@@ -1080,253 +1119,473 @@ onBeforeUnmount(() => {
 .moderation {
   display: flex;
   flex-direction: column;
-  margin: 0 10px 10px;
-  padding: 10px;
-  border-radius: 5px;
-  background-color: $neutral-900;
-  overflow: auto;
-  scrollbar-width: none;
+  flex: 1;
+  min-height: 0;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 30px 40px;
+  gap: 10px;
+  color: $neutral-100;
+  font-family: Hauora-Regular;
+  line-height: 1.4;
+  overflow: hidden;
   user-select: text;
-  header {
+  > header {
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     justify-content: space-between;
-    border-bottom: 3px solid $neutral-700;
+    flex-shrink: 0;
+    padding: 24px;
+    gap: 24px;
+    border-radius: 24px;
+    background-color: $soft-purple-900;
+    h1 {
+      margin: 0;
+      color: $neutral-white;
+      font-family: Involve-Medium;
+      font-weight: 500;
+      font-size: 24px;
+      line-height: 26px;
+      letter-spacing: -0.48px;
+    }
     .tabs {
       display: flex;
-      align-items: flex-end;
-      width: 80%;
-      height: 30px;
+      align-items: center;
+      flex: 1;
+      gap: 10px;
       .tab {
-        width: 200px;
-        height: 30px;
+        padding: 10px 24px;
         border: none;
-        border-radius: 5px 5px 0 0;
-        background-color: $neutral-800;
-        color: $neutral-100;
-        font-size: 18px;
-        font-family: Hauora-Regular;
-        line-height: 1;
+        border-radius: 12px;
+        background-color: $soft-purple-800;
+        color: $neutral-300;
+        font-family: Hauora-Medium;
+        font-size: 16px;
+        line-height: 20px;
         cursor: pointer;
-        transition: opacity 0.25s ease-in-out, height 0.25s ease-in-out, background-color 0.25s ease-in-out;
-        &.active {
-          height: 40px;
-          background-color: $neutral-700;
+        transition: background-color 0.25s ease-in-out, color 0.25s ease-in-out;
+        &:hover {
+          background-color: $soft-purple-700;
+          color: $neutral-white;
         }
+        &.active {
+          background-color: rgba($green-500, 0.12);
+          color: $green-500;
+        }
+        &:focus-visible {
+          outline: 2px solid $green-500;
+          outline-offset: 3px;
+        }
+      }
+    }
+    .home-link {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 24px;
+      border-radius: 12px;
+      background-color: $neutral-100;
+      color: $neutral-black;
+      font-family: Hauora-Medium;
+      font-size: 16px;
+      line-height: 20px;
+      text-decoration: none;
+      transition: background-color 0.25s ease-in-out;
+      &:hover {
+        background-color: $neutral-white;
+      }
+      &:focus-visible {
+        outline: 2px solid $green-500;
+        outline-offset: 3px;
       }
     }
   }
   .panel {
-    margin-top: 10px;
-  }
-  .btn {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0 20px;
-    gap: 5px;
-    height: 40px;
-    border: none;
-    border-radius: 5px;
-    background-color: $neutral-100;
-    font-size: 14px;
-    color: $neutral-black;
-    font-family: Hauora-Regular;
-    line-height: 1;
-    text-decoration: none;
-    cursor: pointer;
-    transition: opacity 0.25s ease-in-out, color 0.25s ease-in-out, border-radius 0.25s ease-in-out, background-color 0.25s ease-in-out;
-    &:hover {
-      background-color: $neutral-white;
-    }
-    &.nav {
-      font-size: 16px;
-      border-radius: 5px 5px 0 0;
-    }
-    &.dark {
-      background-color: $neutral-700;
-      color: $neutral-100;
-      &:hover {
-        background-color: rgba($neutral-500, 0.5);
-      }
-    }
-    &.danger {
-      background-color: rgba($red-500, 0.75);
-      color: $neutral-100;
-      &:hover {
-        background-color: $red-500;
-      }
-    }
-    &:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-  }
-  .loading {
-    padding: 20px;
-  }
-  .filters {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    gap: 10px;
-    margin: 10px 0;
-    .field {
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    padding: 24px;
+    border-radius: 24px;
+    background-color: $soft-purple-900;
+    .tab-panel {
       display: flex;
       flex-direction: column;
-      gap: 5px;
-      min-width: 160px;
-    }
-  }
-  .table {
-    width: 100%;
-    border-collapse: collapse;
-    color: $neutral-100;
-    font-family: Hauora-Regular;
-    th {
-      padding: 10px;
-      border-bottom: 1px solid $neutral-700;
-      font-size: 16px;
-      color: $neutral-500;
-      text-align: left;
-    }
-    .table-sort {
-      display: inline-flex;
-      align-items: center;
-      padding: 0;
-      gap: 5px;
-      border: none;
-      background: transparent;
-      color: inherit;
-      font: inherit;
-      cursor: pointer;
-      span {
-        opacity: 0.5;
-        transition: opacity 0.25s ease-in-out;
-      }
-      &:hover span,
-      &.active span {
-        opacity: 1;
-      }
-      &.active {
-        color: $neutral-100;
-      }
-    }
-    td {
-      padding: 10px;
-      border-bottom: 1px solid $neutral-700;
-      font-size: 14px;
-    }
-    .user-cell {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      .user-link {
-        padding: 0;
-        border: none;
-        background: transparent;
-        color: $neutral-100;
-        font: inherit;
-        text-align: left;
-        cursor: pointer;
-        transition: color 0.25s ease-in-out;
-        &:hover {
-          color: $neutral-white;
-          text-decoration: underline;
+      flex: 1;
+      min-height: 0;
+      gap: 24px;
+      .filters {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        flex-shrink: 0;
+        gap: 24px;
+        --ui-input-label-bg: #{$soft-purple-900};
+        .field {
+          display: flex;
+          flex-direction: column;
+          width: 160px;
+          gap: 10px;
+          &:first-child {
+            width: 360px;
+          }
+          > label {
+            color: $neutral-300;
+            font-size: 14px;
+            line-height: 20px;
+          }
+          select {
+            box-sizing: border-box;
+            width: 100%;
+            height: 40px;
+            padding: 0 12px;
+            border: 1px solid $green-200;
+            border-radius: 12px;
+            background-color: $soft-purple-900;
+            color: $neutral-100;
+            font-family: Hauora-Regular;
+            font-size: 16px;
+            line-height: 20px;
+            color-scheme: dark;
+            cursor: pointer;
+            &:not(:disabled):hover {
+              border-color: $green-500;
+            }
+            &:focus-visible {
+              outline: 2px solid $green-500;
+              outline-offset: 3px;
+            }
+            &:disabled {
+              opacity: 0.5;
+              cursor: not-allowed;
+            }
+            option {
+              background-color: $soft-purple-900;
+              color: $neutral-100;
+            }
+          }
         }
       }
-      .user-profile-trigger {
-        display: inline-flex;
-        align-items: center;
-        gap: 5px;
-        min-width: 0;
-        &:disabled {
-          cursor: default;
-          &:hover {
-            color: $neutral-100;
-            text-decoration: none;
+      .loading {
+        padding: 24px;
+        border-radius: 20px;
+        background-color: $soft-purple-800;
+        color: $neutral-300;
+        text-align: center;
+      }
+      .results {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
+        gap: 24px;
+        .table-wrap {
+          flex: 1;
+          min-height: 0;
+          border-radius: 20px;
+          background-color: $soft-purple-800;
+          overflow: auto;
+          overscroll-behavior: contain;
+          scrollbar-width: thin;
+          scrollbar-color: $soft-purple-700 transparent;
+          .table {
+            width: 100%;
+            min-width: 1400px;
+            border-collapse: separate;
+            border-spacing: 0;
+            table-layout: fixed;
+            colgroup {
+              .user-column {
+                width: 18%;
+              }
+              .registered-column {
+                width: 15%;
+              }
+              .last-game-column {
+                width: 16%;
+              }
+              .online-column {
+                width: 12%;
+              }
+              .room-column,
+              .spectator-column {
+                width: 9%;
+              }
+              .count-column {
+                width: 7%;
+              }
+            }
+            &.sanctions-table {
+              min-width: 2260px;
+              colgroup {
+                .user-column {
+                  width: 170px;
+                }
+                .kind-column {
+                  width: 115px;
+                }
+                .status-column {
+                  width: 105px;
+                }
+                .date-column,
+                .author-column {
+                  width: 150px;
+                }
+                .duration-column {
+                  width: 110px;
+                }
+                .workoff-column {
+                  width: 120px;
+                }
+                .rule-column {
+                  width: 260px;
+                }
+                .description-column {
+                  width: 300px;
+                }
+                .action-column {
+                  width: 135px;
+                }
+              }
+            }
+            &.contact-requests-table {
+              min-width: 1440px;
+              colgroup {
+                .id-column {
+                  width: 4%;
+                }
+                .date-column {
+                  width: 11%;
+                }
+                .user-column {
+                  width: 13%;
+                }
+                .contact-column {
+                  width: 12%;
+                }
+                .topic-column {
+                  width: 11%;
+                }
+                .text-column {
+                  width: 18%;
+                }
+                .replies-column {
+                  width: 21%;
+                }
+                .action-column {
+                  width: 10%;
+                }
+              }
+            }
+            thead {
+              position: sticky;
+              top: 0;
+              z-index: 1;
+              tr {
+                th {
+                  padding: 16px;
+                  border-bottom: 1px solid $soft-purple-700;
+                  background-color: $soft-purple-800;
+                  color: $neutral-300;
+                  font-family: Hauora-Medium;
+                  font-weight: 500;
+                  font-size: 14px;
+                  line-height: 20px;
+                  text-align: left;
+                  .table-sort {
+                    display: inline-flex;
+                    align-items: flex-start;
+                    padding: 0;
+                    gap: 6px;
+                    border: none;
+                    background: transparent;
+                    color: inherit;
+                    font: inherit;
+                    text-align: left;
+                    cursor: pointer;
+                    span {
+                      opacity: 0.5;
+                    }
+                    &:hover,
+                    &.active {
+                      color: $green-500;
+                    }
+                    &.active span {
+                      opacity: 1;
+                    }
+                    &:focus-visible {
+                      outline: 2px solid $green-500;
+                      outline-offset: 3px;
+                      border-radius: 4px;
+                    }
+                  }
+                }
+              }
+            }
+            tbody {
+              tr {
+                &:last-child td {
+                  border-bottom: none;
+                }
+                td {
+                  padding: 16px;
+                  border-bottom: 1px solid $soft-purple-700;
+                  vertical-align: top;
+                  font-size: 14px;
+                  line-height: 20px;
+                  overflow-wrap: anywhere;
+                  &.muted {
+                    padding: 32px 24px;
+                    color: $neutral-300;
+                    text-align: center;
+                  }
+                  .user-cell {
+                    min-width: 0;
+                    .user-profile-trigger {
+                      display: flex;
+                      align-items: center;
+                      width: 100%;
+                      min-width: 0;
+                      padding: 0;
+                      gap: 8px;
+                      border: none;
+                      background: transparent;
+                      color: $neutral-100;
+                      font: inherit;
+                      text-align: left;
+                      transition: color 0.25s ease-in-out;
+                      &:not(:disabled) {
+                        cursor: pointer;
+                      }
+                      &:not(:disabled):hover {
+                        color: $green-500;
+                      }
+                      &:disabled {
+                        cursor: default;
+                        opacity: 1;
+                      }
+                      &:focus-visible {
+                        outline: 2px solid $green-500;
+                        outline-offset: 4px;
+                        border-radius: 8px;
+                      }
+                      .user-avatar {
+                        flex: 0 0 24px;
+                        width: 24px;
+                        height: 24px;
+                        border-radius: 50%;
+                        object-fit: cover;
+                      }
+                      span {
+                        min-width: 0;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                        white-space: nowrap;
+                      }
+                    }
+                  }
+                  .status-badge {
+                    display: inline-flex;
+                    align-items: center;
+                    padding: 6px 10px;
+                    border-radius: 12px;
+                    font-family: Hauora-Medium;
+                    font-size: 12px;
+                    line-height: 16px;
+                    white-space: nowrap;
+                    &.status-active {
+                      background-color: rgba($green-500, 0.12);
+                      color: $green-500;
+                    }
+                    &.status-expired {
+                      background-color: rgba($yellow-500, 0.12);
+                      color: $yellow-500;
+                    }
+                    &.status-revoked {
+                      background-color: rgba($red-500, 0.12);
+                      color: $red-300;
+                    }
+                  }
+                  &.rule-cell {
+                    select {
+                      box-sizing: border-box;
+                      width: 100%;
+                      min-width: 0;
+                      height: 40px;
+                      padding: 0 12px;
+                      border: 1px solid $green-200;
+                      border-radius: 12px;
+                      background-color: $soft-purple-800;
+                      color: $neutral-100;
+                      font-family: Hauora-Regular;
+                      font-size: 14px;
+                      line-height: 20px;
+                      text-overflow: ellipsis;
+                      color-scheme: dark;
+                      cursor: pointer;
+                      &:not(:disabled):hover {
+                        border-color: $green-500;
+                      }
+                      &:focus-visible {
+                        outline: 2px solid $green-500;
+                        outline-offset: 3px;
+                      }
+                      &:disabled {
+                        opacity: 0.5;
+                        cursor: not-allowed;
+                      }
+                      option {
+                        background-color: $soft-purple-900;
+                        color: $neutral-100;
+                      }
+                    }
+                  }
+                  &.description-cell,
+                  &.contact-cell,
+                  &.topic-cell,
+                  &.text-cell {
+                    white-space: pre-wrap;
+                  }
+                  &.replies-cell {
+                    .contact-reply {
+                      & + .contact-reply {
+                        margin-top: 16px;
+                        padding-top: 16px;
+                        border-top: 1px solid $soft-purple-700;
+                      }
+                      .contact-reply__meta {
+                        margin-bottom: 8px;
+                        color: $neutral-300;
+                        font-size: 12px;
+                        line-height: 18px;
+                      }
+                      .contact-reply__text {
+                        white-space: pre-wrap;
+                      }
+                    }
+                    .muted {
+                      color: $neutral-300;
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        .pager {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          flex-shrink: 0;
+          gap: 16px;
+          span {
+            color: $neutral-300;
+            font-size: 14px;
+            line-height: 20px;
           }
         }
       }
     }
-    .user-avatar {
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      object-fit: cover;
-    }
   }
-  .sanctions-table .rule-cell,
-  .sanctions-table .description-cell {
-    max-width: 520px;
-    white-space: pre-wrap;
-    word-break: break-word;
-  }
-  .sanctions-table .rule-cell select {
-    width: 100%;
-    min-width: 190px;
-  }
-  .contact-requests-table .contact-cell,
-  .contact-requests-table .topic-cell,
-  .contact-requests-table .text-cell {
-    max-width: 520px;
-    white-space: pre-wrap;
-    word-break: break-word;
-  }
-  .status-badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 5px 10px;
-    border-radius: 999px;
-    font-size: 12px;
-    font-family: Hauora-SemiBold;
-    line-height: 1;
-    white-space: nowrap;
-    &.status-active {
-      background-color: rgba($green-500, 0.25);
-    }
-    &.status-expired {
-      background-color: rgba($yellow-500, 0.25);
-    }
-    &.status-revoked {
-      background-color: rgba($red-500, 0.25);
-    }
-  }
-  .pager {
-    margin-top: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    color: $neutral-100;
-    font-family: Hauora-Regular;
-  }
-  .muted {
-    color: $neutral-500;
-    text-align: center;
-  }
-}
-
-
-.contact-requests-table .replies-cell {
-  min-width: 280px;
-  max-width: 520px;
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-.contact-reply + .contact-reply {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid $neutral-700;
-}
-.contact-reply__meta {
-  margin-bottom: 6px;
-  color: $neutral-300;
-  font-size: 13px;
-  line-height: 1.4;
-}
-.contact-reply__text {
-  white-space: pre-wrap;
-  line-height: 1.4;
 }
 </style>

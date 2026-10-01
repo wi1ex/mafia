@@ -1,12 +1,12 @@
 from __future__ import annotations
 import structlog
-from contextlib import asynccontextmanager
-from typing import AsyncIterator
 from sqlalchemy import text
-from ..security.admin_guard import assert_protected_admin_invariants
+from typing import AsyncIterator
+from contextlib import asynccontextmanager
 from ..security.parameters import ensure_app_settings
-from ..services.game_scoring import ensure_game_scoring_settings
 from ..models.sanction_rules import ensure_sanction_rules
+from ..services.game_scoring import ensure_game_scoring_settings
+from ..security.admin_guard import assert_protected_admin_invariants
 ##############################################################
 from ..scripts.import_manual_subscription_grants import import_manual_grants
 ##############################################################
@@ -22,7 +22,6 @@ async def lifespan(app) -> AsyncIterator[None]:
     configure_logging()
     log = structlog.get_logger()
     log.info("app.startup", project=settings.PROJECT_NAME, domain=settings.DOMAIN)
-
     init_clients()
 
     try:
