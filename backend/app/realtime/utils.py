@@ -6459,11 +6459,11 @@ async def finish_game(r, rid: int, *, result: str, head_uid: int | None = None, 
                 )
                 s.add(game_row)
                 await s.flush()
-                reward_days = await reward_rating_host(s, game_row)
+                reward_notice = await reward_rating_host(s, game_row)
                 await s.commit()
-                if reward_days:
+                if reward_notice is not None:
                     with suppress(Exception):
-                        await sync_rating_host_subscription(s, int(head_uid), reward_days)
+                        await sync_rating_host_subscription(s, int(head_uid), reward_notice)
                 cache_user_ids: set[int] = {int(uid) for uid in player_ids if int(uid) > 0}
                 if head_uid and head_uid > 0:
                     cache_user_ids.add(int(head_uid))

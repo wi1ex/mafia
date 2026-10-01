@@ -1949,6 +1949,8 @@ async def notify_subscription_upsert(
     extended: bool,
     months: int = 0,
     days: int = 0,
+    note: Notif | None = None,
+    notify_telegram: bool = True,
 ) -> None:
     uid = int(user.id)
     until_text = format_subscription_until(subscription.ends_at)
@@ -1960,7 +1962,11 @@ async def notify_subscription_upsert(
         f"Подписка {action_text} до {until_text}."
     )
 
-    note = Notif(user_id=uid, title=title, text=text)
+    if note is None:
+        note = Notif(user_id=uid, title=title, text=text)
+    else:
+        title = note.title
+        text = note.text
     try:
         session.add(note)
         await session.commit()
@@ -1971,6 +1977,9 @@ async def notify_subscription_upsert(
         raise
 
     await emit_notify(uid, note, kind="subscription")
+
+    if not notify_telegram:
+        return
 
     telegram_id = int(user.telegram_id or 0)
     if telegram_id <= 0 or _is_admin_subscription_target(user.role):

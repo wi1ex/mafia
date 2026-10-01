@@ -4,6 +4,7 @@
         <section class="block-payments">
           <header class="section-header">
             <span class="section-title">Выдача подписки</span>
+            <span v-if="subscriptionActive" class="section-count">{{ subscriptionStatusText }}</span>
           </header>
           <div v-if="grantsLoading" class="payments-state">Загрузка...</div>
           <div v-else-if="grantsError" class="payments-state danger">{{ grantsError }}</div>
@@ -28,7 +29,6 @@
         <section class="block-payments">
           <header class="section-header">
             <span class="section-title">История платежей</span>
-            <span class="section-count">{{ subscriptionStatusText }}</span>
           </header>
           <div v-if="paymentsLoading" class="payments-state">Загрузка...</div>
           <div v-else-if="paymentsError" class="payments-state danger">{{ paymentsError }}</div>
