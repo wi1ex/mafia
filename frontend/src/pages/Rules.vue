@@ -428,9 +428,9 @@ onBeforeUnmount(() => {
   scrollbar-color: $soft-purple-700 transparent;
   .rules-layout {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 298px;
+    grid-template-columns: minmax(0, 1fr) 260px;
     align-items: start;
-    max-width: 1600px;
+    width: 70%;
     margin: 0 auto;
     gap: 10px;
     .rules-content {
@@ -472,7 +472,7 @@ onBeforeUnmount(() => {
               padding: 8px 12px;
               border-radius: 12px;
               background-color: $soft-purple-800;
-              color: $neutral-300;
+              color: $neutral-100;
               font-size: 14px;
               line-height: 20px;
               text-decoration: none;
@@ -540,7 +540,7 @@ onBeforeUnmount(() => {
               display: grid;
               grid-template-columns: repeat(2, minmax(0, 1fr));
               margin-top: 16px;
-              gap: 10px 24px;
+              gap: 10px 100px;
               .notice-item-scale {
                 display: flex;
                 align-items: center;
@@ -593,8 +593,8 @@ onBeforeUnmount(() => {
             gap: 10px;
             .rule-item {
               display: flex;
-              align-items: flex-start;
-              padding: 16px;
+              align-items: center;
+              padding: 8px 16px;
               gap: 12px;
               border-radius: 20px;
               background-color: $soft-purple-800;
@@ -612,8 +612,7 @@ onBeforeUnmount(() => {
               }
               .rule-text {
                 min-width: 0;
-                font-size: 16px;
-                line-height: 24px;
+                font-size: 14px;
               }
             }
           }
