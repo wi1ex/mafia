@@ -1,7 +1,7 @@
 <template>
   <div class="profile-subscription">
-    <div class="subscription-blocks">
-        <section class="block-payments">
+    <div class="subscription-blocks subscription-grants-column">
+        <section class="block-payments block-grants">
           <header class="section-header">
             <span class="section-title">Выдача подписки</span>
             <span v-if="subscriptionActive" class="section-count">{{ subscriptionStatusText }}</span>
@@ -9,7 +9,8 @@
           <div v-if="grantsLoading" class="payments-state">Загрузка...</div>
           <div v-else-if="grantsError" class="payments-state danger">{{ grantsError }}</div>
           <div v-else-if="grantsItems.length === 0" class="payments-state">Выдач подписки пока нет</div>
-          <div v-else class="payments-table-wrap">
+          <div v-else class="grants-scroll-wrap">
+            <div ref="grantsScroll" class="payments-table-wrap grants-scroll">
             <table class="payments-table">
               <thead>
                 <tr><th>Дата выдачи</th><th>Причина</th><th>Длительность</th></tr>
@@ -22,6 +23,8 @@
                 </tr>
               </tbody>
             </table>
+            </div>
+            <UiScrollbar :target="grantsScroll" theme="dark" right="-14px" />
           </div>
         </section>
     </div>
@@ -109,6 +112,7 @@ import { storeToRefs } from 'pinia'
 import { useFriendsStore, useUserStore, type BlacklistItem } from '@/store'
 import { canOpenMiniProfileTarget, normalizeMiniProfileUserId } from '@/services/miniProfile'
 import UiTooltip from '@/components/UiTooltip.vue'
+import UiScrollbar from '@/components/UiScrollbar.vue'
 import MiniProfile from '@/views/MiniProfile.vue'
 import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
 
@@ -144,6 +148,7 @@ type SubscriptionGrantItem = {
 }
 
 const grantsItems = ref<SubscriptionGrantItem[]>([])
+const grantsScroll = ref<HTMLElement | null>(null)
 const grantsLoading = ref(false)
 const grantsError = ref('')
 let grantsRequestSeq = 0
@@ -345,6 +350,8 @@ onMounted(() => {
   align-items: flex-start;
   gap: 10px;
   width: 100%;
+  height: 100%;
+  min-height: 0;
 }
 .subscription-blocks {
   display: flex;
@@ -353,6 +360,27 @@ onMounted(() => {
   box-sizing: border-box;
   width: calc(50% - 5px);
   min-width: 0;
+}
+.subscription-grants-column {
+  max-height: 100%;
+  min-height: 0;
+}
+.block-grants {
+  box-sizing: border-box;
+  max-height: 100%;
+  min-height: 0;
+  .section-header { flex-shrink: 0; }
+  .grants-scroll-wrap {
+    position: relative;
+    display: flex;
+    min-height: 0;
+  }
+  .grants-scroll {
+    min-height: 0;
+    overflow: auto;
+    scrollbar-width: none;
+    &::-webkit-scrollbar { display: none; }
+  }
 }
 .block-payments {
   display: flex;

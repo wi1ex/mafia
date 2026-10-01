@@ -5,7 +5,7 @@ import structlog
 from contextlib import suppress
 from time import time
 from datetime import date, datetime, timezone, timedelta
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status, Query
 from sqlalchemy import select, update, func, or_, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...core.clients import get_redis
@@ -17,6 +17,7 @@ from ...models.game import Game
 from ...models.room import Room
 from ...models.notif import Notif
 from ...models.subscription import SubscriptionGrant, UserSubscription
+from ...schemas.admin import AdminSubscriptionGrantOut, AdminSubscriptionGrantsOut, AdminSubscriptionGrantDurationIn
 from ...models.sanction import UserSanction
 from ...models.user import User
 from ...core.logging import log_action
@@ -2116,6 +2117,59 @@ async def subscriptions_list(session: AsyncSession = Depends(get_session)) -> Ad
         )
     )
     return AdminSubscriptionsOut(items=items)
+
+
+@router.get("/subscriptions/grants", response_model=AdminSubscriptionGrantsOut, dependencies=ADMIN_GUARD)
+@log_route("admin.subscriptions.grants.list")
+async def subscription_grants_list(page: int = Query(default=1, ge=1), session: AsyncSession = Depends(get_session)) -> AdminSubscriptionGrantsOut:
+    total = int(await session.scalar(select(func.count()).select_from(SubscriptionGrant).where(SubscriptionGrant.reason == "Донат")) or 0)
+    rows = await session.execute(
+        select(SubscriptionGrant, User.username).outerjoin(User, User.id == SubscriptionGrant.user_id)
+        .where(SubscriptionGrant.reason == "Донат")
+        .order_by(SubscriptionGrant.issued_at.desc(), SubscriptionGrant.id.desc())
+        .offset((page - 1) * 50).limit(50)
+    )
+    return AdminSubscriptionGrantsOut(total=total, items=[
+        AdminSubscriptionGrantOut(id=grant.id, user_id=grant.user_id, username=username,
+                                  issued_at=grant.issued_at, reason=grant.reason, months=grant.months, days=grant.days)
+        for grant, username in rows
+    ])
+
+
+@router.patch("/subscriptions/grants/{grant_id}", response_model=Ok, dependencies=ADMIN_GUARD)
+@log_route("admin.subscriptions.grants.update")
+async def subscription_grant_update(grant_id: int, payload: AdminSubscriptionGrantDurationIn, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
+    if payload.months == 0 and payload.days == 0:
+        raise HTTPException(status_code=422, detail="duration_required")
+
+    grant = await session.scalar(select(SubscriptionGrant).where(SubscriptionGrant.id == grant_id, SubscriptionGrant.reason == "Донат").with_for_update())
+    if grant is None:
+        raise HTTPException(status_code=404, detail="subscription_grant_not_found")
+
+    previous = f"months={grant.months} days={grant.days}"
+    grant.months, grant.days = payload.months, payload.days
+    await log_action(session, user_id=int(ident["id"]), username=ident["username"],
+                     action="admin_subscription_grant_update",
+                     details=f"grant_id={grant.id} user_id={grant.user_id} old=({previous}) new=(months={grant.months} days={grant.days})",
+                     commit=False)
+    await session.commit()
+    return Ok()
+
+
+@router.delete("/subscriptions/grants/{grant_id}", response_model=Ok, dependencies=ADMIN_GUARD)
+@log_route("admin.subscriptions.grants.delete")
+async def subscription_grant_delete(grant_id: int, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> Ok:
+    grant = await session.scalar(select(SubscriptionGrant).where(SubscriptionGrant.id == grant_id, SubscriptionGrant.reason == "Донат").with_for_update())
+    if grant is None:
+        raise HTTPException(status_code=404, detail="subscription_grant_not_found")
+
+    await log_action(session, user_id=int(ident["id"]), username=ident["username"],
+                     action="admin_subscription_grant_delete",
+                     details=f"grant_id={grant.id} user_id={grant.user_id} months={grant.months} days={grant.days}",
+                     commit=False)
+    await session.delete(grant)
+    await session.commit()
+    return Ok()
 
 
 @router.post("/subscriptions", response_model=AdminSubscriptionOut, dependencies=ADMIN_GUARD)

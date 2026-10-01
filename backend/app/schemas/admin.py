@@ -710,6 +710,26 @@ class AdminSubscriptionCompensationOut(BaseModel):
     extended_count: int
 
 
+class AdminSubscriptionGrantOut(BaseModel):
+    id: int
+    user_id: int
+    username: Optional[str] = None
+    issued_at: datetime
+    reason: str
+    months: int
+    days: int
+
+
+class AdminSubscriptionGrantsOut(BaseModel):
+    total: int
+    items: List[AdminSubscriptionGrantOut] = Field(default_factory=list)
+
+
+class AdminSubscriptionGrantDurationIn(BaseModel):
+    months: int = Field(ge=0, le=240)
+    days: int = Field(ge=0, le=36500)
+
+
 class AdminSubscriptionCreateIn(AdminSubscriptionDurationIn):
     user_id: int = Field(ge=1)
 

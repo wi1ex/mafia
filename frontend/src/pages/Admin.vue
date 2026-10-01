@@ -1142,7 +1142,10 @@
 
         <div v-else-if="activeTab === 'subscriptions'" class="subscriptions-tab">
           <div class="block subscription-table-block">
-            <h3>Активные подписки — {{ activeSubscriptionsCount }}</h3>
+            <div class="subscription-heading">
+              <h3>Активные подписки — {{ activeSubscriptionsCount }}</h3>
+              <button class="btn dark" type="button" @click="subscriptionHistoryOpen = true">История подписок</button>
+            </div>
             <div v-if="subscriptionsLoading" class="loading">Загрузка...</div>
             <table v-else class="table">
               <thead>
@@ -1200,6 +1203,7 @@
       </div>
     </Transition>
 
+    <SubscriptionHistory v-model:open="subscriptionHistoryOpen" />
     <SanctionModal
       :open="sanctionAdjustModalOpen"
       :title="sanctionAdjustTitle"
@@ -1267,6 +1271,7 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '@/services/axios'
+import SubscriptionHistory from '@/views/SubscriptionHistory.vue'
 import { alertDialog, confirmDialog } from '@/services/confirm'
 import { formatLocalDateTime } from '@/services/datetime'
 import { SANCTION_BADGES, type SanctionBadgeKey } from '@/constants/sanctionReasons'
@@ -1913,6 +1918,7 @@ const sanctionsAdjusting = reactive<Record<string, boolean>>({})
 const sanctionsReasonChanging = reactive<Record<number, boolean>>({})
 const subscriptions = ref<SubscriptionRow[]>([])
 const subscriptionModalOpen = ref(false)
+const subscriptionHistoryOpen = ref(false)
 const subscriptionModalMode = ref<'extend' | 'reduce'>('extend')
 const subscriptionTarget = ref<SubscriptionTarget | null>(null)
 const subscriptionSaving = ref(false)
@@ -3944,6 +3950,7 @@ watch(activeTab, (tab, previousTab) => {
   if (tab !== 'subscriptions' && subscriptionModalOpen.value) {
     closeSubscriptionModal()
   }
+  if (tab !== 'subscriptions') subscriptionHistoryOpen.value = false
   if (tab !== 'settings' && compensationModalOpen.value) {
     closeSubscriptionCompensation()
   }
@@ -4727,6 +4734,16 @@ onBeforeUnmount(() => {
       }
     }
     .subscriptions-tab {
+      .subscription-heading {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 16px;
+        margin-bottom: 20px;
+      }
+      .block .subscription-heading h3 {
+        margin: 0;
+      }
       .block {
         padding: 10px 0;
         h3 {
