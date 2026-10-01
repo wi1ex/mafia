@@ -1,20 +1,25 @@
 <template>
   <div class="stats-tab">
     <div class="stats-head">
-      <UiDropdown
-        id="profile-stats-mode"
-        size="low"
-        v-model="selectedMode"
-        class="stats-season-dropdown"
-        :options="modeOptions"
-      />
-      <UiDropdown
-        id="profile-stats-season"
-        size="low"
-        v-model="selectedSeason"
-        class="stats-season-dropdown"
-        :options="seasonOptions"
-      />
+      <h2 class="tab-title">Статистика</h2>
+      <div class="stats-filters">
+        <UiDropdown
+          id="profile-stats-mode"
+          aria-label="Режим игр"
+          size="low"
+          v-model="selectedMode"
+          class="stats-season-dropdown"
+          :options="modeOptions"
+        />
+        <UiDropdown
+          id="profile-stats-season"
+          aria-label="Сезон"
+          size="low"
+          v-model="selectedSeason"
+          class="stats-season-dropdown"
+          :options="seasonOptions"
+        />
+      </div>
     </div>
 
     <div v-if="loading && !loaded" class="state">Загрузка...</div>
@@ -25,38 +30,44 @@
     <div v-else class="stats-layout">
       <div class="overview">
         <article class="result-card">
-          <div class="result-ring" :style="overviewRingStyle">
-            <div class="result-center">
-              <span>Всего игр</span>
-              <strong>{{ formatInt(totalFinishedGames) }}</strong>
-              <div class="result-legend">
-                <div v-for="item in overviewSegments" :key="item.key" class="legend-row">
-                  <span class="legend-dot" :class="item.key"></span>
-                  <strong class="legend-pct">{{ formatPctWithGames(item.percent, item.count) }}</strong>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="role-rings">
-            <article v-for="item in roleRingItems" :key="item.key" class="role-ring-card">
-              <div class="role-result-ring" :style="item.style">
-                <div class="role-result-center">
-                  <img class="role-title-icon" :src="item.icon" :alt="item.label" />
-                  <strong>{{ formatInt(item.games) }}</strong>
-                  <div class="result-legend role-legend">
-                    <div v-for="segment in item.segments" :key="segment.key" class="legend-row">
-                      <span class="legend-dot" :class="segment.key"></span>
-                      <strong class="legend-pct">{{ formatPctWithGames(segment.percent, segment.count) }}</strong>
-                    </div>
+          <h3>Результаты игр</h3>
+          <div class="results-grid">
+            <div class="result-ring" :style="overviewRingStyle">
+              <div class="result-center">
+                <span>Всего игр</span>
+                <strong>{{ formatInt(totalFinishedGames) }}</strong>
+                <div class="result-legend">
+                  <div v-for="item in overviewSegments" :key="item.key" class="legend-row">
+                    <span class="legend-dot" :class="item.key" :title="item.label"></span>
+                    <span class="legend-label">{{ item.label }}</span>
+                    <strong class="legend-pct">{{ formatPctWithGames(item.percent, item.count) }}</strong>
                   </div>
                 </div>
               </div>
-            </article>
+            </div>
+            <div class="role-rings">
+              <article v-for="item in roleRingItems" :key="item.key" class="role-ring-card">
+                <span class="role-name">{{ item.label }}</span>
+                <div class="role-result-ring" :style="item.style">
+                  <div class="role-result-center">
+                    <img class="role-title-icon" :src="item.icon" :alt="item.label" />
+                    <strong>{{ formatInt(item.games) }}</strong>
+                    <div class="result-legend role-legend">
+                      <div v-for="segment in item.segments" :key="segment.key" class="legend-row">
+                        <span class="legend-dot" :class="segment.key" :title="segment.label"></span>
+                        <strong class="legend-pct">{{ formatPctWithGames(segment.percent, segment.count) }}</strong>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </article>
+            </div>
           </div>
         </article>
 
         <section class="block">
-          <h4>Топ-5 игроков по совместным играм</h4>
+          <h3>Совместные игры</h3>
+          <p class="section-hint">Топ-5 игроков, с которыми вы играли чаще всего</p>
           <div v-if="game.top_players.length === 0" class="state state-inline">Пока нет данных</div>
           <ol v-else class="rank-list">
             <li v-for="(player, idx) in game.top_players" :key="player.id" class="rank-row">
@@ -70,26 +81,30 @@
               </div>
             </li>
           </ol>
-          <h4>Лучший ход</h4>
-          <div class="best-move">
-            <article class="metric-card">
-              <span>Количество ПУ</span>
-              <strong>{{ formatInt(game.best_move.first_killed_total) }}</strong>
-            </article>
-            <div class="best-bars">
-              <div v-for="item in bestMoveItems" :key="item.key" class="best-row">
-                <span class="best-label">{{ item.label }}</span>
-                <div class="best-bar">
-                  <span :style="{ width: `${barPct(item.value, bestMoveMax)}%` }"></span>
-                </div>
-                <strong>{{ formatInt(item.value) }}</strong>
-              </div>
-            </div>
-          </div>
         </section>
       </div>
 
       <section class="block">
+        <h3>Лучший ход</h3>
+        <div class="best-move">
+          <article class="metric-card">
+            <span>Количество ПУ</span>
+            <strong>{{ formatInt(game.best_move.first_killed_total) }}</strong>
+          </article>
+          <div class="best-bars">
+            <div v-for="item in bestMoveItems" :key="item.key" class="best-row">
+              <span class="best-label">{{ item.label }}</span>
+              <div class="best-bar">
+                <span :style="{ width: `${barPct(item.value, bestMoveMax)}%` }"></span>
+              </div>
+              <strong>{{ formatInt(item.value) }}</strong>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="block">
+        <h3>Игровые показатели</h3>
         <div class="extra-grid">
           <article class="metric-card">
             <span>Средний доп. балл</span>
@@ -494,335 +509,445 @@ onMounted(() => {
 
 <style scoped lang="scss">
 .stats-tab {
-  --ring-win: #{rgba($green-500, 0.75)};
-  --ring-loss: #{rgba($red-500, 0.75)};
+  --ring-win: #{$green-500};
+  --ring-loss: #{$red-500};
   display: flex;
   flex-direction: column;
   gap: 10px;
   width: 100%;
+  min-width: 0;
+  container-type: inline-size;
+  color: $neutral-100;
+  font-family: Hauora-Regular;
+  line-height: 1.4;
   .stats-head {
+    box-sizing: border-box;
+    padding: 24px;
+    border-radius: 24px;
+    background: $soft-purple-900;
     display: flex;
+    align-items: center;
+    justify-content: space-between;
     flex-wrap: wrap;
-    align-items: flex-start;
-    justify-content: flex-end;
-    gap: 10px;
-    .stats-season-dropdown {
-      width: 220px;
+    gap: 24px;
+    .tab-title {
+      margin: 0;
+      color: $neutral-white;
+      font-family: Involve-Medium;
+      font-weight: 500;
+      font-size: 24px;
+      line-height: 26px;
+      letter-spacing: -0.48px;
+    }
+    .stats-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      .stats-season-dropdown {
+        width: 220px;
+      }
     }
   }
   .state {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 10px;
-    gap: 10px;
-    min-height: 140px;
-    border: 1px solid rgba($neutral-500, 0.5);
-    border-radius: 5px;
-    background-color: rgba($neutral-800, 0.5);
+    box-sizing: border-box;
+    padding: 24px;
+    border-radius: 24px;
+    background: $soft-purple-900;
+    display: grid;
+    place-content: center;
+    min-height: 180px;
     color: $neutral-300;
     &.state-inline {
-      min-height: auto;
+      min-height: 140px;
+      background: $soft-purple-800;
+      border-radius: 20px;
     }
     &.state-danger {
-      color: $red-500;
+      color: $red-400;
     }
   }
   .stats-layout {
     display: grid;
-    grid-template-columns: 1fr;
     gap: 10px;
-    .block {
-      display: flex;
-      flex-direction: column;
-      padding: 10px;
-      gap: 10px;
-      border-radius: 5px;
-      border: 1px solid rgba($neutral-500, 0.5);
-      background: linear-gradient(150deg, rgba($neutral-800, 0.75), rgba($neutral-900, 0.75));
-      h4 {
-        margin: 0;
-      }
-    }
-    .metric-card {
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      padding: 10px;
-      gap: 5px;
-      height: 60px;
-      border-radius: 5px;
-      border: 1px solid rgba($neutral-500, 0.5);
-      background: linear-gradient(150deg, rgba($neutral-800, 0.75), rgba($neutral-700, 0.75));
-      span {
-        color: $neutral-300;
-        font-size: 14px;
-      }
-      strong {
-        text-align: end;
-        color: $neutral-100;
-        font-family: Hauora-SemiBold;
-        font-size: 20px;
-        line-height: 1.1;
-      }
-    }
     .overview {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
       gap: 10px;
       .result-card {
-        display: grid;
-        grid-template-columns: 350px minmax(0, 1fr);
-        align-items: center;
-        padding: 10px;
-        gap: 10px;
-        min-width: 800px;
-        border-radius: 5px;
-        border: 1px solid rgba($neutral-500, 0.5);
-        background: linear-gradient(150deg, rgba($neutral-800, 0.75), rgba($neutral-900, 0.75));
-      }
-      .result-ring {
+        box-sizing: border-box;
+        padding: 24px;
+        border-radius: 24px;
+        background: $soft-purple-900;
         display: flex;
-        position: relative;
-        align-items: center;
-        justify-content: center;
-        margin: 0 auto;
-        width: 300px;
-        height: 300px;
-        border-radius: 50%;
-        border: 1px solid $neutral-500;
-        &::before {
-          content: "";
-          position: absolute;
-          inset: 30px;
-          border-radius: inherit;
-          background-color: $neutral-900;
-          border: 1px solid rgba($neutral-500, 0.5);
+        flex-direction: column;
+        gap: 24px;
+        min-width: 0;
+        h3 {
+          margin: 0;
+          color: $neutral-white;
+          font-family: Involve-Medium;
+          font-weight: 500;
+          font-size: 24px;
+          line-height: 26px;
+          letter-spacing: -0.48px;
         }
-        .result-center {
-          display: flex;
-          position: relative;
-          flex-direction: column;
-          align-items: stretch;
-          gap: 5px;
-          width: 170px;
-          z-index: 1;
-          span {
-            color: $neutral-300;
-            font-size: 24px;
-            text-transform: uppercase;
-            text-align: center;
-          }
-          strong {
-            color: $neutral-100;
-            font-family: Hauora-SemiBold;
-            font-size: 40px;
-            line-height: 1;
-            text-align: center;
-          }
-        }
-        .result-legend {
-          display: flex;
-          flex-direction: column;
-          gap: 5px;
-          .legend-row {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 5px;
-            .legend-dot {
-              display: block;
-              width: 10px;
-              height: 10px;
-              border-radius: 50%;
-              &.wins {
-                background-color: $green-500;
-              }
-              &.losses {
-                background-color: $red-500;
-              }
-            }
-            .legend-pct {
-              font-size: 16px;
-              color: $neutral-100;
-              font-family: Hauora-SemiBold;
-              text-align: right;
-              white-space: nowrap;
-            }
-          }
-        }
-      }
-      .role-rings {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 10px;
-        .role-ring-card {
-          display: flex;
-          justify-content: center;
-        }
-        .role-result-ring {
-          display: flex;
-          position: relative;
+        .results-grid {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
           align-items: center;
-          justify-content: center;
-          width: 188px;
-          height: 188px;
-          border-radius: 50%;
-          border: 1px solid $neutral-500;
-          &::before {
-            content: "";
-            position: absolute;
-            inset: 20px;
-            border-radius: inherit;
-            background-color: $neutral-900;
-            border: 1px solid rgba($neutral-500, 0.5);
-          }
-          .role-result-center {
+          gap: 24px;
+          .result-ring {
             display: flex;
             position: relative;
-            flex-direction: column;
-            align-items: stretch;
-            gap: 5px;
-            width: 120px;
-            z-index: 1;
-            .role-title-icon {
-              display: block;
-              max-width: 100%;
-              height: 40px;
-              margin: 0 auto;
-              object-fit: contain;
+            align-items: center;
+            justify-content: center;
+            margin: auto;
+            width: 100%;
+            max-width: 280px;
+            aspect-ratio: 1;
+            border-radius: 50%;
+            &::before {
+              content: '';
+              position: absolute;
+              inset: 14px;
+              border-radius: inherit;
+              background: $soft-purple-900;
             }
-            strong {
-              color: $neutral-100;
-              font-family: Hauora-SemiBold;
-              font-size: 30px;
-              line-height: 1;
-              text-align: center;
+            .result-center {
+              position: relative;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              gap: 8px;
+              color: $neutral-300;
+              strong {
+                color: $neutral-white;
+                font-family: Involve-Medium;
+                font-weight: 500;
+                font-size: 40px;
+                line-height: 1.1;
+              }
+              .result-legend {
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+                .legend-row {
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  gap: 6px;
+                  .legend-dot {
+                    flex: 0 0 6px;
+                    height: 6px;
+                    border-radius: 50%;
+                    &.wins {
+                      background: $green-500;
+                    }
+                    &.losses {
+                      background: $red-500;
+                    }
+                  }
+                  .legend-label {
+                    font-size: 12px;
+                  }
+                  .legend-pct {
+                    font-family: Hauora-Regular;
+                    font-size: 12px;
+                    color: $neutral-100;
+                    white-space: nowrap;
+                  }
+                }
+              }
             }
           }
-          .role-legend {
+          .role-rings {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+            .role-ring-card {
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              gap: 8px;
+              min-width: 0;
+              .role-name {
+                font-size: 14px;
+                text-align: center;
+              }
+              .role-result-ring {
+                display: flex;
+                position: relative;
+                align-items: center;
+                justify-content: center;
+                margin: auto;
+                width: 100%;
+                max-width: 150px;
+                aspect-ratio: 1;
+                border-radius: 50%;
+                &::before {
+                  content: '';
+                  position: absolute;
+                  inset: 14px;
+                  border-radius: inherit;
+                  background: $soft-purple-900;
+                }
+                &::before {
+                  inset: 8px;
+                }
+                .role-result-center {
+                  position: relative;
+                  display: flex;
+                  flex-direction: column;
+                  align-items: center;
+                  gap: 4px;
+                  color: $neutral-300;
+                  strong {
+                    color: $neutral-white;
+                    font-family: Involve-Medium;
+                    font-weight: 500;
+                    font-size: 40px;
+                    line-height: 1.1;
+                  }
+                  strong {
+                    font-size: 24px;
+                  }
+                  .role-title-icon {
+                    width: 28px;
+                    height: 28px;
+                    object-fit: contain;
+                  }
+                  .result-legend {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 4px;
+                    .legend-row {
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                      gap: 6px;
+                      .legend-dot {
+                        flex: 0 0 6px;
+                        height: 6px;
+                        border-radius: 50%;
+                        &.wins {
+                          background: $green-500;
+                        }
+                        &.losses {
+                          background: $red-500;
+                        }
+                      }
+                      .legend-pct {
+                        font-family: Hauora-Regular;
+                        font-size: 12px;
+                        color: $neutral-100;
+                        white-space: nowrap;
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+      .block {
+        box-sizing: border-box;
+        padding: 24px;
+        border-radius: 24px;
+        background: $soft-purple-900;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        min-width: 0;
+        h3 {
+          margin: 0;
+          color: $neutral-white;
+          font-family: Involve-Medium;
+          font-weight: 500;
+          font-size: 24px;
+          line-height: 26px;
+          letter-spacing: -0.48px;
+        }
+        .section-hint {
+          margin: -8px 0 0;
+          color: $neutral-300;
+          font-size: 14px;
+        }
+        .state {
+          box-sizing: border-box;
+          padding: 24px;
+          border-radius: 24px;
+          background: $soft-purple-900;
+          display: grid;
+          place-content: center;
+          min-height: 180px;
+          color: $neutral-300;
+          &.state-inline {
+            min-height: 140px;
+            background: $soft-purple-800;
+            border-radius: 20px;
+          }
+          &.state-danger {
+            color: $red-400;
+          }
+        }
+        .rank-list {
+          display: flex;
+          flex-direction: column;
+          margin: 0;
+          padding: 0;
+          gap: 10px;
+          list-style: none;
+          .rank-row {
             display: flex;
             flex-direction: column;
-            gap: 5px;
-            .legend-row {
-              display: flex;
+            padding: 12px 16px;
+            gap: 10px;
+            border-radius: 16px;
+            background: $soft-purple-800;
+            .rank-top {
+              display: grid;
+              grid-template-columns: 24px minmax(0, 1fr) auto;
               align-items: center;
-              justify-content: center;
-              gap: 5px;
-              .legend-dot {
-                display: block;
-                width: 10px;
-                height: 10px;
-                border-radius: 50%;
-                &.wins {
-                  background-color: $green-500;
-                }
-                &.losses {
-                  background-color: $red-500;
-                }
-              }
-              .legend-pct {
+              gap: 8px;
+              .rank-pos {
+                color: $neutral-300;
                 font-size: 14px;
-                color: $neutral-100;
-                font-family: Hauora-SemiBold;
-                text-align: right;
+              }
+              .rank-name {
+                overflow: hidden;
                 white-space: nowrap;
+                text-overflow: ellipsis;
+              }
+              .rank-val {
+                color: $green-500;
+                font-family: Hauora-Medium;
+                font-weight: 500;
+              }
+            }
+            .rank-bar {
+              height: 6px;
+              border-radius: 999px;
+              background: $soft-purple-900;
+              overflow: hidden;
+              span {
+                display: block;
+                height: 100%;
+                border-radius: inherit;
+                background: $green-500;
               }
             }
           }
         }
       }
     }
-    .rank-list {
+    > .block {
+      box-sizing: border-box;
+      padding: 24px;
+      border-radius: 24px;
+      background: $soft-purple-900;
       display: flex;
       flex-direction: column;
-      margin: 0;
-      padding: 0;
-      gap: 10px;
-      list-style: none;
-      .rank-row {
-        display: flex;
-        flex-direction: column;
-        padding: 5px 10px;
-        gap: 5px;
-        border-radius: 5px;
-        background-color: $neutral-900;
-        border: 1px solid rgba($neutral-500, 0.5);
-        .rank-top {
-          display: grid;
-          grid-template-columns: auto 1fr auto;
-          align-items: center;
-          gap: 5px;
-          font-size: 14px;
-          .rank-pos {
-            color: $neutral-300;
-          }
-          .rank-name {
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            overflow: hidden;
-          }
-          .rank-val {
-            color: $neutral-100;
-          }
-        }
-        .rank-bar {
-          height: 10px;
-          border-radius: 999px;
-          background-color: rgba(black, 0.5);
-          overflow: hidden;
-          span {
-            display: block;
-            height: 100%;
-            border-radius: inherit;
-            background: linear-gradient(90deg, $neutral-700, $neutral-100);
-          }
-        }
+      gap: 24px;
+      min-width: 0;
+      h3 {
+        margin: 0;
+        color: $neutral-white;
+        font-family: Involve-Medium;
+        font-weight: 500;
+        font-size: 24px;
+        line-height: 26px;
+        letter-spacing: -0.48px;
       }
-    }
-    .best-move {
-      display: grid;
-      grid-template-columns: 220px 1fr;
-      gap: 10px;
-      .best-bars {
-        display: flex;
-        flex-direction: column;
-        gap: 5px;
-        .best-row {
-          display: grid;
-          grid-template-columns: auto 1fr auto;
-          align-items: center;
-          gap: 10px;
-          .best-label {
-            min-width: 30px;
+      .best-move {
+        display: grid;
+        grid-template-columns: minmax(180px, 1fr) minmax(0, 3fr);
+        gap: 24px;
+        align-items: center;
+        .metric-card {
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          box-sizing: border-box;
+          padding: 16px;
+          gap: 16px;
+          min-width: 0;
+          min-height: 112px;
+          border-radius: 20px;
+          background: $soft-purple-800;
+          span {
             color: $neutral-300;
             font-size: 14px;
           }
-          .best-bar {
-            height: 10px;
-            border-radius: 999px;
-            background-color: rgba(black, 0.5);
-            overflow: hidden;
-            span {
-              display: block;
-              height: 100%;
-              border-radius: inherit;
-              background: linear-gradient(90deg, rgba($yellow-500, 0.75), rgba($green-500, 0.75));
+          strong {
+            font-family: Involve-Medium;
+            font-weight: 500;
+            font-size: 24px;
+            line-height: 1.2;
+            overflow-wrap: anywhere;
+          }
+        }
+        .best-bars {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          .best-row {
+            display: grid;
+            grid-template-columns: 32px minmax(0, 1fr) 40px;
+            align-items: center;
+            gap: 16px;
+            strong {
+              text-align: right;
+              font-weight: 500;
+            }
+            .best-label {
+              color: $neutral-300;
+              font-size: 14px;
+            }
+            .best-bar {
+              height: 6px;
+              border-radius: 999px;
+              background: $soft-purple-800;
+              overflow: hidden;
+              span {
+                display: block;
+                height: 100%;
+                border-radius: inherit;
+                background: $green-500;
+              }
             }
           }
+        }
+      }
+      .extra-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        .metric-card {
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          box-sizing: border-box;
+          padding: 16px;
+          gap: 16px;
+          min-width: 0;
+          min-height: 112px;
+          border-radius: 20px;
+          background: $soft-purple-800;
+          span {
+            color: $neutral-300;
+            font-size: 14px;
+          }
           strong {
-            min-width: 20px;
-            text-align: right;
+            font-family: Involve-Medium;
+            font-weight: 500;
+            font-size: 24px;
+            line-height: 1.2;
+            overflow-wrap: anywhere;
           }
         }
       }
     }
-    .extra-grid {
-      display: grid;
-      grid-template-columns: repeat(6, minmax(0, 1fr));
-      gap: 10px;
-    }
   }
 }
-
 </style>
