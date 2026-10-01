@@ -19,6 +19,7 @@ class Game(Base):
     black_alive_at_finish: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     finished_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    host_reward_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     roles: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
     seats: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
     points: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")

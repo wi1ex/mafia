@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.logging import log_action
 from ..core.settings import settings
 from ..models.kassa_payment import KassaPayment
-from ..models.subscription import UserSubscription
+from ..models.subscription import SubscriptionGrant, UserSubscription
 from ..models.user import User
 from ..schemas.payments import KassaPaymentLinkCreateIn, KassaPaymentLinkCreateOut
 from .nickname import (
@@ -1025,6 +1025,7 @@ async def _grant_subscription_for_payment(session: AsyncSession, payment: KassaP
     await ensure_profile_theme_defaults(session, uid, now=now)
     payment.processed_at = now
     payment.status = "processed"
+    session.add(SubscriptionGrant(user_id=uid, issued_at=now, reason="Оплата", months=months, payment_id=payment.id))
     await session.commit()
     await session.refresh(subscription)
     await refresh_user_profile_cache(session, uid)

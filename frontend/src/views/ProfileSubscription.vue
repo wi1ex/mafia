@@ -3,6 +3,30 @@
     <div class="subscription-blocks">
         <section class="block-payments">
           <header class="section-header">
+            <span class="section-title">Выдача подписки</span>
+          </header>
+          <div v-if="grantsLoading" class="payments-state">Загрузка...</div>
+          <div v-else-if="grantsError" class="payments-state danger">{{ grantsError }}</div>
+          <div v-else-if="grantsItems.length === 0" class="payments-state">Выдач подписки пока нет</div>
+          <div v-else class="payments-table-wrap">
+            <table class="payments-table">
+              <thead>
+                <tr><th>Дата выдачи</th><th>Причина</th><th>Длительность</th></tr>
+              </thead>
+              <tbody>
+                <tr v-for="item in grantsItems" :key="item.id">
+                  <td>{{ formatPaymentPaidAt(item.issued_at) }}</td>
+                  <td>{{ item.reason }}</td>
+                  <td>{{ formatGrantDuration(item) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+    </div>
+    <div class="subscription-blocks">
+        <section class="block-payments">
+          <header class="section-header">
             <span class="section-title">История платежей</span>
             <span class="section-count">{{ subscriptionStatusText }}</span>
           </header>
@@ -30,8 +54,6 @@
             </table>
           </div>
         </section>
-    </div>
-    <div class="subscription-blocks">
         <section class="block-blacklist">
           <div class="blacklist-head">
             <div class="blacklist-title">
@@ -112,6 +134,40 @@ const paymentsLoading = ref(false)
 const paymentsLoaded = ref(false)
 const paymentsError = ref('')
 let paymentsRequestSeq = 0
+
+type SubscriptionGrantItem = {
+  id: number
+  issued_at: string
+  reason: string
+  months: number
+  days: number
+}
+
+const grantsItems = ref<SubscriptionGrantItem[]>([])
+const grantsLoading = ref(false)
+const grantsError = ref('')
+let grantsRequestSeq = 0
+
+function formatGrantDuration(item: SubscriptionGrantItem): string {
+  const parts: string[] = []
+  if (item.months > 0) parts.push(`${item.months} ${paymentMonthWord(item.months)}`)
+  if (item.days > 0) parts.push(`${item.days} сут.`)
+  return parts.join(' ') || '-'
+}
+
+async function loadGrants(): Promise<void> {
+  const seq = ++grantsRequestSeq
+  grantsLoading.value = true
+  grantsError.value = ''
+  try {
+    const { data } = await api.get<{ items: SubscriptionGrantItem[] }>('/users/subscriptions/grants')
+    if (seq === grantsRequestSeq) grantsItems.value = Array.isArray(data?.items) ? data.items : []
+  } catch {
+    if (seq === grantsRequestSeq) grantsError.value = 'Не удалось загрузить выдачи подписки'
+  } finally {
+    if (seq === grantsRequestSeq) grantsLoading.value = false
+  }
+}
 
 const PAYMENT_DATE_OPTIONS: Intl.DateTimeFormatOptions = {
   year: 'numeric',
@@ -203,10 +259,12 @@ async function loadPayments(force = false): Promise<void> {
 
 onMounted(() => {
   void loadPayments(true)
+  void loadGrants()
 })
 
 onBeforeUnmount(() => {
   paymentsRequestSeq += 1
+  grantsRequestSeq += 1
 })
 
 const friendsStore = useFriendsStore()
@@ -270,6 +328,11 @@ watch(subscriptionActive, () => {
   void loadBlacklist()
 })
 
+watch(() => userStore.user?.subscription_until, () => {
+  void loadGrants()
+  void loadPayments(true)
+})
+
 onMounted(() => {
   friendsStore.ensureWS()
   void loadBlacklist()
@@ -284,6 +347,9 @@ onMounted(() => {
   width: 100%;
 }
 .subscription-blocks {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   box-sizing: border-box;
   width: calc(50% - 5px);
   min-width: 0;

@@ -17,6 +17,8 @@ class User(Base):
     avatar_name: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     nickname_history: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     nickname_changes_left: Mapped[int] = mapped_column(Integer, nullable=False, server_default="1")
+    rating_host_minutes: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0, server_default="0")
+    rating_host_reward_days: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0, server_default="0")
     profile_theme_color: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
     profile_theme_icon: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
     streaming_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)

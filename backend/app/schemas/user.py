@@ -353,6 +353,18 @@ class UserStreamingUrlOut(BaseModel):
     streaming_url: Optional[str] = None
 
 
+class SubscriptionGrantOut(BaseModel):
+    id: int
+    issued_at: datetime
+    reason: str
+    months: int
+    days: int
+
+
+class SubscriptionGrantsOut(BaseModel):
+    items: List[SubscriptionGrantOut] = Field(default_factory=list)
+
+
 class PasswordChangeIn(BaseModel):
     current_password: str = Field(min_length=8, max_length=32)
     new_password: str = Field(min_length=8, max_length=32)

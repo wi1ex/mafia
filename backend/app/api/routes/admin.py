@@ -16,7 +16,7 @@ from ...models.contact_request import ContactRequestRecord, ContactRequestReply
 from ...models.game import Game
 from ...models.room import Room
 from ...models.notif import Notif
-from ...models.subscription import UserSubscription
+from ...models.subscription import SubscriptionGrant, UserSubscription
 from ...models.sanction import UserSanction
 from ...models.user import User
 from ...core.logging import log_action
@@ -2169,6 +2169,7 @@ async def subscriptions_upsert(payload: AdminSubscriptionCreateIn, ident: Identi
     if should_issue_subscription_nickname_limit:
         set_user_nickname_changes(user, SUBSCRIPTION_NICKNAME_CHANGE_LIMIT)
     await ensure_profile_theme_defaults(session, uid, now=now)
+    session.add(SubscriptionGrant(user_id=uid, issued_at=now, reason="Донат", months=months, days=days))
 
     await session.commit()
     await session.refresh(subscription)
@@ -2255,6 +2256,7 @@ async def subscriptions_compensation(
 
     for user, subscription in active_subscriptions:
         subscription.ends_at = compute_subscription_end(subscription.ends_at, months=months, days=days)
+        session.add(SubscriptionGrant(user_id=int(user.id), issued_at=now, reason="Компенсация", months=months, days=days))
         user.nickname_changes_left = normalize_nickname_changes_left(user.nickname_changes_left)
         until_text = format_subscription_until(subscription.ends_at)
         notes.append(

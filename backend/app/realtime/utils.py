@@ -43,6 +43,7 @@ from ..api.utils import (
 from ..services.global_chat import emit_global_chat_permissions_updated
 from ..services.livekit import remove_livekit_participant
 from ..services.profile_theme import resolve_profile_theme_state
+from ..services.subscription_rewards import reward_rating_host, sync_rating_host_subscription
 from ..services.user_cache import get_user_profile_cached, get_user_profiles_cached
 from ..services.user_stats import invalidate_user_game_stats_cache_for_users
 from ..services.game_scoring import (
@@ -6458,7 +6459,11 @@ async def finish_game(r, rid: int, *, result: str, head_uid: int | None = None, 
                 )
                 s.add(game_row)
                 await s.flush()
+                reward_days = await reward_rating_host(s, game_row)
                 await s.commit()
+                if reward_days:
+                    with suppress(Exception):
+                        await sync_rating_host_subscription(s, int(head_uid), reward_days)
                 cache_user_ids: set[int] = {int(uid) for uid in player_ids if int(uid) > 0}
                 if head_uid and head_uid > 0:
                     cache_user_ids.add(int(head_uid))

@@ -51,6 +51,8 @@ from ...models.game import Game
 from ...services.game_scoring import calculate_game_points_breakdown, normalize_game_mode, normalize_game_points_value
 from ...models.contact_request import ContactRequestRecord
 from ...models.kassa_payment import KassaPayment
+from ...models.subscription import SubscriptionGrant
+from ...schemas.user import SubscriptionGrantOut, SubscriptionGrantsOut
 from ...models.notif import Notif
 from ...models.user import User
 from ...core.db import get_session
@@ -242,6 +244,24 @@ async def user_subscription_payments(ident: Identity = Depends(get_identity), db
             )
         )
     return UserSubscriptionPaymentsOut(items=items)
+
+
+@router.get("/subscriptions/grants", response_model=SubscriptionGrantsOut)
+@log_route("users.subscription_grants")
+@rate_limited(lambda ident, **_: f"rl:user_subscription_grants:{ident['id']}", limit=10, window_s=1)
+async def user_subscription_grants(ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> SubscriptionGrantsOut:
+    uid = int(ident["id"])
+    if not await db.get(User, uid):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+
+    rows = await db.scalars(
+        select(SubscriptionGrant).where(SubscriptionGrant.user_id == uid)
+        .order_by(SubscriptionGrant.issued_at.desc(), SubscriptionGrant.id.desc())
+    )
+    return SubscriptionGrantsOut(items=[
+        SubscriptionGrantOut(id=row.id, issued_at=row.issued_at, reason=row.reason, months=row.months, days=row.days)
+        for row in rows
+    ])
 
 
 @router.get("/stats", response_model=UserStatsOut)

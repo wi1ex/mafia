@@ -27,6 +27,18 @@ async def lifespan(app) -> AsyncIterator[None]:
             await conn.execute(text("SELECT 1"))
             await conn.run_sync(Base.metadata.create_all)
 
+            await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS rating_host_minutes BIGINT NOT NULL DEFAULT 0"))
+            await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS rating_host_reward_days BIGINT NOT NULL DEFAULT 0"))
+            await conn.execute(text("ALTER TABLE games ADD COLUMN IF NOT EXISTS host_reward_minutes INTEGER"))
+            await conn.execute(text("""
+                INSERT INTO subscription_grants (user_id, issued_at, reason, months, days, payment_id)
+                SELECT user_id, processed_at, 'Оплата', subscription_months, 0, id
+                FROM kassa_payments
+                WHERE status = 'processed' AND processed_at IS NOT NULL
+                    AND user_id IS NOT NULL AND subscription_months > 0
+                ON CONFLICT (payment_id) DO NOTHING
+            """))
+
         async with SessionLocal() as session:
             await ensure_app_settings(session)
             await ensure_game_scoring_settings(session)
