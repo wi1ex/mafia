@@ -740,7 +740,7 @@ onBeforeUnmount(() => {
     display: flex;
     flex-direction: column;
     gap: 10px;
-    width: min(1600px, 100%);
+    width: 75%;
     min-width: 0;
     height: fit-content;
     .history-header {

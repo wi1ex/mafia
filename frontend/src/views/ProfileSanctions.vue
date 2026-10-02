@@ -16,7 +16,8 @@
       <div v-if="sanctionsLoading" class="sanctions-empty">Загрузка…</div>
       <div v-else-if="sanctionsError" class="sanctions-empty danger">{{ sanctionsError }}</div>
       <div v-else-if="sanctions.length === 0" class="sanctions-empty">Список санкций пуст</div>
-      <div v-else class="sanctions-list">
+      <div v-else class="sanctions-list-wrap">
+        <div ref="sanctionsScroll" class="sanctions-list">
         <article v-for="item in sanctions" :key="item.id" class="sanction-card" :class="`sanction-card--${item.kind}`">
           <div class="sanction-head">
             <div class="sanction-kind">
@@ -42,6 +43,8 @@
             </div>
           </div>
         </article>
+        </div>
+        <UiScrollbar :target="sanctionsScroll" theme="dark" right="-14px" />
       </div>
     </div>
   </section>
@@ -51,6 +54,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { api } from '@/services/axios'
 import { formatLocalDateTime } from '@/services/datetime'
+import UiScrollbar from '@/components/UiScrollbar.vue'
 
 type SanctionKind = 'timeout' | 'ban' | 'suspend'
 type SanctionItem = {
@@ -64,6 +68,7 @@ type SanctionItem = {
 }
 
 const sanctions = ref<SanctionItem[]>([])
+const sanctionsScroll = ref<HTMLElement | null>(null)
 const sanctionsLoading = ref(false)
 const sanctionsLoaded = ref(false)
 const sanctionsError = ref('')
@@ -139,6 +144,8 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 10px;
   width: 100%;
+  height: 100%;
+  min-height: 0;
   .sanctions-panel {
     display: flex;
     flex-direction: column;
@@ -146,8 +153,12 @@ onBeforeUnmount(() => {
     padding: 24px;
     border-radius: 24px;
     background-color: $soft-purple-900;
+    box-sizing: border-box;
+    max-height: 100%;
+    min-height: 0;
   }
   .sanctions-div {
+    flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -190,8 +201,19 @@ onBeforeUnmount(() => {
       color: $red-500;
     }
   }
+  .sanctions-list-wrap {
+    position: relative;
+    display: flex;
+    min-height: 0;
+  }
   .sanctions-list {
+    width: 100%;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: none;
+    &::-webkit-scrollbar { display: none; }
     display: grid;
+    align-content: start;
     grid-template-columns: 1fr 1fr 1fr;
     gap: 12px;
     margin-top: 0;

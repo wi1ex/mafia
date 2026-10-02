@@ -1,7 +1,7 @@
 <template>
   <div class="profile-subscription">
     <div class="subscription-blocks subscription-grants-column">
-        <section class="block-payments block-grants">
+        <section class="block-payments block-scrollable block-grants">
           <header class="section-header">
             <span class="section-title">Выдача подписки</span>
             <span v-if="subscriptionActive" class="section-count">{{ subscriptionStatusText }}</span>
@@ -9,8 +9,8 @@
           <div v-if="grantsLoading" class="payments-state">Загрузка...</div>
           <div v-else-if="grantsError" class="payments-state danger">{{ grantsError }}</div>
           <div v-else-if="grantsItems.length === 0" class="payments-state">Выдач подписки пока нет</div>
-          <div v-else class="grants-scroll-wrap">
-            <div ref="grantsScroll" class="payments-table-wrap grants-scroll">
+          <div v-else class="subscription-scroll-wrap">
+            <div ref="grantsScroll" class="payments-table-wrap subscription-scroll">
             <table class="payments-table">
               <thead>
                 <tr><th>Дата выдачи</th><th>Причина</th><th>Длительность</th></tr>
@@ -28,15 +28,16 @@
           </div>
         </section>
     </div>
-    <div class="subscription-blocks">
-        <section class="block-payments">
+    <div class="subscription-blocks subscription-secondary-column">
+        <section class="block-payments block-scrollable">
           <header class="section-header">
             <span class="section-title">История платежей</span>
           </header>
           <div v-if="paymentsLoading" class="payments-state">Загрузка...</div>
           <div v-else-if="paymentsError" class="payments-state danger">{{ paymentsError }}</div>
           <div v-else-if="paymentsItems.length === 0" class="payments-state">Успешных платежей пока нет</div>
-          <div v-else class="payments-table-wrap">
+          <div v-else class="subscription-scroll-wrap">
+            <div ref="paymentsScroll" class="payments-table-wrap subscription-scroll">
             <table class="payments-table">
               <thead>
                 <tr>
@@ -55,9 +56,11 @@
                 </tr>
               </tbody>
             </table>
+            </div>
+            <UiScrollbar :target="paymentsScroll" theme="dark" right="-14px" />
           </div>
         </section>
-        <section class="block-blacklist">
+        <section class="block-blacklist block-scrollable">
           <div class="blacklist-head">
             <div class="blacklist-title">
               <span class="section-title">Черный список</span>
@@ -71,7 +74,8 @@
           <div v-if="blacklistLoading" class="blacklist-empty">Загрузка…</div>
           <div v-else-if="blacklistError" class="blacklist-empty danger">{{ blacklistError }}</div>
           <div v-else-if="blacklistItems.length === 0" class="blacklist-empty">В ЧС пока никого нет</div>
-          <div v-else class="blacklist-table-wrap">
+          <div v-else class="subscription-scroll-wrap">
+            <div ref="blacklistScroll" class="blacklist-table-wrap subscription-scroll">
             <table class="blacklist-table">
               <thead>
                 <tr>
@@ -91,6 +95,8 @@
                 </tr>
               </tbody>
             </table>
+            </div>
+            <UiScrollbar :target="blacklistScroll" theme="dark" right="-14px" />
           </div>
         </section>
     </div>
@@ -134,6 +140,8 @@ type SubscriptionPaymentsResponse = {
 
 const { subscriptionStatusText } = useSubscriptionStatus()
 const paymentsItems = ref<SubscriptionPaymentItem[]>([])
+const paymentsScroll = ref<HTMLElement | null>(null)
+const blacklistScroll = ref<HTMLElement | null>(null)
 const paymentsLoading = ref(false)
 const paymentsLoaded = ref(false)
 const paymentsError = ref('')
@@ -366,16 +374,26 @@ onMounted(() => {
   min-height: 0;
 }
 .block-grants {
-  box-sizing: border-box;
   max-height: 100%;
+}
+.subscription-secondary-column {
+  height: 100%;
   min-height: 0;
-  .section-header { flex-shrink: 0; }
-  .grants-scroll-wrap {
+  > .block-scrollable {
+    flex-shrink: 0;
+    max-height: calc((100% - 10px) / 2);
+  }
+}
+.block-scrollable {
+  box-sizing: border-box;
+  min-height: 0;
+  .section-header, .blacklist-head { flex-shrink: 0; }
+  .subscription-scroll-wrap {
     position: relative;
     display: flex;
     min-height: 0;
   }
-  .grants-scroll {
+  .subscription-scroll {
     min-height: 0;
     overflow: auto;
     scrollbar-width: none;
