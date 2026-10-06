@@ -30,7 +30,21 @@ upstream minio  { server minio:9000; }
 server {
   listen 80;
   listen [::]:80;
-  server_name ${DOMAIN};
+  server_name ${DOMAIN} www.${DOMAIN};
+  return 301 https://${DOMAIN}$request_uri;
+}
+
+# The certificate must include both ${DOMAIN} and www.${DOMAIN}: TLS hostname
+# validation happens before a browser or crawler can receive this redirect.
+server {
+  listen 443 ssl;
+  listen [::]:443 ssl;
+  http2 on;
+  server_name www.${DOMAIN};
+  ssl_certificate     ${SSL_CERT_PATH};
+  ssl_certificate_key ${SSL_KEY_PATH};
+  ssl_protocols TLSv1.2 TLSv1.3;
+  add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
   return 301 https://${DOMAIN}$request_uri;
 }
 
@@ -54,7 +68,7 @@ server {
   add_header Referrer-Policy strict-origin-when-cross-origin always;
   add_header X-Content-Type-Options nosniff always;
   add_header X-Frame-Options DENY always;
-  add_header Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https: wss:; media-src 'self' blob:; frame-src 'self'; frame-ancestors 'none'; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests" always;
+  add_header Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'sha256-J3I4xREsvsJ2dMiCL8HMivnmdtZMNz89cGMzdcUIjY8='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https: wss:; media-src 'self' blob:; frame-src 'self'; frame-ancestors 'none'; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests" always;
   add_header Cross-Origin-Resource-Policy same-origin always;
   add_header X-Robots-Tag $seo_robots_tag always;
 
@@ -192,7 +206,7 @@ server {
     add_header Referrer-Policy strict-origin-when-cross-origin always;
     add_header X-Content-Type-Options nosniff always;
     add_header X-Frame-Options DENY always;
-    add_header Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https: wss:; media-src 'self' blob:; frame-src 'self'; frame-ancestors 'none'; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests" always;
+    add_header Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'sha256-J3I4xREsvsJ2dMiCL8HMivnmdtZMNz89cGMzdcUIjY8='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https: wss:; media-src 'self' blob:; frame-src 'self'; frame-ancestors 'none'; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests" always;
     add_header Cross-Origin-Resource-Policy same-origin always;
     add_header X-Robots-Tag $seo_robots_tag always;
     access_log off;
@@ -218,12 +232,55 @@ server {
     try_files $uri =404;
   }
 
-  # SPA fallback
-  location / {
+  # Serve crawl-control files as files, never as the SPA document.
+  location = /robots.txt {
+    if ($request_method !~ ^(GET|HEAD)$) { return 405; }
+    default_type text/plain;
+    expires -1;
+    try_files $uri =404;
+  }
+
+  location = /sitemap.xml {
+    if ($request_method !~ ^(GET|HEAD)$) { return 405; }
+    default_type application/xml;
+    expires -1;
+    try_files $uri =404;
+  }
+
+  # Normalize only real routes; unknown URLs must not become home-page copies.
+  location ~ ^/(rules|admin|moderation|profile|history)/+$ {
+    return 301 https://${DOMAIN}/$1$is_args$args;
+  }
+
+  location ~ ^(/room/[0-9]+)/+$ {
+    return 301 https://${DOMAIN}$1$is_args$args;
+  }
+
+  location = / {
+    rewrite ^ /index.html last;
+  }
+
+  # Keep refreshes and direct links working for the existing SPA routes excluded from search.
+  location ~ ^/(?:rules|admin|moderation|profile|history|room/[0-9]+)$ {
     try_files $uri /index.html;
   }
 
+  # Verification files must exist; missing HTML must return a real 404.
+  location ~* \.html$ {
+    if ($request_method !~ ^(GET|HEAD)$) { return 405; }
+    expires -1;
+    try_files $uri =404;
+  }
+
+  location / {
+    try_files $uri =404;
+  }
+
   location = /index.html {
+    # Internal SPA fallbacks retain the original request URI and must not redirect.
+    if ($request_uri ~ "^/index[.]html(?:[?]|$)") {
+      return 301 https://${DOMAIN}/$is_args$args;
+    }
     # Cache-Control below overrides add_header inheritance.
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
     add_header X-Permitted-Cross-Domain-Policies none always;
@@ -231,7 +288,7 @@ server {
     add_header Referrer-Policy strict-origin-when-cross-origin always;
     add_header X-Content-Type-Options nosniff always;
     add_header X-Frame-Options DENY always;
-    add_header Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https: wss:; media-src 'self' blob:; frame-src 'self'; frame-ancestors 'none'; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests" always;
+    add_header Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'sha256-J3I4xREsvsJ2dMiCL8HMivnmdtZMNz89cGMzdcUIjY8='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https: wss:; media-src 'self' blob:; frame-src 'self'; frame-ancestors 'none'; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests" always;
     add_header Cross-Origin-Resource-Policy same-origin always;
     add_header X-Robots-Tag $seo_robots_tag always;
     add_header Cache-Control "no-cache, no-store, must-revalidate" always;
@@ -245,7 +302,7 @@ server {
     add_header Referrer-Policy strict-origin-when-cross-origin always;
     add_header X-Content-Type-Options nosniff always;
     add_header X-Frame-Options DENY always;
-    add_header Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https: wss:; media-src 'self' blob:; frame-src 'self'; frame-ancestors 'none'; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests" always;
+    add_header Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'sha256-J3I4xREsvsJ2dMiCL8HMivnmdtZMNz89cGMzdcUIjY8='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https: wss:; media-src 'self' blob:; frame-src 'self'; frame-ancestors 'none'; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests" always;
     add_header Cross-Origin-Resource-Policy same-origin always;
     add_header X-Robots-Tag $seo_robots_tag always;
     default_type text/plain;

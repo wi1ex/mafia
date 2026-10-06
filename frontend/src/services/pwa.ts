@@ -1,4 +1,5 @@
 import { reactive, readonly } from 'vue'
+import seo from '@/content/seo.json'
 
 export type InstallPromptChoice = {
   outcome: 'accepted' | 'dismissed'
@@ -84,7 +85,7 @@ export async function requestPwaInstall(): Promise<'accepted' | 'dismissed' | 'i
   }
 }
 
-export const BASE_TITLE = 'deceit.games — играйте в мафию онлайн и общайтесь в комнатах с трансляциями'
+export const BASE_TITLE = seo.home.title
 export const ROOM_FALLBACK_TITLE = 'Комната'
 
 function ensureMeta(name: string, content: string): void {

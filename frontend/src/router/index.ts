@@ -1,15 +1,19 @@
 import { createRouter, createWebHistory, type RouteLocationNormalized, type RouteRecordRaw } from 'vue-router'
 import { useAuthStore, useSettingsStore, useUserStore } from '@/store'
 import { BASE_TITLE, ROOM_FALLBACK_TITLE, setPageTitle } from '@/services/pwa'
+import seo from '@/content/seo.json'
+import { PUBLIC_SCHEMAS } from '@/content/structuredData'
 
-const PUBLIC_SITE_URL = String('https://deceit.games').replace(/\/+$/, '')
-const BASE_DESCRIPTION = 'Играйте в рейтинговую мафию и улучшайте свою статистику. Смотрите совместные трансляции и общайтесь в чате. Играйте в настольные игры и заводите новых друзей'
+const PUBLIC_SITE_URL = seo.siteUrl.replace(/\/+$/, '')
+const BASE_DESCRIPTION = seo.home.description
+const PUBLIC_ROBOTS = 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1'
 
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
     name: 'home',
     component: () => import('@/pages/Home.vue'),
+    meta: { ...seo.home, robots: PUBLIC_ROBOTS },
   },
   {
     path: '/rules',
@@ -96,7 +100,8 @@ function setMeta(to: RouteLocationNormalized): void {
   const description = (to.meta?.description as string | undefined) ?? BASE_DESCRIPTION
   const robots = (to.meta?.robots as string | undefined) ?? 'index, follow'
   const title = (to.meta?.title as string | undefined) ?? (to.name === 'room' ? ROOM_FALLBACK_TITLE : BASE_TITLE)
-  const canonical = `${PUBLIC_SITE_URL}${to.path}`
+  const canonicalPath = to.path === '/' ? '/' : to.path.replace(/\/+$/, '')
+  const canonical = `${PUBLIC_SITE_URL}${canonicalPath}`
   ensureMeta('description', description)
   ensureMeta('robots', robots)
   ensureMeta('twitter:title', title)
@@ -105,6 +110,18 @@ function setMeta(to: RouteLocationNormalized): void {
   ensureProperty('og:description', description)
   ensureProperty('og:url', canonical)
   ensureCanonical(canonical)
+  setStructuredData(to)
+}
+
+function setStructuredData(to: RouteLocationNormalized): void {
+  for (const el of document.querySelectorAll('script[type="application/ld+json"]')) el.remove()
+  if (to.name !== 'home') return
+
+  const el = document.createElement('script')
+  el.type = 'application/ld+json'
+  el.id = 'page-schema'
+  el.textContent = PUBLIC_SCHEMAS.home
+  document.head.appendChild(el)
 }
 
 router.beforeEach(async (to, from) => {

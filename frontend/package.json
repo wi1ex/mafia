@@ -8,7 +8,9 @@
     "build": "vite build",
     "preview": "vite preview --host",
     "typecheck": "vue-tsc --noEmit",
-    "seo:check": "node scripts/check-seo.mjs"
+    "seo:check": "node scripts/check-seo.mjs",
+    "seo:check:built": "node scripts/check-seo.mjs --built",
+    "seo:check:live": "node scripts/check-seo-live.mjs"
   },
   "dependencies": {
     "axios": "^1.19.0",

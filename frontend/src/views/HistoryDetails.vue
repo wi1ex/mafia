@@ -520,7 +520,7 @@ function basePointsLabel(breakdown: GameHistoryPointsBreakdown): string {
             bottom: calc(100% + 8px);
             left: 0;
             flex-direction: column;
-            width: 300px;
+            width: 350px;
             padding: 16px;
             gap: 8px;
             border: 1px solid $soft-purple-700;
@@ -538,11 +538,13 @@ function basePointsLabel(breakdown: GameHistoryPointsBreakdown): string {
             transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease;
             z-index: 20;
             strong {
+              font-size: 18px;
               color: $neutral-white;
               font-family: Hauora-SemiBold;
             }
             .points-tooltip__section,
             .points-tooltip__total {
+              font-size: 18px;
               margin-top: 3px;
               color: $neutral-white;
               font-family: Hauora-Medium;
