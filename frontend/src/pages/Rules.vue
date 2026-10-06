@@ -8,7 +8,7 @@
             <h1>Правила платформы</h1>
             <div class="tags">
               <span class="pill">18+</span>
-              <span class="pill">Редакция от 01.09.2026</span>
+              <span class="pill">Редакция от 06.10.2026</span>
               <a class="pill docs" href="/files/user-agreement.pdf" target="_blank" rel="noopener noreferrer">Пользовательское соглашение</a>
               <a class="pill docs" href="/files/privacy-policy.pdf" target="_blank" rel="noopener noreferrer">Политика обработки ПД</a>
             </div>
@@ -43,7 +43,7 @@
                 </div>
               </div>
             </div>
-            <div class="notice-item notice-item--ban">Бан — вечная блокировка доступа к платформе.</div>
+            <div class="notice-item notice-item--ban">Бан — постоянная полная блокировка доступа к платформе без возможности его восстановления.</div>
           </div>
         </section>
 
