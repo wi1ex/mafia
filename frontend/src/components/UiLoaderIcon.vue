@@ -73,13 +73,4 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .ui-loader-icon {
-    animation-duration: 2.5s;
-    circle {
-      animation-duration: 2.5s;
-    }
-  }
-}
-
 </style>

@@ -51,33 +51,13 @@
         </div>
 
         <div v-if="mode === 'rating'" class="slot-metrics">
-          <span
-            class="points-metric"
-            :class="{ 'points-metric--explainable': !!slot.points_breakdown }"
-            :tabindex="slot.points_breakdown ? 0 : undefined"
-            :aria-describedby="slot.points_breakdown ? `points-breakdown-${slot.slot}` : undefined"
-          >
-            <span>Баллы: {{ formatPoints(slot.points) }}</span>
-<!--            <span>Баллы: {{ formatPoints(slot.points) }} ({{ formatMetric(slot.mmr)}} MMR)</span>-->
-            <span v-if="slot.points_breakdown" :id="`points-breakdown-${slot.slot}`" class="points-tooltip" role="tooltip">
-              <strong>Расчёт баллов</strong>
-              <span>{{ basePointsLabel(slot.points_breakdown) }}</span>
-              <template v-if="slot.points_breakdown.rules_available">
-                <span class="points-tooltip__section">Дополнительные баллы:</span>
-                <span v-if="slot.points_breakdown.adjustments.length === 0" class="points-tooltip__muted">Нет начислений</span>
-                <span v-for="adjustment in groupedAdjustments(slot.points_breakdown.adjustments)" :key="`${slot.slot}-${adjustment.key}`">
-                  {{ adjustment.label }} {{ formatPoints(adjustment.points) }}<template v-if="adjustment.count > 1"> x {{ adjustment.count }}</template>
-                </span>
-                <span>Сумма дополнительных: {{ formatPoints(slot.points_breakdown.additional_points_raw) }}</span>
-                <span v-if="slot.points_breakdown.additional_points_capped">
-                  После ограничения {{ formatPoints(slot.points_breakdown.additional_points) }}
-                  (диапазон {{ formatPoints(slot.points_breakdown.additional_points_min) }} … {{ formatPoints(slot.points_breakdown.additional_points_max) }})
-                </span>
-              </template>
-              <span v-else class="points-tooltip__muted">Дополнительные баллы не рассчитывались: правила игры не сохранены.</span>
-              <span class="points-tooltip__total">Итог: {{ formatPoints(slot.points_breakdown.final_points) }}</span>
-            </span>
-          </span>
+          <PointsBreakdown
+            :points="slot.points"
+            :breakdown="slot.points_breakdown"
+            :player-name="slot.username"
+            :open="activePointsSlot === slot.slot"
+            @update:open="visible => setPointsOpen(slot.slot, visible)"
+          />
         </div>
       </article>
     </div>
@@ -98,6 +78,7 @@ import { computed, ref } from 'vue'
 import { canOpenMiniProfileTarget, normalizeMiniProfileRole, normalizeMiniProfileUserId } from '@/services/miniProfile'
 import { useUserStore } from '@/store'
 import MiniProfile from '@/views/MiniProfile.vue'
+import PointsBreakdown from '@/views/PointsBreakdown.vue'
 import defaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
 import iconRoleCitizen from '@/assets/svg/iconRoleCitizen.svg'
 import iconRoleMafia from '@/assets/svg/iconRoleMafia.svg'
@@ -129,11 +110,6 @@ interface GameHistoryPointsAdjustment {
   rule_key: string
   label: string
   points: number
-}
-
-interface GroupedPointsAdjustment extends GameHistoryPointsAdjustment {
-  key: string
-  count: number
 }
 
 interface GameHistoryPointsBreakdown {
@@ -191,6 +167,7 @@ const props = defineProps<{
 
 const userStore = useUserStore()
 const miniProfileOpen = ref(false)
+const activePointsSlot = ref<number | null>(null)
 const miniProfileUserId = ref<number | null>(null)
 const miniProfileInitial = ref<GameHistoryMiniProfileInitial | null>(null)
 const viewerUserId = computed(() => normalizeMiniProfileUserId(userStore.user?.id))
@@ -271,6 +248,11 @@ function canOpenSlotMiniProfile(slot: GameHistorySlotView): boolean {
     targetRole: slot.profile_role,
     targetDeletedAt: slot.deleted,
   })
+}
+
+function setPointsOpen(slot: number, visible: boolean): void {
+  if (visible) activePointsSlot.value = slot
+  else if (activePointsSlot.value === slot) activePointsSlot.value = null
 }
 
 function openSlotMiniProfile(slot: GameHistorySlotView): void {
@@ -354,42 +336,6 @@ function leaveMomentLabel(day: number, reason: LeaveReason): string {
   return `День ${normalizedDay}`
 }
 
-function formatMetric(value: number | null | undefined): string {
-  const num = Number(value)
-  if (!Number.isFinite(num)) return '-'
-  const normalized = Math.trunc(num)
-  return normalized === 0 ? '-' : String(normalized)
-}
-
-function formatPoints(value: number | null | undefined): string {
-  const points = Number(value)
-  if (!Number.isFinite(points) || points === 0) return '0.00'
-  return `${points > 0 ? '+' : '-'}${Math.abs(points).toFixed(2)}`
-}
-
-function groupedAdjustments(adjustments: GameHistoryPointsAdjustment[]): GroupedPointsAdjustment[] {
-  const grouped = new Map<string, GroupedPointsAdjustment>()
-
-  for (const adjustment of adjustments) {
-    const points = Number(adjustment.points)
-    const normalizedPoints = Number.isFinite(points) ? points : 0
-    const key = `${adjustment.label}\u0000${normalizedPoints}`
-    const existing = grouped.get(key)
-    if (existing) {
-      existing.count += 1
-      continue
-    }
-    grouped.set(key, { ...adjustment, points: normalizedPoints, key, count: 1 })
-  }
-
-  return [...grouped.values()]
-}
-
-function basePointsLabel(breakdown: GameHistoryPointsBreakdown): string {
-  if (breakdown.base_reason === 'win') return `Стартовый балл: победа команды — ${formatPoints(breakdown.base_points)}`
-  if (breakdown.base_reason === 'draw') return `Стартовый балл: ничья — ${formatPoints(breakdown.base_points)}`
-  return `Стартовый балл: поражение команды — ${formatPoints(breakdown.base_points)}`
-}
 </script>
 
 <style scoped lang="scss">
@@ -510,64 +456,6 @@ function basePointsLabel(breakdown: GameHistoryPointsBreakdown): string {
         margin-top: auto;
         padding-top: 12px;
         border-top: 1px solid $soft-purple-700;
-        .points-metric {
-          display: inline-flex;
-          position: relative;
-          width: fit-content;
-          &--explainable {
-            border-bottom: 1px dashed rgba($neutral-300, 0.7);
-            cursor: help;
-            outline: none;
-            &:focus-visible {
-              border-bottom-color: $green-400;
-            }
-            &:hover .points-tooltip,
-            &:focus .points-tooltip {
-              visibility: visible;
-              opacity: 1;
-              transform: translateY(0);
-            }
-          }
-          .points-tooltip {
-            display: flex;
-            position: absolute;
-            bottom: calc(100% + 8px);
-            left: 0;
-            flex-direction: column;
-            width: 350px;
-            padding: 16px;
-            gap: 8px;
-            border: 1px solid $soft-purple-700;
-            border-radius: 16px;
-            background-color: $soft-purple-900;
-            box-shadow: 0 8px 22px rgba($neutral-black, 0.45);
-            color: $neutral-100;
-            font-size: 14px;
-            line-height: 20px;
-            white-space: normal;
-            pointer-events: none;
-            visibility: hidden;
-            opacity: 0;
-            transform: translateY(4px);
-            transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease;
-            z-index: 20;
-            strong {
-              font-size: 18px;
-              color: $neutral-white;
-              font-family: Hauora-SemiBold;
-            }
-            .points-tooltip__section,
-            .points-tooltip__total {
-              font-size: 18px;
-              margin-top: 3px;
-              color: $neutral-white;
-              font-family: Hauora-Medium;
-            }
-            .points-tooltip__muted {
-              color: $neutral-400;
-            }
-          }
-        }
       }
       .slot-extra {
         color: $neutral-300;
@@ -714,16 +602,6 @@ function basePointsLabel(breakdown: GameHistoryPointsBreakdown): string {
           &.leave-reason-icon-extra {
             width: 20px;
             height: 20px;
-          }
-        }
-      }
-      &:nth-child(5n) {
-        .slot-metrics {
-          .points-metric {
-            .points-tooltip {
-              left: auto;
-              right: 0;
-            }
           }
         }
       }
