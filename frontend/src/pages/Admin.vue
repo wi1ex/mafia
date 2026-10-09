@@ -1,64 +1,66 @@
 <template>
-  <section class="admin">
+  <section class="admin" @scroll.capture="onTooltipScroll">
     <header>
-      <nav class="tabs" aria-label="Админ" role="tablist">
-        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'stats' }" :aria-selected="activeTab === 'stats'" @click="activeTab = 'stats'">
+      <h1>Админ-панель</h1>
+      <nav class="tabs" aria-label="Админ" role="tablist" aria-orientation="vertical" @keydown="onTabKeydown">
+        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'stats' }" :aria-selected="activeTab === 'stats'" @click="activeTab = 'stats'" id="admin-tab-stats" aria-controls="admin-tab-panel" :tabindex="activeTab === 'stats' ? 0 : -1">
           Статистика
         </button>
-        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'settings' }" :aria-selected="activeTab === 'settings'" @click="activeTab = 'settings'">
+        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'settings' }" :aria-selected="activeTab === 'settings'" @click="activeTab = 'settings'" id="admin-tab-settings" aria-controls="admin-tab-panel" :tabindex="activeTab === 'settings' ? 0 : -1">
           Параметры
         </button>
-        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'scoring' }" :aria-selected="activeTab === 'scoring'" @click="activeTab = 'scoring'">
+        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'scoring' }" :aria-selected="activeTab === 'scoring'" @click="activeTab = 'scoring'" id="admin-tab-scoring" aria-controls="admin-tab-panel" :tabindex="activeTab === 'scoring' ? 0 : -1">
           Скоринг
         </button>
-        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'rules' }" :aria-selected="activeTab === 'rules'" @click="activeTab = 'rules'">
+        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'rules' }" :aria-selected="activeTab === 'rules'" @click="activeTab = 'rules'" id="admin-tab-rules" aria-controls="admin-tab-panel" :tabindex="activeTab === 'rules' ? 0 : -1">
           Правила
         </button>
-        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'updates' }" :aria-selected="activeTab === 'updates'" @click="activeTab = 'updates'">
+        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'updates' }" :aria-selected="activeTab === 'updates'" @click="activeTab = 'updates'" id="admin-tab-updates" aria-controls="admin-tab-panel" :tabindex="activeTab === 'updates' ? 0 : -1">
           Уведомления
         </button>
-        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'logs' }" :aria-selected="activeTab === 'logs'" @click="activeTab = 'logs'">
+        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'logs' }" :aria-selected="activeTab === 'logs'" @click="activeTab = 'logs'" id="admin-tab-logs" aria-controls="admin-tab-panel" :tabindex="activeTab === 'logs' ? 0 : -1">
           Логи
         </button>
-        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'rooms' }" :aria-selected="activeTab === 'rooms'" @click="activeTab = 'rooms'">
+        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'rooms' }" :aria-selected="activeTab === 'rooms'" @click="activeTab = 'rooms'" id="admin-tab-rooms" aria-controls="admin-tab-panel" :tabindex="activeTab === 'rooms' ? 0 : -1">
           Комнаты
         </button>
-        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'users' }" :aria-selected="activeTab === 'users'" @click="activeTab = 'users'">
+        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'users' }" :aria-selected="activeTab === 'users'" @click="activeTab = 'users'" id="admin-tab-users" aria-controls="admin-tab-panel" :tabindex="activeTab === 'users' ? 0 : -1">
           Пользователи
         </button>
-        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'sanctions' }" :aria-selected="activeTab === 'sanctions'" @click="activeTab = 'sanctions'">
+        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'sanctions' }" :aria-selected="activeTab === 'sanctions'" @click="activeTab = 'sanctions'" id="admin-tab-sanctions" aria-controls="admin-tab-panel" :tabindex="activeTab === 'sanctions' ? 0 : -1">
           Санкции
         </button>
-        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'contact_requests' }" :aria-selected="activeTab === 'contact_requests'" @click="activeTab = 'contact_requests'">
+        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'contact_requests' }" :aria-selected="activeTab === 'contact_requests'" @click="activeTab = 'contact_requests'" id="admin-tab-contact_requests" aria-controls="admin-tab-panel" :tabindex="activeTab === 'contact_requests' ? 0 : -1">
           Обращения
         </button>
-        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'subscriptions' }" :aria-selected="activeTab === 'subscriptions'" @click="activeTab = 'subscriptions'">
+        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'subscriptions' }" :aria-selected="activeTab === 'subscriptions'" @click="activeTab = 'subscriptions'" id="admin-tab-subscriptions" aria-controls="admin-tab-panel" :tabindex="activeTab === 'subscriptions' ? 0 : -1">
           Подписки
         </button>
       </nav>
-      <router-link class="btn nav" :to="{ name: 'home' }" aria-label="На главную">На главную</router-link>
+      <router-link class="home-link" :to="{ name: 'home' }" aria-label="На главную">На главную</router-link>
     </header>
 
     <Transition name="tab-fade" mode="out-in">
-      <div :key="activeTab" class="tab-panel">
+      <div :key="activeTab" id="admin-tab-panel" class="tab-panel" role="tabpanel" :aria-labelledby="`admin-tab-${activeTab}`">
+        <h2 class="panel-title">{{ tabTitles[activeTab] }}</h2>
         <div v-if="loading" class="loading">Загрузка...</div>
 
         <div v-else-if="activeTab === 'rules'" class="rules-editor">
           <div class="rules-editor__toolbar">
             <p>Здесь редактируется единый список: он сразу используется на странице правил и при выборе причины санкции.</p>
             <div class="rules-editor__actions">
-              <button class="btn dark" :disabled="savingRules || !isRulesDirty" @click="loadSanctionRules">Отменить изменения</button>
-              <button class="btn" :disabled="savingRules" @click="addRulesSection">Добавить раздел</button>
-              <button class="btn confirm" :disabled="savingRules || !isRulesDirty" @click="saveSanctionRules">
+              <UiButton variant="white" size="low" :disabled="savingRules || !isRulesDirty" @click="loadSanctionRules">Отменить изменения</UiButton>
+              <UiButton variant="white" size="low" :disabled="savingRules" @click="addRulesSection">Добавить раздел</UiButton>
+              <UiButton variant="green" size="low" :disabled="savingRules || !isRulesDirty" @click="saveSanctionRules">
                 {{ savingRules ? 'Сохранение…' : 'Сохранить правила' }}
-              </button>
+              </UiButton>
             </div>
           </div>
           <article v-for="(section, sectionIndex) in sanctionRulesEditor" :key="`${section.id}-${sectionIndex}`" class="rules-editor__section">
             <div class="rules-editor__section-head">
               <UiInput :id="`sanction-section-${sectionIndex}`" v-model="section.title" size="low" maxlength="255" :disabled="savingRules" label="Название раздела" />
               <span class="rules-editor__anchor">Якорь: #{{ section.id }}</span>
-              <button class="btn danger" :disabled="savingRules || sanctionRulesEditor.length <= 1" @click="removeRulesSection(sectionIndex)">Удалить раздел</button>
+              <UiButton variant="red" size="low" :disabled="savingRules || sanctionRulesEditor.length <= 1" @click="removeRulesSection(sectionIndex)">Удалить раздел</UiButton>
             </div>
             <div class="rules-editor__rule-list">
               <div v-for="(rule, ruleIndex) in section.rules" :key="`${section.id}-${ruleIndex}`" class="rules-editor__rule">
@@ -70,41 +72,43 @@
                     <option v-for="option in sanctionBadgeOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
                   </select>
                 </label>
-                <button class="btn danger" :disabled="savingRules || section.rules.length <= 1" @click="removeSanctionRule(sectionIndex, ruleIndex)">Удалить</button>
+                <UiButton variant="red" size="low" :disabled="savingRules || section.rules.length <= 1" @click="removeSanctionRule(sectionIndex, ruleIndex)">Удалить</UiButton>
               </div>
             </div>
-            <button class="btn" :disabled="savingRules" @click="addSanctionRule(sectionIndex)">Добавить пункт</button>
+            <UiButton variant="white" size="low" :disabled="savingRules" @click="addSanctionRule(sectionIndex)">Добавить пункт</UiButton>
           </article>
         </div>
 
-        <div v-else-if="activeTab === 'settings'">
+        <div v-else-if="activeTab === 'settings'" class="settings-tab">
           <div class="grid">
             <div class="block">
-              <UiSwitch class="switch-item" :width="250" size="low" v-model="site.registration_enabled" label="Регистрация" :disabled="savingSettings" />
-              <UiSwitch class="switch-item" :width="250" size="low" v-model="site.verification_restrictions" label="Ограничения верификации" :disabled="savingSettings" />
-              <UiSwitch class="switch-item" :width="250" size="low" v-model="site.rooms_can_create" label="Создание комнат" :disabled="savingSettings" />
-              <UiSwitch class="switch-item" :width="250" size="low" v-model="site.rooms_can_enter" label="Вход в комнату" :disabled="savingSettings" />
-              <UiSwitch class="switch-item" :width="250" size="low" v-model="site.chat_open_enabled" label="Открытие чата" :disabled="savingSettings" />
-              <UiSwitch class="switch-item" :width="250" size="low" v-model="site.streams_can_start" label="Запуск трансляций" :disabled="savingSettings" />
-              <UiSwitch class="switch-item" :width="250" size="low" v-model="site.games_can_start" label="Запуск игр" :disabled="savingSettings" />
-              <UiSwitch class="switch-item" :width="250" size="low" v-model="site.rating_enabled" label="Запуск рейтинга" :disabled="savingSettings" />
-              <UiSwitch class="switch-item" :width="250" size="low" v-model="site.rtc_echo_cancellation_enabled" label="Эхоподавление микрофона" :disabled="savingSettings" />
-              <UiSwitch class="switch-item" :width="250" size="low" v-model="site.rtc_noise_suppression_enabled" label="Шумоподавление микрофона" :disabled="savingSettings" />
-              <UiSwitch class="switch-item" :width="250" size="low" v-model="site.rtc_auto_gain_control_enabled" label="Автоуровень микрофона" :disabled="savingSettings" />
+              <h3>Доступ и возможности</h3>
+              <UiSwitch class="switch-item" :width="140" size="low" v-model="site.registration_enabled" label="Регистрация" :disabled="savingSettings" />
+              <UiSwitch class="switch-item" :width="140" size="low" v-model="site.verification_restrictions" label="Ограничения верификации" :disabled="savingSettings" />
+              <UiSwitch class="switch-item" :width="140" size="low" v-model="site.rooms_can_create" label="Создание комнат" :disabled="savingSettings" />
+              <UiSwitch class="switch-item" :width="140" size="low" v-model="site.rooms_can_enter" label="Вход в комнату" :disabled="savingSettings" />
+              <UiSwitch class="switch-item" :width="140" size="low" v-model="site.chat_open_enabled" label="Открытие чата" :disabled="savingSettings" />
+              <UiSwitch class="switch-item" :width="140" size="low" v-model="site.streams_can_start" label="Запуск трансляций" :disabled="savingSettings" />
+              <UiSwitch class="switch-item" :width="140" size="low" v-model="site.games_can_start" label="Запуск игр" :disabled="savingSettings" />
+              <UiSwitch class="switch-item" :width="140" size="low" v-model="site.rating_enabled" label="Запуск рейтинга" :disabled="savingSettings" />
+              <UiSwitch class="switch-item" :width="140" size="low" v-model="site.rtc_echo_cancellation_enabled" label="Эхоподавление микрофона" :disabled="savingSettings" />
+              <UiSwitch class="switch-item" :width="140" size="low" v-model="site.rtc_noise_suppression_enabled" label="Шумоподавление микрофона" :disabled="savingSettings" />
+              <UiSwitch class="switch-item" :width="140" size="low" v-model="site.rtc_auto_gain_control_enabled" label="Автоуровень микрофона" :disabled="savingSettings" />
               <div class="bulk-admin-actions">
-                <button class="btn danger width-full" :disabled="endGamesAndKickBusy || compensationSaving" @click="endAllGamesAndKickRooms">
+                <UiButton variant="red" size="middle" :disabled="endGamesAndKickBusy || compensationSaving" @click="endAllGamesAndKickRooms" width="100%">
                   Завершить игры и кикнуть всех
-                </button>
-                <button class="btn confirm width-full" :disabled="endGamesAndKickBusy || compensationSaving" @click="openSubscriptionCompensation">
+                </UiButton>
+                <UiButton variant="green" size="middle" :disabled="endGamesAndKickBusy || compensationSaving" @click="openSubscriptionCompensation" width="100%">
                   Компенсация подписки
-                </button>
-                <button class="btn confirm width-full" :disabled="savingSettings || !isSettingsDirty" @click="saveSettings">
+                </UiButton>
+                <UiButton variant="green" size="middle" :disabled="savingSettings || !isSettingsDirty" @click="saveSettings" width="100%">
                   Сохранить
-                </button>
+                </UiButton>
               </div>
             </div>
 
             <div class="block">
+              <h3>Платформа и модерация</h3>
               <div class="field-stack">
                 <UiInput id="admin-banner-text" size="low" v-model="site.admin_banner_text"
                          autocomplete="off" :disabled="savingSettings" label="Текст баннера в хедере" />
@@ -134,6 +138,7 @@
             </div>
 
             <div class="block">
+              <h3>Игровые настройки</h3>
               <div class="field-stack">
                 <UiInput id="game-min-ready" size="low" v-model.number="game.game_min_ready_players" type="number" min="1" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Количество игроков для старта" />
@@ -164,229 +169,331 @@
           </div>
         </div>
 
-        <div v-else-if="activeTab === 'scoring'">
+        <div v-else-if="activeTab === 'scoring'" class="scoring-tab">
           <div class="grid">
             <div class="block scoring-block">
+              <h3>Баллы и тексты в истории</h3>
               <p>Правила фиксируются при старте рейтинговой игры. Изменения применятся только к следующим запущенным рейтинг-играм.</p>
               <p>Тексты отображаются в деталях истории игры. В тексте технического фола <code>{count}</code> будет заменён на номер фола.</p>
               <div class="field-stack">
-                <UiInput id="scoring-additional-points-min" size="low" v-model.number="scoring.additional_points_min" type="number" step="0.01"
+                <div class="scoring-rule">
+                  <UiInput id="scoring-additional-points-min" size="low" v-model.number="scoring.additional_points_min" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Минимум суммы доп. баллов" />
-                <UiInput id="scoring-additional-points-max" size="low" v-model.number="scoring.additional_points_max" type="number" step="0.01"
+                  <UiInput id="scoring-additional-points-max" size="low" v-model.number="scoring.additional_points_max" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Максимум суммы доп. баллов" />
-                <UiInput id="scoring-fourth-foul" size="low" v-model.number="scoring.fourth_foul" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-fourth-foul" size="low" v-model.number="scoring.fourth_foul" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Удаление по фолам" />
-                <UiInput id="scoring-fourth-foul-label" size="low" v-model.trim="scoring.fourth_foul_label" maxlength="255"
+                  <UiInput id="scoring-fourth-foul-label" size="low" v-model.trim="scoring.fourth_foul_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-fourth-foul-lost" size="low" v-model.number="scoring.fourth_foul_lost" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-fourth-foul-lost" size="low" v-model.number="scoring.fourth_foul_lost" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Удаление по фолам на поражение" />
-                <UiInput id="scoring-fourth-foul-lost-label" size="low" v-model.trim="scoring.fourth_foul_lost_label" maxlength="255"
+                  <UiInput id="scoring-fourth-foul-lost-label" size="low" v-model.trim="scoring.fourth_foul_lost_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-tech-foul" size="low" v-model.number="scoring.tech_foul" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-tech-foul" size="low" v-model.number="scoring.tech_foul" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="{count}-й тех. фол" />
-                <UiInput id="scoring-tech-foul-label" size="low" v-model.trim="scoring.tech_foul_label" maxlength="255"
+                  <UiInput id="scoring-tech-foul-label" size="low" v-model.trim="scoring.tech_foul_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-second-tech-foul-lost" size="low" v-model.number="scoring.second_tech_foul_lost" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-second-tech-foul-lost" size="low" v-model.number="scoring.second_tech_foul_lost" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Удаление по тех. фолам на поражение" />
-                <UiInput id="scoring-second-tech-foul-lost-label" size="low" v-model.trim="scoring.second_tech_foul_lost_label" maxlength="255"
+                  <UiInput id="scoring-second-tech-foul-lost-label" size="low" v-model.trim="scoring.second_tech_foul_lost_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-suicide" size="low" v-model.number="scoring.suicide" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-suicide" size="low" v-model.number="scoring.suicide" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Самоубийство" />
-                <UiInput id="scoring-suicide-label" size="low" v-model.trim="scoring.suicide_label" maxlength="255"
+                  <UiInput id="scoring-suicide-label" size="low" v-model.trim="scoring.suicide_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-suicide-lost" size="low" v-model.number="scoring.suicide_lost" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-suicide-lost" size="low" v-model.number="scoring.suicide_lost" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Самоубийство на поражение" />
-                <UiInput id="scoring-suicide-lost-label" size="low" v-model.trim="scoring.suicide_lost_label" maxlength="255"
+                  <UiInput id="scoring-suicide-lost-label" size="low" v-model.trim="scoring.suicide_lost_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-best-move-black-0" size="low" v-model.number="scoring.best_move_black_0" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-best-move-black-0" size="low" v-model.number="scoring.best_move_black_0" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Лучший ход: 0 из 3" />
-                <UiInput id="scoring-best-move-black-0-label" size="low" v-model.trim="scoring.best_move_black_0_label" maxlength="255"
+                  <UiInput id="scoring-best-move-black-0-label" size="low" v-model.trim="scoring.best_move_black_0_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-best-move-black-1" size="low" v-model.number="scoring.best_move_black_1" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-best-move-black-1" size="low" v-model.number="scoring.best_move_black_1" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Лучший ход: 1 из 3" />
-                <UiInput id="scoring-best-move-black-1-label" size="low" v-model.trim="scoring.best_move_black_1_label" maxlength="255"
+                  <UiInput id="scoring-best-move-black-1-label" size="low" v-model.trim="scoring.best_move_black_1_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-best-move-black-2" size="low" v-model.number="scoring.best_move_black_2" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-best-move-black-2" size="low" v-model.number="scoring.best_move_black_2" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Лучший ход: 2 из 3" />
-                <UiInput id="scoring-best-move-black-2-label" size="low" v-model.trim="scoring.best_move_black_2_label" maxlength="255"
+                  <UiInput id="scoring-best-move-black-2-label" size="low" v-model.trim="scoring.best_move_black_2_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-best-move-black-3" size="low" v-model.number="scoring.best_move_black_3" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-best-move-black-3" size="low" v-model.number="scoring.best_move_black_3" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Лучший ход: 3 из 3" />
-                <UiInput id="scoring-best-move-black-3-label" size="low" v-model.trim="scoring.best_move_black_3_label" maxlength="255"
+                  <UiInput id="scoring-best-move-black-3-label" size="low" v-model.trim="scoring.best_move_black_3_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-night-shoot-miss" size="low" v-model.number="scoring.night_shoot_miss" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-night-shoot-miss" size="low" v-model.number="scoring.night_shoot_miss" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Промахнувшийся черный" />
-                <UiInput id="scoring-night-shoot-miss-label" size="low" v-model.trim="scoring.night_shoot_miss_label" maxlength="255"
+                  <UiInput id="scoring-night-shoot-miss-label" size="low" v-model.trim="scoring.night_shoot_miss_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-night-shoot-miss-terminal" size="low" v-model.number="scoring.night_shoot_miss_terminal" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-night-shoot-miss-terminal" size="low" v-model.number="scoring.night_shoot_miss_terminal" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Промах при гарантированной победе" />
-                <UiInput id="scoring-night-shoot-miss-terminal-label" size="low" v-model.trim="scoring.night_shoot_miss_terminal_label" maxlength="255"
+                  <UiInput id="scoring-night-shoot-miss-terminal-label" size="low" v-model.trim="scoring.night_shoot_miss_terminal_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-night-self-shot-black-win-1" size="low" v-model.number="scoring.night_self_shot_black_win_1" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-night-self-shot-black-win-1" size="low" v-model.number="scoring.night_self_shot_black_win_1" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Компенсация: самострел в 1ю ночь" />
-                <UiInput id="scoring-night-self-shot-black-win-1-label" size="low" v-model.trim="scoring.night_self_shot_black_win_1_label" maxlength="255"
+                  <UiInput id="scoring-night-self-shot-black-win-1-label" size="low" v-model.trim="scoring.night_self_shot_black_win_1_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-night-self-shot-black-win-2" size="low" v-model.number="scoring.night_self_shot_black_win_2" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-night-self-shot-black-win-2" size="low" v-model.number="scoring.night_self_shot_black_win_2" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Компенсация: самострел во 2ю ночь" />
-                <UiInput id="scoring-night-self-shot-black-win-2-label" size="low" v-model.trim="scoring.night_self_shot_black_win_2_label" maxlength="255"
+                  <UiInput id="scoring-night-self-shot-black-win-2-label" size="low" v-model.trim="scoring.night_self_shot_black_win_2_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-sheriff-two-unobvious-black-checks" size="low" v-model.number="scoring.sheriff_two_unobvious_black_checks" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-sheriff-two-unobvious-black-checks" size="low" v-model.number="scoring.sheriff_two_unobvious_black_checks" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Две подряд чёрные проверки" />
-                <UiInput id="scoring-sheriff-two-unobvious-black-checks-label" size="low" v-model.trim="scoring.sheriff_two_unobvious_black_checks_label" maxlength="255"
+                  <UiInput id="scoring-sheriff-two-unobvious-black-checks-label" size="low" v-model.trim="scoring.sheriff_two_unobvious_black_checks_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-don-missed-sheriff-two-checks" size="low" v-model.number="scoring.don_missed_sheriff_two_checks" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-don-missed-sheriff-two-checks" size="low" v-model.number="scoring.don_missed_sheriff_two_checks" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Не нашёл шерифа за две проверки" />
-                <UiInput id="scoring-don-missed-sheriff-two-checks-label" size="low" v-model.trim="scoring.don_missed_sheriff_two_checks_label" maxlength="255"
+                  <UiInput id="scoring-don-missed-sheriff-two-checks-label" size="low" v-model.trim="scoring.don_missed_sheriff_two_checks_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-citizen-false-check" size="low" v-model.number="scoring.citizen_false_check" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-citizen-false-check" size="low" v-model.number="scoring.citizen_false_check" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Ложная проверка будучи мирным" />
-                <UiInput id="scoring-citizen-false-check-label" size="low" v-model.trim="scoring.citizen_false_check_label" maxlength="255"
+                  <UiInput id="scoring-citizen-false-check-label" size="low" v-model.trim="scoring.citizen_false_check_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-citizen-active-version-after-death" size="low" v-model.number="scoring.citizen_active_version_after_death" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-citizen-active-version-after-death" size="low" v-model.number="scoring.citizen_active_version_after_death" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Не откатил после ухода" />
-                <UiInput id="scoring-citizen-active-version-after-death-label" size="low" v-model.trim="scoring.citizen_active_version_after_death_label" maxlength="255"
+                  <UiInput id="scoring-citizen-active-version-after-death-label" size="low" v-model.trim="scoring.citizen_active_version_after_death_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-sheriff-false-check-black-win" size="low" v-model.number="scoring.sheriff_false_check_black_win" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-sheriff-false-check-black-win" size="low" v-model.number="scoring.sheriff_false_check_black_win" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Ложная проверка шерифа при победе чёрных" />
-                <UiInput id="scoring-sheriff-false-check-black-win-label" size="low" v-model.trim="scoring.sheriff_false_check_black_win_label" maxlength="255"
+                  <UiInput id="scoring-sheriff-false-check-black-win-label" size="low" v-model.trim="scoring.sheriff_false_check_black_win_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-vote-opponent-team" size="low" v-model.number="scoring.vote_opponent_team" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-vote-opponent-team" size="low" v-model.number="scoring.vote_opponent_team" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Заголосовал игрока другой команды" />
-                <UiInput id="scoring-vote-opponent-team-label" size="low" v-model.trim="scoring.vote_opponent_team_label" maxlength="255"
+                  <UiInput id="scoring-vote-opponent-team-label" size="low" v-model.trim="scoring.vote_opponent_team_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-vote-sheriff-nine-red" size="low" v-model.number="scoring.vote_sheriff_nine_red" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-vote-sheriff-nine-red" size="low" v-model.number="scoring.vote_sheriff_nine_red" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Снял шерифа при 9–10х будучи красным" />
-                <UiInput id="scoring-vote-sheriff-nine-red-label" size="low" v-model.trim="scoring.vote_sheriff_nine_red_label" maxlength="255"
+                  <UiInput id="scoring-vote-sheriff-nine-red-label" size="low" v-model.trim="scoring.vote_sheriff_nine_red_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-vote-black-unchecked-nine-ten" size="low" v-model.number="scoring.vote_black_unchecked_nine_ten" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-vote-black-unchecked-nine-ten" size="low" v-model.number="scoring.vote_black_unchecked_nine_ten" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Заголосован вне версии при 9–10х" />
-                <UiInput id="scoring-vote-black-unchecked-nine-ten-label" size="low" v-model.trim="scoring.vote_black_unchecked_nine_ten_label" maxlength="255"
+                  <UiInput id="scoring-vote-black-unchecked-nine-ten-label" size="low" v-model.trim="scoring.vote_black_unchecked_nine_ten_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-vote-sheriff-nine-black" size="low" v-model.number="scoring.vote_sheriff_nine_black" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-vote-sheriff-nine-black" size="low" v-model.number="scoring.vote_sheriff_nine_black" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Снял шерифа при 9–10х будучи черным" />
-                <UiInput id="scoring-vote-sheriff-nine-black-label" size="low" v-model.trim="scoring.vote_sheriff_nine_black_label" maxlength="255"
+                  <UiInput id="scoring-vote-sheriff-nine-black-label" size="low" v-model.trim="scoring.vote_sheriff_nine_black_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-vote-red-day-one-compensation" size="low" v-model.number="scoring.vote_red_day_one_compensation" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-vote-red-day-one-compensation" size="low" v-model.number="scoring.vote_red_day_one_compensation" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Компенсация: заголосован в 1й день" />
-                <UiInput id="scoring-vote-red-day-one-compensation-label" size="low" v-model.trim="scoring.vote_red_day_one_compensation_label" maxlength="255"
+                  <UiInput id="scoring-vote-red-day-one-compensation-label" size="low" v-model.trim="scoring.vote_red_day_one_compensation_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-vote-red-terminal" size="low" v-model.number="scoring.vote_red_terminal" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-vote-red-terminal" size="low" v-model.number="scoring.vote_red_terminal" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Голосование на поражение" />
-                <UiInput id="scoring-vote-red-terminal-label" size="low" v-model.trim="scoring.vote_red_terminal_label" maxlength="255"
+                  <UiInput id="scoring-vote-red-terminal-label" size="low" v-model.trim="scoring.vote_red_terminal_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-vote-red-terminal-3v3" size="low" v-model.number="scoring.vote_red_terminal_3v3" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-vote-red-terminal-3v3" size="low" v-model.number="scoring.vote_red_terminal_3v3" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Голосование на 3в3" />
-                <UiInput id="scoring-vote-red-terminal-3v3-label" size="low" v-model.trim="scoring.vote_red_terminal_3v3_label" maxlength="255"
+                  <UiInput id="scoring-vote-red-terminal-3v3-label" size="low" v-model.trim="scoring.vote_red_terminal_3v3_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-black-win-3v3" size="low" v-model.number="scoring.black_win_3v3" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-black-win-3v3" size="low" v-model.number="scoring.black_win_3v3" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Победа 3в3" />
-                <UiInput id="scoring-black-win-3v3-label" size="low" v-model.trim="scoring.black_win_3v3_label" maxlength="255"
+                  <UiInput id="scoring-black-win-3v3-label" size="low" v-model.trim="scoring.black_win_3v3_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-black-win-2v2-1v1-alive" size="low" v-model.number="scoring.black_win_2v2_1v1_alive" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-black-win-2v2-1v1-alive" size="low" v-model.number="scoring.black_win_2v2_1v1_alive" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Победа будучи живым чёрным" />
-                <UiInput id="scoring-black-win-2v2-1v1-alive-label" size="low" v-model.trim="scoring.black_win_2v2_1v1_alive_label" maxlength="255"
+                  <UiInput id="scoring-black-win-2v2-1v1-alive-label" size="low" v-model.trim="scoring.black_win_2v2_1v1_alive_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-black-win-2v2-1v1-dead" size="low" v-model.number="scoring.black_win_2v2_1v1_dead" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-black-win-2v2-1v1-dead" size="low" v-model.number="scoring.black_win_2v2_1v1_dead" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Победа будучи мертвым чёрным" />
-                <UiInput id="scoring-black-win-2v2-1v1-dead-label" size="low" v-model.trim="scoring.black_win_2v2_1v1_dead_label" maxlength="255"
+                  <UiInput id="scoring-black-win-2v2-1v1-dead-label" size="low" v-model.trim="scoring.black_win_2v2_1v1_dead_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-vote-lift-same-team" size="low" v-model.number="scoring.vote_lift_same_team" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-vote-lift-same-team" size="low" v-model.number="scoring.vote_lift_same_team" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Подъём игроков своей команды" />
-                <UiInput id="scoring-vote-lift-same-team-label" size="low" v-model.trim="scoring.vote_lift_same_team_label" maxlength="255"
+                  <UiInput id="scoring-vote-lift-same-team-label" size="low" v-model.trim="scoring.vote_lift_same_team_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-vote-lift-opponent-team" size="low" v-model.number="scoring.vote_lift_opponent_team" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-vote-lift-opponent-team" size="low" v-model.number="scoring.vote_lift_opponent_team" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Подъём игроков другой команды" />
-                <UiInput id="scoring-vote-lift-opponent-team-label" size="low" v-model.trim="scoring.vote_lift_opponent_team_label" maxlength="255"
+                  <UiInput id="scoring-vote-lift-opponent-team-label" size="low" v-model.trim="scoring.vote_lift_opponent_team_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-nomination-black-prevents-black-win" size="low" v-model.number="scoring.nomination_black_prevents_black_win" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-nomination-black-prevents-black-win" size="low" v-model.number="scoring.nomination_black_prevents_black_win" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Выставление при гарантированной победе" />
-                <UiInput id="scoring-nomination-black-prevents-black-win-label" size="low" v-model.trim="scoring.nomination_black_prevents_black_win_label" maxlength="255"
+                  <UiInput id="scoring-nomination-black-prevents-black-win-label" size="low" v-model.trim="scoring.nomination_black_prevents_black_win_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-nomination-red-last-hope" size="low" v-model.number="scoring.nomination_red_last_hope" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-nomination-red-last-hope" size="low" v-model.number="scoring.nomination_red_last_hope" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Последняя надежда" />
-                <UiInput id="scoring-nomination-red-last-hope-label" size="low" v-model.trim="scoring.nomination_red_last_hope_label" maxlength="255"
+                  <UiInput id="scoring-nomination-red-last-hope-label" size="low" v-model.trim="scoring.nomination_red_last_hope_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-vote_break_red_to_red" size="low" v-model.number="scoring.vote_break_red_to_red" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-vote_break_red_to_red" size="low" v-model.number="scoring.vote_break_red_to_red" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Слом в красного будучи красным и уход" />
-                <UiInput id="scoring-vote_break_red_to_red-label" size="low" v-model.trim="scoring.vote_break_red_to_red_label" maxlength="255"
+                  <UiInput id="scoring-vote_break_red_to_red-label" size="low" v-model.trim="scoring.vote_break_red_to_red_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-vote_break_red_to_red_safe" size="low" v-model.number="scoring.vote_break_red_to_red_safe" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-vote_break_red_to_red_safe" size="low" v-model.number="scoring.vote_break_red_to_red_safe" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Слом в красного будучи красным" />
-                <UiInput id="scoring-vote_break_red_to_red_safe-label" size="low" v-model.trim="scoring.vote_break_red_to_red_safe_label" maxlength="255"
+                  <UiInput id="scoring-vote_break_red_to_red_safe-label" size="low" v-model.trim="scoring.vote_break_red_to_red_safe_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-vote_break_red_to_sheriff_extra" size="low" v-model.number="scoring.vote_break_red_to_sheriff_extra" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-vote_break_red_to_sheriff_extra" size="low" v-model.number="scoring.vote_break_red_to_sheriff_extra" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Слом в шерифа будучи красным" />
-                <UiInput id="scoring-vote_break_red_to_sheriff_extra-label" size="low" v-model.trim="scoring.vote_break_red_to_sheriff_extra_label" maxlength="255"
+                  <UiInput id="scoring-vote_break_red_to_sheriff_extra-label" size="low" v-model.trim="scoring.vote_break_red_to_sheriff_extra_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-vote_break_red_to_black" size="low" v-model.number="scoring.vote_break_red_to_black" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-vote_break_red_to_black" size="low" v-model.number="scoring.vote_break_red_to_black" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Слом в черного будучи красным" />
-                <UiInput id="scoring-vote_break_red_to_black-label" size="low" v-model.trim="scoring.vote_break_red_to_black_label" maxlength="255"
+                  <UiInput id="scoring-vote_break_red_to_black-label" size="low" v-model.trim="scoring.vote_break_red_to_black_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-vote_break_black_to_sheriff" size="low" v-model.number="scoring.vote_break_black_to_sheriff" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-vote_break_black_to_sheriff" size="low" v-model.number="scoring.vote_break_black_to_sheriff" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Слом в шерифа будучи черным" />
-                <UiInput id="scoring-vote_break_black_to_sheriff-label" size="low" v-model.trim="scoring.vote_break_black_to_sheriff_label" maxlength="255"
+                  <UiInput id="scoring-vote_break_black_to_sheriff-label" size="low" v-model.trim="scoring.vote_break_black_to_sheriff_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-black-day-under-seven" size="low" v-model.number="scoring.black_day_under_seven" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-black-day-under-seven" size="low" v-model.number="scoring.black_day_under_seven" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Проход в круг при 3-6х" />
-                <UiInput id="scoring-black-day-under-seven-label" size="low" v-model.trim="scoring.black_day_under_seven_label" maxlength="255"
+                  <UiInput id="scoring-black-day-under-seven-label" size="low" v-model.trim="scoring.black_day_under_seven_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-night-opinion-correct" size="low" v-model.number="scoring.night_opinion_correct" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-night-opinion-correct" size="low" v-model.number="scoring.night_opinion_correct" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Ночное мнение: верный цвет" />
-                <UiInput id="scoring-night-opinion-correct-label" size="low" v-model.trim="scoring.night_opinion_correct_label" maxlength="255"
+                  <UiInput id="scoring-night-opinion-correct-label" size="low" v-model.trim="scoring.night_opinion_correct_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-night-opinion-wrong" size="low" v-model.number="scoring.night_opinion_wrong" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-night-opinion-wrong" size="low" v-model.number="scoring.night_opinion_wrong" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Ночное мнение: неверный цвет" />
-                <UiInput id="scoring-night-opinion-wrong-label" size="low" v-model.trim="scoring.night_opinion_wrong_label" maxlength="255"
+                  <UiInput id="scoring-night-opinion-wrong-label" size="low" v-model.trim="scoring.night_opinion_wrong_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-night-opinion-black-named-red" size="low" v-model.number="scoring.night_opinion_black_named_red" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-night-opinion-black-named-red" size="low" v-model.number="scoring.night_opinion_black_named_red" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Оставлен красным в ночном мнении" />
-                <UiInput id="scoring-night-opinion-black-named-red-label" size="low" v-model.trim="scoring.night_opinion_black_named_red_label" maxlength="255"
+                  <UiInput id="scoring-night-opinion-black-named-red-label" size="low" v-model.trim="scoring.night_opinion_black_named_red_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-farewell-red-correct" size="low" v-model.number="scoring.farewell_red_correct" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-farewell-red-correct" size="low" v-model.number="scoring.farewell_red_correct" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Завещание: верно указан красный" />
-                <UiInput id="scoring-farewell-red-correct-label" size="low" v-model.trim="scoring.farewell_red_correct_label" maxlength="255"
+                  <UiInput id="scoring-farewell-red-correct-label" size="low" v-model.trim="scoring.farewell_red_correct_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-farewell-voted-correct-deduction" size="low" v-model.number="scoring.farewell_voted_correct_deduction" type="number" min="0" max="10" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-farewell-voted-correct-deduction" size="low" v-model.number="scoring.farewell_voted_correct_deduction" type="number" min="0" max="10" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Вычет за верный цвет после голосования" />
-                <UiInput id="scoring-farewell-voted-correct-deduction-label" size="low" v-model.trim="scoring.farewell_voted_correct_deduction_label" maxlength="255"
+                  <UiInput id="scoring-farewell-voted-correct-deduction-label" size="low" v-model.trim="scoring.farewell_voted_correct_deduction_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-farewell-red-wrong" size="low" v-model.number="scoring.farewell_red_wrong" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-farewell-red-wrong" size="low" v-model.number="scoring.farewell_red_wrong" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Завещание: красный указан чёрным" />
-                <UiInput id="scoring-farewell-red-wrong-label" size="low" v-model.trim="scoring.farewell_red_wrong_label" maxlength="255"
+                  <UiInput id="scoring-farewell-red-wrong-label" size="low" v-model.trim="scoring.farewell_red_wrong_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-farewell-black-correct" size="low" v-model.number="scoring.farewell_black_correct" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-farewell-black-correct" size="low" v-model.number="scoring.farewell_black_correct" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Завещание: верно указан чёрный" />
-                <UiInput id="scoring-farewell-black-correct-label" size="low" v-model.trim="scoring.farewell_black_correct_label" maxlength="255"
+                  <UiInput id="scoring-farewell-black-correct-label" size="low" v-model.trim="scoring.farewell_black_correct_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-farewell-black-wrong" size="low" v-model.number="scoring.farewell_black_wrong" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-farewell-black-wrong" size="low" v-model.number="scoring.farewell_black_wrong" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Завещание: чёрный указан красным" />
-                <UiInput id="scoring-farewell-black-wrong-label" size="low" v-model.trim="scoring.farewell_black_wrong_label" maxlength="255"
+                  <UiInput id="scoring-farewell-black-wrong-label" size="low" v-model.trim="scoring.farewell_black_wrong_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-farewell-black-named-red" size="low" v-model.number="scoring.farewell_black_named_red" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-farewell-black-named-red" size="low" v-model.number="scoring.farewell_black_named_red" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Оставлен красным в завещании" />
-                <UiInput id="scoring-farewell-black-named-red-label" size="low" v-model.trim="scoring.farewell_black_named_red_label" maxlength="255"
+                  <UiInput id="scoring-farewell-black-named-red-label" size="low" v-model.trim="scoring.farewell_black_named_red_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
-                <UiInput id="scoring-farewell-claimant-black-named-red" size="low" v-model.number="scoring.farewell_claimant_black_named_red" type="number" step="0.01"
+                </div>
+                <div class="scoring-rule">
+                  <UiInput id="scoring-farewell-claimant-black-named-red" size="low" v-model.number="scoring.farewell_claimant_black_named_red" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Оставлен приоритетной версией" />
-                <UiInput id="scoring-farewell-claimant-black-named-red-label" size="low" v-model.trim="scoring.farewell_claimant_black_named_red_label" maxlength="255"
+                  <UiInput id="scoring-farewell-claimant-black-named-red-label" size="low" v-model.trim="scoring.farewell_claimant_black_named_red_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
+                </div>
               </div>
               <div class="bulk-admin-actions">
-                <button class="btn dark width-full" :disabled="savingScoring || !isScoringDirty" @click="loadScoring">Отменить изменения</button>
-                <button class="btn confirm width-full" :disabled="savingScoring || !isScoringDirty" @click="saveScoring">
+                <UiButton variant="white" size="middle" :disabled="savingScoring || !isScoringDirty" @click="loadScoring" width="100%">Отменить изменения</UiButton>
+                <UiButton variant="green" size="middle" :disabled="savingScoring || !isScoringDirty" @click="saveScoring" width="100%">
                   {{ savingScoring ? 'Сохранение…' : 'Сохранить скоринг' }}
-                </button>
+                </UiButton>
               </div>
             </div>
           </div>
         </div>
 
-        <div v-else-if="activeTab === 'updates'">
+        <div v-else-if="activeTab === 'updates'" class="updates-tab">
           <div class="grid updates-notice-grid">
             <div class="block updates-notice-block">
+              <h3>Уведомление пользователям</h3>
               <div class="field-stack">
-                <UiInput id="update-notice-title" v-model.trim="updateNoticeForm.title" type="text" autocomplete="off" :disabled="updateNoticeSaving" label="Название" />
-                <UiInput id="update-notice-text" v-model="updateNoticeForm.text" as="textarea" rows="7" :disabled="updateNoticeSaving" label="Текст" class="update-notice-textarea" />
+                <UiInput size="low" id="update-notice-title" v-model.trim="updateNoticeForm.title" type="text" autocomplete="off" :disabled="updateNoticeSaving" label="Название" />
+                <UiInput size="low" id="update-notice-text" v-model="updateNoticeForm.text" as="textarea" rows="7" :disabled="updateNoticeSaving" label="Текст" class="update-notice-textarea" />
               </div>
               <div v-if="updateNoticeForm.title.trim() || updateNoticeTextPreview" class="update-notice-preview">
                 <article class="update-notice-preview-item">
@@ -413,9 +520,9 @@
                   </div>
                 </article>
               </div>
-              <button class="btn confirm width-full" :disabled="updateNoticeSaving || !canSendUpdateNotice" @click="sendUpdateNotice">
+              <UiButton variant="green" size="middle" :disabled="updateNoticeSaving || !canSendUpdateNotice" @click="sendUpdateNotice" width="100%">
                 Отправить всем
-              </button>
+              </UiButton>
             </div>
 
             <div class="block home-carousel-banner-block">
@@ -433,18 +540,18 @@
                 <img v-minio-img="{ key: homeCarouselBannerKey, lazy: false }" alt="Текущий баннер карусели" />
               </div>
               <div class="home-carousel-banner-actions">
-                <button class="btn" type="button" :disabled="homeCarouselBannerBusy" @click="openHomeCarouselBannerPicker">
+                <UiButton variant="white" size="low" type="button" :disabled="homeCarouselBannerBusy" @click="openHomeCarouselBannerPicker">
                   {{ homeCarouselBannerKey ? 'Заменить изображение' : 'Загрузить изображение' }}
-                </button>
-                <button v-if="homeCarouselBannerKey" class="btn danger" type="button" :disabled="homeCarouselBannerBusy" @click="deleteHomeCarouselBanner">
+                </UiButton>
+                <UiButton variant="red" size="low" v-if="homeCarouselBannerKey" type="button" :disabled="homeCarouselBannerBusy" @click="deleteHomeCarouselBanner">
                   Удалить изображение
-                </button>
+                </UiButton>
               </div>
             </div>
           </div>
         </div>
 
-        <div v-else-if="activeTab === 'stats'">
+        <div v-else-if="activeTab === 'stats'" class="stats-tab">
           <div v-if="statsLoading" class="loading">Загрузка...</div>
           <div v-else class="stats">
             <div class="stats-grid">
@@ -458,9 +565,9 @@
               </div>
               <div class="stat-card">
                 <span class="label">Онлайн текущий</span>
-                <div class="tooltip" tabindex="0">
+                <div class="tooltip" tabindex="0" @mouseenter="showTooltip" @mouseleave="hideTooltip" @focusin="showTooltip" @focusout="hideTooltip" @keydown.esc="hideTooltip">
                   <span class="value tooltip-value">{{ stats.online_users }}</span>
-                  <div class="tooltip-body">
+                  <div class="tooltip-body" popover="manual" role="tooltip" @mouseenter="keepTooltipOpen" @mouseleave="hideTooltip">
                     <div v-if="stats.online_users_list.length === 0" class="tooltip-empty">Нет данных</div>
                     <div v-else class="tooltip-list">
                       <div v-for="item in stats.online_users_list" :key="`online-${item.id}`" class="tooltip-row">
@@ -495,7 +602,7 @@
             <div class="chart">
               <div class="filters">
                 <div class="field">
-                  <UiInput id="stats-month" v-model="statsMonth" type="month" label="Отобразить за" :disabled="statsLoading" />
+                  <UiInput size="low" id="stats-month" v-model="statsMonth" type="month" label="Отобразить за" :disabled="statsLoading" />
                 </div>
               </div>
               <div class="stats-grid">
@@ -521,9 +628,9 @@
                       <span v-for="tick in registrationTicks" :key="tick">{{ tick }}</span>
                     </div>
                     <div class="chart-grid">
-                      <div v-for="point in stats.registrations" :key="point.date" class="chart-bar">
+                      <div v-for="point in stats.registrations" :key="point.date" class="chart-bar" tabindex="0" :aria-label="`${point.date}: ${point.count}`">
                         <div class="bar" :style="{ height: chartBarHeight(point.count, registrationsMax) }">
-                          <span class="bar-value">{{ point.count }}</span>
+                          <span class="bar-value" role="tooltip">{{ point.date }} · {{ point.count }}</span>
                         </div>
                         <span class="bar-label">{{ point.date.slice(-2) }}</span>
                       </div>
@@ -538,9 +645,9 @@
                       <span v-for="tick in gamesByDayTicks" :key="tick">{{ tick }}</span>
                     </div>
                     <div class="chart-grid">
-                      <div v-for="point in stats.games_by_day" :key="`game-day-${point.date}`" class="chart-bar">
+                      <div v-for="point in stats.games_by_day" :key="`game-day-${point.date}`" class="chart-bar" tabindex="0" :aria-label="`${point.date}: ${point.count}`">
                         <div class="bar" :style="{ height: chartBarHeight(point.count, gamesByDayMax) }">
-                          <span class="bar-value">{{ point.count }}</span>
+                          <span class="bar-value" role="tooltip">{{ point.date }} · {{ point.count }}</span>
                         </div>
                         <span class="bar-label">{{ point.date.slice(-2) }}</span>
                       </div>
@@ -555,9 +662,9 @@
                       <span v-for="tick in activeUsersByDayTicks" :key="tick">{{ tick }}</span>
                     </div>
                     <div class="chart-grid">
-                      <div v-for="point in stats.active_users_by_day" :key="`active-day-${point.date}`" class="chart-bar">
+                      <div v-for="point in stats.active_users_by_day" :key="`active-day-${point.date}`" class="chart-bar" tabindex="0" :aria-label="`${point.date}: ${point.count}`">
                         <div class="bar" :style="{ height: chartBarHeight(point.count, activeUsersByDayMax) }">
-                          <span class="bar-value">{{ point.count }}</span>
+                          <span class="bar-value" role="tooltip">{{ point.date }} · {{ point.count }}</span>
                         </div>
                         <span class="bar-label">{{ point.date.slice(-2) }}</span>
                       </div>
@@ -576,9 +683,9 @@
                     <span v-for="tick in registrationMonthlyTicks" :key="tick">{{ tick }}</span>
                   </div>
                   <div class="chart-grid">
-                    <div v-for="point in stats.registrations_monthly" :key="point.date" class="chart-bar">
+                    <div v-for="point in stats.registrations_monthly" :key="point.date" class="chart-bar" tabindex="0" :aria-label="`${point.date}: ${point.count}`">
                       <div class="bar" :style="{ height: chartBarHeight(point.count, registrationsMonthlyMax) }">
-                        <span class="bar-value">{{ point.count }}</span>
+                        <span class="bar-value" role="tooltip">{{ point.date }} · {{ point.count }}</span>
                       </div>
                       <span class="bar-label">{{ formatMonthLabel(point.date) }}</span>
                     </div>
@@ -593,9 +700,9 @@
                     <span v-for="tick in gamesMonthlyTicks" :key="tick">{{ tick }}</span>
                   </div>
                   <div class="chart-grid">
-                    <div v-for="point in stats.games_monthly" :key="point.date" class="chart-bar">
+                    <div v-for="point in stats.games_monthly" :key="point.date" class="chart-bar" tabindex="0" :aria-label="`${point.date}: ${point.count}`">
                       <div class="bar" :style="{ height: chartBarHeight(point.count, gamesMonthlyMax) }">
-                        <span class="bar-value">{{ point.count }}</span>
+                        <span class="bar-value" role="tooltip">{{ point.date }} · {{ point.count }}</span>
                       </div>
                       <span class="bar-label">{{ formatMonthLabel(point.date) }}</span>
                     </div>
@@ -610,9 +717,9 @@
                     <span v-for="tick in activeUsersMonthlyTicks" :key="tick">{{ tick }}</span>
                   </div>
                   <div class="chart-grid">
-                    <div v-for="point in stats.active_users_monthly" :key="`active-month-${point.date}`" class="chart-bar">
+                    <div v-for="point in stats.active_users_monthly" :key="`active-month-${point.date}`" class="chart-bar" tabindex="0" :aria-label="`${point.date}: ${point.count}`">
                       <div class="bar" :style="{ height: chartBarHeight(point.count, activeUsersMonthlyMax) }">
-                        <span class="bar-value">{{ point.count }}</span>
+                        <span class="bar-value" role="tooltip">{{ point.date }} · {{ point.count }}</span>
                       </div>
                       <span class="bar-label">{{ formatMonthLabel(point.date) }}</span>
                     </div>
@@ -623,13 +730,13 @@
           </div>
         </div>
 
-        <div v-else-if="activeTab === 'logs'">
+        <div v-else-if="activeTab === 'logs'" class="logs-tab">
           <div class="filters">
             <div class="field">
-              <UiInput id="logs-user" v-model.trim="logsUser" label="Поиск" :disabled="logsLoading" />
+              <UiInput size="low" id="logs-user" v-model.trim="logsUser" label="Поиск" :disabled="logsLoading" />
             </div>
             <div class="field">
-              <UiInput id="logs-day" v-model="logsDay" type="date" label="Дата" :disabled="logsLoading" />
+              <UiInput size="low" id="logs-day" v-model="logsDay" type="date" label="Дата" :disabled="logsLoading" />
             </div>
             <div class="field">
               <label for="admin-logs-action">Событие</label>
@@ -644,14 +751,15 @@
               </select>
             </div>
             <div class="logs-auto-refresh-actions" aria-label="Автообновление логов">
-              <button class="btn confirm" type="button" :disabled="logsAutoRefreshEnabled" @click="startLogsAutoRefresh">Старт</button>
-              <button class="btn danger" type="button" :disabled="!logsAutoRefreshEnabled" @click="stopLogsAutoRefresh">Стоп</button>
+              <UiButton variant="green" size="low" type="button" :disabled="logsAutoRefreshEnabled" @click="startLogsAutoRefresh">Старт</UiButton>
+              <UiButton variant="red" size="low" type="button" :disabled="!logsAutoRefreshEnabled" @click="stopLogsAutoRefresh">Стоп</UiButton>
             </div>
           </div>
 
           <div v-if="logsLoading" class="loading">Загрузка...</div>
-          <div v-else>
-            <table class="table">
+          <div v-else class="list-results">
+            <div class="table-wrap">
+            <table class="table logs-table">
               <thead>
                 <tr>
                   <th>Дата</th>
@@ -680,18 +788,19 @@
                 </tr>
               </tbody>
             </table>
+            </div>
             <div class="pager">
-              <button class="btn" :disabled="logsPage <= 1" @click="prevLogs">Назад</button>
+              <UiButton variant="white" size="low" :disabled="logsPage <= 1" @click="prevLogs">Назад</UiButton>
               <span>{{ logsPage }} / {{ logsPages }}</span>
-              <button class="btn" :disabled="logsPage >= logsPages" @click="nextLogs">Вперед</button>
+              <UiButton variant="white" size="low" :disabled="logsPage >= logsPages" @click="nextLogs">Вперед</UiButton>
             </div>
           </div>
         </div>
 
-        <div v-else-if="activeTab === 'rooms'">
+        <div v-else-if="activeTab === 'rooms'" class="rooms-tab">
           <div class="filters">
             <div class="field">
-              <UiInput id="rooms-user" v-model.trim="roomsUser" label="Поиск" :disabled="roomsLoading" />
+              <UiInput size="low" id="rooms-user" v-model.trim="roomsUser" label="Поиск" :disabled="roomsLoading" />
             </div>
             <div class="field">
               <label for="admin-rooms-filter">Фильтры</label>
@@ -708,8 +817,9 @@
           </div>
 
           <div v-if="roomsLoading" class="loading">Загрузка...</div>
-          <div v-else>
-            <table class="table">
+          <div v-else class="list-results">
+            <div class="table-wrap">
+            <table class="table rooms-table">
               <thead>
                 <tr>
                   <th>ID</th>
@@ -744,9 +854,9 @@
                   <td>{{ formatLocalDateTime(row.created_at) }}</td>
                   <td>{{ row.deleted_at ? formatLocalDateTime(row.deleted_at) : '-' }}</td>
                   <td>
-                    <div class="tooltip" tabindex="0">
+                    <div class="tooltip" tabindex="0" @mouseenter="showTooltip" @mouseleave="hideTooltip" @focusin="showTooltip" @focusout="hideTooltip" @keydown.esc="hideTooltip">
                       <span class="tooltip-value">{{ row.visitors_count }}</span>
-                      <div class="tooltip-body">
+                      <div class="tooltip-body" popover="manual" role="tooltip" @mouseenter="keepTooltipOpen" @mouseleave="hideTooltip">
                         <div v-if="row.visitors.length === 0" class="tooltip-empty">Нет данных</div>
                         <div v-else class="tooltip-list">
                           <div v-for="item in row.visitors" :key="`visitor-${row.id}-${item.id}`" class="tooltip-row">
@@ -761,9 +871,9 @@
                     </div>
                   </td>
                   <td>
-                    <div class="tooltip" tabindex="0">
+                    <div class="tooltip" tabindex="0" @mouseenter="showTooltip" @mouseleave="hideTooltip" @focusin="showTooltip" @focusout="hideTooltip" @keydown.esc="hideTooltip">
                       <span class="tooltip-value">{{ formatMinutes(row.stream_minutes) }}</span>
-                      <div class="tooltip-body">
+                      <div class="tooltip-body" popover="manual" role="tooltip" @mouseenter="keepTooltipOpen" @mouseleave="hideTooltip">
                         <div v-if="row.streamers.length === 0" class="tooltip-empty">Нет данных</div>
                         <div v-else class="tooltip-list">
                           <div v-for="item in row.streamers" :key="`stream-${row.id}-${item.id}`" class="tooltip-row">
@@ -778,9 +888,9 @@
                     </div>
                   </td>
                   <td>
-                    <div v-if="roomGamesTooltipEnabled" class="tooltip" tabindex="0">
+                    <div v-if="roomGamesTooltipEnabled" class="tooltip" tabindex="0" @mouseenter="showTooltip" @mouseleave="hideTooltip" @focusin="showTooltip" @focusout="hideTooltip" @keydown.esc="hideTooltip">
                       <span class="tooltip-value">{{ row.games.length }}</span>
-                      <div class="tooltip-body">
+                      <div class="tooltip-body" popover="manual" role="tooltip" @mouseenter="keepTooltipOpen" @mouseleave="hideTooltip">
                         <div v-if="row.games.length === 0" class="tooltip-empty">Нет данных</div>
                         <div v-else class="tooltip-list">
                           <div v-for="item in row.games" :key="`game-${row.id}-${item.result}-${item.number}`" class="tooltip-row">
@@ -795,9 +905,9 @@
                     <span v-else class="tooltip-value">{{ row.games.length }}</span>
                   </td>
                   <td>
-                    <div class="tooltip" tabindex="0">
+                    <div class="tooltip" tabindex="0" @mouseenter="showTooltip" @mouseleave="hideTooltip" @focusin="showTooltip" @focusout="hideTooltip" @keydown.esc="hideTooltip">
                       <span class="tooltip-value">{{ row.spectators_count }}</span>
-                      <div class="tooltip-body">
+                      <div class="tooltip-body" popover="manual" role="tooltip" @mouseenter="keepTooltipOpen" @mouseleave="hideTooltip">
                         <div v-if="row.spectators.length === 0" class="tooltip-empty">Нет данных</div>
                         <div v-else class="tooltip-list">
                           <div v-for="item in row.spectators" :key="`spectator-${row.id}-${item.id}`" class="tooltip-row">
@@ -817,18 +927,19 @@
                 </tr>
               </tbody>
             </table>
+            </div>
             <div class="pager">
-              <button class="btn" :disabled="roomsPage <= 1" @click="prevRooms">Назад</button>
+              <UiButton variant="white" size="low" :disabled="roomsPage <= 1" @click="prevRooms">Назад</UiButton>
               <span>{{ roomsPage }} / {{ roomsPages }}</span>
-              <button class="btn" :disabled="roomsPage >= roomsPages" @click="nextRooms">Вперед</button>
+              <UiButton variant="white" size="low" :disabled="roomsPage >= roomsPages" @click="nextRooms">Вперед</UiButton>
             </div>
           </div>
         </div>
 
-        <div v-else-if="activeTab === 'users'">
+        <div v-else-if="activeTab === 'users'" class="users-tab">
           <div class="filters">
             <div class="field">
-              <UiInput id="users-user" v-model.trim="usersUser" label="Поиск" :disabled="usersLoading" />
+              <UiInput size="low" id="users-user" v-model.trim="usersUser" label="Поиск" :disabled="usersLoading" />
             </div>
             <div class="field">
               <label for="admin-users-limit">Отображать по</label>
@@ -839,8 +950,9 @@
           </div>
 
           <div v-if="usersLoading" class="loading">Загрузка...</div>
-          <div v-else>
-            <table class="table">
+          <div v-else class="list-results">
+            <div class="table-wrap">
+            <table class="table users-table">
               <thead>
                 <tr>
                   <th>ID</th>
@@ -955,18 +1067,19 @@
                 </tr>
               </tbody>
             </table>
+            </div>
             <div class="pager">
-              <button class="btn" :disabled="usersPage <= 1" @click="prevUsers">Назад</button>
+              <UiButton variant="white" size="low" :disabled="usersPage <= 1" @click="prevUsers">Назад</UiButton>
               <span>{{ usersPage }} / {{ usersPages }}</span>
-              <button class="btn" :disabled="usersPage >= usersPages" @click="nextUsers">Вперед</button>
+              <UiButton variant="white" size="low" :disabled="usersPage >= usersPages" @click="nextUsers">Вперед</UiButton>
             </div>
           </div>
         </div>
 
-        <div v-else-if="activeTab === 'sanctions'">
+        <div v-else-if="activeTab === 'sanctions'" class="sanctions-tab">
           <div class="filters">
             <div class="field">
-              <UiInput id="sanctions-user" v-model.trim="sanctionsUser" label="Поиск" :disabled="sanctionsLoading" />
+              <UiInput size="low" id="sanctions-user" v-model.trim="sanctionsUser" label="Поиск" :disabled="sanctionsLoading" />
             </div>
             <div class="field">
               <label for="admin-sanctions-limit">Отображать по</label>
@@ -977,7 +1090,8 @@
           </div>
 
           <div v-if="sanctionsLoading" class="loading">Загрузка...</div>
-          <div v-else>
+          <div v-else class="list-results">
+            <div class="table-wrap">
             <table class="table sanctions-table">
               <thead>
                 <tr>
@@ -1030,22 +1144,21 @@
                   </td>
                   <td class="description-cell">{{ row.description || '-' }}</td>
                   <td class="actions-cell">
-                    <button v-if="canAdjustSanction(row)" class="btn dark" :disabled="isSanctionAdjustBusy(row, 'decrease')" @click="openSanctionAdjust(row, 'decrease')">
+                    <UiButton variant="white" size="low" v-if="canAdjustSanction(row)" :disabled="isSanctionAdjustBusy(row, 'decrease')" @click="openSanctionAdjust(row, 'decrease')">
                       Уменьшить
-                    </button>
+                    </UiButton>
                     <span v-else>-</span>
                   </td>
                   <td class="actions-cell">
-                    <button v-if="canAdjustSanction(row)" class="btn" :disabled="isSanctionAdjustBusy(row, 'increase')" @click="openSanctionAdjust(row, 'increase')">
+                    <UiButton variant="white" size="low" v-if="canAdjustSanction(row)" :disabled="isSanctionAdjustBusy(row, 'increase')" @click="openSanctionAdjust(row, 'increase')">
                       Увеличить
-                    </button>
+                    </UiButton>
                     <span v-else>-</span>
                   </td>
                   <td class="actions-cell">
-                    <button v-if="canDeleteSanction(row)" class="btn danger" :disabled="sanctionsDeleting[row.id]" @click="deleteSanction(row)">
-                      <img class="btn-img" :src="iconDelete" alt="delete" />
+                    <UiButton variant="red" size="low" v-if="canDeleteSanction(row)" :disabled="sanctionsDeleting[row.id]" @click="deleteSanction(row)" :icon="iconDelete">
                       Удалить
-                    </button>
+                    </UiButton>
                     <span v-else>-</span>
                   </td>
                 </tr>
@@ -1054,18 +1167,19 @@
                 </tr>
               </tbody>
             </table>
+            </div>
             <div class="pager">
-              <button class="btn" :disabled="sanctionsPage <= 1" @click="prevSanctions">Назад</button>
+              <UiButton variant="white" size="low" :disabled="sanctionsPage <= 1" @click="prevSanctions">Назад</UiButton>
               <span>{{ sanctionsPage }} / {{ sanctionsPages }}</span>
-              <button class="btn" :disabled="sanctionsPage >= sanctionsPages" @click="nextSanctions">Вперед</button>
+              <UiButton variant="white" size="low" :disabled="sanctionsPage >= sanctionsPages" @click="nextSanctions">Вперед</UiButton>
             </div>
           </div>
         </div>
 
-        <div v-else-if="activeTab === 'contact_requests'">
+        <div v-else-if="activeTab === 'contact_requests'" class="contact-requests-tab">
           <div class="filters">
             <div class="field">
-              <UiInput id="contact-requests-user" v-model.trim="contactRequestsUser" label="Поиск" :disabled="contactRequestsLoading" />
+              <UiInput size="low" id="contact-requests-user" v-model.trim="contactRequestsUser" label="Поиск" :disabled="contactRequestsLoading" />
             </div>
             <div class="field">
               <label for="admin-contact-requests-limit">Отображать по</label>
@@ -1076,7 +1190,8 @@
           </div>
 
           <div v-if="contactRequestsLoading" class="loading">Загрузка...</div>
-          <div v-else>
+          <div v-else class="list-results">
+            <div class="table-wrap">
             <table class="table contact-requests-table">
               <thead>
                 <tr>
@@ -1115,16 +1230,15 @@
                   <span v-if="!row.replies?.length" class="muted">—</span>
                 </td>
                   <td>
-                    <button v-if="canReplyToContactRequest(row)" class="btn" type="button" @click="openContactRequestReply(row)" :disabled="contactRequestReplySaving || contactRequestsDeleting[row.id]">
+                    <UiButton variant="white" size="low" v-if="canReplyToContactRequest(row)" type="button" @click="openContactRequestReply(row)" :disabled="contactRequestReplySaving || contactRequestsDeleting[row.id]">
                       Ответить
-                    </button>
+                    </UiButton>
                     <span v-else>-</span>
                   </td>
                   <td>
-                    <button class="btn danger" :disabled="contactRequestsDeleting[row.id]" @click="deleteContactRequest(row)">
-                      <img class="btn-img" :src="iconDelete" alt="delete" />
+                    <UiButton variant="red" size="low" :disabled="contactRequestsDeleting[row.id]" @click="deleteContactRequest(row)" :icon="iconDelete">
                       Удалить
-                    </button>
+                    </UiButton>
                   </td>
                 </tr>
                 <tr v-if="contactRequests.length === 0">
@@ -1132,10 +1246,11 @@
                 </tr>
               </tbody>
             </table>
+            </div>
             <div class="pager">
-              <button class="btn" :disabled="contactRequestsPage <= 1" @click="prevContactRequests">Назад</button>
+              <UiButton variant="white" size="low" :disabled="contactRequestsPage <= 1" @click="prevContactRequests">Назад</UiButton>
               <span>{{ contactRequestsPage }} / {{ contactRequestsPages }}</span>
-              <button class="btn" :disabled="contactRequestsPage >= contactRequestsPages" @click="nextContactRequests">Вперед</button>
+              <UiButton variant="white" size="low" :disabled="contactRequestsPage >= contactRequestsPages" @click="nextContactRequests">Вперед</UiButton>
             </div>
           </div>
         </div>
@@ -1144,10 +1259,11 @@
           <div class="block subscription-table-block">
             <div class="subscription-heading">
               <h3>Активные подписки — {{ activeSubscriptionsCount }}</h3>
-              <button class="btn dark" type="button" @click="subscriptionHistoryOpen = true">История подписок</button>
+              <UiButton variant="white" size="low" type="button" @click="subscriptionHistoryOpen = true">История подписок</UiButton>
             </div>
             <div v-if="subscriptionsLoading" class="loading">Загрузка...</div>
-            <table v-else class="table">
+            <div v-else class="table-wrap">
+            <table class="table subscriptions-table">
               <thead>
                 <tr>
                   <th>Пользователь</th>
@@ -1170,7 +1286,7 @@
                   </td>
                   <td>{{ formatLocalDateTime(row.starts_at) }}</td>
                   <td>{{ formatLocalDateTime(row.ends_at) }}</td>
-                  <td>{{ row.is_active ? 'Активна' : 'Истекла' }}</td>
+                  <td><span class="status-badge" :class="row.is_active ? 'status-active' : 'status-expired'">{{ row.is_active ? 'Активна' : 'Истекла' }}</span></td>
                   <td>
                     <div class="subscription-theme-preview">
                       <span class="subscription-theme-chip" :style="subscriptionThemeStyle(row.profile_theme_color)"></span>
@@ -1181,15 +1297,15 @@
                   </td>
                   <td>
                     <div class="subscription-actions">
-                      <button class="btn confirm" :disabled="subscriptionSaving" @click="openExtendSubscription(row)">
+                      <UiButton variant="green" size="low" :disabled="subscriptionSaving" @click="openExtendSubscription(row)">
                         Продлить
-                      </button>
-                      <button class="btn dark" :disabled="subscriptionSaving || !row.is_active" @click="openReduceSubscription(row)">
+                      </UiButton>
+                      <UiButton variant="white" size="low" :disabled="subscriptionSaving || !row.is_active" @click="openReduceSubscription(row)">
                         Уменьшить
-                      </button>
-                      <button class="btn danger" :disabled="subscriptionRemoving[row.user_id]" @click="removeSubscription(row)">
+                      </UiButton>
+                      <UiButton variant="red" size="low" :disabled="subscriptionRemoving[row.user_id]" @click="removeSubscription(row)">
                         Удалить
-                      </button>
+                      </UiButton>
                     </div>
                   </td>
                 </tr>
@@ -1198,6 +1314,7 @@
                 </tr>
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       </div>
@@ -1288,6 +1405,7 @@ import MiniProfile from '@/views/MiniProfile.vue'
 import SanctionModal from '@/views/SanctionModal.vue'
 import UiSwitch from '@/components/UiSwitch.vue'
 import UiInput from '@/components/UiInput.vue'
+import UiButton from '@/components/UiButton.vue'
 import UiIcon from '@/components/UiIcon.vue'
 
 import defaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
@@ -1663,6 +1781,20 @@ const router = useRouter()
 
 const TAB_KEYS = ['settings', 'scoring', 'rules', 'updates', 'stats', 'logs', 'rooms', 'users', 'sanctions', 'contact_requests', 'subscriptions'] as const
 type TabKey = typeof TAB_KEYS[number]
+const tabTitles: Record<TabKey, string> = {
+  'stats': 'Статистика',
+  'settings': 'Параметры',
+  'scoring': 'Скоринг',
+  'rules': 'Правила',
+  'updates': 'Уведомления',
+  'logs': 'Логи',
+  'rooms': 'Комнаты',
+  'users': 'Пользователи',
+  'sanctions': 'Санкции',
+  'contact_requests': 'Обращения',
+  'subscriptions': 'Подписки'
+}
+
 const PAGE_LIMIT_OPTIONS = [
   { value: 20, label: '20' },
   { value: 100, label: '100' },
@@ -1674,6 +1806,83 @@ const ROOM_FILTER_OPTIONS = [
   { value: 'has_games', label: 'Комната с играми' },
   { value: 'duo_only', label: 'Duo-комната' },
 ] as const
+
+let openedTooltip: HTMLElement | null = null
+let tooltipCloseTimer: number | undefined
+
+function keepTooltipOpen(): void {
+  if (tooltipCloseTimer !== undefined) window.clearTimeout(tooltipCloseTimer)
+  tooltipCloseTimer = undefined
+}
+
+function closeTooltip(): void {
+  keepTooltipOpen()
+  if (openedTooltip?.isConnected && openedTooltip.matches(':popover-open')) openedTooltip.hidePopover()
+  openedTooltip = null
+}
+
+function showTooltip(event: Event): void {
+  const trigger = event.currentTarget as HTMLElement
+  const body = trigger.querySelector<HTMLElement>('.tooltip-body')
+  if (!body) return
+  if (openedTooltip !== body) closeTooltip()
+  keepTooltipOpen()
+  if (!body.matches(':popover-open')) body.showPopover()
+  openedTooltip = body
+  positionTooltip(trigger, body)
+}
+
+function positionTooltip(trigger: HTMLElement, body: HTMLElement): void {
+  const anchor = trigger.getBoundingClientRect()
+  const popup = body.getBoundingClientRect()
+  const left = Math.max(16, Math.min(anchor.right - popup.width, window.innerWidth - popup.width - 16))
+  const top = anchor.bottom + popup.height + 12 <= window.innerHeight
+    ? anchor.bottom + 8
+    : Math.max(16, anchor.top - popup.height - 8)
+  body.style.left = `${left}px`
+  body.style.top = `${top}px`
+}
+
+function hideTooltip(event: Event): void {
+  const target = event.currentTarget as HTMLElement
+  if (event instanceof FocusEvent && event.relatedTarget instanceof Node && target.contains(event.relatedTarget)) return
+  if (event.type === 'mouseleave' && target.contains(document.activeElement)) return
+  if (event instanceof KeyboardEvent) {
+    closeTooltip()
+    return
+  }
+  keepTooltipOpen()
+  tooltipCloseTimer = window.setTimeout(closeTooltip, 180)
+}
+
+function onTooltipScroll(event: Event): void {
+  if (!openedTooltip || (event.target instanceof Node && openedTooltip.contains(event.target))) return
+  const trigger = openedTooltip.closest<HTMLElement>('.tooltip')
+  if (trigger?.contains(document.activeElement)) {
+    const anchor = trigger.getBoundingClientRect()
+    const container = event.target instanceof HTMLElement ? event.target.getBoundingClientRect() : null
+    if (!container || (anchor.right > container.left && anchor.left < container.right && anchor.bottom > container.top && anchor.top < container.bottom)) {
+      positionTooltip(trigger, openedTooltip)
+      return
+    }
+  }
+  closeTooltip()
+}
+
+function onTabKeydown(event: KeyboardEvent): void {
+  const buttons = Array.from((event.currentTarget as HTMLElement).querySelectorAll<HTMLButtonElement>('[role="tab"]'))
+  const index = buttons.indexOf(event.target as HTMLButtonElement)
+  if (index < 0) return
+  let next = index
+  if (event.key === 'ArrowDown') next = (index + 1) % buttons.length
+  else if (event.key === 'ArrowUp') next = (index - 1 + buttons.length) % buttons.length
+  else if (event.key === 'Home') next = 0
+  else if (event.key === 'End') next = buttons.length - 1
+  else return
+  event.preventDefault()
+  buttons[next].click()
+  buttons[next].focus()
+}
 
 function normalizeTab(v: unknown): TabKey {
   if (typeof v === 'string' && (TAB_KEYS as readonly string[]).includes(v)) return v as TabKey
@@ -3938,6 +4147,7 @@ watch(() => route.query.tab, (tab) => {
 })
 
 watch(activeTab, (tab, previousTab) => {
+  closeTooltip()
   if (normalizeTab(route.query.tab) !== tab) {
     router.replace({ query: { ...route.query, tab } }).catch(() => {})
   }
@@ -4032,6 +4242,7 @@ watch(contactRequestsUser, () => {
 })
 
 onMounted(() => {
+  window.addEventListener('resize', closeTooltip)
   const now = new Date()
   statsMonth.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
   refreshActiveTab(activeTab.value)
@@ -4044,761 +4255,1143 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('resize', closeTooltip)
+  closeTooltip()
   if (logsRefreshTimer !== undefined) window.clearInterval(logsRefreshTimer)
 })
 </script>
 
 <style scoped lang="scss">
-.admin {
-  display: flex;
-  flex-direction: column;
-  margin: 0 10px 10px;
-  padding: 10px;
-  border-radius: 5px;
-  background-color: $neutral-900;
-  overflow: auto;
-  scrollbar-width: none;
-  user-select: text;
-  header {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    border-bottom: 3px solid $neutral-700;
-    .tabs {
+@mixin card {
+  min-width: 0;
+  padding: 24px;
+  border-radius: 24px;
+  background-color: $soft-purple-900;
+}
+@mixin title {
+  margin: 0;
+  color: $neutral-white;
+  font-family: Involve-Medium;
+  font-weight: 500;
+  font-size: 20px;
+  line-height: 24px;
+  letter-spacing: -0.4px;
+}
+@mixin fields($background: $soft-purple-900) {
+  :deep(.ui-input) {
+    min-width: 0;
+    --ui-input-label-bg: #{$background};
+    input,
+    textarea {
+      box-sizing: content-box;
+      color-scheme: dark;
+    }
+  }
+}
+@mixin select-control {
+  box-sizing: border-box;
+  min-width: 0;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid $soft-purple-700;
+  border-radius: 12px;
+  background-color: $soft-purple-900;
+  color: $neutral-100;
+  font: inherit;
+  cursor: pointer;
+  color-scheme: dark;
+  transition: border-color 0.2s ease-in-out;
+  &:hover,
+  &:focus-visible {
+    border-color: $green-500;
+    outline: none;
+  }
+  &:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+}
+@mixin scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: $soft-purple-700 transparent;
+}
+@mixin tooltip {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  cursor: help;
+  outline: none;
+  .tooltip-value {
+    border-bottom: 1px dashed $green-500;
+    transition: color 0.2s ease-in-out;
+  }
+  &:hover,
+  &:focus-visible {
+    .tooltip-value {
+      color: $green-300;
+    }
+  }
+  .tooltip-body {
+    @include scrollbar;
+    position: fixed;
+    inset: auto;
+    box-sizing: border-box;
+    width: 320px;
+    max-height: 240px;
+    margin: 0;
+    padding: 16px;
+    overflow: auto;
+    border: 1px solid $soft-purple-600;
+    border-radius: 16px;
+    background-color: $soft-purple-800;
+    color: $neutral-100;
+    font-size: 14px;
+    line-height: 20px;
+    box-shadow: 0 8px 32px rgba($neutral-black, 0.3);
+    .tooltip-empty {
+      color: $neutral-300;
+    }
+    .tooltip-list {
       display: flex;
-      align-items: flex-end;
-      width: 80%;
-      height: 30px;
-      .tab {
-        width: 200px;
-        height: 30px;
-        border: none;
-        border-radius: 5px 5px 0 0;
-        background-color: $neutral-800;
-        color: $neutral-100;
-        font-size: 18px;
-        font-family: Hauora-Regular;
-        line-height: 1;
-        cursor: pointer;
-        transition: opacity 0.25s ease-in-out, height 0.25s ease-in-out, background-color 0.25s ease-in-out;
-        &.active {
-          height: 40px;
-          background-color: $neutral-700;
+      flex-direction: column;
+      gap: 12px;
+      .tooltip-row {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+        overflow-wrap: anywhere;
+        .tooltip-avatar {
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          object-fit: cover;
+          flex: 0 0 auto;
         }
-        &:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
+        .user-cell {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          min-width: 0;
+          .tooltip-avatar {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            object-fit: cover;
+            flex: 0 0 auto;
+          }
+        }
+        .tooltip-id,
+        .tooltip-minutes {
+          color: $neutral-300;
         }
       }
     }
   }
-  .btn {
+}
+@mixin status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  line-height: 18px;
+  white-space: nowrap;
+  &.status-active {
+    background-color: rgba($green-500, 0.15);
+    color: $green-300;
+  }
+  &.status-expired {
+    background-color: rgba($yellow-500, 0.15);
+    color: $yellow-300;
+  }
+  &.status-revoked {
+    background-color: rgba($red-500, 0.15);
+    color: $red-200;
+  }
+}
+@mixin filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px;
+  padding: 20px;
+  border-radius: 20px;
+  background-color: $soft-purple-800;
+  .field {
+    @include fields($soft-purple-800);
     display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0 20px;
-    gap: 5px;
-    height: 40px;
-    border: none;
-    border-radius: 5px;
-    background-color: $neutral-100;
-    font-size: 14px;
-    color: $neutral-black;
-    font-family: Hauora-Regular;
-    line-height: 1;
-    text-decoration: none;
-    cursor: pointer;
-    transition: opacity 0.25s ease-in-out, color 0.25s ease-in-out, border-radius 0.25s ease-in-out, background-color 0.25s ease-in-out;
-    &:hover {
-      background-color: $neutral-white;
+    flex-direction: column;
+    gap: 8px;
+    width: 200px;
+    min-width: 0;
+    label {
+      color: $neutral-300;
+      font-size: 14px;
+      line-height: 16px;
     }
-    &.nav {
-      font-size: 16px;
-      border-radius: 5px 5px 0 0;
-    }
-    &.dark {
-      background-color: $neutral-700;
-      color: $neutral-100;
-      &:hover {
-        background-color: rgba($neutral-500, 0.5);
-      }
-    }
-    &.confirm {
-      background-color: rgba($green-500, 0.75);
-      &:hover {
-        background-color: $green-500;
-      }
-    }
-    &.danger {
-      background-color: rgba($red-500, 0.75);
-      color: $neutral-100;
-      &:hover {
-        background-color: $red-500;
-      }
-    }
-    &:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-    .btn-img {
-      width: 20px;
-      height: 20px;
-    }
-    &.width-min {
-      min-width: 150px;
-    }
-    &.width-full {
+    select {
+      @include select-control;
       width: 100%;
     }
   }
-  .tab-panel {
-    margin-top: 10px;
-    .loading {
-      padding: 20px;
-    }
-    .grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 10px;
-      .block {
-        border: 3px solid $neutral-700;
-        border-radius: 5px;
-        padding: 15px;
-        .field-stack {
-          display: flex;
-          flex-direction: column;
-          gap: 15px;
-        }
-        .bulk-admin-actions {
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-        }
-        :deep(.switch-item) {
-          margin-bottom: 10px;
+  .logs-auto-refresh-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    height: 40px;
+  }
+}
+@mixin table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  color: $neutral-100;
+  font-size: 14px;
+  line-height: 20px;
+  thead {
+    tr {
+      th {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        padding: 16px;
+        border-bottom: 1px solid $soft-purple-700;
+        background-color: $soft-purple-800;
+        color: $neutral-300;
+        font-weight: 400;
+        text-align: left;
+        white-space: nowrap;
+        .table-sort {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 0;
+          border: none;
+          background: transparent;
+          color: inherit;
+          font: inherit;
+          cursor: pointer;
+          outline: none;
+          transition: color 0.2s ease-in-out;
+          span {
+            opacity: 0.5;
+          }
+          &:hover,
+          &:focus-visible,
+          &.active {
+            color: $green-300;
+            span {
+              opacity: 1;
+            }
+          }
         }
       }
-      .scoring-block {
-        grid-column: 1 / -1;
-        padding-top: 0;
-        .field-stack {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          margin: 20px 0;
+    }
+  }
+  tbody {
+    tr {
+      transition: background-color 0.2s ease-in-out;
+      &:hover {
+        background-color: rgba($soft-purple-700, 0.35);
+      }
+      &:last-child {
+        td {
+          border-bottom: none;
+        }
+      }
+      td {
+        padding: 16px;
+        border-bottom: 1px solid $soft-purple-700;
+        vertical-align: middle;
+        white-space: nowrap;
+        &.muted {
+          padding: 40px 16px;
+          color: $neutral-300;
+          text-align: center;
+        }
+        .user-cell {
+          display: inline-flex;
+          align-items: center;
+          .user-profile-trigger {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+            padding: 0;
+            border: none;
+            background: transparent;
+            color: $neutral-white;
+            font: inherit;
+            text-align: left;
+            cursor: pointer;
+            outline: none;
+            transition: color 0.2s ease-in-out;
+            &:hover,
+            &:focus-visible {
+              color: $green-300;
+            }
+            &:disabled {
+              color: $neutral-300;
+              cursor: default;
+            }
+            .user-avatar {
+              width: 32px;
+              height: 32px;
+              border-radius: 50%;
+              object-fit: cover;
+              flex: 0 0 auto;
+            }
+          }
+        }
+        .tooltip {
+          @include tooltip;
+        }
+        .status-badge {
+          @include status-badge;
+        }
+      }
+    }
+  }
+}
+@mixin table-wrap {
+  @include scrollbar;
+  min-width: 0;
+  max-height: 640px;
+  overflow: auto;
+  border-radius: 20px;
+  background-color: $soft-purple-800;
+  .table {
+    @include table;
+  }
+}
+@mixin list-tab {
+  @include card;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  gap: 20px;
+  .filters {
+    @include filters;
+    flex: 0 0 auto;
+  }
+  .list-results {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    flex-direction: column;
+    gap: 20px;
+    min-width: 0;
+    .table-wrap {
+      @include table-wrap;
+      flex: 1;
+      min-height: 0;
+      max-height: none;
+    }
+    .pager {
+      display: flex;
+      flex: 0 0 auto;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      color: $neutral-300;
+      span {
+        min-width: 70px;
+        text-align: center;
+      }
+    }
+  }
+}
+@mixin stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  .stat-card {
+    @include card;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    .label {
+      color: $neutral-300;
+      font-size: 14px;
+      line-height: 20px;
+    }
+    .value {
+      color: $green-500;
+      font-family: Involve-Medium;
+      font-size: 24px;
+      line-height: 28px;
+      letter-spacing: -0.48px;
+      overflow-wrap: anywhere;
+    }
+    .tooltip {
+      @include tooltip;
+    }
+  }
+}
+@mixin chart-body {
+  display: flex;
+  gap: 12px;
+  min-width: 0;
+  margin-top: 20px;
+  .chart-axis {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    flex: 0 0 auto;
+    height: 184px;
+    padding-top: 10px;
+    color: $neutral-300;
+    font-size: 11px;
+    line-height: 14px;
+    text-align: right;
+  }
+  .chart-grid {
+    display: flex;
+    flex: 1;
+    align-items: flex-end;
+    gap: 3px;
+    height: 220px;
+    min-width: 0;
+    background: repeating-linear-gradient(to top, transparent 0, transparent 45px, rgba($soft-purple-600, 0.3) 46px, transparent 47px);
+    .chart-bar {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      flex: 1;
+      gap: 8px;
+      height: 100%;
+      min-width: 0;
+      border-radius: 6px;
+      cursor: help;
+      outline: none;
+      .bar {
+        width: 100%;
+        min-height: 3px;
+        border-radius: 5px 5px 0 0;
+        background: linear-gradient(to top, $green-700, $green-500);
+        transition: height 0.25s ease-in-out, background-color 0.2s ease-in-out;
+        .bar-value {
+          position: absolute;
+          top: 0;
+          left: 50%;
+          z-index: 2;
+          padding: 6px 10px;
+          border: 1px solid $soft-purple-600;
+          border-radius: 8px;
+          background-color: $soft-purple-900;
+          color: $neutral-white;
+          font-size: 12px;
+          line-height: 16px;
+          white-space: nowrap;
+          opacity: 0;
+          pointer-events: none;
+          transform: translateX(-50%);
+          transition: opacity 0.2s ease-in-out;
+        }
+      }
+      .bar-label {
+        height: 14px;
+        color: $neutral-300;
+        font-size: 10px;
+        line-height: 14px;
+        white-space: nowrap;
+        visibility: hidden;
+      }
+      &:first-child {
+        .bar {
+          .bar-value {
+            left: 0;
+            transform: none;
+          }
+        }
+      }
+      &:last-child {
+        .bar {
+          .bar-value {
+            left: auto;
+            right: 0;
+            transform: none;
+          }
+        }
+      }
+      &:nth-child(5n),
+      &:first-child,
+      &:last-child {
+        .bar-label {
+          visibility: visible;
+        }
+      }
+      &:hover,
+      &:focus-visible {
+        .bar {
+          background: $green-300;
+          .bar-value {
+            opacity: 1;
+          }
+        }
+      }
+    }
+  }
+}
+.admin {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  align-items: start;
+  flex: 1;
+  gap: 10px;
+  min-width: 0;
+  min-height: 0;
+  padding: 30px 40px;
+  overflow: hidden;
+  color: $neutral-100;
+  font-family: Hauora-Regular;
+  font-size: 16px;
+  line-height: 22px;
+  user-select: text;
+  header {
+    @include card;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    padding: 24px 16px;
+    h1 {
+      @include title;
+      padding: 0 8px;
+    }
+    .tabs {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      .tab {
+        display: flex;
+        align-items: center;
+        width: 100%;
+        min-height: 40px;
+        padding: 10px 16px;
+        border: none;
+        border-radius: 12px;
+        background-color: transparent;
+        color: $neutral-300;
+        font: inherit;
+        line-height: 20px;
+        text-align: left;
+        cursor: pointer;
+        outline: none;
+        transition: color 0.2s ease-in-out, background-color 0.2s ease-in-out;
+        &:hover,
+        &:focus-visible {
+          background-color: $soft-purple-800;
+          color: $neutral-white;
+        }
+        &.active {
+          background-color: $green-500;
+          color: $neutral-black;
+        }
+      }
+    }
+    .home-link {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 40px;
+      border: 1px solid $soft-purple-700;
+      border-radius: 12px;
+      color: $neutral-100;
+      text-decoration: none;
+      outline: none;
+      transition: color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+      &:hover,
+      &:focus-visible {
+        border-color: $green-500;
+        color: $green-300;
+      }
+    }
+  }
+  .tab-panel {
+    @include scrollbar;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    align-self: stretch;
+    min-width: 0;
+    min-height: 0;
+    padding-right: 4px;
+    overflow: auto;
+    .panel-title {
+      @include title;
+      flex: 0 0 auto;
+      padding: 0 24px;
+      font-size: 24px;
+      line-height: 28px;
+      letter-spacing: -0.48px;
+    }
+    .loading {
+      @include card;
+      color: $neutral-300;
+    }
+    .settings-tab {
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        align-items: start;
+        gap: 10px;
+        .block {
+          @include card;
+          display: flex;
+          flex-direction: column;
+          gap: 24px;
+          h3 {
+            @include title;
+          }
+          :deep(.switch-item) {
+            min-width: 0;
+            .switch-label {
+              font-size: 14px;
+              line-height: 18px;
+            }
+          }
+          .field-stack {
+            @include fields;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+          }
+          .bulk-admin-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+          }
+        }
+      }
+    }
+    .scoring-tab {
+      .grid {
+        .scoring-block {
+          @include card;
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+          h3 {
+            @include title;
+          }
+          p {
+            margin: 0;
+            color: $neutral-300;
+            font-size: 14px;
+            line-height: 20px;
+            code {
+              color: $green-300;
+            }
+          }
+          .field-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            .scoring-rule {
+              @include fields($soft-purple-800);
+              display: grid;
+              grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.4fr);
+              align-items: start;
+              gap: 24px;
+              padding: 20px;
+              border-radius: 20px;
+              background-color: $soft-purple-800;
+            }
+          }
+          .bulk-admin-actions {
+            position: sticky;
+            bottom: 0;
+            z-index: 3;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            padding: 16px;
+            border: 1px solid $soft-purple-700;
+            border-radius: 20px;
+            background-color: $soft-purple-900;
+            box-shadow: 0 -8px 24px rgba($neutral-black, 0.12);
+          }
         }
       }
     }
     .rules-editor {
       display: flex;
       flex-direction: column;
-      gap: 12px;
-      .rules-editor__toolbar,
-      .rules-editor__section {
-        border: 3px solid $neutral-700;
-        border-radius: 5px;
-        padding: 15px;
-      }
+      gap: 10px;
       .rules-editor__toolbar {
+        @include card;
         display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 16px;
+        flex-direction: column;
+        gap: 20px;
         p {
           margin: 0;
           color: $neutral-300;
+          font-size: 14px;
+          line-height: 20px;
         }
-      }
-      .rules-editor__actions,
-      .rules-editor__section-head,
-      .rules-editor__rule {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-      }
-      .rules-editor__actions {
-        flex-wrap: wrap;
-        justify-content: flex-end;
+        .rules-editor__actions {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 12px;
+        }
       }
       .rules-editor__section {
+        @include card;
         display: flex;
         flex-direction: column;
-        gap: 12px;
-      }
-      .rules-editor__section-head {
-        :deep(.ui-input) {
-          flex: 1;
+        gap: 20px;
+        .rules-editor__section-head {
+          @include fields;
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          :deep(.ui-input) {
+            flex: 1;
+          }
+          .rules-editor__anchor {
+            color: $neutral-300;
+            font-size: 13px;
+            white-space: nowrap;
+          }
         }
-      }
-      .rules-editor__anchor {
-        color: $neutral-400;
-        font-size: 13px;
-        white-space: nowrap;
-      }
-      .rules-editor__rule-list {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-      }
-      .rules-editor__rule {
-        align-items: stretch;
-        padding: 10px;
-        border-radius: 5px;
-        background: $neutral-800;
-        :deep(.ui-input) {
-          flex: 1;
-        }
-      }
-      .rules-editor__badge {
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        gap: 4px;
-        min-width: 120px;
-        color: $neutral-300;
-        font-size: 12px;
-        select {
-          min-width: 120px;
-          height: 38px;
-          padding: 0 8px;
-          border: 1px solid $neutral-600;
-          border-radius: 5px;
-          background: $neutral-900;
-          color: $neutral-100;
-          font-family: Hauora-Regular;
-        }
-      }
-    }
-    .filters {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: flex-start;
-      gap: 10px;
-      margin: 10px 0;
-      .field {
-        display: flex;
-        flex-direction: column;
-        gap: 5px;
-        min-width: 160px;
-      }
-      .logs-auto-refresh-actions {
-        display: flex;
-        align-self: flex-end;
-        gap: 10px;
-      }
-    }
-    .tooltip {
-      position: relative;
-      display: inline-flex;
-      align-items: center;
-      cursor: default;
-      width: fit-content;
-      .tooltip-value {
-        border-bottom: 1px dashed $neutral-500;
-      }
-      .tooltip-body {
-        position: absolute;
-        top: calc(100% - 35px);
-        right: 15px;
-        min-width: 300px;
-        max-width: 400px;
-        max-height: 200px;
-        overflow: auto;
-        padding: 10px;
-        border: 1px solid $neutral-700;
-        border-radius: 5px;
-        background-color: $neutral-800;
-        box-shadow: 0 5px 15px rgba(black, 0.25);
-        opacity: 0;
-        transform: translateY(-5px);
-        pointer-events: none;
-        transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
-        z-index: 10;
-      }
-      .tooltip-list {
-        display: flex;
-        flex-direction: column;
-        gap: 5px;
-      }
-      .tooltip-row {
-        display: flex;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: 5px;
-        font-size: 18px;
-        color: $neutral-100;
-      }
-      .tooltip-avatar {
-        width: 16px;
-        height: 16px;
-        border-radius: 50%;
-        object-fit: cover;
-        flex: 0 0 auto;
-      }
-      .tooltip-id,
-      .tooltip-minutes {
-        color: $neutral-500;
-      }
-      .tooltip-empty {
-        font-size: 18px;
-        color: $neutral-500;
-      }
-      &:hover .tooltip-body,
-      &:focus-within .tooltip-body {
-        opacity: 1;
-        transform: translateY(0);
-        pointer-events: auto;
-      }
-    }
-    .stats {
-      display: flex;
-      flex-direction: column;
-      gap: 15px;
-      .stats-mini-title {
-        margin-bottom: 5px;
-        font-size: 12px;
-        color: $neutral-500;
-      }
-      .stats-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-        gap: 10px;
-        .stat-card {
+        .rules-editor__rule-list {
           display: flex;
           flex-direction: column;
-          gap: 5px;
-          padding: 10px;
-          border: 1px solid $neutral-700;
-          border-radius: 5px;
-          background-color: $neutral-800;
-          .label {
-            font-size: 12px;
-            color: $neutral-100;
-          }
-          .value {
-            font-size: 20px;
-            color: $green-500;
-          }
-        }
-      }
-      .stats-daily-grid {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 10px;
-        margin-top: 10px;
-      }
-      .stats-daily-block {
-        min-width: 0;
-      }
-      .stats-monthly-grid {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 10px;
-      }
-      .chart {
-        padding: 10px;
-        border-radius: 5px;
-        background-color: $neutral-800;
-        .chart-body {
-          display: flex;
-          margin-top: 10px;
           gap: 10px;
-        }
-        .chart-axis {
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-          height: 185px;
-          padding: 2px 0;
-          font-size: 14px;
-          color: $neutral-500;
-          min-width: 10px;
-          text-align: right;
-        }
-        .chart-grid {
-          display: flex;
-          align-items: flex-end;
-          gap: 8px;
-          height: 200px;
-          overflow-x: auto;
-          padding: 5px 3px;
-          flex: 1;
-          .chart-bar {
+          .rules-editor__rule {
+            @include fields($soft-purple-800);
             display: flex;
-            flex-direction: column;
             align-items: center;
-            justify-content: flex-end;
-            gap: 5px;
-            width: 10px;
-            flex: 0 0 10px;
-            height: 100%;
-            .bar {
-              position: relative;
-              width: 100%;
-              background-color: $neutral-100;
-              border-radius: 3px 3px 0 0;
-              transition: height 0.25s ease-in-out;
-              .bar-value {
-                position: absolute;
-                top: -14px;
-                left: 50%;
-                transform: translateX(-50%);
-                font-size: 10px;
-                color: $neutral-100;
-                white-space: nowrap;
+            gap: 16px;
+            padding: 20px;
+            border-radius: 20px;
+            background-color: $soft-purple-800;
+            :deep(.ui-input) {
+              flex: 1;
+            }
+            .rules-editor__badge {
+              display: flex;
+              flex-direction: column;
+              gap: 8px;
+              width: 160px;
+              color: $neutral-300;
+              font-size: 14px;
+              select {
+                @include select-control;
               }
             }
-            .bar-label {
-              font-size: 10px;
-              color: $neutral-500;
-            }
-          }
-        }
-      }
-      .chart--monthly {
-        .chart-grid {
-          .chart-bar {
-            width: 30px;
-            flex: 0 0 30px;
           }
         }
       }
     }
-    .table {
-      width: 100%;
-      border-collapse: collapse;
-      color: $neutral-100;
-      font-family: Hauora-Regular;
-      th {
-        padding: 5px;
-        border-bottom: 1px solid $neutral-700;
-        font-size: 16px;
-        color: $neutral-500;
-        text-align: left;
-      }
-      .table-sort {
-        display: inline-flex;
-        align-items: center;
-        padding: 0;
-        gap: 5px;
-        border: none;
-        background: transparent;
-        color: inherit;
-        font: inherit;
-        cursor: pointer;
-        span {
-          opacity: 0.5;
-          transition: opacity 0.25s ease-in-out;
-        }
-        &:hover span,
-        &.active span {
-          opacity: 1;
-        }
-        &.active {
-          color: $neutral-100;
-        }
-      }
-      td {
-        padding: 10px;
-        border-bottom: 1px solid $neutral-700;
-        font-size: 14px;
-      }
-      .user-cell {
-        display: inline-flex;
-        align-items: center;
-        gap: 5px;
-        &.compact {
-          gap: 5px;
-        }
-        .user-link {
-          padding: 0;
-          border: none;
-          background: transparent;
-          color: $neutral-100;
-          font: inherit;
-          text-align: left;
-          cursor: pointer;
-          transition: color 0.25s ease-in-out;
-          &:hover {
-            color: $neutral-white;
-            text-decoration: underline;
-          }
-        }
-        .user-profile-trigger {
-          display: inline-flex;
-          align-items: center;
-          gap: 5px;
-          min-width: 0;
-          &:disabled {
-            cursor: default;
-            &:hover {
-              color: $neutral-100;
-              text-decoration: none;
-            }
-          }
-        }
-      }
-      .user-avatar {
-        width: 24px;
-        height: 24px;
-        border-radius: 50%;
-        object-fit: cover;
-      }
-    }
-    .updates-notice-grid {
-      grid-template-columns: minmax(0, 800px) minmax(280px, 440px);
-      align-items: start;
-    }
-    .updates-notice-block {
-      max-width: 800px;
-    }
-    .home-carousel-banner-block {
-      h2 {
-        margin: 0;
-        color: $neutral-100;
-        font-family: Hauora-Bold;
-        font-size: 20px;
-        line-height: 24px;
-      }
-      .home-carousel-banner-hint {
-        margin: 8px 0 0;
-        color: $neutral-500;
-        font-family: Hauora-Regular;
-        font-size: 14px;
-        line-height: 19px;
-      }
-      .home-carousel-banner-input {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        overflow: hidden;
-        clip: rect(0 0 0 0);
-        clip-path: inset(50%);
-        white-space: nowrap;
-      }
-      .home-carousel-banner-preview {
-        margin-top: 16px;
-        width: 100%;
-        aspect-ratio: 607 / 494;
-        overflow: hidden;
-        border-radius: 12px;
-        background-color: $neutral-800;
-        img {
-          display: block;
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-        }
-      }
-      .home-carousel-banner-actions {
-        display: flex;
-        flex-wrap: wrap;
+    .updates-tab {
+      .updates-notice-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+        align-items: start;
         gap: 10px;
-        margin-top: 16px;
+        .updates-notice-block {
+          @include card;
+          display: flex;
+          flex-direction: column;
+          gap: 24px;
+          h3 {
+            @include title;
+          }
+          .field-stack {
+            @include fields;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            :deep(.update-notice-textarea) {
+              textarea {
+                min-height: 200px;
+              }
+            }
+          }
+          .update-notice-preview {
+            width: 440px;
+            max-width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+            border-radius: 24px;
+            background-color: $neutral-100;
+            box-shadow: 0 0 16px rgba($neutral-black, 0.16);
+            .update-notice-preview-item {
+              display: flex;
+              flex-direction: column;
+              gap: 8px;
+              padding: 16px;
+              border-radius: 20px;
+              transition: background-color 0.25s ease-in-out;
+              &:hover {
+                background-color: $neutral-white;
+              }
+              .update-notice-preview-header {
+                display: flex;
+                align-items: flex-start;
+                justify-content: space-between;
+                gap: 16px;
+                .update-notice-preview-title {
+                  display: flex;
+                  gap: 8px;
+                  min-width: 0;
+                  .update-notice-preview-icon {
+                    flex: 0 0 auto;
+                    --ui-icon-width: 20px;
+                    --ui-icon-height: 20px;
+                    --ui-icon-color: #{$neutral-400};
+                  }
+                  span {
+                    color: $neutral-black;
+                    font-family: Hauora-Bold;
+                    font-size: 16px;
+                    line-height: 18px;
+                    letter-spacing: -0.32px;
+                    overflow-wrap: anywhere;
+                  }
+                }
+                time {
+                  flex: 0 0 auto;
+                  color: $neutral-500;
+                  font-size: 14px;
+                  line-height: 14px;
+                  letter-spacing: -0.28px;
+                }
+              }
+              .update-notice-preview-text {
+                margin-left: 28px;
+                color: $neutral-900;
+                font-size: 16px;
+                line-height: 22px;
+                letter-spacing: -0.32px;
+                overflow-wrap: anywhere;
+                .notification-text-paragraph,
+                .notification-text-list {
+                  margin: 0;
+                  & + .notification-text-paragraph,
+                  & + .notification-text-list {
+                    margin-top: 8px;
+                  }
+                }
+                .notification-text-list {
+                  padding-left: 20px;
+                  li {
+                    & + li {
+                      margin-top: 4px;
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        .home-carousel-banner-block {
+          @include card;
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+          h2 {
+            @include title;
+          }
+          .home-carousel-banner-hint {
+            margin: 0;
+            color: $neutral-300;
+            font-size: 14px;
+            line-height: 20px;
+          }
+          .home-carousel-banner-input {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            overflow: hidden;
+            clip-path: inset(50%);
+            white-space: nowrap;
+          }
+          .home-carousel-banner-preview {
+            width: 100%;
+            aspect-ratio: 607 / 494;
+            overflow: hidden;
+            border-radius: 20px;
+            background-color: $soft-purple-800;
+            img {
+              display: block;
+              width: 100%;
+              height: 100%;
+              object-fit: cover;
+            }
+          }
+          .home-carousel-banner-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+          }
+        }
       }
     }
-    :deep(.update-notice-textarea textarea) {
-      min-height: 200px;
-    }
-    .update-notice-preview {
-      margin-top: 15px;
-      padding: 8px 0;
-      width: 440px;
-      max-width: 100%;
-      box-sizing: border-box;
-      border-radius: 24px;
-      background-color: $neutral-100;
-      box-shadow: 0 0 16px 0 rgba($neutral-black, 0.16);
-    }
-    .update-notice-preview-item {
-      display: flex;
-      flex-direction: column;
-      margin: 0 8px;
-      padding: 16px;
-      gap: 8px;
-      border-radius: 20px;
-      box-sizing: border-box;
-      transition: background-color 0.25s ease-in-out;
-      &:hover {
-        background-color: $neutral-white;
-      }
-    }
-    .update-notice-preview-header {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 16px;
-      width: 100%;
-      .update-notice-preview-title {
+    .stats-tab {
+      .stats {
         display: flex;
-        gap: 8px;
-        min-width: 0;
-        .update-notice-preview-icon {
-          flex: 0 0 auto;
-          --ui-icon-width: 20px;
-          --ui-icon-height: 20px;
-          --ui-icon-color: #{$neutral-400};
+        flex-direction: column;
+        gap: 10px;
+        .stats-grid {
+          @include stat-grid;
         }
-        span {
-          max-width: 280px;
-          color: $neutral-black;
-          font-family: Hauora-Bold;
-          font-size: 16px;
-          line-height: 18px;
-          letter-spacing: -0.32px;
-          overflow-wrap: anywhere;
-          word-break: break-word;
+        .chart {
+          @include card;
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+          .filters {
+            @include filters;
+          }
+          .stats-grid {
+            @include stat-grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            .stat-card {
+              padding: 20px;
+              border-radius: 20px;
+              background-color: $soft-purple-800;
+            }
+          }
+          .stats-daily-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+            .stats-daily-block {
+              min-width: 0;
+              padding: 20px;
+              border-radius: 20px;
+              background-color: $soft-purple-800;
+              .stats-mini-title {
+                @include title;
+                min-height: 48px;
+                font-size: 16px;
+                line-height: 22px;
+              }
+              .muted {
+                padding: 40px 0;
+                color: $neutral-300;
+              }
+              .chart-body {
+                @include chart-body;
+              }
+            }
+          }
+        }
+        .stats-monthly-grid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 10px;
+          .chart {
+            @include card;
+            .stats-mini-title {
+              @include title;
+              min-height: 48px;
+              font-size: 16px;
+              line-height: 22px;
+            }
+            .muted {
+              padding: 40px 0;
+              color: $neutral-300;
+            }
+            .chart-body {
+              @include chart-body;
+              .chart-grid {
+                gap: 8px;
+                .chart-bar {
+                  .bar-label {
+                    visibility: visible;
+                  }
+                }
+              }
+            }
+          }
         }
       }
-      time {
-        flex: 0 0 auto;
-        color: $neutral-500;
-        font-family: Hauora-Regular;
-        font-size: 14px;
-        line-height: 14px;
-        letter-spacing: -0.28px;
-      }
     }
-    .update-notice-preview-text {
-      margin-left: 28px;
-      width: calc(100% - 28px);
-      color: $neutral-900;
-      font-family: Hauora-Regular;
-      font-size: 16px;
-      line-height: 22px;
-      letter-spacing: -0.32px;
-      overflow-wrap: anywhere;
-      word-break: break-word;
-      .notification-text-paragraph,
-      .notification-text-list {
-        margin: 0;
+    .logs-tab {
+      @include list-tab;
+      .filters {
+        .field {
+          width: 180px;
+        }
       }
-      .notification-text-paragraph + .notification-text-paragraph,
-      .notification-text-paragraph + .notification-text-list,
-      .notification-text-list + .notification-text-paragraph,
-      .notification-text-list + .notification-text-list {
-        margin-top: 8px;
-      }
-      .notification-text-list {
-        padding-left: 20px;
-        li + li {
-          margin-top: 4px;
+      .list-results {
+        .table-wrap {
+          .logs-table {
+            min-width: 950px;
+            tbody {
+              tr {
+                td:last-child {
+                  min-width: 300px;
+                  max-width: 520px;
+                  white-space: pre-wrap;
+                  overflow-wrap: anywhere;
+                }
+              }
+            }
+          }
         }
       }
     }
-    .sanctions-table .rule-cell,
-    .sanctions-table .description-cell {
-      max-width: 520px;
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
-    .sanctions-table .rule-cell select {
-      width: 100%;
-      min-width: 240px;
-      padding: 5px 10px;
-      border: 1px solid $neutral-500;
-      border-radius: 5px;
-      background-color: $neutral-900;
-      color: $neutral-100;
-      cursor: pointer;
-      &:disabled {
-        opacity: 0.5;
+    .rooms-tab {
+      @include list-tab;
+      .list-results {
+        .table-wrap {
+          .rooms-table {
+            min-width: 1650px;
+          }
+        }
       }
     }
-    .sanctions-table .actions-cell {
-      white-space: nowrap;
-    }
-    .contact-requests-table .contact-cell,
-    .contact-requests-table .topic-cell,
-    .contact-requests-table .text-cell {
-      max-width: 520px;
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
-    .status-badge {
-      display: inline-flex;
-      align-items: center;
-      padding: 5px 10px;
-      border-radius: 999px;
-      font-size: 12px;
-      font-family: Hauora-SemiBold;
-      line-height: 1;
-      white-space: nowrap;
-      &.status-active {
-        background-color: rgba($green-500, 0.25);
+    .users-tab {
+      @include list-tab;
+      .list-results {
+        .table-wrap {
+          .users-table {
+            min-width: 2300px;
+          }
+        }
       }
-      &.status-expired {
-        background-color: rgba($yellow-500, 0.25);
+    }
+    .sanctions-tab {
+      @include list-tab;
+      .list-results {
+        .table-wrap {
+          .sanctions-table {
+            min-width: 2400px;
+            tbody {
+              tr {
+                td {
+                  &.rule-cell {
+                    min-width: 280px;
+                    select {
+                      @include select-control;
+                      width: 280px;
+                    }
+                  }
+                  &.description-cell {
+                    min-width: 260px;
+                    max-width: 400px;
+                    white-space: pre-wrap;
+                    overflow-wrap: anywhere;
+                  }
+                }
+              }
+            }
+          }
+        }
       }
-      &.status-revoked {
-        background-color: rgba($red-500, 0.25);
+    }
+    .contact-requests-tab {
+      @include list-tab;
+      .list-results {
+        .table-wrap {
+          .contact-requests-table {
+            min-width: 2000px;
+            tbody {
+              tr {
+                td {
+                  &.contact-cell,
+                  &.topic-cell,
+                  &.text-cell {
+                    min-width: 200px;
+                    max-width: 400px;
+                    white-space: pre-wrap;
+                    overflow-wrap: anywhere;
+                  }
+                  &.replies-cell {
+                    min-width: 280px;
+                    max-width: 400px;
+                    white-space: normal;
+                    overflow-wrap: anywhere;
+                    .contact-reply {
+                      & + .contact-reply {
+                        margin-top: 16px;
+                        padding-top: 16px;
+                        border-top: 1px solid $soft-purple-700;
+                      }
+                      .contact-reply__meta {
+                        margin-bottom: 8px;
+                        color: $neutral-300;
+                        font-size: 13px;
+                        line-height: 18px;
+                      }
+                      .contact-reply__text {
+                        white-space: pre-wrap;
+                      }
+                    }
+                    .muted {
+                      color: $neutral-300;
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     }
     .subscriptions-tab {
-      .subscription-heading {
+      .subscription-table-block {
+        @include card;
         display: flex;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: 16px;
-        margin-bottom: 20px;
-      }
-      .block .subscription-heading h3 {
-        margin: 0;
-      }
-      .block {
-        padding: 10px 0;
-        h3 {
-          margin: 0 0 20px;
-          font-size: 20px;
-          color: $neutral-100;
+        flex-direction: column;
+        gap: 24px;
+        .subscription-heading {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+          h3 {
+            @include title;
+          }
+        }
+        .table-wrap {
+          @include table-wrap;
+          .subscriptions-table {
+            min-width: 1250px;
+            tbody {
+              tr {
+                td {
+                  .subscription-theme-preview {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    .subscription-theme-chip {
+                      width: 30px;
+                      height: 30px;
+                      border-radius: 50%;
+                      background-color: var(--user-theme-bg, $soft-purple-800);
+                    }
+                    .subscription-theme-icons {
+                      display: flex;
+                      align-items: center;
+                      gap: 8px;
+                      .subscription-theme-icon {
+                        width: 30px;
+                        height: 30px;
+                        object-fit: contain;
+                      }
+                    }
+                  }
+                  .subscription-actions {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                  }
+                }
+              }
+            }
+          }
         }
       }
-      .subscription-table-block {
-        min-width: 0;
-      }
-      .subscription-actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-      }
-      .subscription-theme-preview {
-        display: inline-flex;
-        align-items: center;
-        gap: 5px;
-      }
-      .subscription-theme-chip {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 30px;
-        height: 30px;
-        border-radius: 999px;
-        background-color: var(--user-theme-bg, $neutral-800);
-        font-family: Hauora-Regular;
-      }
-      .subscription-theme-icon {
-        width: 30px;
-        height: 30px;
-        object-fit: contain;
-      }
-      .subscription-theme-icons {
-        display: inline-flex;
-        align-items: center;
-        gap: 5px;
-        flex: 0 0 auto;
-      }
-    }
-    .pager {
-      margin-top: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      color: $neutral-100;
-      font-family: Hauora-Regular;
-    }
-    .muted {
-      color: $neutral-500;
-      text-align: center;
     }
   }
 }
@@ -4811,28 +5404,4 @@ onBeforeUnmount(() => {
 .tab-fade-leave-to {
   opacity: 0;
 }
-
-
-.contact-requests-table .replies-cell {
-  min-width: 280px;
-  max-width: 520px;
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-.contact-reply + .contact-reply {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid $neutral-700;
-}
-.contact-reply__meta {
-  margin-bottom: 6px;
-  color: $neutral-300;
-  font-size: 13px;
-  line-height: 1.4;
-}
-.contact-reply__text {
-  white-space: pre-wrap;
-  line-height: 1.4;
-}
 </style>
-
