@@ -5,7 +5,7 @@
         <div class="theme-title">
           <span class="title">Кастомизация профиля</span>
           <UiTooltip
-            :text="subscriptionHint('Кастомизация профиля доступна только при наличии подписки.')"
+            :text="profileThemeHint"
             placement="bottom-right"
             bubble-width="320px"
           />
@@ -128,6 +128,10 @@ type SubscriptionSite = {
 const userStore = useUserStore()
 const { subscriptionHint } = useSubscriptionStatus()
 const { now: userNow } = storeToRefs(userStore)
+const profileThemeHint = computed(() => subscriptionHint(
+  'Выбор цвета и иконки для оформления профиля и бейджа.',
+  'Кастомизация профиля доступна только при активной подписке.',
+))
 
 const me = reactive({
   username: '',

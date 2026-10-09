@@ -891,7 +891,10 @@ const ws_url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.
 const isTheater = computed(() => !!screenOwnerId.value)
 const isMyScreen = computed(() => !!localId.value && screenOwnerId.value === localId.value)
 const streamAudioKey = computed(() => screenOwnerId.value ? rtc.screenKey(screenOwnerId.value) : '')
-const screenQualityHint = computed(() => subscriptionHint('Качество 720p и 1080p доступно только для обладателей подписки'))
+const screenQualityHint = computed(() => subscriptionHint(
+  'При запуске демонстрации экрана можно выбрать качество 720p или 1080p.',
+  'Эти варианты доступны только при активной подписке. Без подписки доступен вариант 540p.',
+))
 const SCREEN_QUALITY_OPTIONS = [
   { value: 'low', label: '540p' },
   { value: 'medium', label: '720p' },
@@ -3428,9 +3431,9 @@ const toggleScreen = async () => {
       radioOptions: SCREEN_QUALITY_OPTIONS.map(option => ({
         ...option,
         disabled: !hasSubscription && option.value !== 'low',
-        tooltip: option.value !== 'low'
-          ? screenQualityHint.value
-          : undefined,
+        get tooltip() {
+          return option.value !== 'low' ? screenQualityHint.value : undefined
+        },
       })),
       radioDefault: hasSubscription ? 'high' : 'low',
     })

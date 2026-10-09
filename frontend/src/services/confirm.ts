@@ -103,7 +103,10 @@ function open(mode: ConfirmMode, payload: ConfirmPayload): Promise<ConfirmResult
       value: String(option.value),
       label: String(option.label),
       disabled: Boolean(option.disabled),
-      tooltip: option.tooltip ? String(option.tooltip) : '',
+      get tooltip() {
+        const tooltip = option.tooltip
+        return tooltip ? String(tooltip) : ''
+      },
     }))
   state.radioValue = state.radioOptions.some(option => option.value === payload.radioDefault)
     ? String(payload.radioDefault)

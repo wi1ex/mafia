@@ -170,7 +170,10 @@ const initialLimit = (() => {
 })()
 const limit = ref<RoomLimit>(initialLimit)
 const HIDDEN_ROOM_SUBSCRIPTION_REQUIRED = 'Создание скрытых комнат доступно только при наличии подписки'
-const hiddenRoomHint = computed(() => subscriptionHint(HIDDEN_ROOM_SUBSCRIPTION_REQUIRED))
+const hiddenRoomHint = computed(() => subscriptionHint(
+  'Скрытая комната автоматически становится закрытой и не отображается у посторонних игроков. Вход — по приглашению владельца.',
+  `${HIDDEN_ROOM_SUBSCRIPTION_REQUIRED}.`,
+))
 
 const privacy = ref<'open' | 'private'>(initialBasic.privacy === 'private' ? 'private' : 'open')
 const initialAnonymity = initialBasic.anonymity === 'hidden' && canCreateHiddenRoom.value ? 'hidden' : 'visible'

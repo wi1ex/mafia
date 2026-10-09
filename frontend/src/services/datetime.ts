@@ -20,11 +20,11 @@ const CHAT_DATE_TIME_OPTIONS: Intl.DateTimeFormatOptions = {
   minute: '2-digit',
 }
 
-export function formatLocalDateTime(value?: string | number | Date | null, options: Intl.DateTimeFormatOptions = DEFAULT_OPTIONS): string {
+export function formatLocalDateTime(value?: string | number | Date | null, options: Intl.DateTimeFormatOptions = DEFAULT_OPTIONS, locale?: Intl.LocalesArgument): string {
   if (!value) return '-'
   const dt = value instanceof Date ? value : new Date(value)
   if (Number.isNaN(dt.getTime())) return '-'
-  return new Intl.DateTimeFormat(undefined, options).format(dt)
+  return new Intl.DateTimeFormat(locale, options).format(dt)
 }
 
 export function formatChatTimestamp(value?: string | number | Date | null): string {

@@ -11,7 +11,7 @@ const SUBSCRIPTION_DATE_OPTIONS: Intl.DateTimeFormatOptions = {
 export function useSubscriptionStatus() {
   const userStore = useUserStore()
   const subscriptionUntilText = computed(() => {
-    const formatted = formatLocalDateTime(userStore.user?.subscription_until, SUBSCRIPTION_DATE_OPTIONS)
+    const formatted = formatLocalDateTime(userStore.user?.subscription_until, SUBSCRIPTION_DATE_OPTIONS, 'ru-RU')
     return formatted === '-' ? '' : formatted
   })
   const subscriptionStatusText = computed(() => {
@@ -21,11 +21,13 @@ export function useSubscriptionStatus() {
       : 'Подписка активна'
   })
 
-  function subscriptionHint(inactiveText: string): string {
-    if (!userStore.subscriptionActive) return inactiveText
-    return subscriptionUntilText.value
-      ? `Доступно Вам до ${subscriptionUntilText.value}`
-      : 'Доступно Вам'
+  function subscriptionHint(explanation: string, inactiveText = 'Доступно только при активной подписке.'): string {
+    const availabilityText = userStore.subscriptionActive
+      ? subscriptionUntilText.value
+        ? `Доступно Вам до ${subscriptionUntilText.value}.`
+        : 'Доступно Вам при активной подписке.'
+      : inactiveText
+    return `${explanation} ${availabilityText}`
   }
 
   return { subscriptionStatusText, subscriptionHint }

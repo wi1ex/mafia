@@ -255,19 +255,14 @@ type GifPicker = {
 
 const userStore = useUserStore()
 const { subscriptionHint } = useSubscriptionStatus()
-const nicknameHint = computed(() => {
-  const loginHint = 'Никнейм также является логином - используйте его для авторизации.'
-  const limitHint = userStore.subscriptionActive
-    ? `Лимит — 30 изменений никнейма в месяц. ${subscriptionHint('')}.`
-    : 'Без подписки доступно 1 изменение никнейма в месяц. При наличии подписки лимит увеличен до 30.'
-  return `${loginHint} ${limitHint}`
-})
-const nicknameHistoryHint = computed(() => {
-  const resetHint = userStore.subscriptionActive
-    ? `Обнуление истории никнеймов: ${subscriptionHint('')}.`
-    : 'Обнуление истории никнеймов доступно только при наличии подписки.'
-  return `Список всех ранее использованных никнеймов. ${resetHint}`
-})
+const nicknameHint = computed(() => subscriptionHint(
+  'Никнейм также является логином — используйте его для авторизации. При активной подписке — безлимитное изменение никнейма.',
+  'Без подписки доступно 1 изменение никнейма в месяц.',
+))
+const nicknameHistoryHint = computed(() => subscriptionHint(
+  'Список всех ранее использованных никнеймов. Очистка истории удаляет прежние никнеймы, сохраняя текущий.',
+  'Очистка истории доступна только при активной подписке.',
+))
 const me = reactive({
   id: 0,
   username: '',

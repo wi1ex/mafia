@@ -286,7 +286,7 @@ const { subscriptionHint } = useSubscriptionStatus()
 const { subscriptionActive } = storeToRefs(userStore)
 const blacklistHint = computed(() => {
   const explanation = 'Вы не сможете получать от пользователей из ЧС заявки в друзья и комнаты, а также уведомления из чата.'
-  return `${explanation} ${subscriptionHint('Черный список доступен только при наличии подписки.')}`
+  return subscriptionHint(explanation, 'Черный список доступен только при активной подписке.')
 })
 const blacklistLoading = ref(false)
 const blacklistError = ref('')
