@@ -40,7 +40,9 @@
       <router-link class="home-link" :to="{ name: 'home' }" aria-label="На главную">На главную</router-link>
     </header>
 
-    <Transition name="tab-fade" mode="out-in">
+    <Transition name="tab-fade" mode="out-in"
+                enter-active-class="tab-fade-enter-active" leave-active-class="tab-fade-leave-active"
+                enter-from-class="tab-fade-enter-from" leave-to-class="tab-fade-leave-to">
       <div :key="activeTab" id="admin-tab-panel" class="tab-panel" role="tabpanel" :aria-labelledby="`admin-tab-${activeTab}`">
         <h2 class="panel-title">{{ tabTitles[activeTab] }}</h2>
         <div v-if="loading" class="loading">Загрузка...</div>
@@ -58,13 +60,13 @@
           </div>
           <article v-for="(section, sectionIndex) in sanctionRulesEditor" :key="`${section.id}-${sectionIndex}`" class="rules-editor__section">
             <div class="rules-editor__section-head">
-              <UiInput :id="`sanction-section-${sectionIndex}`" v-model="section.title" size="low" maxlength="255" :disabled="savingRules" label="Название раздела" />
+              <UiInput class="admin-input" :id="`sanction-section-${sectionIndex}`" v-model="section.title" size="low" maxlength="255" :disabled="savingRules" label="Название раздела" />
               <span class="rules-editor__anchor">Якорь: #{{ section.id }}</span>
               <UiButton variant="red" size="low" :disabled="savingRules || sanctionRulesEditor.length <= 1" @click="removeRulesSection(sectionIndex)">Удалить раздел</UiButton>
             </div>
             <div class="rules-editor__rule-list">
               <div v-for="(rule, ruleIndex) in section.rules" :key="`${section.id}-${ruleIndex}`" class="rules-editor__rule">
-                <UiInput :id="`sanction-rule-${sectionIndex}-${ruleIndex}`" v-model="rule.text" as="textarea" rows="3" size="low" maxlength="1024" :disabled="savingRules" :label="`Пункт ${ruleIndex + 1}`" />
+                <UiInput class="admin-input" :id="`sanction-rule-${sectionIndex}-${ruleIndex}`" v-model="rule.text" as="textarea" rows="3" size="low" maxlength="1024" :disabled="savingRules" :label="`Пункт ${ruleIndex + 1}`" />
                 <label class="rules-editor__badge">
                   <span>Санкция</span>
                   <select v-model="rule.badge" :disabled="savingRules">
@@ -110,29 +112,29 @@
             <div class="block">
               <h3>Платформа и модерация</h3>
               <div class="field-stack">
-                <UiInput id="admin-banner-text" size="low" v-model="site.admin_banner_text"
+                <UiInput class="admin-input" id="admin-banner-text" size="low" v-model="site.admin_banner_text"
                          autocomplete="off" :disabled="savingSettings" label="Текст баннера в хедере" />
-                <UiInput id="admin-banner-link" size="low" v-model="site.admin_banner_link"
+                <UiInput class="admin-input" id="admin-banner-link" size="low" v-model="site.admin_banner_link"
                          autocomplete="off" :disabled="savingSettings" label="Ссылка баннера в хедере" />
-                <UiInput id="donation-url" size="low" v-model="site.donation_url"
+                <UiInput class="admin-input" id="donation-url" size="low" v-model="site.donation_url"
                          autocomplete="off" inputmode="url" :disabled="savingSettings" label="Ссылка для донатов" />
-                <UiInput id="rooms-limit-global" size="low" v-model.number="site.rooms_limit_global" type="number" min="1" max="100" step="1"
+                <UiInput class="admin-input" id="rooms-limit-global" size="low" v-model.number="site.rooms_limit_global" type="number" min="1" max="100" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Общий лимит комнат" />
-                <UiInput id="rooms-limit-user" size="low" v-model.number="site.rooms_limit_per_user" type="number" min="1" max="10" step="1"
+                <UiInput class="admin-input" id="rooms-limit-user" size="low" v-model.number="site.rooms_limit_per_user" type="number" min="1" max="10" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Лимит комнат на пользователя" />
-                <UiInput id="spectators-limit" size="low" v-model.number="site.spectators_limit" type="number" min="0" max="100" step="1"
+                <UiInput class="admin-input" id="spectators-limit" size="low" v-model.number="site.spectators_limit" type="number" min="0" max="100" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Лимит зрителей в игре" />
-                <UiInput id="rooms-empty-ttl-seconds" size="low" v-model.number="site.rooms_empty_ttl_seconds" type="number" min="10" max="300" step="1"
+                <UiInput class="admin-input" id="rooms-empty-ttl-seconds" size="low" v-model.number="site.rooms_empty_ttl_seconds" type="number" min="10" max="300" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Время жизни пустой комнаты (сек)" />
-                <UiInput id="rooms-single-ttl-minutes" size="low" v-model.number="site.rooms_single_ttl_minutes" type="number" min="1" step="1"
+                <UiInput class="admin-input" id="rooms-single-ttl-minutes" size="low" v-model.number="site.rooms_single_ttl_minutes" type="number" min="1" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Кик при 1 участнике (мин)" />
-                <UiInput id="season-start-game-number" size="low" v-model="site.season_start_game_number"
+                <UiInput class="admin-input" id="season-start-game-number" size="low" v-model="site.season_start_game_number"
                          autocomplete="off" inputmode="text" :disabled="savingSettings" label="Стартовые игры сезонов (через запятую)" />
-                <UiInput id="text-moderation-whitelist" size="low" v-model="site.text_moderation_whitelist"
+                <UiInput class="admin-input" id="text-moderation-whitelist" size="low" v-model="site.text_moderation_whitelist"
                          autocomplete="off" inputmode="text" :disabled="savingSettings" label="Белый список слов (через запятую)" />
-                <UiInput id="text-moderation-blacklist" size="low" v-model="site.text_moderation_blacklist"
+                <UiInput class="admin-input" id="text-moderation-blacklist" size="low" v-model="site.text_moderation_blacklist"
                          autocomplete="off" inputmode="text" :disabled="savingSettings" label="Черный список слов (через запятую)" />
-                <UiInput id="senior-moderator-user-id" size="low" :model-value="site.senior_moderator_user_id ?? ''" type="number" min="1" step="1"
+                <UiInput class="admin-input" id="senior-moderator-user-id" size="low" :model-value="site.senior_moderator_user_id ?? ''" type="number" min="1" step="1"
                          @update:model-value="setSeniorModeratorUserId" autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Старший модератор" />
               </div>
             </div>
@@ -140,29 +142,29 @@
             <div class="block">
               <h3>Игровые настройки</h3>
               <div class="field-stack">
-                <UiInput id="game-min-ready" size="low" v-model.number="game.game_min_ready_players" type="number" min="1" step="1"
+                <UiInput class="admin-input" id="game-min-ready" size="low" v-model.number="game.game_min_ready_players" type="number" min="1" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Количество игроков для старта" />
-                <UiInput id="role-pick-seconds" size="low" v-model.number="game.role_pick_seconds" type="number" min="1" step="1"
+                <UiInput class="admin-input" id="role-pick-seconds" size="low" v-model.number="game.role_pick_seconds" type="number" min="1" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Выбор ролей (сек)" />
-                <UiInput id="mafia-talk-seconds" size="low" v-model.number="game.mafia_talk_seconds" type="number" min="1" step="1"
+                <UiInput class="admin-input" id="mafia-talk-seconds" size="low" v-model.number="game.mafia_talk_seconds" type="number" min="1" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Договорка мафии (сек)" />
-                <UiInput id="player-talk-seconds" size="low" v-model.number="game.player_talk_seconds" type="number" min="1" step="1"
+                <UiInput class="admin-input" id="player-talk-seconds" size="low" v-model.number="game.player_talk_seconds" type="number" min="1" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Речь игрока (сек)" />
-                <UiInput id="player-talk-short-seconds" size="low" v-model.number="game.player_talk_short_seconds" type="number" min="1" step="1"
+                <UiInput class="admin-input" id="player-talk-short-seconds" size="low" v-model.number="game.player_talk_short_seconds" type="number" min="1" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Речь при 3х фолах (сек)" />
-                <UiInput id="player-foul-seconds" size="low" v-model.number="game.player_foul_seconds" type="number" min="1" step="1"
+                <UiInput class="admin-input" id="player-foul-seconds" size="low" v-model.number="game.player_foul_seconds" type="number" min="1" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Фол (сек)" />
-                <UiInput id="night-action-seconds" size="low" v-model.number="game.night_action_seconds" type="number" min="1" step="1"
+                <UiInput class="admin-input" id="night-action-seconds" size="low" v-model.number="game.night_action_seconds" type="number" min="1" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Отстрелы и проверки (сек)" />
-                <UiInput id="vote-seconds" size="low" v-model.number="game.vote_seconds" type="number" min="1" step="1"
+                <UiInput class="admin-input" id="vote-seconds" size="low" v-model.number="game.vote_seconds" type="number" min="1" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Голосование (сек)" />
-                <UiInput id="winks-limit" size="low" v-model.number="game.winks_limit" type="number" min="0" step="1"
+                <UiInput class="admin-input" id="winks-limit" size="low" v-model.number="game.winks_limit" type="number" min="0" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Подмигивания (шт)" />
-                <UiInput id="knocks-limit" size="low" v-model.number="game.knocks_limit" type="number" min="0" step="1"
+                <UiInput class="admin-input" id="knocks-limit" size="low" v-model.number="game.knocks_limit" type="number" min="0" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Постукивания (шт)" />
-                <UiInput id="wink-spot-chance-percent" size="low" v-model.number="game.wink_spot_chance_percent" type="number" min="0" max="100" step="1"
+                <UiInput class="admin-input" id="wink-spot-chance-percent" size="low" v-model.number="game.wink_spot_chance_percent" type="number" min="0" max="100" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Вероятность для подмигиваний (%)" />
-                <UiInput id="game-roles-reveal-seconds" size="low" v-model.number="game.game_roles_reveal_seconds" type="number" min="1" step="1"
+                <UiInput class="admin-input" id="game-roles-reveal-seconds" size="low" v-model.number="game.game_roles_reveal_seconds" type="number" min="1" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Отображение ролей в конце игры (сек)" />
               </div>
             </div>
@@ -177,303 +179,303 @@
               <p>Тексты отображаются в деталях истории игры. В тексте технического фола <code>{count}</code> будет заменён на номер фола.</p>
               <div class="field-stack">
                 <div class="scoring-rule">
-                  <UiInput id="scoring-additional-points-min" size="low" v-model.number="scoring.additional_points_min" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-additional-points-min" size="low" v-model.number="scoring.additional_points_min" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Минимум суммы доп. баллов" />
-                  <UiInput id="scoring-additional-points-max" size="low" v-model.number="scoring.additional_points_max" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-additional-points-max" size="low" v-model.number="scoring.additional_points_max" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Максимум суммы доп. баллов" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-fourth-foul" size="low" v-model.number="scoring.fourth_foul" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-fourth-foul" size="low" v-model.number="scoring.fourth_foul" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Удаление по фолам" />
-                  <UiInput id="scoring-fourth-foul-label" size="low" v-model.trim="scoring.fourth_foul_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-fourth-foul-label" size="low" v-model.trim="scoring.fourth_foul_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-fourth-foul-lost" size="low" v-model.number="scoring.fourth_foul_lost" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-fourth-foul-lost" size="low" v-model.number="scoring.fourth_foul_lost" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Удаление по фолам на поражение" />
-                  <UiInput id="scoring-fourth-foul-lost-label" size="low" v-model.trim="scoring.fourth_foul_lost_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-fourth-foul-lost-label" size="low" v-model.trim="scoring.fourth_foul_lost_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-tech-foul" size="low" v-model.number="scoring.tech_foul" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-tech-foul" size="low" v-model.number="scoring.tech_foul" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="{count}-й тех. фол" />
-                  <UiInput id="scoring-tech-foul-label" size="low" v-model.trim="scoring.tech_foul_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-tech-foul-label" size="low" v-model.trim="scoring.tech_foul_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-second-tech-foul-lost" size="low" v-model.number="scoring.second_tech_foul_lost" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-second-tech-foul-lost" size="low" v-model.number="scoring.second_tech_foul_lost" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Удаление по тех. фолам на поражение" />
-                  <UiInput id="scoring-second-tech-foul-lost-label" size="low" v-model.trim="scoring.second_tech_foul_lost_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-second-tech-foul-lost-label" size="low" v-model.trim="scoring.second_tech_foul_lost_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-suicide" size="low" v-model.number="scoring.suicide" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-suicide" size="low" v-model.number="scoring.suicide" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Самоубийство" />
-                  <UiInput id="scoring-suicide-label" size="low" v-model.trim="scoring.suicide_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-suicide-label" size="low" v-model.trim="scoring.suicide_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-suicide-lost" size="low" v-model.number="scoring.suicide_lost" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-suicide-lost" size="low" v-model.number="scoring.suicide_lost" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Самоубийство на поражение" />
-                  <UiInput id="scoring-suicide-lost-label" size="low" v-model.trim="scoring.suicide_lost_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-suicide-lost-label" size="low" v-model.trim="scoring.suicide_lost_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-best-move-black-0" size="low" v-model.number="scoring.best_move_black_0" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-best-move-black-0" size="low" v-model.number="scoring.best_move_black_0" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Лучший ход: 0 из 3" />
-                  <UiInput id="scoring-best-move-black-0-label" size="low" v-model.trim="scoring.best_move_black_0_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-best-move-black-0-label" size="low" v-model.trim="scoring.best_move_black_0_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-best-move-black-1" size="low" v-model.number="scoring.best_move_black_1" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-best-move-black-1" size="low" v-model.number="scoring.best_move_black_1" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Лучший ход: 1 из 3" />
-                  <UiInput id="scoring-best-move-black-1-label" size="low" v-model.trim="scoring.best_move_black_1_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-best-move-black-1-label" size="low" v-model.trim="scoring.best_move_black_1_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-best-move-black-2" size="low" v-model.number="scoring.best_move_black_2" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-best-move-black-2" size="low" v-model.number="scoring.best_move_black_2" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Лучший ход: 2 из 3" />
-                  <UiInput id="scoring-best-move-black-2-label" size="low" v-model.trim="scoring.best_move_black_2_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-best-move-black-2-label" size="low" v-model.trim="scoring.best_move_black_2_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-best-move-black-3" size="low" v-model.number="scoring.best_move_black_3" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-best-move-black-3" size="low" v-model.number="scoring.best_move_black_3" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Лучший ход: 3 из 3" />
-                  <UiInput id="scoring-best-move-black-3-label" size="low" v-model.trim="scoring.best_move_black_3_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-best-move-black-3-label" size="low" v-model.trim="scoring.best_move_black_3_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-night-shoot-miss" size="low" v-model.number="scoring.night_shoot_miss" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-night-shoot-miss" size="low" v-model.number="scoring.night_shoot_miss" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Промахнувшийся черный" />
-                  <UiInput id="scoring-night-shoot-miss-label" size="low" v-model.trim="scoring.night_shoot_miss_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-night-shoot-miss-label" size="low" v-model.trim="scoring.night_shoot_miss_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-night-shoot-miss-terminal" size="low" v-model.number="scoring.night_shoot_miss_terminal" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-night-shoot-miss-terminal" size="low" v-model.number="scoring.night_shoot_miss_terminal" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Промах при гарантированной победе" />
-                  <UiInput id="scoring-night-shoot-miss-terminal-label" size="low" v-model.trim="scoring.night_shoot_miss_terminal_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-night-shoot-miss-terminal-label" size="low" v-model.trim="scoring.night_shoot_miss_terminal_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-night-self-shot-black-win-1" size="low" v-model.number="scoring.night_self_shot_black_win_1" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-night-self-shot-black-win-1" size="low" v-model.number="scoring.night_self_shot_black_win_1" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Компенсация: самострел в 1ю ночь" />
-                  <UiInput id="scoring-night-self-shot-black-win-1-label" size="low" v-model.trim="scoring.night_self_shot_black_win_1_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-night-self-shot-black-win-1-label" size="low" v-model.trim="scoring.night_self_shot_black_win_1_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-night-self-shot-black-win-2" size="low" v-model.number="scoring.night_self_shot_black_win_2" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-night-self-shot-black-win-2" size="low" v-model.number="scoring.night_self_shot_black_win_2" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Компенсация: самострел во 2ю ночь" />
-                  <UiInput id="scoring-night-self-shot-black-win-2-label" size="low" v-model.trim="scoring.night_self_shot_black_win_2_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-night-self-shot-black-win-2-label" size="low" v-model.trim="scoring.night_self_shot_black_win_2_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-sheriff-two-unobvious-black-checks" size="low" v-model.number="scoring.sheriff_two_unobvious_black_checks" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-sheriff-two-unobvious-black-checks" size="low" v-model.number="scoring.sheriff_two_unobvious_black_checks" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Две подряд чёрные проверки" />
-                  <UiInput id="scoring-sheriff-two-unobvious-black-checks-label" size="low" v-model.trim="scoring.sheriff_two_unobvious_black_checks_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-sheriff-two-unobvious-black-checks-label" size="low" v-model.trim="scoring.sheriff_two_unobvious_black_checks_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-don-missed-sheriff-two-checks" size="low" v-model.number="scoring.don_missed_sheriff_two_checks" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-don-missed-sheriff-two-checks" size="low" v-model.number="scoring.don_missed_sheriff_two_checks" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Не нашёл шерифа за две проверки" />
-                  <UiInput id="scoring-don-missed-sheriff-two-checks-label" size="low" v-model.trim="scoring.don_missed_sheriff_two_checks_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-don-missed-sheriff-two-checks-label" size="low" v-model.trim="scoring.don_missed_sheriff_two_checks_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-citizen-false-check" size="low" v-model.number="scoring.citizen_false_check" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-citizen-false-check" size="low" v-model.number="scoring.citizen_false_check" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Ложная проверка будучи мирным" />
-                  <UiInput id="scoring-citizen-false-check-label" size="low" v-model.trim="scoring.citizen_false_check_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-citizen-false-check-label" size="low" v-model.trim="scoring.citizen_false_check_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-citizen-active-version-after-death" size="low" v-model.number="scoring.citizen_active_version_after_death" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-citizen-active-version-after-death" size="low" v-model.number="scoring.citizen_active_version_after_death" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Не откатил после ухода" />
-                  <UiInput id="scoring-citizen-active-version-after-death-label" size="low" v-model.trim="scoring.citizen_active_version_after_death_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-citizen-active-version-after-death-label" size="low" v-model.trim="scoring.citizen_active_version_after_death_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-sheriff-false-check-black-win" size="low" v-model.number="scoring.sheriff_false_check_black_win" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-sheriff-false-check-black-win" size="low" v-model.number="scoring.sheriff_false_check_black_win" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Ложная проверка шерифа при победе чёрных" />
-                  <UiInput id="scoring-sheriff-false-check-black-win-label" size="low" v-model.trim="scoring.sheriff_false_check_black_win_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-sheriff-false-check-black-win-label" size="low" v-model.trim="scoring.sheriff_false_check_black_win_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-vote-opponent-team" size="low" v-model.number="scoring.vote_opponent_team" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-vote-opponent-team" size="low" v-model.number="scoring.vote_opponent_team" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Заголосовал игрока другой команды" />
-                  <UiInput id="scoring-vote-opponent-team-label" size="low" v-model.trim="scoring.vote_opponent_team_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-vote-opponent-team-label" size="low" v-model.trim="scoring.vote_opponent_team_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-vote-sheriff-nine-red" size="low" v-model.number="scoring.vote_sheriff_nine_red" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-vote-sheriff-nine-red" size="low" v-model.number="scoring.vote_sheriff_nine_red" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Снял шерифа при 9–10х будучи красным" />
-                  <UiInput id="scoring-vote-sheriff-nine-red-label" size="low" v-model.trim="scoring.vote_sheriff_nine_red_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-vote-sheriff-nine-red-label" size="low" v-model.trim="scoring.vote_sheriff_nine_red_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-vote-black-unchecked-nine-ten" size="low" v-model.number="scoring.vote_black_unchecked_nine_ten" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-vote-black-unchecked-nine-ten" size="low" v-model.number="scoring.vote_black_unchecked_nine_ten" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Заголосован вне версии при 9–10х" />
-                  <UiInput id="scoring-vote-black-unchecked-nine-ten-label" size="low" v-model.trim="scoring.vote_black_unchecked_nine_ten_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-vote-black-unchecked-nine-ten-label" size="low" v-model.trim="scoring.vote_black_unchecked_nine_ten_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-vote-sheriff-nine-black" size="low" v-model.number="scoring.vote_sheriff_nine_black" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-vote-sheriff-nine-black" size="low" v-model.number="scoring.vote_sheriff_nine_black" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Снял шерифа при 9–10х будучи черным" />
-                  <UiInput id="scoring-vote-sheriff-nine-black-label" size="low" v-model.trim="scoring.vote_sheriff_nine_black_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-vote-sheriff-nine-black-label" size="low" v-model.trim="scoring.vote_sheriff_nine_black_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-vote-red-day-one-compensation" size="low" v-model.number="scoring.vote_red_day_one_compensation" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-vote-red-day-one-compensation" size="low" v-model.number="scoring.vote_red_day_one_compensation" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Компенсация: заголосован в 1й день" />
-                  <UiInput id="scoring-vote-red-day-one-compensation-label" size="low" v-model.trim="scoring.vote_red_day_one_compensation_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-vote-red-day-one-compensation-label" size="low" v-model.trim="scoring.vote_red_day_one_compensation_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-vote-red-terminal" size="low" v-model.number="scoring.vote_red_terminal" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-vote-red-terminal" size="low" v-model.number="scoring.vote_red_terminal" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Голосование на поражение" />
-                  <UiInput id="scoring-vote-red-terminal-label" size="low" v-model.trim="scoring.vote_red_terminal_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-vote-red-terminal-label" size="low" v-model.trim="scoring.vote_red_terminal_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-vote-red-terminal-3v3" size="low" v-model.number="scoring.vote_red_terminal_3v3" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-vote-red-terminal-3v3" size="low" v-model.number="scoring.vote_red_terminal_3v3" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Голосование на 3в3" />
-                  <UiInput id="scoring-vote-red-terminal-3v3-label" size="low" v-model.trim="scoring.vote_red_terminal_3v3_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-vote-red-terminal-3v3-label" size="low" v-model.trim="scoring.vote_red_terminal_3v3_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-black-win-3v3" size="low" v-model.number="scoring.black_win_3v3" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-black-win-3v3" size="low" v-model.number="scoring.black_win_3v3" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Победа 3в3" />
-                  <UiInput id="scoring-black-win-3v3-label" size="low" v-model.trim="scoring.black_win_3v3_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-black-win-3v3-label" size="low" v-model.trim="scoring.black_win_3v3_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-black-win-2v2-1v1-alive" size="low" v-model.number="scoring.black_win_2v2_1v1_alive" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-black-win-2v2-1v1-alive" size="low" v-model.number="scoring.black_win_2v2_1v1_alive" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Победа будучи живым чёрным" />
-                  <UiInput id="scoring-black-win-2v2-1v1-alive-label" size="low" v-model.trim="scoring.black_win_2v2_1v1_alive_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-black-win-2v2-1v1-alive-label" size="low" v-model.trim="scoring.black_win_2v2_1v1_alive_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-black-win-2v2-1v1-dead" size="low" v-model.number="scoring.black_win_2v2_1v1_dead" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-black-win-2v2-1v1-dead" size="low" v-model.number="scoring.black_win_2v2_1v1_dead" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Победа будучи мертвым чёрным" />
-                  <UiInput id="scoring-black-win-2v2-1v1-dead-label" size="low" v-model.trim="scoring.black_win_2v2_1v1_dead_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-black-win-2v2-1v1-dead-label" size="low" v-model.trim="scoring.black_win_2v2_1v1_dead_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-vote-lift-same-team" size="low" v-model.number="scoring.vote_lift_same_team" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-vote-lift-same-team" size="low" v-model.number="scoring.vote_lift_same_team" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Подъём игроков своей команды" />
-                  <UiInput id="scoring-vote-lift-same-team-label" size="low" v-model.trim="scoring.vote_lift_same_team_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-vote-lift-same-team-label" size="low" v-model.trim="scoring.vote_lift_same_team_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-vote-lift-opponent-team" size="low" v-model.number="scoring.vote_lift_opponent_team" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-vote-lift-opponent-team" size="low" v-model.number="scoring.vote_lift_opponent_team" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Подъём игроков другой команды" />
-                  <UiInput id="scoring-vote-lift-opponent-team-label" size="low" v-model.trim="scoring.vote_lift_opponent_team_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-vote-lift-opponent-team-label" size="low" v-model.trim="scoring.vote_lift_opponent_team_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-nomination-black-prevents-black-win" size="low" v-model.number="scoring.nomination_black_prevents_black_win" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-nomination-black-prevents-black-win" size="low" v-model.number="scoring.nomination_black_prevents_black_win" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Выставление при гарантированной победе" />
-                  <UiInput id="scoring-nomination-black-prevents-black-win-label" size="low" v-model.trim="scoring.nomination_black_prevents_black_win_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-nomination-black-prevents-black-win-label" size="low" v-model.trim="scoring.nomination_black_prevents_black_win_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-nomination-red-last-hope" size="low" v-model.number="scoring.nomination_red_last_hope" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-nomination-red-last-hope" size="low" v-model.number="scoring.nomination_red_last_hope" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Последняя надежда" />
-                  <UiInput id="scoring-nomination-red-last-hope-label" size="low" v-model.trim="scoring.nomination_red_last_hope_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-nomination-red-last-hope-label" size="low" v-model.trim="scoring.nomination_red_last_hope_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-vote_break_red_to_red" size="low" v-model.number="scoring.vote_break_red_to_red" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-vote_break_red_to_red" size="low" v-model.number="scoring.vote_break_red_to_red" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Слом в красного будучи красным и уход" />
-                  <UiInput id="scoring-vote_break_red_to_red-label" size="low" v-model.trim="scoring.vote_break_red_to_red_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-vote_break_red_to_red-label" size="low" v-model.trim="scoring.vote_break_red_to_red_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-vote_break_red_to_red_safe" size="low" v-model.number="scoring.vote_break_red_to_red_safe" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-vote_break_red_to_red_safe" size="low" v-model.number="scoring.vote_break_red_to_red_safe" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Слом в красного будучи красным" />
-                  <UiInput id="scoring-vote_break_red_to_red_safe-label" size="low" v-model.trim="scoring.vote_break_red_to_red_safe_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-vote_break_red_to_red_safe-label" size="low" v-model.trim="scoring.vote_break_red_to_red_safe_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-vote_break_red_to_sheriff_extra" size="low" v-model.number="scoring.vote_break_red_to_sheriff_extra" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-vote_break_red_to_sheriff_extra" size="low" v-model.number="scoring.vote_break_red_to_sheriff_extra" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Слом в шерифа будучи красным" />
-                  <UiInput id="scoring-vote_break_red_to_sheriff_extra-label" size="low" v-model.trim="scoring.vote_break_red_to_sheriff_extra_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-vote_break_red_to_sheriff_extra-label" size="low" v-model.trim="scoring.vote_break_red_to_sheriff_extra_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-vote_break_red_to_black" size="low" v-model.number="scoring.vote_break_red_to_black" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-vote_break_red_to_black" size="low" v-model.number="scoring.vote_break_red_to_black" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Слом в черного будучи красным" />
-                  <UiInput id="scoring-vote_break_red_to_black-label" size="low" v-model.trim="scoring.vote_break_red_to_black_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-vote_break_red_to_black-label" size="low" v-model.trim="scoring.vote_break_red_to_black_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-vote_break_black_to_sheriff" size="low" v-model.number="scoring.vote_break_black_to_sheriff" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-vote_break_black_to_sheriff" size="low" v-model.number="scoring.vote_break_black_to_sheriff" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Слом в шерифа будучи черным" />
-                  <UiInput id="scoring-vote_break_black_to_sheriff-label" size="low" v-model.trim="scoring.vote_break_black_to_sheriff_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-vote_break_black_to_sheriff-label" size="low" v-model.trim="scoring.vote_break_black_to_sheriff_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-black-day-under-seven" size="low" v-model.number="scoring.black_day_under_seven" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-black-day-under-seven" size="low" v-model.number="scoring.black_day_under_seven" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Проход в круг при 3-6х" />
-                  <UiInput id="scoring-black-day-under-seven-label" size="low" v-model.trim="scoring.black_day_under_seven_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-black-day-under-seven-label" size="low" v-model.trim="scoring.black_day_under_seven_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-night-opinion-correct" size="low" v-model.number="scoring.night_opinion_correct" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-night-opinion-correct" size="low" v-model.number="scoring.night_opinion_correct" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Ночное мнение: верный цвет" />
-                  <UiInput id="scoring-night-opinion-correct-label" size="low" v-model.trim="scoring.night_opinion_correct_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-night-opinion-correct-label" size="low" v-model.trim="scoring.night_opinion_correct_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-night-opinion-wrong" size="low" v-model.number="scoring.night_opinion_wrong" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-night-opinion-wrong" size="low" v-model.number="scoring.night_opinion_wrong" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Ночное мнение: неверный цвет" />
-                  <UiInput id="scoring-night-opinion-wrong-label" size="low" v-model.trim="scoring.night_opinion_wrong_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-night-opinion-wrong-label" size="low" v-model.trim="scoring.night_opinion_wrong_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-night-opinion-black-named-red" size="low" v-model.number="scoring.night_opinion_black_named_red" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-night-opinion-black-named-red" size="low" v-model.number="scoring.night_opinion_black_named_red" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Оставлен красным в ночном мнении" />
-                  <UiInput id="scoring-night-opinion-black-named-red-label" size="low" v-model.trim="scoring.night_opinion_black_named_red_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-night-opinion-black-named-red-label" size="low" v-model.trim="scoring.night_opinion_black_named_red_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-farewell-red-correct" size="low" v-model.number="scoring.farewell_red_correct" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-farewell-red-correct" size="low" v-model.number="scoring.farewell_red_correct" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Завещание: верно указан красный" />
-                  <UiInput id="scoring-farewell-red-correct-label" size="low" v-model.trim="scoring.farewell_red_correct_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-farewell-red-correct-label" size="low" v-model.trim="scoring.farewell_red_correct_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-farewell-voted-correct-deduction" size="low" v-model.number="scoring.farewell_voted_correct_deduction" type="number" min="0" max="10" step="0.01"
+                  <UiInput class="admin-input" id="scoring-farewell-voted-correct-deduction" size="low" v-model.number="scoring.farewell_voted_correct_deduction" type="number" min="0" max="10" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Вычет за верный цвет после голосования" />
-                  <UiInput id="scoring-farewell-voted-correct-deduction-label" size="low" v-model.trim="scoring.farewell_voted_correct_deduction_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-farewell-voted-correct-deduction-label" size="low" v-model.trim="scoring.farewell_voted_correct_deduction_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-farewell-red-wrong" size="low" v-model.number="scoring.farewell_red_wrong" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-farewell-red-wrong" size="low" v-model.number="scoring.farewell_red_wrong" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Завещание: красный указан чёрным" />
-                  <UiInput id="scoring-farewell-red-wrong-label" size="low" v-model.trim="scoring.farewell_red_wrong_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-farewell-red-wrong-label" size="low" v-model.trim="scoring.farewell_red_wrong_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-farewell-black-correct" size="low" v-model.number="scoring.farewell_black_correct" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-farewell-black-correct" size="low" v-model.number="scoring.farewell_black_correct" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Завещание: верно указан чёрный" />
-                  <UiInput id="scoring-farewell-black-correct-label" size="low" v-model.trim="scoring.farewell_black_correct_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-farewell-black-correct-label" size="low" v-model.trim="scoring.farewell_black_correct_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-farewell-black-wrong" size="low" v-model.number="scoring.farewell_black_wrong" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-farewell-black-wrong" size="low" v-model.number="scoring.farewell_black_wrong" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Завещание: чёрный указан красным" />
-                  <UiInput id="scoring-farewell-black-wrong-label" size="low" v-model.trim="scoring.farewell_black_wrong_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-farewell-black-wrong-label" size="low" v-model.trim="scoring.farewell_black_wrong_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-farewell-black-named-red" size="low" v-model.number="scoring.farewell_black_named_red" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-farewell-black-named-red" size="low" v-model.number="scoring.farewell_black_named_red" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Оставлен красным в завещании" />
-                  <UiInput id="scoring-farewell-black-named-red-label" size="low" v-model.trim="scoring.farewell_black_named_red_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-farewell-black-named-red-label" size="low" v-model.trim="scoring.farewell_black_named_red_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
                 <div class="scoring-rule">
-                  <UiInput id="scoring-farewell-claimant-black-named-red" size="low" v-model.number="scoring.farewell_claimant_black_named_red" type="number" step="0.01"
+                  <UiInput class="admin-input" id="scoring-farewell-claimant-black-named-red" size="low" v-model.number="scoring.farewell_claimant_black_named_red" type="number" step="0.01"
                          autocomplete="off" inputmode="decimal" :disabled="savingScoring" label="Оставлен приоритетной версией" />
-                  <UiInput id="scoring-farewell-claimant-black-named-red-label" size="low" v-model.trim="scoring.farewell_claimant_black_named_red_label" maxlength="255"
+                  <UiInput class="admin-input" id="scoring-farewell-claimant-black-named-red-label" size="low" v-model.trim="scoring.farewell_claimant_black_named_red_label" maxlength="255"
                          autocomplete="off" :disabled="savingScoring" label="Текст в истории" />
                 </div>
               </div>
@@ -492,8 +494,8 @@
             <div class="block updates-notice-block">
               <h3>Уведомление пользователям</h3>
               <div class="field-stack">
-                <UiInput size="low" id="update-notice-title" v-model.trim="updateNoticeForm.title" type="text" autocomplete="off" :disabled="updateNoticeSaving" label="Название" />
-                <UiInput size="low" id="update-notice-text" v-model="updateNoticeForm.text" as="textarea" rows="7" :disabled="updateNoticeSaving" label="Текст" class="update-notice-textarea" />
+                <UiInput class="admin-input" size="low" id="update-notice-title" v-model.trim="updateNoticeForm.title" type="text" autocomplete="off" :disabled="updateNoticeSaving" label="Название" />
+                <UiInput size="low" id="update-notice-text" v-model="updateNoticeForm.text" as="textarea" rows="7" :disabled="updateNoticeSaving" label="Текст" class="admin-input update-notice-textarea" />
               </div>
               <div v-if="updateNoticeForm.title.trim() || updateNoticeTextPreview" class="update-notice-preview">
                 <article class="update-notice-preview-item">
@@ -567,7 +569,7 @@
                 <span class="label">Онлайн текущий</span>
                 <div class="tooltip" tabindex="0" @mouseenter="showTooltip" @mouseleave="hideTooltip" @focusin="showTooltip" @focusout="hideTooltip" @keydown.esc="hideTooltip">
                   <span class="value tooltip-value">{{ stats.online_users }}</span>
-                  <div class="tooltip-body" popover="manual" role="tooltip" @mouseenter="keepTooltipOpen" @mouseleave="hideTooltip">
+                  <div class="tooltip-body" v-bind="{ popover: 'manual' }" role="tooltip" @mouseenter="keepTooltipOpen" @mouseleave="hideTooltip">
                     <div v-if="stats.online_users_list.length === 0" class="tooltip-empty">Нет данных</div>
                     <div v-else class="tooltip-list">
                       <div v-for="item in stats.online_users_list" :key="`online-${item.id}`" class="tooltip-row">
@@ -602,7 +604,7 @@
             <div class="chart">
               <div class="filters">
                 <div class="field">
-                  <UiInput size="low" id="stats-month" v-model="statsMonth" type="month" label="Отобразить за" :disabled="statsLoading" />
+                  <UiInput class="admin-input" size="low" id="stats-month" v-model="statsMonth" type="month" label="Отобразить за" :disabled="statsLoading" />
                 </div>
               </div>
               <div class="stats-grid">
@@ -733,10 +735,10 @@
         <div v-else-if="activeTab === 'logs'" class="logs-tab">
           <div class="filters">
             <div class="field">
-              <UiInput size="low" id="logs-user" v-model.trim="logsUser" label="Поиск" :disabled="logsLoading" />
+              <UiInput class="admin-input" size="low" id="logs-user" v-model.trim="logsUser" label="Поиск" :disabled="logsLoading" />
             </div>
             <div class="field">
-              <UiInput size="low" id="logs-day" v-model="logsDay" type="date" label="Дата" :disabled="logsLoading" />
+              <UiInput class="admin-input" size="low" id="logs-day" v-model="logsDay" type="date" label="Дата" :disabled="logsLoading" />
             </div>
             <div class="field">
               <label for="admin-logs-action">Событие</label>
@@ -800,7 +802,7 @@
         <div v-else-if="activeTab === 'rooms'" class="rooms-tab">
           <div class="filters">
             <div class="field">
-              <UiInput size="low" id="rooms-user" v-model.trim="roomsUser" label="Поиск" :disabled="roomsLoading" />
+              <UiInput class="admin-input" size="low" id="rooms-user" v-model.trim="roomsUser" label="Поиск" :disabled="roomsLoading" />
             </div>
             <div class="field">
               <label for="admin-rooms-filter">Фильтры</label>
@@ -856,7 +858,7 @@
                   <td>
                     <div class="tooltip" tabindex="0" @mouseenter="showTooltip" @mouseleave="hideTooltip" @focusin="showTooltip" @focusout="hideTooltip" @keydown.esc="hideTooltip">
                       <span class="tooltip-value">{{ row.visitors_count }}</span>
-                      <div class="tooltip-body" popover="manual" role="tooltip" @mouseenter="keepTooltipOpen" @mouseleave="hideTooltip">
+                      <div class="tooltip-body" v-bind="{ popover: 'manual' }" role="tooltip" @mouseenter="keepTooltipOpen" @mouseleave="hideTooltip">
                         <div v-if="row.visitors.length === 0" class="tooltip-empty">Нет данных</div>
                         <div v-else class="tooltip-list">
                           <div v-for="item in row.visitors" :key="`visitor-${row.id}-${item.id}`" class="tooltip-row">
@@ -873,7 +875,7 @@
                   <td>
                     <div class="tooltip" tabindex="0" @mouseenter="showTooltip" @mouseleave="hideTooltip" @focusin="showTooltip" @focusout="hideTooltip" @keydown.esc="hideTooltip">
                       <span class="tooltip-value">{{ formatMinutes(row.stream_minutes) }}</span>
-                      <div class="tooltip-body" popover="manual" role="tooltip" @mouseenter="keepTooltipOpen" @mouseleave="hideTooltip">
+                      <div class="tooltip-body" v-bind="{ popover: 'manual' }" role="tooltip" @mouseenter="keepTooltipOpen" @mouseleave="hideTooltip">
                         <div v-if="row.streamers.length === 0" class="tooltip-empty">Нет данных</div>
                         <div v-else class="tooltip-list">
                           <div v-for="item in row.streamers" :key="`stream-${row.id}-${item.id}`" class="tooltip-row">
@@ -890,7 +892,7 @@
                   <td>
                     <div v-if="roomGamesTooltipEnabled" class="tooltip" tabindex="0" @mouseenter="showTooltip" @mouseleave="hideTooltip" @focusin="showTooltip" @focusout="hideTooltip" @keydown.esc="hideTooltip">
                       <span class="tooltip-value">{{ row.games.length }}</span>
-                      <div class="tooltip-body" popover="manual" role="tooltip" @mouseenter="keepTooltipOpen" @mouseleave="hideTooltip">
+                      <div class="tooltip-body" v-bind="{ popover: 'manual' }" role="tooltip" @mouseenter="keepTooltipOpen" @mouseleave="hideTooltip">
                         <div v-if="row.games.length === 0" class="tooltip-empty">Нет данных</div>
                         <div v-else class="tooltip-list">
                           <div v-for="item in row.games" :key="`game-${row.id}-${item.result}-${item.number}`" class="tooltip-row">
@@ -907,7 +909,7 @@
                   <td>
                     <div class="tooltip" tabindex="0" @mouseenter="showTooltip" @mouseleave="hideTooltip" @focusin="showTooltip" @focusout="hideTooltip" @keydown.esc="hideTooltip">
                       <span class="tooltip-value">{{ row.spectators_count }}</span>
-                      <div class="tooltip-body" popover="manual" role="tooltip" @mouseenter="keepTooltipOpen" @mouseleave="hideTooltip">
+                      <div class="tooltip-body" v-bind="{ popover: 'manual' }" role="tooltip" @mouseenter="keepTooltipOpen" @mouseleave="hideTooltip">
                         <div v-if="row.spectators.length === 0" class="tooltip-empty">Нет данных</div>
                         <div v-else class="tooltip-list">
                           <div v-for="item in row.spectators" :key="`spectator-${row.id}-${item.id}`" class="tooltip-row">
@@ -939,7 +941,7 @@
         <div v-else-if="activeTab === 'users'" class="users-tab">
           <div class="filters">
             <div class="field">
-              <UiInput size="low" id="users-user" v-model.trim="usersUser" label="Поиск" :disabled="usersLoading" />
+              <UiInput class="admin-input" size="low" id="users-user" v-model.trim="usersUser" label="Поиск" :disabled="usersLoading" />
             </div>
             <div class="field">
               <label for="admin-users-limit">Отображать по</label>
@@ -1079,7 +1081,7 @@
         <div v-else-if="activeTab === 'sanctions'" class="sanctions-tab">
           <div class="filters">
             <div class="field">
-              <UiInput size="low" id="sanctions-user" v-model.trim="sanctionsUser" label="Поиск" :disabled="sanctionsLoading" />
+              <UiInput class="admin-input" size="low" id="sanctions-user" v-model.trim="sanctionsUser" label="Поиск" :disabled="sanctionsLoading" />
             </div>
             <div class="field">
               <label for="admin-sanctions-limit">Отображать по</label>
@@ -1124,7 +1126,7 @@
                   </td>
                   <td>{{ formatSanctionKindLabel(row.kind) }}</td>
                   <td>
-                    <span class="status-badge" :class="sanctionStatusClass(row.status)">{{ formatSanctionStatusLabel(row.status) }}</span>
+                    <span class="status-badge" :data-status="row.status">{{ formatSanctionStatusLabel(row.status) }}</span>
                   </td>
                   <td>{{ formatLocalDateTime(row.issued_at) }}</td>
                   <td>{{ row.finished_at ? formatLocalDateTime(row.finished_at) : '-' }}</td>
@@ -1179,7 +1181,7 @@
         <div v-else-if="activeTab === 'contact_requests'" class="contact-requests-tab">
           <div class="filters">
             <div class="field">
-              <UiInput size="low" id="contact-requests-user" v-model.trim="contactRequestsUser" label="Поиск" :disabled="contactRequestsLoading" />
+              <UiInput class="admin-input" size="low" id="contact-requests-user" v-model.trim="contactRequestsUser" label="Поиск" :disabled="contactRequestsLoading" />
             </div>
             <div class="field">
               <label for="admin-contact-requests-limit">Отображать по</label>
@@ -1286,7 +1288,7 @@
                   </td>
                   <td>{{ formatLocalDateTime(row.starts_at) }}</td>
                   <td>{{ formatLocalDateTime(row.ends_at) }}</td>
-                  <td><span class="status-badge" :class="row.is_active ? 'status-active' : 'status-expired'">{{ row.is_active ? 'Активна' : 'Истекла' }}</span></td>
+                  <td><span class="status-badge" :data-status="row.is_active ? 'active' : 'expired_auto'">{{ row.is_active ? 'Активна' : 'Истекла' }}</span></td>
                   <td>
                     <div class="subscription-theme-preview">
                       <span class="subscription-theme-chip" :style="subscriptionThemeStyle(row.profile_theme_color)"></span>
@@ -2742,12 +2744,6 @@ function formatSanctionStatusLabel(status: SanctionListStatus): string {
   return 'Снята'
 }
 
-function sanctionStatusClass(status: SanctionListStatus): string {
-  if (status === 'active') return 'status-active'
-  if (status === 'expired_auto') return 'status-expired'
-  return 'status-revoked'
-}
-
 function openUserMiniProfile(row: UserMiniProfileTarget): void {
   userMiniProfileTarget.value = row
   userMiniProfileOpen.value = true
@@ -3109,7 +3105,10 @@ async function saveSanctionRules(): Promise<void> {
   savingRules.value = true
   try {
     const { data } = await api.patch('/admin/sanction-rules', { sections })
-    if (!settingsStore.applySanctionRulesPayload(data)) throw new Error('invalid_sanction_rules_response')
+    if (!settingsStore.applySanctionRulesPayload(data)) {
+      void alertDialog('Не удалось сохранить правила')
+      return
+    }
     syncSanctionRulesEditor()
     void alertDialog('Правила сохранены')
   } catch {
@@ -4262,481 +4261,6 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped lang="scss">
-@mixin card {
-  min-width: 0;
-  padding: 24px;
-  border-radius: 24px;
-  background-color: $soft-purple-900;
-}
-@mixin title {
-  margin: 0;
-  color: $neutral-white;
-  font-family: Involve-Medium;
-  font-weight: 500;
-  font-size: 20px;
-  line-height: 24px;
-  letter-spacing: -0.4px;
-}
-@mixin fields($background: $soft-purple-900) {
-  :deep(.ui-input) {
-    min-width: 0;
-    --ui-input-label-bg: #{$background};
-    input,
-    textarea {
-      box-sizing: content-box;
-      color-scheme: dark;
-    }
-  }
-}
-@mixin select-control {
-  box-sizing: border-box;
-  min-width: 0;
-  height: 40px;
-  padding: 0 12px;
-  border: 1px solid $soft-purple-700;
-  border-radius: 12px;
-  background-color: $soft-purple-900;
-  color: $neutral-100;
-  font: inherit;
-  cursor: pointer;
-  color-scheme: dark;
-  transition: border-color 0.2s ease-in-out;
-  &:hover,
-  &:focus-visible {
-    border-color: $green-500;
-    outline: none;
-  }
-  &:disabled {
-    opacity: 0.5;
-    cursor: default;
-  }
-}
-@mixin scrollbar {
-  scrollbar-width: thin;
-  scrollbar-color: $soft-purple-700 transparent;
-}
-@mixin tooltip {
-  display: inline-flex;
-  align-items: center;
-  width: fit-content;
-  cursor: help;
-  outline: none;
-  .tooltip-value {
-    border-bottom: 1px dashed $green-500;
-    transition: color 0.2s ease-in-out;
-  }
-  &:hover,
-  &:focus-visible {
-    .tooltip-value {
-      color: $green-300;
-    }
-  }
-  .tooltip-body {
-    @include scrollbar;
-    position: fixed;
-    inset: auto;
-    box-sizing: border-box;
-    width: 320px;
-    max-height: 240px;
-    margin: 0;
-    padding: 16px;
-    overflow: auto;
-    border: 1px solid $soft-purple-600;
-    border-radius: 16px;
-    background-color: $soft-purple-800;
-    color: $neutral-100;
-    font-size: 14px;
-    line-height: 20px;
-    box-shadow: 0 8px 32px rgba($neutral-black, 0.3);
-    .tooltip-empty {
-      color: $neutral-300;
-    }
-    .tooltip-list {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      .tooltip-row {
-        display: flex;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: 8px;
-        overflow-wrap: anywhere;
-        .tooltip-avatar {
-          width: 24px;
-          height: 24px;
-          border-radius: 50%;
-          object-fit: cover;
-          flex: 0 0 auto;
-        }
-        .user-cell {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          min-width: 0;
-          .tooltip-avatar {
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            object-fit: cover;
-            flex: 0 0 auto;
-          }
-        }
-        .tooltip-id,
-        .tooltip-minutes {
-          color: $neutral-300;
-        }
-      }
-    }
-  }
-}
-@mixin status-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 6px 10px;
-  border-radius: 999px;
-  font-size: 13px;
-  line-height: 18px;
-  white-space: nowrap;
-  &.status-active {
-    background-color: rgba($green-500, 0.15);
-    color: $green-300;
-  }
-  &.status-expired {
-    background-color: rgba($yellow-500, 0.15);
-    color: $yellow-300;
-  }
-  &.status-revoked {
-    background-color: rgba($red-500, 0.15);
-    color: $red-200;
-  }
-}
-@mixin filters {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 16px;
-  padding: 20px;
-  border-radius: 20px;
-  background-color: $soft-purple-800;
-  .field {
-    @include fields($soft-purple-800);
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    width: 200px;
-    min-width: 0;
-    label {
-      color: $neutral-300;
-      font-size: 14px;
-      line-height: 16px;
-    }
-    select {
-      @include select-control;
-      width: 100%;
-    }
-  }
-  .logs-auto-refresh-actions {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    height: 40px;
-  }
-}
-@mixin table {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  color: $neutral-100;
-  font-size: 14px;
-  line-height: 20px;
-  thead {
-    tr {
-      th {
-        position: sticky;
-        top: 0;
-        z-index: 1;
-        padding: 16px;
-        border-bottom: 1px solid $soft-purple-700;
-        background-color: $soft-purple-800;
-        color: $neutral-300;
-        font-weight: 400;
-        text-align: left;
-        white-space: nowrap;
-        .table-sort {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          padding: 0;
-          border: none;
-          background: transparent;
-          color: inherit;
-          font: inherit;
-          cursor: pointer;
-          outline: none;
-          transition: color 0.2s ease-in-out;
-          span {
-            opacity: 0.5;
-          }
-          &:hover,
-          &:focus-visible,
-          &.active {
-            color: $green-300;
-            span {
-              opacity: 1;
-            }
-          }
-        }
-      }
-    }
-  }
-  tbody {
-    tr {
-      transition: background-color 0.2s ease-in-out;
-      &:hover {
-        background-color: rgba($soft-purple-700, 0.35);
-      }
-      &:last-child {
-        td {
-          border-bottom: none;
-        }
-      }
-      td {
-        padding: 16px;
-        border-bottom: 1px solid $soft-purple-700;
-        vertical-align: middle;
-        white-space: nowrap;
-        &.muted {
-          padding: 40px 16px;
-          color: $neutral-300;
-          text-align: center;
-        }
-        .user-cell {
-          display: inline-flex;
-          align-items: center;
-          .user-profile-trigger {
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            min-width: 0;
-            padding: 0;
-            border: none;
-            background: transparent;
-            color: $neutral-white;
-            font: inherit;
-            text-align: left;
-            cursor: pointer;
-            outline: none;
-            transition: color 0.2s ease-in-out;
-            &:hover,
-            &:focus-visible {
-              color: $green-300;
-            }
-            &:disabled {
-              color: $neutral-300;
-              cursor: default;
-            }
-            .user-avatar {
-              width: 32px;
-              height: 32px;
-              border-radius: 50%;
-              object-fit: cover;
-              flex: 0 0 auto;
-            }
-          }
-        }
-        .tooltip {
-          @include tooltip;
-        }
-        .status-badge {
-          @include status-badge;
-        }
-      }
-    }
-  }
-}
-@mixin table-wrap {
-  @include scrollbar;
-  min-width: 0;
-  max-height: 640px;
-  overflow: auto;
-  border-radius: 20px;
-  background-color: $soft-purple-800;
-  .table {
-    @include table;
-  }
-}
-@mixin list-tab {
-  @include card;
-  display: flex;
-  flex: 1;
-  min-height: 0;
-  flex-direction: column;
-  gap: 20px;
-  .filters {
-    @include filters;
-    flex: 0 0 auto;
-  }
-  .list-results {
-    display: flex;
-    flex: 1;
-    min-height: 0;
-    flex-direction: column;
-    gap: 20px;
-    min-width: 0;
-    .table-wrap {
-      @include table-wrap;
-      flex: 1;
-      min-height: 0;
-      max-height: none;
-    }
-    .pager {
-      display: flex;
-      flex: 0 0 auto;
-      align-items: center;
-      justify-content: center;
-      gap: 16px;
-      color: $neutral-300;
-      span {
-        min-width: 70px;
-        text-align: center;
-      }
-    }
-  }
-}
-@mixin stat-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-  .stat-card {
-    @include card;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    .label {
-      color: $neutral-300;
-      font-size: 14px;
-      line-height: 20px;
-    }
-    .value {
-      color: $green-500;
-      font-family: Involve-Medium;
-      font-size: 24px;
-      line-height: 28px;
-      letter-spacing: -0.48px;
-      overflow-wrap: anywhere;
-    }
-    .tooltip {
-      @include tooltip;
-    }
-  }
-}
-@mixin chart-body {
-  display: flex;
-  gap: 12px;
-  min-width: 0;
-  margin-top: 20px;
-  .chart-axis {
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    flex: 0 0 auto;
-    height: 184px;
-    padding-top: 10px;
-    color: $neutral-300;
-    font-size: 11px;
-    line-height: 14px;
-    text-align: right;
-  }
-  .chart-grid {
-    display: flex;
-    flex: 1;
-    align-items: flex-end;
-    gap: 3px;
-    height: 220px;
-    min-width: 0;
-    background: repeating-linear-gradient(to top, transparent 0, transparent 45px, rgba($soft-purple-600, 0.3) 46px, transparent 47px);
-    .chart-bar {
-      position: relative;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: flex-end;
-      flex: 1;
-      gap: 8px;
-      height: 100%;
-      min-width: 0;
-      border-radius: 6px;
-      cursor: help;
-      outline: none;
-      .bar {
-        width: 100%;
-        min-height: 3px;
-        border-radius: 5px 5px 0 0;
-        background: linear-gradient(to top, $green-700, $green-500);
-        transition: height 0.25s ease-in-out, background-color 0.2s ease-in-out;
-        .bar-value {
-          position: absolute;
-          top: 0;
-          left: 50%;
-          z-index: 2;
-          padding: 6px 10px;
-          border: 1px solid $soft-purple-600;
-          border-radius: 8px;
-          background-color: $soft-purple-900;
-          color: $neutral-white;
-          font-size: 12px;
-          line-height: 16px;
-          white-space: nowrap;
-          opacity: 0;
-          pointer-events: none;
-          transform: translateX(-50%);
-          transition: opacity 0.2s ease-in-out;
-        }
-      }
-      .bar-label {
-        height: 14px;
-        color: $neutral-300;
-        font-size: 10px;
-        line-height: 14px;
-        white-space: nowrap;
-        visibility: hidden;
-      }
-      &:first-child {
-        .bar {
-          .bar-value {
-            left: 0;
-            transform: none;
-          }
-        }
-      }
-      &:last-child {
-        .bar {
-          .bar-value {
-            left: auto;
-            right: 0;
-            transform: none;
-          }
-        }
-      }
-      &:nth-child(5n),
-      &:first-child,
-      &:last-child {
-        .bar-label {
-          visibility: visible;
-        }
-      }
-      &:hover,
-      &:focus-visible {
-        .bar {
-          background: $green-300;
-          .bar-value {
-            opacity: 1;
-          }
-        }
-      }
-    }
-  }
-}
 .admin {
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr);
@@ -4752,656 +4276,930 @@ onBeforeUnmount(() => {
   font-size: 16px;
   line-height: 22px;
   user-select: text;
-  header {
-    @include card;
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
-    padding: 24px 16px;
-    h1 {
-      @include title;
-      padding: 0 8px;
-    }
-    .tabs {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      .tab {
-        display: flex;
-        align-items: center;
-        width: 100%;
-        min-height: 40px;
-        padding: 10px 16px;
-        border: none;
-        border-radius: 12px;
-        background-color: transparent;
-        color: $neutral-300;
-        font: inherit;
-        line-height: 20px;
-        text-align: left;
-        cursor: pointer;
-        outline: none;
-        transition: color 0.2s ease-in-out, background-color 0.2s ease-in-out;
-        &:hover,
-        &:focus-visible {
-          background-color: $soft-purple-800;
-          color: $neutral-white;
-        }
-        &.active {
-          background-color: $green-500;
-          color: $neutral-black;
-        }
-      }
-    }
-    .home-link {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 40px;
-      border: 1px solid $soft-purple-700;
-      border-radius: 12px;
-      color: $neutral-100;
-      text-decoration: none;
-      outline: none;
-      transition: color 0.2s ease-in-out, border-color 0.2s ease-in-out;
-      &:hover,
-      &:focus-visible {
-        border-color: $green-500;
-        color: $green-300;
-      }
-    }
-  }
-  .tab-panel {
-    @include scrollbar;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    align-self: stretch;
-    min-width: 0;
-    min-height: 0;
-    padding-right: 4px;
-    overflow: auto;
-    .panel-title {
-      @include title;
-      flex: 0 0 auto;
-      padding: 0 24px;
-      font-size: 24px;
-      line-height: 28px;
-      letter-spacing: -0.48px;
-    }
-    .loading {
-      @include card;
-      color: $neutral-300;
-    }
-    .settings-tab {
-      .grid {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        align-items: start;
-        gap: 10px;
-        .block {
-          @include card;
-          display: flex;
-          flex-direction: column;
-          gap: 24px;
-          h3 {
-            @include title;
-          }
-          :deep(.switch-item) {
-            min-width: 0;
-            .switch-label {
-              font-size: 14px;
-              line-height: 18px;
-            }
-          }
-          .field-stack {
-            @include fields;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-          }
-          .bulk-admin-actions {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-          }
-        }
-      }
-    }
-    .scoring-tab {
-      .grid {
-        .scoring-block {
-          @include card;
-          display: flex;
-          flex-direction: column;
-          gap: 20px;
-          h3 {
-            @include title;
-          }
-          p {
-            margin: 0;
-            color: $neutral-300;
-            font-size: 14px;
-            line-height: 20px;
-            code {
-              color: $green-300;
-            }
-          }
-          .field-stack {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            .scoring-rule {
-              @include fields($soft-purple-800);
-              display: grid;
-              grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.4fr);
-              align-items: start;
-              gap: 24px;
-              padding: 20px;
-              border-radius: 20px;
-              background-color: $soft-purple-800;
-            }
-          }
-          .bulk-admin-actions {
-            position: sticky;
-            bottom: 0;
-            z-index: 3;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            padding: 16px;
-            border: 1px solid $soft-purple-700;
-            border-radius: 20px;
-            background-color: $soft-purple-900;
-            box-shadow: 0 -8px 24px rgba($neutral-black, 0.12);
-          }
-        }
-      }
-    }
-    .rules-editor {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      .rules-editor__toolbar {
-        @include card;
-        display: flex;
-        flex-direction: column;
-        gap: 20px;
-        p {
-          margin: 0;
-          color: $neutral-300;
-          font-size: 14px;
-          line-height: 20px;
-        }
-        .rules-editor__actions {
-          display: flex;
-          align-items: center;
-          flex-wrap: wrap;
-          gap: 12px;
-        }
-      }
-      .rules-editor__section {
-        @include card;
-        display: flex;
-        flex-direction: column;
-        gap: 20px;
-        .rules-editor__section-head {
-          @include fields;
-          display: flex;
-          align-items: center;
-          gap: 16px;
-          :deep(.ui-input) {
-            flex: 1;
-          }
-          .rules-editor__anchor {
-            color: $neutral-300;
-            font-size: 13px;
-            white-space: nowrap;
-          }
-        }
-        .rules-editor__rule-list {
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-          .rules-editor__rule {
-            @include fields($soft-purple-800);
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            padding: 20px;
-            border-radius: 20px;
-            background-color: $soft-purple-800;
-            :deep(.ui-input) {
-              flex: 1;
-            }
-            .rules-editor__badge {
-              display: flex;
-              flex-direction: column;
-              gap: 8px;
-              width: 160px;
-              color: $neutral-300;
-              font-size: 14px;
-              select {
-                @include select-control;
-              }
-            }
-          }
-        }
-      }
-    }
-    .updates-tab {
-      .updates-notice-grid {
-        display: grid;
-        grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
-        align-items: start;
-        gap: 10px;
-        .updates-notice-block {
-          @include card;
-          display: flex;
-          flex-direction: column;
-          gap: 24px;
-          h3 {
-            @include title;
-          }
-          .field-stack {
-            @include fields;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-            :deep(.update-notice-textarea) {
-              textarea {
-                min-height: 200px;
-              }
-            }
-          }
-          .update-notice-preview {
-            width: 440px;
-            max-width: 100%;
-            padding: 8px;
-            box-sizing: border-box;
-            border-radius: 24px;
-            background-color: $neutral-100;
-            box-shadow: 0 0 16px rgba($neutral-black, 0.16);
-            .update-notice-preview-item {
-              display: flex;
-              flex-direction: column;
-              gap: 8px;
-              padding: 16px;
-              border-radius: 20px;
-              transition: background-color 0.25s ease-in-out;
-              &:hover {
-                background-color: $neutral-white;
-              }
-              .update-notice-preview-header {
-                display: flex;
-                align-items: flex-start;
-                justify-content: space-between;
-                gap: 16px;
-                .update-notice-preview-title {
-                  display: flex;
-                  gap: 8px;
-                  min-width: 0;
-                  .update-notice-preview-icon {
-                    flex: 0 0 auto;
-                    --ui-icon-width: 20px;
-                    --ui-icon-height: 20px;
-                    --ui-icon-color: #{$neutral-400};
-                  }
-                  span {
-                    color: $neutral-black;
-                    font-family: Hauora-Bold;
-                    font-size: 16px;
-                    line-height: 18px;
-                    letter-spacing: -0.32px;
-                    overflow-wrap: anywhere;
-                  }
-                }
-                time {
-                  flex: 0 0 auto;
-                  color: $neutral-500;
-                  font-size: 14px;
-                  line-height: 14px;
-                  letter-spacing: -0.28px;
-                }
-              }
-              .update-notice-preview-text {
-                margin-left: 28px;
-                color: $neutral-900;
-                font-size: 16px;
-                line-height: 22px;
-                letter-spacing: -0.32px;
-                overflow-wrap: anywhere;
-                .notification-text-paragraph,
-                .notification-text-list {
-                  margin: 0;
-                  & + .notification-text-paragraph,
-                  & + .notification-text-list {
-                    margin-top: 8px;
-                  }
-                }
-                .notification-text-list {
-                  padding-left: 20px;
-                  li {
-                    & + li {
-                      margin-top: 4px;
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-        .home-carousel-banner-block {
-          @include card;
-          display: flex;
-          flex-direction: column;
-          gap: 20px;
-          h2 {
-            @include title;
-          }
-          .home-carousel-banner-hint {
-            margin: 0;
-            color: $neutral-300;
-            font-size: 14px;
-            line-height: 20px;
-          }
-          .home-carousel-banner-input {
-            position: absolute;
-            width: 1px;
-            height: 1px;
-            overflow: hidden;
-            clip-path: inset(50%);
-            white-space: nowrap;
-          }
-          .home-carousel-banner-preview {
-            width: 100%;
-            aspect-ratio: 607 / 494;
-            overflow: hidden;
-            border-radius: 20px;
-            background-color: $soft-purple-800;
-            img {
-              display: block;
-              width: 100%;
-              height: 100%;
-              object-fit: cover;
-            }
-          }
-          .home-carousel-banner-actions {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-          }
-        }
-      }
-    }
-    .stats-tab {
-      .stats {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        .stats-grid {
-          @include stat-grid;
-        }
-        .chart {
-          @include card;
-          display: flex;
-          flex-direction: column;
-          gap: 20px;
-          .filters {
-            @include filters;
-          }
-          .stats-grid {
-            @include stat-grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            .stat-card {
-              padding: 20px;
-              border-radius: 20px;
-              background-color: $soft-purple-800;
-            }
-          }
-          .stats-daily-grid {
-            display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 10px;
-            .stats-daily-block {
-              min-width: 0;
-              padding: 20px;
-              border-radius: 20px;
-              background-color: $soft-purple-800;
-              .stats-mini-title {
-                @include title;
-                min-height: 48px;
-                font-size: 16px;
-                line-height: 22px;
-              }
-              .muted {
-                padding: 40px 0;
-                color: $neutral-300;
-              }
-              .chart-body {
-                @include chart-body;
-              }
-            }
-          }
-        }
-        .stats-monthly-grid {
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 10px;
-          .chart {
-            @include card;
-            .stats-mini-title {
-              @include title;
-              min-height: 48px;
-              font-size: 16px;
-              line-height: 22px;
-            }
-            .muted {
-              padding: 40px 0;
-              color: $neutral-300;
-            }
-            .chart-body {
-              @include chart-body;
-              .chart-grid {
-                gap: 8px;
-                .chart-bar {
-                  .bar-label {
-                    visibility: visible;
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-    .logs-tab {
-      @include list-tab;
-      .filters {
-        .field {
-          width: 180px;
-        }
-      }
-      .list-results {
-        .table-wrap {
-          .logs-table {
-            min-width: 950px;
-            tbody {
-              tr {
-                td:last-child {
-                  min-width: 300px;
-                  max-width: 520px;
-                  white-space: pre-wrap;
-                  overflow-wrap: anywhere;
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-    .rooms-tab {
-      @include list-tab;
-      .list-results {
-        .table-wrap {
-          .rooms-table {
-            min-width: 1650px;
-          }
-        }
-      }
-    }
-    .users-tab {
-      @include list-tab;
-      .list-results {
-        .table-wrap {
-          .users-table {
-            min-width: 2300px;
-          }
-        }
-      }
-    }
-    .sanctions-tab {
-      @include list-tab;
-      .list-results {
-        .table-wrap {
-          .sanctions-table {
-            min-width: 2400px;
-            tbody {
-              tr {
-                td {
-                  &.rule-cell {
-                    min-width: 280px;
-                    select {
-                      @include select-control;
-                      width: 280px;
-                    }
-                  }
-                  &.description-cell {
-                    min-width: 260px;
-                    max-width: 400px;
-                    white-space: pre-wrap;
-                    overflow-wrap: anywhere;
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-    .contact-requests-tab {
-      @include list-tab;
-      .list-results {
-        .table-wrap {
-          .contact-requests-table {
-            min-width: 2000px;
-            tbody {
-              tr {
-                td {
-                  &.contact-cell,
-                  &.topic-cell,
-                  &.text-cell {
-                    min-width: 200px;
-                    max-width: 400px;
-                    white-space: pre-wrap;
-                    overflow-wrap: anywhere;
-                  }
-                  &.replies-cell {
-                    min-width: 280px;
-                    max-width: 400px;
-                    white-space: normal;
-                    overflow-wrap: anywhere;
-                    .contact-reply {
-                      & + .contact-reply {
-                        margin-top: 16px;
-                        padding-top: 16px;
-                        border-top: 1px solid $soft-purple-700;
-                      }
-                      .contact-reply__meta {
-                        margin-bottom: 8px;
-                        color: $neutral-300;
-                        font-size: 13px;
-                        line-height: 18px;
-                      }
-                      .contact-reply__text {
-                        white-space: pre-wrap;
-                      }
-                    }
-                    .muted {
-                      color: $neutral-300;
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-    .subscriptions-tab {
-      .subscription-table-block {
-        @include card;
-        display: flex;
-        flex-direction: column;
-        gap: 24px;
-        .subscription-heading {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 16px;
-          h3 {
-            @include title;
-          }
-        }
-        .table-wrap {
-          @include table-wrap;
-          .subscriptions-table {
-            min-width: 1250px;
-            tbody {
-              tr {
-                td {
-                  .subscription-theme-preview {
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                    .subscription-theme-chip {
-                      width: 30px;
-                      height: 30px;
-                      border-radius: 50%;
-                      background-color: var(--user-theme-bg, $soft-purple-800);
-                    }
-                    .subscription-theme-icons {
-                      display: flex;
-                      align-items: center;
-                      gap: 8px;
-                      .subscription-theme-icon {
-                        width: 30px;
-                        height: 30px;
-                        object-fit: contain;
-                      }
-                    }
-                  }
-                  .subscription-actions {
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }
 }
-
-.tab-fade-enter-active,
-.tab-fade-leave-active {
+.admin header {
+  min-width: 0;
+  border-radius: 24px;
+  background-color: $soft-purple-900;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 24px 16px;
+}
+.admin header h1,
+.admin .panel-title,
+.admin .settings-tab .block h3,
+.admin .scoring-block h3,
+.admin .updates-notice-block h3,
+.admin .home-carousel-banner-block h2,
+.admin .subscriptions-tab .subscription-table-block .subscription-heading h3,
+.admin .stats-mini-title {
+  margin: 0;
+  color: $neutral-white;
+  font-family: Involve-Medium;
+  font-weight: 500;
+}
+.admin header h1 {
+  font-size: 20px;
+  line-height: 24px;
+  letter-spacing: -0.4px;
+  padding: 0 8px;
+}
+.admin header .tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.admin header .tabs .tab {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 40px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 12px;
+  background-color: transparent;
+  color: $neutral-300;
+  font: inherit;
+  line-height: 20px;
+  text-align: left;
+  cursor: pointer;
+  outline: none;
+  transition: color 0.2s ease-in-out, background-color 0.2s ease-in-out;
+}
+.admin header .tabs .tab:hover,
+.admin header .tabs .tab:focus-visible {
+  background-color: $soft-purple-800;
+  color: $neutral-white;
+}
+.admin header .tabs .tab.active {
+  background-color: $green-500;
+  color: $neutral-black;
+}
+.admin header .home-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  border: 1px solid $soft-purple-700;
+  border-radius: 12px;
+  color: $neutral-100;
+  text-decoration: none;
+  outline: none;
+  transition: color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+}
+.admin header .home-link:hover,
+.admin header .home-link:focus-visible {
+  border-color: $green-500;
+  color: $green-300;
+}
+.admin .tab-panel {
+  scrollbar-width: thin;
+  scrollbar-color: $soft-purple-700 transparent;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  align-self: stretch;
+  min-width: 0;
+  min-height: 0;
+  padding-right: 4px;
+  overflow: auto;
+}
+.admin .panel-title {
+  flex: 0 0 auto;
+  padding: 0 24px;
+  font-size: 24px;
+  line-height: 28px;
+  letter-spacing: -0.48px;
+}
+.admin .loading,
+.admin .settings-tab .block,
+.admin .updates-notice-block,
+.admin .subscriptions-tab .subscription-table-block,
+.admin .scoring-block,
+.admin .rules-editor__toolbar,
+.admin .rules-editor__section,
+.admin .home-carousel-banner-block,
+.admin .chart,
+.admin .stat-card,
+.admin .logs-tab,
+.admin .rooms-tab,
+.admin .users-tab,
+.admin .sanctions-tab,
+.admin .contact-requests-tab {
+  min-width: 0;
+  padding: 24px;
+  border-radius: 24px;
+  background-color: $soft-purple-900;
+}
+.admin .loading {
+  color: $neutral-300;
+}
+.admin .settings-tab .grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
+  gap: 10px;
+}
+.admin .settings-tab .block,
+.admin .updates-notice-block,
+.admin .subscriptions-tab .subscription-table-block {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.admin .settings-tab .block h3,
+.admin .scoring-block h3,
+.admin .updates-notice-block h3,
+.admin .home-carousel-banner-block h2,
+.admin .subscriptions-tab .subscription-table-block .subscription-heading h3 {
+  font-size: 20px;
+  line-height: 24px;
+  letter-spacing: -0.4px;
+}
+.admin .settings-tab .block .switch-item {
+  min-width: 0;
+}
+.admin .settings-tab .block .switch-item > :deep(span) {
+  font-size: 14px;
+  line-height: 18px;
+}
+.admin .field-stack .admin-input {
+  min-width: 0;
+  --ui-input-label-bg: #{$soft-purple-900};
+}
+.admin .tab-panel .admin-input :deep(:is(input, textarea)) {
+  box-sizing: content-box;
+  color-scheme: dark;
+}
+.admin .settings-tab .block .field-stack,
+.admin .updates-notice-block .field-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.admin .settings-tab .block .bulk-admin-actions,
+.admin .tooltip-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.admin .scoring-block,
+.admin .rules-editor__toolbar,
+.admin .rules-editor__section,
+.admin .home-carousel-banner-block,
+.admin .chart {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.admin .scoring-block p,
+.admin .rules-editor__toolbar p,
+.admin .home-carousel-banner-hint {
+  margin: 0;
+  color: $neutral-300;
+  font-size: 14px;
+  line-height: 20px;
+}
+.admin .scoring-block p code,
+.admin .tooltip:hover .tooltip-value,
+.admin .tooltip:focus-visible .tooltip-value,
+.admin .table th .table-sort:hover,
+.admin .table th .table-sort:focus-visible,
+.admin .table th .table-sort.active,
+.admin .table .user-cell .user-profile-trigger:hover,
+.admin .table .user-cell .user-profile-trigger:focus-visible {
+  color: $green-300;
+}
+.admin .scoring-block .field-stack,
+.admin .rules-editor,
+.admin .rules-editor__rule-list,
+.admin .stats-tab .stats {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.admin .scoring-rule .admin-input,
+.admin .filters .field .admin-input {
+  min-width: 0;
+  --ui-input-label-bg: #{$soft-purple-800};
+}
+.admin .scoring-block .field-stack .scoring-rule {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.4fr);
+  align-items: start;
+  gap: 24px;
+  padding: 20px;
+  border-radius: 20px;
+  background-color: $soft-purple-800;
+}
+.admin .scoring-block .bulk-admin-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid $soft-purple-700;
+  border-radius: 20px;
+  background-color: $soft-purple-900;
+  box-shadow: 0 -8px 24px rgba($neutral-black, 0.12);
+}
+.admin .rules-editor__actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.admin .rules-editor__section-head .admin-input {
+  min-width: 0;
+  --ui-input-label-bg: #{$soft-purple-900};
+  flex: 1;
+}
+.admin .rules-editor__section-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.admin .rules-editor__anchor {
+  color: $neutral-300;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.admin .rules-editor__rule-list .rules-editor__rule .admin-input {
+  min-width: 0;
+  --ui-input-label-bg: #{$soft-purple-800};
+  flex: 1;
+}
+.admin .rules-editor__rule {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  border-radius: 20px;
+  background-color: $soft-purple-800;
+}
+.admin .rules-editor__badge {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 160px;
+  color: $neutral-300;
+  font-size: 14px;
+}
+.admin .rules-editor__badge select,
+.admin .filters .field select,
+.admin .sanctions-table tbody tr td.rule-cell select {
+  box-sizing: border-box;
+  min-width: 0;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid $soft-purple-700;
+  border-radius: 12px;
+  background-color: $soft-purple-900;
+  color: $neutral-100;
+  font: inherit;
+  cursor: pointer;
+  color-scheme: dark;
+  transition: border-color 0.2s ease-in-out;
+}
+.admin .rules-editor__badge select:hover,
+.admin .rules-editor__badge select:focus-visible,
+.admin .filters .field select:hover,
+.admin .filters .field select:focus-visible,
+.admin .sanctions-table tbody tr td.rule-cell select:hover,
+.admin .sanctions-table tbody tr td.rule-cell select:focus-visible {
+  border-color: $green-500;
+  outline: none;
+}
+.admin .rules-editor__badge select:disabled,
+.admin .filters .field select:disabled,
+.admin .sanctions-table tbody tr td.rule-cell select:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.admin .updates-tab .updates-notice-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+}
+.admin .updates-notice-block .field-stack .update-notice-textarea :deep(textarea) {
+  min-height: 200px;
+}
+.admin .update-notice-preview {
+  width: 440px;
+  max-width: 100%;
+  padding: 8px;
+  box-sizing: border-box;
+  border-radius: 24px;
+  background-color: $neutral-100;
+  box-shadow: 0 0 16px rgba($neutral-black, 0.16);
+}
+.admin .update-notice-preview-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  border-radius: 20px;
+  transition: background-color 0.25s ease-in-out;
+}
+.admin .update-notice-preview-item:hover {
+  background-color: $neutral-white;
+}
+.admin .update-notice-preview-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.admin .update-notice-preview-title {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+.admin .update-notice-preview-icon {
+  flex: 0 0 auto;
+  --ui-icon-width: 20px;
+  --ui-icon-height: 20px;
+  --ui-icon-color: #{$neutral-400};
+}
+.admin .update-notice-preview-title span {
+  color: $neutral-black;
+  font-family: Hauora-Bold;
+  font-size: 16px;
+  line-height: 18px;
+  letter-spacing: -0.32px;
+  overflow-wrap: anywhere;
+}
+.admin .update-notice-preview-header time {
+  flex: 0 0 auto;
+  color: $neutral-500;
+  font-size: 14px;
+  line-height: 14px;
+  letter-spacing: -0.28px;
+}
+.admin .update-notice-preview-text {
+  margin-left: 28px;
+  color: $neutral-900;
+  font-size: 16px;
+  line-height: 22px;
+  letter-spacing: -0.32px;
+  overflow-wrap: anywhere;
+}
+.admin .update-notice-preview-text .notification-text-paragraph {
+  margin: 0;
+}
+.admin .update-notice-preview-text .notification-text-list {
+  margin: 0;
+  padding-left: 20px;
+}
+.admin .update-notice-preview-text .notification-text-paragraph + .notification-text-paragraph,
+.admin .update-notice-preview-text .notification-text-paragraph + .notification-text-list,
+.admin .update-notice-preview-text .notification-text-list + .notification-text-paragraph,
+.admin .update-notice-preview-text .notification-text-list + .notification-text-list {
+  margin-top: 8px;
+}
+.admin .update-notice-preview-text .notification-text-list li + li {
+  margin-top: 4px;
+}
+.admin .home-carousel-banner-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.admin .home-carousel-banner-preview {
+  width: 100%;
+  aspect-ratio: 607/494;
+  overflow: hidden;
+  border-radius: 20px;
+  background-color: $soft-purple-800;
+}
+.admin .home-carousel-banner-preview img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.admin .home-carousel-banner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.admin .stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+.admin .stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.admin .stat-card .label {
+  color: $neutral-300;
+  font-size: 14px;
+  line-height: 20px;
+}
+.admin .stat-card .value {
+  color: $green-500;
+  font-family: Involve-Medium;
+  font-size: 24px;
+  line-height: 28px;
+  letter-spacing: -0.48px;
+  overflow-wrap: anywhere;
+}
+.admin .tooltip {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  cursor: help;
+  outline: none;
+}
+.admin .tooltip .tooltip-value {
+  border-bottom: 1px dashed $green-500;
+  transition: color 0.2s ease-in-out;
+}
+.admin .tooltip .tooltip-body {
+  scrollbar-width: thin;
+  scrollbar-color: $soft-purple-700 transparent;
+  position: fixed;
+  inset: auto;
+  box-sizing: border-box;
+  width: 320px;
+  max-height: 240px;
+  margin: 0;
+  padding: 16px;
+  overflow: auto;
+  border: 1px solid $soft-purple-600;
+  border-radius: 16px;
+  background-color: $soft-purple-800;
+  color: $neutral-100;
+  font-size: 14px;
+  line-height: 20px;
+  box-shadow: 0 8px 32px rgba($neutral-black, 0.3);
+}
+.admin .tooltip-body .tooltip-empty,
+.admin .tooltip-row .tooltip-id,
+.admin .tooltip-row .tooltip-minutes,
+.admin .contact-requests-table tbody tr td.replies-cell .muted {
+  color: $neutral-300;
+}
+.admin .tooltip-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  overflow-wrap: anywhere;
+}
+.admin .tooltip-row .tooltip-avatar,
+.admin .tooltip-row .user-cell .tooltip-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: 0 0 auto;
+}
+.admin .tooltip-row .user-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.admin .filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px;
+  padding: 20px;
+  border-radius: 20px;
+  background-color: $soft-purple-800;
+}
+.admin .filters .field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 200px;
+  min-width: 0;
+}
+.admin .filters .field label {
+  color: $neutral-300;
+  font-size: 14px;
+  line-height: 16px;
+}
+.admin .filters .field select {
+  width: 100%;
+}
+.admin .filters .logs-auto-refresh-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  height: 40px;
+}
+.admin .chart .stats-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.admin .chart .stat-card {
+  padding: 20px;
+  border-radius: 20px;
+  background-color: $soft-purple-800;
+}
+.admin .stats .chart .stats-daily-grid,
+.admin .stats .stats-monthly-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.admin .stats .chart .stats-daily-grid .stats-daily-block {
+  min-width: 0;
+  padding: 20px;
+  border-radius: 20px;
+  background-color: $soft-purple-800;
+}
+.admin .stats-mini-title {
+  letter-spacing: -0.4px;
+  min-height: 48px;
+  font-size: 16px;
+  line-height: 22px;
+}
+.admin .stats .muted {
+  padding: 40px 0;
+  color: $neutral-300;
+}
+.admin .chart-body {
+  display: flex;
+  gap: 12px;
+  min-width: 0;
+  margin-top: 20px;
+}
+.admin .chart-axis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  flex: 0 0 auto;
+  height: 184px;
+  padding-top: 10px;
+  color: $neutral-300;
+  font-size: 11px;
+  line-height: 14px;
+  text-align: right;
+}
+.admin .chart-grid {
+  display: flex;
+  flex: 1;
+  align-items: flex-end;
+  gap: 3px;
+  height: 220px;
+  min-width: 0;
+  background: repeating-linear-gradient(to top, transparent 0, transparent 45px, rgba($soft-purple-600, 0.3) 46px, transparent 47px);
+}
+.admin .chart-bar,
+.admin .stats-monthly-grid .chart-bar {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 1;
+  gap: 8px;
+  height: 100%;
+  min-width: 0;
+  border-radius: 6px;
+  cursor: help;
+  outline: none;
+}
+.admin .chart-bar .bar {
+  width: 100%;
+  min-height: 3px;
+  border-radius: 5px 5px 0 0;
+  background: linear-gradient(to top, $green-700, $green-500);
+  transition: height 0.25s ease-in-out, background-color 0.2s ease-in-out;
+}
+.admin .chart-bar .bar .bar-value {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  z-index: 2;
+  padding: 6px 10px;
+  border: 1px solid $soft-purple-600;
+  border-radius: 8px;
+  background-color: $soft-purple-900;
+  color: $neutral-white;
+  font-size: 12px;
+  line-height: 16px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%);
+  transition: opacity 0.2s ease-in-out;
+}
+.admin .chart-bar .bar-label {
+  height: 14px;
+  color: $neutral-300;
+  font-size: 10px;
+  line-height: 14px;
+  white-space: nowrap;
+  visibility: hidden;
+}
+.admin .chart-bar:first-child .bar .bar-value {
+  left: 0;
+  transform: none;
+}
+.admin .chart-bar:last-child .bar .bar-value {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+.admin .chart-bar:nth-child(5n) .bar-label,
+.admin .chart-bar:first-child .bar-label,
+.admin .chart-bar:last-child .bar-label,
+.admin .stats-monthly-grid .chart-bar:nth-child(5n) .bar-label,
+.admin .stats-monthly-grid .chart-bar:first-child .bar-label,
+.admin .stats-monthly-grid .chart-bar:last-child .bar-label,
+.admin .stats-monthly-grid .chart-bar .bar-label {
+  visibility: visible;
+}
+.admin .chart-bar:hover .bar,
+.admin .chart-bar:focus-visible .bar {
+  background: $green-300;
+}
+.admin .chart-bar:hover .bar .bar-value,
+.admin .chart-bar:focus-visible .bar .bar-value,
+.admin .table th .table-sort:hover span,
+.admin .table th .table-sort:focus-visible span,
+.admin .table th .table-sort.active span {
+  opacity: 1;
+}
+.admin .stats-monthly-grid .chart-grid {
+  gap: 8px;
+}
+.admin .logs-tab,
+.admin .rooms-tab,
+.admin .users-tab,
+.admin .sanctions-tab,
+.admin .contact-requests-tab {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  gap: 20px;
+}
+.admin .logs-tab .filters,
+.admin .rooms-tab .filters,
+.admin .users-tab .filters,
+.admin .sanctions-tab .filters,
+.admin .contact-requests-tab .filters {
+  flex: 0 0 auto;
+}
+.admin .list-results {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+.admin .list-results .table-wrap {
+  scrollbar-width: thin;
+  scrollbar-color: $soft-purple-700 transparent;
+  min-width: 0;
+  overflow: auto;
+  border-radius: 20px;
+  background-color: $soft-purple-800;
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+}
+.admin .table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  color: $neutral-100;
+  font-size: 14px;
+  line-height: 20px;
+}
+.admin .table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 16px;
+  border-bottom: 1px solid $soft-purple-700;
+  background-color: $soft-purple-800;
+  color: $neutral-300;
+  font-weight: 400;
+  text-align: left;
+  white-space: nowrap;
+}
+.admin .table th .table-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  outline: none;
+  transition: color 0.2s ease-in-out;
+}
+.admin .table th .table-sort span {
+  opacity: 0.5;
+}
+.admin .table tbody tr {
+  transition: background-color 0.2s ease-in-out;
+}
+.admin .table tbody tr:hover {
+  background-color: rgba($soft-purple-700, 0.35);
+}
+.admin .table tbody tr:last-child td {
+  border-bottom: none;
+}
+.admin .table td {
+  padding: 16px;
+  border-bottom: 1px solid $soft-purple-700;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.admin .table td.muted {
+  padding: 40px 16px;
+  color: $neutral-300;
+  text-align: center;
+}
+.admin .table .user-cell {
+  display: inline-flex;
+  align-items: center;
+}
+.admin .table .user-cell .user-profile-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: $neutral-white;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  outline: none;
+  transition: color 0.2s ease-in-out;
+}
+.admin .table .user-cell .user-profile-trigger:disabled {
+  color: $neutral-300;
+  cursor: default;
+}
+.admin .table .user-cell .user-profile-trigger .user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: 0 0 auto;
+}
+.admin .table .status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  line-height: 18px;
+  white-space: nowrap;
+}
+.admin .table .status-badge[data-status="active"] {
+  background-color: rgba($green-500, 0.15);
+  color: $green-300;
+}
+.admin .table .status-badge[data-status="expired_auto"] {
+  background-color: rgba($yellow-500, 0.15);
+  color: $yellow-300;
+}
+.admin .table .status-badge:not([data-status="active"]):not([data-status="expired_auto"]) {
+  background-color: rgba($red-500, 0.15);
+  color: $red-200;
+}
+.admin .pager {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  color: $neutral-300;
+}
+.admin .pager span {
+  min-width: 70px;
+  text-align: center;
+}
+.admin .logs-tab .filters .field {
+  width: 180px;
+}
+.admin .logs-table {
+  min-width: 950px;
+}
+.admin .logs-table tbody tr td:last-child {
+  min-width: 300px;
+  max-width: 520px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.admin .rooms-table {
+  min-width: 1650px;
+}
+.admin .users-table {
+  min-width: 2300px;
+}
+.admin .sanctions-table {
+  min-width: 2400px;
+}
+.admin .sanctions-table tbody tr td.rule-cell {
+  min-width: 280px;
+}
+.admin .sanctions-table tbody tr td.rule-cell select {
+  width: 280px;
+}
+.admin .sanctions-table tbody tr td.description-cell {
+  min-width: 260px;
+  max-width: 400px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.admin .contact-requests-table {
+  min-width: 2000px;
+}
+.admin .contact-requests-table tbody tr td.contact-cell,
+.admin .contact-requests-table tbody tr td.topic-cell,
+.admin .contact-requests-table tbody tr td.text-cell {
+  min-width: 200px;
+  max-width: 400px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.admin .contact-requests-table tbody tr td.replies-cell {
+  min-width: 280px;
+  max-width: 400px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.admin .replies-cell > :not(:first-child) {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid $soft-purple-700;
+}
+.admin .contact-requests-table tbody tr td.replies-cell .contact-reply .contact-reply__meta {
+  margin-bottom: 8px;
+  color: $neutral-300;
+  font-size: 13px;
+  line-height: 18px;
+}
+.admin .contact-requests-table tbody tr td.replies-cell .contact-reply .contact-reply__text {
+  white-space: pre-wrap;
+}
+.admin .subscriptions-tab .subscription-table-block .subscription-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.admin .subscriptions-tab .table-wrap {
+  scrollbar-width: thin;
+  scrollbar-color: $soft-purple-700 transparent;
+  min-width: 0;
+  max-height: 640px;
+  overflow: auto;
+  border-radius: 20px;
+  background-color: $soft-purple-800;
+}
+.admin .subscriptions-table {
+  min-width: 1250px;
+}
+.admin .subscription-theme-preview,
+.admin .subscription-theme-preview .subscription-theme-icons,
+.admin .subscription-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.admin .subscription-theme-preview .subscription-theme-chip {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  --user-theme-bg: #{$soft-purple-800};
+  background-color: var(--user-theme-bg);
+}
+.admin .subscription-theme-preview .subscription-theme-icons .subscription-theme-icon {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+}
+[class~="tab-fade-enter-active"],
+[class~="tab-fade-leave-active"] {
   transition: opacity 0.25s ease-in-out;
 }
-.tab-fade-enter-from,
-.tab-fade-leave-to {
+[class~="tab-fade-enter-from"],
+[class~="tab-fade-leave-to"] {
   opacity: 0;
 }
 </style>
