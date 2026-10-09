@@ -1,14 +1,14 @@
 <template>
   <div class="history-details">
     <div class="slots-grid">
-      <article v-for="slot in orderedSlots" :key="slot.slot" :class="['slot-card', slotCardRoleClass(slot.role)]">
+      <article v-for="slot in orderedSlots" :key="slot.slot" class="slot-card">
         <div class="slot-top">
           <span class="slot-num-label">{{ slotLabel(slot.slot) }}</span>
           <button class="slot-player" type="button" :disabled="!canOpenSlotMiniProfile(slot)" @click.stop="openSlotMiniProfile(slot)">
             <img v-minio-img="{ key: slot.avatar_name ? `avatars/${slot.avatar_name}` : '', placeholder: defaultAvatar }" alt="avatar" />
             <span>{{ slot.username || 'Пусто' }}</span>
           </button>
-          <img v-if="slot.role" class="slot-role-icon" :src="roleIcon(slot.role)" alt="role" />
+          <img v-if="slot.role" :class="['slot-role-icon', slotRoleIconClass(slot.role)]" :src="roleIcon(slot.role)" alt="role" />
         </div>
 
         <div v-if="slot.leave_day && slot.leave_reason" class="slot-leave">
@@ -301,7 +301,7 @@ const leaveReasonIcons: Record<LeaveReason, string> = {
   night: iconLeaveNight,
 }
 
-function slotCardRoleClass(role: GameHistoryRole | null | undefined): string {
+function slotRoleIconClass(role: GameHistoryRole | null | undefined): string {
   if (!role) return ''
   return `role-${role}`
 }
@@ -479,10 +479,24 @@ function basePointsLabel(breakdown: GameHistoryPointsBreakdown): string {
           }
         }
         .slot-role-icon {
-          width: 24px;
-          height: 24px;
+          width: 20px;
+          height: 20px;
+          padding: 4px;
+          border-radius: 8px;
           flex-shrink: 0;
           object-fit: contain;
+          &.role-citizen {
+            background-color: $role-citizen;
+          }
+          &.role-sheriff {
+            background-color: $role-sheriff;
+          }
+          &.role-mafia {
+            background-color: $role-mafia;
+          }
+          &.role-don {
+            background-color: $role-don;
+          }
         }
       }
       .slot-metrics {
