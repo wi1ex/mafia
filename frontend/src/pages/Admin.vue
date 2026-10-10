@@ -4269,7 +4269,7 @@ onBeforeUnmount(() => {
   gap: 10px;
   min-width: 0;
   min-height: 0;
-  padding: 30px 40px;
+  padding: 10px 40px;
   overflow: hidden;
   color: $neutral-100;
   font-family: Hauora-Regular;
@@ -4406,7 +4406,7 @@ onBeforeUnmount(() => {
 .admin .subscriptions-tab .subscription-table-block {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 10px;
 }
 .admin .settings-tab .block h3,
 .admin .scoring-block h3,
@@ -4451,7 +4451,7 @@ onBeforeUnmount(() => {
 .admin .chart {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 10px;
 }
 .admin .scoring-block p,
 .admin .rules-editor__toolbar p,
@@ -4486,10 +4486,10 @@ onBeforeUnmount(() => {
 }
 .admin .scoring-block .field-stack .scoring-rule {
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.4fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   align-items: start;
-  gap: 24px;
-  padding: 20px;
+  gap: 10px;
+  padding: 10px;
   border-radius: 20px;
   background-color: $soft-purple-800;
 }
@@ -4581,7 +4581,7 @@ onBeforeUnmount(() => {
 }
 .admin .updates-tab .updates-notice-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   align-items: start;
   gap: 10px;
 }
@@ -4692,12 +4692,13 @@ onBeforeUnmount(() => {
 }
 .admin .stats-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(8, minmax(0, 1fr));
   gap: 10px;
 }
 .admin .stat-card {
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
   gap: 12px;
 }
 .admin .stat-card .label {
@@ -4706,19 +4707,21 @@ onBeforeUnmount(() => {
   line-height: 20px;
 }
 .admin .stat-card .value {
+  text-align: end;
   color: $green-500;
   font-family: Involve-Medium;
-  font-size: 24px;
-  line-height: 28px;
+  font-size: 16px;
+  line-height: 18px;
   letter-spacing: -0.48px;
   overflow-wrap: anywhere;
 }
 .admin .tooltip {
   display: inline-flex;
   align-items: center;
-  width: fit-content;
   cursor: help;
   outline: none;
+  width: 100%;
+  justify-content: end;
 }
 .admin .tooltip .tooltip-value {
   border-bottom: 1px dashed $green-500;
@@ -4774,8 +4777,8 @@ onBeforeUnmount(() => {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
-  gap: 16px;
-  padding: 20px;
+  gap: 10px;
+  padding: 10px 16px;
   border-radius: 20px;
   background-color: $soft-purple-800;
 }
@@ -4986,7 +4989,7 @@ onBeforeUnmount(() => {
   position: sticky;
   top: 0;
   z-index: 1;
-  padding: 16px;
+  padding: 10px 16px;
   border-bottom: 1px solid $soft-purple-700;
   background-color: $soft-purple-800;
   color: $neutral-300;
@@ -5020,7 +5023,7 @@ onBeforeUnmount(() => {
   border-bottom: none;
 }
 .admin .table td {
-  padding: 16px;
+  padding: 10px 16px;
   border-bottom: 1px solid $soft-purple-700;
   vertical-align: middle;
   white-space: nowrap;
