@@ -1,4 +1,4 @@
-"""Исполняемое описание текущего скоринга (базовая линия на 06.09.2026).
+"""Исполняемое описание скоринга (ставки по умолчанию на 10.10.2026).
 
 У каждого параметра в RULE_SPECS есть русское описание и стандартная ставка.
 При изменении алгоритма синхронно обновляются реализация, сценарии и русские
@@ -21,6 +21,7 @@ breakdown, в том числе при изменённой админской �
 Запуск из backend: python -B -m unittest discover -s tests -v
 """
 import copy
+import json
 import unittest
 from decimal import Decimal
 
@@ -32,6 +33,7 @@ from app.services.game_scoring import (
     calculate_game_scoring_audit,
     normalize_game_points_value,
     parse_game_scoring_marks,
+    parse_game_scoring_rules_snapshot,
     game_scoring_marks_from_actions,
 )
 
@@ -53,8 +55,8 @@ RULE_SPECS = {
     "vote_break_red_to_sheriff_extra": (-0.2, "Один раз дополнительно к -0.2 или -0.5 по той же отметке слома в красного, если выведенная в первый день цель — настоящий шериф. Проверяются исходные голос, команды и единоличный уход; дополнительная отметка ведущего не нужна. Сумма проходит общий лимит допбаллов."),
     "vote_break_red_to_black": (0.2, "Один раз отмеченному красному: в день 1 голосовал за единственного ушедшего чёрного без подъёма, день 2 наступил и в этот день сам не ушёл через голосование, в том числе подъём. Уход по фолам, техфолам или самоубийством в день 1/2 отменяет бонус; ночной отстрел и такие удаления начиная с дня 3 его не отменяют."),
     "vote_break_black_to_sheriff": (0.2, "Один раз отмеченному чёрному: в день 1 голосовал за фактически ушедшего шерифа, единственного лидера без подъёма. Второй день и победа команды не требуются. Снятая ведущим отметка исключает начисление."),
-    "additional_points_min": (-1, "Нижняя граница применяется один раз к сумме всех допбаллов, до прибавления базы. Настраивается; положительная граница поднимает даже нулевую сумму."),
-    "additional_points_max": (1, "Верхняя граница применяется один раз к сумме всех допбаллов, до прибавления базы. Настраивается и может превышать +1."),
+    "additional_points_min": (-0.8, "Нижняя граница применяется один раз к сумме всех допбаллов, до прибавления базы. Настраивается; положительная граница поднимает даже нулевую сумму."),
+    "additional_points_max": (0.8, "Верхняя граница применяется один раз к сумме всех допбаллов, до прибавления базы. Настраивается и может превышать +1."),
     "fourth_foul": (-0.3, "Четвёртый фол со связанным уходом по фолам без признака поражения/ППК. Первые три фола не штрафуются."),
     "fourth_foul_lost": (-0.5, "Четвёртый фол со связанным уходом, где game_lost_after или ППК истинны; заменяет обычный штраф."),
     "tech_foul": (-0.15, "Первый техфол и второй без поражения дают отдельный штраф каждый; событие ухода для обычной ставки не требуется."),
@@ -86,7 +88,7 @@ RULE_SPECS = {
     "sheriff_false_check_black_win": (-0.5, "Шерифу один раз при итоговой победе чёрных за фактически неверный цвет в последней активной версии. Проверять цель на самом деле не обязательно. Исправленная/удалённая ложь не штрафуется."),
     "black_day_under_seven": (0.1, "Каждому живому чёрному за наступление дня с 3–6 живыми включительно. При двух и менее или семи и более начислений нет. Мёртвые не получают; повтор номера дня отдельно не проверяется."),
     "night_opinion_correct": (0.1, "За каждый фактически верный цвет красного автора ночного мнения, кроме совпадения ответа с очевидным цветом. Противоположный очевидному ответ оценивается по факту, а не автоматически как ошибка."),
-    "night_opinion_wrong": (-0.1, "За каждый фактически неверный цвет красного автора ночного мнения, кроме совпадения ответа с очевидным цветом. Чёрные авторы и мнение о себе исключены."),
+    "night_opinion_wrong": (-0.15, "За каждый фактически неверный цвет красного автора ночного мнения, кроме совпадения ответа с очевидным цветом. Чёрные авторы и мнение о себе исключены."),
     "night_opinion_black_named_red": (0.05, "Чёрной цели за каждый ответ красного автора «красный», если ответ не совпал с очевидным для автора цветом. Может сочетаться со штрафом автору."),
     "farewell_red_correct": (0.15, "Красному автору завещания за фактически красную цель, оставленную красной, кроме совпадения с очевидным цветом. При mode=voted (включая подъём) из сохранённой ставки вычитается параметр farewell_voted_correct_deduction (по умолчанию 0.1) (без дополнительного ограничения снизу), при killed или отсутствии mode — полная. Расчёт точный, округление до сотых при выдаче результата."),
     "farewell_red_wrong": (-0.2, "Красному автору завещания за фактически красную цель, оставленную чёрной, кроме совпадения с очевидным цветом."),
@@ -517,9 +519,9 @@ class ScoringRulesTests(unittest.TestCase):
         rules = dict(DEFAULTS, tech_foul=-0.8, suicide_lost=-0.7)
         points, breakdown = score(actions, "red", rules)
         self.assertEqual(breakdown["2"]["additional_points_raw"], -1.5)
-        self.assertEqual(breakdown["2"]["additional_points"], -1)
+        self.assertEqual(breakdown["2"]["additional_points"], -0.8)
         self.assertTrue(breakdown["2"]["additional_points_capped"])
-        self.assertEqual(points["2"], 0)
+        self.assertEqual(points["2"], 0.2)
         rules["additional_points_min"] = -2
         self.assertEqual(score(actions, "red", rules)[0]["2"], -0.5)
         self.assertEqual(score([], rules=dict(DEFAULTS, additional_points_min=0.5))[0]["2"], 0.5)
@@ -531,15 +533,15 @@ class ScoringRulesTests(unittest.TestCase):
         rules = dict(DEFAULTS, best_move_black_3=0.8, night_opinion_correct=0.7)
         points, breakdown = score(actions, "red", rules)
         self.assertEqual(breakdown["2"]["additional_points_raw"], 1.5)
-        self.assertEqual(breakdown["2"]["additional_points"], 1)
+        self.assertEqual(breakdown["2"]["additional_points"], 0.8)
         self.assertTrue(breakdown["2"]["additional_points_capped"])
-        self.assertEqual(points["2"], 2)
+        self.assertEqual(points["2"], 1.8)
         rules["additional_points_max"] = 2
         self.assertEqual(score(actions, "red", rules)[0]["2"], 2.5)
 
     def test_obvious_answer_filter(self):
         """Ответ, совпавший с очевидным цветом, исключён; противоположный оценивается вместе с бонусом цели."""
-        for kind, penalty, bonus in (("night_opinions", -0.1, 0.05), ("farewell", -0.25, 0.1)):
+        for kind, penalty, bonus in (("night_opinions", -0.15, 0.05), ("farewell", -0.25, 0.1)):
             for guess in ("black", "red"):
                 with self.subTest(kind=kind, guess=guess):
                     event = (dict(type=kind, opinions={1: {8: guess}}) if kind == "night_opinions"
@@ -633,6 +635,48 @@ class ScoringRulesTests(unittest.TestCase):
             points, breakdown = score(actions, rules=rules)
             self.assertEqual(points["2"], expected)
             self.assertEqual(breakdown["2"]["adjustments"][0]["label"], label)
+
+    def test_saved_previous_defaults_remain_authoritative(self):
+        """Старая игра сохраняет лимиты ±1 и штраф ночного мнения -0.1 после обновления дефолтов."""
+        stored = dict(DEFAULTS, additional_points_min=-1, additional_points_max=1,
+                      night_opinion_wrong=-0.1)
+        snapshot = parse_game_scoring_rules_snapshot(json.dumps(stored))
+        assert snapshot is not None
+        wrong = [dict(type="night_opinions", opinions={2: {3: "black"}})]
+        self.assertEqual(score(wrong, rules=snapshot)[0]["2"], -0.1)
+        self.assertEqual(score(wrong)[0]["2"], -0.15)
+        for actions, overrides, expected in (
+            ([dict(type="tech_foul", target_id=2, count=1),
+              death(2, reason="suicide", game_lost_after=True)],
+             dict(tech_foul=-0.8, suicide_lost=-0.7), -1),
+            ([dict(type="best_move", actor_id=2, targets=[8, 9, 10]),
+              dict(type="night_opinions", opinions={2: {3: "red"}})],
+             dict(best_move_black_3=0.8, night_opinion_correct=0.7), 1),
+        ):
+            with self.subTest(expected=expected):
+                points, breakdown = score(actions, rules=dict(snapshot, **overrides))
+                self.assertEqual(points["2"], expected)
+                self.assertEqual(breakdown["2"]["additional_points"], expected)
+                self.assertTrue(breakdown["2"]["additional_points_capped"])
+
+    def test_saved_settings_override_updated_defaults(self):
+        """Заданные в БД лимиты, ставки и подпись имеют приоритет над новыми дефолтами."""
+        settings = dict(additional_points_min=-0.4, additional_points_max=0.6,
+                        night_opinion_wrong=-0.25, night_opinion_correct=0.7,
+                        night_opinion_wrong_label="Мой штраф")
+        snapshot = build_game_scoring_rules_snapshot(settings)
+        self.assertEqual(snapshot["additional_points_min"], -0.4)
+        self.assertEqual(snapshot["additional_points_max"], 0.6)
+        self.assertEqual(snapshot["night_opinion_wrong"], -0.25)
+        self.assertEqual(snapshot["night_opinion_correct"], 0.7)
+        actions = [dict(type="night_opinions", opinions={2: {3: "black", 4: "black"}})]
+        points, breakdown = score(actions, rules=snapshot)
+        self.assertEqual(points["2"], -0.4)
+        self.assertEqual(breakdown["2"]["additional_points_raw"], -0.5)
+        self.assertTrue(breakdown["2"]["additional_points_capped"])
+        self.assertTrue(all(item["label"] == "Мой штраф" for item in breakdown["2"]["adjustments"]))
+        self.assertEqual(score([dict(type="night_opinions", opinions={2: {3: "red"}})],
+                               rules=snapshot)[0]["2"], 0.6)
 
     def test_rounding(self):
         """Округление до сотых ROUND_HALF_UP для положительных и отрицательных чисел."""
@@ -734,7 +778,10 @@ class ScoringRulesTests(unittest.TestCase):
         self.assertEqual(score(base + [dict(type="tech_foul", target_id=2, count=1, day=1)], rules=rules)[0]["2"], 0)
         # Отдельный штраф самоубийства сохраняется и складывается со сломом.
         actions = base + [death(2, reason="suicide", day=1, game_lost_after=True)]
-        self.assertEqual(score(actions)[0]["2"], -1.0)
+        points, breakdown = score(actions)
+        self.assertEqual(points["2"], -0.8)
+        self.assertEqual(breakdown["2"]["additional_points_raw"], -1.0)
+        self.assertTrue(breakdown["2"]["additional_points_capped"])
         # Без исходного голоса за красного даже ранний уход не даёт штрафа слома.
         actions[1]["by"] = []
         self.assertEqual(score(actions, rules=rules)[0]["2"], 0)

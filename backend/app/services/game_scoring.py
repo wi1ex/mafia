@@ -50,8 +50,8 @@ def game_scoring_marks_from_actions(actions: Iterable[object], player_ids: Itera
 
 
 GAME_SCORING_RULE_DEFAULTS: dict[str, Decimal] = {
-    "additional_points_min": Decimal("-1.00"),
-    "additional_points_max": Decimal("1.00"),
+    "additional_points_min": Decimal("-0.80"),
+    "additional_points_max": Decimal("0.80"),
     "fourth_foul": Decimal("-0.30"),
     "fourth_foul_lost": Decimal("-0.50"),
     "tech_foul": Decimal("-0.15"),
@@ -92,7 +92,7 @@ GAME_SCORING_RULE_DEFAULTS: dict[str, Decimal] = {
     "sheriff_false_check_black_win": Decimal("-0.50"),
     "black_day_under_seven": Decimal("0.10"),
     "night_opinion_correct": Decimal("0.10"),
-    "night_opinion_wrong": Decimal("-0.10"),
+    "night_opinion_wrong": Decimal("-0.15"),
     "night_opinion_black_named_red": Decimal("0.05"),
     "farewell_red_correct": Decimal("0.15"),
     "farewell_voted_correct_deduction": Decimal("0.10"),

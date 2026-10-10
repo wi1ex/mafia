@@ -1948,8 +1948,8 @@ const game = reactive<GameSettings>({
 })
 
 const scoring = reactive<GameScoringSettings>({
-  additional_points_min: -1,
-  additional_points_max: 1,
+  additional_points_min: -0.8,
+  additional_points_max: 0.8,
   fourth_foul: -0.3,
   fourth_foul_lost: -0.5,
   tech_foul: -0.15,
@@ -1990,7 +1990,7 @@ const scoring = reactive<GameScoringSettings>({
   sheriff_false_check_black_win: -0.5,
   black_day_under_seven: 0.1,
   night_opinion_correct: 0.1,
-  night_opinion_wrong: -0.1,
+  night_opinion_wrong: -0.15,
   night_opinion_black_named_red: 0.05,
   farewell_red_correct: 0.15,
   farewell_voted_correct_deduction: 0.1,
@@ -2015,7 +2015,7 @@ const scoring = reactive<GameScoringSettings>({
   night_self_shot_black_win_2_label: 'Компенсация: самострел во 2ю ночь',
   vote_opponent_team_label: 'Заголосовал игрока другой команды',
   vote_sheriff_nine_red_label: 'Снял шерифа при 9–10х будучи красным',
-  vote_black_unchecked_nine_ten_label: 'УЗаголосован вне версии при 9–10х',
+  vote_black_unchecked_nine_ten_label: 'Заголосован вне версии при 9–10х',
   vote_sheriff_nine_black_label: 'Снял шерифа при 9–10х будучи черным',
   vote_red_day_one_compensation_label: 'Компенсация: заголосован в 1й день',
   vote_red_terminal_label: 'Голосование на поражение',
