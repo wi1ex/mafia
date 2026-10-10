@@ -67,13 +67,15 @@
             <div class="rules-editor__rule-list">
               <div v-for="(rule, ruleIndex) in section.rules" :key="`${section.id}-${ruleIndex}`" class="rules-editor__rule">
                 <UiInput class="admin-input" :id="`sanction-rule-${sectionIndex}-${ruleIndex}`" v-model="rule.text" as="textarea" rows="3" size="low" maxlength="1024" :disabled="savingRules" :label="`Пункт ${ruleIndex + 1}`" />
-                <label class="rules-editor__badge">
-                  <span>Санкция</span>
-                  <select v-model="rule.badge" :disabled="savingRules">
-                    <option :value="null">Не указана</option>
-                    <option v-for="option in sanctionBadgeOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
-                  </select>
-                </label>
+                <div class="rules-editor__badges">
+                  <label v-for="slotIndex in sanctionBadgeSlotIndexes" :key="slotIndex" class="rules-editor__badge">
+                    <span>Санкция {{ slotIndex + 1 }}</span>
+                    <select v-model="rule.badgeSlots[slotIndex]" :disabled="savingRules">
+                      <option :value="null">Не указана</option>
+                      <option v-for="option in sanctionBadgeOptions" :key="option.value" :value="option.value" :disabled="option.value === rule.badgeSlots[slotIndex === 0 ? 1 : 0]">{{ option.label }}</option>
+                    </select>
+                  </label>
+                </div>
                 <UiButton variant="red" size="low" :disabled="savingRules || section.rules.length <= 1" @click="removeSanctionRule(sectionIndex, ruleIndex)">Удалить</UiButton>
               </div>
             </div>
@@ -1568,7 +1570,7 @@ type GameScoringSettings = {
 
 type EditableSanctionRule = {
   text: string
-  badge: SanctionBadgeKey | null
+  badgeSlots: [SanctionBadgeKey | null, SanctionBadgeKey | null]
 }
 
 type EditableSanctionRulesSection = {
@@ -2057,6 +2059,7 @@ const gameSnapshot = ref('')
 const scoringSnapshot = ref('')
 const sanctionRulesEditor = ref<EditableSanctionRulesSection[]>([])
 const sanctionRulesSnapshot = ref('')
+const sanctionBadgeSlotIndexes = [0, 1] as const
 const sanctionBadgeOptions = (Object.entries(SANCTION_BADGES) as [SanctionBadgeKey, { code: string; notation?: string }][])
   .map(([value, badge]) => ({ value, label: badge.notation ? `${badge.code} (${badge.notation})` : badge.code }))
 
@@ -3031,16 +3034,26 @@ function copySanctionRulesForEditor(): EditableSanctionRulesSection[] {
   return settingsStore.sanctionRules.map(section => ({
     id: section.id,
     title: section.title,
-    rules: section.rules.map(rule => ({ text: rule.text, badge: rule.badge })),
+    rules: section.rules.map((rule): EditableSanctionRule => ({
+      text: rule.text,
+      badgeSlots: [rule.badges[0] ?? null, rule.badges[1] ?? null],
+    })),
   }))
 }
 
 function snapshotSanctionRules(): string {
-  return JSON.stringify(sanctionRulesEditor.value.map(section => ({
+  return JSON.stringify(serializeSanctionRules())
+}
+
+function serializeSanctionRules() {
+  return sanctionRulesEditor.value.map(section => ({
     id: section.id,
     title: section.title.trim(),
-    rules: section.rules.map(rule => ({ text: rule.text.trim(), badge: rule.badge })),
-  })))
+    rules: section.rules.map(rule => ({
+      text: rule.text.trim(),
+      badges: [...new Set(rule.badgeSlots.filter((badge): badge is SanctionBadgeKey => badge !== null))],
+    })),
+  }))
 }
 
 function syncSanctionRulesEditor(): void {
@@ -3059,7 +3072,7 @@ function addRulesSection(): void {
   sanctionRulesEditor.value.push({
     id,
     title: '',
-    rules: [{ text: '', badge: null }],
+    rules: [{ text: '', badgeSlots: [null, null] }],
   })
 }
 
@@ -3069,7 +3082,7 @@ function removeRulesSection(sectionIndex: number): void {
 }
 
 function addSanctionRule(sectionIndex: number): void {
-  sanctionRulesEditor.value[sectionIndex]?.rules.push({ text: '', badge: null })
+  sanctionRulesEditor.value[sectionIndex]?.rules.push({ text: '', badgeSlots: [null, null] })
 }
 
 function removeSanctionRule(sectionIndex: number, ruleIndex: number): void {
@@ -3092,11 +3105,7 @@ async function loadSanctionRules(): Promise<void> {
 
 async function saveSanctionRules(): Promise<void> {
   if (savingRules.value || !isRulesDirty.value) return
-  const sections = sanctionRulesEditor.value.map(section => ({
-    id: section.id,
-    title: section.title.trim(),
-    rules: section.rules.map(rule => ({ text: rule.text.trim(), badge: rule.badge })),
-  }))
+  const sections = serializeSanctionRules()
   if (sections.some(section => !section.title || section.rules.some(rule => !rule.text))) {
     void alertDialog('Заполните названия разделов и все пункты правил')
     return
@@ -4530,21 +4539,29 @@ onBeforeUnmount(() => {
 .admin .rules-editor__rule-list .rules-editor__rule .admin-input {
   min-width: 0;
   --ui-input-label-bg: #{$soft-purple-800};
-  flex: 1;
+  flex: 1 1 300px;
 }
 .admin .rules-editor__rule {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 16px;
   padding: 20px;
   border-radius: 20px;
   background-color: $soft-purple-800;
 }
+.admin .rules-editor__badges {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  flex: 0 1 336px;
+  min-width: 0;
+}
 .admin .rules-editor__badge {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  width: 160px;
+  min-width: 0;
   color: $neutral-300;
   font-size: 14px;
 }

@@ -106,7 +106,7 @@ export const useSettingsStore = defineStore('settings', () => {
   let onSanctionRulesEv: ((e: any) => void) | null = null
 
   function isBadgeKey(value: unknown): value is SanctionBadgeKey {
-    return typeof value === 'string' && value in SANCTION_BADGES
+    return typeof value === 'string' && Object.hasOwn(SANCTION_BADGES, value)
   }
 
   function normalizeSanctionRulesPayload(payload: unknown): RulesSection[] | null {
@@ -121,11 +121,16 @@ export const useSettingsStore = defineStore('settings', () => {
       sectionIds.add(id)
       const rules = rawSection.rules.map(rawRule => {
         const text = String(rawRule?.text ?? '').trim()
-        const badge = isBadgeKey(rawRule?.badge) ? rawRule.badge : null
-        return { text, badge }
+        const raw = rawRule as unknown as { badges?: unknown; badge?: unknown } | null
+        const badgeKeys = raw && Object.hasOwn(raw, 'badges')
+          ? raw.badges
+          : isBadgeKey(raw?.badge) ? [raw.badge] : []
+        if (!Array.isArray(badgeKeys) || badgeKeys.length > 2 || !badgeKeys.every(isBadgeKey)) return null
+        if (new Set(badgeKeys).size !== badgeKeys.length) return null
+        return { text, badges: [...badgeKeys] }
       })
-      if (rules.some(rule => !rule.text)) return null
-      sections.push({ id, title, rules })
+      if (rules.some(rule => !rule?.text)) return null
+      sections.push({ id, title, rules: rules.filter(rule => rule !== null) })
     }
     return sections.length > 0 ? sections : null
   }

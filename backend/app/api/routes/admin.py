@@ -6,7 +6,7 @@ from contextlib import suppress
 from time import time
 from datetime import date, datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status, Query
-from sqlalchemy import select, update, func, or_, delete
+from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...core.clients import get_redis
 from ...core.db import get_session
@@ -76,17 +76,16 @@ from ...services.minio import (
     put_home_carousel_banner_async,
 )
 from ...services.blacklist import clear_user_blacklist
-from ...models.sanction_rules import ensure_sanction_rules
+from ...models.sanction_rules import get_sanction_rules
 from ...services.nickname import prepend_nickname_history
 from ...schemas.common import Ok, Identity
+from ...schemas.sanction_rules import SanctionRulesOut, SanctionRulesUpdateIn
 from ...schemas.user import UserGamesHistoryOut, UserStatsOut
 from ...schemas.admin import (
     AdminSettingsOut,
     AdminSettingsUpdateIn,
     GameScoringSettingsOut,
     GameScoringSettingsUpdateIn,
-    SanctionRulesOut,
-    SanctionRulesUpdateIn,
     AdminUpdateNotificationIn,
     AdminUpdateNotificationOut,
     AdminGamesEndAllOut,
@@ -269,7 +268,11 @@ AdminUserSortKey = Literal[
 @public_router.get("/sanction-rules", response_model=SanctionRulesOut)
 @log_route("admin.sanction_rules_public")
 async def public_sanction_rules(session: AsyncSession = Depends(get_session)) -> SanctionRulesOut:
-    return sanction_rules_out(await ensure_sanction_rules(session))
+    row = await get_sanction_rules(session)
+    if row is None:
+        raise HTTPException(status_code=404, detail="sanction_rules_not_found")
+
+    return sanction_rules_out(row)
 
 
 @router.patch("/sanction-rules", response_model=SanctionRulesOut, dependencies=ADMIN_GUARD)
@@ -279,7 +282,10 @@ async def update_sanction_rules(
     session: AsyncSession = Depends(get_session),
     ident: Identity = Depends(require_protected_admin_dep),
 ) -> SanctionRulesOut:
-    row = await ensure_sanction_rules(session)
+    row = await get_sanction_rules(session)
+    if row is None:
+        raise HTTPException(status_code=404, detail="sanction_rules_not_found")
+
     sections = payload.model_dump(mode="json")["sections"]
     changed = row.sections != sections
 
@@ -2201,7 +2207,6 @@ async def subscriptions_upsert(payload: AdminSubscriptionCreateIn, ident: Identi
         .execution_options(populate_existing=True)
     )
 
-    had_subscription = subscription is not None
     had_active_subscription = False
     should_issue_subscription_nickname_limit = False
     if subscription is None:

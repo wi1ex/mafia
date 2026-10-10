@@ -1,8 +1,8 @@
-export type SanctionBadgeKey = 'ban' | 'tm1' | 'tm2' | 'tm3' | 'tm4' | 'ot1' | 'ot2' | 'ot3' | 'ot4'
+export type SanctionBadgeKey = 'ban' | 'tm1' | 'tm2' | 'tm3' | 'tm4' | 'ot1' | 'ot2' | 'ot3' | 'ot4' | 'foul' | 'tech_foul' | 'removal' | 'ppk'
 
 export type SanctionRule = {
   text: string
-  badge: SanctionBadgeKey | null
+  badges: SanctionBadgeKey[]
 }
 
 export type RulesSection = {
@@ -28,6 +28,10 @@ export const SANCTION_BADGES: Record<SanctionBadgeKey, SanctionBadge> = {
   ot2: { code: 'ОТ2', notation: '1д–3д', backgroundColor: 'var(--sanction-suspend-background)', textColor: '#ffffff' },
   ot3: { code: 'ОТ3', notation: '3д–7д', backgroundColor: 'var(--sanction-suspend-background)', textColor: '#ffffff' },
   ot4: { code: 'ОТ4', notation: '7д–…', backgroundColor: 'var(--sanction-suspend-background)', textColor: '#ffffff' },
+  foul: { code: 'ФОЛ', backgroundColor: 'var(--sanction-foul-background)', textColor: '#ffffff' },
+  tech_foul: { code: 'Т.ФОЛ', backgroundColor: 'var(--sanction-tech-foul-background)', textColor: '#ffffff' },
+  removal: { code: 'УДЛ', backgroundColor: 'var(--sanction-removal-background)', textColor: '#ffffff' },
+  ppk: { code: 'ППК', backgroundColor: 'var(--sanction-ppk-background)', textColor: '#ffffff' },
 }
 
 export const SUSPEND_SANCTION_BADGES = [

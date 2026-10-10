@@ -4,11 +4,10 @@
       <div class="rules-content">
         <section id="intro" class="hero">
           <div class="hero-content">
-            <p class="eyebrow">deceit.games</p>
             <h1>Правила платформы</h1>
             <div class="tags">
               <span class="pill">18+</span>
-              <span class="pill">Редакция от 06.10.2026</span>
+              <span class="pill">Редакция от 10.10.2026</span>
               <a class="pill docs" href="/files/user-agreement.pdf" target="_blank" rel="noopener noreferrer">Пользовательское соглашение</a>
               <a class="pill docs" href="/files/privacy-policy.pdf" target="_blank" rel="noopener noreferrer">Политика обработки ПД</a>
             </div>
@@ -52,9 +51,11 @@
             <h3>{{ section.title }}</h3>
             <ul>
               <li v-for="(rule, ruleIndex) in section.rules" :key="`${section.id}-${ruleIndex}`" class="rule-item">
-                <span v-if="getRuleSanctionBadge(rule)" class="sanction-badge" :style="{ backgroundColor: getRuleSanctionBadge(rule)?.backgroundColor, color: getRuleSanctionBadge(rule)?.textColor }">
-                  {{ getRuleSanctionBadge(rule)?.code }}
-                </span>
+                <div v-if="rule.badges.length" class="sanction-badges" aria-label="Санкции">
+                  <span v-for="badge in getRuleSanctionBadges(rule)" :key="badge.code" class="sanction-badge" :style="{ backgroundColor: badge.backgroundColor, color: badge.textColor }">
+                    {{ badge.code }}
+                  </span>
+                </div>
                 <span class="rule-text">{{ rule.text }}</span>
               </li>
             </ul>
@@ -114,7 +115,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onBeforeUnmount, ref, watch } from 'vue'
-import { SUSPEND_SANCTION_BADGES, TIMEOUT_SANCTION_BADGES, getSanctionBadge, type SanctionRule } from '@/constants/sanctionReasons'
+import { SUSPEND_SANCTION_BADGES, TIMEOUT_SANCTION_BADGES, SANCTION_BADGES, type SanctionRule } from '@/constants/sanctionReasons'
 import { useSettingsStore } from '@/store'
 import { api } from '@/services/axios'
 import UiButton from '@/components/UiButton.vue'
@@ -301,8 +302,8 @@ const rulesStateText = computed(() => (
   settingsStore.sanctionRulesLoadFailed ? 'Не удалось загрузить правила.' : 'Загрузка правил…'
 ))
 
-function getRuleSanctionBadge(rule: SanctionRule) {
-  return getSanctionBadge(rule.badge)
+function getRuleSanctionBadges(rule: SanctionRule) {
+  return rule.badges.map(key => SANCTION_BADGES[key])
 }
 
 const activeId = ref(tocLinks.value[0]?.id ?? '')
@@ -415,6 +416,10 @@ onBeforeUnmount(() => {
   --sanction-ban-background: #{$red-600};
   --sanction-timeout-background: #{$orange-600};
   --sanction-suspend-background: #{$yellow-600};
+  --sanction-foul-background: #{$blue-600};
+  --sanction-tech-foul-background: #{$purple-600};
+  --sanction-removal-background: #{$red-400};
+  --sanction-ppk-background: #{$red-600};
   flex: 1;
   min-height: 0;
   box-sizing: border-box;
@@ -448,12 +453,6 @@ onBeforeUnmount(() => {
           display: flex;
           flex-direction: column;
           gap: 16px;
-          .eyebrow {
-            margin: 0;
-            color: $neutral-300;
-            font-size: 14px;
-            line-height: 20px;
-          }
           h1 {
             margin: 0;
             color: $neutral-white;
@@ -529,7 +528,8 @@ onBeforeUnmount(() => {
             background-color: $soft-purple-800;
             font-size: 14px;
             line-height: 20px;
-            &--ban {
+            &--ban,
+            &--game {
               grid-column: 1 / -1;
             }
             .notice-item-title {
@@ -599,16 +599,23 @@ onBeforeUnmount(() => {
               border-radius: 20px;
               background-color: $soft-purple-800;
               list-style: none;
+              .sanction-badges {
+                display: flex;
+                flex-direction: column;
+                flex: 0 0 auto;
+                gap: 4px;
+              }
               .sanction-badge {
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                flex: 0 0 40px;
+                min-width: 40px;
                 padding: 4px 6px;
                 border-radius: 8px;
                 font-family: Hauora-Bold;
                 font-size: 12px;
                 line-height: 16px;
+                white-space: nowrap;
               }
               .rule-text {
                 min-width: 0;

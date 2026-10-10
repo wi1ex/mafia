@@ -48,7 +48,8 @@ from ..services.telegram import send_text_message
 from ..schemas.common import Ok, Identity
 if TYPE_CHECKING:
     from ..schemas.auth import BotResetIn, BotStatusIn, BotVerifyIn
-    from ..schemas.admin import SiteSettingsOut, GameSettingsOut, PublicSettingsOut, SanctionRulesOut, RegistrationsPoint, AdminRoomUserStat, AdminSanctionDurationAdjustIn, AdminGameActionFieldOut
+    from ..schemas.admin import SiteSettingsOut, GameSettingsOut, PublicSettingsOut, RegistrationsPoint, AdminRoomUserStat, AdminSanctionDurationAdjustIn, AdminGameActionFieldOut
+    from ..schemas.sanction_rules import SanctionRulesOut
     from ..schemas.friend import FriendsListItemOut
     from ..schemas.room import GameParams, RoomBriefOut
     from ..schemas.user import UserGamesHistoryOut, GameHistoryItemOut, GameHistoryHostOut, UserMiniProfileNominationStatsOut, UserStatsOut
@@ -202,6 +203,7 @@ __all__ = [
     "send_contact_request_admin_telegram_message",
     "schedule_contact_request_admin_telegram_message",
     "schedule_user_telegram_notice",
+    "send_user_telegram_notice",
     "pair",
     "friend_profile_text",
     "build_friend_list_item",
@@ -3985,7 +3987,7 @@ def parse_day_range(day: date) -> tuple[datetime, datetime]:
 
 
 def sanction_rules_out(row) -> "SanctionRulesOut":
-    from ..schemas.admin import SanctionRulesOut
+    from ..schemas.sanction_rules import SanctionRulesOut
 
     return SanctionRulesOut.model_validate({"sections": row.sections})
 
