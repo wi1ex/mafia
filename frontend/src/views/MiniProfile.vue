@@ -3034,13 +3034,14 @@ onBeforeUnmount(() => {
       display: flex;
       flex-direction: column;
       padding: 16px;
-      gap: 12px;
+      gap: 6px;
       border-radius: 20px;
       background-color: rgba($soft-purple-900, 0.65);
       .date-row {
         display: flex;
         align-items: center;
         justify-content: space-between;
+        height: 22px;
         .date-title {
           color: $neutral-300;
           font-family: Hauora-Regular;
@@ -3060,13 +3061,13 @@ onBeforeUnmount(() => {
           flex-wrap: wrap;
           justify-content: flex-end;
           margin-left: 16px;
-          gap: 6px;
+          gap: 4px;
           min-width: 0;
           .profile-role-badge {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            padding: 5px 10px;
+            padding: 2px 12px;
             border-radius: 999px;
             color: $neutral-white;
             font-family: Hauora-SemiBold;
