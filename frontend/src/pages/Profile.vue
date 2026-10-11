@@ -93,7 +93,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '@/services/axios'
-import { useAuthStore, useFriendsStore, useSettingsStore, useUserStore } from '@/store'
+import { useAuthStore, useFriendsStore, useUserStore } from '@/store'
 
 import ProfileStats from '@/views/ProfileStats.vue'
 import ProfileHistory from '@/views/ProfileHistory.vue'
@@ -130,7 +130,6 @@ const DEFAULT_TAB: TabKey = 'account'
 const userStore = useUserStore()
 const auth = useAuthStore()
 const friendsStore = useFriendsStore()
-const settings = useSettingsStore()
 const route = useRoute()
 const router = useRouter()
 
@@ -138,7 +137,7 @@ const activeTab = ref<TabKey>(DEFAULT_TAB)
 const subscriptionModalOpen = ref(false)
 const homeHref = computed(() => router.resolve({ name: 'home' }).href)
 const hasActiveSubscription = computed(() => userStore.subscriptionActive)
-const profileTabsDisabled = computed(() => settings.verificationRestrictions && !userStore.telegramVerified)
+const profileTabsDisabled = computed(() => userStore.accountRestricted)
 let onProfileSync: ((e: Event) => void) | null = null
 
 function normalizeTab(value: unknown): TabKey {

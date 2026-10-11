@@ -8,7 +8,7 @@
           text="Создать комнату"
           :icon="iconAddPlus"
           icon-position="right"
-          :disabled="!canCreateRooms || !auth.isAuthed || userStore.roomRestricted || verificationRestricted"
+          :disabled="!canCreateRooms || !auth.isAuthed || userStore.roomRestricted || accountRestricted"
           @click="onOpenCreate"
         />
       </header>
@@ -414,12 +414,12 @@ const sortedMembers = computed<RoomInfoMember[]>(() => {
 
 const isFull = computed(() => selectedRoom.value ? isFullRoom(selectedRoom.value) : false)
 const currentUserId = computed(() => normalizeMiniProfileUserId(userStore.user?.id))
-const verificationRestricted = computed(() => auth.isAuthed && settings.verificationRestrictions && !userStore.telegramVerified)
+const accountRestricted = computed(() => auth.isAuthed && userStore.accountRestricted)
 const canOpenRoomInfoMiniProfile = computed(() => {
   if (!auth.ready || !settings.ready || !auth.isAuthed) return false
   if (!userStore.user) return false
   if (userStore.banActive) return false
-  return !(settings.verificationRestrictions && !userStore.telegramVerified)
+  return !userStore.accountRestricted
 })
 const topBannerActive = computed(() => {
   const verificationBanner = auth.ready
@@ -428,10 +428,14 @@ const topBannerActive = computed(() => {
     && auth.isAuthed
     && Boolean(userStore.user)
     && !userStore.telegramVerified
+  const rulesBanner = auth.ready
+    && auth.isAuthed
+    && Boolean(userStore.user)
+    && userStore.rulesAcceptanceRequired
   const text = String(settings.adminBannerText || '').trim()
   const adminBanner = settings.ready && Boolean(text && text !== '0')
   const sanctionBanner = auth.isAuthed && (userStore.banActive || userStore.timeoutActive || userStore.suspendActive)
-  return verificationBanner || adminBanner || sanctionBanner
+  return verificationBanner || rulesBanner || adminBanner || sanctionBanner
 })
 const blockedLabel = computed(() => {
   if (access.value === 'blacklisted') return 'Вход запрещен: Вы находитесь в ЧС'
@@ -440,7 +444,8 @@ const blockedLabel = computed(() => {
   if (!canEnterRooms.value) return 'Вход в комнаты отключен'
   if (userStore.banActive) return 'Вход запрещен: аккаунт забанен'
   if (userStore.timeoutActive) return 'Вход запрещен: активный таймаут'
-  if (verificationRestricted.value) return 'Вход запрещен: нет верификации'
+  if (userStore.rulesAcceptanceRequired) return 'Вход запрещен: примите обновленные правила сайта'
+  if (accountRestricted.value) return 'Вход запрещен: нет верификации'
   return 'Вход запрещен'
 })
 const isGameParticipant = computed(() => {
@@ -464,7 +469,7 @@ const ctaState = computed<Cta>(() => {
   if (!room) return 'none'
   if (room?.entry_closed) return 'blocked'
   if (room && !canEnterRooms.value) return 'blocked'
-  if (room && (userStore.roomRestricted || verificationRestricted.value)) return 'blocked'
+  if (room && (userStore.roomRestricted || accountRestricted.value)) return 'blocked'
   if (!auth.isAuthed) return 'login'
   if (access.value === 'blacklisted') return 'blocked'
   if (access.value === 'hidden') return 'blocked'
@@ -507,7 +512,7 @@ const spectatorsLabel = computed(() => {
 const spectatorsCount = computed(() => info.value?.spectators_count ?? 0)
 const spectatorsTooltipEnabled = computed(() => {
   const limit = spectatorsLimit.value
-  if (settings.verificationRestrictions && !userStore.telegramVerified) return false
+  if (userStore.accountRestricted) return false
   return auth.isAuthed && !!selectedRoom.value?.in_game && limit > 0 && spectatorsCount.value > 0
 })
 const spectatorsTooltipVisible = computed(() => spectatorsOpen.value && spectatorsTooltipEnabled.value)
@@ -645,7 +650,7 @@ async function onCreated(room: any) {
 
 async function onOpenCreate() {
   if (!canCreateRooms.value || !auth.isAuthed || userStore.roomRestricted) return
-  if (verificationRestricted.value) return
+  if (accountRestricted.value) return
   openCreate.value = true
 }
 
@@ -662,13 +667,18 @@ async function fetchAccess(id: number) {
 
 async function onApply() {
   const roomId = selectedRoom.value?.id
-  if (!roomId || applying.value) return
+  if (!roomId || applying.value || accountRestricted.value) return
   applying.value = true
   try {
     await api.post(`/rooms/${roomId}/apply`)
     access.value = 'pending'
   } catch (e: any) {
     const detail = e?.response?.data?.detail
+    if (detail === 'rules_acceptance_required') {
+      void userStore.fetchMe().catch(() => {})
+      void alertDialog('Для отправки заявки необходимо ознакомиться и принять обновленные правила сайта')
+      return
+    }
     if (detail === 'room_owner_blacklisted_requester') {
       access.value = 'blacklisted'
       void alertDialog('Заявка отменена: Вы находитесь в ЧС у владельца комнаты')
@@ -836,7 +846,7 @@ function onGlobalPointerDown(e: PointerEvent) {
 
 async function onEnter() {
   const id = selectedRoom?.value?.id
-  if (!id || entering.value) return
+  if (!id || entering.value || accountRestricted.value) return
   entering.value = true
   try { await router.push(`/room/${id}`) }
   finally { entering.value = false }

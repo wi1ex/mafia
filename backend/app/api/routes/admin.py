@@ -36,6 +36,7 @@ from ...security.auth_tokens import get_identity
 from ...security.parameters import ensure_app_settings, sync_cache_from_row, refresh_app_settings, get_cached_settings
 from ...services.livekit import remove_livekit_participant
 from ...services.user_cache import refresh_user_profile_cache, get_user_profiles_cached
+from ...services.site_rules import update_site_rules_version
 from ...services.game_scoring import (
     build_game_scoring_rules_snapshot,
     can_set_game_mode,
@@ -89,6 +90,8 @@ from ...schemas.admin import (
     AdminUpdateNotificationIn,
     AdminUpdateNotificationOut,
     AdminGamesEndAllOut,
+    AdminRulesUpdateIn,
+    AdminRulesUpdateOut,
     PublicSettingsOut,
     SiteStatsOut,
     PeriodStatsOut,
@@ -1511,6 +1514,24 @@ async def room_close(room_id: int, ident: Identity = Depends(require_protected_a
         session=session,
         log_action_name="admin_room_close",
     )
+
+
+@router.post("/rules/update", response_model=AdminRulesUpdateOut, dependencies=ADMIN_GUARD)
+@log_route("admin.site_rules_update")
+async def update_site_rules(
+    payload: AdminRulesUpdateIn,
+    ident: Identity = Depends(require_protected_admin_dep),
+    session: AsyncSession = Depends(get_session),
+) -> AdminRulesUpdateOut:
+    result = await update_site_rules_version(
+        session, actor_user_id=int(ident["id"]), actor_username=ident["username"],
+    )
+
+    with suppress(Exception):
+        await sio.emit("rules_updated", {"version": result.version}, namespace="/auth")
+    with suppress(Exception):
+        await emit_global_chat_permissions_refresh()
+    return AdminRulesUpdateOut(version=result.version, affected_users=result.affected_users)
 
 
 @router.post("/rooms/kick", response_model=Ok, dependencies=ADMIN_GUARD)

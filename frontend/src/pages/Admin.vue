@@ -37,16 +37,13 @@
           Подписки
         </button>
       </nav>
-      <router-link class="home-link" :to="{ name: 'home' }" aria-label="На главную">На главную</router-link>
     </header>
 
     <Transition name="tab-fade" mode="out-in"
                 enter-active-class="tab-fade-enter-active" leave-active-class="tab-fade-leave-active"
                 enter-from-class="tab-fade-enter-from" leave-to-class="tab-fade-leave-to">
       <div :key="activeTab" id="admin-tab-panel" class="tab-panel" role="tabpanel" :aria-labelledby="`admin-tab-${activeTab}`">
-        <h2 class="panel-title">{{ tabTitles[activeTab] }}</h2>
         <div v-if="loading" class="loading">Загрузка...</div>
-
         <div v-else-if="activeTab === 'rules'" class="rules-editor">
           <div class="rules-editor__toolbar">
             <p>Здесь редактируется единый список: он сразу используется на странице правил и при выборе причины санкции.</p>
@@ -101,6 +98,9 @@
               <div class="bulk-admin-actions">
                 <UiButton variant="red" size="middle" :disabled="endGamesAndKickBusy || compensationSaving" @click="endAllGamesAndKickRooms" width="100%">
                   Завершить игры и кикнуть всех
+                </UiButton>
+                <UiButton variant="red" size="middle" :disabled="rulesUpdateBusy" @click="updateSiteRules" width="100%">
+                  Обновление правил сайта
                 </UiButton>
                 <UiButton variant="green" size="middle" :disabled="endGamesAndKickBusy || compensationSaving" @click="openSubscriptionCompensation" width="100%">
                   Компенсация подписки
@@ -1389,7 +1389,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, unref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '@/services/axios'
 import SubscriptionHistory from '@/views/SubscriptionHistory.vue'
@@ -1785,19 +1785,6 @@ const router = useRouter()
 
 const TAB_KEYS = ['settings', 'scoring', 'rules', 'updates', 'stats', 'logs', 'rooms', 'users', 'sanctions', 'contact_requests', 'subscriptions'] as const
 type TabKey = typeof TAB_KEYS[number]
-const tabTitles: Record<TabKey, string> = {
-  'stats': 'Статистика',
-  'settings': 'Параметры',
-  'scoring': 'Скоринг',
-  'rules': 'Правила',
-  'updates': 'Уведомления',
-  'logs': 'Логи',
-  'rooms': 'Комнаты',
-  'users': 'Пользователи',
-  'sanctions': 'Санкции',
-  'contact_requests': 'Обращения',
-  'subscriptions': 'Подписки'
-}
 
 const PAGE_LIMIT_OPTIONS = [
   { value: 20, label: '20' },
@@ -2053,7 +2040,7 @@ const scoring = reactive<GameScoringSettings>({
 const settingsStore = useSettingsStore()
 const userStore = useUserStore()
 const viewerUserId = computed(() => normalizeMiniProfileUserId(userStore.user?.id))
-const roomGamesTooltipEnabled = computed(() => settingsStore.roomsLimitGlobal !== 22)
+const roomGamesTooltipEnabled = computed(() => unref(settingsStore.roomsLimitGlobal) !== 22)
 const siteSnapshot = ref('')
 const gameSnapshot = ref('')
 const scoringSnapshot = ref('')
@@ -2210,6 +2197,7 @@ const sanctionAdjustTitle = computed(() => {
   return `${actionLabel} ${formatSanctionKindLabel(target.kind).toLowerCase()}: ${userLabel}`
 })
 const endGamesAndKickBusy = ref(false)
+const rulesUpdateBusy = ref(false)
 let logsUserTimer: number | undefined
 let logsRefreshTimer: number | undefined
 let roomsUserTimer: number | undefined
@@ -2509,10 +2497,19 @@ const contactRequestsPages = computed(() => Math.max(1, Math.ceil(contactRequest
 const contactRequestReplyCanSave = computed(() => (
   Boolean(contactRequestReplyTarget.value) && contactRequestReplyText.value.trim().length > 0
 ))
-const logActionOptions = computed(() => [
-  { value: 'all', label: 'Все' },
-  ...logActions.value.map((action) => ({ value: action, label: action })),
-])
+const logActionOptions = computed(() => {
+  const actions = new Set([...logActions.value, 'site_rules_accepted', 'admin_site_rules_update'])
+  return [
+    { value: 'all', label: 'Все' },
+    ...Array.from(actions, action => ({ value: action, label: logActionLabel(action) })),
+  ]
+})
+
+function logActionLabel(action: string): string {
+  if (action === 'site_rules_accepted') return 'Принятие правил сайта'
+  if (action === 'admin_site_rules_update') return 'Обновление правил сайта'
+  return action
+}
 const subscriptionsByUserId = computed(() => {
   const mapped = new Map<number, SubscriptionRow>()
   for (const item of subscriptions.value) mapped.set(item.user_id, item)
@@ -3986,6 +3983,31 @@ async function deleteHomeCarouselBanner(): Promise<void> {
   }
 }
 
+async function updateSiteRules(): Promise<void> {
+  if (rulesUpdateBusy.value) return
+  rulesUpdateBusy.value = true
+  try {
+    const confirmed = await confirmDialog({
+      title: 'Обновление правил сайта',
+      text: 'Все верифицированные пользователи должны будут ознакомиться с обновлёнными правилами и принять изменения. До принятия им будут недоступны возможности, требующие верификации.',
+      confirmText: 'Подтвердить обновление',
+      cancelText: 'Отмена',
+      checkboxLabel: 'Подтверждаю обновление правил сайта',
+      checkboxRequired: true,
+    })
+    if (!confirmed) return
+    const { data } = await api.post('/admin/rules/update', { confirmed: true })
+    const affectedUsers = Math.max(0, Math.floor(Number(data?.affected_users) || 0))
+    await userStore.fetchMe().catch(() => {})
+    await loadLogActions()
+    void alertDialog(`Обновление правил опубликовано. Подтверждение потребуется пользователям: ${affectedUsers}.`)
+  } catch {
+    void alertDialog('Не удалось опубликовать обновление правил сайта')
+  } finally {
+    rulesUpdateBusy.value = false
+  }
+}
+
 async function endAllGamesAndKickRooms(): Promise<void> {
   if (endGamesAndKickBusy.value) return
   const ok = await confirmDialog({
@@ -4296,7 +4318,6 @@ onBeforeUnmount(() => {
   padding: 24px 16px;
 }
 .admin header h1,
-.admin .panel-title,
 .admin .settings-tab .block h3,
 .admin .scoring-block h3,
 .admin .updates-notice-block h3,
@@ -4345,23 +4366,6 @@ onBeforeUnmount(() => {
   background-color: $green-500;
   color: $neutral-black;
 }
-.admin header .home-link {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 40px;
-  border: 1px solid $soft-purple-700;
-  border-radius: 12px;
-  color: $neutral-100;
-  text-decoration: none;
-  outline: none;
-  transition: color 0.2s ease-in-out, border-color 0.2s ease-in-out;
-}
-.admin header .home-link:hover,
-.admin header .home-link:focus-visible {
-  border-color: $green-500;
-  color: $green-300;
-}
 .admin .tab-panel {
   scrollbar-width: thin;
   scrollbar-color: $soft-purple-700 transparent;
@@ -4373,13 +4377,6 @@ onBeforeUnmount(() => {
   min-height: 0;
   padding-right: 4px;
   overflow: auto;
-}
-.admin .panel-title {
-  flex: 0 0 auto;
-  padding: 0 24px;
-  font-size: 24px;
-  line-height: 28px;
-  letter-spacing: -0.48px;
 }
 .admin .loading,
 .admin .settings-tab .block,

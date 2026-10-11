@@ -665,14 +665,14 @@ const isAdminViewer = computed(() => viewerRole.value === 'admin')
 const isModerViewer = computed(() => viewerRole.value === 'moder')
 const isSelfProfile = computed(() => targetUserId.value > 0 && viewerUserId.value === targetUserId.value)
 const viewerSubscriptionActive = computed(() => Boolean(userStore.subscriptionActive))
-const viewerVerificationRestricted = computed(() => Boolean(settingsStore.verificationRestrictions && !userStore.telegramVerified && !isSelfProfile.value))
+const viewerAccountRestricted = computed(() => Boolean(userStore.accountRestricted && !isSelfProfile.value))
 const privilegedViewer = computed(() => isMiniProfilePrivilegedViewer(viewerRole.value, props.adminMode))
 const initialTargetDeleted = computed(() => {
   const initial = initialProfileForTarget.value
   return Boolean(initial?.deleted || initial?.deleted_at)
 })
 const deletedTargetBlocked = computed(() => Boolean((initialTargetDeleted.value || (profileLoadedForTarget.value && profile.value?.deleted)) && !isAdminViewer.value))
-const canRenderOpen = computed(() => props.open && !viewerVerificationRestricted.value && !deletedTargetBlocked.value)
+const canRenderOpen = computed(() => props.open && !viewerAccountRestricted.value && !deletedTargetBlocked.value)
 const adminDeletedLookupConfig = computed(() => (isAdminViewer.value ? { params: { allow_deleted: 1 } } : undefined))
 const targetDeleted = computed(() => Boolean(
   (profileLoadedForTarget.value && profile.value?.deleted)
@@ -2102,7 +2102,7 @@ function onBlacklistUpdate(e: Event) {
   }
 }
 
-watch([() => props.open, targetUserId, viewerVerificationRestricted, deletedTargetBlocked], ([open, uid, restricted, deletedBlocked]) => {
+watch([() => props.open, targetUserId, viewerAccountRestricted, deletedTargetBlocked], ([open, uid, restricted, deletedBlocked]) => {
   if (!open) {
     requestSeq += 1
     loading.value = false

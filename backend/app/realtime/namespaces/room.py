@@ -262,8 +262,15 @@ async def join(sid, data) -> JoinAck:
         if not admin_spectator_mode and base_role_normalized != ROLE_ADMIN and not get_cached_settings().rooms_can_enter:
             return {"ok": False, "error": "rooms_entry_disabled", "status": 403}
 
-        if not admin_spectator_mode:
-            async with SessionLocal() as s:
+        async with SessionLocal() as s:
+            user = await s.get(User, uid)
+            if not user or user.deleted_at is not None:
+                return {"ok": False, "error": "Unauthorized", "status": 401}
+
+            if user.rules_acceptance_required:
+                return {"ok": False, "error": "rules_acceptance_required", "status": 403}
+
+            if not admin_spectator_mode:
                 active = await fetch_active_sanctions(s, uid)
                 if active.get(SANCTION_BAN):
                     return {"ok": False, "error": "user_banned", "status": 403}
@@ -271,10 +278,8 @@ async def join(sid, data) -> JoinAck:
                 if active.get(SANCTION_TIMEOUT):
                     return {"ok": False, "error": "user_timeout", "status": 403}
 
-                if get_cached_settings().verification_restrictions:
-                    verified = await s.scalar(select(User.telegram_id).where(User.id == uid).where(User.deleted_at.is_(None)))
-                    if not verified:
-                        return {"ok": False, "error": "not_verified", "status": 403}
+                if get_cached_settings().verification_restrictions and not user.telegram_id:
+                    return {"ok": False, "error": "not_verified", "status": 403}
 
                 if is_private and room_creator_id > 0 and room_creator_id != uid:
                     if await is_user_blacklisted_by(s, owner_id=room_creator_id, target_id=uid):

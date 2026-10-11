@@ -24,6 +24,8 @@ class User(Base):
     streaming_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     telegram_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, unique=True, index=True)
     telegram_nickname: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    rules_required_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    rules_accepted_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     password_hash: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
     password_temp: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
     tg_invites_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
@@ -32,3 +34,7 @@ class User(Base):
     last_login_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     last_visit_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    @property
+    def rules_acceptance_required(self) -> bool:
+        return int(self.rules_required_version or 0) > int(self.rules_accepted_version or 0)

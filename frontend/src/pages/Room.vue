@@ -845,15 +845,15 @@ let joinPhaseApplyPending = false
 const lkReconnecting = computed(() => rtc.reconnecting.value)
 const isReconnecting = computed(() => netReconnecting.value || lkReconnecting.value)
 const reconnectBursts = ref<number[]>([])
-const canUseVerifiedFeatures = computed(() => {
+const canUseAccountFeatures = computed(() => {
   if (!auth.ready || !settings.ready || !auth.isAuthed) return false
   if (!userStore.user) return false
-  return !(settings.verificationRestrictions && !userStore.telegramVerified)
+  return !userStore.accountRestricted
 })
 const isAdminUser = computed(() => String(userStore.user?.role || '').toLowerCase() === 'admin')
-const showRoomFriendsButton = computed(() => gamePhase.value === 'idle' && !adminSpectator.value && canUseVerifiedFeatures.value)
+const showRoomFriendsButton = computed(() => gamePhase.value === 'idle' && !adminSpectator.value && canUseAccountFeatures.value)
 const showGlobalChatButton = computed(() => {
-  if (!canUseVerifiedFeatures.value) return false
+  if (!canUseAccountFeatures.value) return false
   if (!settings.chatOpenEnabled && !isAdminUser.value) return false
   return !(userStore.banActive || userStore.inActiveGameAsPlayer)
 })
@@ -3537,6 +3537,7 @@ async function onMediaGateClick() {
 function joinFailureMessage(j: any): string {
   const st = Number(j?.status || 0)
   const code = String(j?.error || '')
+  if (st === 403 && code === 'rules_acceptance_required') return 'Для входа в комнату необходимо ознакомиться и принять обновленные правила сайта'
   if (st === 403 && code === 'room_owner_blacklisted_requester') return 'Вход запрещен: Вы находитесь в ЧС у владельца комнаты'
   if (st === 403 && code === 'hidden_room') return 'Комната скрыта, вход доступен только по приглашению'
   if (!j) return 'Таймаут сети при входе в комнату'
@@ -3561,6 +3562,12 @@ function joinFailureMessage(j: any): string {
 
 async function handleJoinFailure(j: any) {
   if (leaving.value) return
+  if (j?.status === 403 && j?.error === 'rules_acceptance_required') {
+    void userStore.fetchMe().catch(() => {})
+    void alertDialog('Для входа в комнату необходимо ознакомиться и принять обновленные правила сайта')
+    await router.replace({ name: 'home', query: { focus: String(rid) } })
+    return
+  }
   if (j?.status === 403 && j?.error === 'rooms_entry_disabled') {
     void alertDialog('Вход в комнату заблокирован')
     await router.replace({ name: 'home', query: { focus: String(rid) } })

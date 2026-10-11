@@ -57,6 +57,7 @@ PRIVILEGED_SENSITIVE_MUTATION_LIMITS: dict[str, int] = {
     "/api/admin/settings": 6,
     "/api/admin/rooms/{room_id}/close": 6,
     "/api/admin/rooms/kick": 5,
+    "/api/admin/rules/update": 5,
     "/api/admin/users/{user_id}/role": 4,
     "/api/admin/users/{user_id}/additional_roles": 4,
     "/api/moderation/users/{user_id}/additional_roles": 4,

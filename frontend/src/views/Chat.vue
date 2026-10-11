@@ -427,7 +427,7 @@ const showLauncher = computed(() => {
   if (!settings.chatOpenEnabled && !isAdminUser.value) return false
   if (!user.user) return false
   if (user.banActive || user.inActiveGameAsPlayer) return false
-  return !(settings.verificationRestrictions && !user.telegramVerified);
+  return !user.accountRestricted
 })
 const canRender = computed(() => (settings.chatOpenEnabled || isAdminUser.value) && (showLauncher.value || chat.open))
 const hiddenUnreadTargetMessageIds = computed(() => {

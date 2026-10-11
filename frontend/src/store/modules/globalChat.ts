@@ -826,6 +826,8 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
         return 'Общий чат временно закрыт администратором.'
       case 'not_verified':
         return 'Для доступа к общему чату необходимо пройти верификацию.'
+      case 'rules_acceptance_required':
+        return 'Для доступа к общему чату необходимо ознакомиться и принять обновленные правила сайта.'
       case 'user_timeout':
         return 'Вам выдан таймаут. Отправка сообщений недоступна.'
       case 'user_banned':
@@ -886,7 +888,10 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
     if (error === 'active_game_player') {
       useUserStore().setInActiveGameAsPlayer(true)
     }
-    if (error === 'active_game_player' || error === 'chat_disabled' || error === 'not_verified' || error === 'user_banned') {
+    if (error === 'rules_acceptance_required') {
+      void useUserStore().fetchMe().catch(() => {})
+    }
+    if (error === 'active_game_player' || error === 'chat_disabled' || error === 'not_verified' || error === 'rules_acceptance_required' || error === 'user_banned') {
       closePanel()
     }
   }
@@ -1091,6 +1096,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
   }
 
   function openPanel(): void {
+    if (useUserStore().accountRestricted) return
     if (open.value) {
       if (connectionState.value === 'error') {
         const activeSocket = ensureSocket()

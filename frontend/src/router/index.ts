@@ -137,14 +137,15 @@ router.beforeEach(async (to, from) => {
     if (!settings.ready) {
       try { await settings.fetchPublic() } catch {}
     }
-    if (settings.verificationRestrictions) {
-      if (!user.user) {
-        try {
-          await user.fetchMe()
-        } catch {
-          return { name: 'home' }
-        }
+    if (!user.user) {
+      try {
+        await user.fetchMe()
+      } catch {
+        return { name: 'home' }
       }
+    }
+    if (user.rulesAcceptanceRequired) return { name: 'home' }
+    if (settings.verificationRestrictions) {
       if (!user.telegramVerified) return { name: 'home' }
     }
   }

@@ -1,4 +1,3 @@
-import { useSettingsStore } from '@/store/modules/setting'
 import { useUserStore } from '@/store/modules/user'
 
 export type MiniProfileOpenGuardInput = {
@@ -9,6 +8,7 @@ export type MiniProfileOpenGuardInput = {
   targetDeletedAt?: unknown
   verificationRestrictions?: unknown
   viewerTelegramVerified?: unknown
+  viewerRulesAcceptanceRequired?: unknown
 }
 
 export function normalizeMiniProfileUserId(value: unknown): number {
@@ -37,15 +37,15 @@ export function isMiniProfilePrivilegedViewer(role: unknown, adminMode = false):
   return adminMode || normalizedRole === 'admin' || normalizedRole === 'moder'
 }
 
-function isViewerBlockedByVerification(input: MiniProfileOpenGuardInput): boolean {
-  if ('verificationRestrictions' in input || 'viewerTelegramVerified' in input) {
-    return Boolean(input.verificationRestrictions) && !Boolean(input.viewerTelegramVerified)
+function isViewerBlockedByAccountRestrictions(input: MiniProfileOpenGuardInput): boolean {
+  if ('verificationRestrictions' in input || 'viewerTelegramVerified' in input || 'viewerRulesAcceptanceRequired' in input) {
+    return Boolean(input.viewerRulesAcceptanceRequired)
+      || (Boolean(input.verificationRestrictions) && !Boolean(input.viewerTelegramVerified))
   }
 
   try {
-    const settings = useSettingsStore()
     const user = useUserStore()
-    return Boolean(settings.verificationRestrictions && !user.telegramVerified)
+    return user.accountRestricted
   } catch {
     return false
   }
@@ -54,7 +54,7 @@ function isViewerBlockedByVerification(input: MiniProfileOpenGuardInput): boolea
 export function canOpenMiniProfileTarget(input: MiniProfileOpenGuardInput): boolean {
   const targetId = normalizeMiniProfileUserId(input.targetId)
   if (targetId <= 0) return false
-  if (isViewerBlockedByVerification(input)) return false
+  if (isViewerBlockedByAccountRestrictions(input)) return false
   if (isMiniProfileAdminTargetRole(input.targetRole) && normalizeMiniProfileRole(input.viewerRole) !== 'admin') return false
   if (hasMiniProfileDeletedAt(input.targetDeletedAt)) {
     return normalizeMiniProfileRole(input.viewerRole) === 'admin'

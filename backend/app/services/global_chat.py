@@ -723,6 +723,9 @@ async def resolve_global_chat_permissions(session: AsyncSession, user_id: int) -
     elif in_active_game_as_player:
         can_open = False
         error = "active_game_player"
+    elif user.rules_acceptance_required:
+        can_open = False
+        error = "rules_acceptance_required"
     elif get_cached_settings().verification_restrictions and not telegram_verified:
         can_open = False
         error = "not_verified"
@@ -770,7 +773,7 @@ def _should_force_close(permissions: GlobalChatPermissions) -> bool:
     if permissions.can_open:
         return False
 
-    return permissions.error in {"active_game_player", "chat_disabled", "not_verified", "unauthorized", "user_timeout", "user_banned"}
+    return permissions.error in {"active_game_player", "chat_disabled", "not_verified", "rules_acceptance_required", "unauthorized", "user_timeout", "user_banned"}
 
 
 def global_chat_open_user_room(user_id: int) -> str:

@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Annotated, Any, Optional, List, Literal
 import unicodedata
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from pydantic.functional_validators import BeforeValidator
 
 
@@ -19,6 +19,8 @@ class UserOut(BaseModel):
     additional_roles: List[str] = Field(default_factory=list)
     registered_at: Optional[datetime] = None
     telegram_verified: bool = False
+    rules_acceptance_required: bool = False
+    rules_required_version: int = 0
     has_password: bool = False
     password_temp: bool = False
     protected_user: bool = False
@@ -37,6 +39,19 @@ class UserOut(BaseModel):
     in_active_game_as_alive_player: bool = False
     in_active_game_as_player: bool = False
     chat_unread_count: int = 0
+
+
+class UserRulesAcceptIn(BaseModel):
+    confirmed: bool
+    version: int = Field(strict=True, ge=1)
+
+    @field_validator("confirmed", mode="before")
+    @classmethod
+    def require_confirmation(cls, value: Any) -> bool:
+        if value is not True:
+            raise ValueError("confirmation_required")
+
+        return True
 
 
 class UserProfileDatesOut(BaseModel):

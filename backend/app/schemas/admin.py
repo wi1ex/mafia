@@ -1,7 +1,7 @@
 from __future__ import annotations
 from datetime import datetime
 from typing import Annotated, Optional, List, Literal
-from pydantic import AfterValidator, BaseModel, Field
+from pydantic import AfterValidator, BaseModel, Field, field_validator
 from ..api.utils import (
     normalize_season_start_game_number,
     normalize_text_moderation_whitelist,
@@ -368,6 +368,24 @@ class AdminGamesEndAllOut(BaseModel):
     ended: int
     skipped: int
     failed: int
+
+
+class AdminRulesUpdateIn(BaseModel):
+    confirmed: bool
+
+    @field_validator("confirmed", mode="before")
+    @classmethod
+    def require_confirmation(cls, value: object) -> bool:
+        if value is not True:
+            raise ValueError("confirmation_required")
+
+        return True
+
+
+class AdminRulesUpdateOut(BaseModel):
+    ok: bool = True
+    version: int
+    affected_users: int
 
 
 class SiteStatsOut(BaseModel):

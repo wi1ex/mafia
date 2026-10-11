@@ -1677,6 +1677,8 @@ async def build_user_out_payload(session: AsyncSession, *, user_id: int, role: s
         additional_roles=list(user.additional_roles or []),
         registered_at=user.registered_at,
         telegram_verified=bool(user.telegram_id),
+        rules_acceptance_required=user.rules_acceptance_required,
+        rules_required_version=int(user.rules_required_version or 0),
         has_password=bool(user.password_hash),
         password_temp=bool(user.password_temp),
         protected_user=is_protected_admin(uid),
@@ -2436,8 +2438,6 @@ async def emit_expired_timed_sanctions_chat_notices(*, batch_limit: int = 100) -
 
 
 async def ensure_room_access_allowed(db: AsyncSession, user_id: int) -> None:
-    from ..security.parameters import get_cached_settings
-
     active = await fetch_active_sanctions(db, int(user_id))
     if active.get(SANCTION_BAN):
         raise HTTPException(status_code=403, detail="user_banned")
@@ -2445,25 +2445,20 @@ async def ensure_room_access_allowed(db: AsyncSession, user_id: int) -> None:
     if active.get(SANCTION_TIMEOUT):
         raise HTTPException(status_code=403, detail="user_timeout")
 
-    user = await db.get(User, int(user_id))
-    if not user or user.deleted_at:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-
-    if get_cached_settings().verification_restrictions and not user.telegram_id:
-        raise HTTPException(status_code=403, detail="not_verified")
+    await ensure_verification_allowed(db, user_id)
 
 
 async def ensure_verification_allowed(db: AsyncSession, user_id: int) -> None:
     from ..security.parameters import get_cached_settings
 
-    if not get_cached_settings().verification_restrictions:
-        return
-
     user = await db.get(User, int(user_id))
     if not user or user.deleted_at:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
-    if not user.telegram_id:
+    if user.rules_acceptance_required:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="rules_acceptance_required")
+
+    if get_cached_settings().verification_restrictions and not user.telegram_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="not_verified")
 
 

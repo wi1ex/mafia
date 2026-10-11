@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { api } from '@/services/axios'
+import { useSettingsStore } from './setting'
 
 const MAX_NICKNAME_CHANGES_LEFT = 1000
 
@@ -12,6 +13,8 @@ export interface UserProfile {
   additional_roles?: string[]
   registered_at?: string | null
   telegram_verified?: boolean
+  rules_acceptance_required?: boolean
+  rules_required_version?: number
   password_temp?: boolean
   protected_user?: boolean
   tg_invites_enabled?: boolean
@@ -32,6 +35,7 @@ export interface UserProfile {
 }
 
 export const useUserStore = defineStore('user', () => {
+  const settings = useSettingsStore()
   const user = ref<UserProfile | null>(null)
   const now = ref(Date.now())
   let clock: number | undefined
@@ -42,8 +46,26 @@ export const useUserStore = defineStore('user', () => {
     return Number.isFinite(ts) ? ts : 0
   }
 
+  function normalizeRulesVersion(raw: unknown): number {
+    const version = Number(raw || 0)
+    return Number.isFinite(version) ? Math.max(0, Math.floor(version)) : 0
+  }
+
   function applyProfile(payload: UserProfile | null | undefined): void {
-    user.value = payload ? { ...payload } : null
+    const current = user.value
+    const next = payload ? { ...payload } : null
+    if (current && next && current.id === next.id) {
+      const currentVersion = normalizeRulesVersion(current.rules_required_version)
+      const incomingVersion = normalizeRulesVersion(next.rules_required_version)
+      if (
+        incomingVersion < currentVersion
+        || (incomingVersion === currentVersion && current.rules_acceptance_required === false && next.rules_acceptance_required)
+      ) {
+        next.rules_required_version = current.rules_required_version
+        next.rules_acceptance_required = current.rules_acceptance_required
+      }
+    }
+    user.value = next
   }
 
   async function fetchMe(): Promise<void> {
@@ -164,6 +186,11 @@ export const useUserStore = defineStore('user', () => {
   })
   const banActive = computed(() => Boolean(user.value?.ban_active))
   const telegramVerified = computed(() => Boolean(user.value?.telegram_verified))
+  const rulesAcceptanceRequired = computed(() => Boolean(user.value?.rules_acceptance_required))
+  const rulesRequiredVersion = computed(() => normalizeRulesVersion(user.value?.rules_required_version))
+  const accountRestricted = computed(() => (
+    rulesAcceptanceRequired.value || (settings.verificationRestrictions && !telegramVerified.value)
+  ))
   const passwordTemp = computed(() => Boolean(user.value?.password_temp))
   const inActiveGameAsAlivePlayer = computed(() => Boolean(user.value?.in_active_game_as_alive_player))
   const inActiveGameAsPlayer = computed(() => Boolean(user.value?.in_active_game_as_player ?? user.value?.in_active_game_as_alive_player))
@@ -218,6 +245,9 @@ export const useUserStore = defineStore('user', () => {
     activeProfileThemeIcon,
     banActive,
     telegramVerified,
+    rulesAcceptanceRequired,
+    rulesRequiredVersion,
+    accountRestricted,
     passwordTemp,
     inActiveGameAsAlivePlayer,
     inActiveGameAsPlayer,

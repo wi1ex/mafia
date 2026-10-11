@@ -13,6 +13,7 @@ class AppSettings(Base):
     __tablename__ = "settings"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    rules_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     registration_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.REGISTRATION_ENABLED))
     rooms_can_create: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.ROOMS_CAN_CREATE))
     rooms_can_enter: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.ROOMS_CAN_ENTER))

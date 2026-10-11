@@ -60,6 +60,7 @@ const desktopScaleStyle = computed(() => {
 
 let onSanctionsUpdate: ((e: any) => void) | null = null
 let onTelegramVerified: ((e: any) => void) | null = null
+let onRulesUpdated: ((e: any) => void) | null = null
 let onAdminNotify: ((e: any) => void) | null = null
 let onUserGameParticipationChanged: ((e: any) => void) | null = null
 let onProfileSync: ((e: any) => void) | null = null
@@ -100,9 +101,8 @@ watchEffect(() => {
     route.meta?.requiresVerification
     && auth.isAuthed
     && settings.ready
-    && settings.verificationRestrictions
     && Boolean(user.user)
-    && !user.telegramVerified
+    && user.accountRestricted
   ) {
     router.replace({ name: 'home' }).catch(() => {})
   }
@@ -150,6 +150,10 @@ onMounted(async () => {
     chat.syncUnreadFromProfile()
   }
   window.addEventListener('auth-profile_sync', onProfileSync)
+  onRulesUpdated = () => {
+    if (auth.isAuthed) user.fetchMe().catch(() => {})
+  }
+  window.addEventListener('auth-rules_updated', onRulesUpdated)
   onTelegramVerified = (e: any) => {
     if (!auth.isAuthed) return
     const payloadUserId = Number(e?.detail?.user_id || 0)
@@ -220,6 +224,7 @@ onBeforeUnmount(() => {
   if (onUserGameParticipationChanged) window.removeEventListener('auth-user_game_participation_changed', onUserGameParticipationChanged)
   if (onProfileSync) window.removeEventListener('auth-profile_sync', onProfileSync)
   if (onTelegramVerified) window.removeEventListener('auth-telegram_verified', onTelegramVerified)
+  if (onRulesUpdated) window.removeEventListener('auth-rules_updated', onRulesUpdated)
   if (onAdminNotify) window.removeEventListener('auth-notify', onAdminNotify)
   if (publicSettingsSocket) {
     if (onPublicSettingsUpdate) publicSettingsSocket.off('settings_update', onPublicSettingsUpdate)

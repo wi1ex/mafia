@@ -68,7 +68,7 @@
         class="create-room"
         width="100%"
         text="Создать комнату"
-        :disabled="busy || !ok"
+        :disabled="busy || !ok || user.accountRestricted"
         @click="create"
       />
     </div>
@@ -231,7 +231,7 @@ function saveGame() {
 }
 
 async function create() {
-  if (!ok.value || busy.value) return
+  if (!ok.value || busy.value || user.accountRestricted) return
   busy.value = true
   try {
     const normalizedGame = normalizeGame(game.value)
@@ -255,6 +255,11 @@ async function create() {
     else if (st === 403 && d === 'user_timeout') void alertDialog('Вам выдан таймаут, создание комнаты недоступно')
     else if (st === 403 && d === 'user_banned') void alertDialog('Аккаунт забанен, создание комнаты недоступно')
     else if (st === 403 && d === 'not_verified') void alertDialog('Для создания комнаты требуется верификация')
+    else if (st === 403 && d === 'rules_acceptance_required') {
+      void user.fetchMe().catch(() => {})
+      void alertDialog('Для создания комнаты необходимо ознакомиться и принять обновленные правила сайта')
+      emit('close')
+    }
     else if (st === 403 && d === 'subscription_required') void alertDialog(HIDDEN_ROOM_SUBSCRIPTION_REQUIRED)
     else if (st === 409 && d === 'rooms_limit_global') void alertDialog('Достигнут общий лимит комнат')
     else if (st === 409 && d === 'rooms_limit_user') void alertDialog('Достигнут личный лимит комнат')

@@ -1,5 +1,12 @@
 ﻿<template>
-  <div v-if="verificationBanner" class="sanction-banner sanction-banner--verif">
+  <div v-if="rulesBanner" class="sanction-banner sanction-banner--verif">
+    <UiIcon class="banner-icon" :icon="iconWarning" />
+    <span>На сайте обновлены правила. Ознакомьтесь с изменениями и примите их</span>
+    <span class="verification-divider" aria-hidden="true"></span>
+    <router-link :to="{ name: 'rules' }" target="_blank" rel="noopener noreferrer">Правила</router-link>
+    <button class="banner-action" type="button" :disabled="rulesAcceptanceBusy" @click="acceptRules">Принять</button>
+  </div>
+  <div v-else-if="verificationBanner" class="sanction-banner sanction-banner--verif">
     <UiIcon class="banner-icon" :icon="iconWarning" />
     <span>Без верификации аккаунт будет удален через <span class="verification-hour-badge">1</span> час</span>
     <span class="verification-divider" aria-hidden="true"></span>
@@ -142,12 +149,14 @@
 
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, watch, ref, computed } from 'vue'
-import { useAuthStore, useUserStore, useNotifStore, useFriendsStore, useSettingsStore, useGlobalChatStore } from '@/store'
+import { useAuthStore, useUserStore, useNotifStore, useFriendsStore, useSettingsStore, useGlobalChatStore, type UserProfile } from '@/store'
 import Notifs from '@/views/Notifs.vue'
 import Friends from '@/views/Friends.vue'
 import Auth from '@/views/Auth.vue'
 import MiniProfile from '@/views/MiniProfile.vue'
 import UiIcon from '@/components/UiIcon.vue'
+import { api } from '@/services/axios'
+import { alertDialog, confirmDialog } from '@/services/confirm'
 
 import iconTelegram from "@/assets/svg/iconTelegram.svg"
 import iconWarning from "@/assets/svg/iconWarning.svg"
@@ -182,6 +191,7 @@ const um_open = ref(false)
 const userMenuEl = ref<HTMLElement | null>(null)
 const authOpen = ref(false)
 const authMode = ref<'login' | 'register'>('login')
+const rulesAcceptanceBusy = ref(false)
 // const BUILD = (import.meta.env.VITE_BUILD_ID as string || '').trim() || 'BUILD'
 const botName = (import.meta.env.VITE_TG_BOT_NAME as string || '').trim()
 const botLink = botName ? `https://t.me/${botName}` : 'https://t.me'
@@ -260,10 +270,45 @@ const verificationBanner = computed(() => {
     && !user.telegramVerified
 })
 
+const rulesBanner = computed(() => (
+  auth.ready && auth.isAuthed && Boolean(user.user) && user.rulesAcceptanceRequired
+))
+
+async function acceptRules(): Promise<void> {
+  if (rulesAcceptanceBusy.value || !rulesBanner.value) return
+  const version = user.rulesRequiredVersion
+  const userId = user.user?.id
+  rulesAcceptanceBusy.value = true
+  try {
+    const confirmed = await confirmDialog({
+      title: 'Принять изменения правил сайта',
+      text: 'Для продолжения использования сайта ознакомьтесь с актуальными правилами, пользовательским соглашением и политикой обработки персональных данных.',
+      confirmText: 'Принять',
+      cancelText: 'Отмена',
+      checkboxLabel: 'Я ознакомился с изменениями и согласен',
+      checkboxRequired: true,
+    })
+    if (!confirmed || !auth.isAuthed || user.user?.id !== userId) return
+    const { data } = await api.post<UserProfile>('/users/me/rules/accept', { confirmed: true, version })
+    if (!auth.isAuthed || user.user?.id !== userId) return
+    if (data?.id !== userId) throw new Error('invalid_rules_acceptance_response')
+    user.applyProfile(data)
+  } catch (error: any) {
+    if (error?.response?.status === 409 && error?.response?.data?.detail === 'rules_updated') {
+      try { await user.fetchMe() } catch {}
+      void alertDialog('Правила обновились во время подтверждения. Ознакомьтесь с последними изменениями и примите их ещё раз.')
+    } else {
+      void alertDialog('Не удалось принять изменения правил. Попробуйте ещё раз.')
+    }
+  } finally {
+    rulesAcceptanceBusy.value = false
+  }
+}
+
 const canUseVerifiedFeatures = computed(() => {
   if (!auth.ready || !settings.ready || !auth.isAuthed) return false
   if (!user.user) return false
-  return !(settings.verificationRestrictions && !user.telegramVerified)
+  return !user.accountRestricted
 })
 
 const showHistoryButton = computed(() => {
@@ -394,6 +439,10 @@ watch(showFriendsButton, ok => {
   void syncFriendsAccess()
 })
 
+watch(canUseVerifiedFeatures, ok => {
+  if (!ok && chat.open) chat.closePanel()
+})
+
 onMounted(async () => {
   if (auth.isAuthed) {
     notif.ensureWS()
@@ -436,7 +485,8 @@ function openAuth(mode: 'login' | 'register') {
     line-height: 16px;
     letter-spacing: -0.32px;
   }
-  a {
+  a,
+  .banner-action {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -455,6 +505,16 @@ function openAuth(mode: 'login' | 'register') {
       --ui-icon-width: 24px;
       --ui-icon-height: 24px;
       --ui-icon-color: #{$neutral-white};
+    }
+  }
+  .banner-action {
+    padding: 0;
+    border: none;
+    background: none;
+    cursor: pointer;
+    &:disabled {
+      cursor: not-allowed;
+      opacity: 0.5;
     }
   }
   .sanction-duration-unit {
