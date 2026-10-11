@@ -3,7 +3,6 @@
     <UiIcon class="banner-icon" :icon="iconWarning" />
     <span>На сайте обновлены правила. Ознакомьтесь с изменениями и примите их</span>
     <span class="verification-divider" aria-hidden="true"></span>
-    <router-link :to="{ name: 'rules' }" target="_blank" rel="noopener noreferrer">Правила</router-link>
     <button class="banner-action" type="button" :disabled="rulesAcceptanceBusy" @click="acceptRules">Принять</button>
   </div>
   <div v-else-if="verificationBanner" class="sanction-banner sanction-banner--verif">
@@ -285,6 +284,8 @@ async function acceptRules(): Promise<void> {
       text: 'Для продолжения использования сайта ознакомьтесь с актуальными правилами, пользовательским соглашением и политикой обработки персональных данных.',
       confirmText: 'Принять',
       cancelText: 'Отмена',
+      linkText: 'Перейти на страницу правил',
+      linkTo: '/rules',
       checkboxLabel: 'Я ознакомился с изменениями и согласен',
       checkboxRequired: true,
     })

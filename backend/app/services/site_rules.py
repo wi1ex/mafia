@@ -41,7 +41,7 @@ async def update_site_rules_version(session: AsyncSession, *, actor_user_id: int
     row.rules_version = version
     result = await session.execute(
         update(User)
-        .where(User.deleted_at.is_(None), User.telegram_id.is_not(None))
+        .where(User.deleted_at.is_(None))
         .values(rules_required_version=version)
         .execution_options(synchronize_session=False)
     )

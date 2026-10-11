@@ -15,6 +15,8 @@ export type ConfirmPayload = {
   text: string
   confirmText?: string
   cancelText?: string
+  linkText?: string
+  linkTo?: string
   checkboxLabel?: string
   checkboxLabelSuffix?: string
   checkboxLinkText?: string
@@ -40,6 +42,8 @@ type ConfirmState = {
   text: string
   confirmText: string
   cancelText: string
+  linkText: string
+  linkTo: string
   checkboxLabel: string
   checkboxLabelSuffix: string
   checkboxLinkText: string
@@ -58,6 +62,8 @@ const state = reactive<ConfirmState>({
   text: '',
   confirmText: 'ОК',
   cancelText: 'Отмена',
+  linkText: '',
+  linkTo: '',
   checkboxLabel: '',
   checkboxLabelSuffix: '',
   checkboxLinkText: '',
@@ -90,6 +96,8 @@ function open(mode: ConfirmMode, payload: ConfirmPayload): Promise<ConfirmResult
   state.text = payload.text
   state.confirmText = payload.confirmText || 'ОК'
   state.cancelText = payload.cancelText || 'Отмена'
+  state.linkText = payload.linkText || ''
+  state.linkTo = payload.linkTo || ''
   state.checkboxLabel = payload.checkboxLabel || ''
   state.checkboxLabelSuffix = payload.checkboxLabelSuffix || ''
   state.checkboxLinkText = payload.checkboxLinkText || ''

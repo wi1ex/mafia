@@ -7,6 +7,9 @@
           <div class="header-div">
             <span class="header-title">{{ state.title }}</span>
             <span v-if="showText" class="header-text">{{ state.text }}</span>
+            <router-link v-if="state.linkText && state.linkTo" class="header-text header-link" :to="state.linkTo" @click.stop="onClose" @keydown.enter.stop>
+              {{ state.linkText }}
+            </router-link>
           </div>
           <button type="button" aria-label="Закрыть" @click.stop="onClose">
             <UiIcon class="close-icon" :icon="iconClose" />
@@ -157,6 +160,13 @@ onBeforeUnmount(() => {
           font-size: 16px;
           line-height: 22px;
           letter-spacing: -0.32px;
+        }
+        .header-link {
+          text-decoration: underline;
+          &:hover,
+          &:focus-visible {
+            color: $neutral-black;
+          }
         }
       }
       button {
