@@ -30,7 +30,7 @@ from ..core.roles import (
 )
 from ..realtime.sio import sio
 from ..security.parameters import get_cached_settings
-from ..api.utils import is_user_in_active_game
+from ..api.utils import is_user_in_active_game, schedule_contact_request_admin_telegram_message
 from ..services.blacklist import filter_notification_targets_for_actor, is_user_blacklisted_by
 from ..services.minio import (
     CHAT_IMAGE_PENDING_SEGMENT,
@@ -1759,6 +1759,10 @@ async def publish_global_chat_notice(session: AsyncSession, *, author_user_id: i
     )
     if not created:
         return None
+
+    schedule_contact_request_admin_telegram_message(
+        f"Сообщение администратора в общем чате\n\n{normalized_text}"
+    )
 
     alert_user_ids: set[int] = set()
     try:

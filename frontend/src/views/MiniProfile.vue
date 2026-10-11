@@ -3076,7 +3076,7 @@ onBeforeUnmount(() => {
             letter-spacing: -0.28px;
             white-space: nowrap;
             &--player {
-              background-color: rgba($soft-purple-800, 0.65);
+              background-color: rgba($soft-purple-500, 0.65);
             }
             &--head_rate {
               background-color: rgba($green-500, 0.65);
