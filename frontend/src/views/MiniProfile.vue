@@ -182,7 +182,11 @@
                 </div>
                 <div class="date-row">
                   <span class="date-title">Роли пользователя</span>
-                  <span class="date-time profile-role-tags">{{ profileRoleTagsLabel }}</span>
+                  <div class="profile-role-tags">
+                    <span v-for="role in profileRoleBadges" :key="role.key" class="profile-role-badge" :class="`profile-role-badge--${role.key}`">
+                      {{ role.label }}
+                    </span>
+                  </div>
                 </div>
               </div>
               <div v-else class="profile-restricted-div">
@@ -317,7 +321,7 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { api } from '@/services/axios'
 import { alertDialog, confirmDialog, confirmDialogWithAction, useConfirmState } from '@/services/confirm'
 import { isMiniProfilePrivilegedViewer, normalizeMiniProfileRole } from '@/services/miniProfile'
-import { getProfileRoleTags } from '@/services/profileRoles'
+import { getProfileRoleBadges } from '@/services/profileRoles'
 import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
 import { getProfileThemeBadgeSources } from '@/constants/profileIcons'
 import {
@@ -725,7 +729,7 @@ const canManageHeadRate = computed(() => (
   isAdminViewer.value
   || (isModerViewer.value && viewerUserId.value === settingsStore.seniorModeratorUserId)
 ))
-const profileRoleTagsLabel = computed(() => getProfileRoleTags(profileRole.value, profileAdditionalRoles.value).join(' '))
+const profileRoleBadges = computed(() => getProfileRoleBadges(profileRole.value, profileAdditionalRoles.value))
 const profilePanelStyle = computed(() => buildProfileThemeBgStyle(profileThemeColor.value))
 const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(profileThemeIcon.value, profileRole.value, { userId: targetUserId.value }))
 const activeSanction = computed(() => (profileLoadedForTarget.value ? profile.value?.active_sanction || null : null))
@@ -3052,8 +3056,37 @@ onBeforeUnmount(() => {
           letter-spacing: -0.32px;
         }
         .profile-role-tags {
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: flex-end;
           margin-left: 16px;
-          text-align: right;
+          gap: 6px;
+          min-width: 0;
+          .profile-role-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 5px 10px;
+            border-radius: 999px;
+            color: $neutral-white;
+            font-family: Hauora-SemiBold;
+            font-size: 14px;
+            line-height: 18px;
+            letter-spacing: -0.28px;
+            white-space: nowrap;
+            &--player {
+              background-color: rgba($soft-purple-800, 0.65);
+            }
+            &--head_rate {
+              background-color: rgba($green-500, 0.65);
+            }
+            &--moder {
+              background-color: rgba($red-500, 0.65);
+            }
+            &--admin {
+              background-color: rgba($neutral-black, 0.65);
+            }
+          }
         }
       }
     }
