@@ -4543,7 +4543,7 @@ onBeforeUnmount(() => {
   flex-wrap: wrap;
   align-items: center;
   gap: 16px;
-  padding: 20px;
+  padding: 10px;
   border-radius: 20px;
   background-color: $soft-purple-800;
 }
