@@ -24,10 +24,6 @@ async def lifespan(app) -> AsyncIterator[None]:
         async with engine.begin() as conn:
             await conn.execute(text("SELECT 1"))
             await conn.run_sync(Base.metadata.create_all)
-            # Temporary schema update: remove these ALTERs after deployment.
-            await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS rules_required_version INTEGER NOT NULL DEFAULT 0"))
-            await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS rules_accepted_version INTEGER NOT NULL DEFAULT 0"))
-            await conn.execute(text("ALTER TABLE settings ADD COLUMN IF NOT EXISTS rules_version INTEGER NOT NULL DEFAULT 0"))
 
         async with SessionLocal() as session:
             await ensure_app_settings(session)
