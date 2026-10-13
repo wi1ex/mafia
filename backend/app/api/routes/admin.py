@@ -177,6 +177,8 @@ from ..utils import (
     has_live_room_snapshot,
     fetch_active_room_game_numbers,
     aggregate_user_room_time_stats,
+    AdminUserStatsPeriod,
+    admin_user_stats_period_start,
     _fetch_admin_user_game_data,
     build_user_stats_out,
     fetch_games_history_page,
@@ -1756,8 +1758,16 @@ async def games_end_all(ident: Identity = Depends(require_protected_admin_dep), 
 
 @router.get("/users", response_model=AdminUsersOut, dependencies=ADMIN_GUARD)
 @log_route("admin.users.list")
-async def users_list(page: int = 1, limit: int = 20, username: str | None = None, sort: AdminUserSortKey = "registered_at", session: AsyncSession = Depends(get_session)) -> AdminUsersOut:
+async def users_list(
+    page: int = 1,
+    limit: int = 20,
+    username: str | None = None,
+    sort: AdminUserSortKey = "registered_at",
+    stats_period: AdminUserStatsPeriod = "all",
+    session: AsyncSession = Depends(get_session),
+) -> AdminUsersOut:
     limit, page, offset = normalize_pagination(page, limit)
+    stats_since = admin_user_stats_period_start(stats_period)
 
     filters = []
     if username:
@@ -1810,9 +1820,9 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
         all_user_ids = [int(user.id) for user in users]
 
         if sort in {"last_game", "games_played", "games_hosted"}:
-            game_data = await _fetch_admin_user_game_data(session, all_user_ids)
+            game_data = await _fetch_admin_user_game_data(session, all_user_ids, stats_since=stats_since)
         elif sort in {"room_minutes", "stream_minutes", "spectator_minutes"}:
-            room_data = await aggregate_user_room_time_stats(session, all_user_ids)
+            room_data = await aggregate_user_room_time_stats(session, all_user_ids, stats_since=stats_since)
         elif sort == "last_room":
             last_room_id = await fetch_users_last_room_id(session, all_user_ids)
         elif sort == "last_spectator":
@@ -1871,9 +1881,9 @@ async def users_list(page: int = 1, limit: int = 20, username: str | None = None
 
     ids = [int(u.id) for u in users]
     if game_data is None:
-        game_data = await _fetch_admin_user_game_data(session, ids)
+        game_data = await _fetch_admin_user_game_data(session, ids, stats_since=stats_since)
     if room_data is None:
-        room_data = await aggregate_user_room_time_stats(session, ids)
+        room_data = await aggregate_user_room_time_stats(session, ids, stats_since=stats_since)
     if last_room_id is None:
         last_room_id = await fetch_users_last_room_id(session, ids)
     if last_spectator_room_id is None:

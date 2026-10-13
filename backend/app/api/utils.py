@@ -119,6 +119,10 @@ __all__ = [
     "active_room_game_number",
     "fetch_active_room_game_numbers",
     "aggregate_user_room_time_stats",
+    "AdminUserStatsPeriod",
+    "AdminUserGameData",
+    "admin_user_stats_period_start",
+    "summarize_admin_user_games",
     "_fetch_admin_user_game_data",
     "build_user_mini_profile_nomination_stats_out",
     "build_user_stats_out",
@@ -5506,7 +5510,13 @@ async def fetch_users_last_spectator_room_id(session: AsyncSession, ids: list[in
     )
 
 
-async def aggregate_user_room_time_stats(session: AsyncSession, ids: list[int], season: int | None = None) -> tuple[dict[int, int], dict[int, int], dict[int, int], dict[int, int]]:
+async def aggregate_user_room_time_stats(
+    session: AsyncSession,
+    ids: list[int],
+    season: int | None = None,
+    *,
+    stats_since: datetime | None = None,
+) -> tuple[dict[int, int], dict[int, int], dict[int, int], dict[int, int]]:
     rooms_created: dict[int, int] = {uid: 0 for uid in ids}
     room_seconds: dict[int, int] = {uid: 0 for uid in ids}
     stream_seconds: dict[int, int] = {uid: 0 for uid in ids}
@@ -5515,7 +5525,7 @@ async def aggregate_user_room_time_stats(session: AsyncSession, ids: list[int], 
     if not ids:
         return rooms_created, room_seconds, stream_seconds, spectator_seconds
 
-    season_scope = None
+    room_scope = Room.created_at >= stats_since if stats_since is not None else None
     include_active_rooms = season is None
     if season is not None:
         try:
@@ -5552,11 +5562,13 @@ async def aggregate_user_room_time_stats(session: AsyncSession, ids: list[int], 
             if season_end_dt is None:
                 return rooms_created, room_seconds, stream_seconds, spectator_seconds
             season_scope_parts.append(Room.created_at <= season_end_dt)
-        season_scope = and_(*season_scope_parts)
+        if room_scope is not None:
+            season_scope_parts.append(room_scope)
+        room_scope = and_(*season_scope_parts)
 
     counts_q = select(Room.creator, func.count(Room.id)).where(Room.creator.in_(ids))
-    if season_scope is not None:
-        counts_q = counts_q.where(season_scope)
+    if room_scope is not None:
+        counts_q = counts_q.where(room_scope)
     counts_q = counts_q.group_by(Room.creator)
     counts = await session.execute(counts_q)
     for creator, cnt in counts.all():
@@ -5569,8 +5581,8 @@ async def aggregate_user_room_time_stats(session: AsyncSession, ids: list[int], 
     scan_all = len(ids) > 200
     if scan_all:
         room_q = select(Room.id, Room.deleted_at, Room.visitors, Room.screen_time, Room.spectators_time)
-        if season_scope is not None:
-            room_q = room_q.where(season_scope)
+        if room_scope is not None:
+            room_q = room_q.where(room_scope)
         room_rows = (await session.execute(room_q)).all()
     else:
         room_filters = [Room.creator.in_(ids)]
@@ -5580,8 +5592,8 @@ async def aggregate_user_room_time_stats(session: AsyncSession, ids: list[int], 
         if include_active_rooms:
             room_filters.append(Room.deleted_at.is_(None))
         room_q = select(Room.id, Room.deleted_at, Room.visitors, Room.screen_time, Room.spectators_time).where(or_(*room_filters))
-        if season_scope is not None:
-            room_q = room_q.where(season_scope)
+        if room_scope is not None:
+            room_q = room_q.where(room_scope)
         room_rows = (await session.execute(room_q)).all()
 
     live_stats: dict[int, dict[str, Any]] = {}
@@ -5638,36 +5650,57 @@ async def aggregate_user_room_time_stats(session: AsyncSession, ids: list[int], 
     return rooms_created, room_seconds, stream_seconds, spectator_seconds
 
 
-async def _fetch_admin_user_game_data(
-    session: AsyncSession,
-    user_ids: list[int],
-) -> tuple[
+AdminUserStatsPeriod = Literal["all", "year", "quarter", "month", "week"]
+AdminUserGameData = tuple[
     dict[int, tuple[int | None, datetime | None]],
     dict[int, int],
     dict[int, int],
-]:
-    last_games = {user_id: (None, None) for user_id in user_ids}
+]
+
+
+def admin_user_stats_period_start(
+    period: AdminUserStatsPeriod,
+    *,
+    now: datetime | None = None,
+) -> datetime | None:
+    if period == "all":
+        return None
+
+    now = now or datetime.now(timezone.utc)
+    if period == "week":
+        return now - timedelta(weeks=1)
+
+    months_back = {"year": 12, "quarter": 3, "month": 1}[period]
+    month_index = now.year * 12 + now.month - 1 - months_back
+    year, month_index = divmod(month_index, 12)
+    month = month_index + 1
+    day = min(now.day, calendar.monthrange(year, month)[1])
+    return now.replace(year=year, month=month, day=day)
+
+
+def summarize_admin_user_games(
+    user_ids: list[int],
+    game_rows: Iterable[Sequence[Any]],
+    *,
+    stats_since: datetime | None = None,
+) -> AdminUserGameData:
+    last_games: dict[int, tuple[int | None, datetime | None]] = {
+        user_id: (None, None) for user_id in user_ids
+    }
     games_played = {user_id: 0 for user_id in user_ids}
     games_hosted = {user_id: 0 for user_id in user_ids}
-    if not user_ids:
-        return last_games, games_played, games_hosted
-
     user_id_set = set(user_ids)
-    game_query = select(Game.id, Game.finished_at, Game.head_id, Game.result, Game.roles)
-    if len(user_ids) <= 200:
-        game_query = game_query.where(or_(
-            Game.head_id.in_(user_ids),
-            *(Game.roles.has_key(str(user_id)) for user_id in user_ids),
-        ))
 
-    game_rows = (await session.execute(game_query)).all()
     for game_id, finished_at, head_id, result, roles in game_rows:
         try:
             normalized_game_id = int(game_id)
         except (TypeError, ValueError):
             continue
 
-        if str(result or "") in {"red", "black"}:
+        count_game = str(result or "") in {"red", "black"} and (
+            stats_since is None or finished_at >= stats_since
+        )
+        if count_game:
             try:
                 head_user_id = int(head_id)
             except (TypeError, ValueError):
@@ -5692,10 +5725,37 @@ async def _fetch_admin_user_game_data(
                 or (finished_at, normalized_game_id) > (previous_finished_at, previous_game_id)
             ):
                 last_games[user_id] = (normalized_game_id, finished_at)
-            if str(result or "") in {"red", "black"}:
+            if count_game:
                 games_played[user_id] += 1
 
     return last_games, games_played, games_hosted
+
+
+async def _fetch_admin_user_game_data(
+    session: AsyncSession,
+    user_ids: list[int],
+    *,
+    stats_since: datetime | None = None,
+) -> tuple[
+    dict[int, tuple[int | None, datetime | None]],
+    dict[int, int],
+    dict[int, int],
+]:
+    last_games = {user_id: (None, None) for user_id in user_ids}
+    games_played = {user_id: 0 for user_id in user_ids}
+    games_hosted = {user_id: 0 for user_id in user_ids}
+    if not user_ids:
+        return last_games, games_played, games_hosted
+
+    game_query = select(Game.id, Game.finished_at, Game.head_id, Game.result, Game.roles)
+    if len(user_ids) <= 200:
+        game_query = game_query.where(or_(
+            Game.head_id.in_(user_ids),
+            *(Game.roles.has_key(str(user_id)) for user_id in user_ids),
+        ))
+
+    game_rows = (await session.execute(game_query)).all()
+    return summarize_admin_user_games(user_ids, game_rows, stats_since=stats_since)
 
 
 async def fetch_user_mini_profile_game_counts(session: AsyncSession, uid: int) -> tuple[int, int]:

@@ -951,6 +951,12 @@
                 <option v-for="option in PAGE_LIMIT_OPTIONS" :key="option.value" :value="option.value">{{ option.label }}</option>
               </select>
             </div>
+            <div class="field">
+              <label for="admin-users-stats-period">Период</label>
+              <select id="admin-users-stats-period" v-model="usersStatsPeriod" :disabled="usersLoading">
+                <option v-for="option in USER_STATS_PERIOD_OPTIONS" :key="option.value" :value="option.value">{{ option.label }}</option>
+              </select>
+            </div>
           </div>
 
           <div v-if="usersLoading" class="loading">Загрузка...</div>
@@ -1790,6 +1796,14 @@ const PAGE_LIMIT_OPTIONS = [
   { value: 20, label: '20' },
   { value: 100, label: '100' },
 ] as const
+const USER_STATS_PERIOD_OPTIONS = [
+  { value: 'all', label: 'За все время' },
+  { value: 'year', label: 'За последний год' },
+  { value: 'quarter', label: 'За последние 3 месяца' },
+  { value: 'month', label: 'За последний месяц' },
+  { value: 'week', label: 'За последнюю неделю' },
+] as const
+type UserStatsPeriod = typeof USER_STATS_PERIOD_OPTIONS[number]['value']
 const ROOM_FILTER_OPTIONS = [
   { value: 'all', label: 'Все комнаты' },
   { value: 'stream_only', label: 'Только со стримом' },
@@ -1889,6 +1903,7 @@ const statsLoading = ref(false)
 const logsLoading = ref(false)
 const roomsLoading = ref(false)
 const usersLoading = ref(false)
+let usersReloadPending = false
 const sanctionsLoading = ref(false)
 const contactRequestsLoading = ref(false)
 const subscriptionsLoading = ref(false)
@@ -2097,6 +2112,7 @@ const users = ref<UserRow[]>([])
 const usersTotal = ref(0)
 const usersPage = ref(1)
 const usersLimit = ref(20)
+const usersStatsPeriod = ref<UserStatsPeriod>('all')
 const usersUser = ref('')
 const usersSort = ref<UserSortKey>('registered_at')
 const sanctions = ref<SanctionsRow[]>([])
@@ -3492,16 +3508,22 @@ async function loadRooms(): Promise<void> {
 }
 
 async function loadUsers(): Promise<void> {
-  if (usersLoading.value) return
+  if (usersLoading.value) {
+    usersReloadPending = true
+    return
+  }
+  usersReloadPending = false
   usersLoading.value = true
   try {
     const params: Record<string, any> = {
       page: usersPage.value,
       limit: usersLimit.value,
       sort: usersSort.value,
+      stats_period: usersStatsPeriod.value,
     }
     if (usersUser.value) params.username = usersUser.value
     const { data } = await api.get('/admin/users', { params })
+    if (usersReloadPending) return
     const items = Array.isArray(data?.items) ? data.items : []
     users.value = items.map((item: any) => ({
       ...item,
@@ -3521,9 +3543,10 @@ async function loadUsers(): Promise<void> {
     }))
     usersTotal.value = Number.isFinite(data?.total) ? data.total : 0
   } catch {
-    void alertDialog('Не удалось загрузить пользователей')
+    if (!usersReloadPending) void alertDialog('Не удалось загрузить пользователей')
   } finally {
     usersLoading.value = false
+    if (usersReloadPending && activeTab.value === 'users') void loadUsers()
   }
 }
 
@@ -4232,7 +4255,7 @@ watch(roomsUser, () => {
   roomsUserTimer = window.setTimeout(() => { void loadRooms() }, 500)
 })
 
-watch([usersLimit, usersSort], () => {
+watch([usersLimit, usersSort, usersStatsPeriod], () => {
   usersPage.value = 1
   if (activeTab.value !== 'users') return
   void loadUsers()
