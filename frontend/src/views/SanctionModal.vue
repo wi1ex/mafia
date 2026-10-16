@@ -193,12 +193,12 @@ function close() {
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
-    width: 640px;
+    width: 1200px;
     max-width: 100%;
     max-height: 100%;
     min-height: 0;
     padding: 24px;
-    gap: 24px;
+    gap: 12px;
     border-radius: 24px;
     background-color: $soft-purple-900;
     color: $neutral-100;
@@ -228,8 +228,8 @@ function close() {
       }
     }
     .modal-body {
-      display: flex;
-      flex-direction: column;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
       min-width: 0;
       gap: 10px;
       --ui-input-label-bg: #{$soft-purple-800};
@@ -237,8 +237,8 @@ function close() {
         display: flex;
         flex-direction: column;
         min-width: 0;
-        padding: 20px;
-        gap: 20px;
+        padding: 10px 20px;
+        gap: 10px;
         border-radius: 20px;
         background-color: $soft-purple-800;
         h3 {
@@ -275,8 +275,8 @@ function close() {
         display: flex;
         flex-direction: column;
         min-width: 0;
-        padding: 20px;
-        gap: 20px;
+        padding: 10px 20px;
+        gap: 10px;
         border-radius: 20px;
         background-color: $soft-purple-800;
         label {
@@ -319,8 +319,8 @@ function close() {
         display: flex;
         flex-direction: column;
         min-width: 0;
-        padding: 20px;
-        gap: 20px;
+        padding: 10px 20px;
+        gap: 10px;
         border-radius: 20px;
         background-color: $soft-purple-800;
         h3 {
@@ -350,7 +350,7 @@ function close() {
       display: flex;
       align-items: center;
       justify-content: flex-end;
-      gap: 12px;
+      gap: 1-px;
     }
   }
 }
