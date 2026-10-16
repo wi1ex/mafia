@@ -40,7 +40,7 @@ export const SANCTION_BADGES: Record<SanctionBadgeKey, SanctionBadge> = {
   tm1: timedSanctionBadge('ТМ1', 'var(--sanction-timeout-background)', 6, 24),
   tm2: timedSanctionBadge('ТМ2', 'var(--sanction-timeout-background)', 24, 72),
   tm3: timedSanctionBadge('ТМ3', 'var(--sanction-timeout-background)', 72, 168),
-  tm4: timedSanctionBadge('ТМ4', 'var(--sanction-timeout-background)', 24, null),
+  tm4: timedSanctionBadge('ТМ4', 'var(--sanction-timeout-background)', 168, null),
   ot1: timedSanctionBadge('ОТ1', 'var(--sanction-suspend-background)', 6, 24),
   ot2: timedSanctionBadge('ОТ2', 'var(--sanction-suspend-background)', 24, 72),
   ot3: timedSanctionBadge('ОТ3', 'var(--sanction-suspend-background)', 72, 168),
