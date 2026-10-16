@@ -1,11 +1,13 @@
 <template>
-  <span
+  <button
     v-if="breakdown"
     ref="trigger"
+    type="button"
     class="points-metric points-metric--explainable"
     :class="{ 'points-metric--open': open }"
-    tabindex="0"
+    :aria-expanded="open"
     :aria-describedby="panelId"
+    @click.stop="toggle"
     @pointerenter="preview"
     @pointerleave="scheduleClose"
     @focus="previewFocus"
@@ -14,7 +16,7 @@
     <span>Баллы:</span>
     <strong :class="pointsTone(points)">{{ formatPoints(points) }}</strong>
     <UiIcon class="points-metric__icon" :icon="iconInfo" />
-  </span>
+  </button>
   <span v-else class="points-metric">Баллы: {{ formatPoints(points) }}</span>
 
   <Teleport to="#desktop-teleport-root">
@@ -144,6 +146,7 @@ const panel = ref<HTMLElement | null>(null)
 const panelStyle = ref<Record<string, string>>({ visibility: 'hidden' })
 let pointerInside = false
 let keyboardFocus = false
+let pinned = false
 let closeTimer: ReturnType<typeof setTimeout> | undefined
 let positionFrame = 0
 let resizeObserver: ResizeObserver | undefined
@@ -193,6 +196,16 @@ function cancelClose(): void {
   closeTimer = undefined
 }
 
+function toggle(): void {
+  if (pinned) {
+    close()
+    return
+  }
+  cancelClose()
+  pinned = true
+  open.value = true
+}
+
 function preview(event: PointerEvent): void {
   if (event.pointerType !== 'mouse' || !props.breakdown) return
   cancelClose()
@@ -213,9 +226,9 @@ function enterPanel(): void {
 function scheduleClose(): void {
   pointerInside = false
   cancelClose()
-  if (keyboardFocus) return
+  if (keyboardFocus || pinned) return
   closeTimer = setTimeout(() => {
-    if (!pointerInside && !keyboardFocus) close()
+    if (!pointerInside && !keyboardFocus && !pinned) close()
   }, 180)
 }
 
@@ -228,6 +241,7 @@ function close(): void {
   cancelClose()
   pointerInside = false
   keyboardFocus = false
+  pinned = false
   open.value = false
 }
 
@@ -312,6 +326,7 @@ watch(open, async (visible) => {
   if (!visible) {
     pointerInside = false
     keyboardFocus = false
+    pinned = false
     cancelClose()
     panelStyle.value = { visibility: 'hidden' }
     return
@@ -369,7 +384,7 @@ onBeforeUnmount(() => {
     border-radius: 10px;
     background: rgba($soft-purple-900, 0.65);
     font-family: Hauora-Regular;
-    cursor: help;
+    cursor: pointer;
     transition: background-color 0.25s ease-in-out, border-color 0.25s ease-in-out;
     &:hover,
     &.points-metric--open {
