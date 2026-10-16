@@ -350,7 +350,7 @@ function close() {
       display: flex;
       align-items: center;
       justify-content: flex-end;
-      gap: 1-px;
+      gap: 10px;
     }
   }
 }
