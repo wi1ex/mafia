@@ -293,6 +293,7 @@
       :title="staffSanctionTitle"
       :saving="staffSanctionSaving"
       :can-save="staffSanctionCanSave"
+      :issuance-kind="staffSanctionKind"
       :show-duration="staffSanctionKind !== 'ban'"
       :form="staffSanctionForm"
       :reasons="staffSanctionReasons"

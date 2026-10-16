@@ -9,20 +9,32 @@
             <UiButton variant="white" size="low" :icon="iconClose" width="40px" aria-label="Закрыть" @click="close" />
           </header>
           <div class="modal-body">
+            <div v-if="showReason" class="reason-card">
+              <label for="sanction-reason">Причина</label>
+              <select id="sanction-reason" v-model="form.reason" :disabled="saving || !availableReasons.length">
+                <option v-if="!availableReasons.length" value="" disabled>Нет подходящих пунктов правил</option>
+                <option v-for="option in availableReasons" :key="option.value" :value="option.value">{{ option.label }}</option>
+              </select>
+            </div>
+            <div v-if="timedKind && showReason" class="reason-card">
+              <label for="sanction-type">Тип санкции</label>
+              <select id="sanction-type" v-model="selectedBadgeKey" :disabled="saving || availableBadges.length < 2">
+                <option v-if="!availableBadges.length" value="" disabled>Выберите пункт правил</option>
+                <option v-for="badgeKey in availableBadges" :key="badgeKey" :value="badgeKey">
+                  {{ SANCTION_BADGES[badgeKey].code }} · {{ SANCTION_BADGES[badgeKey].notation }}
+                </option>
+              </select>
+            </div>
             <div v-if="showDuration" class="duration-card">
               <h3>Срок</h3>
               <div class="grid">
-                <UiInput id="sanction-months" v-model.number="form.months" type="number" min="0" max="240" step="1" autocomplete="off" label="Месяцы" size="low" />
-                <UiInput id="sanction-days" v-model.number="form.days" type="number" min="0" max="31" step="1" autocomplete="off" label="Дни" size="low" />
-                <UiInput id="sanction-hours" v-model.number="form.hours" type="number" min="0" max="23" step="1" autocomplete="off" label="Часы" size="low" />
+                <UiInput id="sanction-months" v-model.number="form.months" type="number" min="0" max="240" step="1" autocomplete="off" label="Месяцы" size="low" :invalid="Boolean(durationError)" :aria-describedby="durationDescriptionIds" />
+                <UiInput id="sanction-days" v-model.number="form.days" type="number" min="0" max="31" step="1" autocomplete="off" label="Дни" size="low" :invalid="Boolean(durationError)" :aria-describedby="durationDescriptionIds" />
+                <UiInput id="sanction-hours" v-model.number="form.hours" type="number" min="0" max="23" step="1" autocomplete="off" label="Часы" size="low" :invalid="Boolean(durationError)" :aria-describedby="durationDescriptionIds" />
               </div>
-              <p v-if="durationHint" class="duration-hint">{{ durationHint }}</p>
-            </div>
-            <div v-if="showReason" class="reason-card">
-              <label for="sanction-reason">Причина</label>
-              <select id="sanction-reason" v-model="form.reason">
-                <option v-for="option in reasons" :key="option.value" :value="option.value">{{ option.label }}</option>
-              </select>
+              <p v-if="ruleDurationHint" id="sanction-rule-duration-hint" class="duration-hint">{{ ruleDurationHint }}</p>
+              <p v-if="durationHint" id="sanction-duration-hint" class="duration-hint">{{ durationHint }}</p>
+              <p v-if="durationError" id="sanction-duration-error" class="duration-error" role="alert">{{ durationError }}</p>
             </div>
             <div v-if="showDescription" class="description-card">
               <h3>Служебное описание</h3>
@@ -42,7 +54,7 @@
           </div>
           <div class="modal-actions">
             <UiButton variant="white" size="middle" text="Отмена" @click="close" />
-            <UiButton size="middle" :text="saving ? 'Сохранение…' : saveLabel" :disabled="saving || !canSave" @click="$emit('save')" />
+            <UiButton size="middle" :text="saving ? 'Сохранение…' : saveLabel" :disabled="!canSubmit" @click="save" />
           </div>
         </div>
       </div>
@@ -51,14 +63,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref, watch } from 'vue'
+
+import { SANCTION_BADGES, getTimedSanctionBadgeKeys, type SanctionBadgeKey, type TimedSanctionBadgeKey, type TimedSanctionKind } from '@/constants/sanctionReasons'
 
 import UiInput from '@/components/UiInput.vue'
 import UiButton from '@/components/UiButton.vue'
 
 import iconClose from '@/assets/svg/iconClose.svg'
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
   open: boolean
   title: string
   saving: boolean
@@ -68,8 +82,9 @@ withDefaults(defineProps<{
   showDescription?: boolean
   saveLabel?: string
   durationHint?: string
+  issuanceKind?: TimedSanctionKind | 'ban'
   zIndex?: number
-  reasons: { value: string; label: string }[]
+  reasons: { value: string; label: string; badges?: SanctionBadgeKey[] }[]
   form: {
     months: number
     days: number
@@ -92,6 +107,70 @@ const emit = defineEmits<{
 }>()
 
 const armed = ref(false)
+const selectedBadgeKey = ref<TimedSanctionBadgeKey | ''>('')
+const timedKind = computed(() => (
+  props.issuanceKind === 'timeout' || props.issuanceKind === 'suspend' ? props.issuanceKind : null
+))
+const availableReasons = computed(() => {
+  const kind = timedKind.value
+  return kind
+    ? props.reasons.filter(reason => getTimedSanctionBadgeKeys(kind, reason.badges || []).length > 0)
+    : props.reasons
+})
+const availableBadges = computed(() => {
+  const kind = timedKind.value
+  const reason = availableReasons.value.find(reason => reason.value === props.form.reason)
+  return kind && reason ? getTimedSanctionBadgeKeys(kind, reason.badges || []) : []
+})
+const selectedBadge = computed(() => (
+  selectedBadgeKey.value && availableBadges.value.includes(selectedBadgeKey.value)
+    ? SANCTION_BADGES[selectedBadgeKey.value]
+    : null
+))
+const durationHours = computed(() => {
+  const parts = [props.form.months, props.form.days, props.form.hours].map(Number)
+  const limits = [240, 31, 23]
+  if (!parts.every((value, index) => Number.isInteger(value) && value >= 0 && value <= limits[index]!)) return null
+  return parts[0]! * 30 * 24 + parts[1]! * 24 + parts[2]!
+})
+const ruleDurationValid = computed(() => {
+  if (!timedKind.value) return true
+  const range = selectedBadge.value?.duration
+  const hours = durationHours.value
+  return Boolean(range && hours !== null && hours >= range.minHours && (range.maxHours === null || hours <= range.maxHours))
+})
+const ruleDurationHint = computed(() => (
+  selectedBadge.value ? `Допустимый срок для ${selectedBadge.value.code}: ${selectedBadge.value.notation}.` : ''
+))
+const durationError = computed(() => {
+  if (!timedKind.value) return ''
+  if (durationHours.value === null) return 'Укажите срок целыми неотрицательными числами: месяцы — до 240, дни — до 31, часы — до 23.'
+  if (durationHours.value > 0 && selectedBadge.value && !ruleDurationValid.value) {
+    return `Срок не соответствует диапазону ${selectedBadge.value.code}.`
+  }
+  return ''
+})
+const durationDescriptionIds = computed(() => [
+  ruleDurationHint.value ? 'sanction-rule-duration-hint' : '',
+  props.durationHint ? 'sanction-duration-hint' : '',
+  durationError.value ? 'sanction-duration-error' : '',
+].filter(Boolean).join(' ') || undefined)
+const canSubmit = computed(() => !props.saving && props.canSave && ruleDurationValid.value)
+
+watch([() => props.open, timedKind, availableReasons], ([open, kind, reasons]) => {
+  if (open && kind && !reasons.some(reason => reason.value === props.form.reason)) {
+    props.form.reason = reasons[0]?.value ?? ''
+  }
+}, { immediate: true })
+
+watch([() => props.open, availableBadges], ([open, badges]) => {
+  if (!open) selectedBadgeKey.value = ''
+  else if (!selectedBadgeKey.value || !badges.includes(selectedBadgeKey.value)) selectedBadgeKey.value = badges[0] ?? ''
+}, { immediate: true })
+
+function save(): void {
+  if (canSubmit.value) emit('save')
+}
 
 function close() {
   emit('update:open', false)
@@ -182,6 +261,12 @@ function close() {
         .duration-hint {
           margin: 0;
           color: $yellow-500;
+          font-size: 14px;
+          line-height: 20px;
+        }
+        .duration-error {
+          margin: 0;
+          color: $red-300;
           font-size: 14px;
           line-height: 20px;
         }

@@ -36,6 +36,7 @@ export interface PublicSettings {
 export type SanctionReason = {
   value: string
   label: string
+  badges: SanctionBadgeKey[]
 }
 
 type SanctionRulesPayload = {
@@ -94,7 +95,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const seniorModeratorUserId = ref<number | null>(null)
   const sanctionRules = ref<RulesSection[]>([])
   const sanctionReasons = computed<SanctionReason[]>(() => sanctionRules.value.flatMap(section => (
-    section.rules.map(rule => ({ value: rule.text, label: rule.text }))
+    section.rules.map(rule => ({ value: rule.text, label: rule.text, badges: [...rule.badges] }))
   )))
   const defaultSanctionReason = computed(() => sanctionReasons.value[0]?.value ?? '')
   const sanctionRulesReady = ref(false)
