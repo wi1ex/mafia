@@ -47,7 +47,7 @@ CONFIG_PARAMETERS = BOUNDS | {"farewell_voted_correct_deduction"}
 RULE_SPECS = {
     "citizen_active_version_after_death": (-0.5, "Один раз обычному мирному при итоговой победе чёрных: его версия активна в конце и он ушёл до начала хотя бы одного завершённого голосования. Любая причина ухода, любой день; переголосование, подъём, отсутствие вывода подходят. Голосование, начавшееся до смерти, не подходит. Проверки могут быть верны; удаление и восстановление версии оцениваются по конечному состоянию. Без события vote_start штраф не выводится предположительно."),
     "farewell_voted_correct_deduction": (0.1, "Настраиваемый вычет из каждой ставки за верный цвет завещания после голосования, включая подъём. Сохраняется при старте игры. Ноль отключает снижение; вычет больше ставки делает результат отрицательным. Ночь, неверные цвета и бонусы цели не затрагиваются. Это параметр расчёта, не самостоятельное начисление."),
-    "vote_black_unchecked_nine_ten": (-0.1, "Со второго дня чёрному за фактический единоличный vote-уход при 9–10 живых на итогах результирующего голосования. Не подъём/ночь/фолы/самоубийство. Ни в одной активной версии на момент ухода нет его чёрной проверки. Личные проверки шерифа и алгоритм очевидности не используются; автор версии может быть любым, даже умершим. Удаление проверки до ухода разрешает штраф; поздние версии не меняют оценку. Один штраф за уход."),
+    "vote_black_unchecked_nine_ten": (-0.1, "Со второго дня чёрному за фактический единоличный vote-уход при 9–10 живых на итогах результирующего голосования. Не подъём/ночь/фолы/самоубийство. На момент ухода игрок не является автором активной непустой версии с допустимой проверкой и ни в одной активной версии нет его чёрной проверки. Цвет проверки в собственной версии не важен. Личные проверки шерифа и алгоритм очевидности не используются; автор другой версии может быть любым, даже умершим. Снятие собственной версии или чёрной проверки до ухода разрешает штраф; поздние версии не меняют оценку. Один штраф за уход."),
     "vote_sheriff_nine_red": (-0.1, "Со второго дня только красным участникам результирующего вывода настоящего шерифа: он фактически ушёл единолично, без подъёма; на момент итогов результирующего голосования девять или десять живых. При переголосовании используем его снимок alive. Без снимка итогов не начисляем; не голосовавшие не штрафуются."),
     "vote_sheriff_nine_black": (0.1, "При тех же условиях единоличного вывода шерифа при 9–10 живых со второго дня — только чёрным, голосовавшим в него. Бонус дополнительный к vote_opponent_team, не заменяет его; действует общий лимит. Повтор события смерти не удваивает этот бонус."),
     "vote_break_red_to_red": (-0.5, "Отмеченный красный в день 1 голосовал за другого красного, единолично ушедшего без подъёма. Штраф один раз, если сам ушёл на предрешённое поражение через голосование/подъём в день 2 либо фолы/техфолы/самоубийство в день 1/2; учитывается вся группа подъёма и потенциальный отстрел. Также применяется при итоговой победе чёрных до наступления дня 2. Обычные штрафы удаления сохраняются; последний выбор ведущего определяет автора."),
@@ -430,6 +430,58 @@ class ScoringRulesTests(unittest.TestCase):
         ):
             with self.subTest(actions=actions):
                 self.assertEqual(score(actions, rules=rules)[0]["8"], expected)
+
+    def assert_black_unchecked_score(self, actions, target, expected):
+        key = "vote_black_unchecked_nine_ten"
+        points, breakdown = score(actions, rules=isolated_rules(key))
+        self.assertEqual(points[str(target)], expected)
+        self.assertEqual(breakdown[str(target)]["final_points"], expected)
+        penalties = [item for item in breakdown[str(target)]["adjustments"] if item["rule_key"] == key]
+        self.assertEqual([item["points"] for item in penalties], [expected] if expected else [])
+
+    def test_black_unchecked_active_claimant_at_departure(self):
+        """Мафия и дон защищены собственной активной версией при уходе; чужая версия защищает только чёрной проверкой цели."""
+        for target in (8, 10):
+            for count in (9, 10):
+                alive = [uid for uid in IDS if uid != target][:count - 1] + [target]
+                vote, departure = black_unchecked_actions(alive=alive, target=target)
+                cleared = dict(type="versions", versions=[])
+                cases = []
+                for verdict in ("red", "black"):
+                    own = dict(type="versions", versions=[v(target, (2, verdict))])
+                    cases.extend((
+                        (f"own_{verdict}_before_vote", [own, vote, departure], 0),
+                        (f"own_{verdict}_before_departure", [vote, own, departure], 0),
+                        (f"own_{verdict}_cleared_before_departure", [own, vote, cleared, departure], -0.1),
+                        (f"own_{verdict}_after_departure", [vote, departure, own], -0.1),
+                    ))
+                cases.extend((
+                    ("other_checks_target_red", [dict(type="versions", versions=[v(1, (target, "red"))]), vote, departure], -0.1),
+                    ("other_checks_another_player_black", [dict(type="versions", versions=[v(1, (3, "black"))]), vote, departure], -0.1),
+                    ("other_checks_target_black", [dict(type="versions", versions=[v(1, (target, "black"))]), vote, departure], 0),
+                    ("own_has_valid_check_among_invalid", [dict(type="versions", versions=[v(target, (target, "black"), (2, "red"))]), vote, departure], 0),
+                ))
+                for case, actions, expected in cases:
+                    with self.subTest(target=target, alive=count, case=case):
+                        self.assert_black_unchecked_score(actions, target, expected)
+
+    def test_black_unchecked_empty_or_invalid_claimant_versions_do_not_protect(self):
+        """Одного claimant_id без допустимой проверки недостаточно для активной версии."""
+        for target in (8, 10):
+            for count in (9, 10):
+                alive = [uid for uid in IDS if uid != target][:count - 1] + [target]
+                vote, departure = black_unchecked_actions(alive=alive, target=target)
+                for case, version in (
+                    ("empty_checks", v(target)),
+                    ("missing_checks", {"claimant_id": target}),
+                    ("invalid_checks_container", {"claimant_id": target, "checks": None}),
+                    ("self_check", v(target, (target, "red"))),
+                    ("non_player_check", v(target, (999, "black"))),
+                    ("invalid_verdict", v(target, (2, "unknown"))),
+                ):
+                    with self.subTest(target=target, alive=count, case=case):
+                        actions = [dict(type="versions", versions=[version]), vote, departure]
+                        self.assert_black_unchecked_score(actions, target, -0.1)
 
     def test_black_unchecked_revote_snapshot(self):
         """Снимок итогов переголосования имеет приоритет над первым туром и не меняется будущими событиями."""

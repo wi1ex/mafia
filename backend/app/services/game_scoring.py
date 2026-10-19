@@ -1867,7 +1867,11 @@ def _apply_action_points(
                         check["target_id"] == target_id and check["verdict"] == "black"
                         for version in departure_versions for check in version["checks"]
                     )
-                    if not publicly_checked_black:
+                    is_active_claimant = any(
+                        version["claimant_id"] == target_id
+                        for version in departure_versions
+                    )
+                    if not publicly_checked_black and not is_active_claimant:
                         apply_rule(target_id, "vote_black_unchecked_nine_ten")
                 if target_team == "red" and result_after == "black":
                     is_black_win_3v3 = red_alive_after == 3 and black_alive_after == 3
