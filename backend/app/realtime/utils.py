@@ -230,6 +230,7 @@ __all__ = [
     "room_request_cleanup_for_game_start",
     "emit_room_requests_pruned_for_game_start",
     "get_room_min_ready",
+    "room_supports_game",
     "get_positive_setting_int",
     "wink_spot_chance",
     "randomize_limit",
@@ -1669,6 +1670,15 @@ def get_room_min_ready(params: Mapping[str, Any] | None = None) -> int:
         return default
 
     return value if value > 0 else default
+
+
+def room_supports_game(params: Mapping[str, Any] | None) -> bool:
+    try:
+        user_limit = int((params or {}).get("user_limit") or 0)
+    except (TypeError, ValueError):
+        return False
+
+    return user_limit == get_room_min_ready(params) + 1
 
 
 @dataclass
@@ -7701,6 +7711,9 @@ async def game_start_unlocked(sid, data) -> GameStartAck:
         cur_phase = ctx.phase
         if cur_phase != "idle":
             return {"ok": False, "error": "already_started", "status": 409}
+
+        if not room_supports_game(params):
+            return {"ok": False, "error": "room_not_for_game", "status": 403}
 
         if not await r.sismember(f"room:{rid}:members", str(uid)):
             return {"ok": False, "error": "not_in_room", "status": 403}

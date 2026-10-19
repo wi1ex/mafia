@@ -127,6 +127,7 @@ from ..utils import (
     decide_vote_blocks_on_death,
     should_ignore_terminal_vote_fatal_foul,
     get_positive_setting_int,
+    room_supports_game,
     wink_spot_chance,
     game_start_unlocked,
     game_phase_next_unlocked,
@@ -828,7 +829,8 @@ async def state(sid, data) -> StateAck:
                 except Exception:
                     raw_gstate = {}
             phase = str(raw_gstate.get("phase") or "idle")
-            if phase != "idle":
+            params = await r.hgetall(f"room:{rid}:params")
+            if phase != "idle" or not room_supports_game(params):
                 payload = dict(payload)
                 payload.pop("ready", None)
                 ready_forced_off = True
@@ -1284,6 +1286,7 @@ async def moderate(sid, data) -> ModerateAck:
 @sio.event(namespace="/room")
 @rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:kick:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
 async def kick(sid, data):
+    lock = None
     try:
         sess = await sio.get_session(sid, namespace="/room")
         actor_uid = int(sess["uid"])
@@ -1315,6 +1318,14 @@ async def kick(sid, data):
         )
         if err:
             return err
+
+        lock = await acquire_room_action_lock(r, rid, "game_start", ttl_seconds=60)
+        if lock is None:
+            return {"ok": False, "error": "game_start_in_progress", "status": 409, "retry_after": 1}
+
+        phase = str(await r.hget(f"room:{rid}:game_state", "phase") or "idle")
+        if phase != "idle":
+            return {"ok": False, "error": "game_in_progress", "status": 409}
 
         try:
             target_username = await r.hget(f"room:{rid}:user:{target}:info", "username")
@@ -1396,6 +1407,10 @@ async def kick(sid, data):
     except Exception:
         log.exception("sio.kick.error", sid=sid)
         return {"ok": False, "error": "internal", "status": 500}
+
+    finally:
+        if lock is not None:
+            await release_room_action_lock(r, *lock)
 
 
 @sio.event(namespace="/room")

@@ -312,6 +312,11 @@ async def public_user_stats(user_id: int, season: int | None = None, mode: Liter
         if not theme_state.subscription_active:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="subscription_required")
 
+    if uid != viewer_id and viewer_role not in {ROLE_ADMIN, ROLE_MODER}:
+        relation = await blacklist_relation(db, viewer_id, uid)
+        if relation["b_blocks_a"]:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="requester_blacklisted_by_target")
+
     return await build_user_stats_out(db, uid, season, mode)
 
 
@@ -679,6 +684,11 @@ async def public_games_history(user_id: int, page: int = 1, role: Literal["citiz
         theme_state = await resolve_profile_theme_state(db, viewer_id)
         if not theme_state.subscription_active:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="subscription_required")
+
+    if uid != viewer_id and viewer_role not in {ROLE_ADMIN, ROLE_MODER}:
+        relation = await blacklist_relation(db, viewer_id, uid)
+        if relation["b_blocks_a"]:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="requester_blacklisted_by_target")
 
     per_page_i = max(1, min(int(per_page or PERSONAL_GAME_HISTORY_PER_PAGE), PERSONAL_GAME_HISTORY_PER_PAGE))
     return await fetch_games_history_page(

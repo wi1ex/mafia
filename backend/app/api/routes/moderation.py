@@ -41,6 +41,7 @@ from ...services.global_chat import (
     emit_global_chat_sanction_removed_notice,
 )
 from ...services.nickname import FREE_NICKNAME_CHANGE_LIMIT, prepend_nickname_history, set_user_nickname_changes
+from ...services.profile_theme import resolve_profile_theme_state
 from ...services.user_cache import refresh_user_profile_cache
 from ..utils import (
     SANCTION_BAN,
@@ -423,22 +424,34 @@ async def moderation_reply_to_contact_request(contact_request_id: int, payload: 
 
 @router.get("/users/{user_id}/stats", response_model=UserStatsOut, dependencies=MODERATION_GUARD)
 @log_route("moderation.users.stats")
-async def moderation_user_stats(user_id: int, season: int | None = None, mode: Literal["all", "rating"] = "all", session: AsyncSession = Depends(get_session)) -> UserStatsOut:
+async def moderation_user_stats(user_id: int, season: int | None = None, mode: Literal["all", "rating"] = "all", ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> UserStatsOut:
     uid = int(user_id)
     user = await session.get(User, uid)
     if not user:
         raise HTTPException(status_code=404, detail="user_not_found")
+
+    viewer_id = int(ident["id"])
+    if uid != viewer_id:
+        theme_state = await resolve_profile_theme_state(session, viewer_id)
+        if not theme_state.subscription_active:
+            raise HTTPException(status_code=403, detail="subscription_required")
 
     return await build_user_stats_out(session, uid, season, mode)
 
 
 @router.get("/users/{user_id}/games/history", response_model=UserGamesHistoryOut, dependencies=MODERATION_GUARD)
 @log_route("moderation.users.games_history")
-async def moderation_user_games_history(user_id: int, page: int = 1, role: Literal["citizen", "mafia", "don", "sheriff"] | None = None, mode: Literal["all", "rating"] = "all", per_page: int = 10, session: AsyncSession = Depends(get_session)) -> UserGamesHistoryOut:
+async def moderation_user_games_history(user_id: int, page: int = 1, role: Literal["citizen", "mafia", "don", "sheriff"] | None = None, mode: Literal["all", "rating"] = "all", per_page: int = 10, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)) -> UserGamesHistoryOut:
     uid = int(user_id)
     user = await session.get(User, uid)
     if not user:
         raise HTTPException(status_code=404, detail="user_not_found")
+
+    viewer_id = int(ident["id"])
+    if uid != viewer_id:
+        theme_state = await resolve_profile_theme_state(session, viewer_id)
+        if not theme_state.subscription_active:
+            raise HTTPException(status_code=403, detail="subscription_required")
 
     per_page_i = max(1, min(int(per_page or 10), 10))
     return await fetch_games_history_page(session, page=page, player_uid=uid, player_role=role, per_page=per_page_i, history_filters={"mode": mode})

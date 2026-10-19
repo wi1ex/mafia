@@ -778,13 +778,17 @@ const lastGameAtLabel = computed(() => {
   return Number.isFinite(gameId) && gameId > 0 ? `Игра #${Math.trunc(gameId)} от ${dateLabel}` : dateLabel
 })
 const lastOnlineLabel = computed(() => formatLastOnline(profile.value?.last_visit_at, Boolean(profile.value?.online)))
+const profileDataBaseUrl = computed(() => {
+  const prefix = isAdminViewer.value ? '/admin' : isModerViewer.value ? '/moderation' : ''
+  return `${prefix}/users/${targetUserId.value}`
+})
 const resolvedStatsUrl = computed(() => {
   const provided = String(props.statsUrl || '').trim()
-  return provided || `/users/${targetUserId.value}/stats`
+  return provided || `${profileDataBaseUrl.value}/stats`
 })
 const resolvedHistoryUrl = computed(() => {
   const provided = String(props.historyUrl || '').trim()
-  return provided || `/users/${targetUserId.value}/games/history`
+  return provided || `${profileDataBaseUrl.value}/games/history`
 })
 const profileRoomControls = computed(() => props.roomControls || null)
 const showProfileRoomVolume = computed(() => Boolean(profileRoomControls.value?.showVolume))
@@ -864,12 +868,16 @@ const friendDisabled = computed(() => (
   || targetDeleted.value
   || (loading.value && !profileLoadedForTarget.value && friendStatus.value === 'none')
 ))
+const canSendFriendRequest = computed(() => (
+  !isAdminViewer.value && normalizeMiniProfileRole(profileRole.value) !== 'admin'
+))
 const showFriendAction = computed(() => (
   targetUserId.value > 0
   && !isSelfProfile.value
   && !targetDeleted.value
   && !blacklistedByMe.value
   && !viewerBlacklistedByTarget.value
+  && (friendStatus.value !== 'none' || canSendFriendRequest.value)
   && friendActionLabel.value !== ''
 ))
 const showProfileDataButtons = computed(() => Boolean(
@@ -1952,7 +1960,7 @@ function emitProfileRoomBlock(key: MiniProfileRoomControlKey): void {
 
 async function onFriendAction(kind: FriendActionKind) {
   const uid = targetUserId.value
-  if (uid <= 0 || friendBusy.value) return
+  if (uid <= 0 || friendBusy.value || (kind === 'add' && !canSendFriendRequest.value)) return
   friendBusy.value = true
   let actionForError: FriendApiAction = 'unknown'
   try {
@@ -2275,7 +2283,7 @@ onBeforeUnmount(() => {
           display: flex;
           flex-direction: column;
           gap: 8px;
-          height: 182px;
+          height: 170px;
           .profile-div {
             display: flex;
             flex-direction: column;
