@@ -29,6 +29,8 @@ class UserOut(BaseModel):
     subscription_active: bool = False
     subscription_started_at: Optional[datetime] = None
     subscription_until: Optional[datetime] = None
+    subscription_roulette_days: Optional[int] = Field(default=None, ge=1, le=30)
+    subscription_roulette_round: int = Field(default=0, ge=0)
     nickname_changes_left: int = 0
     profile_theme_color: Optional[str] = None
     profile_theme_icon: Optional[str] = None

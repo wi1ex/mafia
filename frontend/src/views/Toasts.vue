@@ -1,4 +1,5 @@
 <template>
+  <Teleport to="#desktop-teleport-root">
   <div class="toasts" @transitionend="onTransEnd">
     <div v-for="t in items" :key="t.key" class="toast" :data-key="t.key" :class="[toastToneClass(t), { closing: t._closing }]">
       <UiIcon class="toast-icon" :icon="toastIconVariant(t) === 'success' ? iconCheckCircle : toastIconVariant(t) === 'neutral' ? iconInfo : iconDanger" />
@@ -42,6 +43,7 @@
       </div>
     </div>
   </div>
+  </Teleport>
 
   <MiniProfile
     v-model:open="miniProfileOpen"
@@ -320,7 +322,7 @@ onBeforeUnmount(() => {
   position: fixed;
   flex-direction: column;
   left: 40px;
-  bottom: 40px;
+  bottom: calc(40px + var(--subscription-roulette-banner-offset, 0px));
   gap: 10px;
   z-index: 2000;
   pointer-events: none;

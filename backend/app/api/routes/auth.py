@@ -40,13 +40,13 @@ async def register(payload: PasswordRegisterIn, resp: Response, request: Request
     if not get_cached_settings().registration_enabled:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="registration_disabled")
 
-    if payload.accept_rules is not True:
+    if not payload.accept_rules:
         raise HTTPException(status_code=status.HTTP_428_PRECONDITION_REQUIRED, detail="rules_required")
 
-    if payload.accept_legal_documents is not True:
+    if not payload.accept_legal_documents:
         raise HTTPException(status_code=status.HTTP_428_PRECONDITION_REQUIRED, detail="legal_documents_required")
 
-    if payload.confirm_adult is not True:
+    if not payload.confirm_adult:
         raise HTTPException(status_code=status.HTTP_428_PRECONDITION_REQUIRED, detail="adult_confirmation_required")
 
     username = normalize_username(payload.username)

@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { api } from '@/services/axios'
+import { validRouletteDays, validRouletteRound } from '@/services/subscriptionRoulette'
 import { useSettingsStore } from './setting'
 
 const MAX_NICKNAME_CHANGES_LEFT = 1000
@@ -22,6 +23,8 @@ export interface UserProfile {
   subscription_active?: boolean
   subscription_started_at?: string | null
   subscription_until?: string | null
+  subscription_roulette_days?: number | null
+  subscription_roulette_round?: number
   nickname_changes_left?: number
   profile_theme_color?: string | null
   profile_theme_icon?: string | null
@@ -55,6 +58,14 @@ export const useUserStore = defineStore('user', () => {
     const current = user.value
     const next = payload ? { ...payload } : null
     if (current && next && current.id === next.id) {
+      const currentRound = validRouletteRound(current.subscription_roulette_round) ? current.subscription_roulette_round : 0
+      const incomingRound = validRouletteRound(next.subscription_roulette_round) ? next.subscription_roulette_round : 0
+      if (incomingRound < currentRound || (incomingRound === currentRound && validRouletteDays(current.subscription_roulette_days))) {
+        next.subscription_roulette_round = currentRound
+        next.subscription_roulette_days = current.subscription_roulette_days
+      } else if (incomingRound > currentRound) {
+        next.subscription_roulette_days ??= null
+      }
       const currentVersion = normalizeRulesVersion(current.rules_required_version)
       const incomingVersion = normalizeRulesVersion(next.rules_required_version)
       if (

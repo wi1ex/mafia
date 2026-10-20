@@ -11,6 +11,7 @@
     <Chat />
     <Confirms />
     <Toast />
+    <SubscriptionRouletteEntry />
   </div>
 </template>
 
@@ -30,6 +31,7 @@ import Header from '@/views/Header.vue'
 import Toast from '@/views/Toasts.vue'
 import Confirms from '@/views/Confirms.vue'
 import Chat from '@/views/Chat.vue'
+import SubscriptionRouletteEntry from '@/views/SubscriptionRouletteEntry.vue'
 
 const route = useRoute()
 const router = useRouter()

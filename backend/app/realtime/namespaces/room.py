@@ -5,7 +5,6 @@ import random
 from time import time
 from typing import Any, Mapping
 import structlog
-from sqlalchemy import select
 from ..sio import sio
 from ..connections import register_user_socket, unregister_user_socket
 from ...core.clients import get_redis

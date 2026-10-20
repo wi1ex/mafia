@@ -1,7 +1,7 @@
 from __future__ import annotations
 from datetime import datetime
 from typing import Optional
-from sqlalchemy import BigInteger, String, DateTime, Boolean, Text, Integer, func
+from sqlalchemy import BigInteger, String, DateTime, Boolean, Text, Integer, SmallInteger, CheckConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import JSONB
 from ..core.db import Base
@@ -9,6 +9,12 @@ from ..core.db import Base
 
 class User(Base):
     __tablename__ = "users"
+    __table_args__ = (
+        CheckConstraint(
+            "subscription_roulette_days IS NULL OR subscription_roulette_days BETWEEN 1 AND 30",
+            name="subscription_roulette_days_range",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     username: Mapped[str] = mapped_column(String(20), nullable=False, index=True, unique=True)
@@ -19,6 +25,7 @@ class User(Base):
     nickname_changes_left: Mapped[int] = mapped_column(Integer, nullable=False, server_default="1")
     rating_host_minutes: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0, server_default="0")
     rating_host_reward_days: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0, server_default="0")
+    subscription_roulette_days: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
     profile_theme_color: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
     profile_theme_icon: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
     streaming_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)

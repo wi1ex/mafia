@@ -1,4 +1,5 @@
 import { io, Socket } from 'socket.io-client'
+import { publishSiteNotification } from '@/services/subscriptionRoulette'
 import {
   getAccessToken,
   refreshAccessToken,
@@ -153,20 +154,7 @@ export function startAuthSocket(opts?: { onForceLogout?: () => void }): Socket {
   authSocket.on('close', stopAuthHeartbeat)
 
   authSocket.on('notify', (p:any) => {
-    window.dispatchEvent(new CustomEvent('auth-notify', { detail: p }))
-    if (!p?.no_toast) {
-      let toastPayload = p
-      if (p && typeof p === 'object') {
-        toastPayload = { ...p }
-        if (Object.prototype.hasOwnProperty.call(p, 'toast_title')) {
-          ;(toastPayload as any).title = (p as any).toast_title
-        }
-        if (Object.prototype.hasOwnProperty.call(p, 'toast_text')) {
-          ;(toastPayload as any).text = (p as any).toast_text
-        }
-      }
-      window.dispatchEvent(new CustomEvent('toast', { detail: toastPayload }))
-    }
+    publishSiteNotification(p)
   })
 
   authSocket.on('friends_update', (p:any) => {

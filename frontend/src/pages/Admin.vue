@@ -95,6 +95,7 @@
               <UiSwitch class="switch-item" :width="140" size="low" v-model="site.rtc_echo_cancellation_enabled" label="Эхоподавление микрофона" :disabled="savingSettings" />
               <UiSwitch class="switch-item" :width="140" size="low" v-model="site.rtc_noise_suppression_enabled" label="Шумоподавление микрофона" :disabled="savingSettings" />
               <UiSwitch class="switch-item" :width="140" size="low" v-model="site.rtc_auto_gain_control_enabled" label="Автоуровень микрофона" :disabled="savingSettings" />
+              <UiSwitch class="switch-item" :width="140" size="low" v-model="site.subscription_roulette_enabled" label="Лотерея подписки" title="При включении начинается новый розыгрыш: попытки всех пользователей сбрасываются." :disabled="savingSettings" />
               <div class="bulk-admin-actions">
                 <UiButton variant="red" size="middle" :disabled="endGamesAndKickBusy || compensationSaving" @click="endAllGamesAndKickRooms" width="100%">
                   Завершить игры и кикнуть всех
@@ -1442,6 +1443,8 @@ type SiteSettings = {
   rtc_echo_cancellation_enabled: boolean
   rtc_noise_suppression_enabled: boolean
   rtc_auto_gain_control_enabled: boolean
+  subscription_roulette_enabled: boolean
+  subscription_roulette_round: number
   admin_banner_text: string
   admin_banner_link: string
   donation_url: string
@@ -1920,6 +1923,8 @@ const site = reactive<SiteSettings>({
   rtc_echo_cancellation_enabled: true,
   rtc_noise_suppression_enabled: true,
   rtc_auto_gain_control_enabled: true,
+  subscription_roulette_enabled: false,
+  subscription_roulette_round: 0,
   admin_banner_text: '0',
   admin_banner_link: '0',
   donation_url: '',
@@ -2363,6 +2368,7 @@ function snapshotSite(): string {
     streams_can_start: Boolean(site.streams_can_start),
     chat_open_enabled: Boolean(site.chat_open_enabled),
     verification_restrictions: Boolean(site.verification_restrictions),
+    subscription_roulette_enabled: Boolean(site.subscription_roulette_enabled),
     admin_banner_text: normalizeAdminBannerText(site.admin_banner_text),
     admin_banner_link: normalizeAdminBannerLink(site.admin_banner_link),
     donation_url: normalizeExternalPaymentUrl(site.donation_url),
@@ -3331,6 +3337,7 @@ async function saveSettings(): Promise<void> {
         rtc_echo_cancellation_enabled: Boolean(site.rtc_echo_cancellation_enabled),
         rtc_noise_suppression_enabled: Boolean(site.rtc_noise_suppression_enabled),
         rtc_auto_gain_control_enabled: Boolean(site.rtc_auto_gain_control_enabled),
+        subscription_roulette_enabled: Boolean(site.subscription_roulette_enabled),
         admin_banner_text: normalizeAdminBannerText(site.admin_banner_text),
         admin_banner_link: normalizeAdminBannerLink(site.admin_banner_link),
         donation_url: normalizeExternalPaymentUrl(site.donation_url),
@@ -3384,6 +3391,8 @@ async function saveSettings(): Promise<void> {
       rtc_echo_cancellation_enabled: site.rtc_echo_cancellation_enabled,
       rtc_noise_suppression_enabled: site.rtc_noise_suppression_enabled,
       rtc_auto_gain_control_enabled: site.rtc_auto_gain_control_enabled,
+      subscription_roulette_enabled: site.subscription_roulette_enabled,
+      subscription_roulette_round: site.subscription_roulette_round,
       admin_banner_text: site.admin_banner_text,
       admin_banner_link: site.admin_banner_link,
       home_carousel_banner_key: homeCarouselBannerKey.value,

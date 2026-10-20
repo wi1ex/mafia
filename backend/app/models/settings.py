@@ -1,5 +1,5 @@
 from __future__ import annotations
-from sqlalchemy import BigInteger, Boolean, Integer, String
+from sqlalchemy import BigInteger, Boolean, CheckConstraint, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 from ..core.db import Base
 from ..core.settings import settings
@@ -11,6 +11,9 @@ def _bool_default(value: bool) -> str:
 
 class AppSettings(Base):
     __tablename__ = "settings"
+    __table_args__ = (
+        CheckConstraint("subscription_roulette_round >= 0", name="subscription_roulette_round_range"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
     rules_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
@@ -25,6 +28,8 @@ class AppSettings(Base):
     rtc_echo_cancellation_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.RTC_ECHO_CANCELLATION_ENABLED))
     rtc_noise_suppression_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.RTC_NOISE_SUPPRESSION_ENABLED))
     rtc_auto_gain_control_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.RTC_AUTO_GAIN_CONTROL_ENABLED))
+    subscription_roulette_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    subscription_roulette_round: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0, server_default="0")
     admin_banner_text: Mapped[str] = mapped_column(String(2048), nullable=False, server_default="0")
     admin_banner_link: Mapped[str] = mapped_column(String(2048), nullable=False, server_default="0")
     home_carousel_banner_key: Mapped[str | None] = mapped_column(String(255), nullable=True)

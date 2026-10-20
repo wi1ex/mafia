@@ -16,6 +16,7 @@ from ...models.contact_request import ContactRequestRecord, ContactRequestReply
 from ...models.game import Game
 from ...models.room import Room
 from ...models.notif import Notif
+from ...models.settings import AppSettings
 from ...models.subscription import SubscriptionGrant, UserSubscription
 from ...schemas.admin import AdminSubscriptionGrantOut, AdminSubscriptionGrantsOut, AdminSubscriptionGrantDurationIn
 from ...models.sanction import UserSanction
@@ -37,6 +38,7 @@ from ...security.parameters import ensure_app_settings, sync_cache_from_row, ref
 from ...services.livekit import remove_livekit_participant
 from ...services.user_cache import refresh_user_profile_cache, get_user_profiles_cached
 from ...services.site_rules import update_site_rules_version
+from ...services.subscription_roulette_rounds import start_roulette_round
 from ...services.game_scoring import (
     build_game_scoring_rules_snapshot,
     can_set_game_mode,
@@ -398,7 +400,11 @@ async def get_settings(session: AsyncSession = Depends(get_session)) -> AdminSet
 @router.patch("/settings", response_model=AdminSettingsOut, dependencies=ADMIN_GUARD)
 @log_route("admin.settings_update")
 async def update_settings(payload: AdminSettingsUpdateIn, session: AsyncSession = Depends(get_session), ident: Identity = Depends(require_protected_admin_dep)) -> AdminSettingsOut:
-    row = await ensure_app_settings(session)
+    await ensure_app_settings(session)
+    row = await session.scalar(
+        select(AppSettings).where(AppSettings.id == 1).with_for_update()
+        .execution_options(populate_existing=True)
+    )
     previous_game_min_ready = max(1, int(row.game_min_ready_players))
     data = payload.model_dump(exclude_unset=True)
     site_data = data.get("site") or {}
@@ -417,6 +423,11 @@ async def update_settings(payload: AdminSettingsUpdateIn, session: AsyncSession 
         if getattr(row, key) != value
     }
     season_changed = "season_start_game_number" in changed
+
+    roulette_reset_count = 0
+    if changed.get("subscription_roulette_enabled"):
+        roulette_reset_count = await start_roulette_round(session, row)
+        changed["subscription_roulette_round"] = row.subscription_roulette_round
 
     for key, value in changed.items():
         setattr(row, key, value)
@@ -450,6 +461,7 @@ async def update_settings(payload: AdminSettingsUpdateIn, session: AsyncSession 
     details = (
         f"Обновление настроек keys={','.join(sorted(changed))} season_changed={int(season_changed)} "
         f"room_min_ready_snapshots={room_min_ready_snapshots} "
+        f"roulette_round={row.subscription_roulette_round} roulette_reset_users={roulette_reset_count} "
         f"normalized_rating_rooms={normalized_rating_rooms}"
         if changed
         else "Обновление настроек без изменений"
@@ -2127,6 +2139,7 @@ async def subscriptions_list(session: AsyncSession = Depends(get_session)) -> Ad
     for row in subscriptions:
         if row.user_id is None:
             continue
+
         uid = int(row.user_id)
         profile = profiles.get(uid) or {}
         theme_state = theme_states.get(uid)

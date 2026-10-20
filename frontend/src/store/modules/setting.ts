@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { api } from '@/services/axios'
+import { validRouletteRound } from '@/services/subscriptionRoulette'
 import {
   SANCTION_BADGES,
   type RulesSection,
@@ -19,6 +20,8 @@ export interface PublicSettings {
   rtc_echo_cancellation_enabled: boolean
   rtc_noise_suppression_enabled: boolean
   rtc_auto_gain_control_enabled: boolean
+  subscription_roulette_enabled: boolean
+  subscription_roulette_round: number
   admin_banner_text: string
   admin_banner_link: string
   home_carousel_banner_key: string | null
@@ -55,6 +58,8 @@ const PUBLIC_SETTINGS_KEYS: readonly (keyof PublicSettings)[] = [
   'rtc_echo_cancellation_enabled',
   'rtc_noise_suppression_enabled',
   'rtc_auto_gain_control_enabled',
+  'subscription_roulette_enabled',
+  'subscription_roulette_round',
   'admin_banner_text',
   'admin_banner_link',
   'home_carousel_banner_key',
@@ -81,6 +86,8 @@ export const useSettingsStore = defineStore('settings', () => {
   const rtcEchoCancellationEnabled = ref(true)
   const rtcNoiseSuppressionEnabled = ref(true)
   const rtcAutoGainControlEnabled = ref(true)
+  const subscriptionRouletteEnabled = ref(false)
+  const subscriptionRouletteRound = ref(0)
   const adminBannerText = ref('0')
   const adminBannerLink = ref('0')
   const homeCarouselBannerKey = ref<string | null>(null)
@@ -158,6 +165,13 @@ export const useSettingsStore = defineStore('settings', () => {
     return parseSeasonStartNumbers(raw).join(',')
   }
 
+  function applyRouletteRound(round: number, enabled: boolean): boolean {
+    if (!validRouletteRound(round) || round < subscriptionRouletteRound.value) return false
+    subscriptionRouletteRound.value = round
+    subscriptionRouletteEnabled.value = Boolean(enabled)
+    return true
+  }
+
   function applyPublic(data: PublicSettings) {
     registrationEnabled.value = Boolean(data.registration_enabled)
     roomsCanCreate.value = Boolean(data.rooms_can_create)
@@ -170,6 +184,7 @@ export const useSettingsStore = defineStore('settings', () => {
     rtcEchoCancellationEnabled.value = Boolean(data.rtc_echo_cancellation_enabled)
     rtcNoiseSuppressionEnabled.value = Boolean(data.rtc_noise_suppression_enabled)
     rtcAutoGainControlEnabled.value = Boolean(data.rtc_auto_gain_control_enabled)
+    applyRouletteRound(data.subscription_roulette_round, data.subscription_roulette_enabled)
     adminBannerText.value = String(data.admin_banner_text || '').trim() || '0'
     adminBannerLink.value = String(data.admin_banner_link || '').trim() || '0'
     const homeCarouselBannerKeyValue = String(data.home_carousel_banner_key || '').trim()
@@ -271,6 +286,8 @@ export const useSettingsStore = defineStore('settings', () => {
     rtcEchoCancellationEnabled,
     rtcNoiseSuppressionEnabled,
     rtcAutoGainControlEnabled,
+    subscriptionRouletteEnabled,
+    subscriptionRouletteRound,
     adminBannerText,
     adminBannerLink,
     homeCarouselBannerKey,
@@ -293,6 +310,7 @@ export const useSettingsStore = defineStore('settings', () => {
 
     fetchPublic,
     applyPublic,
+    applyRouletteRound,
     applyPublicPayload,
     applySanctionRulesPayload,
     ensureWS,
