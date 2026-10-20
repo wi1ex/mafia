@@ -38,7 +38,7 @@ from ...security.parameters import ensure_app_settings, sync_cache_from_row, ref
 from ...services.livekit import remove_livekit_participant
 from ...services.user_cache import refresh_user_profile_cache, get_user_profiles_cached
 from ...services.site_rules import update_site_rules_version
-from ...services.subscription_roulette_rounds import start_roulette_round
+from ...services.subscription_roulette import start_roulette_round
 from ...services.game_scoring import (
     build_game_scoring_rules_snapshot,
     can_set_game_mode,
@@ -427,7 +427,6 @@ async def update_settings(payload: AdminSettingsUpdateIn, session: AsyncSession 
     roulette_reset_count = 0
     if changed.get("subscription_roulette_enabled"):
         roulette_reset_count = await start_roulette_round(session, row)
-        changed["subscription_roulette_round"] = row.subscription_roulette_round
 
     for key, value in changed.items():
         setattr(row, key, value)

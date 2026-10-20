@@ -1,7 +1,6 @@
 from __future__ import annotations
 import structlog
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncConnection
 from typing import AsyncIterator
 from contextlib import asynccontextmanager
 from ..security.parameters import ensure_app_settings
@@ -12,28 +11,6 @@ from .clients import close_clients, init_clients
 from .db import Base, SessionLocal, engine
 from .logging import configure_logging
 from .settings import settings
-
-
-async def setup_subscription_roulette_schema(conn: AsyncConnection) -> None:
-    for statement in (
-        "ALTER TABLE settings ADD COLUMN IF NOT EXISTS subscription_roulette_enabled boolean NOT NULL DEFAULT false, "
-        "ADD COLUMN IF NOT EXISTS subscription_roulette_round bigint NOT NULL DEFAULT 0",
-        "ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_roulette_days smallint",
-        "DROP INDEX IF EXISTS uq_subscription_grants_roulette_user_id",
-        "DROP INDEX IF EXISTS uq_subscription_grants_roulette_user_round",
-        "ALTER TABLE subscription_grants DROP CONSTRAINT IF EXISTS ck_subscription_grants_subscription_roulette_round_required",
-    ):
-        await conn.execute(text(statement))
-    for table, name, condition in (
-        ("users", "subscription_roulette_days_range", "subscription_roulette_days IS NULL OR subscription_roulette_days BETWEEN 1 AND 30"),
-        ("settings", "subscription_roulette_round_range", "subscription_roulette_round >= 0"),
-    ):
-        constraint = f"ck_{table}_{name}"
-        exists = await conn.scalar(text(
-            "SELECT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = to_regclass(:table) AND conname = :name)"
-        ), {"table": table, "name": constraint})
-        if not exists:
-            await conn.execute(text(f"ALTER TABLE {table} ADD CONSTRAINT {constraint} CHECK ({condition})"))
 
 
 @asynccontextmanager
@@ -48,7 +25,14 @@ async def lifespan(app) -> AsyncIterator[None]:
             await conn.execute(text("SELECT 1"))
             await conn.execute(text("SELECT pg_advisory_xact_lock(20261020, 1)"))
             await conn.run_sync(Base.metadata.create_all)
-            await setup_subscription_roulette_schema(conn)
+
+            await conn.execute(text(
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_roulette_days smallint "
+                "CONSTRAINT ck_users_subscription_roulette_days_range CHECK (subscription_roulette_days BETWEEN 1 AND 30)"
+            ))
+            await conn.execute(text(
+                "ALTER TABLE settings ADD COLUMN IF NOT EXISTS subscription_roulette_state bigint NOT NULL DEFAULT 0"
+            ))
 
         async with SessionLocal() as session:
             await ensure_app_settings(session)

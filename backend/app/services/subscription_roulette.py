@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 import structlog
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..models.log import AppLog
 from ..models.notif import Notif
@@ -29,6 +29,16 @@ from .profile_theme import compute_subscription_end, ensure_profile_theme_defaul
 
 log = structlog.get_logger()
 WIN_ACTION = "subscription_roulette_win"
+
+
+async def start_roulette_round(session: AsyncSession, settings: AppSettings) -> int:
+    settings.subscription_roulette_state = settings.subscription_roulette_round + 1
+    result = await session.execute(
+        update(User).values(
+            subscription_roulette_days=None,
+        ).execution_options(synchronize_session=False)
+    )
+    return int(result.rowcount or 0)
 
 
 @dataclass(slots=True)
@@ -325,10 +335,10 @@ async def deliver_roulette_win(result: RouletteResult) -> None:
 async def _publish_roulette_win(session: AsyncSession, result: RouletteResult) -> None:
     from ..api.utils import (
         emit_auth_profile_sync, emit_notify, emit_room_profile_theme_sync,
-        refresh_user_profile_cache,
     )
     from .global_chat import emit_global_chat_profile_theme_sync
     from .profile_theme import resolve_profile_theme_state
+    from .user_cache import refresh_user_profile_cache
 
     uid = result.user_id
     effects = [

@@ -5,7 +5,7 @@ from typing import cast, Literal
 from ...core.roles import is_reserved_role_nickname
 from sqlalchemy import select, update, exists, func, literal, and_, case
 from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Response, Request
+from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, status, UploadFile, File, Form, Response, Request, Query
 from ..utils import (
     broadcast_creator_rooms,
     fetch_active_sanctions,
@@ -70,6 +70,11 @@ from ...security.decorators import log_route, rate_limited
 from ...services.site_rules import accept_site_rules_version
 from ...services.text_moderation import enforce_clean_text
 from ...schemas.common import Identity, Ok
+from ...schemas.subscription_roulette import (
+    SubscriptionRouletteSpinIn,
+    SubscriptionRouletteSpinOut,
+    SubscriptionRouletteStatusOut,
+)
 from ...schemas.user import (
     UserOut,
     UserRulesAcceptIn,
@@ -151,6 +156,7 @@ from ...services.user_cache import (
     invalidate_avatar_presign_cache,
     get_user_profiles_cached,
 )
+from ...services.subscription_roulette import deliver_roulette_win, get_roulette_status, spin_roulette
 
 router = APIRouter()
 
@@ -160,6 +166,32 @@ CHAT_MENTION_LIMIT_DEFAULT = 8
 CHAT_MENTION_LIMIT_MAX = 10
 CHAT_MENTION_SEARCH_RATE_LIMIT = 100
 CHAT_MENTION_SEARCH_RATE_WINDOW_S = 10
+
+
+@router.get("/subscription-roulette/status", response_model=SubscriptionRouletteStatusOut)
+@log_route("users.subscription_roulette.status")
+@rate_limited(lambda ident, **_: f"rl:subscription_roulette_status:{ident['id']}", limit=10, window_s=1)
+async def roulette_status(
+    round_id: int | None = Query(default=None, ge=0, le=9223372036854775807),
+    ident: Identity = Depends(get_identity),
+    session: AsyncSession = Depends(get_session),
+) -> SubscriptionRouletteStatusOut:
+    return await get_roulette_status(session, int(ident["id"]), round_id=round_id)
+
+
+@router.post("/subscription-roulette/spin", response_model=SubscriptionRouletteSpinOut)
+@log_route("users.subscription_roulette.spin")
+@rate_limited(lambda ident, **_: f"rl:subscription_roulette_spin:{ident['id']}", limit=5, window_s=1)
+async def roulette_spin(
+    background_tasks: BackgroundTasks,
+    payload: SubscriptionRouletteSpinIn | None = Body(default=None),
+    ident: Identity = Depends(get_identity),
+    session: AsyncSession = Depends(get_session),
+) -> SubscriptionRouletteSpinOut:
+    result = await spin_roulette(session, int(ident["id"]), round_id=payload.round_id if payload is not None else None)
+    if result.created:
+        background_tasks.add_task(deliver_roulette_win, result)
+    return result.response
 
 
 @router.get("/profile_info", response_model=UserOut)

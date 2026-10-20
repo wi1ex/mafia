@@ -134,6 +134,7 @@ __all__ = [
     "fetch_sanction_counts_for_users",
     "compute_duration_seconds",
     "moderation_timed_sanction_duration_limit",
+    "ensure_senior_moderator",
     "ensure_moderation_timed_sanction_duration_allowed",
     "elapsed_seconds_since",
     "is_sanction_active",
@@ -1678,7 +1679,7 @@ async def build_user_out_payload(session: AsyncSession, *, user_id: int, role: s
     in_active_game_as_player = await is_user_in_active_game(uid, scan_if_missing=True)
     chat_unread_count = await count_global_chat_unread(session, user_id=uid)
     roulette_state = (await session.execute(
-        select(User.subscription_roulette_days, AppSettings.subscription_roulette_round)
+        select(User.subscription_roulette_days, func.abs(AppSettings.subscription_roulette_state))
         .select_from(User).join(AppSettings, AppSettings.id == 1).where(User.id == uid)
     )).one_or_none()
     roulette_days, roulette_round = roulette_state if roulette_state is not None else (None, 0)
@@ -3484,7 +3485,7 @@ def game_scoring_audit_fields(
 
     def points_label(raw: object) -> str:
         try:
-            points = float(raw)
+            points: float = float(raw)
         except (TypeError, ValueError):
             points = 0.0
         return f"{points:+.2f}"
