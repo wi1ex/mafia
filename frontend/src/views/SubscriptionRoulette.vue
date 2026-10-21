@@ -17,7 +17,6 @@
                 <span>{{ phase === 'result' ? 'Ваш выигрыш' : 'Подписка в подарок' }}</span>
                 <strong>{{ phase === 'result' && days ? days : '1–30' }}</strong>
                 <span class="lottery-prize__caption">{{ phase === 'result' && days ? `${daysWord(days)} подписки` : 'дней бесплатного доступа' }}</span>
-                <span v-if="phase === 'result' && untilText" class="lottery-prize__until">Подписка активна до {{ untilText }}</span>
               </div>
               <UiButton class="lottery-action" :text="buttonText" width="100%" :disabled="buttonDisabled" @click="phase === 'result' ? $emit('close') : $emit('start')" />
               <p v-if="error" class="lottery-error" role="alert">{{ error }}</p>
@@ -59,7 +58,6 @@ import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import UiButton from '@/components/UiButton.vue'
 import iconClose from '@/assets/svg/iconClose.svg'
 import logo from '@/assets/svg/iconLogo.svg'
-import { formatLocalDateTime } from '@/services/datetime'
 import { ROULETTE_DAYS, ROULETTE_SPIN_MS, rouletteAngle, validRouletteDays, type RoulettePhase } from '@/services/subscriptionRoulette'
 
 const props = defineProps<{
@@ -79,7 +77,6 @@ const overlayArmed = ref(false)
 const confettiVisible = ref(false)
 const busy = computed(() => ['requesting', 'spinning', 'recovering'].includes(props.phase))
 const pulled = computed(() => busy.value || props.phase === 'result')
-const untilText = computed(() => props.subscriptionUntil ? formatLocalDateTime(props.subscriptionUntil, { day: '2-digit', month: '2-digit', year: 'numeric' }, 'ru-RU') : '')
 let confettiTimer: number | undefined
 let returnFocus: HTMLElement | null = null
 let background: HTMLElement | null = null
@@ -221,9 +218,9 @@ onBeforeUnmount(() => {
   backdrop-filter: blur(8px);
   .lottery-dialog {
     position: relative;
-    width: min(920px, calc(100vw - 40px));
+    width: min(800px, calc(100vw - 40px));
     max-height: calc(100dvh - 40px);
-    padding: 30px;
+    padding: 24px;
     box-sizing: border-box;
     overflow: auto;
     overscroll-behavior: contain;
@@ -301,6 +298,7 @@ onBeforeUnmount(() => {
             letter-spacing: -1px;
           }
           .lottery-prize__caption {
+            text-align: end;
             color: $soft-purple-700;
           }
           .lottery-prize__until {
@@ -309,6 +307,8 @@ onBeforeUnmount(() => {
           }
           &.is-won {
             strong {
+              text-align: end;
+              font-size: 70px;
               color: $green-700;
             }
           }
@@ -326,9 +326,9 @@ onBeforeUnmount(() => {
       }
       .lottery-machine {
         position: relative;
-        width: min(100%, 300px);
+        width: min(100%, 330px);
         justify-self: center;
-        padding-right: 68px;
+        padding-right: 60px;
         box-sizing: border-box;
         .lottery-wheel-shell {
           position: relative;
