@@ -286,7 +286,6 @@ onBeforeUnmount(() => {
           color: $soft-purple-700;
           font-size: 14px;
           strong {
-            text-align: end;
             color: $soft-purple-900;
             font-family: Involve-Medium;
             font-weight: 500;
@@ -295,7 +294,6 @@ onBeforeUnmount(() => {
             letter-spacing: -1px;
           }
           .lottery-prize__caption {
-            text-align: end;
             color: $soft-purple-700;
           }
           .lottery-prize__until {

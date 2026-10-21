@@ -14,7 +14,7 @@ export async function createRouletteShareImage(days: number): Promise<File> {
 
   const canvas = document.createElement('canvas')
   canvas.width = 1000
-  canvas.height = 560
+  canvas.height = 530
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('Canvas is unavailable')
 
@@ -116,23 +116,6 @@ export async function createRouletteShareImage(days: number): Promise<File> {
     ctx.fill()
     ctx.restore()
   })
-  ctx.fillStyle = mint
-  ctx.beginPath()
-  ctx.arc(66, 505, 12, 0, Math.PI * 2)
-  ctx.fill()
-  ctx.strokeStyle = purple
-  ctx.lineWidth = 2
-  ctx.lineCap = 'round'
-  ctx.lineJoin = 'round'
-  ctx.beginPath()
-  ctx.moveTo(61, 505)
-  ctx.lineTo(65, 509)
-  ctx.lineTo(72, 501)
-  ctx.stroke()
-  ctx.fillStyle = muted
-  ctx.font = '500 22px Hauora-Medium, sans-serif'
-  ctx.fillText('Подписка уже начислена', 90, 512)
-
   const blob = await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(value => value ? resolve(value) : reject(new Error('Could not render roulette image')), 'image/png')
   })
