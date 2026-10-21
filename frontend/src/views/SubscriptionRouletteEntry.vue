@@ -19,8 +19,10 @@
     :subscription-until="displayResult?.subscription_until || null"
     :can-spin="canSpin"
     :error="error"
+    :sharing="sharing"
     :reduced-motion="reducedMotion"
     @start="start"
+    @share="shareResult"
     @close="closeDialog"
   />
 </template>
@@ -29,6 +31,7 @@
 import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref, watch, watchEffect } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore, useSettingsStore, useUserStore } from '@/store'
+import { useGlobalChatStore } from '@/store/modules/globalChat'
 import { type UserProfile } from '@/store/modules/user'
 import { api } from '@/services/axios'
 import UiButton from '@/components/UiButton.vue'
@@ -45,6 +48,7 @@ const route = useRoute()
 const auth = useAuthStore()
 const user = useUserStore()
 const settings = useSettingsStore()
+const globalChat = useGlobalChatStore()
 const banner = ref<HTMLElement | null>(null)
 const open = ref(false)
 const hasOpened = ref(false)
@@ -54,6 +58,8 @@ const displayResult = ref<RouletteStatus | null>(null)
 const dialogRound = ref<number | null>(null)
 const resultDays = ref<number | null>(null)
 const error = ref('')
+const sharing = ref(false)
+let shareAttempt: { round: number; clientMessageId: string; image: File | null } | null = null
 const pageVisible = ref(!document.hidden)
 const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
 const reducedMotion = ref(motionQuery.matches)
@@ -222,6 +228,43 @@ function openDialog(): void {
   error.value = ''
 }
 
+async function shareResult(): Promise<void> {
+  if (!open.value || sharing.value || phase.value !== 'result') return
+  const id = userId.value
+  const round = dialogRound.value
+  const days = resultDays.value
+  const current = generation
+  if (!id || round === null || !validRouletteDays(days)) return
+
+  if (shareAttempt?.round !== round) {
+    const clientMessageId = globalThis.crypto?.randomUUID?.() || 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, part => {
+      const random = Math.floor(Math.random() * 16)
+      return (part === 'x' ? random : (random & 0x3) | 0x8).toString(16)
+    })
+    shareAttempt = { round, clientMessageId, image: null }
+  }
+  const attempt = shareAttempt
+  sharing.value = true
+  error.value = ''
+  try {
+    if (!attempt.image) {
+      const { createRouletteShareImage } = await import('@/services/subscriptionRouletteCard')
+      attempt.image = await createRouletteShareImage(days)
+    }
+    if (current !== generation || id !== userId.value || round !== dialogRound.value || !open.value) return
+    const sent = await globalChat.sendImage(attempt.image, attempt.clientMessageId)
+    if (current !== generation || id !== userId.value || round !== dialogRound.value || !open.value) return
+    if (sent) closeDialog()
+    else error.value = 'Карточка не отправлена. Проверьте доступ к чату и попробуйте ещё раз.'
+  } catch {
+    if (current === generation && id === userId.value && round === dialogRound.value && open.value) {
+      error.value = 'Не удалось подготовить карточку. Попробуйте ещё раз.'
+    }
+  } finally {
+    if (current === generation && id === userId.value) sharing.value = false
+  }
+}
+
 function closeDialog(): void {
   open.value = false
   const id = userId.value
@@ -248,6 +291,8 @@ watch(userId, id => {
   dialogRound.value = null
   resultDays.value = null
   error.value = ''
+  sharing.value = false
+  shareAttempt = null
   setRouletteNotificationAccount(id)
 }, { immediate: true, flush: 'sync' })
 

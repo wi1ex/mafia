@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import type { Socket } from 'socket.io-client'
 import { api } from '@/services/axios'
 import { alertDialog } from '@/services/confirm'
@@ -205,6 +205,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
   const loadingInitial = ref(false)
   const loadingMore = ref(false)
   const sending = ref(false)
+  const sendingImage = ref(false)
   const uploadingImage = ref(false)
   const messages = ref<GlobalChatMessage[]>([])
   const draft = ref('')
@@ -238,11 +239,14 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
   let unreadSyncInited = false
   let onUnreadCountEvent: ((event: Event) => void) | null = null
   let autoMarkUnreadTargetsPromise: Promise<void> = Promise.resolve()
+  const imageUploads = new Map<string, { userId: number; key: string }>()
+
+  watch(() => currentViewerUserId(), () => imageUploads.clear(), { flush: 'sync' })
 
   const draftHasImage = computed(() => Boolean(draftImagePreviewUrl.value || draftImageName.value || draftImageObjectKey.value))
   const draftImageUploaded = computed(() => Boolean(draftImageObjectKey.value))
   const canSendCurrentDraft = computed(() => {
-    if (!open.value || sending.value || uploadingImage.value) return false
+    if (!open.value || sending.value || sendingImage.value || uploadingImage.value) return false
     if (connectionState.value !== 'ready') return false
     if (!permissions.value.can_send) return false
     if (useUserStore().timeoutActive) return false
@@ -416,6 +420,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
   }
 
   function hardReset(): void {
+    imageUploads.clear()
     closeSocket()
     resetState()
     clearUnreadCount()
@@ -1231,16 +1236,117 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
     return String((error as any)?.message || '') === 'global_chat_upload_handled'
   }
 
-  async function uploadDraftImage(file: File): Promise<string> {
+  async function uploadDraftImage(file: File, isCurrent: () => boolean = () => true): Promise<string> {
     try {
       return await uploadDraftImageViaPresign(file)
     } catch (presignError: any) {
+      if (!isCurrent()) throw createHandledUploadError()
       const shouldFallback = String(presignError?.message || '') === 'chat_presigned_upload_failed'
         || isRecoverableUploadFailure(presignError)
       if (!shouldFallback) throw presignError
     }
 
     return uploadDraftImageViaProxy(file)
+  }
+
+  function waitForChatReady(isCurrent: () => boolean): Promise<boolean> {
+    if (!isCurrent() || connectionState.value === 'error') return Promise.resolve(false)
+    if (connectionState.value === 'ready') return Promise.resolve(true)
+
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => finish(false), CHAT_SOCKET_TIMEOUT_MS)
+      const stop = watch([connectionState, open, () => currentViewerUserId()], () => {
+        if (!isCurrent() || connectionState.value === 'error') finish(false)
+        else if (connectionState.value === 'ready') finish(true)
+      }, { flush: 'sync' })
+
+      function finish(ready: boolean): void {
+        clearTimeout(timer)
+        stop()
+        resolve(ready)
+      }
+    })
+  }
+
+  async function sendImage(file: File, clientMessageId: string): Promise<boolean> {
+    const userId = currentViewerUserId()
+    const messageId = clientMessageId.trim()
+    if (!userId || !messageId || sending.value || sendingImage.value || uploadingImage.value) return false
+    if (!CHAT_ALLOWED_IMAGE_TYPES.has(asString(file.type).toLowerCase())) {
+      void alertDialog('Можно загрузить только PNG или JPEG.')
+      return false
+    }
+    if (file.size > CHAT_IMAGE_MAX_BYTES) {
+      void alertDialog(`Файл слишком большой. Максимум ${CHAT_IMAGE_MAX_SIZE_LABEL}.`)
+      return false
+    }
+
+    sendingImage.value = true
+    sending.value = true
+    openPanel()
+    let cancelled = !open.value
+    const isCurrent = () => !cancelled && open.value && currentViewerUserId() === userId
+    const stop = watch([open, () => currentViewerUserId()], () => {
+      if (!open.value || currentViewerUserId() !== userId) cancelled = true
+    }, { flush: 'sync' })
+
+    try {
+      if (!await waitForChatReady(isCurrent) || !isCurrent()) return false
+      if (!permissions.value.can_send || useUserStore().timeoutActive) {
+        void alertDialog(describePermissionError(useUserStore().timeoutActive ? 'user_timeout' : '', 'Отправка сообщений недоступна.'))
+        return false
+      }
+
+      const upload = imageUploads.get(messageId) || { userId, key: '' }
+      if (upload.userId !== userId) return false
+      imageUploads.set(messageId, upload)
+      if (!upload.key) {
+        try {
+          const key = await uploadDraftImage(file, isCurrent)
+          if (currentViewerUserId() === userId) upload.key = key
+        } catch (error: any) {
+          if (!isCurrent()) return false
+          const status = asPositiveInt(error?.response?.status)
+          const detail = error?.response?.data?.detail
+          void alertDialog(describeUploadError(status, detail))
+          maybeApplyAccessLoss(status, asString(detail))
+          return false
+        }
+      }
+
+      if (!isCurrent()) return false
+      const response = await emitAck<ChatAck>('chat_send', {
+        client_message_id: messageId,
+        text: '',
+        reply_to_message_id: null,
+        image_object_key: upload.key,
+      })
+      if (!isCurrent()) return false
+      if (!response?.ok) {
+        const status = asPositiveInt(response.status)
+        const error = asString(response.error)
+        if (error === 'image_not_found' || error === 'bad_image_key') upload.key = ''
+        void alertDialog(describeSendError(status, error, response.detail))
+        maybeApplyAccessLoss(status, error)
+        return false
+      }
+
+      if (response.message) {
+        const { insertedIds } = mergeMessages([response.message])
+        const sentMessageId = insertedIds[insertedIds.length - 1]
+          || asPositiveInt(isRecord(response.message) ? response.message.id : 0)
+          || null
+        markMutation('append', sentMessageId, true)
+      }
+      return true
+    } catch {
+      if (isCurrent()) void alertDialog('Не удалось отправить сообщение.')
+      return false
+    } finally {
+      stop()
+      sendingImage.value = false
+      sending.value = false
+    }
   }
 
   async function ensureDraftImageUploaded(): Promise<string | null> {
@@ -1602,6 +1708,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
     hardReset,
     loadMore,
     sendDraft,
+    sendImage,
     toggleReaction,
     deleteMessage,
     loadReactionParticipants,

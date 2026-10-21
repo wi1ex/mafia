@@ -18,7 +18,7 @@
                 <strong>{{ phase === 'result' && days ? days : '1–30' }}</strong>
                 <span class="lottery-prize__caption">{{ phase === 'result' && days ? `${daysWord(days)} подписки` : 'дней бесплатного доступа' }}</span>
               </div>
-              <UiButton class="lottery-action" :text="buttonText" width="100%" :disabled="buttonDisabled" @click="phase === 'result' ? $emit('close') : $emit('start')" />
+              <UiButton class="lottery-action" :text="buttonText" width="100%" :disabled="buttonDisabled" @click="phase === 'result' ? $emit('share') : $emit('start')" />
               <p v-if="error" class="lottery-error" role="alert">{{ error }}</p>
             </div>
 
@@ -58,7 +58,7 @@ import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import UiButton from '@/components/UiButton.vue'
 import iconClose from '@/assets/svg/iconClose.svg'
 import logo from '@/assets/svg/iconLogo.svg'
-import { ROULETTE_DAYS, ROULETTE_SPIN_MS, rouletteAngle, validRouletteDays, type RoulettePhase } from '@/services/subscriptionRoulette'
+import { ROULETTE_DAYS, ROULETTE_SPIN_MS, rouletteAngle, rouletteDaysWord as daysWord, validRouletteDays, type RoulettePhase } from '@/services/subscriptionRoulette'
 
 const props = defineProps<{
   open: boolean
@@ -67,9 +67,10 @@ const props = defineProps<{
   subscriptionUntil: string | null
   canSpin: boolean
   error: string
+  sharing: boolean
   reducedMotion: boolean
 }>()
-const emit = defineEmits<{ start: []; close: [] }>()
+const emit = defineEmits<{ start: []; close: []; share: [] }>()
 const dialog = ref<HTMLElement | null>(null)
 const angle = ref(0)
 const animateWheel = ref(false)
@@ -83,20 +84,15 @@ let background: HTMLElement | null = null
 let previousInert = false
 let focusLocked = false
 
-function daysWord(days: number): string {
-  const last = days % 10
-  const lastTwo = days % 100
-  return last === 1 && lastTwo !== 11 ? 'день' : last >= 2 && last <= 4 && (lastTwo < 12 || lastTwo > 14) ? 'дня' : 'дней'
-}
 const buttonText = computed(() => {
-  if (props.phase === 'result') return 'Отлично, спасибо!'
+  if (props.phase === 'result') return props.sharing ? 'Отправляем в чат…' : 'Показать в чате'
   if (props.phase === 'requesting') return 'Подготавливаем…'
   if (props.phase === 'spinning') return 'Колесо вращается…'
   if (props.phase === 'recovering') return 'Проверяем результат…'
   if (props.phase === 'error') return 'Проверить результат'
   return props.canSpin ? 'Потянуть рычаг' : 'Участие недоступно'
 })
-const buttonDisabled = computed(() => busy.value || (props.phase !== 'result' && props.phase !== 'error' && !props.canSpin))
+const buttonDisabled = computed(() => busy.value || props.sharing || (props.phase !== 'result' && props.phase !== 'error' && !props.canSpin))
 const wheelStyle = computed(() => ({
   transform: `rotate(${angle.value}deg)`,
   transitionDuration: animateWheel.value && !props.reducedMotion ? `${ROULETTE_SPIN_MS}ms` : '0ms',

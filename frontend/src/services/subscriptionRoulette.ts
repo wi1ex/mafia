@@ -30,6 +30,12 @@ export function validRouletteDays(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 30
 }
 
+export function rouletteDaysWord(days: number): string {
+  const last = days % 10
+  const lastTwo = days % 100
+  return last === 1 && lastTwo !== 11 ? 'день' : last >= 2 && last <= 4 && (lastTwo < 12 || lastTwo > 14) ? 'дня' : 'дней'
+}
+
 export function validRouletteRound(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
 }
