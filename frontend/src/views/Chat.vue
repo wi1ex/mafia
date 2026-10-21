@@ -5,12 +5,7 @@
         <header class="panel-header">
           <div class="panel-heading">
             <span class="panel-header-icon"><UiIcon :icon="iconChat" /></span>
-            <div class="panel-header-text">
-              <span class="panel-header-main">Общий чат</span>
-              <span class="connection-indicator" :data-state="loadingInitial ? 'connecting' : connectionState">
-                {{ connectionLabel }}
-              </span>
-            </div>
+            <span class="panel-header-main">Общий чат</span>
           </div>
           <div class="panel-header-actions">
             <button class="chat-icon-button" type="button" aria-label="Закрыть чат" title="Закрыть чат" @click="chat.closePanel()">
@@ -41,7 +36,6 @@
             :class="[
               'global-chat-message',
               {
-                'global-chat-message--own': message.is_own,
                 'global-chat-message--deleted': message.deleted,
                 'global-chat-message--highlighted': highlightedMessageId === message.id,
               },
@@ -56,7 +50,6 @@
                     <img v-for="badgeSrc in profileThemeIconSrcs(message.author.theme_icon, message.author.role, message.author.id)" :key="`${message.author.id}-${badgeSrc}`" class="profile-theme-icon" :src="badgeSrc" alt="" />
                   </div>
                   <span class="author-name" :class="{ 'author-name--themed': getProfileThemeOption(message.author.theme_color) }" :style="authorNameStyle(message)">{{ message.author.username || (`user${message.author.id}`) }}</span>
-                  <span v-if="message.is_own" class="own-label">Вы</span>
                 </button>
                 <span class="message-time">{{ formatMessageTime(message.created_at) }}</span>
               </div>
@@ -105,13 +98,13 @@
                     <span>{{ reaction.count }}</span>
                   </button>
 
-                  <div v-if="reactionDetailsMessageId === message.id && reactionDetailsEmoji === reaction.emoji" class="reaction-details-popover" role="tooltip">
+                  <div v-if="reactionDetailsVisible && reactionDetailsMessageId === message.id && reactionDetailsEmoji === reaction.emoji" class="reaction-details-popover" role="tooltip">
                     <p v-if="reactionDetailsLoadingMessageId === message.id" class="reaction-details-state">Загрузка...</p>
                     <p v-else-if="reactionDetailsErrorMessageId === message.id" class="reaction-details-state reaction-details-state--error">
                       Не удалось загрузить список реакций.
                     </p>
-                    <template v-else-if="reactionParticipantsFor(message.id, reaction.emoji).length > 0">
-                      <div v-for="participant in reactionParticipantsFor(message.id, reaction.emoji)" :key="`${participant.user.id}-${participant.created_at}`" class="reaction-details-item">
+                    <template v-else>
+                      <div v-for="participant in reactionDetailsParticipants" :key="`${participant.user.id}-${participant.created_at}`" class="reaction-details-item">
                         <img class="reaction-details-avatar" v-minio-img="{ key: participant.user.avatar_name ? `avatars/${participant.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="Аватар" />
                         <div class="reaction-details-meta">
                           <span class="reaction-details-name">{{ participant.user.username || (`user${participant.user.id}`) }}</span>
@@ -119,7 +112,6 @@
                         </div>
                       </div>
                     </template>
-                    <p v-else class="reaction-details-state">Реакций пока нет.</p>
                   </div>
                 </div>
 
@@ -136,7 +128,7 @@
                     <UiIcon :icon="iconDelete" />
                   </button>
                   <Transition name="emoji-picker-pop">
-                    <div v-if="reactionPickerMessageId === message.id" class="emoji-picker emoji-picker--reactions" @click.stop>
+                    <div v-if="reactionPickerMessageId === message.id" class="emoji-picker emoji-picker--reactions" :style="reactionPickerStyle" @click.stop>
                       <button v-for="emoji in reactionPickerItems" :key="emoji" class="emoji-button" type="button" @click="onSelectReaction(message.id, emoji)">
                         {{ emoji }}
                       </button>
@@ -188,14 +180,9 @@
         </div>
 
         <div ref="composerShellEl" class="composer-shell" :aria-busy="sending || uploadingImage">
-          <div class="composer-box" :class="{ 'composer-box--disabled': composerDisabled }">
-            <div
-              :class="['composer-input-wrap', { 'composer-input-wrap--drag-active': composerDragActive }]"
-              @dragenter="onComposerDragEnter"
-              @dragover="onComposerDragOver"
-              @dragleave="onComposerDragLeave"
-              @drop="onComposerDrop"
-            >
+          <div class="composer-box" :class="{ 'composer-box--disabled': composerDisabled, 'composer-box--drag-active': composerDragActive }"
+               @dragenter="onComposerDragEnter" @dragover="onComposerDragOver" @dragleave="onComposerDragLeave" @drop="onComposerDrop">
+            <div class="composer-input-wrap">
               <div ref="composerMirrorEl" class="composer-highlight-overlay" aria-hidden="true">
                 <p class="composer-highlight-content">
                   <template v-for="(segment, index) in buildDraftTextSegments(draft)" :key="`draft-text-${index}`">
@@ -472,17 +459,6 @@ const nextUnreadTargetMessageId = computed(() => hiddenUnreadTargetMessageIds.va
 const showJumpToBottomButton = computed(() => !stickToBottom.value)
 const unreadTargetsButtonLabel = computed(() => hiddenUnreadTargetMessageIds.value.length)
 
-const connectionLabel = computed(() => {
-  if (loadingInitial.value) return 'Загрузка истории'
-  switch (connectionState.value) {
-    case 'ready': return 'Онлайн'
-    case 'connecting': return 'Подключение'
-    case 'reconnecting': return 'Восстанавливаем связь'
-    case 'error': return 'Нет соединения'
-    default: return 'Не в сети'
-  }
-})
-
 const statusText = computed(() => {
   if (loadingInitial.value) return 'Загрузка истории…'
   if (connectionState.value === 'connecting') return 'Подключение к общему чату…'
@@ -503,6 +479,15 @@ const composerDisabled = computed(() => {
     || uploadingImage.value
 })
 const reactionPickerItems = computed(() => reactionsAllowlist.value.filter((item, index, list) => Boolean(item) && list.indexOf(item) === index))
+const reactionPickerStyle = computed(() => ({ '--reaction-picker-columns': Math.max(1, Math.ceil(reactionPickerItems.value.length / 2)) }))
+const reactionDetailsParticipants = computed(() => (
+  reactionDetailsMessageId.value === null ? [] : reactionParticipantsFor(reactionDetailsMessageId.value, reactionDetailsEmoji.value)
+))
+const reactionDetailsVisible = computed(() => reactionDetailsMessageId.value !== null && (
+  reactionDetailsLoadingMessageId.value === reactionDetailsMessageId.value
+  || reactionDetailsErrorMessageId.value === reactionDetailsMessageId.value
+  || reactionDetailsParticipants.value.length > 0
+))
 const composerPlaceholder = computed(() => (
   user.timeoutActive ? 'Только чтение — действует таймаут' : permissions.value.can_send ? 'Введите текст...' : 'Чат временно отключен...'
 ))
@@ -990,7 +975,7 @@ function buildDraftTextSegments(value: string): TextSegment[] {
 
 function orderedReactions(message: GlobalChatMessage): GlobalChatReaction[] {
   const order = new Map(reactionsAllowlist.value.map((emoji, index) => [emoji, index]))
-  return [...message.reactions].sort((left, right) => {
+  return message.reactions.filter((reaction) => reaction.count > 0).sort((left, right) => {
     const leftOrder = order.has(left.emoji) ? Number(order.get(left.emoji)) : Number.MAX_SAFE_INTEGER
     const rightOrder = order.has(right.emoji) ? Number(order.get(right.emoji)) : Number.MAX_SAFE_INTEGER
     if (leftOrder !== rightOrder) return leftOrder - rightOrder
@@ -1198,6 +1183,7 @@ function closeReactionDetails(messageId?: number, emoji?: string): void {
   const normalizedEmoji = String(emoji || '').trim()
   if (normalizedMessageId !== null && reactionDetailsMessageId.value !== normalizedMessageId) return
   if (normalizedEmoji && reactionDetailsEmoji.value !== normalizedEmoji) return
+  reactionDetailsRequestToken += 1
   reactionDetailsMessageId.value = null
   reactionDetailsEmoji.value = ''
   reactionDetailsLoadingMessageId.value = null
@@ -1206,16 +1192,18 @@ function closeReactionDetails(messageId?: number, emoji?: string): void {
 
 async function openReactionDetails(messageId: number, emoji: string, options: { force?: boolean } = {}): Promise<void> {
   const normalizedEmoji = String(emoji || '').trim()
-  if (!normalizedEmoji) return
+  const message = messages.value.find((item) => item.id === messageId)
+  if (!message || message.deleted || !orderedReactions(message).some((reaction) => reaction.emoji === normalizedEmoji)) return
+  const token = ++reactionDetailsRequestToken
   reactionDetailsMessageId.value = messageId
   reactionDetailsEmoji.value = normalizedEmoji
+  reactionDetailsLoadingMessageId.value = null
   reactionDetailsErrorMessageId.value = null
   const hasCached = Object.prototype.hasOwnProperty.call(reactionParticipantsCache.value, messageId)
-  if (hasCached && !options.force) return
+  if (hasCached && !options.force && reactionDetailsParticipants.value.length > 0) return
 
-  const token = ++reactionDetailsRequestToken
   reactionDetailsLoadingMessageId.value = messageId
-  const participants = await chat.loadReactionParticipants(messageId, options)
+  const participants = await chat.loadReactionParticipants(messageId, { force: options.force || hasCached })
   if (token !== reactionDetailsRequestToken) return
   if (reactionDetailsLoadingMessageId.value === messageId) {
     reactionDetailsLoadingMessageId.value = null
@@ -1223,6 +1211,8 @@ async function openReactionDetails(messageId: number, emoji: string, options: { 
   if (reactionDetailsMessageId.value !== messageId || reactionDetailsEmoji.value !== normalizedEmoji) return
   if (participants === null) {
     reactionDetailsErrorMessageId.value = messageId
+  } else if (!participants.some((participant) => participant.emoji === normalizedEmoji)) {
+    closeReactionDetails(messageId, normalizedEmoji)
   }
 }
 
@@ -1751,7 +1741,7 @@ watch(composerPlaceholder, () => {
 })
 
 watch(
-  [reactionDetailsMessageId, reactionDetailsEmoji, reactionDetailsLoadingMessageId, reactionDetailsErrorMessageId, reactionPickerMessageId],
+  [reactionDetailsVisible, reactionDetailsParticipants, reactionDetailsLoadingMessageId, reactionDetailsErrorMessageId, reactionPickerMessageId],
   scheduleReactionPopoverPositionSync,
   { flush: 'post' },
 )
@@ -2002,43 +1992,13 @@ watch(() => user.timeoutActive, () => {
           background-color: $green-100;
           color: $green-700;
         }
-        .panel-header-text {
-          display: flex;
-          flex-direction: column;
+        .panel-header-main {
           min-width: 0;
-          gap: 6px;
-          .panel-header-main {
-            color: $neutral-black;
-            font-family: Involve-Medium;
-            font-size: 24px;
-            line-height: 26px;
-            letter-spacing: -0.48px;
-          }
-          .connection-indicator {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            color: $neutral-500;
-            font-size: 12px;
-            line-height: 16px;
-            &::before {
-              width: 6px;
-              height: 6px;
-              border-radius: 50%;
-              background-color: $neutral-500;
-              content: '';
-            }
-            &[data-state="ready"]::before {
-              background-color: $green-500;
-            }
-            &[data-state="connecting"]::before,
-            &[data-state="reconnecting"]::before {
-              background-color: $yellow-500;
-            }
-            &[data-state="error"]::before {
-              background-color: $red-400;
-            }
-          }
+          color: $neutral-black;
+          font-family: Involve-Medium;
+          font-size: 24px;
+          line-height: 26px;
+          letter-spacing: -0.48px;
         }
       }
       .panel-header-actions {
@@ -2157,9 +2117,6 @@ watch(() => user.timeoutActive, () => {
         border-radius: 20px;
         background-color: $neutral-white;
         transition: border-color 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
-        &--own {
-          border-color: rgba($green-500, 0.4);
-        }
         &--highlighted {
           border-color: $green-500;
           box-shadow: 0 0 0 2px rgba($green-500, 0.18);
@@ -2227,11 +2184,6 @@ watch(() => user.timeoutActive, () => {
                   color: transparent;
                   -webkit-text-fill-color: transparent;
                 }
-              }
-              .own-label {
-                flex-shrink: 0;
-                color: $green-700;
-                font-size: 11px;
               }
             }
             .message-time {
@@ -2477,7 +2429,7 @@ watch(() => user.timeoutActive, () => {
               }
               .emoji-picker--reactions {
                 display: grid;
-                grid-template-columns: repeat(6, 34px);
+                grid-template-columns: repeat(var(--reaction-picker-columns), 34px);
                 right: 0;
                 bottom: calc(100% + 8px);
                 width: max-content;
@@ -2674,13 +2626,14 @@ watch(() => user.timeoutActive, () => {
         &:focus-within:not(.composer-box--disabled) {
           border-color: $green-500;
         }
+        &--drag-active {
+          border-color: $green-500;
+          background-color: rgba($green-500, 0.1);
+          box-shadow: inset 0 0 0 2px $green-500;
+        }
         .composer-input-wrap {
           position: relative;
           border-radius: 20px 20px 0 0;
-          &--drag-active {
-            background-color: rgba($green-500, 0.1);
-            box-shadow: inset 0 0 0 2px $green-500;
-          }
           .composer-input,
           .composer-highlight-content {
             box-sizing: border-box;
