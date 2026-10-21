@@ -85,7 +85,7 @@ let previousInert = false
 let focusLocked = false
 
 const buttonText = computed(() => {
-  if (props.phase === 'result') return props.sharing ? 'Отправляем в чат…' : 'Показать в чате'
+  if (props.phase === 'result') return props.sharing ? 'Отправляем…' : 'Отправить результат в чат'
   if (props.phase === 'requesting') return 'Подготавливаем…'
   if (props.phase === 'spinning') return 'Колесо вращается…'
   if (props.phase === 'recovering') return 'Проверяем результат…'
