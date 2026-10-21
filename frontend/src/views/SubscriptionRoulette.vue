@@ -259,7 +259,7 @@ onBeforeUnmount(() => {
           margin: 8px 0 0;
           font-family: Involve-Medium;
           font-weight: 500;
-          font-size: 32px;
+          font-size: 24px;
           line-height: 1.12;
           letter-spacing: -0.64px;
         }
@@ -290,6 +290,7 @@ onBeforeUnmount(() => {
           color: $soft-purple-700;
           font-size: 14px;
           strong {
+            text-align: end;
             color: $soft-purple-900;
             font-family: Involve-Medium;
             font-weight: 500;
@@ -307,7 +308,6 @@ onBeforeUnmount(() => {
           }
           &.is-won {
             strong {
-              text-align: end;
               font-size: 70px;
               color: $green-700;
             }
@@ -326,8 +326,8 @@ onBeforeUnmount(() => {
       }
       .lottery-machine {
         position: relative;
-        width: min(100%, 330px);
-        justify-self: center;
+        width: min(100%, 350px);
+        justify-self: end;
         padding-right: 60px;
         box-sizing: border-box;
         .lottery-wheel-shell {
