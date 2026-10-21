@@ -3,10 +3,18 @@
     <Transition name="global-chat-panel-transition">
       <section v-if="chat.open" class="global-chat-panel" @click.stop>
         <header class="panel-header">
-          <span class="panel-header-main">Общий чат</span>
+          <div class="panel-heading">
+            <span class="panel-header-icon"><UiIcon :icon="iconChat" /></span>
+            <div class="panel-header-text">
+              <span class="panel-header-main">Общий чат</span>
+              <span class="connection-indicator" :data-state="loadingInitial ? 'connecting' : connectionState">
+                {{ connectionLabel }}
+              </span>
+            </div>
+          </div>
           <div class="panel-header-actions">
-            <button type="button" aria-label="Закрыть" @click="chat.closePanel()">
-              <img :src="iconClose" alt="" />
+            <button class="chat-icon-button" type="button" aria-label="Закрыть чат" title="Закрыть чат" @click="chat.closePanel()">
+              <UiIcon :icon="iconClose" />
             </button>
           </div>
         </header>
@@ -16,7 +24,18 @@
             {{ loadingMore ? 'Загрузка…' : 'Загрузить еще сообщения' }}
           </button>
 
-          <p v-if="!loadingInitial && messages.length === 0" class="empty-state">Сообщений пока нет.</p>
+          <div v-if="loadingInitial" class="history-loading" role="status" aria-label="Загрузка сообщений">
+            <div v-for="index in 3" :key="index" class="message-skeleton" aria-hidden="true">
+              <div class="skeleton-author"><span></span><span></span></div>
+              <div class="skeleton-line"></div>
+              <div class="skeleton-line skeleton-line--short"></div>
+            </div>
+          </div>
+          <div v-else-if="messages.length === 0" class="empty-state">
+            <span class="empty-state-icon"><UiIcon :icon="iconChat" /></span>
+            <span class="empty-state-title">Сообщений пока нет</span>
+            <span class="empty-state-text">Начните разговор — отправьте первое сообщение.</span>
+          </div>
 
           <article v-for="message in messages" :key="message.id" :data-chat-message-id="message.id"
             :class="[
@@ -27,7 +46,6 @@
                 'global-chat-message--highlighted': highlightedMessageId === message.id,
               },
             ]"
-            :style="messageCardStyle(message)"
           >
             <div class="message-main">
               <div class="message-meta">
@@ -37,7 +55,8 @@
                   <div v-if="profileThemeIconSrcs(message.author.theme_icon, message.author.role, message.author.id).length" class="profile-theme-icons" aria-hidden="true">
                     <img v-for="badgeSrc in profileThemeIconSrcs(message.author.theme_icon, message.author.role, message.author.id)" :key="`${message.author.id}-${badgeSrc}`" class="profile-theme-icon" :src="badgeSrc" alt="" />
                   </div>
-                  <span class="author-name">{{ message.author.username || (`user${message.author.id}`) }}</span>
+                  <span class="author-name" :class="{ 'author-name--themed': getProfileThemeOption(message.author.theme_color) }" :style="authorNameStyle(message)">{{ message.author.username || (`user${message.author.id}`) }}</span>
+                  <span v-if="message.is_own" class="own-label">Вы</span>
                 </button>
                 <span class="message-time">{{ formatMessageTime(message.created_at) }}</span>
               </div>
@@ -55,11 +74,11 @@
                 <div v-if="showDeletedActions(message)" class="tombstone-actions">
                   <button class="icon-action-button" type="button" aria-label="Показать удаленное сообщение"
                           :disabled="isDeletedPreviewBusy(message.id)" @click="onPreviewDeletedMessage(message.id)" v-if="showDeletedPreviewAction(message)">
-                    <img :src="iconInfo" alt="" />
+                    <UiIcon :icon="iconInfo" />
                   </button>
                   <button class="icon-action-button icon-action-button--danger" type="button" aria-label="Удалить сообщение окончательно"
                           :disabled="chat.isPurgeBusy(message.id)" @click="onPurgeDeletedMessage(message)" v-if="showDeletedPurgeAction(message)">
-                    <img :src="iconDelete" alt="" />
+                    <UiIcon :icon="iconDelete" />
                   </button>
                 </div>
                 <template v-if="!message.deleted">
@@ -105,16 +124,16 @@
                 </div>
 
                 <div v-if="reactionsAllowlist.length > 0" class="reaction-details-anchor">
-                  <button class="reaction-chip reaction-chip--picker" type="button" :disabled="!permissions.can_react || user.timeoutActive || chat.isReactionBusy(message.id)"
+                  <button class="reaction-chip reaction-chip--picker" type="button" aria-label="Добавить реакцию" title="Добавить реакцию" :disabled="!permissions.can_react || user.timeoutActive || chat.isReactionBusy(message.id)"
                           @pointerdown.stop @click="toggleMessageReactionPicker(message.id)">
-                    <img :src="iconAddReaction" alt="" />
+                    <UiIcon :icon="iconAddReaction" />
                   </button>
-                  <button v-if="!message.deleted" class="reaction-chip reaction-chip--picker" type="button" @click="onReply(message.id)">
-                    <img :src="iconReplyMessage" alt="" />
+                  <button v-if="!message.deleted" class="reaction-chip reaction-chip--picker" type="button" aria-label="Ответить" title="Ответить" @click="onReply(message.id)">
+                    <UiIcon :icon="iconReplyMessage" />
                   </button>
-                  <button v-if="message.can_delete" class="reaction-chip reaction-chip--picker red" type="button"
+                  <button v-if="message.can_delete" class="reaction-chip reaction-chip--picker red" type="button" aria-label="Удалить сообщение" title="Удалить сообщение"
                           :disabled="chat.isDeleteBusy(message.id)" @click="onDeleteMessage(message)">
-                    <img :src="iconDelete" alt="" />
+                    <UiIcon :icon="iconDelete" />
                   </button>
                   <Transition name="emoji-picker-pop">
                     <div v-if="reactionPickerMessageId === message.id" class="emoji-picker emoji-picker--reactions" @click.stop>
@@ -130,16 +149,17 @@
         </div>
 
         <div v-if="hasUnreadTargets || showJumpToBottomButton" class="floating-chat-actions" :style="floatingChatActionsStyle">
-          <button v-if="hasUnreadTargets" type="button" class="floating-chat-action-button" @click="onJumpToUnreadTarget">
-            <img :src="iconDotMail" alt="" />
+          <button v-if="hasUnreadTargets" type="button" class="floating-chat-action-button" aria-label="К непрочитанным упоминаниям и ответам" title="Непрочитанные упоминания и ответы" @click="onJumpToUnreadTarget">
+            <UiIcon :icon="iconDotMail" />
             <span>{{ unreadTargetsButtonLabel }}</span>
           </button>
-          <button v-if="showJumpToBottomButton" type="button" class="floating-chat-action-button" @click="onJumpToBottom">
-            <img :src="iconArrowDown" alt="" />
+          <button v-if="showJumpToBottomButton" type="button" class="floating-chat-action-button" aria-label="К последним сообщениям" title="К последним сообщениям" @click="onJumpToBottom">
+            <UiIcon :icon="iconArrowDown" />
           </button>
         </div>
 
-        <div v-if="statusText" ref="statusEl" class="panel-status" :class="{ 'panel-status--error': connectionState === 'error' }">
+        <div v-if="statusText" ref="statusEl" class="panel-status" :class="{ 'panel-status--error': connectionState === 'error' }" role="status">
+          <UiIcon :icon="iconInfo" />
           <span>{{ statusText }}</span>
           <button v-if="connectionState === 'error'" type="button" @click="chat.openPanel()">Повторить</button>
         </div>
@@ -149,8 +169,8 @@
             <span class="reply-bar-label">Ответ на сообщение {{ draftReplyPreview.author_username }}</span>
             <span class="reply-bar-snippet">{{ draftReplyPreview.snippet || (draftReplyPreview.has_image ? 'Изображение' : 'Сообщение') }}</span>
           </div>
-          <button type="button" aria-label="Сбросить ответ" @click="chat.clearReplyTarget()">
-            <img :src="iconClose" alt="" />
+          <button class="chat-icon-button" type="button" aria-label="Сбросить ответ" @click="chat.clearReplyTarget()">
+            <UiIcon :icon="iconClose" />
           </button>
         </div>
 
@@ -162,65 +182,72 @@
               <small>{{ draftImageUploaded ? 'Загружено' : (uploadingImage ? 'Загрузка…' : 'Изображение прикреплено') }}</small>
             </div>
           </div>
-          <button type="button" @click="chat.clearDraftImage()">
-            <img :src="iconClose" alt="" />
+          <button class="chat-icon-button" type="button" aria-label="Убрать изображение" title="Убрать изображение" @click="chat.clearDraftImage()">
+            <UiIcon :icon="iconClose" />
           </button>
         </div>
 
-        <div ref="composerShellEl" class="composer-shell">
-          <label class="tool-button tool-button--file" :class="{ 'tool-button--disabled': composerDisabled }">
-            <input type="file" accept="image/png,image/jpeg" :disabled="composerDisabled" @change="onPickImage" >
-            <img :src="iconPhoto" alt="" />
-          </label>
+        <div ref="composerShellEl" class="composer-shell" :aria-busy="sending || uploadingImage">
+          <div class="composer-box" :class="{ 'composer-box--disabled': composerDisabled }">
+            <div
+              :class="['composer-input-wrap', { 'composer-input-wrap--drag-active': composerDragActive }]"
+              @dragenter="onComposerDragEnter"
+              @dragover="onComposerDragOver"
+              @dragleave="onComposerDragLeave"
+              @drop="onComposerDrop"
+            >
+              <div ref="composerMirrorEl" class="composer-highlight-overlay" aria-hidden="true">
+                <p class="composer-highlight-content">
+                  <template v-for="(segment, index) in buildDraftTextSegments(draft)" :key="`draft-text-${index}`">
+                    <span v-if="segment.kind === 'mention'" class="message-mention composer-mention" :class="roleMentionClass(segment.text)">{{ segment.text }}</span>
+                    <span v-else>{{ segment.text }}</span>
+                  </template>
+                </p>
+              </div>
 
-          <div
-            :class="['composer-input-wrap', { 'composer-input-wrap--drag-active': composerDragActive }]"
-            @dragenter="onComposerDragEnter"
-            @dragover="onComposerDragOver"
-            @dragleave="onComposerDragLeave"
-            @drop="onComposerDrop"
-          >
-            <div ref="composerMirrorEl" class="composer-highlight-overlay" aria-hidden="true">
-              <p class="composer-highlight-content">
-                <template v-for="(segment, index) in buildDraftTextSegments(draft)" :key="`draft-text-${index}`">
-                  <span v-if="segment.kind === 'mention'" class="message-mention composer-mention" :class="roleMentionClass(segment.text)">{{ segment.text }}</span>
-                  <span v-else>{{ segment.text }}</span>
-                </template>
-              </p>
+              <textarea ref="textareaEl" v-model="draft" :class="['composer-input', { 'composer-input--mirrored': Boolean(draft) }]" :disabled="composerDisabled" @click="onComposerSelectionChange" @keyup="onComposerSelectionChange" @select="onComposerSelectionChange" @scroll="onComposerScroll" @blur="onComposerBlur" @paste="onComposerPaste" rows="3"
+                        maxlength="1000" aria-label="Сообщение в общий чат" :placeholder="composerPlaceholder" @keydown="onComposerKeydown" />
+
+              <div v-if="mentionDropdownVisible" class="mention-suggestions" role="listbox" aria-label="Подсказки упоминаний">
+                <p v-if="mentionLoading" class="mention-suggestions-state">Поиск…</p>
+                <p v-else-if="mentionSuggestions.length === 0" class="mention-suggestions-state">Совпадений нет</p>
+                <button v-for="(candidate, index) in mentionSuggestions" :key="candidate.id"
+                        :class="['mention-suggestion', { 'mention-suggestion--active': mentionSelectedIndex === index }]"
+                        type="button" role="option" :aria-selected="mentionSelectedIndex === index"
+                        @pointerdown.prevent="selectMention(candidate)" @mouseenter="mentionSelectedIndex = index">
+                  <img class="mention-suggestion-avatar" v-minio-img="{ key: candidate.avatar_name ? `avatars/${candidate.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="" />
+                  <span class="mention-suggestion-name">@{{ candidate.username }}</span>
+                </button>
+              </div>
             </div>
-
-          <textarea ref="textareaEl" v-model="draft" :class="['composer-input', { 'composer-input--mirrored': Boolean(draft) }]" :disabled="composerDisabled" @click="onComposerSelectionChange" @keyup="onComposerSelectionChange" @select="onComposerSelectionChange" @scroll="onComposerScroll" @blur="onComposerBlur" @paste="onComposerPaste" rows="3"
-                    maxlength="1000" placeholder="Введите текст..." @keydown="onComposerKeydown" />
-
-            <div v-if="mentionDropdownVisible" class="mention-suggestions" role="listbox" aria-label="Подсказки упоминаний">
-              <p v-if="mentionLoading" class="mention-suggestions-state">Поиск…</p>
-              <p v-else-if="mentionSuggestions.length === 0" class="mention-suggestions-state">Совпадений нет</p>
-              <button v-for="(candidate, index) in mentionSuggestions" :key="candidate.id"
-                      :class="['mention-suggestion', { 'mention-suggestion--active': mentionSelectedIndex === index }]"
-                      type="button" role="option" :aria-selected="mentionSelectedIndex === index"
-                      @pointerdown.prevent="selectMention(candidate)" @mouseenter="mentionSelectedIndex = index">
-                <img class="mention-suggestion-avatar" v-minio-img="{ key: candidate.avatar_name ? `avatars/${candidate.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="" />
-                <span class="mention-suggestion-name">@{{ candidate.username }}</span>
+            <div class="composer-toolbar">
+              <div class="composer-tools">
+                <label class="tool-button tool-button--file" :class="{ 'tool-button--disabled': composerDisabled }" title="Прикрепить изображение">
+                  <input type="file" accept="image/png,image/jpeg" aria-label="Прикрепить изображение" :disabled="composerDisabled" @change="onPickImage" >
+                  <UiIcon :icon="iconPhoto" />
+                </label>
+                <button class="tool-button" type="button" aria-label="Выбрать эмодзи" title="Выбрать эмодзи" :aria-expanded="composerPickerOpen" :disabled="composerDisabled" @pointerdown.stop @click="composerPickerOpen = !composerPickerOpen">
+                  <UiIcon :icon="iconEmoji" />
+                </button>
+              </div>
+              <span class="composer-counter" :class="{ 'composer-counter--limit': draft.length >= 1000 }">{{ draft.length }} / 1000</span>
+              <button class="send-button" type="button" :aria-label="sending ? 'Отправка сообщения' : 'Отправить сообщение'" :title="sending ? 'Отправка…' : 'Отправить сообщение'" :disabled="!canSendCurrentDraft" @click="onSend">
+                <span v-if="sending" class="sending-spinner" aria-hidden="true"></span>
+                <UiIcon v-else :icon="iconSend" />
               </button>
             </div>
           </div>
-
-          <button class="tool-button right" type="button" :disabled="composerDisabled" @pointerdown.stop @click="composerPickerOpen = !composerPickerOpen">
-            <img :src="iconEmoji" alt="" />
-          </button>
+          <span class="composer-hint">Enter — отправить · Shift + Enter — новая строка</span>
           <Transition name="emoji-picker-pop">
             <div v-if="composerPickerOpen" class="emoji-picker emoji-picker--composer" @click.stop>
+              <span class="emoji-picker-title">Эмодзи</span>
               <div class="emoji-grid emoji-grid--composer">
-                <button v-for="emoji in GLOBAL_CHAT_COMPOSER_EMOJIS" :key="emoji" class="emoji-button" type="button" @click="insertEmoji(emoji)">
+                <button v-for="emoji in GLOBAL_CHAT_COMPOSER_EMOJIS" :key="emoji" class="emoji-button" type="button" :aria-label="emoji" @click="insertEmoji(emoji)">
                   {{ emoji }}
                 </button>
               </div>
             </div>
           </Transition>
-
-          <button class="send-button" type="button" :disabled="!canSendCurrentDraft" @click="onSend" >
-            <img :src="iconSend" alt="" />
-          </button>
         </div>
       </section>
     </Transition>
@@ -234,8 +261,8 @@
               <span>Удаленное сообщение</span>
               <small v-if="deletedPreview.deleted_at">{{ formatMessageTime(deletedPreview.deleted_at) }}</small>
             </div>
-            <button type="button" aria-label="Закрыть" @click="closeDeletedPreview()">
-              <img :src="iconClose" alt="" />
+            <button class="chat-icon-button" type="button" aria-label="Закрыть" @click="closeDeletedPreview()">
+              <UiIcon :icon="iconClose" />
             </button>
           </header>
 
@@ -267,7 +294,7 @@
       <div v-if="imageLightboxOpen && imageLightboxSrc" class="image-lightbox-overlay" role="dialog" aria-modal="true" :aria-label="imageLightboxAlt || 'Просмотр изображения'"
            @pointerdown.self="imageLightboxArmed = true" @pointerup.self="imageLightboxArmed && closeImageLightbox()" @pointerleave.self="imageLightboxArmed = false" @pointercancel.self="imageLightboxArmed = false">
         <button class="image-lightbox-close" type="button" aria-label="Закрыть" @click="closeImageLightbox()">
-          <img :src="iconClose" alt="" />
+          <UiIcon :icon="iconClose" />
         </button>
         <img class="image-lightbox-image" :src="imageLightboxSrc" :alt="imageLightboxAlt || 'Просмотр изображения'" />
       </div>
@@ -289,16 +316,18 @@ import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { api } from '@/services/axios'
 import { GLOBAL_CHAT_COMPOSER_EMOJIS } from '@/constants/chatEmojis'
-import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
+import { getProfileThemeOption } from '@/constants/profileThemes'
 import { getProfileThemeBadgeSources } from '@/constants/profileIcons'
 import { alertDialog, confirmDialog } from '@/services/confirm'
 import { formatChatTimestamp } from '@/services/datetime'
 import { canOpenMiniProfileTarget, normalizeMiniProfileUserId, normalizeMiniProfileRole } from '@/services/miniProfile'
 import { useAuthStore, useGlobalChatStore, useSettingsStore, useUserStore } from '@/store'
 import MiniProfile from '@/views/MiniProfile.vue'
+import UiIcon from '@/components/UiIcon.vue'
 
-import defaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
+import defaultAvatar from '@/assets/svg/iconDefaultAvatarBlack.svg'
 import iconClose from '@/assets/svg/iconClose.svg'
+import iconChat from '@/assets/svg/iconChat.svg'
 import iconEmoji from '@/assets/svg/iconEmoji.svg'
 import iconPhoto from '@/assets/svg/photo.svg'
 import iconDelete from '@/assets/svg/iconDelete.svg'
@@ -396,6 +425,7 @@ let highlightTimer: number | null = null
 let scrollToBottomRaf: number | null = null
 let scrollToBottomFramesRemaining = 0
 let floatingChatActionsBottomRaf: number | null = null
+let reactionPopoverPositionRaf: number | null = null
 let visibleUnreadTargetCheckRaf: number | null = null
 let unreadTargetsOpenSettleToken = 0
 let lastUserScrollIntentAt = 0
@@ -442,6 +472,17 @@ const nextUnreadTargetMessageId = computed(() => hiddenUnreadTargetMessageIds.va
 const showJumpToBottomButton = computed(() => !stickToBottom.value)
 const unreadTargetsButtonLabel = computed(() => hiddenUnreadTargetMessageIds.value.length)
 
+const connectionLabel = computed(() => {
+  if (loadingInitial.value) return 'Загрузка истории'
+  switch (connectionState.value) {
+    case 'ready': return 'Онлайн'
+    case 'connecting': return 'Подключение'
+    case 'reconnecting': return 'Восстанавливаем связь'
+    case 'error': return 'Нет соединения'
+    default: return 'Не в сети'
+  }
+})
+
 const statusText = computed(() => {
   if (loadingInitial.value) return 'Загрузка истории…'
   if (connectionState.value === 'connecting') return 'Подключение к общему чату…'
@@ -467,8 +508,11 @@ const composerPlaceholder = computed(() => (
 ))
 const showLoadMore = computed(() => hasMore.value && (loadingMore.value || listAtTop.value))
 const mentionDropdownVisible = computed(() => Boolean(activeMentionRange.value?.query) && !composerDisabled.value && (mentionLoading.value || mentionHasSearched.value))
-const messageCardStyle = (message: GlobalChatMessage) => buildProfileThemeBgStyle(message.author.theme_color)
-const profileThemeIconSrcs = (icon: unknown, role?: unknown, userId?: unknown) => getProfileThemeBadgeSources(icon, role, { userId })
+const authorNameStyle = (message: GlobalChatMessage) => {
+  const theme = getProfileThemeOption(message.author.theme_color)
+  return theme ? { '--chat-author-theme': theme.bg } : {}
+}
+const profileThemeIconSrcs = (icon: unknown, role?: unknown, userId?: unknown) => getProfileThemeBadgeSources(icon, role, { roleBadgeVariant: 'black', userId })
 
 function canOpenAuthorMiniProfile(message: GlobalChatMessage): boolean {
   return canOpenMiniProfileTarget({
@@ -571,7 +615,9 @@ function updateScrollState(): void {
 }
 
 function readElementHeight(element: HTMLElement | null): number {
-  return element?.offsetHeight || 0
+  if (!element) return 0
+  const style = window.getComputedStyle(element)
+  return element.offsetHeight + (parseFloat(style.marginTop) || 0) + (parseFloat(style.marginBottom) || 0)
 }
 
 function floatingChatActionsGap(): number {
@@ -603,6 +649,50 @@ function scheduleFloatingChatActionsBottomSync(): void {
   floatingChatActionsBottomRaf = window.requestAnimationFrame(() => {
     floatingChatActionsBottomRaf = null
     syncFloatingChatActionsBottom()
+  })
+}
+
+function syncReactionPopoverPositions(): void {
+  const list = listEl.value
+  if (!chat.open || !list || !list.clientWidth || !list.clientHeight) return
+  const bounds = list.getBoundingClientRect()
+  const scaleX = bounds.width / list.offsetWidth
+  const scaleY = bounds.height / list.offsetHeight
+  const inset = 8
+  const left = bounds.left + (list.clientLeft + inset) * scaleX
+  const top = bounds.top + (list.clientTop + inset) * scaleY
+  const width = Math.max(0, list.clientWidth - inset * 2)
+  const height = Math.max(0, list.clientHeight - inset * 2)
+
+  for (const popover of list.querySelectorAll<HTMLElement>('.reaction-details-popover, .emoji-picker--reactions')) {
+    popover.style.setProperty('--reaction-popover-max-width', `${width}px`)
+    popover.style.setProperty('--reaction-popover-max-height', `${height}px`)
+    popover.style.setProperty('--reaction-popover-x', '0px')
+    popover.style.setProperty('--reaction-popover-y', '0px')
+    const rect = popover.getBoundingClientRect()
+    const transform = window.getComputedStyle(popover).transform
+    const matrix = transform === 'none' ? null : new DOMMatrixReadOnly(transform)
+    const x = rect.left - (matrix?.m41 || 0) * scaleX
+    const y = rect.top - (matrix?.m42 || 0) * scaleY
+    const offsetX = Math.max(left, Math.min(x, left + width * scaleX - rect.width)) - x
+    const offsetY = Math.max(top, Math.min(y, top + height * scaleY - rect.height)) - y
+    popover.style.setProperty('--reaction-popover-x', `${offsetX / scaleX}px`)
+    popover.style.setProperty('--reaction-popover-y', `${offsetY / scaleY}px`)
+  }
+}
+
+function cancelScheduledReactionPopoverPositionSync(): void {
+  if (reactionPopoverPositionRaf !== null) {
+    window.cancelAnimationFrame(reactionPopoverPositionRaf)
+    reactionPopoverPositionRaf = null
+  }
+}
+
+function scheduleReactionPopoverPositionSync(): void {
+  if (reactionPopoverPositionRaf !== null) return
+  reactionPopoverPositionRaf = window.requestAnimationFrame(() => {
+    reactionPopoverPositionRaf = null
+    syncReactionPopoverPositions()
   })
 }
 
@@ -1026,6 +1116,12 @@ function refreshMentionContext(): void {
     return
   }
   const nextRange = findActiveMentionRange()
+  const currentRange = activeMentionRange.value
+  if (nextRange && currentRange
+    && nextRange.start === currentRange.start
+    && nextRange.end === currentRange.end
+    && nextRange.query === currentRange.query
+    && (mentionLoading.value || mentionHasSearched.value)) return
   activeMentionRange.value = nextRange
   if (!nextRange?.query) {
     clearMentionSuggestions()
@@ -1043,7 +1139,8 @@ function refreshMentionContext(): void {
   }, 120)
 }
 
-function onComposerSelectionChange(): void {
+function onComposerSelectionChange(event?: Event): void {
+  if (event instanceof KeyboardEvent && event.key === 'Escape') return
   refreshMentionContext()
 }
 
@@ -1158,6 +1255,14 @@ function onWindowKeydown(event: KeyboardEvent): void {
     closeReactionDetails()
     return
   }
+  if (reactionPickerMessageId.value !== null) {
+    reactionPickerMessageId.value = null
+    return
+  }
+  if (composerPickerOpen.value) {
+    composerPickerOpen.value = false
+    return
+  }
   if (activeMentionRange.value) {
     clearMentionSuggestions()
   }
@@ -1250,6 +1355,7 @@ function scrollToMessage(messageId: number, withHighlight = false): boolean {
 
 function onListScroll(): void {
   updateScrollState()
+  scheduleReactionPopoverPositionSync()
   scheduleVisibleUnreadTargetReadCheck()
 }
 
@@ -1645,11 +1751,18 @@ watch(composerPlaceholder, () => {
 })
 
 watch(
+  [reactionDetailsMessageId, reactionDetailsEmoji, reactionDetailsLoadingMessageId, reactionDetailsErrorMessageId, reactionPickerMessageId],
+  scheduleReactionPopoverPositionSync,
+  { flush: 'post' },
+)
+
+watch(
   [() => chat.open, statusText, draftReplyPreview, draftImagePreviewUrl],
   ([open]) => {
     if (!open) return
     void nextTick(() => {
       scheduleFloatingChatActionsBottomSync()
+      scheduleReactionPopoverPositionSync()
     })
   },
   { immediate: true },
@@ -1660,6 +1773,7 @@ watch(() => chat.open, (open) => {
     unreadTargetsOpenSettleToken += 1
     cancelScheduledScrollToBottom()
     cancelScheduledFloatingChatActionsBottomSync()
+    cancelScheduledReactionPopoverPositionSync()
     cancelScheduledVisibleUnreadTargetCheck()
     visibleUnreadTargetReadInFlightIds.clear()
     visibleUnreadTargetAutoReadSuppressedUntil = 0
@@ -1685,6 +1799,7 @@ watch(() => chat.open, (open) => {
 
 function onWindowResize(): void {
   scheduleFloatingChatActionsBottomSync()
+  scheduleReactionPopoverPositionSync()
   unreadTargetVisibilityTick.value += 1
 }
 
@@ -1709,6 +1824,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', onWindowResize)
   cancelScheduledScrollToBottom()
   cancelScheduledFloatingChatActionsBottomSync()
+  cancelScheduledReactionPopoverPositionSync()
   cancelScheduledVisibleUnreadTargetCheck()
   clearMentionSearchTimer()
   clearHighlightTimer()
@@ -1727,962 +1843,1243 @@ watch(() => user.timeoutActive, () => {
 </script>
 
 <style scoped lang="scss">
-.message-mention--moderator {
-  --mention-color: #{$red-500};
-}
-.message-mention--head {
-  --mention-color: #{$green-500};
-}
 .global-chat-dock {
   position: fixed;
-  bottom: 10px;
-  right: 10px;
+  right: 24px;
+  bottom: 24px;
+  color: $neutral-900;
+  font-family: Hauora-Regular;
+  font-size: 14px;
+  line-height: 20px;
   pointer-events: none;
   z-index: 70;
-  .message-mention {
-    color: var(--mention-color, #{$orange-500});
-    font-family: Hauora-SemiBold;
-  }
-  .message-mention-trigger {
-    display: inline;
-    padding: 0;
-    border: none;
-    background: none;
-    font: inherit;
-    line-height: inherit;
-    text-align: inherit;
-    cursor: pointer;
-  }
   &.room-mode {
-    bottom: 60px;
+    bottom: 72px;
     z-index: 25;
   }
   > * {
     pointer-events: auto;
   }
-}
-.global-chat-panel {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  width: 400px;
-  height: min(600px, calc(var(--app-viewport-height) - 85px));
-  border-radius: 10px;
-  border: 3px solid $neutral-700;
-  background-color: $neutral-900;
-  box-shadow: 0 15px 30px rgba(black, 0.25);
-  overflow: hidden;
-  .panel-header {
-    display: flex;
+  button,
+  label {
+    -webkit-tap-highlight-color: transparent;
+  }
+  button {
+    font: inherit;
+    transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+    &:focus-visible {
+      outline: 2px solid $green-500;
+      outline-offset: 2px;
+    }
+    &:disabled {
+      cursor: not-allowed;
+    }
+  }
+  .chat-icon-button {
+    display: inline-flex;
+    flex: 0 0 auto;
     align-items: center;
-    justify-content: space-between;
-    padding: 5px 10px;
-    min-height: 25px;
-    background-color: $neutral-700;
-    .panel-header-main {
-      color: $neutral-white;
-      font-size: 20px;
-      font-family: Hauora-SemiBold;
-    }
-    .panel-header-actions {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    button {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0;
-      width: 25px;
-      height: 25px;
-      border: none;
-      background: none;
-      cursor: pointer;
-      img {
-        width: 25px;
-        height: 25px;
-      }
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: none;
+    border-radius: 12px;
+    background-color: $soft-purple-100;
+    color: $neutral-black;
+    cursor: pointer;
+    --ui-icon-width: 20px;
+    --ui-icon-height: 20px;
+    &:hover {
+      background-color: $soft-purple-200;
+      color: $green-700;
     }
   }
-  .floating-chat-actions {
-    display: flex;
+  .message-link {
+    color: $green-700;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+    word-break: break-word;
+    &:hover {
+      color: $green-800;
+    }
+  }
+  .message-mention {
+    color: var(--mention-color, #{$orange-700});
+    font-family: Hauora-SemiBold;
+    &--moderator {
+      --mention-color: #{$red-600};
+    }
+    &--head {
+      --mention-color: #{$green-700};
+    }
+  }
+  .message-mention-trigger {
+    display: inline;
+    padding: 0;
+    border: none;
+    border-radius: 3px;
+    background: none;
+    font: inherit;
+    text-align: inherit;
+    cursor: pointer;
+    &:hover {
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+  }
+  .emoji-picker {
     position: absolute;
-    flex-direction: column;
-    right: 5px;
-    gap: 10px;
-    z-index: 10;
-    pointer-events: none;
-    .floating-chat-action-button {
+    box-sizing: border-box;
+    padding: 12px;
+    border: 1px solid $neutral-200;
+    border-radius: 20px;
+    background-color: $neutral-white;
+    box-shadow: 0 12px 32px rgba($neutral-black, 0.16);
+    transform-origin: bottom right;
+    z-index: 15;
+    .emoji-picker-title {
+      display: block;
+      margin: 0 0 12px 4px;
+      color: $neutral-black;
+      font-family: Involve-Medium;
+      font-size: 16px;
+      line-height: 20px;
+    }
+    .emoji-button {
       display: flex;
-      position: relative;
       align-items: center;
       justify-content: center;
+      width: 34px;
+      height: 34px;
       padding: 0;
-      width: 30px;
-      height: 30px;
-      border: 1px solid $neutral-900;
-      border-radius: 999px;
-      background-color: $neutral-700;
-      box-shadow: 0 15px 30px rgba(black, 0.25);
+      border: none;
+      border-radius: 10px;
+      background: none;
+      font-family: 'Segoe UI Emoji', sans-serif;
+      font-size: 22px;
+      line-height: 1;
       cursor: pointer;
-      pointer-events: auto;
-      img {
-        width: 20px;
-        height: 20px;
-      }
-      span {
-        position: absolute;
-        top: 3px;
-        right: 3px;
-        width: 12px;
-        height: 12px;
-        border-radius: 999px;
-        background-color: $red-500;
-        color: $neutral-100;
-        white-space: nowrap;
-        font-family: Hauora-SemiBold;
-        font-size: 10px;
-        line-height: 1;
+      &:hover {
+        background-color: $soft-purple-100;
       }
     }
   }
-  .panel-list {
+  .global-chat-panel {
     display: flex;
+    position: relative;
     flex-direction: column;
-    padding: 10px;
-    gap: 10px;
-    height: calc(100% - 107px);
-    overflow-y: auto;
-    scrollbar-width: none;
-    .load-more {
-      align-self: center;
-      padding: 0 15px;
-      width: fit-content;
-      min-height: 30px;
-      border: none;
-      border-radius: 999px;
-      background-color: $neutral-700;
-      color: $neutral-100;
-      font-size: 14px;
-      cursor: pointer;
-      &:disabled {
-        opacity: 0.5;
-        cursor: default;
-      }
-    }
-    .empty-state {
-      margin: auto 0;
-      color: $neutral-500;
-      text-align: center;
-    }
-    .global-chat-message {
+    box-sizing: border-box;
+    width: 460px;
+    height: min(760px, calc(var(--app-viewport-height, 100dvh) - 112px));
+    border: 1px solid transparent;
+    border-radius: 24px;
+    background-color: $neutral-100;
+    box-shadow: 0 0 16px rgba($neutral-black, 0.16);
+    overflow: hidden;
+    .panel-header {
       display: flex;
-      padding: 5px 8px;
-      width: calc(100% - 20px);
-      border-radius: 10px;
-      background-color: var(--user-theme-bg, $neutral-800);
-      border: 1px solid $neutral-700;
-      transition: border-color 0.25s ease-in-out;
-      &--own {
-        background-color: var(--user-theme-bg, $neutral-800);
-      }
-      &--deleted {
-        opacity: 0.5;
-      }
-      &--highlighted {
-        border-color: $orange-500;
-      }
-      .message-main {
+      flex: 0 0 auto;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px;
+      gap: 16px;
+      border-bottom: 1px solid $neutral-200;
+      .panel-heading {
         display: flex;
-        flex-direction: column;
-        gap: 5px;
-        width: 100%;
-        .message-meta {
+        align-items: center;
+        min-width: 0;
+        gap: 12px;
+        .panel-header-icon {
           display: flex;
+          flex: 0 0 auto;
           align-items: center;
-          justify-content: space-between;
-          .message-meta-author {
+          justify-content: center;
+          width: 44px;
+          height: 44px;
+          border-radius: 16px;
+          background-color: $green-100;
+          color: $green-700;
+        }
+        .panel-header-text {
+          display: flex;
+          flex-direction: column;
+          min-width: 0;
+          gap: 6px;
+          .panel-header-main {
+            color: $neutral-black;
+            font-family: Involve-Medium;
+            font-size: 24px;
+            line-height: 26px;
+            letter-spacing: -0.48px;
+          }
+          .connection-indicator {
             display: flex;
             align-items: center;
-            min-width: 0;
-            padding: 0;
-            gap: 3px;
-            border: none;
-            background: none;
-            cursor: default;
-            &:disabled {
-              opacity: 1;
-            }
-            &.author-trigger {
-              cursor: pointer;
-            }
-            .author-avatar {
-              width: 20px;
-              height: 20px;
+            gap: 6px;
+            color: $neutral-500;
+            font-size: 12px;
+            line-height: 16px;
+            &::before {
+              width: 6px;
+              height: 6px;
               border-radius: 50%;
-              object-fit: cover;
+              background-color: $neutral-500;
+              content: '';
             }
-            .profile-theme-icons {
-              display: inline-flex;
-              align-items: center;
-              gap: 3px;
-              flex: 0 0 auto;
-              .profile-theme-icon {
-                width: 20px;
-                height: 20px;
-                object-fit: contain;
+            &[data-state="ready"]::before {
+              background-color: $green-500;
+            }
+            &[data-state="connecting"]::before,
+            &[data-state="reconnecting"]::before {
+              background-color: $yellow-500;
+            }
+            &[data-state="error"]::before {
+              background-color: $red-400;
+            }
+          }
+        }
+      }
+      .panel-header-actions {
+        display: flex;
+        align-items: center;
+      }
+    }
+    .panel-list {
+      display: flex;
+      flex: 1 1 0;
+      flex-direction: column;
+      min-height: 0;
+      padding: 16px;
+      gap: 12px;
+      overflow: auto;
+      overscroll-behavior: contain;
+      scrollbar-width: thin;
+      scrollbar-color: $neutral-300 transparent;
+      > * {
+        flex-shrink: 0;
+      }
+      .load-more {
+        align-self: center;
+        padding: 9px 16px;
+        border: 1px solid $neutral-200;
+        border-radius: 12px;
+        background-color: $neutral-white;
+        color: $neutral-600;
+        cursor: pointer;
+        &:hover:not(:disabled) {
+          border-color: $green-500;
+          color: $green-700;
+        }
+        &:disabled {
+          opacity: 0.5;
+        }
+      }
+      .history-loading {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        .message-skeleton {
+          padding: 16px;
+          border-radius: 20px;
+          background-color: $neutral-white;
+          .skeleton-author {
+            display: flex;
+            align-items: center;
+            margin-bottom: 14px;
+            gap: 10px;
+            span {
+              height: 12px;
+              border-radius: 6px;
+              background-color: $soft-purple-100;
+              &:first-child {
+                width: 28px;
+                height: 28px;
+                border-radius: 50%;
+              }
+              &:last-child {
+                width: 110px;
               }
             }
-            .author-name {
+          }
+          .skeleton-line {
+            width: 100%;
+            height: 10px;
+            margin-top: 10px;
+            border-radius: 6px;
+            background-color: $soft-purple-100;
+            &--short {
+              width: 65%;
+            }
+          }
+        }
+      }
+      .empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin: auto;
+        padding: 32px 20px;
+        gap: 12px;
+        text-align: center;
+        .empty-state-icon {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 72px;
+          height: 72px;
+          margin-bottom: 8px;
+          border-radius: 24px;
+          background-color: $neutral-white;
+          color: $green-500;
+          --ui-icon-width: 32px;
+          --ui-icon-height: 32px;
+        }
+        .empty-state-title {
+          color: $neutral-black;
+          font-family: Involve-Medium;
+          font-size: 20px;
+          line-height: 24px;
+          letter-spacing: -0.4px;
+        }
+        .empty-state-text {
+          max-width: 260px;
+          color: $neutral-500;
+          line-height: 20px;
+        }
+      }
+      .global-chat-message {
+        box-sizing: border-box;
+        width: 100%;
+        padding: 14px;
+        border: 1px solid transparent;
+        border-radius: 20px;
+        background-color: $neutral-white;
+        transition: border-color 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
+        &--own {
+          border-color: rgba($green-500, 0.4);
+        }
+        &--highlighted {
+          border-color: $green-500;
+          box-shadow: 0 0 0 2px rgba($green-500, 0.18);
+        }
+        .message-main {
+          display: flex;
+          flex-direction: column;
+          min-width: 0;
+          gap: 10px;
+          .message-meta {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            .message-meta-author {
+              display: flex;
+              align-items: center;
               min-width: 0;
-              color: $neutral-100;
-              font-size: 16px;
-              font-family: Hauora-Regular;
+              padding: 0;
+              gap: 6px;
+              border: none;
+              border-radius: 8px;
+              background: none;
+              cursor: default;
+              &:disabled {
+                opacity: 1;
+              }
+              &.author-trigger {
+                cursor: pointer;
+                &:hover .author-name {
+                  text-decoration: underline;
+                  text-underline-offset: 3px;
+                }
+              }
+              .author-avatar {
+                flex: 0 0 auto;
+                width: 28px;
+                height: 28px;
+                border-radius: 50%;
+                object-fit: cover;
+              }
+              .profile-theme-icons {
+                display: inline-flex;
+                flex: 0 0 auto;
+                align-items: center;
+                gap: 3px;
+                .profile-theme-icon {
+                  width: 20px;
+                  height: 20px;
+                  object-fit: contain;
+                }
+              }
+              .author-name {
+                min-width: 0;
+                color: $neutral-black;
+                font-family: Hauora-SemiBold;
+                font-size: 14px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                &--themed {
+                  background-image: var(--chat-author-theme, none);
+                  background-clip: text;
+                  -webkit-background-clip: text;
+                  color: transparent;
+                  -webkit-text-fill-color: transparent;
+                }
+              }
+              .own-label {
+                flex-shrink: 0;
+                color: $green-700;
+                font-size: 11px;
+              }
+            }
+            .message-time {
+              flex-shrink: 0;
+              color: $neutral-500;
+              font-size: 11px;
+              line-height: 16px;
+            }
+          }
+          .reply-preview {
+            display: flex;
+            flex-direction: column;
+            padding: 10px 12px;
+            gap: 4px;
+            border: none;
+            border-left: 2px solid $green-500;
+            border-radius: 0 12px 12px 0;
+            background-color: $neutral-50;
+            text-align: left;
+            cursor: pointer;
+            &:hover {
+              background-color: $green-100;
+            }
+            .reply-preview-body {
+              display: flex;
+              align-items: center;
+              min-width: 0;
+              gap: 6px;
+              .reply-avatar {
+                width: 20px;
+                height: 20px;
+                border-radius: 50%;
+                object-fit: cover;
+              }
+              .reply-author {
+                color: $green-700;
+                font-family: Hauora-Medium;
+                font-size: 12px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+              }
+            }
+            .reply-snippet {
+              color: $neutral-600;
+              font-size: 12px;
               overflow: hidden;
               text-overflow: ellipsis;
               white-space: nowrap;
             }
           }
-          .message-time {
-            color: $neutral-300;
-            font-size: 12px;
+          .message-bubble {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            gap: 8px;
+            .message-text,
+            .tombstone {
+              margin: 0;
+              padding: 10px 12px;
+              border-radius: 12px;
+              background-color: $neutral-50;
+              color: $neutral-900;
+              font-size: 16px;
+              line-height: 22px;
+              user-select: text;
+              white-space: pre-wrap;
+              overflow-wrap: anywhere;
+            }
+            .tombstone {
+              color: $neutral-500;
+              font-size: 14px;
+              font-style: italic;
+            }
+            .tombstone-actions {
+              display: flex;
+              justify-content: flex-end;
+              gap: 6px;
+              .icon-action-button {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 32px;
+                height: 32px;
+                padding: 0;
+                border: none;
+                border-radius: 10px;
+                background-color: $soft-purple-100;
+                color: $neutral-black;
+                cursor: pointer;
+                --ui-icon-width: 18px;
+                --ui-icon-height: 18px;
+                &:hover:not(:disabled) {
+                  background-color: $soft-purple-200;
+                }
+                &--danger {
+                  background-color: $red-100;
+                  color: $red-600;
+                  &:hover:not(:disabled) {
+                    background-color: $red-200;
+                  }
+                }
+                &:disabled {
+                  opacity: 0.4;
+                }
+              }
+            }
+            .message-image {
+              display: block;
+              width: 100%;
+              max-height: 260px;
+              border-radius: 12px;
+              object-fit: cover;
+              cursor: zoom-in;
+            }
+          }
+          .reactions-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+            .reaction-details-anchor {
+              display: flex;
+              position: relative;
+              align-items: center;
+              gap: 4px;
+              &:last-child {
+                margin-left: auto;
+              }
+              .reaction-chip {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                box-sizing: border-box;
+                min-width: 42px;
+                height: 30px;
+                padding: 0 8px;
+                gap: 4px;
+                border: 1px solid $neutral-100;
+                border-radius: 10px;
+                background-color: $neutral-50;
+                color: $neutral-600;
+                font-size: 12px;
+                line-height: 16px;
+                cursor: pointer;
+                --ui-icon-width: 16px;
+                --ui-icon-height: 16px;
+                &:hover:not(:disabled) {
+                  border-color: $green-500;
+                  background-color: $green-100;
+                  color: $green-700;
+                }
+                &--active {
+                  border-color: $green-400;
+                  background-color: $green-100;
+                  color: $green-700;
+                }
+                &--picker {
+                  min-width: 30px;
+                  padding: 0 6px;
+                  border-color: transparent;
+                  background-color: $soft-purple-100;
+                  color: $neutral-black;
+                  &.red {
+                    background-color: $red-100;
+                    color: $red-600;
+                    &:hover:not(:disabled) {
+                      border-color: $red-400;
+                      background-color: $red-200;
+                      color: $red-700;
+                    }
+                  }
+                }
+                &:disabled {
+                  opacity: 0.4;
+                }
+              }
+              .reaction-details-popover,
+              .emoji-picker--reactions {
+                max-width: var(--reaction-popover-max-width, none);
+                translate: var(--reaction-popover-x, 0px) var(--reaction-popover-y, 0px);
+              }
+              .reaction-details-popover {
+                display: flex;
+                position: absolute;
+                flex-direction: column;
+                box-sizing: border-box;
+                bottom: calc(100% + 8px);
+                left: 0;
+                width: 220px;
+                max-height: min(220px, var(--reaction-popover-max-height, 220px));
+                padding: 12px;
+                gap: 12px;
+                border: 1px solid $neutral-200;
+                border-radius: 16px;
+                background-color: $neutral-white;
+                box-shadow: 0 8px 24px rgba($neutral-black, 0.16);
+                overflow: auto;
+                scrollbar-width: thin;
+                scrollbar-color: $neutral-200 transparent;
+                z-index: 12;
+                .reaction-details-item {
+                  display: flex;
+                  flex-shrink: 0;
+                  align-items: center;
+                  min-width: 0;
+                  gap: 8px;
+                  .reaction-details-avatar {
+                    flex-shrink: 0;
+                    width: 30px;
+                    height: 30px;
+                    border-radius: 50%;
+                    object-fit: cover;
+                  }
+                  .reaction-details-meta {
+                    display: flex;
+                    flex-direction: column;
+                    min-width: 0;
+                    gap: 2px;
+                    .reaction-details-name {
+                      color: $neutral-black;
+                      font-size: 13px;
+                      overflow: hidden;
+                      text-overflow: ellipsis;
+                      white-space: nowrap;
+                    }
+                    .reaction-details-time {
+                      color: $neutral-500;
+                      font-size: 11px;
+                      line-height: 14px;
+                    }
+                  }
+                }
+                .reaction-details-state {
+                  margin: 0;
+                  color: $neutral-500;
+                  font-size: 13px;
+                  line-height: 18px;
+                  &--error {
+                    color: $red-600;
+                  }
+                }
+              }
+              .emoji-picker--reactions {
+                display: grid;
+                grid-template-columns: repeat(6, 34px);
+                right: 0;
+                bottom: calc(100% + 8px);
+                width: max-content;
+                max-height: min(200px, var(--reaction-popover-max-height, 200px));
+                gap: 4px;
+                overflow: auto;
+                scrollbar-width: thin;
+                scrollbar-color: $neutral-200 transparent;
+              }
+            }
           }
         }
-        .reply-preview {
+      }
+    }
+    .floating-chat-actions {
+      display: flex;
+      position: absolute;
+      flex-direction: column;
+      right: 24px;
+      gap: 8px;
+      z-index: 10;
+      pointer-events: none;
+      .floating-chat-action-button {
+        display: flex;
+        position: relative;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        padding: 0;
+        border: 1px solid $neutral-200;
+        border-radius: 14px;
+        background-color: $neutral-white;
+        color: $neutral-black;
+        box-shadow: 0 4px 16px rgba($neutral-black, 0.16);
+        cursor: pointer;
+        pointer-events: auto;
+        &:hover {
+          border-color: $green-500;
+          color: $green-700;
+        }
+        span {
+          display: flex;
+          position: absolute;
+          align-items: center;
+          justify-content: center;
+          top: -5px;
+          right: -5px;
+          min-width: 18px;
+          height: 18px;
+          padding: 0 3px;
+          box-sizing: border-box;
+          border: 2px solid $neutral-100;
+          border-radius: 10px;
+          background-color: $green-500;
+          color: $neutral-black;
+          font-family: Hauora-SemiBold;
+          font-size: 10px;
+          line-height: 14px;
+        }
+      }
+    }
+    .panel-status {
+      display: flex;
+      flex: 0 0 auto;
+      align-items: center;
+      margin: 0 16px;
+      padding: 12px;
+      gap: 8px;
+      border: 1px solid $neutral-200;
+      border-radius: 14px;
+      background-color: $neutral-white;
+      color: $neutral-600;
+      font-size: 12px;
+      line-height: 18px;
+      --ui-icon-width: 18px;
+      --ui-icon-height: 18px;
+      span {
+        flex: 1;
+      }
+      button {
+        flex-shrink: 0;
+        padding: 7px 10px;
+        border: none;
+        border-radius: 10px;
+        background-color: $soft-purple-100;
+        color: $neutral-black;
+        font-size: 12px;
+        line-height: 16px;
+        cursor: pointer;
+        &:hover {
+          background-color: $neutral-200;
+        }
+      }
+      &--error {
+        border-color: $red-200;
+        background-color: $red-100;
+        color: $red-700;
+        button {
+          background-color: $neutral-white;
+          color: $red-700;
+          &:hover {
+            background-color: $red-200;
+          }
+        }
+      }
+    }
+    .reply-bar,
+    .image-preview {
+      display: flex;
+      flex: 0 0 auto;
+      align-items: center;
+      justify-content: space-between;
+      margin: 12px 16px 0;
+      padding: 10px 12px;
+      gap: 12px;
+      border-left: 2px solid $green-500;
+      border-radius: 0 14px 14px 0;
+      background-color: $neutral-white;
+      .chat-icon-button {
+        width: 28px;
+        height: 28px;
+        border-radius: 10px;
+        --ui-icon-width: 16px;
+        --ui-icon-height: 16px;
+      }
+    }
+    .reply-bar {
+      .reply-bar-text {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        gap: 4px;
+        .reply-bar-label {
+          color: $green-700;
+          font-size: 12px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .reply-bar-snippet {
+          color: $neutral-600;
+          font-size: 13px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+      }
+    }
+    .image-preview {
+      border-left-color: $neutral-200;
+      .image-preview-div {
+        display: flex;
+        align-items: center;
+        min-width: 0;
+        gap: 10px;
+        img {
+          flex-shrink: 0;
+          width: 44px;
+          height: 44px;
+          border-radius: 10px;
+          object-fit: cover;
+        }
+        .image-preview-meta {
           display: flex;
           flex-direction: column;
-          align-items: flex-start;
-          gap: 5px;
-          padding: 5px;
-          border: none;
-          border-left: 5px solid rgba($orange-500, 0.5);
-          border-radius: 5px;
-          background-color: $neutral-700;
-          text-align: left;
-          color: $neutral-100;
-          cursor: pointer;
-          .reply-preview-body {
-            display: flex;
-            gap: 5px;
-            .reply-avatar {
-              width: 20px;
-              height: 20px;
-              border-radius: 50%;
-              object-fit: cover;
-            }
-            .reply-author {
-              color: $neutral-100;
-              font-size: 14px;
-              font-family: Hauora-Regular;
+          min-width: 0;
+          gap: 4px;
+          span {
+            color: $neutral-black;
+            font-size: 13px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+          small {
+            color: $neutral-500;
+            font-size: 12px;
+            line-height: 16px;
+          }
+        }
+      }
+    }
+    .composer-shell {
+      position: relative;
+      flex: 0 0 auto;
+      box-sizing: border-box;
+      padding: 16px;
+      .composer-box {
+        border: 1px solid $neutral-200;
+        border-radius: 20px;
+        background-color: $neutral-white;
+        transition: border-color 0.2s ease-in-out;
+        &:focus-within:not(.composer-box--disabled) {
+          border-color: $green-500;
+        }
+        .composer-input-wrap {
+          position: relative;
+          border-radius: 20px 20px 0 0;
+          &--drag-active {
+            background-color: rgba($green-500, 0.1);
+            box-shadow: inset 0 0 0 2px $green-500;
+          }
+          .composer-input,
+          .composer-highlight-content {
+            box-sizing: border-box;
+            width: 100%;
+            margin: 0;
+            padding: 12px 14px;
+            border: none;
+            color: $neutral-900;
+            font-family: Hauora-Regular;
+            font-size: 16px;
+            line-height: 22px;
+            letter-spacing: normal;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+          }
+          .composer-highlight-overlay {
+            position: absolute;
+            inset: 0;
+            overflow: auto;
+            scrollbar-width: none;
+            pointer-events: none;
+            .composer-highlight-content {
+              min-height: 100%;
+              .composer-mention {
+                font-family: inherit;
+                font-weight: inherit;
+              }
             }
           }
-          .reply-snippet {
-            width: 100%;
-            color: $neutral-300;
+          .composer-input {
+            display: block;
+            position: relative;
+            height: 68px;
+            border-radius: inherit;
+            background: none;
+            caret-color: $neutral-black;
+            outline: none;
+            resize: none;
+            overflow: auto;
+            scrollbar-width: none;
+            z-index: 1;
+            &--mirrored {
+              color: transparent;
+            }
+            &::placeholder {
+              color: $neutral-500;
+            }
+            &::selection {
+              background-color: rgba($green-500, 0.25);
+              color: transparent;
+            }
+            &:disabled {
+              cursor: not-allowed;
+            }
+          }
+          .mention-suggestions {
+            display: flex;
+            position: absolute;
+            flex-direction: column;
+            box-sizing: border-box;
+            left: -1px;
+            right: -1px;
+            bottom: calc(100% + 8px);
+            max-height: 230px;
+            padding: 8px;
+            gap: 4px;
+            border: 1px solid $neutral-200;
+            border-radius: 16px;
+            background-color: $neutral-white;
+            box-shadow: 0 8px 24px rgba($neutral-black, 0.16);
+            overflow: auto;
+            scrollbar-width: thin;
+            scrollbar-color: $neutral-200 transparent;
+            z-index: 15;
+            .mention-suggestions-state {
+              margin: 0;
+              padding: 10px;
+              color: $neutral-500;
+              font-size: 13px;
+            }
+            .mention-suggestion {
+              display: flex;
+              flex-shrink: 0;
+              align-items: center;
+              min-width: 0;
+              padding: 8px 10px;
+              gap: 10px;
+              border: none;
+              border-radius: 10px;
+              background: none;
+              color: $neutral-900;
+              text-align: left;
+              cursor: pointer;
+              &--active,
+              &:hover {
+                background-color: $green-100;
+                color: $green-700;
+              }
+              .mention-suggestion-avatar {
+                flex-shrink: 0;
+                width: 28px;
+                height: 28px;
+                border-radius: 50%;
+                object-fit: cover;
+              }
+              .mention-suggestion-name {
+                min-width: 0;
+                font-size: 14px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+              }
+            }
+          }
+        }
+        .composer-toolbar {
+          display: flex;
+          align-items: center;
+          padding: 0 10px 10px;
+          gap: 10px;
+          .composer-tools {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            .tool-button {
+              display: flex;
+              position: relative;
+              align-items: center;
+              justify-content: center;
+              width: 34px;
+              height: 34px;
+              padding: 0;
+              border: none;
+              border-radius: 10px;
+              background: none;
+              color: $neutral-500;
+              cursor: pointer;
+              --ui-icon-width: 20px;
+              --ui-icon-height: 20px;
+              &:hover:not(:disabled):not(.tool-button--disabled),
+              &[aria-expanded="true"] {
+                background-color: $soft-purple-100;
+                color: $green-700;
+              }
+              &:focus-within {
+                outline: 2px solid $green-500;
+              }
+              &--disabled,
+              &:disabled {
+                opacity: 0.4;
+                cursor: not-allowed;
+              }
+              input {
+                position: absolute;
+                inset: 0;
+                width: 100%;
+                height: 100%;
+                opacity: 0;
+                cursor: inherit;
+              }
+            }
+          }
+          .composer-counter {
+            margin-left: auto;
+            color: $neutral-500;
+            font-size: 11px;
+            line-height: 16px;
+            &--limit {
+              color: $yellow-700;
+            }
+          }
+          .send-button {
+            display: flex;
+            flex-shrink: 0;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            padding: 0;
+            border: none;
+            border-radius: 12px;
+            background-color: $green-500;
+            color: $neutral-black;
+            cursor: pointer;
+            --ui-icon-width: 20px;
+            --ui-icon-height: 20px;
+            &:hover:not(:disabled) {
+              background-color: $green-400;
+            }
+            &:disabled {
+              background-color: $neutral-200;
+              color: $neutral-400;
+            }
+            .sending-spinner {
+              width: 16px;
+              height: 16px;
+              border: 2px solid $neutral-white;
+              border-top-color: $green-700;
+              border-radius: 50%;
+              animation: chat-spin 0.8s linear infinite;
+            }
+          }
+        }
+      }
+      .composer-hint {
+        display: block;
+        margin: 10px 2px 0;
+        color: $neutral-500;
+        font-size: 11px;
+        line-height: 14px;
+      }
+      .emoji-picker--composer {
+        right: 16px;
+        bottom: calc(100% - 8px);
+        width: 336px;
+        max-height: 276px;
+        overflow: auto;
+        scrollbar-width: thin;
+        scrollbar-color: $neutral-200 transparent;
+        .emoji-grid--composer {
+          display: grid;
+          grid-template-columns: repeat(8, 34px);
+          gap: 4px;
+        }
+      }
+    }
+  }
+  .deleted-preview-overlay,
+  .image-lightbox-overlay {
+    display: flex;
+    position: fixed;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    inset: 0;
+    padding: 40px;
+    background-color: rgba($neutral-black, 0.65);
+    backdrop-filter: blur(12px);
+  }
+  .deleted-preview-overlay {
+    background-color: rgba($neutral-800, 0.2);
+    z-index: 120;
+    .deleted-preview-modal {
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
+      width: 600px;
+      max-height: 80%;
+      padding: 24px;
+      gap: 24px;
+      border: 1px solid $neutral-200;
+      border-radius: 24px;
+      background-color: $neutral-100;
+      box-shadow: 0 2px 16px rgba($neutral-black, 0.2);
+      .deleted-preview-header {
+        display: flex;
+        flex-shrink: 0;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        .deleted-preview-header-main {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          span {
+            color: $neutral-black;
+            font-family: Involve-Medium;
+            font-size: 24px;
+            line-height: 26px;
+            letter-spacing: -0.48px;
+          }
+          small {
+            color: $neutral-500;
             font-size: 12px;
+            line-height: 16px;
+          }
+        }
+      }
+      .deleted-preview-body {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        padding: 16px;
+        gap: 16px;
+        border-radius: 20px;
+        background-color: $neutral-white;
+        overflow: auto;
+        scrollbar-width: thin;
+        scrollbar-color: $neutral-200 transparent;
+        .deleted-preview-author {
+          display: flex;
+          align-items: center;
+          min-width: 0;
+          gap: 10px;
+          .deleted-preview-avatar {
+            flex-shrink: 0;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            object-fit: cover;
+          }
+          span {
+            color: $neutral-black;
+            font-family: Hauora-SemiBold;
+            font-size: 16px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
           }
         }
-        .message-bubble {
-          display: flex;
-          flex-direction: column;
-          gap: 5px;
-          .message-text,
-          .tombstone {
-            margin: 0;
-            padding: 5px 8px;
-            border-radius: 5px;
-            background-color: $neutral-900;
-            color: $neutral-100;
-            font-size: 16px;
-            line-height: 1.2;
-            user-select: text;
-            white-space: pre-wrap;
-            overflow-wrap: anywhere;
-          }
-          .message-link {
-            color: $neutral-white;
-            font-family: Hauora-SemiBold;
-            text-decoration: underline;
-            text-decoration-thickness: 1px;
-            text-underline-offset: 2px;
-            word-break: break-word;
-          }
-          .tombstone {
-            color: $neutral-300;
-            font-style: italic;
-          }
-          .tombstone-actions {
-            display: flex;
-            align-items: center;
-            justify-content: flex-end;
-            gap: 5px;
-            .icon-action-button {
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              max-height: 25px;
-              padding: 5px 8px;
-              border: none;
-              border-radius: 999px;
-              background-color: $neutral-900;
-              cursor: pointer;
-              img {
-                width: 16px;
-                height: 16px;
-              }
-              &:disabled {
-                opacity: 0.5;
-                cursor: default;
-              }
-              &--danger {
-                background-color: $red-500;
-              }
-            }
-          }
-          .message-image {
-            width: 100%;
-            max-height: 340px;
-            border-radius: 5px;
-            object-fit: cover;
-            cursor: zoom-in;
-          }
-        }
-        .reactions-row {
-          display: flex;
-          flex-wrap: wrap;
-          align-items: center;
-          justify-content: flex-end;
-          gap: 5px;
-          .reaction-details-anchor {
-            display: flex;
-            position: relative;
-            align-items: center;
-            gap: 3px;
-            .reaction-chip {
-              display: flex;
-              align-items: center;
-              gap: 3px;
-              padding: 3px 7px 3px 5px;
-              border: 1px solid $neutral-500;
-              border-radius: 999px;
-              background-color: $neutral-700;
-              color: $neutral-100;
-              font-size: 14px;
-              font-weight: bold;
-              line-height: 1.3;
-              cursor: pointer;
-              &:disabled {
-                opacity: 0.5;
-                cursor: default;
-              }
-              &--active {
-                border-color: rgba($green-500, 0.25);
-                background-color: rgba($green-500, 0.1);
-              }
-              &--picker {
-                padding: 5px 8px;
-                border: none;
-                background-color: $neutral-900;
-                &.red {
-                  background-color: rgba($red-500, 0.75);
-                }
-                img {
-                  width: 16px;
-                  height: 16px;
-                }
-              }
-            }
-            .reaction-details-popover {
-              display: flex;
-              position: absolute;
-              flex-direction: column;
-              bottom: calc(100% + 5px);
-              left: 0;
-              padding: 5px 8px;
-              gap: 10px;
-              width: max-content;
-              height: max-content;
-              border-radius: 5px;
-              background-color: $neutral-700;
-              box-shadow: 0 15px 30px rgba(black, 0.25);
-              z-index: 5;
-              .reaction-details-item {
-                display: flex;
-                align-items: center;
-                gap: 3px;
-                .reaction-details-avatar {
-                  width: 25px;
-                  height: 25px;
-                  border-radius: 50%;
-                  object-fit: cover;
-                }
-                .reaction-details-meta {
-                  display: flex;
-                  flex-direction: column;
-                  gap: 3px;
-                  min-width: 0;
-                  .reaction-details-name {
-                    color: $neutral-100;
-                    font-size: 12px;
-                    font-family: Hauora-Regular;
-                  }
-                  .reaction-details-time {
-                    color: $neutral-500;
-                    font-size: 10px;
-                  }
-                }
-              }
-              .reaction-details-state {
-                margin: 0;
-                color: $neutral-300;
-                font-size: 12px;
-                line-height: 1.2;
-                &--error {
-                  color: $red-500;
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-  .panel-status {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 10px;
-    gap: 10px;
-    min-height: 30px;
-    background-color: $neutral-700;
-    color: $neutral-100;
-    font-size: 14px;
-    font-weight: bold;
-    &--error {
-      color: $red-500;
-    }
-    button {
-      padding: 0 10px;
-      height: 30px;
-      border: none;
-      border-radius: 999px;
-      background-color: $neutral-900;
-      color: $neutral-100;
-      cursor: pointer;
-    }
-  }
-  .reply-bar {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    padding: 10px;
-    gap: 10px;
-    background-color: $neutral-700;
-    .reply-bar-text {
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-      min-width: 0;
-      .reply-bar-label {
-        color: $neutral-300;
-        font-size: 12px;
-        font-family: Hauora-Regular;
-      }
-      .reply-bar-snippet {
-        color: $neutral-100;
-        font-size: 14px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-    }
-    button {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0;
-      min-width: 20px;
-      min-height: 20px;
-      border: none;
-      border-radius: 999px;
-      background-color: $neutral-900;
-      cursor: pointer;
-      img {
-        width: 12px;
-        height: 12px;
-      }
-    }
-  }
-  .image-preview {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    padding: 10px;
-    background-color: $neutral-700;
-    .image-preview-div {
-      display: flex;
-      align-items: flex-start;
-      gap: 5px;
-      img {
-        width: 40px;
-        height: 40px;
-        border-radius: 5px;
-        object-fit: cover;
-      }
-      .image-preview-meta {
-        display: flex;
-        flex-direction: column;
-        align-items: flex-start;
-        justify-content: space-between;
-        height: 40px;
-        span {
-          color: $neutral-100;
-          font-size: 12px;
-          line-height: 1.2;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-          overflow: hidden;
-        }
-        small {
-          color: $neutral-300;
-          font-size: 12px;
-        }
-      }
-    }
-    button {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0;
-      min-width: 20px;
-      min-height: 20px;
-      border: none;
-      border-radius: 999px;
-      background-color: $neutral-900;
-      cursor: pointer;
-      img {
-        width: 12px;
-        height: 12px;
-      }
-    }
-  }
-  .composer-shell {
-    display: flex;
-    position: relative;
-    gap: 10px;
-    min-height: 52px;
-    .composer-input-wrap {
-      width: 100%;
-      background-color: $neutral-700;
-      overflow: hidden;
-      &--drag-active {
-        box-shadow: inset 0 0 0 2px $orange-500;
-      }
-    }
-    .composer-highlight-overlay {
-      position: absolute;
-      inset: 0;
-      overflow: auto;
-      pointer-events: none;
-      scrollbar-width: none;
-      &::-webkit-scrollbar {
-        display: none;
-      }
-      .composer-highlight-content {
-        margin: 0;
-        padding: 18px 80px 14px 45px;
-        width: calc(100% - 125px);
-        height: 20px;
-        color: $neutral-100;
-        font-size: 16px;
-        line-height: 1.2;
-        font-family: Hauora-Regular;
-        white-space: pre-wrap;
-        overflow-wrap: anywhere;
-      }
-      .composer-mention {
-        font-family: inherit;
-        font-weight: inherit;
-      }
-    }
-    .tool-button {
-      display: flex;
-      position: absolute;
-      left: 5px;
-      bottom: 10px;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      width: 30px;
-      height: 30px;
-      border: none;
-      border-radius: 999px;
-      background-color: $neutral-900;
-      cursor: pointer;
-      z-index: 5;
-      &--file {
-        input {
-          position: absolute;
-          inset: 0;
-          opacity: 0;
-          cursor: pointer;
-        }
-      }
-      &--disabled {
-        cursor: default;
-        img {
-          opacity: 0.5;
-        }
-      }
-      &.right {
-        left: auto;
-        right: 40px;
-      }
-      img {
-        width: 16px;
-        height: 16px;
-      }
-    }
-    .composer-input {
-      position: relative;
-      padding: 18px 80px 14px 45px;
-      width: calc(100% - 125px);
-      height: 20px;
-      border: none;
-      background-color: transparent;
-      color: $neutral-100;
-      font-size: 16px;
-      line-height: 1.2;
-      font-family: Hauora-Regular;
-      resize: none;
-      outline: none;
-      overflow: auto;
-      scrollbar-width: none;
-      caret-color: $neutral-100;
-      z-index: 1;
-      &--mirrored {
-        color: transparent;
-      }
-      &::selection {
-        background-color: rgba($orange-500, 0.25);
-        color: transparent;
-      }
-      &:disabled {
-        opacity: 0.5;
-        cursor: default;
-      }
-    }
-    .mention-suggestions {
-      display: flex;
-      position: absolute;
-      flex-direction: column;
-      left: 0;
-      right: 0;
-      bottom: calc(100% - 1px);
-      padding: 5px;
-      gap: 5px;
-      max-height: 150px;
-      background-color: $neutral-700;
-      overflow-y: auto;
-      scrollbar-width: thin;
-      z-index: 10;
-      .mention-suggestions-state {
-        margin: 0;
-        padding: 5px;
-        color: $neutral-300;
-        font-size: 14px;
-      }
-      .mention-suggestion {
-        display: flex;
-        align-items: center;
-        gap: 3px;
-        padding: 3px 5px;
-        border: none;
-        border-radius: 5px;
-        background-color: transparent;
-        color: $neutral-100;
-        cursor: pointer;
-        &--active {
-          background-color: rgba($orange-500, 0.25);
-        }
-        .mention-suggestion-avatar {
-          width: 24px;
-          height: 24px;
-          border-radius: 50%;
-          object-fit: cover;
-        }
-        .mention-suggestion-name {
-          min-width: 0;
+        .deleted-preview-text,
+        .deleted-preview-empty {
+          margin: 0;
+          color: $neutral-900;
           font-size: 16px;
-          font-family: Hauora-Regular;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-          overflow: hidden;
+          line-height: 22px;
+          user-select: text;
+          white-space: pre-wrap;
+          overflow-wrap: anywhere;
+        }
+        .deleted-preview-empty {
+          color: $neutral-500;
+        }
+        .deleted-preview-image {
+          width: 100%;
+          max-height: 360px;
+          border-radius: 12px;
+          object-fit: contain;
+          cursor: zoom-in;
         }
       }
     }
-    .send-button {
+  }
+  .image-lightbox-overlay {
+    z-index: 130;
+    .image-lightbox-close {
       display: flex;
       position: absolute;
       align-items: center;
       justify-content: center;
-      right: 5px;
-      bottom: 10px;
-      width: 30px;
-      height: 30px;
-      border: none;
-      border-radius: 999px;
-      background-color: $neutral-900;
-      cursor: pointer;
-      z-index: 5;
-      &:disabled {
-        cursor: default;
-        img {
-          opacity: 0.5;
-        }
-      }
-      img {
-        width: 16px;
-        height: 16px;
-      }
-    }
-  }
-}
-.emoji-picker {
-  display: flex;
-  position: absolute;
-  transform-origin: bottom right;
-  background-color: $neutral-700;
-  box-shadow: 0 15px 30px rgba(black, 0.25);
-  overflow: hidden;
-  z-index: 10;
-  .emoji-button {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: none;
-    background: none;
-    font-size: 18px;
-    transition: transform 0.25s ease-in-out;
-    cursor: pointer;
-    &:hover {
-      transform: translateY(-3px);
-    }
-  }
-  &--reactions {
-    bottom: calc(100% + 5px);
-    right: 0;
-    padding: 5px;
-    border-radius: 999px;
-    > .emoji-button {
+      top: 24px;
+      right: 24px;
+      width: 40px;
+      height: 40px;
       padding: 0;
-      width: 30px;
-      height: 30px;
-    }
-  }
-  &--composer {
-    flex-direction: column;
-    bottom: calc(100% + 10px);
-    right: 10px;
-    padding: 10px;
-    width: 250px;
-    height: 200px;
-    border-radius: 5px;
-    overflow-y: auto;
-    overflow-x: hidden;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    .emoji-grid--composer {
-      display: grid;
-      grid-template-columns: repeat(8, minmax(0, 1fr));
-      gap: 5px;
-    }
-  }
-}
-.deleted-preview-overlay {
-  display: flex;
-  position: fixed;
-  align-items: center;
-  justify-content: center;
-  inset: 0;
-  background-color: rgba(black, 0.5);
-  z-index: 120;
-  .deleted-preview-modal {
-    display: flex;
-    flex-direction: column;
-    width: min(600px, 80%);
-    max-height: min(600px, 80%);
-    border-radius: 20px;
-    background-color: $neutral-800;
-    box-shadow: 0 15px 30px rgba(black, 0.25);
-    overflow: hidden;
-    .deleted-preview-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      padding: 10px 15px;
-      background-color: $neutral-700;
-      .deleted-preview-header-main {
-        display: flex;
-        flex-direction: column;
-        gap: 5px;
-        span {
-          color: $neutral-100;
-          font-size: 16px;
-          font-family: Hauora-SemiBold;
-        }
-        small {
-          color: $neutral-300;
-          font-size: 12px;
-        }
-      }
-      button {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 30px;
-        height: 30px;
-        padding: 0;
-        border: none;
-        background: none;
-        cursor: pointer;
-        img {
-          width: 20px;
-          height: 20px;
-        }
+      border: 1px solid $soft-purple-100;
+      border-radius: 14px;
+      background-color: $neutral-white;
+      color: $neutral-black;
+      cursor: pointer;
+      &:hover {
+        background-color: $soft-purple-100;
+        color: $green-700;
       }
     }
-    .deleted-preview-body {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      padding: 15px;
-      overflow-y: auto;
-      .deleted-preview-author {
-        display: flex;
-        align-items: center;
-        gap: 5px;
-        .deleted-preview-avatar {
-          width: 30px;
-          height: 30px;
-          border-radius: 50%;
-          object-fit: cover;
-        }
-        span {
-          color: $neutral-100;
-          font-size: 16px;
-          font-family: Hauora-Regular;
-        }
-      }
-      .deleted-preview-text,
-      .deleted-preview-empty {
-        margin: 0;
-        color: $neutral-100;
-        font-size: 16px;
-        line-height: 1.2;
-        white-space: pre-wrap;
-        overflow-wrap: anywhere;
-      }
-      .message-link {
-        color: $neutral-white;
-        font-family: Hauora-SemiBold;
-        text-decoration: underline;
-        text-decoration-thickness: 1px;
-        text-underline-offset: 2px;
-        word-break: break-word;
-      }
-      .message-mention {
-        color: var(--mention-color, #{$orange-500});
-        font-family: Hauora-SemiBold;
-      }
-      .deleted-preview-empty {
-        color: $neutral-300;
-        font-style: italic;
-      }
-      .deleted-preview-image {
-        width: 100%;
-        max-height: 400px;
-        border-radius: 10px;
-        object-fit: contain;
-        cursor: zoom-in;
-      }
+    .image-lightbox-image {
+      max-width: min(90%, 1440px);
+      max-height: 90%;
+      border-radius: 16px;
+      object-fit: contain;
+      box-shadow: 0 16px 56px rgba($neutral-black, 0.4);
     }
-  }
-}
-.image-lightbox-overlay {
-  display: flex;
-  position: fixed;
-  align-items: center;
-  justify-content: center;
-  inset: 0;
-  background-color: $neutral-900;
-  z-index: 130;
-  .image-lightbox-close {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 40px;
-    height: 40px;
-    padding: 0;
-    border: none;
-    border-radius: 999px;
-    background-color: $neutral-800;
-    cursor: pointer;
-    img {
-      width: 20px;
-      height: 20px;
-    }
-  }
-  .image-lightbox-image {
-    max-width: min(80%, 1440px);
-    max-height: min(80%, 960px);
-    object-fit: contain;
-    box-shadow: 0 15px 30px rgba(black, 0.25);
   }
 }
 
 .global-chat-panel-transition-enter-active,
 .global-chat-panel-transition-leave-active,
 .deleted-preview-modal-enter-active,
+.deleted-preview-modal-leave-active,
 .image-lightbox-transition-enter-active,
 .image-lightbox-transition-leave-active,
-.deleted-preview-modal-leave-active,
 .emoji-picker-pop-enter-active,
 .emoji-picker-pop-leave-active {
-  transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
+  transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out;
 }
-
 .global-chat-panel-transition-enter-from,
 .global-chat-panel-transition-leave-to,
 .deleted-preview-modal-enter-from,
+.deleted-preview-modal-leave-to,
 .image-lightbox-transition-enter-from,
 .image-lightbox-transition-leave-to,
-.deleted-preview-modal-leave-to,
 .emoji-picker-pop-enter-from,
 .emoji-picker-pop-leave-to {
   opacity: 0;
 }
-
 .global-chat-panel-transition-enter-from,
 .global-chat-panel-transition-leave-to,
-.deleted-preview-modal-enter-from,
-.image-lightbox-transition-enter-from,
-.image-lightbox-transition-leave-to,
-.deleted-preview-modal-leave-to {
-  transform: translateY(-10px) scale(0.9);
-}
-
 .emoji-picker-pop-enter-from,
 .emoji-picker-pop-leave-to {
-  transform: translateY(10px) scale(0.9);
+  transform: translateY(12px);
 }
-
+@keyframes chat-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .global-chat-dock .sending-spinner {
+    animation: none;
+  }
+}
 </style>
