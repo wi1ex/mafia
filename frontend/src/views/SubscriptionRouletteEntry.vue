@@ -338,7 +338,7 @@ onBeforeUnmount(() => {
     background-color: rgba($red-500, 0.12);
     --ui-icon-width: 36px;
     --ui-icon-height: 36px;
-    animation: roulette-invite-turn 7s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+    animation: roulette-invite-turn 3s cubic-bezier(0.16, 1, 0.3, 1) infinite;
     &.is-paused {
       animation-play-state: paused;
     }

@@ -1,8 +1,8 @@
 <template>
   <Teleport to="#desktop-teleport-root">
-    <Transition name="lottery-window">
+    <Transition name="lottery-window" appear>
       <div v-if="open" class="lottery-overlay" @pointerdown.self="overlayArmed = true" @pointerup.self="onOverlayUp" @pointercancel="overlayArmed = false">
-        <section ref="dialog" class="lottery-dialog" role="dialog" aria-modal="true" aria-labelledby="lottery-title" aria-describedby="lottery-description" @keydown="onKeydown">
+        <section ref="dialog" class="lottery-dialog" role="dialog" aria-modal="true" aria-labelledby="lottery-title" @keydown="onKeydown">
           <header class="lottery-header">
             <div>
               <span class="lottery-eyebrow">Лотерея подписки</span>
@@ -13,7 +13,6 @@
 
           <div class="lottery-content">
             <div class="lottery-info">
-              <p class="lottery-status" aria-live="polite">{{ statusText }}</p>
               <div class="lottery-prize" :class="{ 'is-won': phase === 'result' }" aria-live="polite" aria-atomic="true">
                 <span>{{ phase === 'result' ? 'Ваш выигрыш' : 'Подписка в подарок' }}</span>
                 <strong>{{ phase === 'result' && days ? days : '1–30' }}</strong>
@@ -21,12 +20,7 @@
                 <span v-if="phase === 'result' && untilText" class="lottery-prize__until">Подписка активна до {{ untilText }}</span>
               </div>
               <UiButton class="lottery-action" :text="buttonText" width="100%" :disabled="buttonDisabled" @click="phase === 'result' ? $emit('close') : $emit('start')" />
-              <p id="lottery-description" class="lottery-description">
-                <template v-if="phase === 'result'">Спасибо, что играете с нами.<br>Подарок сохранён в вашем профиле.</template>
-                <template v-else>Потяните рычаг и узнайте свой выигрыш.<br>У каждого числа одинаковый шанс.</template>
-              </p>
               <p v-if="error" class="lottery-error" role="alert">{{ error }}</p>
-              <div class="lottery-rule"><UiIcon :icon="iconCheckCircle" /><span>{{ phase === 'result' ? 'Причина выдачи: «Лотерея»' : 'Одна попытка за розыгрыш. Все 30 значений равновероятны.' }}</span></div>
             </div>
 
             <div class="lottery-machine" :class="{ 'is-pulled': pulled, 'is-won': phase === 'result' }">
@@ -63,9 +57,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import UiButton from '@/components/UiButton.vue'
-import UiIcon from '@/components/UiIcon.vue'
 import iconClose from '@/assets/svg/iconClose.svg'
-import iconCheckCircle from '@/assets/svg/iconCheckCircle.svg'
 import logo from '@/assets/svg/iconLogo.svg'
 import { formatLocalDateTime } from '@/services/datetime'
 import { ROULETTE_DAYS, ROULETTE_SPIN_MS, rouletteAngle, validRouletteDays, type RoulettePhase } from '@/services/subscriptionRoulette'
@@ -99,14 +91,6 @@ function daysWord(days: number): string {
   const lastTwo = days % 100
   return last === 1 && lastTwo !== 11 ? 'день' : last >= 2 && last <= 4 && (lastTwo < 12 || lastTwo > 14) ? 'дня' : 'дней'
 }
-const statusText = computed(() => {
-  if (props.phase === 'result') return 'Поздравляем! Подписка уже начислена.'
-  if (props.phase === 'requesting') return 'Подготавливаем ваше вращение…'
-  if (props.phase === 'spinning') return 'Ещё немного удачи…'
-  if (props.phase === 'recovering') return 'Проверяем сохранённый результат…'
-  if (props.phase === 'error') return 'Ваш подарок не потеряется'
-  return 'Одна попытка · без пустых секторов'
-})
 const buttonText = computed(() => {
   if (props.phase === 'result') return 'Отлично, спасибо!'
   if (props.phase === 'requesting') return 'Подготавливаем…'
@@ -136,13 +120,13 @@ const sectors = ROULETTE_DAYS.map((days, index) => {
     dotX: dot.x, dotY: dot.y,
   }
 })
-const confetti = Array.from({ length: 38 }, (_, id) => ({
+const confetti = Array.from({ length: 120 }, (_, id) => ({
   id,
   style: {
     '--piece-left': `${7 + (id * 31 % 87)}%`,
-    '--piece-drift': `${(id * 43 % 240) - 120}px`,
+    '--piece-drift': `${(id * 43 % 400) - 200}px`,
     '--piece-turn': `${(id % 2 ? 1 : -1) * (180 + id * 31)}deg`,
-    '--piece-delay': `${id % 9 * 32}ms`,
+    '--piece-delay': `${id % 12 * 40}ms`,
   },
 }))
 
@@ -160,7 +144,7 @@ watch(() => [props.phase, props.days] as const, async ([phase, days], previous) 
     }
     if (props.open && previous?.[0] === 'spinning' && !props.reducedMotion) {
       confettiVisible.value = true
-      confettiTimer = window.setTimeout(() => { confettiVisible.value = false }, 1900)
+      confettiTimer = window.setTimeout(() => { confettiVisible.value = false }, 3200)
     }
   }
 }, { immediate: true })
@@ -250,8 +234,9 @@ onBeforeUnmount(() => {
     font-weight: 400;
     font-size: 16px;
     line-height: 1.4;
-    transform: scale(calc(1 / var(--desktop-scale, 1)));
+    transform: translateY(0) scale(calc(1 / var(--desktop-scale, 1)));
     transform-origin: center;
+    transition: transform 0.25s ease-in-out;
     box-shadow: 0 24px 80px rgba($neutral-black, 0.3);
     scrollbar-width: thin;
     :deep(button:focus-visible) {
@@ -290,20 +275,14 @@ onBeforeUnmount(() => {
     }
     .lottery-content {
       display: grid;
-      grid-template-columns: 1fr 1.1fr;
+      grid-template-columns: 1fr 1.5fr;
       gap: 42px;
       align-items: center;
-      margin-top: 30px;
       .lottery-info {
         display: flex;
         flex-direction: column;
         gap: 16px;
         min-width: 0;
-        .lottery-status {
-          margin: 0;
-          color: $soft-purple-600;
-          font-size: 13px;
-        }
         .lottery-prize {
           display: flex;
           flex-direction: column;
@@ -338,40 +317,24 @@ onBeforeUnmount(() => {
           --ui-button-height: 50px;
           --ui-button-font-size: 16px;
         }
-        .lottery-description {
-          margin: 0;
-          color: $soft-purple-600;
-          font-size: 13px;
-          line-height: 1.6;
-        }
         .lottery-error {
           margin: 0;
           color: $red-700;
           font-size: 13px;
           line-height: 1.5;
         }
-        .lottery-rule {
-          display: flex;
-          align-items: flex-start;
-          gap: 8px;
-          padding-top: 15px;
-          border-top: 1px solid rgba($soft-purple-900, 0.14);
-          color: $soft-purple-600;
-          font-size: 12px;
-          --ui-icon-width: 16px;
-          --ui-icon-height: 16px;
-        }
       }
       .lottery-machine {
         position: relative;
-        width: min(100%, 350px);
+        width: min(100%, 300px);
         justify-self: center;
-        padding-right: 22px;
+        padding-right: 68px;
         box-sizing: border-box;
         .lottery-wheel-shell {
           position: relative;
           width: 100%;
           aspect-ratio: 1;
+          overflow: clip;
           .lottery-pointer {
             position: absolute;
             left: 50%;
@@ -390,7 +353,7 @@ onBeforeUnmount(() => {
             width: 100%;
             height: 100%;
             transition-property: transform;
-            transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+            transition-timing-function: cubic-bezier(0.12, 0.75, 0.25, 1);
             .wheel-rim {
               fill: $soft-purple-800;
             }
@@ -445,7 +408,7 @@ onBeforeUnmount(() => {
         }
         .lottery-lever {
           position: absolute;
-          right: -10px;
+          right: 36px;
           top: 37%;
           width: 50px;
           height: 128px;
@@ -515,7 +478,11 @@ onBeforeUnmount(() => {
         width: 7px;
         height: 13px;
         background-color: $green-500;
-        animation: lottery-confetti-fall 1.4s var(--piece-delay) cubic-bezier(0.12, 0.5, 0.4, 1) both;
+        animation: lottery-confetti-fall 2.5s var(--piece-delay) cubic-bezier(0.12, 0.5, 0.4, 1) both;
+        &:nth-child(3n) {
+          width: 9px;
+          height: 9px;
+        }
         &:nth-child(4n + 2) {
           background-color: $red-600;
         }
@@ -532,11 +499,14 @@ onBeforeUnmount(() => {
 
 .lottery-window-enter-active,
 .lottery-window-leave-active {
-  transition: opacity 0.25s;
+  transition: opacity 0.25s ease-in-out;
 }
 .lottery-window-enter-from,
 .lottery-window-leave-to {
   opacity: 0;
+  .lottery-dialog {
+    transform: translateY(-30px) scale(calc(1 / var(--desktop-scale, 1)));
+  }
 }
 
 @keyframes lottery-confetti-fall {

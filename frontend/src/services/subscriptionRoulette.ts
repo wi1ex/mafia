@@ -1,7 +1,7 @@
 import { api } from '@/services/axios'
 
 export const ROULETTE_DAYS = [7, 22, 3, 18, 11, 26, 1, 16, 29, 8, 21, 4, 25, 12, 19, 6, 27, 14, 9, 30, 17, 2, 23, 10, 15, 28, 5, 20, 13, 24] as const
-export const ROULETTE_SPIN_MS = 5000
+export const ROULETTE_SPIN_MS = 10000
 
 export type RoulettePhase = 'idle' | 'requesting' | 'spinning' | 'result' | 'recovering' | 'error'
 export type RouletteNotification = {
@@ -38,7 +38,7 @@ export function rouletteAngle(days: number, currentAngle = 0): number {
   const index = ROULETTE_DAYS.findIndex(value => value === days)
   if (index < 0) throw new Error('Invalid subscription roulette result')
   const mod = (value: number) => ((value % 360) + 360) % 360
-  return currentAngle + 7 * 360 + mod(-index * 12 - currentAngle)
+  return currentAngle + 14 * 360 + mod(-index * 12 - currentAngle)
 }
 
 export async function fetchRouletteStatus(roundId?: number): Promise<RouletteStatus> {
