@@ -3252,40 +3252,6 @@ def _normalize_user_ids(values: Iterable[Any] | None) -> set[int]:
     return out
 
 
-async def _load_room_creator_roles(r, creators_by_rid: Mapping[int, int]) -> dict[int, str]:
-    room_ids = [rid for rid in (_as_int(raw) for raw in creators_by_rid.keys()) if rid > 0]
-    if not room_ids:
-        return {}
-
-    roles_by_rid: dict[int, str] = {}
-    rows: list[Any] = []
-    try:
-        async with r.pipeline() as p:
-            for rid in room_ids:
-                await p.hget(f"room:{rid}:params", "creator_role")
-            rows = await p.execute()
-    except Exception:
-        rows = []
-
-    for rid, creator_role in zip(room_ids, rows):
-        roles_by_rid[rid] = normalize_user_role(creator_role)
-
-    return roles_by_rid
-
-
-async def _admin_created_hidden_room_ids(r, items: Iterable[Mapping[str, Any]]) -> set[int]:
-    creators_by_rid: dict[int, int] = {}
-    for item in items:
-        if str(item.get("anonymity") or "visible") != "hidden":
-            continue
-        rid = _as_int(item.get("id"))
-        if rid > 0:
-            creators_by_rid[rid] = _as_int(item.get("creator"))
-
-    roles_by_rid = await _load_room_creator_roles(r, creators_by_rid)
-    return {rid for rid, role in roles_by_rid.items() if role == ROLE_ADMIN}
-
-
 async def _load_room_allow_membership(r, room_ids: Iterable[int], viewer_uid: int) -> dict[int, bool]:
     rids = [rid for rid in (_as_int(raw) for raw in room_ids) if rid > 0]
     if not rids or viewer_uid <= 0:
@@ -3309,10 +3275,6 @@ async def _load_room_allow_membership(r, room_ids: Iterable[int], viewer_uid: in
     return allow_by_rid
 
 
-def _configured_senior_moderator_id() -> int:
-    return _as_int(getattr(get_cached_settings(), "senior_moderator_user_id", None))
-
-
 async def filter_rooms_for_viewer(r, items: Iterable[Mapping[str, Any]], role: str | None, uid: int | None) -> List[dict]:
     prepared = [dict(item) for item in items]
     viewer_role = normalize_user_role(role)
@@ -3320,22 +3282,6 @@ async def filter_rooms_for_viewer(r, items: Iterable[Mapping[str, Any]], role: s
         return prepared
 
     viewer_uid = _as_int(uid)
-    if viewer_uid > 0 and viewer_uid == _configured_senior_moderator_id():
-        admin_hidden_rids = await _admin_created_hidden_room_ids(r, prepared)
-        if not admin_hidden_rids:
-            return prepared
-
-        allow_by_rid = await _load_room_allow_membership(r, admin_hidden_rids, viewer_uid)
-        out: List[dict] = []
-        for item in prepared:
-            rid = _as_int(item.get("id"))
-            if rid not in admin_hidden_rids:
-                out.append(item)
-                continue
-            if viewer_uid > 0 and (_as_int(item.get("creator")) == viewer_uid or allow_by_rid.get(rid)):
-                out.append(item)
-        return out
-
     if viewer_uid <= 0:
         return [item for item in prepared if str(item.get("anonymity") or "visible") != "hidden"]
 
@@ -3369,7 +3315,7 @@ async def filter_rooms_for_viewer(r, items: Iterable[Mapping[str, Any]], role: s
     return out
 
 
-async def _hidden_room_viewers(r, rid: int, *, payload: Mapping[str, Any] | None = None) -> tuple[bool, set[int], bool]:
+async def _hidden_room_viewers(r, rid: int, *, payload: Mapping[str, Any] | None = None) -> tuple[bool, set[int]]:
     room_id = _as_int(rid)
     hidden_raw = ""
     creator_hint = 0
@@ -3387,7 +3333,7 @@ async def _hidden_room_viewers(r, rid: int, *, payload: Mapping[str, Any] | None
         is_hidden = str(raw or "visible") == "hidden"
 
     if not is_hidden:
-        return False, set(), False
+        return False, set()
 
     if creator_hint > 0:
         try:
@@ -3416,26 +3362,17 @@ async def _hidden_room_viewers(r, rid: int, *, payload: Mapping[str, Any] | None
     if creator_hint > 0:
         viewers.add(creator_hint)
 
-    roles_by_rid = await _load_room_creator_roles(r, {room_id: creator_hint})
-    admin_created = roles_by_rid.get(room_id) == ROLE_ADMIN
-
-    return True, viewers, admin_created
+    return True, viewers
 
 
 async def _emit_hidden_rooms_event(
     event: str,
     payload: Mapping[str, Any],
     viewer_ids: Iterable[int],
-    *,
-    include_senior_moderator: bool = True,
 ) -> None:
     data = dict(payload)
     await sio.emit(event, data, room="role:admin", namespace="/rooms")
     recipients = _normalize_user_ids(viewer_ids)
-    if include_senior_moderator:
-        senior_moderator_id = _configured_senior_moderator_id()
-        if senior_moderator_id > 0:
-            recipients.add(senior_moderator_id)
     for uid in sorted(recipients):
         await sio.emit(event, data, room=f"user:{uid}", namespace="/rooms")
 
@@ -3449,13 +3386,12 @@ async def emit_rooms_upsert_safe(r, rid: int, item: Mapping[str, Any] | None = N
         return
 
     room_id = _as_int(payload.get("id") or rid)
-    is_hidden, viewer_ids, admin_created = await _hidden_room_viewers(r, room_id, payload=payload)
+    is_hidden, viewer_ids = await _hidden_room_viewers(r, room_id, payload=payload)
     if is_hidden:
         await _emit_hidden_rooms_event(
             "rooms_upsert",
             payload,
             viewer_ids,
-            include_senior_moderator=not admin_created,
         )
         return
 
@@ -3463,40 +3399,35 @@ async def emit_rooms_upsert_safe(r, rid: int, item: Mapping[str, Any] | None = N
 
 
 async def emit_rooms_event_safe(r, rid: int, event: str, payload: Mapping[str, Any]) -> None:
-    is_hidden, viewer_ids, admin_created = await _hidden_room_viewers(r, rid)
+    is_hidden, viewer_ids = await _hidden_room_viewers(r, rid)
     if is_hidden:
         await _emit_hidden_rooms_event(
             event,
             payload,
             viewer_ids,
-            include_senior_moderator=not admin_created,
         )
         return
 
     await sio.emit(event, dict(payload), namespace="/rooms")
 
 
-async def emit_rooms_remove_safe(r, rid: int, *, hidden: bool | None = None, viewer_ids: Iterable[int] | None = None, admin_created: bool | None = None) -> None:
+async def emit_rooms_remove_safe(r, rid: int, *, hidden: bool | None = None, viewer_ids: Iterable[int] | None = None) -> None:
     room_id = _as_int(rid)
     payload = {"id": room_id}
     is_hidden = hidden
     target_ids = _normalize_user_ids(viewer_ids)
-    admin_created_hidden = bool(admin_created)
     if is_hidden is None:
-        is_hidden, auto_ids, admin_created_hidden = await _hidden_room_viewers(r, room_id)
+        is_hidden, auto_ids = await _hidden_room_viewers(r, room_id)
         target_ids.update(auto_ids)
     elif is_hidden and not target_ids:
-        _, auto_ids, admin_created_hidden = await _hidden_room_viewers(r, room_id)
+        _, auto_ids = await _hidden_room_viewers(r, room_id)
         target_ids.update(auto_ids)
-    elif is_hidden and admin_created is None:
-        _, _, admin_created_hidden = await _hidden_room_viewers(r, room_id)
 
     if is_hidden:
         await _emit_hidden_rooms_event(
             "rooms_remove",
             payload,
             target_ids,
-            include_senior_moderator=not admin_created_hidden,
         )
         return
 
@@ -9222,11 +9153,8 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
         room_creator_raw = await r.hget(f"room:{rid}:params", "creator")
         room_anonymity = "hidden" if str(room_anonymity_raw or "visible") == "hidden" else "visible"
         room_creator = _as_int(room_creator_raw)
-        room_admin_created = False
         hidden_remove_targets: set[int] = set()
         if room_anonymity == "hidden":
-            room_creator_roles = await _load_room_creator_roles(r, {rid: room_creator})
-            room_admin_created = room_creator_roles.get(rid) == ROLE_ADMIN
             if room_creator > 0:
                 hidden_remove_targets.add(room_creator)
             try:
@@ -9445,7 +9373,6 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
                 rid,
                 hidden=(room_anonymity == "hidden"),
                 viewer_ids=hidden_remove_targets if room_anonymity == "hidden" else None,
-                admin_created=room_admin_created if room_anonymity == "hidden" else None,
             )
         except Exception as e:
             log.warning("gc.rooms_remove.emit_failed", rid=rid, err=type(e).__name__)
