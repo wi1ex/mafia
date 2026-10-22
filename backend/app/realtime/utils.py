@@ -13,12 +13,12 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from redis.exceptions import ResponseError
 from jwt import ExpiredSignatureError
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Mapping, cast, Optional, List, Iterable
 from dataclasses import dataclass
 from .sio import sio
 from ..core.db import SessionLocal
-from ..core.roles import ADDITIONAL_ROLE_HEAD_RATE, ROLE_ADMIN, ROLE_MODER, can_room_moderate, has_additional_role, normalize_user_role, room_moderation_role
+from ..core.roles import ADDITIONAL_ROLE_HEAD_RATE, ROLE_ADMIN, can_room_moderate, has_additional_role, normalize_user_role, room_moderation_role
 from ..core.settings import settings
 from ..security.parameters import get_cached_settings
 from ..models.room import Room
@@ -38,6 +38,7 @@ from ..api.utils import (
     game_from_redis_to_model,
     get_active_game_rooms,
     reduce_suspend_after_hosted_game,
+    schedule_contact_request_admin_telegram_message,
     serialize_game_for_redis,
 )
 from ..services.global_chat import emit_global_chat_permissions_updated
@@ -6304,6 +6305,45 @@ async def maybe_finish_game_after_death(r, rid: int, *, head_uid: int | None = N
     return False
 
 
+def build_short_game_admin_telegram_message(game: Game, *, head_username: str | None = None, room_title: str | None = None) -> str | None:
+    duration = game.finished_at - game.started_at
+    if duration < timedelta(0) or duration >= timedelta(minutes=25):
+        return None
+
+    removals = {"foul": 0, "suicide": 0}
+    removed_user_ids: set[int] = set()
+    for action in game.actions or []:
+        if not isinstance(action, dict) or action.get("type") != "death":
+            continue
+        reason = action.get("reason")
+        if reason not in ("foul", "suicide"):
+            continue
+        try:
+            target_id = int(action.get("target_id") or 0)
+        except (TypeError, ValueError):
+            continue
+        if target_id <= 0 or target_id in removed_user_ids:
+            continue
+        removed_user_ids.add(target_id)
+        removals[reason] += 1
+
+    total = sum(removals.values())
+    if total <= 1:
+        return None
+
+    minutes, seconds = divmod(int(duration.total_seconds()), 60)
+    head_name = (head_username or "").strip() or f"ID {game.head_id or 'не указан'}"
+    room_name = (room_title or "").strip() or f"№{game.room_id}"
+    return (
+        "Завершилась быстрая игра\n\n"
+        f"Игра №{game.id}, комната {room_name}\n"
+        f"Ведущий: {head_name}\n"
+        f"Длительность: {minutes} мин {seconds} сек\n"
+        f"Удалений по фолам/техфолам: {removals['foul']}\n"
+        f"Самоубийств: {removals['suicide']}"
+    )
+
+
 async def finish_game(r, rid: int, *, result: str, head_uid: int | None = None, reason: str = "auto_finish") -> bool:
     if result not in ("red", "black", "draw"):
         return False
@@ -6421,18 +6461,22 @@ async def finish_game(r, rid: int, *, result: str, head_uid: int | None = None, 
         mmr_map = {str(uid): 0 for uid in player_ids}
 
     room_owner_id = 0
+    room_title: str | None = None
     try:
         params = await r.hgetall(f"room:{rid}:params")
         room_owner_id = int(params.get("creator") or 0)
+        room_title = str(params.get("title") or "").strip() or None
     except Exception:
         log.exception("game_finish.load_room_params_failed", rid=rid)
 
-    if room_owner_id <= 0:
+    if room_owner_id <= 0 or not room_title:
         try:
             async with SessionLocal() as s:
                 room = await s.get(Room, rid)
                 if room:
-                    room_owner_id = int(room.creator)
+                    if room_owner_id <= 0:
+                        room_owner_id = int(room.creator)
+                    room_title = room_title or room.title
         except Exception:
             log.exception("game_finish.load_room_db_failed", rid=rid)
 
@@ -6471,6 +6515,16 @@ async def finish_game(r, rid: int, *, result: str, head_uid: int | None = None, 
                 await s.flush()
                 reward_notice = await reward_rating_host(s, game_row)
                 await s.commit()
+                try:
+                    head_username = None
+                    if game_row.head_id:
+                        with suppress(Exception):
+                            head_username = await s.scalar(select(User.username).where(User.id == game_row.head_id))
+                    telegram_message = build_short_game_admin_telegram_message(game_row, head_username=head_username, room_title=room_title)
+                    if telegram_message is not None:
+                        schedule_contact_request_admin_telegram_message(telegram_message)
+                except Exception:
+                    log.exception("game_finish.admin_telegram_notify_failed", rid=rid, game_id=game_row.id)
                 if reward_notice is not None:
                     with suppress(Exception):
                         await sync_rating_host_subscription(s, int(head_uid), reward_notice)
