@@ -434,8 +434,9 @@ onBeforeUnmount(() => {
     pointer-events: none;
   }
   &.room-mode {
+    width: 478px;
     top: auto;
-    bottom: 58px;
+    bottom: 48px;
     z-index: 25;
   }
   header {

@@ -1835,8 +1835,8 @@ watch(() => user.timeoutActive, () => {
 <style scoped lang="scss">
 .global-chat-dock {
   position: fixed;
-  right: 24px;
-  bottom: 24px;
+  right: 40px;
+  bottom: 10px;
   color: $neutral-900;
   font-family: Hauora-Regular;
   font-size: 14px;
@@ -1844,7 +1844,8 @@ watch(() => user.timeoutActive, () => {
   pointer-events: none;
   z-index: 70;
   &.room-mode {
-    bottom: 72px;
+    right: 10px;
+    bottom: 58px;
     z-index: 25;
   }
   > * {
@@ -1961,8 +1962,8 @@ watch(() => user.timeoutActive, () => {
     position: relative;
     flex-direction: column;
     box-sizing: border-box;
-    width: 460px;
-    height: min(760px, calc(var(--app-viewport-height, 100dvh) - 112px));
+    width: 510px;
+    height: min(720px, calc(var(--app-viewport-height, 100dvh) - 112px));
     border: 1px solid transparent;
     border-radius: 24px;
     background-color: $neutral-100;
@@ -1973,7 +1974,7 @@ watch(() => user.timeoutActive, () => {
       flex: 0 0 auto;
       align-items: center;
       justify-content: space-between;
-      padding: 20px;
+      padding: 12px 16px;
       gap: 16px;
       border-bottom: 1px solid $neutral-200;
       .panel-heading {

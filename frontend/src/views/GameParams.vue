@@ -306,7 +306,7 @@ watch(game, () => {
   bottom: 48px;
   padding: 16px 24px;
   width: 462px;
-  max-height: 400px;
+  max-height: 408px;
   border-radius: 24px;
   background-color: $neutral-100;
   box-shadow: 0 0 16px 0 rgba($neutral-black, 0.16);
