@@ -2121,7 +2121,7 @@ watch(() => user.timeoutActive, () => {
       .global-chat-message {
         box-sizing: border-box;
         width: 100%;
-        padding: 8px 12px;
+        padding: 12px;
         border: 1px solid transparent;
         border-radius: 24px;
         background-color: $neutral-white;
@@ -2310,7 +2310,7 @@ watch(() => user.timeoutActive, () => {
             display: flex;
             flex-wrap: wrap;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
             .reaction-details-anchor {
               display: flex;
               position: relative;
@@ -2325,7 +2325,6 @@ watch(() => user.timeoutActive, () => {
                 justify-content: center;
                 box-sizing: border-box;
                 padding: 0 6px;
-                width: 30px;
                 height: 30px;
                 border: 1px solid $neutral-100;
                 border-radius: 12px;
@@ -2507,10 +2506,10 @@ watch(() => user.timeoutActive, () => {
       border-radius: 12px;
       background-color: $neutral-white;
       color: $neutral-600;
-      font-size: 14px;
+      font-size: 16px;
       line-height: 18px;
-      --ui-icon-width: 18px;
-      --ui-icon-height: 18px;
+      --ui-icon-width: 24px;
+      --ui-icon-height: 24px;
       span {
         flex: 1;
       }
