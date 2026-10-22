@@ -1915,7 +1915,7 @@ watch(() => user.timeoutActive, () => {
     display: inline;
     padding: 0;
     border: none;
-    border-radius: 3px;
+    border-radius: 4px;
     background: none;
     font: inherit;
     text-align: inherit;
@@ -1930,7 +1930,7 @@ watch(() => user.timeoutActive, () => {
     box-sizing: border-box;
     padding: 8px 12px;
     border: 1px solid $neutral-200;
-    border-radius: 20px;
+    border-radius: 24px;
     background-color: $neutral-white;
     box-shadow: 0 12px 32px rgba($neutral-black, 0.16);
     transform-origin: bottom right;
@@ -1943,7 +1943,7 @@ watch(() => user.timeoutActive, () => {
       height: 34px;
       padding: 0;
       border: none;
-      border-radius: 10px;
+      border-radius: 12px;
       background: none;
       font-family: 'Segoe UI Emoji', sans-serif;
       font-size: 22px;
@@ -2051,7 +2051,7 @@ watch(() => user.timeoutActive, () => {
         gap: 12px;
         .message-skeleton {
           padding: 16px;
-          border-radius: 20px;
+          border-radius: 24px;
           background-color: $neutral-white;
           .skeleton-author {
             display: flex;
@@ -2060,7 +2060,7 @@ watch(() => user.timeoutActive, () => {
             gap: 10px;
             span {
               height: 12px;
-              border-radius: 6px;
+              border-radius: 8px;
               background-color: $soft-purple-100;
               &:first-child {
                 width: 28px;
@@ -2076,7 +2076,7 @@ watch(() => user.timeoutActive, () => {
             width: 100%;
             height: 10px;
             margin-top: 10px;
-            border-radius: 6px;
+            border-radius: 8px;
             background-color: $soft-purple-100;
             &--short {
               width: 65%;
@@ -2123,7 +2123,7 @@ watch(() => user.timeoutActive, () => {
         width: 100%;
         padding: 8px 12px;
         border: 1px solid transparent;
-        border-radius: 20px;
+        border-radius: 24px;
         background-color: $neutral-white;
         transition: border-color 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
         &--highlighted {
@@ -2279,7 +2279,7 @@ watch(() => user.timeoutActive, () => {
                 height: 30px;
                 padding: 0;
                 border: none;
-                border-radius: 10px;
+                border-radius: 12px;
                 background-color: $soft-purple-100;
                 color: $neutral-black;
                 cursor: pointer;
@@ -2331,7 +2331,7 @@ watch(() => user.timeoutActive, () => {
                 width: 30px;
                 height: 30px;
                 border: 1px solid $neutral-100;
-                border-radius: 10px;
+                border-radius: 12px;
                 background-color: $neutral-50;
                 color: $neutral-600;
                 font-size: 14px;
@@ -2470,7 +2470,7 @@ watch(() => user.timeoutActive, () => {
         height: 40px;
         padding: 0;
         border: 1px solid $neutral-200;
-        border-radius: 14px;
+        border-radius: 12px;
         background-color: $neutral-white;
         color: $neutral-black;
         box-shadow: 0 4px 16px rgba($neutral-black, 0.16);
@@ -2492,7 +2492,7 @@ watch(() => user.timeoutActive, () => {
           padding: 0 3px;
           box-sizing: border-box;
           border: 2px solid $neutral-100;
-          border-radius: 10px;
+          border-radius: 12px;
           background-color: $green-500;
           color: $neutral-black;
           font-family: Hauora-SemiBold;
@@ -2506,13 +2506,13 @@ watch(() => user.timeoutActive, () => {
       flex: 0 0 auto;
       align-items: center;
       margin: 0 16px;
-      padding: 12px;
-      gap: 8px;
+      padding: 8px 12px;
+      gap: 4px;
       border: 1px solid $neutral-200;
-      border-radius: 14px;
+      border-radius: 12px;
       background-color: $neutral-white;
       color: $neutral-600;
-      font-size: 12px;
+      font-size: 14px;
       line-height: 18px;
       --ui-icon-width: 18px;
       --ui-icon-height: 18px;
@@ -2523,7 +2523,7 @@ watch(() => user.timeoutActive, () => {
         flex-shrink: 0;
         padding: 7px 10px;
         border: none;
-        border-radius: 10px;
+        border-radius: 12px;
         background-color: $soft-purple-100;
         color: $neutral-black;
         font-size: 12px;
@@ -2561,7 +2561,7 @@ watch(() => user.timeoutActive, () => {
       .chat-icon-button {
         width: 28px;
         height: 28px;
-        border-radius: 10px;
+        border-radius: 12px;
         --ui-icon-width: 16px;
         --ui-icon-height: 16px;
       }
@@ -2599,7 +2599,7 @@ watch(() => user.timeoutActive, () => {
           flex-shrink: 0;
           width: 44px;
           height: 44px;
-          border-radius: 10px;
+          border-radius: 12px;
           object-fit: cover;
         }
         .image-preview-meta {
@@ -2629,7 +2629,7 @@ watch(() => user.timeoutActive, () => {
       padding: 8px 16px 16px;
       .composer-box {
         border: 1px solid $neutral-200;
-        border-radius: 20px;
+        border-radius: 24px;
         background-color: $neutral-white;
         transition: border-color 0.2s ease-in-out;
         &:focus-within:not(.composer-box--disabled) {
@@ -2642,7 +2642,7 @@ watch(() => user.timeoutActive, () => {
         }
         .composer-input-wrap {
           position: relative;
-          border-radius: 20px 20px 0 0;
+          border-radius: 24px 24px 0 0;
           .composer-input,
           .composer-highlight-content {
             box-sizing: border-box;
@@ -2731,7 +2731,7 @@ watch(() => user.timeoutActive, () => {
               padding: 8px 10px;
               gap: 10px;
               border: none;
-              border-radius: 10px;
+              border-radius: 12px;
               background: none;
               color: $neutral-900;
               text-align: left;
@@ -2776,7 +2776,7 @@ watch(() => user.timeoutActive, () => {
               height: 34px;
               padding: 0;
               border: none;
-              border-radius: 10px;
+              border-radius: 12px;
               background: none;
               color: $neutral-500;
               cursor: pointer;
@@ -2936,7 +2936,7 @@ watch(() => user.timeoutActive, () => {
         min-height: 0;
         padding: 16px;
         gap: 16px;
-        border-radius: 20px;
+        border-radius: 24px;
         background-color: $neutral-white;
         overflow: auto;
         scrollbar-width: thin;
@@ -2998,7 +2998,7 @@ watch(() => user.timeoutActive, () => {
       height: 40px;
       padding: 0;
       border: 1px solid $soft-purple-100;
-      border-radius: 14px;
+      border-radius: 12px;
       background-color: $neutral-white;
       color: $neutral-black;
       cursor: pointer;
