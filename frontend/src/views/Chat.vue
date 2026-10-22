@@ -2145,7 +2145,7 @@ watch(() => user.timeoutActive, () => {
               align-items: center;
               min-width: 0;
               padding: 0;
-              gap: 6px;
+              gap: 2px;
               border: none;
               border-radius: 8px;
               background: none;
@@ -2155,15 +2155,11 @@ watch(() => user.timeoutActive, () => {
               }
               &.author-trigger {
                 cursor: pointer;
-                &:hover .author-name {
-                  text-decoration: underline;
-                  text-underline-offset: 3px;
-                }
               }
               .author-avatar {
                 flex: 0 0 auto;
-                width: 28px;
-                height: 28px;
+                width: 24px;
+                height: 24px;
                 border-radius: 50%;
                 object-fit: cover;
               }
@@ -2171,18 +2167,19 @@ watch(() => user.timeoutActive, () => {
                 display: inline-flex;
                 flex: 0 0 auto;
                 align-items: center;
-                gap: 3px;
+                gap: 2px;
                 .profile-theme-icon {
-                  width: 20px;
-                  height: 20px;
+                  width: 24px;
+                  height: 24px;
                   object-fit: contain;
                 }
               }
               .author-name {
+                margin-left: 2px;
                 min-width: 0;
                 color: $neutral-black;
                 font-family: Hauora-SemiBold;
-                font-size: 14px;
+                font-size: 16px;
                 overflow: hidden;
                 text-overflow: ellipsis;
                 white-space: nowrap;
@@ -2198,7 +2195,7 @@ watch(() => user.timeoutActive, () => {
             .message-time {
               flex-shrink: 0;
               color: $neutral-500;
-              font-size: 11px;
+              font-size: 12px;
               line-height: 16px;
             }
           }
@@ -2327,7 +2324,7 @@ watch(() => user.timeoutActive, () => {
                 align-items: center;
                 justify-content: center;
                 box-sizing: border-box;
-                padding: 0;
+                padding: 0 6px;
                 width: 30px;
                 height: 30px;
                 border: 1px solid $neutral-100;
@@ -2345,7 +2342,6 @@ watch(() => user.timeoutActive, () => {
                   color: $green-700;
                 }
                 &--active {
-                  padding: 0 4px;
                   gap: 2px;
                   width: auto;
                   border-color: $green-400;
@@ -2384,8 +2380,8 @@ watch(() => user.timeoutActive, () => {
                 left: 0;
                 width: 220px;
                 max-height: min(220px, var(--reaction-popover-max-height, 220px));
-                padding: 12px;
-                gap: 12px;
+                padding: 8px 12px;
+                gap: 4px;
                 border: 1px solid $neutral-200;
                 border-radius: 16px;
                 background-color: $neutral-white;
@@ -2399,11 +2395,11 @@ watch(() => user.timeoutActive, () => {
                   flex-shrink: 0;
                   align-items: center;
                   min-width: 0;
-                  gap: 8px;
+                  gap: 4px;
                   .reaction-details-avatar {
                     flex-shrink: 0;
-                    width: 30px;
-                    height: 30px;
+                    width: 24px;
+                    height: 24px;
                     border-radius: 50%;
                     object-fit: cover;
                   }
@@ -2411,18 +2407,17 @@ watch(() => user.timeoutActive, () => {
                     display: flex;
                     flex-direction: column;
                     min-width: 0;
-                    gap: 2px;
                     .reaction-details-name {
                       color: $neutral-black;
-                      font-size: 13px;
+                      font-size: 12px;
                       overflow: hidden;
                       text-overflow: ellipsis;
                       white-space: nowrap;
                     }
                     .reaction-details-time {
                       color: $neutral-500;
-                      font-size: 11px;
-                      line-height: 14px;
+                      font-size: 10px;
+                      line-height: 10px;
                     }
                   }
                 }
@@ -2850,6 +2845,7 @@ watch(() => user.timeoutActive, () => {
       .composer-hint {
         display: block;
         margin: 4px 4px 0;
+        text-align: end;
         color: $neutral-500;
         font-size: 11px;
         line-height: 14px;
@@ -2900,8 +2896,8 @@ watch(() => user.timeoutActive, () => {
       box-sizing: border-box;
       width: 600px;
       max-height: 80%;
-      padding: 24px;
-      gap: 24px;
+      padding: 16px 24px;
+      gap: 12px;
       border: 1px solid $neutral-200;
       border-radius: 24px;
       background-color: $neutral-100;
@@ -2934,8 +2930,8 @@ watch(() => user.timeoutActive, () => {
         display: flex;
         flex-direction: column;
         min-height: 0;
-        padding: 16px;
-        gap: 16px;
+        padding: 12px 16px;
+        gap: 12px;
         border-radius: 24px;
         background-color: $neutral-white;
         overflow: auto;
@@ -2945,11 +2941,11 @@ watch(() => user.timeoutActive, () => {
           display: flex;
           align-items: center;
           min-width: 0;
-          gap: 10px;
+          gap: 8px;
           .deleted-preview-avatar {
             flex-shrink: 0;
-            width: 36px;
-            height: 36px;
+            width: 30px;
+            height: 30px;
             border-radius: 50%;
             object-fit: cover;
           }
