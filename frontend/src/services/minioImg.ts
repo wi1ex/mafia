@@ -25,6 +25,8 @@ type ElEx = HTMLImageElement & {
   __m_hovering?: boolean
   __m_hover_enter?: (() => void)
   __m_hover_leave?: (() => void)
+  __m_load?: (() => void)
+  __m_error?: (() => void)
 }
 
 type Norm = {
@@ -99,6 +101,35 @@ function clearHover(el: ElEx) {
   el.__m_hovering = false
 }
 
+function clearLoadListeners(el: ElEx) {
+  if (el.__m_load) el.removeEventListener('load', el.__m_load)
+  if (el.__m_error) el.removeEventListener('error', el.__m_error)
+  el.__m_load = undefined
+  el.__m_error = undefined
+}
+
+function setImageSource(el: ElEx, src: string, req: number) {
+  clearLoadListeners(el)
+  const finish = (state: 'loaded' | 'error') => {
+    if (el.__m_req !== req) return
+    clearLoadListeners(el)
+    el.dataset.minioState = state
+  }
+  let decoding = false
+  const onLoad = async () => {
+    if (el.__m_req !== req || decoding) return
+    decoding = true
+    try { await el.decode() } catch {}
+    finish(el.naturalWidth > 0 ? 'loaded' : 'error')
+  }
+  el.__m_load = () => { void onLoad() }
+  el.__m_error = () => finish('error')
+  el.addEventListener('load', el.__m_load)
+  el.addEventListener('error', el.__m_error)
+  el.src = src
+  if (el.complete && el.naturalWidth > 0) void onLoad()
+}
+
 function setupHover(el: ElEx, avatarKey: string, stillUrl: string, version?: number) {
   clearHover(el)
   el.__m_still_url = stillUrl
@@ -139,6 +170,8 @@ function setupHover(el: ElEx, avatarKey: string, stillUrl: string, version?: num
 async function loadInto(el: ElEx, val: MinioVal) {
   const { key, version, placeholder, fallback, gifMode } = norm(val)
   const myReq = (el.__m_req = (el.__m_req || 0) + 1)
+  clearLoadListeners(el)
+  el.dataset.minioState = 'loading'
   let sourceChanged = false
   if (el.__m_key && el.__m_key !== key) {
     clearHover(el)
@@ -152,7 +185,8 @@ async function loadInto(el: ElEx, val: MinioVal) {
     releaseTracked(el)
     el.__m_key = undefined
     el.__m_sig = undefined
-    if (placeholder) el.src = placeholder
+    if (placeholder) setImageSource(el, placeholder, myReq)
+    else el.dataset.minioState = 'error'
     return
   }
   const useStaticGif = isAvatarGifKey(key) && gifMode !== 'animated'
@@ -168,7 +202,7 @@ async function loadInto(el: ElEx, val: MinioVal) {
   try {
     const url = await getImageURL(sourceKey, v)
     if (el.__m_req === myReq) {
-      el.src = url
+      setImageSource(el, url, myReq)
       trackKey(el, sourceKey)
       el.__m_key = key
       el.__m_sig = sig
@@ -180,14 +214,18 @@ async function loadInto(el: ElEx, val: MinioVal) {
   } catch {
     if (el.__m_req === myReq) {
       const fallbackSrc = fallback || placeholder
-      if (fallbackSrc) el.src = fallbackSrc
-      else if (sourceChanged) el.removeAttribute('src')
+      if (fallbackSrc) setImageSource(el, fallbackSrc, myReq)
+      else {
+        if (sourceChanged) el.removeAttribute('src')
+        el.dataset.minioState = 'error'
+      }
     }
   }
 }
 
 function mount(el: ElEx, binding: DirectiveBinding<MinioVal>) {
   el.setAttribute('referrerpolicy', 'no-referrer')
+  el.dataset.minioState = 'loading'
   const { lazy } = norm(binding.value)
   el.loading = lazy ? 'lazy' : 'eager'
   const run = () => loadInto(el, binding.value)
@@ -215,6 +253,7 @@ function update(el: ElEx, binding: DirectiveBinding<MinioVal>) {
 
 function unmount(el: ElEx, _binding: DirectiveBinding<MinioVal>) {
   try { el.__m_obs?.disconnect() } catch {}
+  clearLoadListeners(el)
   clearHover(el)
   el.__m_obs = null
   el.__m_req = 0

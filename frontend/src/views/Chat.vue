@@ -76,7 +76,13 @@
                     </button>
                   </div>
                   <template v-if="!message.deleted">
-                    <img v-if="message.image_object_key" class="message-image" @click="onOpenImageLightbox($event, 'Вложение')" @load="onMessageMediaLoad" @error="onMessageMediaLoad" v-minio-img="{ key: message.image_object_key, lazy: true }" alt="Вложение" />
+                    <div v-if="message.image_object_key" class="message-image-shell">
+                      <div class="message-image-placeholder" role="status" aria-label="Загрузка изображения">
+                        <UiIcon :icon="iconPhoto" aria-hidden="true" />
+                      </div>
+                      <img class="message-image" @click="onOpenImageLightbox($event, 'Вложение')" @load="onMessageMediaLoad" @error="onMessageMediaLoad" v-minio-img="{ key: message.image_object_key, lazy: true }" alt="Вложение" />
+                      <span class="message-image-error" role="status">Не удалось загрузить изображение</span>
+                    </div>
                     <p v-if="message.text" class="message-text">
                       <template v-for="(segment, index) in buildTextSegments(message.text, message.mentions)" :key="`${message.id}-text-${index}`">
                         <a v-if="segment.kind === 'link'" class="message-link" :href="segment.href" target="_blank" rel="noopener noreferrer nofollow" @click.stop>{{ segment.text }}</a>
@@ -140,7 +146,7 @@
               </div>
             </article>
           </div>
-          <UiScrollbar :target="listEl" :active="chat.open" theme="light" :inset-top="16" :inset-bottom="16" :right="4" />
+          <UiScrollbar :target="listEl" :active="chat.open" theme="light" :inset-top="16" :inset-bottom="16" :right="-4" />
         </div>
 
         <div v-if="hasUnreadTargets || showJumpToBottomButton" class="floating-chat-actions" :style="floatingChatActionsStyle">
@@ -1862,7 +1868,7 @@ watch(() => user.timeoutActive, () => {
   }
   button {
     font: inherit;
-    transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+    transition: background-color 0.25s ease-in-out, color 0.25s ease-in-out, border-color 0.25s ease-in-out;
     &:focus-visible {
       outline: 2px solid $green-500;
       outline-offset: 2px;
@@ -1959,6 +1965,7 @@ watch(() => user.timeoutActive, () => {
     position: relative;
     flex-direction: column;
     box-sizing: border-box;
+    padding: 0 8px;
     width: 510px;
     height: min(720px, calc(var(--app-viewport-height, 100dvh) - 112px));
     border: 1px solid transparent;
@@ -2297,13 +2304,78 @@ watch(() => user.timeoutActive, () => {
                 }
               }
             }
-            .message-image {
-              display: block;
+            .message-image-shell {
+              position: relative;
               width: 100%;
+              aspect-ratio: 4 / 3;
               max-height: 260px;
               border-radius: 12px;
-              object-fit: cover;
-              cursor: zoom-in;
+              background-color: $neutral-50;
+              overflow: hidden;
+              .message-image-placeholder,
+              .message-image-error,
+              .message-image {
+                position: absolute;
+                inset: 0;
+                width: 100%;
+                height: 100%;
+              }
+              .message-image-placeholder,
+              .message-image-error {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: opacity 0.25s ease-in-out, visibility 0.25s ease-in-out;
+              }
+              .message-image-placeholder {
+                background-color: $soft-purple-100;
+                color: $soft-purple-400;
+                --ui-icon-width: 36px;
+                --ui-icon-height: 36px;
+                &::after {
+                  position: absolute;
+                  inset: 0;
+                  background: linear-gradient(90deg, transparent, rgba($neutral-white, 0.55), transparent);
+                  animation: chat-image-shimmer 1.5s ease-in-out infinite;
+                  content: '';
+                }
+              }
+              .message-image {
+                display: block;
+                object-fit: contain;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 0.25s ease-in-out;
+                cursor: zoom-in;
+              }
+              .message-image-error {
+                box-sizing: border-box;
+                padding: 16px;
+                color: $neutral-500;
+                font-size: 14px;
+                text-align: center;
+                opacity: 0;
+                visibility: hidden;
+                pointer-events: none;
+              }
+              &:has(.message-image[data-minio-state='loaded']),
+              &:has(.message-image[data-minio-state='error']) {
+                .message-image-placeholder {
+                  opacity: 0;
+                  visibility: hidden;
+                  &::after {
+                    animation: none;
+                  }
+                }
+              }
+              &:has(.message-image[data-minio-state='loaded']) .message-image {
+                opacity: 1;
+                pointer-events: auto;
+              }
+              &:has(.message-image[data-minio-state='error']) .message-image-error {
+                opacity: 1;
+                visibility: visible;
+              }
             }
           }
           .reactions-row {
@@ -2625,7 +2697,7 @@ watch(() => user.timeoutActive, () => {
         border: 1px solid $neutral-200;
         border-radius: 24px;
         background-color: $neutral-white;
-        transition: border-color 0.2s ease-in-out;
+        transition: border-color 0.25s ease-in-out;
         &:focus-within:not(.composer-box--disabled) {
           border-color: $green-500;
         }
@@ -2843,7 +2915,7 @@ watch(() => user.timeoutActive, () => {
       }
       .composer-hint {
         display: block;
-        margin: 4px 4px 0;
+        margin: 8px 4px 0;
         text-align: end;
         color: $neutral-500;
         font-size: 11px;
@@ -3020,7 +3092,7 @@ watch(() => user.timeoutActive, () => {
 .image-lightbox-transition-leave-active,
 .emoji-picker-pop-enter-active,
 .emoji-picker-pop-leave-active {
-  transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out;
+  transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
 }
 .global-chat-panel-transition-enter-from,
 .global-chat-panel-transition-leave-to,
@@ -3036,16 +3108,34 @@ watch(() => user.timeoutActive, () => {
 .global-chat-panel-transition-leave-to,
 .emoji-picker-pop-enter-from,
 .emoji-picker-pop-leave-to {
-  transform: translateY(12px);
+  transform: translateY(10px);
 }
 @keyframes chat-spin {
   to {
     transform: rotate(360deg);
   }
 }
+@keyframes chat-image-shimmer {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .global-chat-dock .sending-spinner {
     animation: none;
+  }
+  .global-chat-dock .message-image-shell {
+    .message-image-placeholder,
+    .message-image-error,
+    .message-image {
+      transition: none;
+    }
+    .message-image-placeholder::after {
+      animation: none;
+    }
   }
 }
 </style>
