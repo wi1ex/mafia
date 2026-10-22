@@ -14,130 +14,133 @@
           </div>
         </header>
 
-        <div ref="listEl" class="panel-list" @scroll="onListScroll" @wheel.passive="markUserScrollIntent" @touchstart.passive="markUserScrollIntent" @pointerdown="markUserScrollIntent">
-          <button v-if="showLoadMore" class="load-more" type="button" :disabled="loadingMore" @click="onLoadMore">
-            {{ loadingMore ? 'Загрузка…' : 'Загрузить еще сообщения' }}
-          </button>
+        <div class="panel-list-shell" @pointerdown.capture="markUserScrollIntent">
+          <div ref="listEl" class="panel-list" @scroll="onListScroll" @wheel.passive="markUserScrollIntent" @touchstart.passive="markUserScrollIntent">
+            <button v-if="showLoadMore" class="load-more" type="button" :disabled="loadingMore" @click="onLoadMore">
+              {{ loadingMore ? 'Загрузка…' : 'Загрузить еще сообщения' }}
+            </button>
 
-          <div v-if="loadingInitial" class="history-loading" role="status" aria-label="Загрузка сообщений">
-            <div v-for="index in 3" :key="index" class="message-skeleton" aria-hidden="true">
-              <div class="skeleton-author"><span></span><span></span></div>
-              <div class="skeleton-line"></div>
-              <div class="skeleton-line skeleton-line--short"></div>
+            <div v-if="loadingInitial" class="history-loading" role="status" aria-label="Загрузка сообщений">
+              <div v-for="index in 3" :key="index" class="message-skeleton" aria-hidden="true">
+                <div class="skeleton-author"><span></span><span></span></div>
+                <div class="skeleton-line"></div>
+                <div class="skeleton-line skeleton-line--short"></div>
+              </div>
             </div>
-          </div>
-          <div v-else-if="messages.length === 0" class="empty-state">
-            <span class="empty-state-icon"><UiIcon :icon="iconChat" /></span>
-            <span class="empty-state-title">Сообщений пока нет</span>
-            <span class="empty-state-text">Начните разговор — отправьте первое сообщение.</span>
-          </div>
+            <div v-else-if="messages.length === 0" class="empty-state">
+              <span class="empty-state-icon"><UiIcon :icon="iconChat" /></span>
+              <span class="empty-state-title">Сообщений пока нет</span>
+              <span class="empty-state-text">Начните разговор — отправьте первое сообщение.</span>
+            </div>
 
-          <article v-for="message in messages" :key="message.id" :data-chat-message-id="message.id"
-            :class="[
-              'global-chat-message',
-              {
-                'global-chat-message--deleted': message.deleted,
-                'global-chat-message--highlighted': highlightedMessageId === message.id,
-              },
-            ]"
-          >
-            <div class="message-main">
-              <div class="message-meta">
-                <button class="message-meta-author" :class="{ 'author-trigger': canOpenAuthorMiniProfile(message) }" type="button"
-                        :disabled="!canOpenAuthorMiniProfile(message)" @click="openAuthorMiniProfile(message)">
-                  <img class="author-avatar" v-minio-img="{ key: message.author.avatar_name ? `avatars/${message.author.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="Аватар автора" />
-                  <div v-if="profileThemeIconSrcs(message.author.theme_icon, message.author.role, message.author.id).length" class="profile-theme-icons" aria-hidden="true">
-                    <img v-for="badgeSrc in profileThemeIconSrcs(message.author.theme_icon, message.author.role, message.author.id)" :key="`${message.author.id}-${badgeSrc}`" class="profile-theme-icon" :src="badgeSrc" alt="" />
-                  </div>
-                  <span class="author-name" :class="{ 'author-name--themed': getProfileThemeOption(message.author.theme_color) }" :style="authorNameStyle(message)">{{ message.author.username || (`user${message.author.id}`) }}</span>
-                </button>
-                <span class="message-time">{{ formatMessageTime(message.created_at) }}</span>
-              </div>
-
-              <button v-if="message.reply" class="reply-preview" type="button" @click="onJumpToReply(message.reply.message_id)">
-                <div class="reply-preview-body">
-                  <img class="reply-avatar" v-minio-img="{ key: message.reply.avatar_name ? `avatars/${message.reply.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="" />
-                  <span class="reply-author">{{ message.reply.author_username }}</span>
-                </div>
-                <span class="reply-snippet">{{ message.reply.snippet || (message.reply.has_image ? 'Изображение' : 'Сообщение') }}</span>
-              </button>
-
-              <div class="message-bubble">
-                <p v-if="message.deleted" class="tombstone">Сообщение удалено</p>
-                <div v-if="showDeletedActions(message)" class="tombstone-actions">
-                  <button class="icon-action-button" type="button" aria-label="Показать удаленное сообщение"
-                          :disabled="isDeletedPreviewBusy(message.id)" @click="onPreviewDeletedMessage(message.id)" v-if="showDeletedPreviewAction(message)">
-                    <UiIcon :icon="iconInfo" />
-                  </button>
-                  <button class="icon-action-button icon-action-button--danger" type="button" aria-label="Удалить сообщение окончательно"
-                          :disabled="chat.isPurgeBusy(message.id)" @click="onPurgeDeletedMessage(message)" v-if="showDeletedPurgeAction(message)">
-                    <UiIcon :icon="iconDelete" />
-                  </button>
-                </div>
-                <template v-if="!message.deleted">
-                  <img v-if="message.image_object_key" class="message-image" @click="onOpenImageLightbox($event, 'Вложение')" @load="onMessageMediaLoad" @error="onMessageMediaLoad" v-minio-img="{ key: message.image_object_key, lazy: true }" alt="Вложение" />
-                  <p v-if="message.text" class="message-text">
-                    <template v-for="(segment, index) in buildTextSegments(message.text, message.mentions)" :key="`${message.id}-text-${index}`">
-                      <a v-if="segment.kind === 'link'" class="message-link" :href="segment.href" target="_blank" rel="noopener noreferrer nofollow" @click.stop>{{ segment.text }}</a>
-                      <button v-else-if="segment.kind === 'mention' && segment.mention && canOpenMentionMiniProfile(segment.mention)"
-                              class="message-mention message-mention-trigger" :class="roleMentionClass(segment.text)" type="button" @click.stop="openMentionMiniProfile(segment.mention)">{{ segment.text }}</button>
-                      <span v-else-if="segment.kind === 'mention'" class="message-mention" :class="roleMentionClass(segment.text)">{{ segment.text }}</span>
-                      <span v-else>{{ segment.text }}</span>
-                    </template>
-                  </p>
-                </template>
-              </div>
-
-              <div v-if="!message.deleted && (message.reactions.length > 0 || reactionsAllowlist.length > 0)" class="reactions-row">
-                <div v-for="reaction in orderedReactions(message)" :key="reaction.emoji" class="reaction-details-anchor"
-                     @pointerenter="onReactionDetailsHover(message.id, reaction.emoji)" @pointerleave="closeReactionDetails(message.id, reaction.emoji)"
-                     @focusin="onReactionDetailsFocus(message.id, reaction.emoji)" @focusout="onReactionDetailsFocusOut($event, message.id, reaction.emoji)">
-                  <button :class="['reaction-chip', { 'reaction-chip--active': reaction.reacted_by_me }]"
-                          type="button" :disabled="!permissions.can_react || user.timeoutActive || chat.isReactionBusy(message.id)" @click="onToggleReaction(message.id, reaction.emoji)">
-                    <span>{{ reaction.emoji }}</span>
-                    <span>{{ reaction.count }}</span>
-                  </button>
-
-                  <div v-if="reactionDetailsVisible && reactionDetailsMessageId === message.id && reactionDetailsEmoji === reaction.emoji" class="reaction-details-popover" role="tooltip">
-                    <p v-if="reactionDetailsLoadingMessageId === message.id" class="reaction-details-state">Загрузка...</p>
-                    <p v-else-if="reactionDetailsErrorMessageId === message.id" class="reaction-details-state reaction-details-state--error">
-                      Не удалось загрузить список реакций.
-                    </p>
-                    <template v-else>
-                      <div v-for="participant in reactionDetailsParticipants" :key="`${participant.user.id}-${participant.created_at}`" class="reaction-details-item">
-                        <img class="reaction-details-avatar" v-minio-img="{ key: participant.user.avatar_name ? `avatars/${participant.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="Аватар" />
-                        <div class="reaction-details-meta">
-                          <span class="reaction-details-name">{{ participant.user.username || (`user${participant.user.id}`) }}</span>
-                          <small class="reaction-details-time">{{ formatMessageTime(participant.created_at) }}</small>
-                        </div>
-                      </div>
-                    </template>
-                  </div>
-                </div>
-
-                <div v-if="reactionsAllowlist.length > 0" class="reaction-details-anchor">
-                  <button class="reaction-chip reaction-chip--picker" type="button" aria-label="Добавить реакцию" title="Добавить реакцию" :disabled="!permissions.can_react || user.timeoutActive || chat.isReactionBusy(message.id)"
-                          @pointerdown.stop @click="toggleMessageReactionPicker(message.id)">
-                    <UiIcon :icon="iconAddReaction" />
-                  </button>
-                  <button v-if="!message.deleted" class="reaction-chip reaction-chip--picker" type="button" aria-label="Ответить" title="Ответить" @click="onReply(message.id)">
-                    <UiIcon :icon="iconReplyMessage" />
-                  </button>
-                  <button v-if="message.can_delete" class="reaction-chip reaction-chip--picker red" type="button" aria-label="Удалить сообщение" title="Удалить сообщение"
-                          :disabled="chat.isDeleteBusy(message.id)" @click="onDeleteMessage(message)">
-                    <UiIcon :icon="iconDelete" />
-                  </button>
-                  <Transition name="emoji-picker-pop">
-                    <div v-if="reactionPickerMessageId === message.id" class="emoji-picker emoji-picker--reactions" :style="reactionPickerStyle" @click.stop>
-                      <button v-for="emoji in reactionPickerItems" :key="emoji" class="emoji-button" type="button" @click="onSelectReaction(message.id, emoji)">
-                        {{ emoji }}
-                      </button>
+            <article v-for="message in messages" :key="message.id" :data-chat-message-id="message.id"
+              :class="[
+                'global-chat-message',
+                {
+                  'global-chat-message--deleted': message.deleted,
+                  'global-chat-message--highlighted': highlightedMessageId === message.id,
+                },
+              ]"
+            >
+              <div class="message-main">
+                <div class="message-meta">
+                  <button class="message-meta-author" :class="{ 'author-trigger': canOpenAuthorMiniProfile(message) }" type="button"
+                          :disabled="!canOpenAuthorMiniProfile(message)" @click="openAuthorMiniProfile(message)">
+                    <img class="author-avatar" v-minio-img="{ key: message.author.avatar_name ? `avatars/${message.author.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="Аватар автора" />
+                    <div v-if="profileThemeIconSrcs(message.author.theme_icon, message.author.role, message.author.id).length" class="profile-theme-icons" aria-hidden="true">
+                      <img v-for="badgeSrc in profileThemeIconSrcs(message.author.theme_icon, message.author.role, message.author.id)" :key="`${message.author.id}-${badgeSrc}`" class="profile-theme-icon" :src="badgeSrc" alt="" />
                     </div>
-                  </Transition>
+                    <span class="author-name" :class="{ 'author-name--themed': getProfileThemeOption(message.author.theme_color) }" :style="authorNameStyle(message)">{{ message.author.username || (`user${message.author.id}`) }}</span>
+                  </button>
+                  <span class="message-time">{{ formatMessageTime(message.created_at) }}</span>
+                </div>
+
+                <button v-if="message.reply" class="reply-preview" type="button" @click="onJumpToReply(message.reply.message_id)">
+                  <div class="reply-preview-body">
+                    <img class="reply-avatar" v-minio-img="{ key: message.reply.avatar_name ? `avatars/${message.reply.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="" />
+                    <span class="reply-author">{{ message.reply.author_username }}</span>
+                  </div>
+                  <span class="reply-snippet">{{ message.reply.snippet || (message.reply.has_image ? 'Изображение' : 'Сообщение') }}</span>
+                </button>
+
+                <div class="message-bubble">
+                  <p v-if="message.deleted" class="tombstone">Сообщение удалено</p>
+                  <div v-if="showDeletedActions(message)" class="tombstone-actions">
+                    <button class="icon-action-button" type="button" aria-label="Показать удаленное сообщение"
+                            :disabled="isDeletedPreviewBusy(message.id)" @click="onPreviewDeletedMessage(message.id)" v-if="showDeletedPreviewAction(message)">
+                      <UiIcon :icon="iconInfo" />
+                    </button>
+                    <button class="icon-action-button icon-action-button--danger" type="button" aria-label="Удалить сообщение окончательно"
+                            :disabled="chat.isPurgeBusy(message.id)" @click="onPurgeDeletedMessage(message)" v-if="showDeletedPurgeAction(message)">
+                      <UiIcon :icon="iconDelete" />
+                    </button>
+                  </div>
+                  <template v-if="!message.deleted">
+                    <img v-if="message.image_object_key" class="message-image" @click="onOpenImageLightbox($event, 'Вложение')" @load="onMessageMediaLoad" @error="onMessageMediaLoad" v-minio-img="{ key: message.image_object_key, lazy: true }" alt="Вложение" />
+                    <p v-if="message.text" class="message-text">
+                      <template v-for="(segment, index) in buildTextSegments(message.text, message.mentions)" :key="`${message.id}-text-${index}`">
+                        <a v-if="segment.kind === 'link'" class="message-link" :href="segment.href" target="_blank" rel="noopener noreferrer nofollow" @click.stop>{{ segment.text }}</a>
+                        <button v-else-if="segment.kind === 'mention' && segment.mention && canOpenMentionMiniProfile(segment.mention)"
+                                class="message-mention message-mention-trigger" :class="roleMentionClass(segment.text)" type="button" @click.stop="openMentionMiniProfile(segment.mention)">{{ segment.text }}</button>
+                        <span v-else-if="segment.kind === 'mention'" class="message-mention" :class="roleMentionClass(segment.text)">{{ segment.text }}</span>
+                        <span v-else>{{ segment.text }}</span>
+                      </template>
+                    </p>
+                  </template>
+                </div>
+
+                <div v-if="!message.deleted && (message.reactions.length > 0 || reactionsAllowlist.length > 0)" class="reactions-row">
+                  <div v-for="reaction in orderedReactions(message)" :key="reaction.emoji" class="reaction-details-anchor"
+                       @pointerenter="onReactionDetailsHover(message.id, reaction.emoji)" @pointerleave="closeReactionDetails(message.id, reaction.emoji)"
+                       @focusin="onReactionDetailsFocus(message.id, reaction.emoji)" @focusout="onReactionDetailsFocusOut($event, message.id, reaction.emoji)">
+                    <button :class="['reaction-chip', { 'reaction-chip--active': reaction.reacted_by_me }]"
+                            type="button" :disabled="!permissions.can_react || user.timeoutActive || chat.isReactionBusy(message.id)" @click="onToggleReaction(message.id, reaction.emoji)">
+                      <span>{{ reaction.emoji }}</span>
+                      <span>{{ reaction.count }}</span>
+                    </button>
+
+                    <div v-if="reactionDetailsVisible && reactionDetailsMessageId === message.id && reactionDetailsEmoji === reaction.emoji" class="reaction-details-popover" role="tooltip">
+                      <p v-if="reactionDetailsLoadingMessageId === message.id" class="reaction-details-state">Загрузка...</p>
+                      <p v-else-if="reactionDetailsErrorMessageId === message.id" class="reaction-details-state reaction-details-state--error">
+                        Не удалось загрузить список реакций.
+                      </p>
+                      <template v-else>
+                        <div v-for="participant in reactionDetailsParticipants" :key="`${participant.user.id}-${participant.created_at}`" class="reaction-details-item">
+                          <img class="reaction-details-avatar" v-minio-img="{ key: participant.user.avatar_name ? `avatars/${participant.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="Аватар" />
+                          <div class="reaction-details-meta">
+                            <span class="reaction-details-name">{{ participant.user.username || (`user${participant.user.id}`) }}</span>
+                            <small class="reaction-details-time">{{ formatMessageTime(participant.created_at) }}</small>
+                          </div>
+                        </div>
+                      </template>
+                    </div>
+                  </div>
+
+                  <div v-if="reactionsAllowlist.length > 0" class="reaction-details-anchor">
+                    <button class="reaction-chip reaction-chip--picker" type="button" aria-label="Добавить реакцию" title="Добавить реакцию" :disabled="!permissions.can_react || user.timeoutActive || chat.isReactionBusy(message.id)"
+                            @pointerdown.stop @click="toggleMessageReactionPicker(message.id)">
+                      <UiIcon :icon="iconAddReaction" />
+                    </button>
+                    <button v-if="!message.deleted" class="reaction-chip reaction-chip--picker" type="button" aria-label="Ответить" title="Ответить" @click="onReply(message.id)">
+                      <UiIcon :icon="iconReplyMessage" />
+                    </button>
+                    <button v-if="message.can_delete" class="reaction-chip reaction-chip--picker red" type="button" aria-label="Удалить сообщение" title="Удалить сообщение"
+                            :disabled="chat.isDeleteBusy(message.id)" @click="onDeleteMessage(message)">
+                      <UiIcon :icon="iconDelete" />
+                    </button>
+                    <Transition name="emoji-picker-pop">
+                      <div v-if="reactionPickerMessageId === message.id" class="emoji-picker emoji-picker--reactions" :style="reactionPickerStyle" @click.stop>
+                        <button v-for="emoji in reactionPickerItems" :key="emoji" class="emoji-button" type="button" @click="onSelectReaction(message.id, emoji)">
+                          {{ emoji }}
+                        </button>
+                      </div>
+                    </Transition>
+                  </div>
                 </div>
               </div>
-            </div>
-          </article>
+            </article>
+          </div>
+          <UiScrollbar :target="listEl" :active="chat.open" theme="light" :inset-top="16" :inset-bottom="16" :right="4" />
         </div>
 
         <div v-if="hasUnreadTargets || showJumpToBottomButton" class="floating-chat-actions" :style="floatingChatActionsStyle">
@@ -227,12 +230,12 @@
           <span class="composer-hint">Enter — отправить · Shift + Enter — новая строка</span>
           <Transition name="emoji-picker-pop">
             <div v-if="composerPickerOpen" class="emoji-picker emoji-picker--composer" @click.stop>
-              <span class="emoji-picker-title">Эмодзи</span>
-              <div class="emoji-grid emoji-grid--composer">
+              <div ref="composerEmojiGridEl" class="emoji-grid emoji-grid--composer">
                 <button v-for="emoji in GLOBAL_CHAT_COMPOSER_EMOJIS" :key="emoji" class="emoji-button" type="button" :aria-label="emoji" @click="insertEmoji(emoji)">
                   {{ emoji }}
                 </button>
               </div>
+              <UiScrollbar :target="composerEmojiGridEl" :active="composerPickerOpen" theme="grey" :inset-top="8" :inset-bottom="8" :right="4" />
             </div>
           </Transition>
         </div>
@@ -311,6 +314,7 @@ import { canOpenMiniProfileTarget, normalizeMiniProfileUserId, normalizeMiniProf
 import { useAuthStore, useGlobalChatStore, useSettingsStore, useUserStore } from '@/store'
 import MiniProfile from '@/views/MiniProfile.vue'
 import UiIcon from '@/components/UiIcon.vue'
+import UiScrollbar from '@/components/UiScrollbar.vue'
 
 import defaultAvatar from '@/assets/svg/iconDefaultAvatarBlack.svg'
 import iconClose from '@/assets/svg/iconClose.svg'
@@ -370,6 +374,7 @@ const imagePreviewEl = ref<HTMLElement | null>(null)
 const composerShellEl = ref<HTMLElement | null>(null)
 const textareaEl = ref<HTMLTextAreaElement | null>(null)
 const composerMirrorEl = ref<HTMLElement | null>(null)
+const composerEmojiGridEl = ref<HTMLElement | null>(null)
 const composerPickerOpen = ref(false)
 const composerDragActive = ref(false)
 const knownMentionCandidates = ref<ChatMentionCandidate[]>([])
@@ -1923,21 +1928,13 @@ watch(() => user.timeoutActive, () => {
   .emoji-picker {
     position: absolute;
     box-sizing: border-box;
-    padding: 12px;
+    padding: 8px 12px;
     border: 1px solid $neutral-200;
     border-radius: 20px;
     background-color: $neutral-white;
     box-shadow: 0 12px 32px rgba($neutral-black, 0.16);
     transform-origin: bottom right;
     z-index: 15;
-    .emoji-picker-title {
-      display: block;
-      margin: 0 0 12px 4px;
-      color: $neutral-black;
-      font-family: Involve-Medium;
-      font-size: 16px;
-      line-height: 20px;
-    }
     .emoji-button {
       display: flex;
       align-items: center;
@@ -2007,6 +2004,13 @@ watch(() => user.timeoutActive, () => {
         align-items: center;
       }
     }
+    .panel-list-shell {
+      display: flex;
+      position: relative;
+      flex: 1 1 0;
+      flex-direction: column;
+      min-height: 0;
+    }
     .panel-list {
       display: flex;
       flex: 1 1 0;
@@ -2016,8 +2020,12 @@ watch(() => user.timeoutActive, () => {
       gap: 12px;
       overflow: auto;
       overscroll-behavior: contain;
-      scrollbar-width: thin;
-      scrollbar-color: $neutral-300 transparent;
+      scrollbar-width: none;
+      &::-webkit-scrollbar {
+        display: none;
+        width: 0;
+        height: 0;
+      }
       > * {
         flex-shrink: 0;
       }
@@ -2113,7 +2121,7 @@ watch(() => user.timeoutActive, () => {
       .global-chat-message {
         box-sizing: border-box;
         width: 100%;
-        padding: 14px;
+        padding: 8px 12px;
         border: 1px solid transparent;
         border-radius: 20px;
         background-color: $neutral-white;
@@ -2126,7 +2134,7 @@ watch(() => user.timeoutActive, () => {
           display: flex;
           flex-direction: column;
           min-width: 0;
-          gap: 10px;
+          gap: 8px;
           .message-meta {
             display: flex;
             align-items: center;
@@ -2197,11 +2205,11 @@ watch(() => user.timeoutActive, () => {
           .reply-preview {
             display: flex;
             flex-direction: column;
-            padding: 10px 12px;
+            padding: 8px 12px;
             gap: 4px;
             border: none;
-            border-left: 2px solid $green-500;
-            border-radius: 0 12px 12px 0;
+            border-left: 4px solid $green-500;
+            border-radius: 12px;
             background-color: $neutral-50;
             text-align: left;
             cursor: pointer;
@@ -2244,7 +2252,7 @@ watch(() => user.timeoutActive, () => {
             .message-text,
             .tombstone {
               margin: 0;
-              padding: 10px 12px;
+              padding: 8px 12px;
               border-radius: 12px;
               background-color: $neutral-50;
               color: $neutral-900;
@@ -2262,21 +2270,21 @@ watch(() => user.timeoutActive, () => {
             .tombstone-actions {
               display: flex;
               justify-content: flex-end;
-              gap: 6px;
+              gap: 4px;
               .icon-action-button {
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                width: 32px;
-                height: 32px;
+                width: 30px;
+                height: 30px;
                 padding: 0;
                 border: none;
                 border-radius: 10px;
                 background-color: $soft-purple-100;
                 color: $neutral-black;
                 cursor: pointer;
-                --ui-icon-width: 18px;
-                --ui-icon-height: 18px;
+                --ui-icon-width: 20px;
+                --ui-icon-height: 20px;
                 &:hover:not(:disabled) {
                   background-color: $soft-purple-200;
                 }
@@ -2319,32 +2327,32 @@ watch(() => user.timeoutActive, () => {
                 align-items: center;
                 justify-content: center;
                 box-sizing: border-box;
-                min-width: 42px;
+                padding: 0;
+                width: 30px;
                 height: 30px;
-                padding: 0 8px;
-                gap: 4px;
                 border: 1px solid $neutral-100;
                 border-radius: 10px;
                 background-color: $neutral-50;
                 color: $neutral-600;
-                font-size: 12px;
+                font-size: 14px;
                 line-height: 16px;
                 cursor: pointer;
-                --ui-icon-width: 16px;
-                --ui-icon-height: 16px;
+                --ui-icon-width: 20px;
+                --ui-icon-height: 20px;
                 &:hover:not(:disabled) {
                   border-color: $green-500;
                   background-color: $green-100;
                   color: $green-700;
                 }
                 &--active {
+                  padding: 0 4px;
+                  gap: 2px;
+                  width: auto;
                   border-color: $green-400;
                   background-color: $green-100;
                   color: $green-700;
                 }
                 &--picker {
-                  min-width: 30px;
-                  padding: 0 6px;
                   border-color: transparent;
                   background-color: $soft-purple-100;
                   color: $neutral-black;
@@ -2544,11 +2552,11 @@ watch(() => user.timeoutActive, () => {
       flex: 0 0 auto;
       align-items: center;
       justify-content: space-between;
-      margin: 12px 16px 0;
-      padding: 10px 12px;
+      margin: 8px 16px 0;
+      padding: 8px 12px;
       gap: 12px;
-      border-left: 2px solid $green-500;
-      border-radius: 0 14px 14px 0;
+      border-left: 4px solid $green-500;
+      border-radius: 12px;
       background-color: $neutral-white;
       .chat-icon-button {
         width: 28px;
@@ -2618,7 +2626,7 @@ watch(() => user.timeoutActive, () => {
       position: relative;
       flex: 0 0 auto;
       box-sizing: border-box;
-      padding: 16px;
+      padding: 8px 16px 16px;
       .composer-box {
         border: 1px solid $neutral-200;
         border-radius: 20px;
@@ -2841,23 +2849,32 @@ watch(() => user.timeoutActive, () => {
       }
       .composer-hint {
         display: block;
-        margin: 10px 2px 0;
+        margin: 4px 4px 0;
         color: $neutral-500;
         font-size: 11px;
         line-height: 14px;
       }
       .emoji-picker--composer {
+        display: flex;
+        flex-direction: column;
         right: 16px;
         bottom: calc(100% - 8px);
         width: 336px;
         max-height: 276px;
-        overflow: auto;
-        scrollbar-width: thin;
-        scrollbar-color: $neutral-200 transparent;
+        overflow: hidden;
         .emoji-grid--composer {
           display: grid;
           grid-template-columns: repeat(8, 34px);
+          min-height: 0;
           gap: 4px;
+          overflow-y: auto;
+          overscroll-behavior: contain;
+          scrollbar-width: none;
+          &::-webkit-scrollbar {
+            display: none;
+            width: 0;
+            height: 0;
+          }
         }
       }
     }
