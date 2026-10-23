@@ -2428,6 +2428,7 @@ watch(() => user.timeoutActive, () => {
                 border-radius: 12px;
                 background-color: $neutral-50;
                 color: $neutral-600;
+                font-weight: bold;
                 font-size: 14px;
                 line-height: 16px;
                 cursor: pointer;
