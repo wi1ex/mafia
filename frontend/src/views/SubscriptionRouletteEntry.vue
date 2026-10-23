@@ -8,7 +8,7 @@
         <strong>Испытайте удачу</strong>
         <span>От 1 до 30 дней подписки бесплатно</span>
       </div>
-      <UiButton size="middle" text="Крутить" @click="openDialog" />
+      <UiButton size="middle" text="Попробовать" @click="openDialog" />
     </aside>
   </Transition>
   <SubscriptionRoulette

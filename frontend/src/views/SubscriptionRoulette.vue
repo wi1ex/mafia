@@ -339,7 +339,7 @@ onBeforeUnmount(() => {
             transform: translateX(-50%);
             border-left: 10px solid transparent;
             border-right: 10px solid transparent;
-            border-top: 27px solid $soft-purple-800;
+            border-top: 27px solid $soft-purple-500;
             filter: drop-shadow(0 2px 1px rgba($neutral-black, 0.4));
           }
           .lottery-wheel {
@@ -390,7 +390,7 @@ onBeforeUnmount(() => {
             height: 26%;
             display: grid;
             place-items: center;
-            border: 2px solid $soft-purple-600;
+            border: 2px solid $soft-purple-500;
             border-radius: 50%;
             box-sizing: border-box;
             background: linear-gradient(135deg, $soft-purple-700, $soft-purple-900);
