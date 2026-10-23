@@ -2047,8 +2047,8 @@ watch(() => user.timeoutActive, () => {
       flex: 1 1 0;
       flex-direction: column;
       min-height: 0;
-      padding: 16px 16px calc(var(--chat-composer-height, 140px) + 8px);
-      scroll-padding-bottom: calc(var(--chat-composer-height, 140px) + 8px);
+      padding: 16px 16px calc(var(--chat-composer-height, 140px) + 0px);
+      scroll-padding-bottom: calc(var(--chat-composer-height, 140px) + 0px);
       gap: 8px;
       overflow: auto;
       overscroll-behavior: contain;
