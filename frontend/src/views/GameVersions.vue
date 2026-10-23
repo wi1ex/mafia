@@ -14,7 +14,6 @@
           <p v-if="validationError" class="game-versions-modal__error" role="alert">{{ validationError }}</p>
 
           <div class="game-versions-modal__marks">
-            <h3>Игровые отметки</h3>
             <div v-for="rule in markRules" :key="rule.key" class="scoring-mark">
               <label :for="`scoring-mark-${rule.key}`">{{ rule.label }}</label>
               <select :id="`scoring-mark-${rule.key}`" v-model.number="marks[rule.key]" :disabled="saving">
@@ -306,11 +305,9 @@ function requestCancel(): void {
     flex-direction: column;
     box-sizing: border-box;
     padding: 24px;
-    gap: 12px;
-    width: 75%;
-    max-width: 1500px;
-    max-height: 100%;
-    min-height: 0;
+    gap: 8px;
+    width: 80%;
+    max-width: 1200px;
     border-radius: 24px;
     background-color: $soft-purple-900;
     color: $neutral-100;
@@ -331,7 +328,7 @@ function requestCancel(): void {
       .game-versions-modal__heading {
         display: flex;
         flex-direction: column;
-        gap: 10px;
+        gap: 4px;
         h2 {
           margin: 0;
           color: $neutral-white;
@@ -361,24 +358,16 @@ function requestCancel(): void {
     .game-versions-modal__marks {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
-      padding: 16px;
-      gap: 16px;
+      padding: 12px 16px;
+      gap: 24px;
       border-radius: 20px;
       background-color: $soft-purple-800;
-      h3 {
-        grid-column: 1 / -1;
-        margin: 0;
-        font-family: Involve-Medium;
-        font-weight: 500;
-        font-size: 20px;
-        line-height: 24px;
-      }
       .scoring-mark {
         display: flex;
         flex-direction: column;
         justify-content: space-between;
         min-width: 0;
-        gap: 12px;
+        gap: 4px;
         label {
           color: $neutral-300;
           font-size: 14px;
@@ -450,8 +439,8 @@ function requestCancel(): void {
       .version-card {
         display: flex;
         flex-direction: column;
-        padding: 16px;
-        gap: 12px;
+        padding: 12px;
+        gap: 4px;
         min-width: 0;
         border-radius: 20px;
         background-color: $soft-purple-800;
@@ -567,7 +556,7 @@ function requestCancel(): void {
       bottom: -24px;
       justify-content: flex-end;
       margin: 0 -24px -24px;
-      padding: 24px;
+      padding: 12px 16px;
       gap: 12px;
       border-top: 1px solid $soft-purple-800;
       background-color: $soft-purple-900;
