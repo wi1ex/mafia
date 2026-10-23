@@ -16,25 +16,27 @@
                 <option v-for="option in availableReasons" :key="option.value" :value="option.value">{{ option.label }}</option>
               </select>
             </div>
-            <div v-if="timedKind && showReason" class="reason-card">
-              <label for="sanction-type">Тип санкции</label>
-              <select id="sanction-type" v-model="selectedBadgeKey" :disabled="saving || availableBadges.length < 2">
-                <option v-if="!availableBadges.length" value="" disabled>Выберите пункт правил</option>
-                <option v-for="badgeKey in availableBadges" :key="badgeKey" :value="badgeKey">
-                  {{ SANCTION_BADGES[badgeKey].code }} · {{ SANCTION_BADGES[badgeKey].notation }}
-                </option>
-              </select>
-            </div>
-            <div v-if="showDuration" class="duration-card">
-              <h3>Срок</h3>
-              <div class="grid">
-                <UiInput id="sanction-months" v-model.number="form.months" type="number" min="0" max="240" step="1" autocomplete="off" label="Месяцы" size="low" :invalid="Boolean(durationError)" :aria-describedby="durationDescriptionIds" />
-                <UiInput id="sanction-days" v-model.number="form.days" type="number" min="0" max="31" step="1" autocomplete="off" label="Дни" size="low" :invalid="Boolean(durationError)" :aria-describedby="durationDescriptionIds" />
-                <UiInput id="sanction-hours" v-model.number="form.hours" type="number" min="0" max="23" step="1" autocomplete="off" label="Часы" size="low" :invalid="Boolean(durationError)" :aria-describedby="durationDescriptionIds" />
+            <div class="div-card">
+              <div v-if="timedKind && showReason" class="reason-card">
+                <label for="sanction-type">Тип санкции</label>
+                <select id="sanction-type" v-model="selectedBadgeKey" :disabled="saving || availableBadges.length < 2">
+                  <option v-if="!availableBadges.length" value="" disabled>Выберите пункт правил</option>
+                  <option v-for="badgeKey in availableBadges" :key="badgeKey" :value="badgeKey">
+                    {{ SANCTION_BADGES[badgeKey].code }} · {{ SANCTION_BADGES[badgeKey].notation }}
+                  </option>
+                </select>
               </div>
-              <p v-if="ruleDurationHint" id="sanction-rule-duration-hint" class="duration-hint">{{ ruleDurationHint }}</p>
-              <p v-if="durationHint" id="sanction-duration-hint" class="duration-hint">{{ durationHint }}</p>
-              <p v-if="durationError" id="sanction-duration-error" class="duration-error" role="alert">{{ durationError }}</p>
+              <div v-if="showDuration" class="duration-card">
+                <h3>Срок</h3>
+                <div class="grid">
+                  <UiInput id="sanction-months" v-model.number="form.months" type="number" min="0" max="240" step="1" autocomplete="off" label="Месяцы" size="low" :invalid="Boolean(durationError)" :aria-describedby="durationDescriptionIds" />
+                  <UiInput id="sanction-days" v-model.number="form.days" type="number" min="0" max="31" step="1" autocomplete="off" label="Дни" size="low" :invalid="Boolean(durationError)" :aria-describedby="durationDescriptionIds" />
+                  <UiInput id="sanction-hours" v-model.number="form.hours" type="number" min="0" max="23" step="1" autocomplete="off" label="Часы" size="low" :invalid="Boolean(durationError)" :aria-describedby="durationDescriptionIds" />
+                </div>
+                <p v-if="ruleDurationHint" id="sanction-rule-duration-hint" class="duration-hint">{{ ruleDurationHint }}</p>
+                <p v-if="durationHint" id="sanction-duration-hint" class="duration-hint">{{ durationHint }}</p>
+                <p v-if="durationError" id="sanction-duration-error" class="duration-error" role="alert">{{ durationError }}</p>
+              </div>
             </div>
             <div v-if="showDescription" class="description-card">
               <h3>Служебное описание</h3>
@@ -193,11 +195,8 @@ function close() {
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
-    width: 1200px;
-    max-width: 100%;
-    max-height: 100%;
-    min-height: 0;
-    padding: 24px;
+    max-width: 600px;
+    padding: 12px 16px;
     gap: 12px;
     border-radius: 24px;
     background-color: $soft-purple-900;
@@ -229,10 +228,16 @@ function close() {
     }
     .modal-body {
       display: grid;
-      grid-template-columns: 1fr 1fr;
       min-width: 0;
       gap: 10px;
       --ui-input-label-bg: #{$soft-purple-800};
+      .div-card {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        background-color: $soft-purple-800;
+        border-radius: 20px;
+      }
       .duration-card {
         display: flex;
         flex-direction: column;
