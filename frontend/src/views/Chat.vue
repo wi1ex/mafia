@@ -233,7 +233,6 @@
               </button>
             </div>
           </div>
-          <span class="composer-hint">Enter — отправить · Shift + Enter — новая строка</span>
           <Transition name="emoji-picker-pop">
             <div v-if="composerPickerOpen" class="emoji-picker emoji-picker--composer" @click.stop>
               <div ref="composerEmojiGridEl" class="emoji-grid emoji-grid--composer">
@@ -2146,7 +2145,10 @@ watch(() => user.timeoutActive, () => {
             display: flex;
             align-items: center;
             justify-content: space-between;
+            padding: 8px 12px;
             gap: 12px;
+            border-radius: 12px;
+            background-color: $neutral-50;
             .message-meta-author {
               display: flex;
               align-items: center;
@@ -2256,9 +2258,7 @@ watch(() => user.timeoutActive, () => {
             .message-text,
             .tombstone {
               margin: 0;
-              padding: 8px 12px;
-              border-radius: 12px;
-              background-color: $neutral-50;
+              padding: 4px;
               color: $neutral-900;
               font-size: 16px;
               line-height: 22px;
@@ -2912,14 +2912,6 @@ watch(() => user.timeoutActive, () => {
             }
           }
         }
-      }
-      .composer-hint {
-        display: block;
-        margin: 8px 4px 0;
-        text-align: end;
-        color: $neutral-500;
-        font-size: 11px;
-        line-height: 14px;
       }
       .emoji-picker--composer {
         display: flex;
