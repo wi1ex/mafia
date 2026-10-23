@@ -1,7 +1,7 @@
 <template>
   <div v-if="canRender" :class="['global-chat-dock', { 'room-mode': isRoomMode }]">
     <Transition name="global-chat-panel-transition">
-      <section v-if="chat.open" class="global-chat-panel" @click.stop>
+      <section v-if="chat.open" class="global-chat-panel" :style="chatPanelStyle" @click.stop>
         <header class="panel-header">
           <div class="panel-heading">
             <span class="panel-header-icon"><UiIcon :icon="iconChat" /></span>
@@ -146,7 +146,7 @@
               </div>
             </article>
           </div>
-          <UiScrollbar :target="listEl" :active="chat.open" theme="light" :inset-top="16" :inset-bottom="16" :right="-4" />
+          <UiScrollbar :target="listEl" :active="chat.open" theme="light" :inset-top="16" :inset-bottom="composerHeight + 16" :right="-4" />
         </div>
 
         <div v-if="hasUnreadTargets || showJumpToBottomButton" class="floating-chat-actions" :style="floatingChatActionsStyle">
@@ -159,36 +159,36 @@
           </button>
         </div>
 
-        <div v-if="statusText" ref="statusEl" class="panel-status" :class="{ 'panel-status--error': connectionState === 'error' }" role="status">
-          <UiIcon :icon="iconInfo" />
-          <span>{{ statusText }}</span>
-          <button v-if="connectionState === 'error'" type="button" @click="chat.openPanel()">Повторить</button>
-        </div>
-
-        <div v-if="draftReplyPreview" ref="replyBarEl" class="reply-bar">
-          <div class="reply-bar-text">
-            <span class="reply-bar-label">Ответ на сообщение {{ draftReplyPreview.author_username }}</span>
-            <span class="reply-bar-snippet">{{ draftReplyPreview.snippet || (draftReplyPreview.has_image ? 'Изображение' : 'Сообщение') }}</span>
-          </div>
-          <button class="chat-icon-button" type="button" aria-label="Сбросить ответ" @click="chat.clearReplyTarget()">
-            <UiIcon :icon="iconClose" />
-          </button>
-        </div>
-
-        <div v-if="draftImagePreviewUrl" ref="imagePreviewEl" class="image-preview">
-          <div class="image-preview-div">
-            <img :src="draftImagePreviewUrl" alt="Предпросмотр изображения" />
-            <div class="image-preview-meta">
-              <span>{{ draftImageName || 'Изображение' }}</span>
-              <small>{{ draftImageUploaded ? 'Загружено' : (uploadingImage ? 'Загрузка…' : 'Изображение прикреплено') }}</small>
-            </div>
-          </div>
-          <button class="chat-icon-button" type="button" aria-label="Убрать изображение" title="Убрать изображение" @click="chat.clearDraftImage()">
-            <UiIcon :icon="iconClose" />
-          </button>
-        </div>
-
         <div ref="composerShellEl" class="composer-shell" :aria-busy="sending || uploadingImage">
+          <div v-if="statusText" class="panel-status" :class="{ 'panel-status--error': connectionState === 'error' }" role="status">
+            <UiIcon :icon="iconInfo" />
+            <span>{{ statusText }}</span>
+            <button v-if="connectionState === 'error'" type="button" @click="chat.openPanel()">Повторить</button>
+          </div>
+
+          <div v-if="draftReplyPreview" class="reply-bar">
+            <div class="reply-bar-text">
+              <span class="reply-bar-label">Ответ на сообщение {{ draftReplyPreview.author_username }}</span>
+              <span class="reply-bar-snippet">{{ draftReplyPreview.snippet || (draftReplyPreview.has_image ? 'Изображение' : 'Сообщение') }}</span>
+            </div>
+            <button class="chat-icon-button" type="button" aria-label="Сбросить ответ" @click="chat.clearReplyTarget()">
+              <UiIcon :icon="iconClose" />
+            </button>
+          </div>
+
+          <div v-if="draftImagePreviewUrl" class="image-preview">
+            <div class="image-preview-div">
+              <img :src="draftImagePreviewUrl" alt="Предпросмотр изображения" />
+              <div class="image-preview-meta">
+                <span>{{ draftImageName || 'Изображение' }}</span>
+                <small>{{ draftImageUploaded ? 'Загружено' : (uploadingImage ? 'Загрузка…' : 'Изображение прикреплено') }}</small>
+              </div>
+            </div>
+            <button class="chat-icon-button" type="button" aria-label="Убрать изображение" title="Убрать изображение" @click="chat.clearDraftImage()">
+              <UiIcon :icon="iconClose" />
+            </button>
+          </div>
+
           <div class="composer-box" :class="{ 'composer-box--disabled': composerDisabled, 'composer-box--drag-active': composerDragActive }"
                @dragenter="onComposerDragEnter" @dragover="onComposerDragOver" @dragleave="onComposerDragLeave" @drop="onComposerDrop">
             <div class="composer-input-wrap">
@@ -373,10 +373,9 @@ const {
 } = storeToRefs(chat)
 
 const listEl = ref<HTMLElement | null>(null)
-const statusEl = ref<HTMLElement | null>(null)
-const replyBarEl = ref<HTMLElement | null>(null)
-const imagePreviewEl = ref<HTMLElement | null>(null)
 const composerShellEl = ref<HTMLElement | null>(null)
+const composerHeight = ref(140)
+const composerPickerMaxHeight = ref(276)
 const textareaEl = ref<HTMLTextAreaElement | null>(null)
 const composerMirrorEl = ref<HTMLElement | null>(null)
 const composerEmojiGridEl = ref<HTMLElement | null>(null)
@@ -428,6 +427,7 @@ let unreadTargetsOpenSettleToken = 0
 let lastUserScrollIntentAt = 0
 let visibleUnreadTargetAutoReadSuppressedUntil = 0
 let composerDragDepth = 0
+let composerResizeObserver: ResizeObserver | null = null
 const floatingChatActionsBottom = ref(62)
 const unreadTargetVisibilityTick = ref(0)
 const unreadTargetsOpenSettlePending = ref(false)
@@ -480,6 +480,10 @@ const statusText = computed(() => {
 })
 
 const floatingChatActionsStyle = computed(() => ({ bottom: `${floatingChatActionsBottom.value}px` }))
+const chatPanelStyle = computed(() => ({
+  '--chat-composer-height': `${composerHeight.value}px`,
+  '--chat-composer-picker-max-height': `${composerPickerMaxHeight.value}px`,
+}))
 
 const composerDisabled = computed(() => {
   return connectionState.value !== 'ready'
@@ -609,10 +613,10 @@ function updateScrollState(): void {
   unreadTargetVisibilityTick.value += 1
 }
 
-function readElementHeight(element: HTMLElement | null): number {
-  if (!element) return 0
-  const style = window.getComputedStyle(element)
-  return element.offsetHeight + (parseFloat(style.marginTop) || 0) + (parseFloat(style.marginBottom) || 0)
+function visibleListBottom(list: HTMLElement): number {
+  const bounds = list.getBoundingClientRect()
+  const composerTop = composerShellEl.value?.getBoundingClientRect().top ?? bounds.bottom
+  return Math.max(bounds.top, Math.min(bounds.bottom, composerTop))
 }
 
 function floatingChatActionsGap(): number {
@@ -625,11 +629,20 @@ function syncFloatingChatActionsBottom(): void {
     return
   }
 
-  floatingChatActionsBottom.value = floatingChatActionsGap()
-    + readElementHeight(composerShellEl.value)
-    + readElementHeight(imagePreviewEl.value)
-    + readElementHeight(replyBarEl.value)
-    + readElementHeight(statusEl.value)
+  const height = composerShellEl.value?.offsetHeight ?? 0
+  floatingChatActionsBottom.value = floatingChatActionsGap() + height
+  composerPickerMaxHeight.value = Math.max(0, Math.min(276, (listEl.value?.clientHeight ?? 0) - height))
+  if (height === composerHeight.value) return
+
+  const keepAtBottom = stickToBottom.value
+  composerHeight.value = height
+  void nextTick(() => {
+    if (!chat.open) return
+    if (keepAtBottom) scrollToBottom()
+    updateScrollState()
+    scheduleReactionPopoverPositionSync()
+    scheduleVisibleUnreadTargetReadCheck()
+  })
 }
 
 function cancelScheduledFloatingChatActionsBottomSync(): void {
@@ -657,7 +670,7 @@ function syncReactionPopoverPositions(): void {
   const left = bounds.left + (list.clientLeft + inset) * scaleX
   const top = bounds.top + (list.clientTop + inset) * scaleY
   const width = Math.max(0, list.clientWidth - inset * 2)
-  const height = Math.max(0, list.clientHeight - inset * 2)
+  const height = Math.max(0, (visibleListBottom(list) - top) / scaleY - inset)
 
   for (const popover of list.querySelectorAll<HTMLElement>('.reaction-details-popover, .emoji-picker--reactions')) {
     popover.style.setProperty('--reaction-popover-max-width', `${width}px`)
@@ -721,7 +734,7 @@ function isUnreadTargetVisible(messageId: number): boolean {
 
   const listRect = list.getBoundingClientRect()
   const messageRect = element.getBoundingClientRect()
-  const visibleHeight = Math.min(messageRect.bottom, listRect.bottom) - Math.max(messageRect.top, listRect.top)
+  const visibleHeight = Math.min(messageRect.bottom, visibleListBottom(list)) - Math.max(messageRect.top, listRect.top)
   if (visibleHeight <= 0) return false
 
   const requiredVisibleHeight = Math.min(messageRect.height * VISIBLE_UNREAD_TARGET_RATIO, VISIBLE_UNREAD_TARGET_MAX_PX)
@@ -1750,6 +1763,16 @@ watch(composerPlaceholder, () => {
   syncComposerPlaceholder()
 })
 
+watch(composerShellEl, (element) => {
+  composerResizeObserver?.disconnect()
+  composerResizeObserver = null
+  if (!element) return
+
+  composerResizeObserver = new ResizeObserver(scheduleFloatingChatActionsBottomSync)
+  composerResizeObserver.observe(element)
+  scheduleFloatingChatActionsBottomSync()
+}, { flush: 'post' })
+
 watch(
   [reactionDetailsVisible, reactionDetailsParticipants, reactionDetailsLoadingMessageId, reactionDetailsErrorMessageId, reactionPickerMessageId],
   scheduleReactionPopoverPositionSync,
@@ -1799,6 +1822,7 @@ watch(() => chat.open, (open) => {
 
 function onWindowResize(): void {
   scheduleFloatingChatActionsBottomSync()
+  scheduleScrollToBottom()
   scheduleReactionPopoverPositionSync()
   unreadTargetVisibilityTick.value += 1
 }
@@ -1819,6 +1843,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  composerResizeObserver?.disconnect()
   document.removeEventListener('pointerdown', onDocumentPointerDown)
   window.removeEventListener('keydown', onWindowKeydown)
   window.removeEventListener('resize', onWindowResize)
@@ -2022,7 +2047,8 @@ watch(() => user.timeoutActive, () => {
       flex: 1 1 0;
       flex-direction: column;
       min-height: 0;
-      padding: 16px;
+      padding-bottom: calc(var(--chat-composer-height, 140px) + 16px);
+      scroll-padding-bottom: calc(var(--chat-composer-height, 140px) + 16px);
       gap: 12px;
       overflow: auto;
       overscroll-behavior: contain;
@@ -2571,7 +2597,7 @@ watch(() => user.timeoutActive, () => {
       display: flex;
       flex: 0 0 auto;
       align-items: center;
-      margin: 0 16px;
+      margin: 0;
       padding: 8px 12px;
       gap: 4px;
       border: 1px solid $neutral-200;
@@ -2618,7 +2644,7 @@ watch(() => user.timeoutActive, () => {
       flex: 0 0 auto;
       align-items: center;
       justify-content: space-between;
-      margin: 8px 16px 0;
+      margin: 0;
       padding: 8px 12px;
       gap: 12px;
       border-left: 4px solid $green-500;
@@ -2689,10 +2715,17 @@ watch(() => user.timeoutActive, () => {
       }
     }
     .composer-shell {
-      position: relative;
-      flex: 0 0 auto;
+      display: flex;
+      position: absolute;
+      flex-direction: column;
       box-sizing: border-box;
-      padding: 8px 16px 16px;
+      width: 100%;
+      bottom: 0;
+      left: 0;
+      padding: 8px 22px 16px;
+      gap: 8px;
+      background: linear-gradient(360deg, #00000033, #00000000);
+      z-index: 3;
       .composer-box {
         border: 1px solid $neutral-200;
         border-radius: 24px;
@@ -2919,7 +2952,7 @@ watch(() => user.timeoutActive, () => {
         right: 16px;
         bottom: calc(100% - 8px);
         width: 336px;
-        max-height: 276px;
+        max-height: var(--chat-composer-picker-max-height, 276px);
         overflow: hidden;
         .emoji-grid--composer {
           display: grid;
