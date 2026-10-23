@@ -2047,9 +2047,9 @@ watch(() => user.timeoutActive, () => {
       flex: 1 1 0;
       flex-direction: column;
       min-height: 0;
-      padding-bottom: calc(var(--chat-composer-height, 140px) + 16px);
-      scroll-padding-bottom: calc(var(--chat-composer-height, 140px) + 16px);
-      gap: 12px;
+      padding: 16px 16px calc(var(--chat-composer-height, 140px) + 8px);
+      scroll-padding-bottom: calc(var(--chat-composer-height, 140px) + 8px);
+      gap: 8px;
       overflow: auto;
       overscroll-behavior: contain;
       scrollbar-width: none;
@@ -2722,7 +2722,7 @@ watch(() => user.timeoutActive, () => {
       width: 100%;
       bottom: 0;
       left: 0;
-      padding: 8px 22px 16px;
+      padding: 16px 22px;
       gap: 8px;
       background: linear-gradient(360deg, #00000033, #00000000);
       z-index: 3;
@@ -2871,19 +2871,18 @@ watch(() => user.timeoutActive, () => {
               position: relative;
               align-items: center;
               justify-content: center;
-              width: 34px;
-              height: 34px;
+              width: 36px;
+              height: 36px;
               padding: 0;
               border: none;
               border-radius: 12px;
               background: none;
               color: $neutral-500;
               cursor: pointer;
-              --ui-icon-width: 20px;
-              --ui-icon-height: 20px;
+              --ui-icon-width: 24px;
+              --ui-icon-height: 24px;
               &:hover:not(:disabled):not(.tool-button--disabled),
               &[aria-expanded="true"] {
-                background-color: $soft-purple-100;
                 color: $green-700;
               }
               &:focus-within {
