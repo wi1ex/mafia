@@ -294,6 +294,7 @@
       :saving="staffSanctionSaving"
       :can-save="staffSanctionCanSave"
       :issuance-kind="staffSanctionKind"
+      :restrict-rule-duration="!isAdminViewer"
       :show-duration="staffSanctionKind !== 'ban'"
       :form="staffSanctionForm"
       :reasons="staffSanctionReasons"

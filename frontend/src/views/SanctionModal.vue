@@ -17,7 +17,7 @@
               </select>
             </div>
             <div class="div-card">
-              <div v-if="timedKind && showReason" class="reason-card">
+              <div v-if="timedKind && showReason && restrictRuleDuration" class="reason-card">
                 <label for="sanction-type">Тип санкции</label>
                 <select id="sanction-type" v-model="selectedBadgeKey" :disabled="saving || availableBadges.length < 2">
                   <option v-if="!availableBadges.length" value="" disabled>Выберите пункт правил</option>
@@ -84,6 +84,7 @@ const props = withDefaults(defineProps<{
   showDescription?: boolean
   saveLabel?: string
   durationHint?: string
+  restrictRuleDuration?: boolean
   issuanceKind?: TimedSanctionKind | 'ban'
   zIndex?: number
   reasons: { value: string; label: string; badges?: SanctionBadgeKey[] }[]
@@ -100,6 +101,7 @@ const props = withDefaults(defineProps<{
   showDescription: true,
   saveLabel: 'Применить',
   durationHint: '',
+  restrictRuleDuration: true,
   zIndex: 1000,
 })
 
@@ -136,13 +138,13 @@ const durationHours = computed(() => {
   return parts[0]! * 30 * 24 + parts[1]! * 24 + parts[2]!
 })
 const ruleDurationValid = computed(() => {
-  if (!timedKind.value) return true
+  if (!timedKind.value || !props.restrictRuleDuration) return true
   const range = selectedBadge.value?.duration
   const hours = durationHours.value
   return Boolean(range && hours !== null && hours >= range.minHours && (range.maxHours === null || hours <= range.maxHours))
 })
 const ruleDurationHint = computed(() => (
-  selectedBadge.value ? `Допустимый срок для ${selectedBadge.value.code}: ${selectedBadge.value.notation}.` : ''
+  props.restrictRuleDuration && selectedBadge.value ? `Допустимый срок для ${selectedBadge.value.code}: ${selectedBadge.value.notation}.` : ''
 ))
 const durationError = computed(() => {
   if (!timedKind.value) return ''
