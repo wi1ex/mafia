@@ -1466,6 +1466,7 @@ async def serialize_global_chat_messages(session: AsyncSession, messages: Sequen
                     reply_text = _render_text_with_mention_spans(reply_text, reply_mention_spans, profiles)
                 reply_payload = {
                     "message_id": int(reply_message.id),
+                    "author_id": int(reply_message.user_id),
                     "author_username": _username_for(reply_profile, int(reply_message.user_id)),
                     "avatar_name": reply_profile.get("avatar_name"),
                     "snippet": "Сообщение удалено"

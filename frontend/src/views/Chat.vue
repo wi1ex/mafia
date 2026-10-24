@@ -55,16 +55,17 @@
                   <span class="message-time">{{ formatMessageTime(message.created_at) }}</span>
                 </div>
 
-                <button v-if="message.reply" class="reply-preview" type="button" @click="onJumpToReply(message.reply.message_id)">
+                <button v-if="message.reply && !isAuthorBlacklisted(message.author.id)" class="reply-preview" type="button" @click="onJumpToReply(message.reply.message_id)">
                   <div class="reply-preview-body">
                     <img class="reply-avatar" v-minio-img="{ key: message.reply.avatar_name ? `avatars/${message.reply.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="" />
                     <span class="reply-author">{{ message.reply.author_username }}</span>
                   </div>
-                  <span class="reply-snippet">{{ message.reply.snippet || (message.reply.has_image ? 'Изображение' : 'Сообщение') }}</span>
+                  <span class="reply-snippet">{{ replySnippet(message.reply) }}</span>
                 </button>
 
                 <div class="message-bubble">
-                  <p v-if="message.deleted" class="tombstone">Сообщение удалено</p>
+                  <p v-if="isAuthorBlacklisted(message.author.id)" class="tombstone">{{ BLACKLISTED_MESSAGE_TEXT }}</p>
+                  <p v-else-if="message.deleted" class="tombstone">Сообщение удалено</p>
                   <div v-if="showDeletedActions(message)" class="tombstone-actions">
                     <button class="icon-action-button" type="button" aria-label="Показать удаленное сообщение"
                             :disabled="isDeletedPreviewBusy(message.id)" @click="onPreviewDeletedMessage(message.id)" v-if="showDeletedPreviewAction(message)">
@@ -75,12 +76,12 @@
                       <UiIcon :icon="iconDelete" />
                     </button>
                   </div>
-                  <template v-if="!message.deleted">
+                  <template v-if="!message.deleted && !isAuthorBlacklisted(message.author.id)">
                     <div v-if="message.image_object_key" class="message-image-shell">
                       <div class="message-image-placeholder" role="status" aria-label="Загрузка изображения">
                         <UiIcon :icon="iconPhoto" aria-hidden="true" />
                       </div>
-                      <img class="message-image" @click="onOpenImageLightbox($event, 'Вложение')" @load="onMessageMediaLoad" @error="onMessageMediaLoad" v-minio-img="{ key: message.image_object_key, lazy: true }" alt="Вложение" />
+                      <img class="message-image" @click="onOpenImageLightbox($event, 'Вложение', message.author.id)" @load="onMessageMediaLoad" @error="onMessageMediaLoad" v-minio-img="{ key: message.image_object_key, lazy: true }" alt="Вложение" />
                       <span class="message-image-error" role="status">Не удалось загрузить изображение</span>
                     </div>
                     <p v-if="message.text" class="message-text">
@@ -169,7 +170,7 @@
           <div v-if="draftReplyPreview" class="reply-bar">
             <div class="reply-bar-text">
               <span class="reply-bar-label">Ответ на сообщение {{ draftReplyPreview.author_username }}</span>
-              <span class="reply-bar-snippet">{{ draftReplyPreview.snippet || (draftReplyPreview.has_image ? 'Изображение' : 'Сообщение') }}</span>
+              <span class="reply-bar-snippet">{{ replySnippet(draftReplyPreview) }}</span>
             </div>
             <button class="chat-icon-button" type="button" aria-label="Сбросить ответ" @click="chat.clearReplyTarget()">
               <UiIcon :icon="iconClose" />
@@ -267,7 +268,8 @@
               <span>{{ deletedPreview.author.username || (`user${deletedPreview.author.id}`) }}</span>
             </div>
 
-            <template v-if="deletedPreview.content_available">
+            <p v-if="isAuthorBlacklisted(deletedPreview.author.id)" class="deleted-preview-empty">{{ BLACKLISTED_MESSAGE_TEXT }}</p>
+            <template v-else-if="deletedPreview.content_available">
               <p v-if="deletedPreview.text" class="deleted-preview-text">
                 <template v-for="(segment, index) in buildTextSegments(deletedPreview.text, deletedPreview.mentions)" :key="`deleted-preview-text-${index}`">
                   <a v-if="segment.kind === 'link'" class="message-link" :href="segment.href" target="_blank" rel="noopener noreferrer nofollow" @click.stop>{{ segment.text }}</a>
@@ -277,7 +279,7 @@
                   <span v-else>{{ segment.text }}</span>
                 </template>
               </p>
-              <img v-if="deletedPreview.image_object_key" class="deleted-preview-image" @click="onOpenImageLightbox($event, 'Удаленное вложение')" v-minio-img="{ key: deletedPreview.image_object_key, lazy: false }" alt="Удаленное вложение" />
+              <img v-if="deletedPreview.image_object_key" class="deleted-preview-image" @click="onOpenImageLightbox($event, 'Удаленное вложение', deletedPreview.author.id)" v-minio-img="{ key: deletedPreview.image_object_key, lazy: false }" alt="Удаленное вложение" />
             </template>
             <p v-else class="deleted-preview-empty">Содержимое сообщения уже удалено окончательно.</p>
           </div>
@@ -316,7 +318,7 @@ import { getProfileThemeBadgeSources } from '@/constants/profileIcons'
 import { alertDialog, confirmDialog } from '@/services/confirm'
 import { formatChatTimestamp } from '@/services/datetime'
 import { canOpenMiniProfileTarget, normalizeMiniProfileUserId, normalizeMiniProfileRole } from '@/services/miniProfile'
-import { useAuthStore, useGlobalChatStore, useSettingsStore, useUserStore } from '@/store'
+import { useAuthStore, useFriendsStore, useGlobalChatStore, useSettingsStore, useUserStore } from '@/store'
 import MiniProfile from '@/views/MiniProfile.vue'
 import UiIcon from '@/components/UiIcon.vue'
 import UiScrollbar from '@/components/UiScrollbar.vue'
@@ -340,12 +342,14 @@ import type {
   GlobalChatMention,
   GlobalChatReaction,
   GlobalChatReactionParticipant,
+  GlobalChatReplyPreview,
 } from '@/store/modules/globalChat'
 
 const auth = useAuthStore()
 const user = useUserStore()
 const settings = useSettingsStore()
 const chat = useGlobalChatStore()
+const friends = useFriendsStore()
 const route = useRoute()
 const {
   messages,
@@ -399,6 +403,7 @@ const imageLightboxOpen = ref(false)
 const imageLightboxArmed = ref(false)
 const imageLightboxSrc = ref('')
 const imageLightboxAlt = ref('')
+const imageLightboxAuthorId = ref<number | null>(null)
 const miniProfileOpen = ref(false)
 const miniProfileUserId = ref<number | null>(null)
 const miniProfileInitial = ref<{
@@ -433,6 +438,7 @@ const unreadTargetVisibilityTick = ref(0)
 const unreadTargetsOpenSettlePending = ref(false)
 const visibleUnreadTargetReadInFlightIds = new Set<number>()
 const USER_SCROLL_INTENT_WINDOW_MS = 4000
+const BLACKLISTED_MESSAGE_TEXT = 'Сообщение скрыто - пользователь в ЧС'
 const VISIBLE_UNREAD_TARGET_RATIO = 0.5
 const VISIBLE_UNREAD_TARGET_MAX_PX = 120
 const viewerMiniProfileRole = computed(() => normalizeMiniProfileRole(user.user?.role))
@@ -448,6 +454,15 @@ const miniProfileStatsUrl = computed(() => {
   return null
 })
 const isRoomMode = computed(() => route.name === 'room')
+
+function isAuthorBlacklisted(authorId: number): boolean {
+  return friends.blacklistIds.has(authorId)
+}
+
+function replySnippet(reply: GlobalChatReplyPreview): string {
+  if (isAuthorBlacklisted(reply.author_id)) return BLACKLISTED_MESSAGE_TEXT
+  return reply.snippet || (reply.has_image ? 'Изображение' : 'Сообщение')
+}
 
 const showLauncher = computed(() => {
   if (!auth.ready || !settings.ready || !auth.isAuthed) return false
@@ -1189,14 +1204,17 @@ function closeImageLightbox(): void {
   imageLightboxOpen.value = false
   imageLightboxSrc.value = ''
   imageLightboxAlt.value = ''
+  imageLightboxAuthorId.value = null
 }
 
-function onOpenImageLightbox(event: Event, alt: string): void {
+function onOpenImageLightbox(event: Event, alt: string, authorId: number): void {
+  if (isAuthorBlacklisted(authorId)) return
   const image = event.currentTarget as HTMLImageElement | null
   const src = image?.currentSrc || image?.src || ''
   if (!src) return
   imageLightboxSrc.value = src
   imageLightboxAlt.value = alt
+  imageLightboxAuthorId.value = authorId
   imageLightboxArmed.value = false
   imageLightboxOpen.value = true
 }
@@ -1757,6 +1775,16 @@ watch(messages, (items) => {
       image_object_key: null,
     }
   }
+})
+
+watch(() => friends.blacklistIds, () => {
+  if (imageLightboxAuthorId.value !== null && isAuthorBlacklisted(imageLightboxAuthorId.value)) {
+    closeImageLightbox()
+  }
+  void nextTick(() => {
+    updateScrollState()
+    scheduleScrollToBottom()
+  })
 })
 
 watch(composerPlaceholder, () => {

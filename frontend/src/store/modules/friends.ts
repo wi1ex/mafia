@@ -155,7 +155,7 @@ export const useFriendsStore = defineStore('friends', () => {
   let listQueued = false
   let listQueuedRoomId: number | null = null
   let lastListRoomId: number | null = null
-  let blacklistLoading = false
+  let blacklistRequest: Promise<void> | null = null
   let blacklistQueued = false
   let countLoading = false
   let countQueued = false
@@ -208,27 +208,32 @@ export const useFriendsStore = defineStore('friends', () => {
     }
   }
 
-  async function fetchBlacklist(): Promise<void> {
-    if (blacklistLoading) {
+  function fetchBlacklist(): Promise<void> {
+    if (blacklistRequest) {
       blacklistQueued = true
-      return
+      return blacklistRequest
     }
-    blacklistLoading = true
-    try {
-      const { data } = await api.get<BlacklistResponse>('/friends/blacklist')
-      blacklist.value = Array.isArray(data?.items) ? data.items : []
-    } catch (e: any) {
-      if (String(e?.response?.data?.detail || '') === 'subscription_required') {
-        blacklist.value = []
+    blacklistRequest = Promise.resolve().then(async () => {
+      try {
+        do {
+          blacklistQueued = false
+          const { data } = await api.get<BlacklistResponse>('/friends/blacklist')
+          blacklist.value = Array.isArray(data?.items) ? data.items : []
+        } while (blacklistQueued)
+      } catch (e: any) {
+        if (String(e?.response?.data?.detail || '') === 'subscription_required') {
+          blacklist.value = []
+        }
+        throw e
+      } finally {
+        blacklistRequest = null
+        if (blacklistQueued) {
+          blacklistQueued = false
+          void fetchBlacklist().catch(() => {})
+        }
       }
-      throw e
-    } finally {
-      blacklistLoading = false
-      if (blacklistQueued) {
-        blacklistQueued = false
-        void fetchBlacklist().catch(() => {})
-      }
-    }
+    })
+    return blacklistRequest
   }
 
   async function fetchStatus(userId: number): Promise<FriendStatus> {

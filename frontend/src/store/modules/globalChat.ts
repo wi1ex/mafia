@@ -6,6 +6,7 @@ import { alertDialog } from '@/services/confirm'
 import { formatModerationAlert } from '@/services/moderation'
 import { createAuthedSocket, disposeAuthedSocket } from '@/services/sio'
 import { useUserStore } from '@/store/modules/user'
+import { useFriendsStore } from '@/store/modules/friends'
 
 const CHAT_IMAGE_MAX_BYTES = 5 * 1024 * 1024
 const CHAT_IMAGE_MAX_SIZE_LABEL = '5 МБ'
@@ -38,6 +39,7 @@ export interface GlobalChatReactionParticipant {
 
 export interface GlobalChatReplyPreview {
   message_id: number
+  author_id: number
   author_username: string
   avatar_name: string | null
   snippet: string
@@ -178,6 +180,7 @@ function buildReplySnippet(text: string, hasImage: boolean): string {
 function buildDraftReplyPreview(message: GlobalChatMessage): GlobalChatReplyPreview {
   return {
     message_id: message.id,
+    author_id: message.author.id,
     author_username: message.author.username || `user${message.author.id}`,
     avatar_name: message.author.avatar_name || null,
     snippet: message.deleted ? 'Сообщение удалено' : buildReplySnippet(message.text, Boolean(message.image_object_key)),
@@ -465,6 +468,7 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
     if (messageId <= 0) return null
     return {
       message_id: messageId,
+      author_id: asPositiveInt(raw.author_id),
       author_username: asString(raw.author_username).trim() || `user${messageId}`,
       avatar_name: asString(raw.avatar_name) || null,
       snippet: asString(raw.snippet),
@@ -1036,6 +1040,13 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
     lastError.value = ''
 
     try {
+      const friends = useFriendsStore()
+      friends.ensureWS()
+      await friends.fetchBlacklist().catch((error) => {
+        if (error?.response?.data?.detail !== 'subscription_required') throw error
+      })
+      if (token !== bootstrapToken || !open.value) return
+
       const response = await emitAck<ChatAck>('chat_open', { limit: CHAT_HISTORY_LIMIT })
       if (token !== bootstrapToken || !open.value) return
 
