@@ -299,7 +299,7 @@ onMounted(() => {
       room_id: Number.isFinite(d.room_id) ? Number(d.room_id) : undefined,
       sanctionText: splitSanctionToastText(kind, text),
     }
-    items.value.push(t)
+    items.value.unshift(t)
     if (!d.silent) playToastSound()
     window.setTimeout(() => {
       const current = items.value.find(x => x.key === key)
