@@ -111,6 +111,7 @@ __all__ = [
     "acquire_speech_mic_operation_lock",
     "release_speech_mic_operation_lock",
     "speech_min_duration_error",
+    "get_vote_remaining_ms",
     "norm01",
     "to_bool01",
     "apply_state",
@@ -1865,6 +1866,19 @@ async def release_speech_mic_operation_lock(r, key: str, token: str) -> None:
     await release_room_action_lock(r, key, token)
 
 
+def get_vote_remaining_ms(raw_state: Mapping[str, Any], duration: int) -> int:
+    started_at = GameActionContext.as_int(raw_state.get("vote_started"))
+    if started_at <= 0 or duration <= 0:
+        return 0
+
+    earliest_unlock_at_ms = (started_at + duration) * 1000
+    unlock_at_ms = GameActionContext.as_int(raw_state.get("vote_unlock_at_ms"))
+    if not earliest_unlock_at_ms <= unlock_at_ms < earliest_unlock_at_ms + 1000:
+        unlock_at_ms = earliest_unlock_at_ms + 1000
+
+    return max(0, unlock_at_ms - int(time() * 1000))
+
+
 def speech_min_duration_error(ctx: GameActionContext, started_at: int, unlock_key: str) -> dict[str, Any] | None:
     if started_at <= 0:
         return {"ok": False, "error": "no_speech", "status": 400}
@@ -2022,11 +2036,7 @@ class GameStateView:
         if vote_aborted or vote_results_ready:
             vote_current_uid = 0
 
-        remaining = self.ctx.deadline(
-            "vote_started",
-            "vote_duration",
-            default_duration=get_cached_settings().vote_seconds,
-        )
+        remaining = get_vote_remaining_ms(self.ctx.gstate, vote_duration) / 1000
         speech_remaining = self.ctx.deadline("vote_speech_started", "vote_speech_duration", freeze_on_host_blur=True)
 
         leaders = self.ctx.gcsv_ints("vote_leaders_order")
@@ -6930,8 +6940,7 @@ async def compute_vote_predetermined_unique_leader(r, rid: int, raw_state: Mappi
         except Exception:
             vote_duration = 0
 
-    now_ts = int(time())
-    vote_window_open = bool(vote_started) and vote_duration > 0 and now_ts < (vote_started + vote_duration)
+    vote_window_open = get_vote_remaining_ms(raw_state, vote_duration) > 0
     current_is_last = cur_idx >= (len(nominees) - 1)
 
     if current_is_last:
@@ -7041,6 +7050,7 @@ async def block_vote_and_clear(r, rid: int, *, reason: str = "", phase: str = ""
             mapping.update({
                 "vote_done": "1",
                 "vote_started": "0",
+                "vote_unlock_at_ms": "0",
                 "vote_aborted": "1",
                 "vote_results_ready": "0",
                 "vote_speeches_done": "0",
@@ -7471,8 +7481,7 @@ async def maybe_emit_vote_presence_break(r, rid: int, uid: int) -> None:
     if vote_started <= 0 or vote_duration <= 0:
         return
 
-    now_ts = int(time())
-    if now_ts > (vote_started + vote_duration):
+    if get_vote_remaining_ms(raw_state, vote_duration) <= 0:
         return
 
     if current_uid <= 0:
@@ -8357,6 +8366,7 @@ async def game_phase_next_unlocked(sid, data):
                         "phase": "vote",
                         "vote_current_uid": str(first_uid or 0),
                         "vote_started": "0",
+                        "vote_unlock_at_ms": "0",
                         "vote_duration": str(vote_duration),
                         "vote_done": "0",
                         "vote_results_ready": "0",

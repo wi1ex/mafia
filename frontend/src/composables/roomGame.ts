@@ -145,6 +145,15 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   const votedUsers = reactive(new Set<string>())
   const votedThisRound = reactive(new Set<string>())
   const voteStartedForCurrent = ref(false)
+  const voteControlPending = ref(false)
+  let voteControlRequestToken = 0
+  let voteStateRevision = 0
+
+  function invalidateVoteControl(): void {
+    voteControlRequestToken += 1
+    voteControlPending.value = false
+  }
+
   const daySpeechTimerId = ref<number | null>(null)
   let daySpeechTimerEndsAt = 0
   let daySpeechPausedRemainingMs = 0
@@ -169,6 +178,8 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   const firstShotCheckEnabled = ref(true)
   const musicEnabled = ref(true)
   const deathReasonByUser = reactive(new Map<string, string>())
+
+  watch([gameInstanceId, gamePhase, dayNumber, gameFinished], invalidateVoteControl, { flush: 'sync' })
 
   const night = reactive({
     stage: 'sleep' as 'sleep' | 'opinions' | 'opinions_done' | 'shoot' | 'shoot_done' | 'checks' | 'checks_done',
@@ -597,7 +608,14 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     if (voteLiftState.value !== 'none') return false
     return gamePhase.value === 'vote' && isHead.value && !vote.done
   })
-  const canPressHeadVoteControl = computed(() => canHeadVoteControl.value && vote.remainingMs === 0)
+  const canPressHeadVoteControl = computed(() => (
+    canHeadVoteControl.value
+    && !gameFinished.value
+    && !voteControlPending.value
+    && vote.remainingMs === 0
+    && Number(vote.currentId) > 0
+    && Boolean(gameInstanceId.value)
+  ))
 
   const canPrepareVoteLift = computed(() => {
     return isHead.value && gamePhase.value === 'vote' && voteResultShown.value && voteLiftState.value === 'ready'
@@ -732,8 +750,8 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     return !votedUsers.has(me)
   }
 
-  function setVoteRemainingMs(ms: number, changed: boolean) {
-    setTimerWithLatency(vote, ms, voteTimerId, changed)
+  function setVoteRemainingMs(ms: number, _changed: boolean) {
+    setTimerWithLatency(vote, ms, voteTimerId, true)
   }
 
   function toggleKnownRolesVisibility(): void {
@@ -797,6 +815,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   }
 
   function resetVoteState(changed: boolean) {
+    invalidateVoteControl()
     vote.currentId = ''
     setVoteRemainingMs(0, changed)
     vote.done = false
@@ -1257,6 +1276,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   }
 
   function applyFromJoinAck(join: any, snapshotIds?: string[]) {
+    invalidateVoteControl()
     const gr = join?.game_runtime || {}
     nominateMode.value = normalizeNominateMode((gr as any).nominate_mode)
     techFoulsEnabled.value = isTrueLike((gr as any).tech_fouls)
@@ -1962,6 +1982,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   }
 
   function handleGameVoteState(p: any) {
+    if (p?.game_instance_id && p.game_instance_id !== gameInstanceId.value) return
     const vt = p?.vote
     if (!vt || typeof vt !== 'object') return
     const hasMainVoteState =
@@ -1982,9 +2003,11 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       }
       return
     }
+    voteStateRevision += 1
     const prevId = vote.currentId
     const newId = String(vt.current_uid || '')
     const ms = secondsToMs(vt.deadline)
+    const started = 'started' in vt ? isTrueLike(vt.started) : ms > 0
     const liftStateRaw = String((vt as any).lift_state || '')
     voteLiftState.value = liftStateRaw ? (liftStateRaw as typeof voteLiftState.value) : 'none'
     vote.currentId = newId
@@ -2003,11 +2026,11 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       voteStartedForCurrent.value = false
       revotePromptCandidate.value = ''
     } else if (newId !== prevId) {
-      voteStartedForCurrent.value = ms > 0
+      voteStartedForCurrent.value = started
       votedThisRound.clear()
       if (revotePromptCandidate.value && revotePromptCandidate.value !== newId) revotePromptCandidate.value = ''
     } else {
-      voteStartedForCurrent.value = ms > 0
+      voteStartedForCurrent.value = started
     }
     if (isRestart) {
       voteStartedForCurrent.value = false
@@ -2021,6 +2044,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   }
 
   function handleGameVoteAborted(_p: any) {
+    voteStateRevision += 1
     voteAborted.value = true
     vote.done = true
     const blocked = isTrueLike((_p as any)?.blocked)
@@ -2054,6 +2078,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   }
 
   function handleGameVoteResult(p: any) {
+    voteStateRevision += 1
     voteAborted.value = false
     voteResultShown.value = true
     vote.done = true
@@ -2375,7 +2400,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
       votedUsers.clear()
       votedThisRound.clear()
       nominatedThisSpeechByMe.value = false
-      voteStartedForCurrent.value = ms > 0
+      voteStartedForCurrent.value = vt && 'started' in vt ? isTrueLike(vt.started) : ms > 0
     } else {
       resetDaySpeechState(true)
       replaceIds(dayNominees, undefined)
@@ -2891,23 +2916,66 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     }
   }
 
-  async function startCurrentCandidateVote(sendAck: SendAckFn): Promise<void> {
-    const resp = await sendAck('game_vote_control', { action: 'start' })
-    if (!resp?.ok) {
-      const st = resp?.status
+  async function sendVoteControl(action: 'start' | 'next', sendAck: SendAckFn): Promise<void> {
+    if (!canPressHeadVoteControl.value) return
+    const expectedCurrentUid = Number(vote.currentId)
+    const instanceId = gameInstanceId.value
+    if (!Number.isSafeInteger(expectedCurrentUid) || expectedCurrentUid <= 0 || !instanceId) return
+
+    const token = ++voteControlRequestToken
+    const stateRevision = voteStateRevision
+    const isCurrentRequest = () => token === voteControlRequestToken
+      && gameInstanceId.value === instanceId
+      && gamePhase.value === 'vote'
+      && isHead.value
+      && !gameFinished.value
+    voteControlPending.value = true
+    try {
+      const resp = await sendAck('game_vote_control', {
+        action,
+        expected_current_uid: expectedCurrentUid,
+        game_instance_id: instanceId,
+      })
+      if (!isCurrentRequest()) return
+
+      const newerVoteState = voteStateRevision !== stateRevision
+      if (!newerVoteState && resp?.vote && resp.game_instance_id === instanceId) {
+        handleGameVoteState(resp)
+      }
+      if (resp?.ok) return
+
       const code = resp?.error
-      if (st === 400 && code === 'bad_phase') {
+      if (code === 'vote_in_progress') {
+        const remainingMs = Number(resp?.remaining_ms)
+        if (!newerVoteState && Number.isFinite(remainingMs) && remainingMs > 0 && Number(vote.currentId) === expectedCurrentUid) {
+          voteStartedForCurrent.value = true
+          setVoteRemainingMs(Math.max(vote.remainingMs, remainingMs), true)
+        }
+        void alertDialog('Сначала дождитесь окончания голосования за текущего кандидата')
+      } else if (code === 'stale_vote_state' || code === 'vote_not_started') {
+        void alertDialog('Состояние голосования обновилось. Проверьте текущего кандидата и повторите действие.')
+      } else if (code === 'vote_control_in_progress') {
+        void alertDialog('Предыдущее действие ведущего еще выполняется. Дождитесь обновления голосования.')
+      } else if (code === 'bad_phase') {
         void alertDialog('Сейчас не фаза голосования')
-      } else if (st === 403 && code === 'forbidden') {
+      } else if (code === 'forbidden') {
         void alertDialog('Только ведущий может управлять голосованием')
-      } else if (st === 409 && code === 'vote_already_ended') {
+      } else if (code === 'vote_already_ended') {
         void alertDialog('Голосование за этого кандидата уже завершено')
-      } else if (st === 409 && code === 'vote_done') {
+      } else if (code === 'vote_done') {
         void alertDialog('Голосование уже завершено')
       } else {
-        void alertDialog('Не удалось запустить голосование за кандидата')
+        void alertDialog(action === 'start' ? 'Не удалось запустить голосование за кандидата' : 'Не удалось перейти к следующему кандидату')
       }
+    } catch {
+      if (isCurrentRequest()) void alertDialog('Не удалось получить ответ сервера. Проверьте состояние голосования перед повторным действием.')
+    } finally {
+      if (token === voteControlRequestToken) voteControlPending.value = false
     }
+  }
+
+  async function startCurrentCandidateVote(sendAck: SendAckFn): Promise<void> {
+    await sendVoteControl('start', sendAck)
   }
 
   async function restartCurrentVote(sendAck: SendAckFn, targetId?: string): Promise<void> {
@@ -2966,18 +3034,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   }
 
   async function goToNextCandidate(sendAck: SendAckFn): Promise<void> {
-    const resp = await sendAck('game_vote_control', { action: 'next' })
-    if (!resp?.ok) {
-      const st = resp?.status
-      const code = resp?.error
-      if (st === 409 && code === 'vote_in_progress') {
-        void alertDialog('Сначала дождитесь окончания голосования за текущего кандидата')
-      } else if (st === 403 && code === 'forbidden') {
-        void alertDialog('Только ведущий может управлять голосованием')
-      } else {
-        void alertDialog('Не удалось перейти к следующему кандидату')
-      }
-    }
+    await sendVoteControl('next', sendAck)
   }
 
   async function voteForCurrent(sendAck: SendAckFn): Promise<void> {
@@ -3397,12 +3454,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
   }
 
   async function headVoteControl(sendAck: SendAckFn): Promise<void> {
-    if (voteLiftState.value !== 'none') return
-    if (gamePhase.value !== 'vote' || !isHead.value || vote.done) return
-    if (!vote.currentId) {
-      await startCurrentCandidateVote(sendAck)
-      return
-    }
+    if (!canPressHeadVoteControl.value) return
     if (!voteStartedForCurrent.value) {
       await startCurrentCandidateVote(sendAck)
       return
@@ -3452,6 +3504,7 @@ export function useRoomGame(localId: Ref<string>, roomId?: Ref<string | number>)
     votedThisRound,
     currentNomineeSeat,
     voteStartedForCurrent,
+    voteControlPending,
     voteResultLeaders,
     voteResultShown,
     gameAlive,
