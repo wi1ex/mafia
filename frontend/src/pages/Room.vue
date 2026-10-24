@@ -818,7 +818,7 @@ const SEAT_TILE_STYLE_CACHE = new Map<number, Readonly<{ gridColumn: string; gri
 const volumeSnapTimers = new Map<string, number>()
 const screenOwnerId = ref<string>('')
 const screenQuality = ref<ScreenShareQuality>('low')
-const isScreenGridLayout = ref(false)
+const isScreenGridLayout = ref(true)
 const theaterEl = ref<HTMLElement | null>(null)
 const screenStagePosition = reactive({ x: 8, y: 8 })
 const isScreenStageDragging = ref(false)
@@ -2336,7 +2336,7 @@ function clearScreenVolume(id: string | null | undefined) {
 function setScreenOwner(id: string, quality?: unknown) {
   const prev = screenOwnerId.value
   if (id && id !== prev) {
-    isScreenGridLayout.value = false
+    isScreenGridLayout.value = true
     resetScreenStagePosition()
   }
   screenOwnerId.value = id
