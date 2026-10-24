@@ -95,7 +95,7 @@ function close(): void {
 }
 
 function duration(row: GrantRow): string {
-  return [row.months ? `${row.months} мес.` : '', row.days ? `${row.days} сут.` : ''].filter(Boolean).join(' ') || '-'
+  return [row.months ? `${row.months} мес.` : '', row.days ? `${row.days} сут.` : ''].filter(Boolean).join(' ') || '—'
 }
 
 async function load(): Promise<void> {

@@ -27,6 +27,10 @@
               <span class="date-time">{{ lastGameAtLabel }}</span>
             </div>
             <div class="date-row">
+              <span class="date-title">Подписка</span>
+              <span class="date-time">{{ subscriptionExpiryLabel }}</span>
+            </div>
+            <div class="date-row">
               <span class="date-title">Роли пользователя</span>
               <span class="date-time profile-role-tags">{{ profileRoleTagsLabel }}</span>
             </div>
@@ -220,6 +224,7 @@ import { api, AUTH_SESSION_SID_HEADER } from '@/services/axios'
 import { alertDialog, confirmDialog } from '@/services/confirm'
 import { hasAuthCookieMutex, withAuthCookieLock } from '@/services/refreshCoordination'
 import { getProfileRoleTags } from '@/services/profileRoles'
+import { useSubscriptionStatus } from '@/services/useSubscriptionStatus'
 import { useAuthStore, useUserStore } from '@/store'
 
 import UiInput from '@/components/UiInput.vue'
@@ -236,6 +241,7 @@ const PASSWORD_SPACE_RE = /\s/
 
 const userStore = useUserStore()
 const auth = useAuthStore()
+const { subscriptionExpiryLabel } = useSubscriptionStatus()
 const { tgInvitesEnabled, allowFriendRequests } = storeToRefs(userStore)
 const { setTgInvitesEnabled, setAllowFriendRequests, setStreamingUrl } = userStore
 
@@ -282,7 +288,7 @@ const profileRoleTagsLabel = computed(() => getProfileRoleTags(me.role, me.addit
 const registeredAtLabel = computed(() => formatDateWithMonthName(profileDates.registered_at || me.registered_at))
 const lastGameAtLabel = computed(() => {
   const dateLabel = formatDateOnly(profileDates.last_game_at)
-  if (dateLabel === '-') return '-'
+  if (dateLabel === '—') return '—'
   const gameId = Number(profileDates.last_game_id || 0)
   return Number.isFinite(gameId) && gameId > 0 ? `Игра #${Math.trunc(gameId)} от ${dateLabel}` : dateLabel
 })
@@ -350,13 +356,13 @@ const RU_MONTHS_GENITIVE = [
 
 function formatDateOnly(value?: string | number | Date | null): string {
   const dt = parseDate(value)
-  if (!dt) return '-'
+  if (!dt) return '—'
   return `${pad2(dt.getDate())}.${pad2(dt.getMonth() + 1)}.${dt.getFullYear()}`
 }
 
 function formatDateWithMonthName(value?: string | number | Date | null): string {
   const dt = parseDate(value)
-  if (!dt) return '-'
+  if (!dt) return '—'
   return `${dt.getDate()} ${RU_MONTHS_GENITIVE[dt.getMonth()]} ${dt.getFullYear()}`
 }
 

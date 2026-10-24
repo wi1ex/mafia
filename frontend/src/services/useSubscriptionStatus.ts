@@ -12,7 +12,7 @@ export function useSubscriptionStatus() {
   const userStore = useUserStore()
   const subscriptionUntilText = computed(() => {
     const formatted = formatLocalDateTime(userStore.user?.subscription_until, SUBSCRIPTION_DATE_OPTIONS, 'ru-RU')
-    return formatted === '-' ? '' : formatted
+    return formatted === '—' ? '' : formatted
   })
   const subscriptionStatusText = computed(() => {
     if (!userStore.subscriptionActive) return 'Подписка не активна'
@@ -20,6 +20,11 @@ export function useSubscriptionStatus() {
       ? `Подписка активна до ${subscriptionUntilText.value}`
       : 'Подписка активна'
   })
+  const subscriptionExpiryLabel = computed(() => (
+    userStore.subscriptionActive && subscriptionUntilText.value
+      ? `до ${subscriptionUntilText.value}`
+      : '—'
+  ))
 
   function subscriptionHint(explanation: string, inactiveText = 'Доступно только при активной подписке.'): string {
     const availabilityText = userStore.subscriptionActive
@@ -30,5 +35,5 @@ export function useSubscriptionStatus() {
     return `${explanation} ${availabilityText}`
   }
 
-  return { subscriptionStatusText, subscriptionHint }
+  return { subscriptionStatusText, subscriptionExpiryLabel, subscriptionHint }
 }

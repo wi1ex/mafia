@@ -180,6 +180,10 @@
                   <span class="date-title">Последний раз в сети</span>
                   <span class="date-time">{{ lastOnlineLabel }}</span>
                 </div>
+                <div v-if="isSelfProfile" class="date-row">
+                  <span class="date-title">Подписка</span>
+                  <span class="date-time">{{ subscriptionExpiryLabel }}</span>
+                </div>
                 <div class="date-row">
                   <span class="date-title">Роли пользователя</span>
                   <div class="profile-role-tags">
@@ -321,6 +325,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { api } from '@/services/axios'
+import { useSubscriptionStatus } from '@/services/useSubscriptionStatus'
 import { alertDialog, confirmDialog, confirmDialogWithAction, useConfirmState } from '@/services/confirm'
 import { isMiniProfilePrivilegedViewer, normalizeMiniProfileRole } from '@/services/miniProfile'
 import { getProfileRoleBadges } from '@/services/profileRoles'
@@ -548,6 +553,7 @@ const emit = defineEmits<{
 const friends = useFriendsStore()
 const settingsStore = useSettingsStore()
 const userStore = useUserStore()
+const { subscriptionExpiryLabel } = useSubscriptionStatus()
 const confirmState = useConfirmState()
 const loading = ref(false)
 const loadError = ref('')
@@ -774,7 +780,7 @@ const activeSanctionExpiryLabel = computed(() => {
 const registeredAtLabel = computed(() => formatDateWithMonthName(profile.value?.registered_at))
 const lastGameAtLabel = computed(() => {
   const dateLabel = formatDateOnly(profile.value?.last_game_at)
-  if (dateLabel === '-') return '-'
+  if (dateLabel === '—') return '—'
   const gameId = Number(profile.value?.last_game_id || 0)
   return Number.isFinite(gameId) && gameId > 0 ? `Игра #${Math.trunc(gameId)} от ${dateLabel}` : dateLabel
 })
@@ -1219,13 +1225,13 @@ const RU_MONTHS_GENITIVE = [
 
 function formatDateOnly(value?: string | number | Date | null): string {
   const dt = parseDate(value)
-  if (!dt) return '-'
+  if (!dt) return '—'
   return `${pad2(dt.getDate())}.${pad2(dt.getMonth() + 1)}.${dt.getFullYear()}`
 }
 
 function formatDateWithMonthName(value?: string | number | Date | null): string {
   const dt = parseDate(value)
-  if (!dt) return '-'
+  if (!dt) return '—'
   return `${dt.getDate()} ${RU_MONTHS_GENITIVE[dt.getMonth()]} ${dt.getFullYear()}`
 }
 
@@ -1238,7 +1244,7 @@ function formatDateTimeMinute(value?: string | number | Date | null): string {
 function formatLastOnline(value?: string | number | Date | null, online = false): string {
   if (online) return 'Онлайн'
   const dt = parseDate(value)
-  if (!dt) return '-'
+  if (!dt) return '—'
   const diffMs = Date.now() - dt.getTime()
   if (diffMs < 0) return 'Только что'
   const totalMinutes = Math.floor(diffMs / 60000)

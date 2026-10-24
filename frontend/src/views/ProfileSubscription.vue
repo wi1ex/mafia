@@ -165,7 +165,7 @@ function formatGrantDuration(item: SubscriptionGrantItem): string {
   const parts: string[] = []
   if (item.months > 0) parts.push(`${item.months} ${paymentMonthWord(item.months)}`)
   if (item.days > 0) parts.push(`${item.days} сут.`)
-  return parts.join(' ') || '-'
+  return parts.join(' ') || '—'
 }
 
 async function loadGrants(): Promise<void> {
@@ -214,13 +214,13 @@ function formatPaymentSubscriptionTerm(item: SubscriptionPaymentItem): string {
   if (item.plan === 'year') return '1 год'
 
   const months = paymentMonths(item.subscription_months)
-  if (months <= 0) return '-'
+  if (months <= 0) return '—'
   return `${months} ${paymentMonthWord(months)}`
 }
 
 function formatPaymentMoney(amountRaw?: string | null, currencyRaw?: string | null): string {
   const amountText = String(amountRaw || '').trim()
-  if (!amountText) return '-'
+  if (!amountText) return '—'
 
   const currency = String(currencyRaw || '').trim().toUpperCase()
   const value = Number(amountText)
