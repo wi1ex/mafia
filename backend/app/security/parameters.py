@@ -27,7 +27,7 @@ class AppSettingsSnapshot:
     rooms_can_enter: bool
     games_can_start: bool
     rating_enabled: bool
-    streams_can_start: bool
+    streams_fullscreen_enabled: bool
     chat_open_enabled: bool
     verification_restrictions: bool
     rtc_echo_cancellation_enabled: bool
@@ -90,7 +90,7 @@ async def ensure_app_settings(session: AsyncSession) -> AppSettings:
             rooms_can_enter=defaults.rooms_can_enter,
             games_can_start=defaults.games_can_start,
             rating_enabled=defaults.rating_enabled,
-            streams_can_start=defaults.streams_can_start,
+            streams_fullscreen_enabled=defaults.streams_fullscreen_enabled,
             chat_open_enabled=defaults.chat_open_enabled,
             verification_restrictions=defaults.verification_restrictions,
             rtc_echo_cancellation_enabled=defaults.rtc_echo_cancellation_enabled,

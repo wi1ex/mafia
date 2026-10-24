@@ -1075,10 +1075,6 @@ async def screen(sid, data) -> ScreenAck:
         want_on = bool((data or {}).get("on"))
         target = int((data or {}).get("target") or actor_uid)
 
-        actor_base_role = str(sess.get("base_role") or "user")
-        if want_on and normalize_user_role(actor_base_role) != ROLE_ADMIN and not get_cached_settings().streams_can_start:
-            return {"ok": False, "error": "streams_start_disabled", "status": 403}
-
         if not await r.sismember(f"room:{rid}:members", str(target)):
             return {"ok": False, "error": "not_in_room", "status": 403}
 

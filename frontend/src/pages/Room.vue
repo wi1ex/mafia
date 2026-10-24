@@ -121,7 +121,7 @@
         />
       </div>
 
-      <div v-else ref="theaterEl" class="theater" :class="{ 'theater--grid': isScreenGridLayout }">
+      <div v-else ref="theaterEl" class="theater" :class="{ 'theater--grid': isScreenGridLayout, 'theater--fullscreen': settings.streamsFullscreenEnabled && !isScreenGridLayout }">
         <div
           class="stage"
           :class="{ 'stage--dragging': isScreenStageDragging }"
@@ -970,7 +970,6 @@ const isDuoRoom = computed(() => roomUserLimit.value === 2)
 const usesCameraSimulcast = computed(() =>
   isMafiaLimitRoom.value || roomUserLimit.value === 20 || isDuoRoom.value
 )
-const canStartStreams = computed(() => settings.streamsCanStart || isAdminUser.value)
 const canViewGameSettings = computed(() => !adminSpectator.value && isMafiaLimitRoom.value)
 const canEditGameSettings = computed(() =>
   !adminSpectator.value &&
@@ -3410,10 +3409,6 @@ const toggleScreen = async () => {
   if (adminSpectator.value) return
   if (pendingScreen.value) return
   const wantEnable = !isMyScreen.value
-  if (wantEnable && !canStartStreams.value) {
-    void alertDialog('Запуск трансляций отключен')
-    return
-  }
   const confirmPayload = {
     title: wantEnable ? 'Запуск трансляции' : 'Остановка трансляции',
     text: wantEnable
@@ -3451,7 +3446,6 @@ const toggleScreen = async () => {
       const resp = await sendAck('screen', { on: true, quality: requestedScreenQuality })
       if (!resp || !resp.ok) {
         if (resp?.status === 409 && resp?.owner) setScreenOwner(String(resp.owner), resp?.quality)
-        else if (resp?.status === 403 && resp?.error === 'streams_start_disabled') void alertDialog('Запуск трансляций отключен')
         else if (resp?.status === 403 && resp?.error === 'blocked') void alertDialog('Стрим запрещен администратором')
         else void alertDialog('Не удалось запустить трансляцию')
         return
@@ -4381,6 +4375,12 @@ onBeforeUnmount(() => {
     .sidebar::-webkit-scrollbar {
       width: 0;
       height: 0;
+    }
+    &.theater--fullscreen {
+      grid-template-columns: minmax(0, 1fr);
+      .sidebar {
+        display: none;
+      }
     }
     &.theater--grid {
       display: block;
