@@ -8,7 +8,7 @@ from ...core.db import get_session
 from ...core.roles import is_reserved_role_nickname
 from ...core.settings import settings
 from ...security.parameters import get_cached_settings
-from ...core.logging import log_action
+from ...core.logging import append_auth_log_metadata, log_action
 from ...security.decorators import log_route
 from ...security.auth_tokens import (
     AUTH_SESSION_SID_HEADER,
@@ -92,7 +92,11 @@ async def register(payload: PasswordRegisterIn, resp: Response, request: Request
         user_id=user_id,
         username=username,
         action=action,
-        details=f"Регистрация пользователя: user_id={user_id} username={username}",
+        details=append_auth_log_metadata(
+            f"Регистрация пользователя: user_id={user_id} username={username}",
+            headers=request.headers,
+            client_host=request.client.host if request.client else None,
+        ),
     )
 
     await refresh_user_profile_cache(db, user_id)
@@ -130,7 +134,11 @@ async def login(payload: PasswordLoginIn, resp: Response, request: Request, db: 
         user_id=int(user.id),
         username=user.username,
         action=action,
-        details=f"Вход пользователя: user_id={int(user.id)} username={user.username}",
+        details=append_auth_log_metadata(
+            f"Вход пользователя: user_id={int(user.id)} username={user.username}",
+            headers=request.headers,
+            client_host=request.client.host if request.client else None,
+        ),
     )
 
     await refresh_user_profile_cache(db, int(user.id))

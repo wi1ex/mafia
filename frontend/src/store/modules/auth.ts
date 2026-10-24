@@ -14,6 +14,7 @@ import { formatModerationAlert } from '@/services/moderation'
 import { hasAuthCookieMutex, withAuthCookieLock } from '@/services/refreshCoordination'
 import { useUserStore } from './user'
 import {
+  getBrowserId,
   initSessionBus,
   setSid,
   clearSid,
@@ -23,6 +24,14 @@ import {
   checkConsistencyNow,
   stopSessionBus,
 } from '@/services/session'
+
+function authClientHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {}
+  const browserId = getBrowserId()
+  if (browserId) headers['X-Browser-Id'] = browserId
+  if (isPwaMode()) headers['X-PWA'] = '1'
+  return headers
+}
 
 export const useAuthStore = defineStore('auth', () => {
   const sessionId = ref<string>('')
@@ -311,9 +320,8 @@ export const useAuthStore = defineStore('auth', () => {
     }
     let loginSid = ''
     try {
-      const headers = isPwaMode() ? { 'X-PWA': '1' } : undefined
       await withAuthCookieLock(async () => {
-        const { data } = await api.post('/auth/login', payload, headers ? { headers } : undefined)
+        const { data } = await api.post('/auth/login', payload, { headers: authClientHeaders() })
         loginSid = String(data?.sid || '')
         await applySession(data)
       })
@@ -355,9 +363,8 @@ export const useAuthStore = defineStore('auth', () => {
     }
     let registrationSid = ''
     try {
-      const headers = isPwaMode() ? { 'X-PWA': '1' } : undefined
       await withAuthCookieLock(async () => {
-        const res = await api.post('/auth/register', payload, headers ? { headers } : undefined)
+        const res = await api.post('/auth/register', payload, { headers: authClientHeaders() })
         const next = res.data as { access_token?: string; sid?: string }
         registrationSid = String(next.sid || '')
         await applySession(next)

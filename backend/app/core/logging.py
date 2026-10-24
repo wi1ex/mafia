@@ -1,11 +1,18 @@
 from __future__ import annotations
+from collections.abc import Mapping
+from ipaddress import ip_address
 import json
 import logging
+import re
 import sys
 from typing import Any
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..models.log import AppLog
+
+
+_BROWSER_ID_RE = re.compile(r"[0-9a-fA-F]{32}")
+_UNAVAILABLE = "—"
 
 
 def configure_logging() -> None:
@@ -37,6 +44,25 @@ def configure_logging() -> None:
     root.setLevel(logging.INFO)
 
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
+
+
+def append_auth_log_metadata(details: str, *, headers: Mapping[str, str], client_host: str | None = None) -> str:
+    raw_browser_id = headers.get("x-browser-id", "")
+    browser_id = (
+        raw_browser_id.lower()
+        if _BROWSER_ID_RE.fullmatch(raw_browser_id)
+        else _UNAVAILABLE
+    )
+
+    client_ip = _UNAVAILABLE
+    for raw_ip in (headers.get("x-real-ip", ""), client_host):
+        try:
+            client_ip = str(ip_address(str(raw_ip or "").strip()))
+            break
+        except ValueError:
+            continue
+
+    return f"{details} | browser_id={browser_id} | ip={client_ip}"
 
 
 async def log_action(db: AsyncSession, *, user_id: int | None, username: str | None, action: str, details: str | dict[str, Any], commit: bool = True) -> None:

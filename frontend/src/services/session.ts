@@ -82,6 +82,10 @@ function getTabId(): string {
 const DEVICE_ID = getDeviceId()
 const TAB_ID    = getTabId()
 
+export function getBrowserId(): string {
+  return /^[a-f0-9]{32}$/i.test(DEVICE_ID) ? DEVICE_ID.toLowerCase() : ''
+}
+
 function readSid(): string {
   try { return localStorage.getItem(LS_SID_KEY) || '' } catch { return '' }
 }
