@@ -1,0 +1,253 @@
+/* Optional Halloween theme. All rules stop applying when the folder is absent. */
+html[data-home-season="halloween"] .home-page {
+  --home-season-accent: #ff790d;
+  --home-season-accent-light: #ffb565;
+}
+
+html[data-home-season="halloween"] .home-page .home-carousel {
+  background: #101416;
+  box-shadow: inset 0 0 0 1px #d8873c38;
+}
+
+html[data-home-season="halloween"] .home-page .home-carousel .background-image {
+  object-fit: cover;
+}
+
+html[data-home-season="halloween"] .home-page .home-carousel .seasonal-copy {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  margin: 0;
+  color: #fff;
+  font-family: Involve-Regular, sans-serif;
+  font-weight: 400;
+  text-align: center;
+  letter-spacing: -0.48px;
+  pointer-events: none;
+  text-shadow: 0 1px 5px #0008;
+}
+
+html[data-home-season="halloween"] .home-page .seasonal-copy p {
+  position: absolute;
+  margin: 0;
+  padding: 0;
+}
+
+html[data-home-season="halloween"] .home-page .seasonal-copy-accent {
+  color: var(--home-season-accent);
+}
+
+html[data-home-season="halloween"] .home-page .seasonal-copy-title,
+html[data-home-season="halloween"] .home-page .seasonal-copy-caption {
+  font-size: 24px;
+  line-height: 26px;
+}
+
+html[data-home-season="halloween"] .home-page .seasonal-copy--1 .seasonal-copy-title {
+  top: 34%;
+  left: 17%;
+  width: 70%;
+}
+
+html[data-home-season="halloween"] .home-page .seasonal-copy--1 .seasonal-copy-body {
+  top: 49%;
+  left: 18%;
+  width: 66%;
+  font-family: Hauora-Regular, sans-serif;
+  font-size: 16px;
+  line-height: 17px;
+  letter-spacing: -0.32px;
+}
+
+html[data-home-season="halloween"] .home-page .seasonal-copy--2 .seasonal-copy-title {
+  top: 30%;
+  left: 29%;
+  width: 61%;
+  font-size: 23px;
+  line-height: 25px;
+}
+
+html[data-home-season="halloween"] .home-page .seasonal-copy--2 .seasonal-copy-meta {
+  top: 61.5%;
+  left: 19%;
+  width: 56%;
+  font-family: Hauora-Regular, sans-serif;
+  font-size: 15px;
+  line-height: 18px;
+  letter-spacing: -0.3px;
+  white-space: nowrap;
+}
+
+html[data-home-season="halloween"] .home-page .seasonal-copy--3 .seasonal-copy-caption {
+  top: 74%;
+  left: 10%;
+  width: 80%;
+}
+
+html[data-home-season="halloween"] .home-page .seasonal-copy--4 .seasonal-copy-caption {
+  top: 19%;
+  left: 10%;
+  width: 80%;
+}
+
+html[data-home-season="halloween"] .home-page .seasonal-copy--5 .seasonal-copy-caption {
+  top: 41%;
+  left: 4%;
+  width: 49%;
+  font-size: 23px;
+  line-height: 25px;
+  text-align: left;
+}
+
+html[data-home-season="halloween"] .home-page .home-carousel .carousel-controls .nav-btn {
+  background: linear-gradient(135deg, #5a301a, #181820);
+  box-shadow: inset 0 0 0 1px #f5993b28;
+}
+
+html[data-home-season="halloween"] .home-page .home-carousel .carousel-controls .nav-btn::after {
+  background: linear-gradient(135deg, #a6490e, #33201b);
+}
+
+html[data-home-season="halloween"] .home-page .home-carousel .carousel-dot.active,
+html[data-home-season="halloween"] .home-page .home-carousel.is-paused .carousel-dot.active,
+html[data-home-season="halloween"] .home-page .home-carousel .carousel-dot.active::after {
+  background-color: var(--home-season-accent);
+}
+
+html[data-home-season="halloween"] .home-page .home-carousel .slide-btn {
+  --ui-button-bg: #ff790d;
+  --ui-button-hover-bg: #ffad5a;
+  --ui-button-color: #1b1009;
+  --ui-button-hover-color: #1b1009;
+}
+
+html[data-home-season="halloween"] .home-page .right-extra--primary {
+  box-shadow: inset 0 0 0 1px #ce722a55;
+}
+
+html[data-home-season="halloween"] .home-page .right-extra--primary .right-extra-copy-accent {
+  color: var(--home-season-accent);
+}
+
+html[data-home-season="halloween"] .home-page .right-extra--primary .right-extra-btn {
+  border-color: #e77a1e;
+}
+
+html[data-home-season="halloween"] .home-page .right-extra--primary .right-extra-btn:is(:hover, :focus-visible, :active) {
+  border-color: #ffb565;
+}
+
+html[data-home-season="halloween"] .home-page .right-extra--primary .right-extra-btn:is(:hover, :focus-visible, :active) .btn-icon {
+  --ui-icon-color: #ffb565;
+}
+
+html[data-home-season="halloween"] .home-page .right-extra--secondary {
+  box-shadow: inset 0 0 0 1px #277c8355;
+}
+
+html[data-home-season="halloween"] .home-page .right-extra--secondary .right-extra-btn {
+  border-color: #4b9da4;
+}
+
+html[data-home-season="halloween"] .home-page .right-extra--secondary .right-extra-btn:is(:hover, :focus-visible, :active) .btn-icon {
+  --ui-icon-color: #83d5db;
+}
+
+/* Only the approved create-room button and header logo are extended below. */
+html[data-home-season="halloween"] .home-page > .left > header {
+  position: relative;
+  isolation: isolate;
+}
+
+html[data-home-season="halloween"] .home-page > .left > header::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 112px;
+  height: 112px;
+  background: var(--home-season-button-web) top right / contain no-repeat;
+  opacity: 0.85;
+  pointer-events: none;
+  z-index: 0;
+}
+
+html[data-home-season="halloween"] .home-page > .left > header > .left-title {
+  position: relative;
+  z-index: 1;
+}
+
+html[data-home-season="halloween"] .home-page .create-room-button {
+  position: relative;
+  isolation: isolate;
+  overflow: visible;
+  z-index: 1;
+  --ui-button-radius: 20px;
+  --ui-button-padding-x: 22px;
+}
+
+html[data-home-season="halloween"] .home-page .create-room-button:not(:disabled) {
+  --ui-button-color: #fff;
+  --ui-button-hover-color: #fff;
+  background: linear-gradient(110deg, #ff971e 0%, #ff6a08 49%, #f44d02 100%);
+  box-shadow: inset 0 1px 1px #fff7, inset 0 0 0 1px #ffc582a6, 0 4px 24px #e85a0024;
+}
+
+html[data-home-season="halloween"] .home-page .create-room-button:not(:disabled):is(:hover, :focus-visible) {
+  background: linear-gradient(110deg, #ffac40 0%, #ff7b18 49%, #ff5a09 100%);
+  box-shadow: inset 0 1px 1px #fff9, inset 0 0 0 1px #ffd79ac7, 0 4px 28px #e85a0040;
+}
+
+html[data-home-season="halloween"] .home-page .create-room-button:focus-visible {
+  outline: 2px solid #83c9c8;
+  outline-offset: 5px;
+}
+
+html[data-home-season="halloween"] .home-page .create-room-button::after {
+  content: "";
+  position: absolute;
+  top: -27px;
+  right: -22px;
+  bottom: -22px;
+  left: -22px;
+  background: var(--home-season-button-fingers) center / 100% 100% no-repeat;
+  pointer-events: none;
+  z-index: 2;
+}
+
+html[data-home-season="halloween"] .home-page .create-room-button:disabled::after {
+  opacity: 0.42;
+}
+
+html[data-home-season="halloween"] .home-page .create-room-button > .ui-button__text,
+html[data-home-season="halloween"] .home-page .create-room-button > .ui-button__icon {
+  position: relative;
+  z-index: 3;
+}
+
+/* Header is shared by routes; the extra homepage presence check keeps this local. */
+html[data-home-season="halloween"]:has(.home-page) .bar .links > .home {
+  position: relative;
+  gap: 6px;
+  overflow: visible;
+}
+
+html[data-home-season="halloween"]:has(.home-page) .bar .links > .home > img {
+  content: var(--home-season-logo);
+  width: 121.6px;
+  height: 52px;
+  object-fit: contain;
+  transform: translateY(6px);
+}
+
+html[data-home-season="halloween"]:has(.home-page) .bar .links > .home::after {
+  content: "";
+  display: block;
+  flex: 0 0 46px;
+  width: 46px;
+  height: 46px;
+  background: var(--home-season-evil-pumpkin) center / contain no-repeat;
+  pointer-events: none;
+}
+
+

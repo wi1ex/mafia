@@ -7,11 +7,13 @@
       </article>
 
       <article v-else-if="baseSlideIndex === 0" key="slide-1" class="slide">
-        <img class="background-image" :src="imageSlide1" alt="deceit — место, где игра превращается в общение: собирайтесь в комнаты, играйте в мафию и не только, общайтесь, смотрите и проводите время вместе." />
+        <img class="background-image" :src="seasonImage(0, imageSlide1)" alt="deceit — место, где игра превращается в общение: собирайтесь в комнаты, играйте в мафию и не только, общайтесь, смотрите и проводите время вместе." @error="resetHomeSeason" />
+        <SeasonalSlideCopy v-if="seasonActive" :slide="1" />
       </article>
 
       <article v-else-if="baseSlideIndex === 1" key="slide-2" class="slide">
-        <img class="background-image" :src="imageSlide2" alt="Проводите время вместе — от игр до фильмов." />
+        <img class="background-image" :src="seasonImage(1, imageSlide2)" alt="Проводите время вместе — от игр до фильмов." @error="resetHomeSeason" />
+        <SeasonalSlideCopy v-if="seasonActive" :slide="2" />
         <div class="slide-div">
           <div class="slide-top">
             <h2 class="slide-title">Трансляции</h2>
@@ -26,7 +28,8 @@
       </article>
 
       <article v-else-if="baseSlideIndex === 2" key="slide-3" class="slide">
-        <img class="background-image" :src="imageSlide3" alt="Следи за своим уровнем игры и становись сильнее!" />
+        <img class="background-image" :src="seasonImage(2, imageSlide3)" alt="Следи за своим уровнем игры и становись сильнее!" @error="resetHomeSeason" />
+        <SeasonalSlideCopy v-if="seasonActive" :slide="3" />
         <div class="slide-div">
           <div class="slide-top">
             <h2 class="slide-title">Статистика</h2>
@@ -41,7 +44,8 @@
       </article>
 
       <article v-else-if="baseSlideIndex === 3" key="slide-4" class="slide">
-        <img class="background-image" :src="imageSlide4" alt="Пространство для общения и новых знакомств!" />
+        <img class="background-image" :src="seasonImage(3, imageSlide4)" alt="Пространство для общения и новых знакомств!" @error="resetHomeSeason" />
+        <SeasonalSlideCopy v-if="seasonActive" :slide="4" />
         <div class="slide-div">
           <div class="slide-top">
             <h2 class="slide-title">Комьюнити</h2>
@@ -56,7 +60,8 @@
       </article>
 
       <article v-else key="install" class="slide">
-        <img class="background-image" :src="imageSlide5" alt="Запусти платформу как отдельное приложение." />
+        <img class="background-image" :src="seasonImage(4, imageSlide5)" alt="Запусти платформу как отдельное приложение." @error="resetHomeSeason" />
+        <SeasonalSlideCopy v-if="seasonActive" :slide="5" />
         <div class="slide-div">
           <div class="slide-top">
             <h2 class="slide-title">Web App</h2>
@@ -101,6 +106,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { requestPwaInstall, usePwaInstallState } from '@/services/pwa'
+import { useHomeSeason } from '../../halloween/homeSeason'
+import SeasonalSlideCopy from '../../halloween/SeasonalSlideCopy.vue'
 import { useSettingsStore } from '@/store'
 
 import UiTooltip from '@/components/UiTooltip.vue'
@@ -116,6 +123,7 @@ import imageSlide4 from '@/assets/images/carousel-image4.png'
 import imageSlide5 from '@/assets/images/carousel-image5.png'
 
 const AUTOPLAY_DELAY_MS = 10000
+const { seasonActive, seasonImage, resetHomeSeason } = useHomeSeason()
 
 const activeIndex = ref(0)
 const slideDirection = ref<1 | -1>(1)

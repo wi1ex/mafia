@@ -1,0 +1,133 @@
+diff --git b/frontend/src/pages/Home.vue a/frontend/src/pages/Home.vue
+index 1e4f0bc6..7915433e 100644
+--- b/frontend/src/pages/Home.vue
++++ a/frontend/src/pages/Home.vue
+@@ -1,5 +1,5 @@
+ <template>
+-  <main class="card home-page">
++  <main class="card">
+     <div class="left" :class="{ 'left--top-banner': topBannerActive }">
+       <header>
+         <h1 class="left-title">Список комнат</h1>
+@@ -200,7 +200,7 @@
+         </Transition>
+       </aside>
+       <div class="right-extra right-extra--primary">
+-        <img class="background-image-6" :src="seasonImage(5, imageSlide6)" alt="" aria-hidden="true" @error="resetHomeSeason" />
++        <img class="background-image-6" :src="imageSlide6" alt="" aria-hidden="true" />
+         <div class="right-extra-content">
+           <div class="right-extra-copy-subscription">
+             <span>Оформи подписку и открой</span>
+@@ -213,7 +213,7 @@
+       </div>
+ 
+       <div class="right-extra right-extra--secondary">
+-        <img class="background-image-7" :src="seasonImage(6, imageSlide7)" alt="" aria-hidden="true" @error="resetHomeSeason" />
++        <img class="background-image-7" :src="imageSlide7" alt="" aria-hidden="true" />
+         <div class="right-extra-content">
+           <div class="right-extra-copy-connect">
+             <span>Связаться с администрацией платформы</span>
+@@ -246,7 +246,6 @@ import { alertDialog, confirmDialog } from '@/services/confirm'
+ import { api } from '@/services/axios'
+ import { canOpenMiniProfileTarget, normalizeMiniProfileUserId } from '@/services/miniProfile'
+ import { roomGameDefault, type RoomGameParams } from '@/services/gameParams'
+-import { useHomeSeason } from '../../halloween/homeSeason'
+ import { useAuthStore, useSettingsStore, useUserStore } from '@/store'
+ import Carousel from '@/views/Carousel.vue'
+ import RoomModal from '@/views/RoomModal.vue'
+@@ -275,8 +274,6 @@ import iconTwitch from '@/assets/svg/iconTwitch.svg'
+ import imageSlide6 from '@/assets/images/carousel-image6.png'
+ import imageSlide7 from '@/assets/images/carousel-image7.png'
+ 
+-const { seasonImage, resetHomeSeason } = useHomeSeason()
+-
+ type Room = {
+   id: number
+   title: string
+diff --git b/frontend/src/views/Carousel.vue a/frontend/src/views/Carousel.vue
+index c688946d..378f702e 100644
+--- b/frontend/src/views/Carousel.vue
++++ a/frontend/src/views/Carousel.vue
+@@ -7,13 +7,11 @@
+       </article>
+ 
+       <article v-else-if="baseSlideIndex === 0" key="slide-1" class="slide">
+-        <img class="background-image" :src="seasonImage(0, imageSlide1)" alt="deceit — место, где игра превращается в общение: собирайтесь в комнаты, играйте в мафию и не только, общайтесь, смотрите и проводите время вместе." @error="resetHomeSeason" />
+-        <SeasonalSlideCopy v-if="seasonActive" :slide="1" />
++        <img class="background-image" :src="imageSlide1" alt="deceit — место, где игра превращается в общение: собирайтесь в комнаты, играйте в мафию и не только, общайтесь, смотрите и проводите время вместе." />
+       </article>
+ 
+       <article v-else-if="baseSlideIndex === 1" key="slide-2" class="slide">
+-        <img class="background-image" :src="seasonImage(1, imageSlide2)" alt="Проводите время вместе — от игр до фильмов." @error="resetHomeSeason" />
+-        <SeasonalSlideCopy v-if="seasonActive" :slide="2" />
++        <img class="background-image" :src="imageSlide2" alt="Проводите время вместе — от игр до фильмов." />
+         <div class="slide-div">
+           <div class="slide-top">
+             <h2 class="slide-title">Трансляции</h2>
+@@ -28,8 +26,7 @@
+       </article>
+ 
+       <article v-else-if="baseSlideIndex === 2" key="slide-3" class="slide">
+-        <img class="background-image" :src="seasonImage(2, imageSlide3)" alt="Следи за своим уровнем игры и становись сильнее!" @error="resetHomeSeason" />
+-        <SeasonalSlideCopy v-if="seasonActive" :slide="3" />
++        <img class="background-image" :src="imageSlide3" alt="Следи за своим уровнем игры и становись сильнее!" />
+         <div class="slide-div">
+           <div class="slide-top">
+             <h2 class="slide-title">Статистика</h2>
+@@ -44,8 +41,7 @@
+       </article>
+ 
+       <article v-else-if="baseSlideIndex === 3" key="slide-4" class="slide">
+-        <img class="background-image" :src="seasonImage(3, imageSlide4)" alt="Пространство для общения и новых знакомств!" @error="resetHomeSeason" />
+-        <SeasonalSlideCopy v-if="seasonActive" :slide="4" />
++        <img class="background-image" :src="imageSlide4" alt="Пространство для общения и новых знакомств!" />
+         <div class="slide-div">
+           <div class="slide-top">
+             <h2 class="slide-title">Комьюнити</h2>
+@@ -60,8 +56,7 @@
+       </article>
+ 
+       <article v-else key="install" class="slide">
+-        <img class="background-image" :src="seasonImage(4, imageSlide5)" alt="Запусти платформу как отдельное приложение." @error="resetHomeSeason" />
+-        <SeasonalSlideCopy v-if="seasonActive" :slide="5" />
++        <img class="background-image" :src="imageSlide5" alt="Запусти платформу как отдельное приложение." />
+         <div class="slide-div">
+           <div class="slide-top">
+             <h2 class="slide-title">Web App</h2>
+@@ -106,8 +101,6 @@
+ <script setup lang="ts">
+ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+ import { requestPwaInstall, usePwaInstallState } from '@/services/pwa'
+-import { useHomeSeason } from '../../halloween/homeSeason'
+-import SeasonalSlideCopy from '../../halloween/SeasonalSlideCopy.vue'
+ import { useSettingsStore } from '@/store'
+ 
+ import UiTooltip from '@/components/UiTooltip.vue'
+@@ -123,7 +116,6 @@ import imageSlide4 from '@/assets/images/carousel-image4.png'
+ import imageSlide5 from '@/assets/images/carousel-image5.png'
+ 
+ const AUTOPLAY_DELAY_MS = 10000
+-const { seasonActive, seasonImage, resetHomeSeason } = useHomeSeason()
+ 
+ const activeIndex = ref(0)
+ const slideDirection = ref<1 | -1>(1)
+diff --git b/frontend/vite.config.ts a/frontend/vite.config.ts
+index 25d9bd49..0f25bc7f 100644
+--- b/frontend/vite.config.ts
++++ a/frontend/vite.config.ts
+@@ -2,7 +2,6 @@ import { defineConfig } from 'vite'
+ import vue from '@vitejs/plugin-vue'
+ import path from 'node:path'
+ import compression from 'vite-plugin-compression'
+-import halloweenThemePlugin from './halloween/vite-plugin.ts'
+ 
+ const vendorChunkRules: Array<[string, string]> = [
+   ['/node_modules/vue/', 'vue-vendor'],
+@@ -44,7 +43,6 @@ function vendorChunkFor(id: string): string | undefined {
+ export default defineConfig({
+   plugins: [
+     vue(),
+-    halloweenThemePlugin(),
+     compression({ algorithm: 'gzip' }),
+   ],
+   resolve: {
