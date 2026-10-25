@@ -34,9 +34,6 @@ async def lifespan(app) -> AsyncIterator[None]:
                 "ALTER TABLE settings ADD COLUMN IF NOT EXISTS subscription_roulette_state bigint NOT NULL DEFAULT 0"
             ))
             await conn.execute(text(
-                "ALTER TABLE settings ADD COLUMN IF NOT EXISTS streams_fullscreen_enabled boolean NOT NULL DEFAULT false"
-            ))
-            await conn.execute(text(
                 "ALTER TABLE settings DROP COLUMN IF EXISTS streams_can_start"
             ))
 

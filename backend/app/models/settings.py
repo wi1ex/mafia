@@ -19,7 +19,6 @@ class AppSettings(Base):
     rooms_can_enter: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.ROOMS_CAN_ENTER))
     games_can_start: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.GAMES_CAN_START))
     rating_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.RATING_ENABLED))
-    streams_fullscreen_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.STREAMS_FULLSCREEN_ENABLED))
     chat_open_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.CHAT_OPEN_ENABLED))
     verification_restrictions: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.VERIFICATION_RESTRICTIONS))
     rtc_echo_cancellation_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.RTC_ECHO_CANCELLATION_ENABLED))

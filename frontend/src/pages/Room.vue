@@ -121,10 +121,10 @@
         />
       </div>
 
-      <div v-else ref="theaterEl" class="theater" :class="{ 'theater--grid': isScreenGridLayout, 'theater--fullscreen': settings.streamsFullscreenEnabled && !isScreenGridLayout }">
+      <div v-else ref="theaterEl" class="theater" :class="{ 'theater--grid': isScreenGridLayout, 'theater--fullscreen': isScreenFullscreen && !isScreenGridLayout }">
         <div
           class="stage"
-          :class="{ 'stage--dragging': isScreenStageDragging, 'stage--resizing': isScreenStageResizing }"
+          :class="{ 'stage--dragging': isScreenStageDragging, 'stage--resizing': isScreenStageResizing, 'stage--resizable': !IS_MOBILE }"
           :style="isScreenGridLayout ? screenStageStyle : undefined"
           @pointerdown="startScreenStageDrag"
           @pointermove="moveScreenStage"
@@ -154,7 +154,23 @@
             <UiIcon class="layout-toggle__icon" :icon="isScreenGridLayout ? iconTheater : iconGrid" />
           </button>
           <button
-            v-if="isScreenGridLayout"
+            v-if="!isScreenGridLayout"
+            type="button"
+            class="screen-sidebar-toggle"
+            :class="{ 'screen-sidebar-toggle--hidden': isScreenFullscreen }"
+            :aria-label="isScreenFullscreen ? 'Показать веб-камеры участников' : 'Скрыть веб-камеры участников'"
+            :title="isScreenFullscreen ? 'Показать веб-камеры участников' : 'Скрыть веб-камеры участников'"
+            :aria-expanded="!isScreenFullscreen"
+            aria-controls="screen-participants"
+            @pointerdown.stop
+            @keydown.enter.stop
+            @keydown.space.stop
+            @click.stop="toggleScreenFullscreen"
+          >
+            <UiIcon class="screen-sidebar-toggle__icon" :icon="iconArrow" />
+          </button>
+          <button
+            v-if="isScreenGridLayout && !IS_MOBILE"
             type="button"
             class="stage-resize"
             aria-label="Изменить размер окна трансляции"
@@ -164,7 +180,7 @@
           />
         </div>
 
-        <div class="sidebar" :style="isScreenGridLayout ? gridStyle : undefined">
+        <div id="screen-participants" class="sidebar" :style="isScreenGridLayout ? gridStyle : undefined">
           <RoomTile
             v-for="id in sortedPeerIds"
             :key="id"
@@ -590,6 +606,7 @@ import iconDotBig from '@/assets/svg/iconDotBig.svg'
 import iconClose from '@/assets/svg/iconClose.svg'
 import iconGrid from '@/assets/svg/iconGrid.svg'
 import iconTheater from '@/assets/svg/iconTheater.svg'
+import iconArrow from '@/assets/svg/iconArrow.svg'
 
 import iconMicOn from '@/assets/svg/iconMicOn.svg'
 import iconMicOff from '@/assets/svg/iconMicOff.svg'
@@ -829,6 +846,7 @@ const volumeSnapTimers = new Map<string, number>()
 const screenOwnerId = ref<string>('')
 const screenQuality = ref<ScreenShareQuality>('low')
 const isScreenGridLayout = ref(true)
+const isScreenFullscreen = ref(false)
 const theaterEl = ref<HTMLElement | null>(null)
 const SCREEN_STAGE_WIDTH = 640
 const SCREEN_STAGE_HEIGHT = 360
@@ -2354,6 +2372,7 @@ function clearScreenVolume(id: string | null | undefined) {
 
 function setScreenOwner(id: string, quality?: unknown) {
   const prev = screenOwnerId.value
+  if (id !== prev) isScreenFullscreen.value = false
   if (id && id !== prev) {
     isScreenGridLayout.value = true
     resetScreenStagePosition()
@@ -2367,8 +2386,16 @@ function setScreenOwner(id: string, quality?: unknown) {
 
 function toggleScreenLayout() {
   endScreenStageGesture()
+  isScreenFullscreen.value = false
   isScreenGridLayout.value = !isScreenGridLayout.value
-  if (isScreenGridLayout.value) void nextTick(constrainScreenStage)
+  if (isScreenGridLayout.value) {
+    screenStageScale.value = 1
+    void nextTick(constrainScreenStage)
+  }
+}
+
+function toggleScreenFullscreen() {
+  if (!isScreenGridLayout.value) isScreenFullscreen.value = !isScreenFullscreen.value
 }
 
 const screenStageStyle = computed(() => ({
@@ -2410,6 +2437,7 @@ function resizeScreenStage(scale: number) {
 }
 
 function resizeScreenStageWithKeyboard(event: KeyboardEvent) {
+  if (IS_MOBILE) return
   let scale = screenStageScale.value
   if (event.key === 'Home') scale = 1
   else if (event.key === 'End') scale = SCREEN_STAGE_MAX_SCALE
@@ -2442,7 +2470,7 @@ function startScreenStageDrag(event: PointerEvent) {
 }
 
 function startScreenStageResize(event: PointerEvent) {
-  if (!isScreenGridLayout.value || event.button !== 0 || screenStageGesture.value) return
+  if (IS_MOBILE || !isScreenGridLayout.value || event.button !== 0 || screenStageGesture.value) return
   const stage = (event.currentTarget as HTMLElement).closest<HTMLElement>('.stage')
   if (!stage || !theaterEl.value) return
   screenStageGesture.value = {
@@ -4461,6 +4489,38 @@ onBeforeUnmount(() => {
           --ui-icon-color: #{$neutral-100};
         }
       }
+      .screen-sidebar-toggle {
+        display: flex;
+        position: absolute;
+        align-items: center;
+        justify-content: center;
+        top: 50%;
+        right: 0;
+        transform: translateY(-50%);
+        width: 28px;
+        height: 56px;
+        padding: 0;
+        border: 2px solid $green-700;
+        border-right: none;
+        border-radius: 12px 0 0 12px;
+        background-color: $soft-purple-900;
+        cursor: pointer;
+        z-index: 20;
+        transition: background-color 0.25s ease-in-out;
+        &:hover,
+        &:focus-visible {
+          background-color: $soft-purple-800;
+        }
+        .screen-sidebar-toggle__icon {
+          --ui-icon-width: 24px;
+          --ui-icon-height: 24px;
+          --ui-icon-color: #{$neutral-100};
+          transform: rotate(-90deg);
+        }
+        &.screen-sidebar-toggle--hidden .screen-sidebar-toggle__icon {
+          transform: rotate(90deg);
+        }
+      }
     }
     .sidebar {
       display: flex;
@@ -4499,7 +4559,7 @@ onBeforeUnmount(() => {
         &.stage--resizing {
           cursor: nwse-resize;
         }
-        .layout-toggle {
+        &.stage--resizable .layout-toggle {
           bottom: 56px;
         }
         .stage-resize {

@@ -14,7 +14,6 @@ export interface PublicSettings {
   rooms_can_enter: boolean
   games_can_start: boolean
   rating_enabled: boolean
-  streams_fullscreen_enabled: boolean
   chat_open_enabled: boolean
   verification_restrictions: boolean
   rtc_echo_cancellation_enabled: boolean
@@ -52,7 +51,6 @@ const PUBLIC_SETTINGS_KEYS: readonly (keyof PublicSettings)[] = [
   'rooms_can_enter',
   'games_can_start',
   'rating_enabled',
-  'streams_fullscreen_enabled',
   'chat_open_enabled',
   'verification_restrictions',
   'rtc_echo_cancellation_enabled',
@@ -80,7 +78,6 @@ export const useSettingsStore = defineStore('settings', () => {
   const roomsCanEnter = ref(true)
   const gamesCanStart = ref(true)
   const ratingEnabled = ref(true)
-  const streamsFullscreenEnabled = ref(false)
   const chatOpenEnabled = ref(true)
   const verificationRestrictions = ref(true)
   const rtcEchoCancellationEnabled = ref(true)
@@ -178,7 +175,6 @@ export const useSettingsStore = defineStore('settings', () => {
     roomsCanEnter.value = Boolean(data.rooms_can_enter)
     gamesCanStart.value = Boolean(data.games_can_start)
     ratingEnabled.value = Boolean(data.rating_enabled)
-    streamsFullscreenEnabled.value = Boolean(data.streams_fullscreen_enabled)
     chatOpenEnabled.value = Boolean(data.chat_open_enabled)
     verificationRestrictions.value = Boolean(data.verification_restrictions)
     rtcEchoCancellationEnabled.value = Boolean(data.rtc_echo_cancellation_enabled)
@@ -280,7 +276,6 @@ export const useSettingsStore = defineStore('settings', () => {
     roomsCanEnter,
     gamesCanStart,
     ratingEnabled,
-    streamsFullscreenEnabled,
     chatOpenEnabled,
     verificationRestrictions,
     rtcEchoCancellationEnabled,
