@@ -251,4 +251,47 @@ html[data-home-season="halloween"] .bar .links > .home::after {
   pointer-events: none;
 }
 
+/* Profile: two small claws around the existing button; personal backgrounds stay intact. */
+html[data-home-season="halloween"] .bar .user > .user-menu > .profile-btn.profile-dropdown-trigger {
+  overflow: visible;
+  box-shadow: inset 0 0 0 1px #9f704cbb, inset 0 1px 0 #d1c0c128;
+  transition: box-shadow 0.25s ease-in-out;
+}
 
+html[data-home-season="halloween"] .bar .user > .user-menu > .profile-btn.profile-dropdown-trigger:not(:disabled):is(:hover, :focus-visible, :active, [aria-expanded="true"]) {
+  box-shadow: 0 0 0 1px #e8a166, 0 2px 14px #ab691c30;
+}
+
+html[data-home-season="halloween"] .bar .user > .user-menu > .profile-btn.profile-dropdown-trigger:focus-visible {
+  outline: 2px solid #8ad4d0;
+  outline-offset: 5px;
+}
+
+html[data-home-season="halloween"] .bar .user > .user-menu > .profile-btn.profile-dropdown-trigger > .avatar {
+  box-shadow: 0 0 0 1px #b67e48;
+}
+
+/* Using the wrapper for one claw preserves the button's existing ::after hover layer. */
+html[data-home-season="halloween"] .bar .user > .user-menu::before,
+html[data-home-season="halloween"] .bar .user > .user-menu > .profile-btn.profile-dropdown-trigger::before {
+  content: "";
+  position: absolute;
+  top: -10px;
+  width: 30px;
+  height: 30px;
+  background-image: var(--home-season-button-fingers);
+  background-size: 180px 71px;
+  background-repeat: no-repeat;
+  pointer-events: none;
+  z-index: 3;
+}
+
+html[data-home-season="halloween"] .bar .user > .user-menu::before {
+  left: 9px;
+  background-position: -12px 0;
+}
+
+html[data-home-season="halloween"] .bar .user > .user-menu > .profile-btn.profile-dropdown-trigger::before {
+  right: 7px;
+  background-position: -134px 0;
+}
