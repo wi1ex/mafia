@@ -4500,26 +4500,26 @@ onBeforeUnmount(() => {
           cursor: nwse-resize;
         }
         .layout-toggle {
-          right: 44px;
+          bottom: 56px;
         }
         .stage-resize {
           position: absolute;
-          right: 4px;
-          bottom: 4px;
-          width: 32px;
-          height: 32px;
+          right: 8px;
+          bottom: 8px;
+          width: 40px;
+          height: 40px;
           padding: 0;
           border: none;
-          border-radius: 4px 4px 16px 4px;
-          background: transparent;
+          border-radius: 12px;
+          background-color: $soft-purple-900;
           color: $neutral-100;
           cursor: nwse-resize;
           touch-action: none;
           &::after {
             content: '';
             position: absolute;
-            right: 7px;
-            bottom: 7px;
+            right: 8px;
+            bottom: 8px;
             width: 16px;
             height: 16px;
             background: linear-gradient(135deg, transparent 45%, currentColor 45% 55%, transparent 55% 70%, currentColor 70% 80%, transparent 80%);
