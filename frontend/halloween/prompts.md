@@ -1,18 +1,22 @@
 # Выбранный комплект Halloween
 
-Использован встроенный image_gen. Серия1 исключена.
+Для исходного комплекта использован встроенный image_gen. Серия1 исключена. Позже первые два слайда заменены файлами пользователя без генерации и без редактирования текста (см. раздел замены ниже).
 
 | Ресурс | Выбор |
 |---|---|
-| Слайд1 | Серия2 |
-| Слайд2 | Серия3 |
+| Слайд1 | Новое прикреплённое изображение пользователя: две тыквенные монеты |
+| Слайд2 | Новое прикреплённое изображение пользователя: трансляции, регистрации и тыква |
 | Слайд3 | Серия3 |
 | Слайд4 | Серия3 |
 | Слайд5 | Серия2 |
 | Подписка | Серия2 |
 | Обратная связь | Серия3 |
 
-## Общий промпт
+## Замена первых двух слайдов
+
+Файл `codex-clipboard-8f43df6b-548e-46aa-82af-a47709071ab4.png` скопирован как `carousel-image1.png`; `codex-clipboard-b30a4365-9880-4b93-808f-3e6e387559cd.png` — как `carousel-image2.png`. Оба 1448×1086, сохранены побайтно, без image_gen и без изменения надписей. В `theme.css` скрыт повторный HTML-текст слайдов 1–2 и задано вписывание без обрезки. Промпты ниже для этих двух файлов относятся к прежним версиям; слайды 3–7 остаются прежними.
+
+## Общий промпт исходного комплекта
 
 Use case: precise-object-edit. Asset type: ONE final background artwork for an existing Russian gaming website, not a UI mockup, not a moodboard.
 Input image 1 is the user's SELECTED concept sheet and the edit target. Extract/reconstruct ONLY the specified panel at full quality as a standalone image. Preserve the selected panel's particular object shapes, material, angle, lighting, palette and mood as closely as possible. The user already selected this image; DO NOT invent a new visual direction. Input image 2 is the old live-site image; use it ONLY to understand the original near-square aspect ratio, brand logo identity and free-space requirements, do not transfer its old teal-purple palette.

@@ -71,6 +71,7 @@ body{margin:0;background:#090e11}
 #home-options .home-carousel{width:607px;height:494px;position:relative;overflow:hidden;border-radius:24px;flex:none}
 #home-options .slide{position:absolute;inset:0}
 #home-options .background-image{position:absolute;inset:0;width:607px;height:494px;object-fit:cover;border-radius:24px}
+#home-options .slide:has(.seasonal-copy--1,.seasonal-copy--2) .background-image{object-fit:contain}
 #home-options .chip{position:absolute;top:24px;left:24px;z-index:5;padding:8px 12px;border:1px solid #ffffff45;border-radius:12px;background:#ffffff12;backdrop-filter:blur(4px);font-size:16px;line-height:16px;color:#ddd}
 #home-options .carousel-controls{position:absolute;z-index:5;bottom:16px;left:24px;right:24px;display:flex;align-items:center;justify-content:space-between;height:40px}
 #home-options .nav-btn{display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:12px;border:0;font:25px Arial;color:white}
@@ -193,8 +194,8 @@ body{margin:0;background:#090e11}
       '<span class="room-cell owner"><img class="avatar" src="../src/assets/svg/iconDefaultAvatar.svg" alt="">' + r[2] + '</span><span class="occupancy">' + r[3] + '</span></button>';
   }).join('');
   var slides = [
-    { title: '', copy: '<p class="seasonal-copy-title"><span class="seasonal-copy-accent">deceit</span> — место, где игра<br>превращается в общение!</p><p class="seasonal-copy-body">Собирайтесь в комнаты, играйте в мафию<br>и не только, общайтесь, стримьте<br>и проводите время вместе.</p>' },
-    { title: 'Трансляции', copy: '<p class="seasonal-copy-title">Проводите время <span class="seasonal-copy-accent">вместе</span> —<br>от игр до фильмов</p><p class="seasonal-copy-meta">1000+ регистраций на платформе</p>' },
+    { title: '', copy: '', alt: 'deceit — место, где игра превращается в общение! Собирайтесь в комнаты, играйте в мафию и не только, общайтесь, стримьте и проводите время вместе.' },
+    { title: 'Трансляции', copy: '', alt: 'Проводите время вместе — от игр до фильмов. 1000+ регистраций на платформе.' },
     { title: 'Статистика', copy: '<p class="seasonal-copy-caption">Следи за своим уровнем<br>игры и <span class="seasonal-copy-accent">становись сильнее!</span></p>' },
     { title: 'Комьюнити', copy: '<p class="seasonal-copy-caption">Пространство для <span class="seasonal-copy-accent">общения</span><br>и новых знакомств!</p>' },
     { title: 'Web App', copy: '<p class="seasonal-copy-caption">Запусти платформу как<br><span class="seasonal-copy-accent">отдельное</span> приложение</p>' }
@@ -202,7 +203,7 @@ body{margin:0;background:#090e11}
   var activeSlide = 0;
   function renderSlide() {
     var s = slides[activeSlide];
-    root.querySelector('#slide-content').innerHTML = '<img class="background-image" src="./carousel-image' + (activeSlide + 1) + '.png" alt="">' +
+    root.querySelector('#slide-content').innerHTML = '<img class="background-image" src="./carousel-image' + (activeSlide + 1) + '.png" alt="' + (s.alt || '') + '">' +
       '<div class="seasonal-copy seasonal-copy--' + (activeSlide + 1) + '">' + s.copy + '</div>' +
       (s.title ? '<span class="chip">' + s.title + '</span>' : '') +
       (activeSlide === 4 ? '<button class="install" type="button">Установить</button>' : '');

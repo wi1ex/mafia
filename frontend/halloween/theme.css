@@ -18,6 +18,16 @@ html[data-home-season="halloween"] .home-page .home-carousel .background-image {
   object-fit: cover;
 }
 
+/* These two supplied artworks already contain their copy; keep every edge visible. */
+html[data-home-season="halloween"] .home-page .home-carousel .slide:has(.seasonal-copy--1, .seasonal-copy--2) .background-image {
+  object-fit: contain;
+}
+
+html[data-home-season="halloween"] .home-page .home-carousel .seasonal-copy--1,
+html[data-home-season="halloween"] .home-page .home-carousel .seasonal-copy--2 {
+  display: none;
+}
+
 html[data-home-season="halloween"] .home-page .home-carousel .seasonal-copy {
   position: absolute;
   inset: 0;
