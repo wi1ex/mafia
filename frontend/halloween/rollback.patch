@@ -1,3 +1,24 @@
+diff --git b/frontend/src/views/Header.vue a/frontend/src/views/Header.vue
+index e733082f..2713b088 100644
+--- b/frontend/src/views/Header.vue
++++ a/frontend/src/views/Header.vue
+@@ -156,7 +156,6 @@ import MiniProfile from '@/views/MiniProfile.vue'
+ import UiIcon from '@/components/UiIcon.vue'
+ import { api } from '@/services/axios'
+ import { alertDialog, confirmDialog } from '@/services/confirm'
+-import { useHomeSeason } from '../../halloween/homeSeason'
+
+ import iconTelegram from "@/assets/svg/iconTelegram.svg"
+ import iconWarning from "@/assets/svg/iconWarning.svg"
+@@ -176,8 +175,6 @@ import iconLogout from '@/assets/svg/iconLeave.svg'
+ import { buildProfileThemeStyle } from '@/constants/profileThemes'
+ import { getProfileThemeBadgeSources } from '@/constants/profileIcons'
+
+-useHomeSeason()
+-
+ const auth = useAuthStore()
+ const user = useUserStore()
+ const notif = useNotifStore()
 diff --git b/frontend/src/pages/Home.vue a/frontend/src/pages/Home.vue
 index 1e4f0bc6..7915433e 100644
 --- b/frontend/src/pages/Home.vue
