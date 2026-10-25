@@ -1,11 +1,11 @@
 # Выбранный комплект Halloween
 
-Для исходного комплекта использован встроенный image_gen. Серия1 исключена. Позже первые два слайда заменены файлами пользователя без генерации и без редактирования текста (см. раздел замены ниже).
+Для исходного комплекта использован встроенный image_gen. Серия1 исключена. Позже первые два слайда заменены файлами пользователя, а затем надпись второго слайда обновлена отдельно (см. разделы ниже).
 
 | Ресурс | Выбор |
 |---|---|
 | Слайд1 | Новое прикреплённое изображение пользователя: две тыквенные монеты |
-| Слайд2 | Новое прикреплённое изображение пользователя: трансляции, регистрации и тыква |
+| Слайд2 | Прикреплённое изображение пользователя: трансляции, «1500+ уникальных пользователей» и тыква |
 | Слайд3 | Серия3 |
 | Слайд4 | Серия3 |
 | Слайд5 | Серия2 |
@@ -14,7 +14,37 @@
 
 ## Замена первых двух слайдов
 
-Файл `codex-clipboard-8f43df6b-548e-46aa-82af-a47709071ab4.png` скопирован как `carousel-image1.png`; `codex-clipboard-b30a4365-9880-4b93-808f-3e6e387559cd.png` — как `carousel-image2.png`. Оба 1448×1086, сохранены побайтно, без image_gen и без изменения надписей. В `theme.css` скрыт повторный HTML-текст слайдов 1–2 и задано вписывание без обрезки. Промпты ниже для этих двух файлов относятся к прежним версиям; слайды 3–7 остаются прежними.
+Файл `codex-clipboard-8f43df6b-548e-46aa-82af-a47709071ab4.png` скопирован как `carousel-image1.png`; `codex-clipboard-b30a4365-9880-4b93-808f-3e6e387559cd.png` первоначально скопирован как `carousel-image2.png`. На этом этапе оба файла 1448×1086 были сохранены побайтно, без image_gen и без изменения надписей. В `theme.css` скрыт повторный HTML-текст слайдов 1–2 и задано вписывание без обрезки. Промпты исходного комплекта ниже относятся к прежним версиям; слайды 3–7 остаются прежними.
+
+## Актуальная надпись второго слайда
+
+По просьбе пользователя в обычном `frontend/src/assets/images/carousel-image2.png` и сезонном `frontend/halloween/carousel-image2.png` надпись «1000+ регистраций на платформе» заменена на точную строку **«1500+ уникальных пользователей»** с сохранением оформления каждой картинки. Для правки PNG использован встроенный image_gen. Текстовый слой `SeasonalSlideCopy.vue` и `alt` обоих локальных превью приведены к той же строке; сезонный HTML-слой слайда 2 по-прежнему скрыт, чтобы не дублировать надпись на картинке. Изменение обычной версии сохраняется после отката Halloween. Исторические промпты ниже не описывают эту последующую правку.
+
+После генерации обычная версия приведена к исходному размеру 607×494 обычным уменьшением PNG с сохранением прозрачности, без повторной генерации изображения. Сезонная версия остаётся 1448×1086.
+
+### Промпт правки обычной версии
+
+```text
+Use case: text-localization.
+Image 1 is the ONLY EDIT TARGET: the original cool purple/teal website carousel slide. It has rounded outer corners with transparent outside pixels; preserve this alpha.
+Image 2 is a text reference showing the corrected wording, NOT a replacement background or layout.
+Change just the LOWER plaque line from "1000+ регистраций на платформе" to EXACT "1500+ уникальных пользователей", with "1500+" bold and remaining words regular light gray, matching image1 font, baseline, color and line height. One line to the right of the SAME three avatars, fit within the same lower plaque. Preserve ALL other artwork and text from image1, not image2. Do not regenerate the faces, top broadcast icon, abstract purple waves or top lettering. Preserve composition and original 607:494 aspect.
+TRANSPARENCY: retain the entire colored rectangular artwork and dark abstract background as OPAQUE. Transparency ONLY in the tiny areas OUTSIDE the original rounded outer corners. DO NOT remove any internal background; this is a complete website banner, not a foreground cutout. Same subtle 24px corner radius at source 607x494 scale, preserving corner alpha. No black/white fill outside corners.
+Only replace the exact text line. Preserve all rest of source image1 visually unchanged. Complete finished full slide with original background, no extra frame, mockup, labels or watermark.
+```
+
+### Промпт правки Halloween-версии
+
+```text
+Use case: text-localization.
+Edit target: the ONE supplied existing carousel slide image, not a new design.
+Task: Replace ONLY the single lower-plaque text line "1000+ регистраций на платформе" with the exact Russian text "1500+ уникальных пользователей".
+Exact spelling: 1500+ уникальных пользователей
+The plus sign belongs immediately after 1500. Spell Cyrillic exactly; no alternate wording, no quotes added. Make "1500+" bold in the existing bright/light color; keep "уникальных пользователей" in the existing regular-weight light gray. Match the original font family, weight contrast, spacing, alignment and size as closely as possible. Fit the whole phrase on ONE line in the same existing text area without touching the portraits or crossing the plaque's right inner margin; if necessary reduce only this replacement line's font size slightly. The total new phrase is about the same length as the old one.
+Preserve the attached Halloween artwork exactly: realistic dark teal and amber haunted background, glass plaques with glowing orange borders, orange broadcast icon, all three realistic round portrait avatars, evil glowing pumpkin lower right, candles, wet reflections and all lighting. Keep the exact top headline unchanged, including the orange word 'вместе'. The replacement is only in the LOWER plaque, immediately to the right of the portrait avatars, centered on the current line baseline.
+Preservation constraints: this is a surgical text replacement only. Every pixel outside the old text line's small region should remain visually identical: no reframing, cropping, scaling, redraw, retouching, compositional shifts, changed faces, new props, lighting or color changes. Remove old letters cleanly and reconstruct only the tiny dark plaque background directly behind them. Do not leave remnants, doubled lettering or a second line.
+Keep the source canvas dimensions and aspect ratio exactly (1448×1086), preserve any rounded corner transparency and existing alpha. The rest of the image, including all other text, must remain unchanged. Return one finished image of the complete slide, no border, commentary, mockup, side-by-side or watermark.
+```
 
 ## Общий промпт исходного комплекта
 

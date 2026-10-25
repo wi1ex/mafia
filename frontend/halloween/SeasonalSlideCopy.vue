@@ -6,7 +6,7 @@
     </template>
     <template v-else-if="slide === 2">
       <p class="seasonal-copy-title">Проводите время <span class="seasonal-copy-accent">вместе</span> —<br>от игр до фильмов</p>
-      <p class="seasonal-copy-meta">1000+ регистраций на платформе</p>
+      <p class="seasonal-copy-meta">1500+ уникальных пользователей</p>
     </template>
     <p v-else-if="slide === 3" class="seasonal-copy-caption">Следи за своим уровнем<br>игры и <span class="seasonal-copy-accent">становись сильнее!</span></p>
     <p v-else-if="slide === 4" class="seasonal-copy-caption">Пространство для <span class="seasonal-copy-accent">общения</span><br>и новых знакомств!</p>
