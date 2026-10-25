@@ -124,12 +124,13 @@
       <div v-else ref="theaterEl" class="theater" :class="{ 'theater--grid': isScreenGridLayout, 'theater--fullscreen': settings.streamsFullscreenEnabled && !isScreenGridLayout }">
         <div
           class="stage"
-          :class="{ 'stage--dragging': isScreenStageDragging }"
+          :class="{ 'stage--dragging': isScreenStageDragging, 'stage--resizing': isScreenStageResizing }"
           :style="isScreenGridLayout ? screenStageStyle : undefined"
           @pointerdown="startScreenStageDrag"
           @pointermove="moveScreenStage"
-          @pointerup="endScreenStageDrag"
-          @pointercancel="endScreenStageDrag"
+          @pointerup="endScreenStageGesture"
+          @pointercancel="endScreenStageGesture"
+          @lostpointercapture="endScreenStageGesture"
         >
           <video :ref="(el) => stableScreenRef(screenOwnerId)(el as HTMLVideoElement | null)" playsinline autoplay muted />
           <div v-if="screenOwnerId" class="screen-quality" :aria-label="`${screenQualityLabel}: ${screenQualityHint}`">
@@ -152,6 +153,15 @@
           <button type="button" class="layout-toggle" aria-label="Изменить вид комнаты" :aria-pressed="isScreenGridLayout" @pointerdown.stop @click.stop="toggleScreenLayout">
             <UiIcon class="layout-toggle__icon" :icon="isScreenGridLayout ? iconTheater : iconGrid" />
           </button>
+          <button
+            v-if="isScreenGridLayout"
+            type="button"
+            class="stage-resize"
+            aria-label="Изменить размер окна трансляции"
+            @pointerdown.stop="startScreenStageResize"
+            @keydown="resizeScreenStageWithKeyboard"
+            @click.stop
+          />
         </div>
 
         <div class="sidebar" :style="isScreenGridLayout ? gridStyle : undefined">
@@ -820,9 +830,19 @@ const screenOwnerId = ref<string>('')
 const screenQuality = ref<ScreenShareQuality>('low')
 const isScreenGridLayout = ref(true)
 const theaterEl = ref<HTMLElement | null>(null)
+const SCREEN_STAGE_WIDTH = 640
+const SCREEN_STAGE_HEIGHT = 360
+const SCREEN_STAGE_MAX_SCALE = 2
 const screenStagePosition = reactive({ x: 8, y: 8 })
-const isScreenStageDragging = ref(false)
-let screenStageDrag: { pointerId: number; offsetX: number; offsetY: number } | null = null
+const screenStageScale = ref(1)
+type ScreenStageGesture = { pointerId: number; target: HTMLElement } & (
+  | { kind: 'drag'; offsetX: number; offsetY: number }
+  | { kind: 'resize'; startX: number; startY: number; startScale: number }
+)
+const screenStageGesture = shallowRef<ScreenStageGesture | null>(null)
+const isScreenStageDragging = computed(() => screenStageGesture.value?.kind === 'drag')
+const isScreenStageResizing = computed(() => screenStageGesture.value?.kind === 'resize')
+let screenStageObserver: ResizeObserver | null = null
 const miniProfileOpen = ref(false)
 const miniProfileUserId = ref<number | null>(null)
 const miniProfileInitial = ref<RoomMiniProfileInitial | null>(null)
@@ -2346,57 +2366,134 @@ function setScreenOwner(id: string, quality?: unknown) {
 }
 
 function toggleScreenLayout() {
+  endScreenStageGesture()
   isScreenGridLayout.value = !isScreenGridLayout.value
+  if (isScreenGridLayout.value) void nextTick(constrainScreenStage)
 }
 
 const screenStageStyle = computed(() => ({
   transform: `translate(${screenStagePosition.x}px, ${screenStagePosition.y}px)`,
+  width: `${SCREEN_STAGE_WIDTH * screenStageScale.value}px`,
+  height: `${SCREEN_STAGE_HEIGHT * screenStageScale.value}px`,
 }))
 
 function resetScreenStagePosition() {
+  endScreenStageGesture()
+  screenStageScale.value = 1
   screenStagePosition.x = 8
   screenStagePosition.y = 8
+  void nextTick(constrainScreenStage)
+}
+
+function constrainScreenStage() {
+  const theater = theaterEl.value
+  if (!isScreenGridLayout.value || !theater) return
+  screenStageScale.value = Math.max(1, Math.min(
+    screenStageScale.value,
+    SCREEN_STAGE_MAX_SCALE,
+    theater.clientWidth / SCREEN_STAGE_WIDTH,
+    theater.clientHeight / SCREEN_STAGE_HEIGHT,
+  ))
+  screenStagePosition.x = Math.max(0, Math.min(screenStagePosition.x, theater.clientWidth - SCREEN_STAGE_WIDTH * screenStageScale.value))
+  screenStagePosition.y = Math.max(0, Math.min(screenStagePosition.y, theater.clientHeight - SCREEN_STAGE_HEIGHT * screenStageScale.value))
+}
+
+function resizeScreenStage(scale: number) {
+  const theater = theaterEl.value
+  if (!isScreenGridLayout.value || !theater) return
+  const maxScale = Math.max(1, Math.min(
+    SCREEN_STAGE_MAX_SCALE,
+    (theater.clientWidth - screenStagePosition.x) / SCREEN_STAGE_WIDTH,
+    (theater.clientHeight - screenStagePosition.y) / SCREEN_STAGE_HEIGHT,
+  ))
+  screenStageScale.value = Math.max(1, Math.min(maxScale, scale))
+}
+
+function resizeScreenStageWithKeyboard(event: KeyboardEvent) {
+  let scale = screenStageScale.value
+  if (event.key === 'Home') scale = 1
+  else if (event.key === 'End') scale = SCREEN_STAGE_MAX_SCALE
+  else if (event.key === 'ArrowRight' || event.key === 'ArrowDown') scale += 0.1
+  else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') scale -= 0.1
+  else return
+  event.preventDefault()
+  event.stopPropagation()
+  resizeScreenStage(scale)
 }
 
 function startScreenStageDrag(event: PointerEvent) {
-  if (!isScreenGridLayout.value || event.button !== 0) return
-  if (event.target instanceof Element && event.target.closest('.screen-quality, .volume, .layout-toggle')) return
+  if (!isScreenGridLayout.value || event.button !== 0 || screenStageGesture.value) return
+  if (event.target instanceof Element && event.target.closest('.screen-quality, .volume, .layout-toggle, .stage-resize')) return
 
   const theater = theaterEl.value
   const stage = event.currentTarget as HTMLElement
   if (!theater) return
 
   const stageRect = stage.getBoundingClientRect()
-  screenStageDrag = {
+  screenStageGesture.value = {
+    kind: 'drag',
+    target: stage,
     pointerId: event.pointerId,
     offsetX: event.clientX - stageRect.left,
     offsetY: event.clientY - stageRect.top,
   }
-  isScreenStageDragging.value = true
+  stage.setPointerCapture(event.pointerId)
+  event.preventDefault()
+}
+
+function startScreenStageResize(event: PointerEvent) {
+  if (!isScreenGridLayout.value || event.button !== 0 || screenStageGesture.value) return
+  const stage = (event.currentTarget as HTMLElement).closest<HTMLElement>('.stage')
+  if (!stage || !theaterEl.value) return
+  screenStageGesture.value = {
+    kind: 'resize',
+    target: stage,
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    startY: event.clientY,
+    startScale: screenStageScale.value,
+  }
   stage.setPointerCapture(event.pointerId)
   event.preventDefault()
 }
 
 function moveScreenStage(event: PointerEvent) {
-  const drag = screenStageDrag
+  const gesture = screenStageGesture.value
   const theater = theaterEl.value
-  if (!drag || drag.pointerId !== event.pointerId || !theater) return
+  if (!gesture || gesture.pointerId !== event.pointerId || !theater) return
 
   const bounds = theater.getBoundingClientRect()
-  const stageBounds = (event.currentTarget as HTMLElement).getBoundingClientRect()
-  const maxX = Math.max(0, bounds.width - stageBounds.width)
-  const maxY = Math.max(0, bounds.height - stageBounds.height)
-  screenStagePosition.x = Math.min(maxX, Math.max(0, event.clientX - bounds.left - drag.offsetX))
-  screenStagePosition.y = Math.min(maxY, Math.max(0, event.clientY - bounds.top - drag.offsetY))
+  const scaleX = bounds.width / theater.clientWidth || 1
+  const scaleY = bounds.height / theater.clientHeight || 1
+  if (gesture.kind === 'resize') {
+    const dx = (event.clientX - gesture.startX) / scaleX
+    const dy = (event.clientY - gesture.startY) / scaleY
+
+    const delta = (dx * SCREEN_STAGE_WIDTH + dy * SCREEN_STAGE_HEIGHT)
+      / (SCREEN_STAGE_WIDTH ** 2 + SCREEN_STAGE_HEIGHT ** 2)
+    resizeScreenStage(gesture.startScale + delta)
+    return
+  }
+  const maxX = Math.max(0, theater.clientWidth - SCREEN_STAGE_WIDTH * screenStageScale.value)
+  const maxY = Math.max(0, theater.clientHeight - SCREEN_STAGE_HEIGHT * screenStageScale.value)
+  screenStagePosition.x = Math.min(maxX, Math.max(0, (event.clientX - bounds.left - gesture.offsetX) / scaleX))
+  screenStagePosition.y = Math.min(maxY, Math.max(0, (event.clientY - bounds.top - gesture.offsetY) / scaleY))
 }
 
-function endScreenStageDrag(event: PointerEvent) {
-  if (!screenStageDrag || screenStageDrag.pointerId !== event.pointerId) return
-  const stage = event.currentTarget as HTMLElement
-  if (stage.hasPointerCapture(event.pointerId)) stage.releasePointerCapture(event.pointerId)
-  screenStageDrag = null
-  isScreenStageDragging.value = false
+function endScreenStageGesture(event?: PointerEvent) {
+  const gesture = screenStageGesture.value
+  if (!gesture || (event && gesture.pointerId !== event.pointerId)) return
+  screenStageGesture.value = null
+  if (gesture.target.hasPointerCapture(gesture.pointerId)) gesture.target.releasePointerCapture(gesture.pointerId)
 }
+
+watch(theaterEl, (theater) => {
+  screenStageObserver?.disconnect()
+  endScreenStageGesture()
+  if (!theater) return
+  screenStageObserver = new ResizeObserver(constrainScreenStage)
+  screenStageObserver.observe(theater)
+})
 
 function connectSocket() {
   if (socket.value && socket.value.connected) return
@@ -4195,6 +4292,8 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  screenStageObserver?.disconnect()
+  endScreenStageGesture()
   void releaseScreenWakeLock()
   window.removeEventListener('offline', handleOffline)
   window.removeEventListener('online', handleOnline)
@@ -4390,14 +4489,45 @@ onBeforeUnmount(() => {
         top: 0;
         left: 0;
         box-sizing: border-box;
-        width: 640px;
-        height: 360px;
         cursor: grab;
         touch-action: none;
         user-select: none;
         z-index: 20;
         &.stage--dragging {
           cursor: grabbing;
+        }
+        &.stage--resizing {
+          cursor: nwse-resize;
+        }
+        .layout-toggle {
+          right: 44px;
+        }
+        .stage-resize {
+          position: absolute;
+          right: 4px;
+          bottom: 4px;
+          width: 32px;
+          height: 32px;
+          padding: 0;
+          border: none;
+          border-radius: 4px 4px 16px 4px;
+          background: transparent;
+          color: $neutral-100;
+          cursor: nwse-resize;
+          touch-action: none;
+          &::after {
+            content: '';
+            position: absolute;
+            right: 7px;
+            bottom: 7px;
+            width: 16px;
+            height: 16px;
+            background: linear-gradient(135deg, transparent 45%, currentColor 45% 55%, transparent 55% 70%, currentColor 70% 80%, transparent 80%);
+          }
+          &:hover,
+          &:focus-visible {
+            background-color: $soft-purple-800;
+          }
         }
       }
       .sidebar {
