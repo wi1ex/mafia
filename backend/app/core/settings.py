@@ -52,7 +52,6 @@ class Settings(BaseSettings):
     ROOMS_CAN_CREATE: bool = True
     ROOMS_CAN_ENTER: bool = True
     GAMES_CAN_START: bool = True
-    RATING_ENABLED: bool = True
     CHAT_OPEN_ENABLED: bool = True
     VERIFICATION_RESTRICTIONS: bool = True
     RTC_ECHO_CANCELLATION_ENABLED: bool = True

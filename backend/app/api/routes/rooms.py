@@ -101,8 +101,6 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
         raise HTTPException(status_code=422, detail="invalid_user_limit")
 
     gp = payload.game
-    if not app_settings.rating_enabled and gp.mode == "rating":
-        gp = gp.model_copy(update={"mode": "normal"})
     anonymity = payload.anonymity
     spectators_limit = normalize_spectators_limit(gp.spectators_limit)
     if anonymity == "hidden":
@@ -325,8 +323,6 @@ async def update_game(room_id: int, payload: GameParams, ident: Identity = Depen
         raise HTTPException(status_code=409, detail="game_in_progress")
 
     game_params = payload
-    if not get_cached_settings().rating_enabled and game_params.mode == "rating":
-        game_params = game_params.model_copy(update={"mode": "normal"})
     spectators_limit = normalize_spectators_limit(game_params.spectators_limit)
     game_dict = {
         "mode": game_params.mode,

@@ -66,7 +66,6 @@ __all__ = [
     "normalize_spectators_limit",
     "ensure_room_view_allowed",
     "emit_rooms_upsert",
-    "normalize_idle_rating_rooms",
     "broadcast_creator_rooms",
     "emit_room_profile_theme_sync",
     "get_room_game_runtime",
@@ -626,7 +625,6 @@ def build_app_settings_snapshot_defaults(core_settings_obj: Any, *, default_star
         rooms_can_create=getattr(core_settings_obj, "ROOMS_CAN_CREATE"),
         rooms_can_enter=getattr(core_settings_obj, "ROOMS_CAN_ENTER"),
         games_can_start=getattr(core_settings_obj, "GAMES_CAN_START"),
-        rating_enabled=getattr(core_settings_obj, "RATING_ENABLED", True),
         chat_open_enabled=getattr(core_settings_obj, "CHAT_OPEN_ENABLED"),
         verification_restrictions=getattr(core_settings_obj, "VERIFICATION_RESTRICTIONS"),
         rtc_echo_cancellation_enabled=getattr(core_settings_obj, "RTC_ECHO_CANCELLATION_ENABLED", True),
@@ -682,7 +680,6 @@ def build_app_settings_snapshot_from_row(row: Any, *, default_starts: Sequence[i
         rooms_can_create=bool(getattr(row, "rooms_can_create")),
         rooms_can_enter=bool(getattr(row, "rooms_can_enter")),
         games_can_start=bool(getattr(row, "games_can_start")),
-        rating_enabled=bool(getattr(row, "rating_enabled", True)),
         chat_open_enabled=bool(getattr(row, "chat_open_enabled", True)),
         verification_restrictions=bool(getattr(row, "verification_restrictions")),
         rtc_echo_cancellation_enabled=bool(getattr(row, "rtc_echo_cancellation_enabled", True)),
@@ -4010,7 +4007,6 @@ def site_settings_out(row) -> SiteSettingsOut:
         rooms_can_create=bool(row.rooms_can_create),
         rooms_can_enter=bool(row.rooms_can_enter),
         games_can_start=bool(row.games_can_start),
-        rating_enabled=bool(getattr(row, "rating_enabled", True)),
         chat_open_enabled=bool(getattr(row, "chat_open_enabled", True)),
         verification_restrictions=bool(row.verification_restrictions),
         rtc_echo_cancellation_enabled=bool(getattr(row, "rtc_echo_cancellation_enabled", True)),
@@ -4042,7 +4038,6 @@ def public_settings_out(settings) -> "PublicSettingsOut":
         rooms_can_create=bool(settings.rooms_can_create),
         rooms_can_enter=bool(settings.rooms_can_enter),
         games_can_start=bool(settings.games_can_start),
-        rating_enabled=bool(getattr(settings, "rating_enabled", True)),
         chat_open_enabled=bool(getattr(settings, "chat_open_enabled", True)),
         verification_restrictions=bool(settings.verification_restrictions),
         rtc_echo_cancellation_enabled=bool(getattr(settings, "rtc_echo_cancellation_enabled", True)),
@@ -5862,108 +5857,6 @@ async def emit_rooms_upsert(rid: int) -> None:
         await emit_rooms_upsert_safe(r, rid, item)
     except Exception as e:
         log.warning("rooms.upsert.emit_failed", rid=rid, err=type(e).__name__)
-
-
-async def normalize_idle_rating_rooms(session: AsyncSession) -> int:
-    r = get_redis()
-    try:
-        raw_room_ids = await r.zrange("rooms:index", 0, -1)
-    except Exception:
-        log.warning("rating_rooms_normalize.index_load_failed")
-        return 0
-
-    room_ids: list[int] = []
-    for raw_room_id in raw_room_ids or []:
-        try:
-            room_id = int(raw_room_id)
-        except Exception:
-            continue
-        if room_id > 0:
-            room_ids.append(room_id)
-    if not room_ids:
-        return 0
-
-    try:
-        async with r.pipeline() as pipeline:
-            for room_id in room_ids:
-                await pipeline.hmget(f"room:{room_id}:params", "id")
-                await pipeline.hget(f"room:{room_id}:game_state", "phase")
-                await pipeline.hget(f"room:{room_id}:game", "mode")
-            room_state = await pipeline.execute()
-    except Exception:
-        log.warning("rating_rooms_normalize.state_load_failed")
-        return 0
-
-    candidate_ids: list[int] = []
-    for index, room_id in enumerate(room_ids):
-        params_values = room_state[index * 3]
-        phase = str(room_state[index * 3 + 1] or "idle")
-        mode = room_state[index * 3 + 2]
-        if params_values and params_values[0] and phase == "idle" and normalize_game_mode(mode) == "rating":
-            candidate_ids.append(room_id)
-    if not candidate_ids:
-        return 0
-
-    try:
-        async with r.pipeline() as pipeline:
-            for room_id in candidate_ids:
-                await pipeline.hgetall(f"room:{room_id}:game")
-            raw_games = await pipeline.execute()
-    except Exception:
-        log.warning("rating_rooms_normalize.games_load_failed")
-        return 0
-
-    games_by_room_id: dict[int, dict[str, Any]] = {}
-    for room_id, raw_game in zip(candidate_ids, raw_games):
-        try:
-            normalized_game = game_from_redis_to_model(raw_game or {}).model_dump()
-            normalized_game["mode"] = "normal"
-            games_by_room_id[room_id] = normalized_game
-        except Exception:
-            log.warning("rating_rooms_normalize.game_normalize_failed", room_id=room_id)
-
-    if not games_by_room_id:
-        return 0
-
-    rooms = list(
-        (await session.scalars(select(Room).where(Room.id.in_(games_by_room_id)))).all()
-    )
-    persisted_room_ids: list[int] = []
-    for room in rooms:
-        normalized_game = games_by_room_id.get(int(room.id))
-        if normalized_game is None:
-            continue
-        room.game = normalized_game
-        persisted_room_ids.append(int(room.id))
-    if not persisted_room_ids:
-        return 0
-
-    await session.commit()
-
-    try:
-        async with r.pipeline() as pipeline:
-            for room_id in persisted_room_ids:
-                await pipeline.hset(
-                    f"room:{room_id}:game",
-                    mapping=serialize_game_for_redis(games_by_room_id[room_id]),
-                )
-            await pipeline.execute()
-    except Exception:
-        log.exception("rating_rooms_normalize.redis_save_failed")
-        return 0
-
-    for room_id in persisted_room_ids:
-        game = games_by_room_id[room_id]
-        with suppress(Exception):
-            await sio.emit(
-                "room_game_updated",
-                {"room_id": room_id, "game": game},
-                room=f"room:{room_id}",
-                namespace="/room",
-            )
-        await emit_rooms_upsert(room_id)
-
-    return len(persisted_room_ids)
 
 
 async def gc_room_after_delay(rid: int, delay_s: int | None = None) -> None:

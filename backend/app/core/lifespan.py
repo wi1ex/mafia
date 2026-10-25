@@ -36,6 +36,12 @@ async def lifespan(app) -> AsyncIterator[None]:
             await conn.execute(text(
                 "ALTER TABLE settings DROP COLUMN IF EXISTS streams_can_start"
             ))
+            await conn.execute(text(
+                "ALTER TABLE settings DROP COLUMN IF EXISTS rating_enabled"
+            ))
+            await conn.execute(text(
+                "ALTER TABLE settings DROP COLUMN IF EXISTS streams_fullscreen_enabled"
+            ))
 
         async with SessionLocal() as session:
             await ensure_app_settings(session)

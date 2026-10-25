@@ -24,7 +24,7 @@
               tooltip-placement="bottom-left"
               tooltip-bubble-width="320px"
               aria-label="Режим"
-              :disabled="ratingModeDisabled"
+              :disabled="gameParamsDisabled"
             />
             <UiSwitch
               v-model="spectatorsEnabled"
@@ -132,7 +132,6 @@
 import { computed, ref, watch } from 'vue'
 import { api } from '@/services/axios'
 import { alertDialog } from '@/services/confirm'
-import { useSettingsStore } from '@/store'
 import {
   normalizeRoomGameParams,
   roomGameDefault,
@@ -164,10 +163,7 @@ const loading = ref(false)
 const paramsScroll = ref<HTMLElement | null>(null)
 const game = ref<RoomGameParams>({ ...roomGameDefault })
 const initialGame = ref<RoomGameParams | null>(null)
-const settings = useSettingsStore()
 const gameParamsDisabled = computed(() => loading.value || !props.canEdit)
-const ratingEnabled = computed(() => settings.ratingEnabled)
-const ratingModeDisabled = computed(() => gameParamsDisabled.value || !ratingEnabled.value)
 
 const isRating = computed<boolean>({
   get: () => game.value.mode === 'rating',
@@ -215,11 +211,8 @@ const isDirty = computed(() => {
 
 function applyGame(next: RoomGameParams): void {
   const normalized = normalizeGame(next)
-  const allowedGame = !ratingEnabled.value && normalized.mode === 'rating'
-    ? { ...normalized, mode: 'normal' as const }
-    : normalized
-  game.value = allowedGame
-  initialGame.value = { ...allowedGame }
+  game.value = normalized
+  initialGame.value = { ...normalized }
 }
 
 function emitClose() {
@@ -283,12 +276,6 @@ watch(() => props.externalGame, (next) => {
   if (!next) return
   applyGame(normalizeGame(next))
 }, { deep: true })
-
-watch(ratingEnabled, (enabled) => {
-  if (!enabled && game.value.mode === 'rating') {
-    game.value = { ...game.value, mode: 'normal' }
-  }
-})
 
 watch(game, () => {
   if (!props.open) return

@@ -35,11 +35,9 @@ from ..api.utils import (
     HOSTED_GAME_SUSPEND_REDUCTION_SECONDS,
     active_alive_game_room_key,
     active_game_rooms_key,
-    game_from_redis_to_model,
     get_active_game_rooms,
     reduce_suspend_after_hosted_game,
     schedule_contact_request_admin_telegram_message,
-    serialize_game_for_redis,
 )
 from ..services.global_chat import emit_global_chat_permissions_updated
 from ..services.livekit import remove_livekit_participant
@@ -7719,8 +7717,6 @@ async def game_start_unlocked(sid, data) -> GameStartAck:
 
         raw_game = await r.hgetall(f"room:{rid}:game")
         game_mode = normalize_game_mode(raw_game.get("mode"))
-        if game_mode == RATING_MODE and not app_settings.rating_enabled:
-            game_mode = "normal"
         if game_mode == "rating":
             async with SessionLocal() as session:
                 additional_roles = await session.scalar(select(User.additional_roles).where(User.id == uid))
@@ -7870,32 +7866,6 @@ async def game_start_unlocked(sid, data) -> GameStartAck:
             raw_game = await r.hgetall(f"room:{rid}:game")
         except Exception:
             raw_game = {}
-        if normalize_game_mode(raw_game.get("mode")) == RATING_MODE and not app_settings.rating_enabled:
-            try:
-                normalized_game = game_from_redis_to_model(raw_game).model_dump()
-                normalized_game["mode"] = "normal"
-                async with SessionLocal() as session:
-                    room = await session.get(Room, rid)
-                    if room is None:
-                        return {"ok": False, "error": "room_not_found", "status": 404}
-
-                    room.game = normalized_game
-                    await session.commit()
-                await r.hset(f"room:{rid}:game", mapping=serialize_game_for_redis(normalized_game))
-                raw_game = normalized_game
-            except Exception:
-                log.exception("game_start.rating_mode_normalize_failed", rid=rid)
-                return {"ok": False, "error": "internal", "status": 500}
-
-            with suppress(Exception):
-                await sio.emit(
-                    "room_game_updated",
-                    {"room_id": rid, "game": normalized_game},
-                    room=f"room:{rid}",
-                    namespace="/room",
-                )
-            with suppress(Exception):
-                await emit_rooms_upsert_safe(r, rid)
         scoring_rules_snapshot: dict[str, float | str] = {}
         if game_mode == RATING_MODE:
             try:

@@ -1112,7 +1112,7 @@ const canUseReadyStart = computed(() => {
   return limit === min + 1
 })
 const canUseReadyToggle = computed(() => !adminSpectator.value && canUseReadyStart.value)
-const isRatingGame = computed(() => settings.ratingEnabled && roomGameSnapshot.value?.mode === 'rating')
+const isRatingGame = computed(() => roomGameSnapshot.value?.mode === 'rating')
 const canManageGameVersions = computed(() => (
   isHead.value
   && roomGameSnapshot.value?.mode === 'rating'

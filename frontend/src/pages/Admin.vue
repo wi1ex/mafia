@@ -90,7 +90,6 @@
               <UiSwitch class="switch-item" :width="140" size="low" v-model="site.rooms_can_enter" label="Вход в комнату" :disabled="savingSettings" />
               <UiSwitch class="switch-item" :width="140" size="low" v-model="site.chat_open_enabled" label="Открытие чата" :disabled="savingSettings" />
               <UiSwitch class="switch-item" :width="140" size="low" v-model="site.games_can_start" label="Запуск игр" :disabled="savingSettings" />
-              <UiSwitch class="switch-item" :width="140" size="low" v-model="site.rating_enabled" label="Запуск рейтинга" :disabled="savingSettings" />
               <UiSwitch class="switch-item" :width="140" size="low" v-model="site.rtc_echo_cancellation_enabled" label="Эхоподавление микрофона" :disabled="savingSettings" />
               <UiSwitch class="switch-item" :width="140" size="low" v-model="site.rtc_noise_suppression_enabled" label="Шумоподавление микрофона" :disabled="savingSettings" />
               <UiSwitch class="switch-item" :width="140" size="low" v-model="site.rtc_auto_gain_control_enabled" label="Автоуровень микрофона" :disabled="savingSettings" />
@@ -1435,7 +1434,6 @@ type SiteSettings = {
   rooms_can_create: boolean
   rooms_can_enter: boolean
   games_can_start: boolean
-  rating_enabled: boolean
   chat_open_enabled: boolean
   verification_restrictions: boolean
   rtc_echo_cancellation_enabled: boolean
@@ -1914,7 +1912,6 @@ const site = reactive<SiteSettings>({
   rooms_can_create: true,
   rooms_can_enter: true,
   games_can_start: true,
-  rating_enabled: true,
   chat_open_enabled: true,
   verification_restrictions: true,
   rtc_echo_cancellation_enabled: true,
@@ -2361,7 +2358,6 @@ function snapshotSite(): string {
     rooms_can_create: Boolean(site.rooms_can_create),
     rooms_can_enter: Boolean(site.rooms_can_enter),
     games_can_start: Boolean(site.games_can_start),
-    rating_enabled: Boolean(site.rating_enabled),
     chat_open_enabled: Boolean(site.chat_open_enabled),
     verification_restrictions: Boolean(site.verification_restrictions),
     rtc_echo_cancellation_enabled: Boolean(site.rtc_echo_cancellation_enabled),
@@ -3329,7 +3325,6 @@ async function saveSettings(): Promise<void> {
         rooms_can_create: Boolean(site.rooms_can_create),
         rooms_can_enter: Boolean(site.rooms_can_enter),
         games_can_start: Boolean(site.games_can_start),
-        rating_enabled: Boolean(site.rating_enabled),
         chat_open_enabled: Boolean(site.chat_open_enabled),
         verification_restrictions: Boolean(site.verification_restrictions),
         rtc_echo_cancellation_enabled: Boolean(site.rtc_echo_cancellation_enabled),
@@ -3382,7 +3377,6 @@ async function saveSettings(): Promise<void> {
       rooms_can_create: site.rooms_can_create,
       rooms_can_enter: site.rooms_can_enter,
       games_can_start: site.games_can_start,
-      rating_enabled: site.rating_enabled,
       chat_open_enabled: site.chat_open_enabled,
       verification_restrictions: site.verification_restrictions,
       rtc_echo_cancellation_enabled: site.rtc_echo_cancellation_enabled,
