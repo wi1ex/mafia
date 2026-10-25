@@ -2173,7 +2173,6 @@ watch(() => user.timeoutActive, () => {
           letter-spacing: -0.4px;
         }
         .empty-state-text {
-          max-width: 260px;
           color: $neutral-500;
           line-height: 20px;
         }

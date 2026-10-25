@@ -60,9 +60,7 @@ services:
     restart: always
 
   minio:
-    # MinIO RELEASE.2026-10-23T20-06-51Z, pinned for amd64 and arm64.
-    image: cgr.dev/chainguard/minio@sha256:268d68a2a3b6fc65f905a61f84d7eab6345ce6bff14f551e2b028ec31e6a1341
-    # Preserve access to existing root-owned data and backup restoration.
+    image: docker.io/chainguard/minio@sha256:268d68a2a3b6fc65f905a61f84d7eab6345ce6bff14f551e2b028ec31e6a1341
     user: "0:0"
     container_name: minio
     environment:
