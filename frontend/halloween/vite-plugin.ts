@@ -9,6 +9,7 @@ const PUBLIC_RESOURCES = [
   'button-web.svg',
   'evil-pumpkin.png',
   'logo-halloween.svg',
+  'icon-no-rooms-halloween.svg',
   'manifest.json',
   'theme.css',
 ]

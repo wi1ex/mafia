@@ -17,6 +17,7 @@ const manifest = {
     buttonWeb: 'button-web.svg',
     evilPumpkin: 'evil-pumpkin.png',
     logo: 'logo-halloween.svg',
+    noRooms: 'icon-no-rooms-halloween.svg',
   },
   stylesheet: 'theme.css',
 }
@@ -91,11 +92,13 @@ for (const [name, options] of [
   ['invalid manifest shape', { response: { ...manifest, images: [] } }],
   ['missing decorations', { response: { ...manifest, decorations: undefined } }],
   ['invalid decoration path', { response: { ...manifest, decorations: { ...manifest.decorations, logo: '../logo.svg' } } }],
+  ['invalid no-rooms decoration path', { response: { ...manifest, decorations: { ...manifest.decorations, noRooms: '../iconNoRooms.svg' } } }],
   ['missing seventh image', { imageError: true }],
   ['missing fingers', { imageError: 'button-fingers.png' }],
   ['missing button cobweb', { imageError: 'button-web.svg' }],
   ['missing pumpkin', { imageError: 'evil-pumpkin.png' }],
   ['missing bloody logo', { imageError: 'logo-halloween.svg' }],
+  ['missing no-rooms illustration', { imageError: 'icon-no-rooms-halloween.svg' }],
   ['missing stylesheet', { stylesheetError: true }],
 ]) {
   const result = await scenario(options)
@@ -112,11 +115,12 @@ assert.equal(loaded.season.seasonActive.value, true)
 assert.equal(loaded.attributes.get('data-home-season'), 'halloween')
 assert.equal(loaded.season.seasonImage(6, 'original.png'), 'https://deceit.test/seasonal/halloween/carousel-image7.png?v=test-v1')
 assert.equal(loaded.links[0].media, 'all')
-assert.equal(loaded.imageRequests.length, 11)
+assert.equal(loaded.imageRequests.length, 12)
 assert.equal(loaded.properties.get('--home-season-button-fingers'), 'url("https://deceit.test/seasonal/halloween/button-fingers.png?v=test-v1")')
 assert.equal(loaded.properties.get('--home-season-button-web'), 'url("https://deceit.test/seasonal/halloween/button-web.svg?v=test-v1")')
 assert.equal(loaded.properties.get('--home-season-evil-pumpkin'), 'url("https://deceit.test/seasonal/halloween/evil-pumpkin.png?v=test-v1")')
 assert.equal(loaded.properties.get('--home-season-logo'), 'url("https://deceit.test/seasonal/halloween/logo-halloween.svg?v=test-v1")')
+assert.equal(loaded.properties.get('--home-season-no-rooms'), 'url("https://deceit.test/seasonal/halloween/icon-no-rooms-halloween.svg?v=test-v1")')
 loaded.season.resetHomeSeason()
 assert.equal(loaded.season.seasonActive.value, false)
 assert.equal(loaded.season.seasonImage(6, 'original.png'), 'original.png')

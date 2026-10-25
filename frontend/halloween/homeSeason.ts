@@ -19,12 +19,14 @@ const DECORATION_FILES = {
   buttonWeb: 'button-web.svg',
   evilPumpkin: 'evil-pumpkin.png',
   logo: 'logo-halloween.svg',
+  noRooms: 'icon-no-rooms-halloween.svg',
 } as const
 const DECORATION_PROPERTIES = {
   buttonFingers: '--home-season-button-fingers',
   buttonWeb: '--home-season-button-web',
   evilPumpkin: '--home-season-evil-pumpkin',
   logo: '--home-season-logo',
+  noRooms: '--home-season-no-rooms',
 } as const
 const loadedSeason = shallowRef<LoadedHomeSeason | null>(null)
 const seasonActive = computed(() => loadedSeason.value !== null)
