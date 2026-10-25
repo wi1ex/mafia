@@ -55,7 +55,7 @@
           :seat="game.seatIndex(id)"
           :seat-label="game.seatLabelForUser(id)"
           :offline="offlineInGame.has(id)"
-          :offline-avatar="iconLowSignal"
+          :offline-avatar="seasonPlayerImage('lowSignal', iconLowSignal)"
           :role-pick-owner-id="rolePickOwnerIdFor(id)"
           :role-pick-remaining-ms="rolePickRemainingMsFor(id)"
           :mafia-talk-host-id="mafiaTalkHostIdFor(id)"
@@ -211,7 +211,7 @@
             :seat="game.seatIndex(id)"
             :seat-label="game.seatLabelForUser(id)"
             :offline="offlineInGame.has(id)"
-            :offline-avatar="iconLowSignal"
+            :offline-avatar="seasonPlayerImage('lowSignal', iconLowSignal)"
             :role-pick-owner-id="rolePickOwnerIdFor(id)"
             :role-pick-remaining-ms="rolePickRemainingMsFor(id)"
             :mafia-talk-host-id="mafiaTalkHostIdFor(id)"
@@ -558,6 +558,7 @@ import {
 } from '@/composables/roomGame'
 import { type CameraQuality, type ScreenShareQuality, useRTC, type VQ } from '@/composables/rtc'
 import { useSubscriptionStatus } from '@/services/useSubscriptionStatus'
+import { useHomeSeason } from '../../halloween/homeSeason'
 import { api } from '@/services/axios'
 import { alertDialog, confirmDialog, confirmDialogWithRadio, useConfirmState } from '@/services/confirm'
 import { normalizeRoomGameParams, type RoomGameParams } from '@/services/gameParams'
@@ -651,6 +652,7 @@ type GameVersionPayload = {
 
 const route = useRoute()
 const router = useRouter()
+const { seasonPlayerImage } = useHomeSeason()
 const auth = useAuthStore()
 const settings = useSettingsStore()
 const userStore = useUserStore()
@@ -1068,7 +1070,7 @@ function hiddenByVisibility(id: string): boolean {
 }
 function visOffAvatar(id: string): string {
   if (!hiddenByVisibility(id)) return ''
-  return gamePhase.value === 'idle' ? iconVisOff : iconSleepPlayer
+  return gamePhase.value === 'idle' ? iconVisOff : seasonPlayerImage('sleepPlayer', iconSleepPlayer)
 }
 
 function closeKnockModal() {
@@ -1091,15 +1093,15 @@ const readyCount = computed(() => {
 })
 
 type DeathReasonKind = 'suicide' | 'foul' | 'vote' | 'night' | string
-const DEAD_ICON_BY_REASON: Record<DeathReasonKind, string> = {
-  suicide: iconLeavePlayer,
-  foul: iconFouledPlayer,
-  vote: iconVotedPlayer,
-  night: iconKillPlayer,
+const DEAD_ICON_BY_REASON: Record<DeathReasonKind, () => string> = {
+  suicide: () => seasonPlayerImage('leavePlayer', iconLeavePlayer),
+  foul: () => seasonPlayerImage('fouledPlayer', iconFouledPlayer),
+  vote: () => seasonPlayerImage('votedPlayer', iconVotedPlayer),
+  night: () => seasonPlayerImage('killPlayer', iconKillPlayer),
 }
 const deadAvatar = (id: string): string => {
   const reason = game.deathReason(id) as DeathReasonKind
-  return DEAD_ICON_BY_REASON[reason] || iconKillPlayer
+  return (DEAD_ICON_BY_REASON[reason] || DEAD_ICON_BY_REASON.night)()
 }
 
 const totalPlayers = computed(() => sortedPeerIds.value.length)

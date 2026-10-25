@@ -19,6 +19,14 @@ const manifest = {
     logo: 'logo-halloween.svg',
     noRooms: 'icon-no-rooms-halloween.svg',
   },
+  playerImages: {
+    fouledPlayer: 'fouledPlayer.png',
+    killPlayer: 'killPlayer.png',
+    leavePlayer: 'leavePlayer.png',
+    lowSignal: 'lowSignal.png',
+    sleepPlayer: 'sleepPlayer.png',
+    votedPlayer: 'votedPlayer.png',
+  },
   stylesheet: 'theme.css',
 }
 
@@ -93,17 +101,24 @@ for (const [name, options] of [
   ['missing decorations', { response: { ...manifest, decorations: undefined } }],
   ['invalid decoration path', { response: { ...manifest, decorations: { ...manifest.decorations, logo: '../logo.svg' } } }],
   ['invalid no-rooms decoration path', { response: { ...manifest, decorations: { ...manifest.decorations, noRooms: '../iconNoRooms.svg' } } }],
+  ['missing player images', { response: { ...manifest, playerImages: undefined } }],
+  ['invalid player image map', { response: { ...manifest, playerImages: { ...manifest.playerImages, leavePlayer: '../leavePlayer.png' } } }],
+  ['extra player image key', { response: { ...manifest, playerImages: { ...manifest.playerImages, other: 'other.png' } } }],
   ['missing seventh image', { imageError: true }],
   ['missing fingers', { imageError: 'button-fingers.png' }],
   ['missing button cobweb', { imageError: 'button-web.svg' }],
   ['missing pumpkin', { imageError: 'evil-pumpkin.png' }],
   ['missing bloody logo', { imageError: 'logo-halloween.svg' }],
   ['missing no-rooms illustration', { imageError: 'icon-no-rooms-halloween.svg' }],
+  ...Object.entries(manifest.playerImages).map(([key, filename]) => [`missing player image ${key}`, { imageError: filename }]),
   ['missing stylesheet', { stylesheetError: true }],
 ]) {
   const result = await scenario(options)
   assert.equal(result.season.seasonActive.value, false, name)
   assert.equal(result.season.seasonImage(0, 'original.png'), 'original.png', name)
+  for (const key of Object.keys(manifest.playerImages)) {
+    assert.equal(result.season.seasonPlayerImage(key, `original-${key}.png`), `original-${key}.png`, name)
+  }
   assert.equal(result.attributes.has('data-home-season'), false, name)
   assert.equal(result.properties.size, 0, name)
   assert.ok(result.links.every((link) => link.removed), name)
@@ -115,7 +130,10 @@ assert.equal(loaded.season.seasonActive.value, true)
 assert.equal(loaded.attributes.get('data-home-season'), 'halloween')
 assert.equal(loaded.season.seasonImage(6, 'original.png'), 'https://deceit.test/seasonal/halloween/carousel-image7.png?v=test-v1')
 assert.equal(loaded.links[0].media, 'all')
-assert.equal(loaded.imageRequests.length, 12)
+assert.equal(loaded.imageRequests.length, 18)
+for (const [key, filename] of Object.entries(manifest.playerImages)) {
+  assert.equal(loaded.season.seasonPlayerImage(key, `original-${key}.png`), `https://deceit.test/seasonal/halloween/${filename}?v=test-v1`)
+}
 assert.equal(loaded.properties.get('--home-season-button-fingers'), 'url("https://deceit.test/seasonal/halloween/button-fingers.png?v=test-v1")')
 assert.equal(loaded.properties.get('--home-season-button-web'), 'url("https://deceit.test/seasonal/halloween/button-web.svg?v=test-v1")')
 assert.equal(loaded.properties.get('--home-season-evil-pumpkin'), 'url("https://deceit.test/seasonal/halloween/evil-pumpkin.png?v=test-v1")')
@@ -124,6 +142,9 @@ assert.equal(loaded.properties.get('--home-season-no-rooms'), 'url("https://dece
 loaded.season.resetHomeSeason()
 assert.equal(loaded.season.seasonActive.value, false)
 assert.equal(loaded.season.seasonImage(6, 'original.png'), 'original.png')
+for (const key of Object.keys(manifest.playerImages)) {
+  assert.equal(loaded.season.seasonPlayerImage(key, `original-${key}.png`), `original-${key}.png`)
+}
 assert.equal(loaded.attributes.has('data-home-season'), false)
 assert.equal(loaded.links[0].removed, true)
 assert.equal(loaded.properties.size, 0)
@@ -132,5 +153,8 @@ assert.equal(loaded.properties.size, 0)
 const refreshed = await scenario({ status: 404 })
 assert.equal(refreshed.season.seasonActive.value, false)
 assert.equal(refreshed.season.seasonImage(6, 'original.png'), 'original.png')
+for (const key of Object.keys(manifest.playerImages)) {
+  assert.equal(refreshed.season.seasonPlayerImage(key, `original-${key}.png`), `original-${key}.png`)
+}
 assert.equal(refreshed.properties.size, 0)
-console.log('Home season checks passed: activation, versioned decorations, rollback, deleted folder, invalid manifest, image/decorations and CSS failures.')
+console.log('Home season checks passed: activation, versioned decorations/player images, rollback, deleted folder, invalid manifest, image/decorations/player images and CSS failures.')

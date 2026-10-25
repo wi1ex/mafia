@@ -5,11 +5,13 @@ type HomeSeasonManifest = {
   revision: string
   images: string[]
   decorations: typeof DECORATION_FILES
+  playerImages: typeof PLAYER_IMAGE_FILES
   stylesheet: 'theme.css'
 }
 
 type LoadedHomeSeason = {
   images: string[]
+  playerImages: Record<PlayerImageName, string>
 }
 
 const RESOURCE_TIMEOUT_MS = 12000
@@ -28,6 +30,15 @@ const DECORATION_PROPERTIES = {
   logo: '--home-season-logo',
   noRooms: '--home-season-no-rooms',
 } as const
+const PLAYER_IMAGE_FILES = {
+  fouledPlayer: 'fouledPlayer.png',
+  killPlayer: 'killPlayer.png',
+  leavePlayer: 'leavePlayer.png',
+  lowSignal: 'lowSignal.png',
+  sleepPlayer: 'sleepPlayer.png',
+  votedPlayer: 'votedPlayer.png',
+} as const
+type PlayerImageName = keyof typeof PLAYER_IMAGE_FILES
 const loadedSeason = shallowRef<LoadedHomeSeason | null>(null)
 const seasonActive = computed(() => loadedSeason.value !== null)
 let loadStarted = false
@@ -51,6 +62,13 @@ function parseManifest(value: unknown): HomeSeasonManifest {
     Object.keys(manifest.decorations).length !== Object.keys(DECORATION_FILES).length ||
     !Object.entries(DECORATION_FILES).every(([key, filename]) => (
       manifest.decorations?.[key as keyof typeof DECORATION_FILES] === filename
+    )) ||
+    !manifest.playerImages ||
+    typeof manifest.playerImages !== 'object' ||
+    Array.isArray(manifest.playerImages) ||
+    Object.keys(manifest.playerImages).length !== Object.keys(PLAYER_IMAGE_FILES).length ||
+    !Object.entries(PLAYER_IMAGE_FILES).every(([key, filename]) => (
+      manifest.playerImages?.[key as PlayerImageName] === filename
     ))
   ) {
     throw new Error('Invalid seasonal manifest')
@@ -147,7 +165,10 @@ async function loadHomeSeason(): Promise<void> {
       property: DECORATION_PROPERTIES[key as keyof typeof DECORATION_PROPERTIES],
       url: resourceUrl(filename),
     }))
-    await Promise.all([...images, ...decorations.map(({ url }) => url)].map(preloadImage))
+    const playerImages = Object.fromEntries(Object.entries(PLAYER_IMAGE_FILES).map(([key, filename]) => (
+      [key, resourceUrl(filename)]
+    ))) as Record<PlayerImageName, string>
+    await Promise.all([...images, ...decorations.map(({ url }) => url), ...Object.values(playerImages)].map(preloadImage))
     if (cancelled) return
     const link = await preloadStylesheet(resourceUrl(manifest.stylesheet))
     if (cancelled) {
@@ -160,7 +181,7 @@ async function loadHomeSeason(): Promise<void> {
     }
     link.media = 'all'
     document.documentElement.setAttribute('data-home-season', 'halloween')
-    loadedSeason.value = { images }
+    loadedSeason.value = { images, playerImages }
   } catch {
     // The optional folder may intentionally be absent. Keep the original page in that case.
     resetHomeSeason()
@@ -170,5 +191,6 @@ async function loadHomeSeason(): Promise<void> {
 export function useHomeSeason() {
   onMounted(() => { void loadHomeSeason() })
   const seasonImage = (index: number, fallback: string): string => loadedSeason.value?.images[index] ?? fallback
-  return { seasonActive, seasonImage, resetHomeSeason }
+  const seasonPlayerImage = (name: PlayerImageName, fallback: string): string => loadedSeason.value?.playerImages[name] ?? fallback
+  return { seasonActive, seasonImage, seasonPlayerImage, resetHomeSeason }
 }

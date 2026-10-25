@@ -10,6 +10,12 @@ const PUBLIC_RESOURCES = [
   'evil-pumpkin.png',
   'logo-halloween.svg',
   'icon-no-rooms-halloween.svg',
+  'fouledPlayer.png',
+  'killPlayer.png',
+  'leavePlayer.png',
+  'lowSignal.png',
+  'sleepPlayer.png',
+  'votedPlayer.png',
   'manifest.json',
   'theme.css',
 ]
