@@ -156,6 +156,7 @@ import MiniProfile from '@/views/MiniProfile.vue'
 import UiIcon from '@/components/UiIcon.vue'
 import { api } from '@/services/axios'
 import { alertDialog, confirmDialog } from '@/services/confirm'
+import { useHomeSeason } from '../../halloween/homeSeason'
 
 import iconTelegram from "@/assets/svg/iconTelegram.svg"
 import iconWarning from "@/assets/svg/iconWarning.svg"
@@ -174,6 +175,8 @@ import iconMiniProfile from "@/assets/svg/iconMiniProfile.svg"
 import iconLogout from '@/assets/svg/iconLeave.svg'
 import { buildProfileThemeStyle } from '@/constants/profileThemes'
 import { getProfileThemeBadgeSources } from '@/constants/profileIcons'
+
+useHomeSeason()
 
 const auth = useAuthStore()
 const user = useUserStore()

@@ -226,14 +226,14 @@ html[data-home-season="halloween"] .home-page .create-room-button > .ui-button__
   z-index: 3;
 }
 
-/* Header is shared by routes; the extra homepage presence check keeps this local. */
-html[data-home-season="halloween"]:has(.home-page) .bar .links > .home {
+/* The shared header uses the seasonal logo on every route where it is rendered. */
+html[data-home-season="halloween"] .bar .links > .home {
   position: relative;
   gap: 6px;
   overflow: visible;
 }
 
-html[data-home-season="halloween"]:has(.home-page) .bar .links > .home > img {
+html[data-home-season="halloween"] .bar .links > .home > img {
   content: var(--home-season-logo);
   width: 121.6px;
   height: 52px;
@@ -241,7 +241,7 @@ html[data-home-season="halloween"]:has(.home-page) .bar .links > .home > img {
   transform: translateY(6px);
 }
 
-html[data-home-season="halloween"]:has(.home-page) .bar .links > .home::after {
+html[data-home-season="halloween"] .bar .links > .home::after {
   content: "";
   display: block;
   flex: 0 0 46px;
