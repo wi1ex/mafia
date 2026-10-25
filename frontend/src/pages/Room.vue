@@ -4497,8 +4497,8 @@ onBeforeUnmount(() => {
         top: 50%;
         right: 0;
         transform: translateY(-50%);
-        width: 28px;
-        height: 56px;
+        width: 20px;
+        height: 50px;
         padding: 0;
         border: 2px solid $green-700;
         border-right: none;
