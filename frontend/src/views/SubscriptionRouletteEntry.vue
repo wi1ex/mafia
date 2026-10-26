@@ -1,6 +1,6 @@
 <template>
   <Transition name="roulette-invitation">
-    <aside v-if="showBanner" ref="banner" class="roulette-invitation" aria-label="Лотерея подписки">
+    <aside v-if="showBanner" ref="banner" class="roulette-invitation" aria-label="Рулетка подписки">
       <span class="roulette-invitation__icon" :class="{ 'is-paused': !pageVisible }" aria-hidden="true">
         <UiIcon :icon="iconRoulette" />
       </span>
@@ -161,7 +161,7 @@ function acceptSpin(data: RouletteStatus, id: number): void {
 function errorMessage(cause: unknown): string {
   const detail = (cause as { response?: { data?: { detail?: string } } })?.response?.data?.detail
   if (detail === 'subscription_roulette_round_changed') return 'Начался новый розыгрыш. Закройте окно, чтобы открыть новую попытку.'
-  if (detail === 'subscription_roulette_disabled') return 'Лотерея сейчас выключена. Уже начисленный подарок сохранён.'
+  if (detail === 'subscription_roulette_disabled') return 'Рулетка сейчас выключена. Уже начисленный подарок сохранён.'
   if (detail === 'subscription_roulette_verification_required') return 'Для участия подтвердите аккаунт через Telegram.'
   return 'Не удалось подтвердить результат. Проверьте соединение и нажмите «Проверить результат».'
 }
@@ -322,7 +322,7 @@ watch(() => [user.user?.subscription_roulette_round, user.user?.subscription_rou
 watch(() => route.name, () => { if (open.value) closeDialog() })
 watchEffect(() => {
   if (!settings.subscriptionRouletteEnabled && open.value && !busy.value && phase.value !== 'result') {
-    error.value = 'Лотерея сейчас выключена.'
+    error.value = 'Рулетка сейчас выключена.'
   }
 })
 watch([showBanner, banner], async () => {

@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..models.game import Game
 from ..models.notif import Notif
-from ..models.subscription import SubscriptionGrant, UserSubscription
+from ..models.subscription import UserSubscription
 from ..models.user import User
 from .game_scoring import RATING_MODE
 from .nickname import SUBSCRIPTION_NICKNAME_CHANGE_LIMIT, set_user_nickname_changes
@@ -56,7 +56,6 @@ async def reward_rating_host(session: AsyncSession, game: Game) -> Notif | None:
             if not active:
                 set_user_nickname_changes(user, SUBSCRIPTION_NICKNAME_CHANGE_LIMIT)
             await ensure_profile_theme_defaults(session, user.id, now=now)
-            session.add(SubscriptionGrant(user_id=user.id, issued_at=now, reason="Ведущий РИ", days=days))
             note = Notif(
                 user_id=user.id,
                 title="Подписка",

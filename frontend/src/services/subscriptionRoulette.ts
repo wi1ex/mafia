@@ -2,6 +2,7 @@ import { api } from '@/services/axios'
 
 export const ROULETTE_DAYS = [7, 22, 3, 18, 11, 26, 1, 16, 29, 8, 21, 4, 25, 12, 19, 6, 27, 14, 9, 30, 17, 2, 23, 10, 15, 28, 5, 20, 13, 24] as const
 export const ROULETTE_SPIN_MS = 10000
+export const ROULETTE_MAX_STOP_OFFSET = 5
 
 export type RoulettePhase = 'idle' | 'requesting' | 'spinning' | 'result' | 'recovering' | 'error'
 export type RouletteNotification = {
@@ -40,11 +41,11 @@ export function validRouletteRound(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
 }
 
-export function rouletteAngle(days: number, currentAngle = 0): number {
+export function rouletteAngle(days: number, currentAngle = 0, stopOffset = 0): number {
   const index = ROULETTE_DAYS.findIndex(value => value === days)
   if (index < 0) throw new Error('Invalid subscription roulette result')
   const mod = (value: number) => ((value % 360) + 360) % 360
-  return currentAngle + 14 * 360 + mod(-index * 12 - currentAngle)
+  return currentAngle + 14 * 360 + mod(-index * 12 + stopOffset - currentAngle)
 }
 
 export async function fetchRouletteStatus(roundId?: number): Promise<RouletteStatus> {
@@ -83,7 +84,7 @@ function dispatchToast(payload: Record<string, unknown>): void {
   window.dispatchEvent(new CustomEvent('toast', { detail: toast }))
 }
 
-function showLotteryToast(payload: Record<string, unknown>): void {
+function showRouletteToast(payload: Record<string, unknown>): void {
   const id = Number(payload.id)
   if (!Number.isSafeInteger(id) || id <= 0 || shown.has(id)) return
   shown.add(id)
@@ -94,7 +95,7 @@ function showLotteryToast(payload: Record<string, unknown>): void {
 export function releaseRouletteNotifications(id: number): void {
   if (notificationAccount !== id) return
   heldAccount = null
-  for (const payload of queued.values()) showLotteryToast(payload)
+  for (const payload of queued.values()) showRouletteToast(payload)
   queued.clear()
 }
 
@@ -113,5 +114,5 @@ export function publishSiteNotification(payload: unknown): void {
     if (Number.isSafeInteger(id) && id > 0 && !shown.has(id)) queued.set(id, note)
     return
   }
-  showLotteryToast(note)
+  showRouletteToast(note)
 }

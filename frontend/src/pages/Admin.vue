@@ -93,7 +93,7 @@
               <UiSwitch class="switch-item" :width="140" size="low" v-model="site.rtc_echo_cancellation_enabled" label="Эхоподавление микрофона" :disabled="savingSettings" />
               <UiSwitch class="switch-item" :width="140" size="low" v-model="site.rtc_noise_suppression_enabled" label="Шумоподавление микрофона" :disabled="savingSettings" />
               <UiSwitch class="switch-item" :width="140" size="low" v-model="site.rtc_auto_gain_control_enabled" label="Автоуровень микрофона" :disabled="savingSettings" />
-              <UiSwitch class="switch-item" :width="140" size="low" v-model="site.subscription_roulette_enabled" label="Лотерея подписки" title="При включении начинается новый розыгрыш: попытки всех пользователей сбрасываются." :disabled="savingSettings" />
+              <UiSwitch class="switch-item" :width="140" size="low" v-model="site.subscription_roulette_enabled" label="Рулетка подписки" :disabled="savingSettings" />
               <div class="bulk-admin-actions">
                 <UiButton variant="red" size="middle" :disabled="endGamesAndKickBusy || compensationSaving" @click="endAllGamesAndKickRooms" width="100%">
                   Завершить игры и кикнуть всех

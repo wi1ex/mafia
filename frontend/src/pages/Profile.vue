@@ -40,7 +40,7 @@
           </button>
           <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'subscription' }" :aria-selected="activeTab === 'subscription'" :disabled="profileTabsDisabled" @click="activeTab = 'subscription'">
             <UiIcon class="tab-btn-img" :icon="iconCard" />
-            <span class="tab-btn-text">Подписка</span>
+            <span class="tab-btn-text">Платежи и ЧС</span>
           </button>
         </nav>
       </div>

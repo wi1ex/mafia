@@ -10,10 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..models.log import AppLog
 from ..models.notif import Notif
 from ..models.settings import AppSettings
-from ..models.subscription import (
-    SubscriptionGrant,
-    UserSubscription,
-)
+from ..models.subscription import UserSubscription
 from ..models.user import User
 from ..schemas.subscription_roulette import (
     SubscriptionRouletteNotificationOut,
@@ -49,6 +46,13 @@ class RouletteResult:
     created: bool = False
 
 
+@dataclass(slots=True)
+class _SavedRouletteWin:
+    user_id: int
+    days: int | None
+    notification_id: int | None
+
+
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -70,24 +74,11 @@ def _notification_payload(note: Notif | None) -> SubscriptionRouletteNotificatio
     )
 
 
-async def _previous_note(session: AsyncSession, grant: SubscriptionGrant | None) -> Notif | None:
-    if grant is None or grant.source_log_id is None:
+async def _previous_note(session: AsyncSession, win: _SavedRouletteWin | None) -> Notif | None:
+    if win is None or win.notification_id is None:
         return None
 
-    entry = await session.get(AppLog, grant.source_log_id)
-    if entry is None or entry.action != WIN_ACTION or entry.user_id != grant.user_id:
-        return None
-
-    try:
-        details = json.loads(entry.details)
-        notification_id = int(details.get("notification_id") or 0)
-    except (ValueError, TypeError, AttributeError):
-        return None
-
-    if notification_id <= 0:
-        return None
-
-    return await session.scalar(select(Notif).where(Notif.id == notification_id, Notif.user_id == grant.user_id))
+    return await session.scalar(select(Notif).where(Notif.id == win.notification_id, Notif.user_id == win.user_id))
 
 
 def _status(
@@ -112,23 +103,30 @@ def _status(
     )
 
 
-async def _load_grant(session: AsyncSession, user_id: int, round_id: int) -> SubscriptionGrant | None:
-    rows = await session.execute(
-        select(SubscriptionGrant, AppLog.details).outerjoin(
-            AppLog, (AppLog.id == SubscriptionGrant.source_log_id)
-            & (AppLog.user_id == user_id) & (AppLog.action == WIN_ACTION),
-        ).where(
-            SubscriptionGrant.user_id == user_id,
-            SubscriptionGrant.reason == "Лотерея",
-        ).order_by(SubscriptionGrant.id.desc()).execution_options(populate_existing=True)
+async def _load_win(session: AsyncSession, user_id: int, round_id: int) -> _SavedRouletteWin | None:
+    entries = await session.scalars(
+        select(AppLog).where(
+            AppLog.user_id == user_id,
+            AppLog.action == WIN_ACTION,
+        ).order_by(AppLog.id.desc()).execution_options(populate_existing=True)
     )
-    for grant, details in rows:
+    for entry in entries:
         try:
-            stored_round = json.loads(details).get("round_id", 0) if details else 0
+            details = json.loads(entry.details)
+            stored_round = details.get("round_id", 0)
         except (ValueError, TypeError, AttributeError):
-            stored_round = 0
+            continue
         if type(stored_round) is int and stored_round == round_id:
-            return grant
+            days = details.get("days")
+            try:
+                notification_id = int(details.get("notification_id") or 0)
+            except (ValueError, TypeError):
+                notification_id = 0
+            return _SavedRouletteWin(
+                user_id=user_id,
+                days=days if type(days) is int else None,
+                notification_id=notification_id if notification_id > 0 else None,
+            )
 
     return None
 
@@ -147,22 +145,22 @@ async def get_roulette_status(session: AsyncSession, user_id: int, *, round_id: 
     current_round = settings.subscription_roulette_round if settings is not None else 0
     target_round = current_round if round_id is None else round_id
     enabled = bool(settings is not None and settings.subscription_roulette_enabled)
-    grant = await _load_grant(session, user_id, target_round) if target_round <= current_round else None
-    if target_round != current_round and grant is None:
+    win = await _load_win(session, user_id, target_round) if target_round <= current_round else None
+    if target_round != current_round and win is None:
         raise HTTPException(status_code=409, detail="subscription_roulette_round_changed")
 
-    if grant is not None and not _valid_days(grant.days):
+    if win is not None and not _valid_days(win.days):
         raise HTTPException(status_code=503, detail="subscription_roulette_result_unavailable")
 
     days = user.subscription_roulette_days if target_round == current_round else None
-    if days is None and grant is not None and _valid_days(grant.days):
-        days = grant.days
+    if days is None and win is not None and _valid_days(win.days):
+        days = win.days
     subscription = await session.scalar(
         select(UserSubscription).where(UserSubscription.user_id == user_id)
     )
     return _status(
         round_id=target_round, enabled=enabled, user=user, days=days, subscription=subscription,
-        note=await _previous_note(session, grant),
+        note=await _previous_note(session, win),
     )
 
 
@@ -172,7 +170,7 @@ def _notification_text(days: int, subscription: UserSubscription, *, extended: b
     duration = format_subscription_purchase_duration(days=days)
     action = "продлена" if extended else "активирована"
     return (
-        f"Вы выиграли {duration} подписки в лотерее. "
+        f"Вы выиграли {duration} подписки в рулетке. "
         f"Подписка {action} до {format_subscription_until(subscription.ends_at)}."
     )
 
@@ -205,36 +203,36 @@ async def _spin_once(session: AsyncSession, user_id: int, *, round_id: int | Non
     current_round = settings.subscription_roulette_round
     round_id = current_round if round_id is None else round_id
 
-    grant = await _load_grant(session, user_id, round_id) if round_id <= current_round else None
+    win = await _load_win(session, user_id, round_id) if round_id <= current_round else None
     if round_id != current_round:
-        if grant is None:
+        if win is None:
             raise HTTPException(status_code=409, detail="subscription_roulette_round_changed")
 
-        if not _valid_days(grant.days):
+        if not _valid_days(win.days):
             raise HTTPException(status_code=503, detail="subscription_roulette_result_unavailable")
 
         subscription = await session.scalar(
             select(UserSubscription).where(UserSubscription.user_id == user_id)
         )
         response = SubscriptionRouletteSpinOut(**_status(
-            round_id=round_id, enabled=enabled, user=user, days=grant.days,
-            subscription=subscription, note=await _previous_note(session, grant),
+            round_id=round_id, enabled=enabled, user=user, days=win.days,
+            subscription=subscription, note=await _previous_note(session, win),
         ).model_dump())
         await session.commit()
         return RouletteResult(response=response, user_id=user_id, role=user.role)
 
     days = user.subscription_roulette_days
-    if days is None and grant is not None:
-        if not _valid_days(grant.days):
+    if days is None and win is not None:
+        if not _valid_days(win.days):
             raise HTTPException(status_code=503, detail="subscription_roulette_result_unavailable")
 
-        days = user.subscription_roulette_days = grant.days
+        days = user.subscription_roulette_days = win.days
 
     if days is not None:
         subscription = await session.scalar(
             select(UserSubscription).where(UserSubscription.user_id == user_id)
         )
-        note = await _previous_note(session, grant)
+        note = await _previous_note(session, win)
         response = SubscriptionRouletteSpinOut(**_status(
             round_id=round_id, enabled=enabled, user=user, days=days, subscription=subscription, note=note,
         ).model_dump())
@@ -272,28 +270,21 @@ async def _spin_once(session: AsyncSession, user_id: int, *, round_id: int | Non
         set_user_nickname_changes(user, SUBSCRIPTION_NICKNAME_CHANGE_LIMIT)
 
     user.subscription_roulette_days = days
-    grant = SubscriptionGrant(
-        user_id=user_id, issued_at=now, reason="Лотерея",
-        months=0, days=days,
-    )
     note = Notif(
         user_id=user_id, title="Подписка", created_at=now,
         text=_notification_text(days, subscription, extended=extended),
     )
-    session.add_all([grant, note])
+    session.add(note)
     await session.flush()
     await ensure_profile_theme_defaults(session, user_id, now=now)
-    entry = _add_win_log(session, user, {
+    _add_win_log(session, user, {
         "round_id": round_id,
         "days": days,
-        "subscription_grant_id": grant.id,
         "notification_id": note.id,
         "previous_until": previous_until.isoformat() if previous_until is not None else None,
         "starts_at": subscription.starts_at.isoformat(),
         "ends_at": subscription.ends_at.isoformat(),
     })
-    await session.flush()
-    grant.source_log_id = entry.id
     response = SubscriptionRouletteSpinOut(**_status(
         round_id=round_id, enabled=enabled, user=user, days=days, subscription=subscription, note=note,
     ).model_dump())

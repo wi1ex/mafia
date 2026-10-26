@@ -1,31 +1,31 @@
 <template>
   <Teleport to="#desktop-teleport-root">
-    <Transition name="lottery-window" appear>
-      <div v-if="open" class="lottery-overlay" @pointerdown.self="overlayArmed = true" @pointerup.self="onOverlayUp" @pointercancel="overlayArmed = false">
-        <section ref="dialog" class="lottery-dialog" role="dialog" aria-modal="true" aria-labelledby="lottery-title" @keydown="onKeydown">
-          <header class="lottery-header">
+    <Transition name="roulette-window" appear>
+      <div v-if="open" class="roulette-overlay" @pointerdown.self="overlayArmed = true" @pointerup.self="onOverlayUp" @pointercancel="overlayArmed = false">
+        <section ref="dialog" class="roulette-dialog" role="dialog" aria-modal="true" aria-labelledby="roulette-title" @keydown="onKeydown">
+          <header class="roulette-header">
             <div>
-              <span class="lottery-eyebrow">Лотерея подписки</span>
-              <h2 id="lottery-title">{{ phase === 'result' ? 'Удача на вашей стороне' : 'Ваш счастливый поворот' }}</h2>
+              <span class="roulette-eyebrow">Рулетка подписки</span>
+              <h2 id="roulette-title">{{ phase === 'result' ? 'Удача на вашей стороне' : 'Ваш счастливый поворот' }}</h2>
             </div>
-            <UiButton class="lottery-close" variant="white" size="low" :icon="iconClose" width="40px" aria-label="Закрыть лотерею" @click="$emit('close')" />
+            <UiButton class="roulette-close" variant="white" size="low" :icon="iconClose" width="40px" aria-label="Закрыть рулетку" @click="$emit('close')" />
           </header>
 
-          <div class="lottery-content">
-            <div class="lottery-info">
-              <div class="lottery-prize" :class="{ 'is-won': phase === 'result' }" aria-live="polite" aria-atomic="true">
+          <div class="roulette-content">
+            <div class="roulette-info">
+              <div class="roulette-prize" :class="{ 'is-won': phase === 'result' }" aria-live="polite" aria-atomic="true">
                 <span>{{ phase === 'result' ? 'Ваш выигрыш' : 'Подписка в подарок' }}</span>
                 <strong>{{ phase === 'result' && days ? days : '1–30' }}</strong>
-                <span class="lottery-prize__caption">{{ phase === 'result' && days ? `${daysWord(days)} подписки` : 'дней бесплатного доступа' }}</span>
+                <span class="roulette-prize__caption">{{ phase === 'result' && days ? `${daysWord(days)} подписки` : 'дней бесплатного доступа' }}</span>
               </div>
-              <UiButton class="lottery-action" :text="buttonText" width="100%" :disabled="buttonDisabled" @click="phase === 'result' ? $emit('share') : $emit('start')" />
-              <p v-if="error" class="lottery-error" role="alert">{{ error }}</p>
+              <UiButton class="roulette-action" :text="buttonText" width="100%" :disabled="buttonDisabled" @click="phase === 'result' ? $emit('share') : $emit('start')" />
+              <p v-if="error" class="roulette-error" role="alert">{{ error }}</p>
             </div>
 
-            <div class="lottery-machine" :class="{ 'is-pulled': pulled, 'is-won': phase === 'result' }">
-              <div class="lottery-wheel-shell">
-                <div class="lottery-pointer" aria-hidden="true"></div>
-                <svg class="lottery-wheel" :style="wheelStyle" viewBox="-200 -200 400 400" role="img" aria-label="Колесо с тридцатью равными секторами от одного до тридцати дней подписки">
+            <div class="roulette-machine" :class="{ 'is-pulled': pulled, 'is-won': phase === 'result' }">
+              <div class="roulette-wheel-shell">
+                <div class="roulette-pointer" aria-hidden="true"></div>
+                <svg class="roulette-wheel" :style="wheelStyle" viewBox="-200 -200 400 400" role="img" aria-label="Колесо с тридцатью равными секторами от одного до тридцати дней подписки">
                   <circle r="195" class="wheel-rim" />
                   <circle r="185" class="wheel-edge" />
                   <g v-for="sector in sectors" :key="sector.days">
@@ -35,16 +35,16 @@
                   </g>
                   <circle r="124" class="wheel-inner-ring" />
                 </svg>
-                <span class="lottery-hub" aria-hidden="true"><img :src="logo" alt="" /></span>
+                <span class="roulette-hub" aria-hidden="true"><img :src="logo" alt="" /></span>
               </div>
-              <button class="lottery-lever" type="button" aria-label="Потянуть рычаг и получить бесплатную подписку" :disabled="!canSpin || busy || phase === 'result' || phase === 'error'" @click="$emit('start')">
-                <span class="lottery-lever__base" aria-hidden="true"></span>
-                <span class="lottery-lever__arm" aria-hidden="true"></span>
-                <span class="lottery-lever__knob" aria-hidden="true"></span>
+              <button class="roulette-lever" type="button" aria-label="Потянуть рычаг и получить бесплатную подписку" :disabled="!canSpin || busy || phase === 'result' || phase === 'error'" @click="$emit('start')">
+                <span class="roulette-lever__base" aria-hidden="true"></span>
+                <span class="roulette-lever__arm" aria-hidden="true"></span>
+                <span class="roulette-lever__knob" aria-hidden="true"></span>
               </button>
             </div>
           </div>
-          <div v-if="confettiVisible && !reducedMotion" class="lottery-confetti" aria-hidden="true">
+          <div v-if="confettiVisible && !reducedMotion" class="roulette-confetti" aria-hidden="true">
             <i v-for="piece in confetti" :key="piece.id" :style="piece.style"></i>
           </div>
         </section>
@@ -58,7 +58,7 @@ import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import UiButton from '@/components/UiButton.vue'
 import iconClose from '@/assets/svg/iconClose.svg'
 import logo from '@/assets/svg/iconLogo.svg'
-import { ROULETTE_DAYS, ROULETTE_SPIN_MS, rouletteAngle, rouletteDaysWord as daysWord, validRouletteDays, type RoulettePhase } from '@/services/subscriptionRoulette'
+import { ROULETTE_DAYS, ROULETTE_MAX_STOP_OFFSET, ROULETTE_SPIN_MS, rouletteAngle, rouletteDaysWord as daysWord, validRouletteDays, type RoulettePhase } from '@/services/subscriptionRoulette'
 
 const props = defineProps<{
   open: boolean
@@ -73,6 +73,7 @@ const props = defineProps<{
 const emit = defineEmits<{ start: []; close: []; share: [] }>()
 const dialog = ref<HTMLElement | null>(null)
 const angle = ref(0)
+const stopOffset = ref(0)
 const animateWheel = ref(false)
 const overlayArmed = ref(false)
 const confettiVisible = ref(false)
@@ -123,17 +124,23 @@ const confetti = Array.from({ length: 120 }, (_, id) => ({
   },
 }))
 
+function randomStopOffset(): number {
+  return (Math.random() * 2 - 1) * ROULETTE_MAX_STOP_OFFSET
+}
+
 watch(() => [props.phase, props.days] as const, async ([phase, days], previous) => {
   if (!validRouletteDays(days)) return
   if (phase === 'spinning') {
+    stopOffset.value = randomStopOffset()
     animateWheel.value = false
     await nextTick()
     animateWheel.value = true
-    angle.value = rouletteAngle(days, angle.value)
+    angle.value = rouletteAngle(days, angle.value, stopOffset.value)
   } else if (phase === 'result') {
     if (previous?.[0] !== 'spinning') {
+      stopOffset.value = randomStopOffset()
       animateWheel.value = false
-      angle.value = rouletteAngle(days) % 360
+      angle.value = rouletteAngle(days, 0, stopOffset.value) % 360
     }
     if (props.open && previous?.[0] === 'spinning' && !props.reducedMotion) {
       confettiVisible.value = true
@@ -203,7 +210,7 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped lang="scss">
-.lottery-overlay {
+.roulette-overlay {
   position: fixed;
   inset: 0;
   z-index: 1200;
@@ -212,7 +219,7 @@ onBeforeUnmount(() => {
   justify-content: center;
   background-color: rgba($neutral-black, 0.65);
   backdrop-filter: blur(8px);
-  .lottery-dialog {
+  .roulette-dialog {
     position: relative;
     width: min(800px, calc(100vw - 40px));
     max-height: calc(100dvh - 40px);
@@ -236,13 +243,13 @@ onBeforeUnmount(() => {
       outline: 3px solid $soft-purple-500;
       outline-offset: 4px;
     }
-    .lottery-header {
+    .roulette-header {
       display: flex;
       align-items: flex-start;
       justify-content: space-between;
       gap: 20px;
       > div {
-        .lottery-eyebrow {
+        .roulette-eyebrow {
           color: $green-700;
           font-family: Hauora-Medium;
           font-weight: 500;
@@ -260,23 +267,23 @@ onBeforeUnmount(() => {
           letter-spacing: -0.64px;
         }
       }
-      .lottery-close {
+      .roulette-close {
         flex: 0 0 40px;
         --ui-button-radius: 50%;
         --ui-button-height: 40px;
       }
     }
-    .lottery-content {
+    .roulette-content {
       display: grid;
       grid-template-columns: 1fr 1.5fr;
       gap: 42px;
       align-items: center;
-      .lottery-info {
+      .roulette-info {
         display: flex;
         flex-direction: column;
         gap: 16px;
         min-width: 0;
-        .lottery-prize {
+        .roulette-prize {
           display: flex;
           flex-direction: column;
           gap: 6px;
@@ -293,10 +300,10 @@ onBeforeUnmount(() => {
             line-height: 1.1;
             letter-spacing: -1px;
           }
-          .lottery-prize__caption {
+          .roulette-prize__caption {
             color: $soft-purple-700;
           }
-          .lottery-prize__until {
+          .roulette-prize__until {
             margin-top: 5px;
             font-size: 12px;
           }
@@ -307,29 +314,29 @@ onBeforeUnmount(() => {
             }
           }
         }
-        .lottery-action {
+        .roulette-action {
           --ui-button-height: 50px;
           --ui-button-font-size: 16px;
         }
-        .lottery-error {
+        .roulette-error {
           margin: 0;
           color: $red-700;
           font-size: 13px;
           line-height: 1.5;
         }
       }
-      .lottery-machine {
+      .roulette-machine {
         position: relative;
         width: min(100%, 350px);
         justify-self: end;
         padding-right: 60px;
         box-sizing: border-box;
-        .lottery-wheel-shell {
+        .roulette-wheel-shell {
           position: relative;
           width: 100%;
           aspect-ratio: 1;
           overflow: clip;
-          .lottery-pointer {
+          .roulette-pointer {
             position: absolute;
             left: 50%;
             top: 3px;
@@ -342,7 +349,7 @@ onBeforeUnmount(() => {
             border-top: 27px solid $soft-purple-500;
             filter: drop-shadow(0 2px 1px rgba($neutral-black, 0.4));
           }
-          .lottery-wheel {
+          .roulette-wheel {
             display: block;
             width: 100%;
             height: 100%;
@@ -382,7 +389,7 @@ onBeforeUnmount(() => {
               stroke-width: 0.7;
             }
           }
-          .lottery-hub {
+          .roulette-hub {
             position: absolute;
             left: 37%;
             top: 37%;
@@ -400,7 +407,7 @@ onBeforeUnmount(() => {
             }
           }
         }
-        .lottery-lever {
+        .roulette-lever {
           position: absolute;
           right: 36px;
           top: 37%;
@@ -414,7 +421,7 @@ onBeforeUnmount(() => {
           &:disabled {
             cursor: default;
           }
-          .lottery-lever__base {
+          .roulette-lever__base {
             position: absolute;
             top: 61px;
             left: 13px;
@@ -423,7 +430,7 @@ onBeforeUnmount(() => {
             border-radius: 50%;
             background-color: $soft-purple-900;
           }
-          .lottery-lever__arm {
+          .roulette-lever__arm {
             position: absolute;
             top: 0;
             left: 20px;
@@ -435,7 +442,7 @@ onBeforeUnmount(() => {
             transform-origin: 50% 90%;
             transition: transform 0.25s;
           }
-          .lottery-lever__knob {
+          .roulette-lever__knob {
             position: absolute;
             left: 2px;
             top: -7px;
@@ -448,18 +455,18 @@ onBeforeUnmount(() => {
           }
         }
         &.is-pulled {
-          .lottery-lever {
-            .lottery-lever__arm {
+          .roulette-lever {
+            .roulette-lever__arm {
               transform: rotate(28deg);
             }
-            .lottery-lever__knob {
+            .roulette-lever__knob {
               transform: translate(46px, 23px);
             }
           }
         }
       }
     }
-    .lottery-confetti {
+    .roulette-confetti {
       position: absolute;
       inset: 0;
       pointer-events: none;
@@ -472,7 +479,7 @@ onBeforeUnmount(() => {
         width: 7px;
         height: 13px;
         background-color: $green-500;
-        animation: lottery-confetti-fall 2.5s var(--piece-delay) cubic-bezier(0.12, 0.5, 0.4, 1) both;
+        animation: roulette-confetti-fall 2.5s var(--piece-delay) cubic-bezier(0.12, 0.5, 0.4, 1) both;
         &:nth-child(3n) {
           width: 9px;
           height: 9px;
@@ -491,19 +498,19 @@ onBeforeUnmount(() => {
   }
 }
 
-.lottery-window-enter-active,
-.lottery-window-leave-active {
+.roulette-window-enter-active,
+.roulette-window-leave-active {
   transition: opacity 0.25s ease-in-out;
 }
-.lottery-window-enter-from,
-.lottery-window-leave-to {
+.roulette-window-enter-from,
+.roulette-window-leave-to {
   opacity: 0;
-  .lottery-dialog {
+  .roulette-dialog {
     transform: translateY(-30px) scale(calc(1 / var(--desktop-scale, 1)));
   }
 }
 
-@keyframes lottery-confetti-fall {
+@keyframes roulette-confetti-fall {
   from {
     opacity: 0;
     transform: translate3d(0, -30px, 0) rotate(0);

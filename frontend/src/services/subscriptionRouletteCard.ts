@@ -28,7 +28,7 @@ export async function createRouletteShareImage(days: number): Promise<File> {
 
   ctx.fillStyle = green
   ctx.font = '500 18px Hauora-Medium, sans-serif'
-  ctx.fillText('ЛОТЕРЕЯ ПОДПИСКИ', 54, 65)
+  ctx.fillText('РУЛЕТКА ПОДПИСКИ', 54, 65)
   ctx.fillStyle = purple
   ctx.font = '500 34px Involve-Medium, sans-serif'
   ctx.fillText('Удача на моей стороне', 54, 118)
@@ -119,5 +119,5 @@ export async function createRouletteShareImage(days: number): Promise<File> {
   const blob = await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(value => value ? resolve(value) : reject(new Error('Could not render roulette image')), 'image/png')
   })
-  return new File([blob], `lottery-${days}-days.png`, { type: 'image/png' })
+  return new File([blob], `roulette-${days}-days.png`, { type: 'image/png' })
 }
