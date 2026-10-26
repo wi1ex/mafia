@@ -26,23 +26,6 @@ async def lifespan(app) -> AsyncIterator[None]:
             await conn.execute(text("SELECT pg_advisory_xact_lock(20261020, 1)"))
             await conn.run_sync(Base.metadata.create_all)
 
-            await conn.execute(text(
-                "ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_roulette_days smallint "
-                "CONSTRAINT ck_users_subscription_roulette_days_range CHECK (subscription_roulette_days BETWEEN 1 AND 30)"
-            ))
-            await conn.execute(text(
-                "ALTER TABLE settings ADD COLUMN IF NOT EXISTS subscription_roulette_state bigint NOT NULL DEFAULT 0"
-            ))
-            await conn.execute(text(
-                "ALTER TABLE settings DROP COLUMN IF EXISTS streams_can_start"
-            ))
-            await conn.execute(text(
-                "ALTER TABLE settings DROP COLUMN IF EXISTS rating_enabled"
-            ))
-            await conn.execute(text(
-                "ALTER TABLE settings DROP COLUMN IF EXISTS streams_fullscreen_enabled"
-            ))
-
         async with SessionLocal() as session:
             await ensure_app_settings(session)
             await ensure_game_scoring_settings(session)
