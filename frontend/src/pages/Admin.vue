@@ -1266,10 +1266,7 @@
 
         <div v-else-if="activeTab === 'subscriptions'" class="subscriptions-tab">
           <div class="block subscription-table-block">
-            <div class="subscription-heading">
-              <h3>Активные подписки — {{ activeSubscriptionsCount }}</h3>
-              <UiButton variant="white" size="low" type="button" @click="subscriptionHistoryOpen = true">История подписок</UiButton>
-            </div>
+            <h3>Активные подписки — {{ activeSubscriptionsCount }}</h3>
             <div v-if="subscriptionsLoading" class="loading">Загрузка...</div>
             <div v-else class="table-wrap">
             <table class="table subscriptions-table">
@@ -1329,7 +1326,6 @@
       </div>
     </Transition>
 
-    <SubscriptionHistory v-model:open="subscriptionHistoryOpen" />
     <SanctionModal
       :open="sanctionAdjustModalOpen"
       :title="sanctionAdjustTitle"
@@ -1397,7 +1393,6 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref, unref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '@/services/axios'
-import SubscriptionHistory from '@/views/SubscriptionHistory.vue'
 import { alertDialog, confirmDialog } from '@/services/confirm'
 import { formatLocalDateTime } from '@/services/datetime'
 import { SANCTION_BADGES, type SanctionBadgeKey } from '@/constants/sanctionReasons'
@@ -2134,7 +2129,6 @@ const sanctionsAdjusting = reactive<Record<string, boolean>>({})
 const sanctionsReasonChanging = reactive<Record<number, boolean>>({})
 const subscriptions = ref<SubscriptionRow[]>([])
 const subscriptionModalOpen = ref(false)
-const subscriptionHistoryOpen = ref(false)
 const subscriptionModalMode = ref<'extend' | 'reduce'>('extend')
 const subscriptionTarget = ref<SubscriptionTarget | null>(null)
 const subscriptionSaving = ref(false)
@@ -4213,7 +4207,6 @@ watch(activeTab, (tab, previousTab) => {
   if (tab !== 'subscriptions' && subscriptionModalOpen.value) {
     closeSubscriptionModal()
   }
-  if (tab !== 'subscriptions') subscriptionHistoryOpen.value = false
   if (tab !== 'settings' && compensationModalOpen.value) {
     closeSubscriptionCompensation()
   }
@@ -4345,7 +4338,7 @@ onBeforeUnmount(() => {
 .admin .scoring-block h3,
 .admin .updates-notice-block h3,
 .admin .home-carousel-banner-block h2,
-.admin .subscriptions-tab .subscription-table-block .subscription-heading h3,
+.admin .subscriptions-tab .subscription-table-block h3,
 .admin .stats-mini-title {
   margin: 0;
   color: $neutral-white;
@@ -4441,7 +4434,7 @@ onBeforeUnmount(() => {
 .admin .scoring-block h3,
 .admin .updates-notice-block h3,
 .admin .home-carousel-banner-block h2,
-.admin .subscriptions-tab .subscription-table-block .subscription-heading h3 {
+.admin .subscriptions-tab .subscription-table-block h3 {
   font-size: 20px;
   line-height: 24px;
   letter-spacing: -0.4px;
@@ -5196,12 +5189,6 @@ onBeforeUnmount(() => {
 }
 .admin .contact-requests-table tbody tr td.replies-cell .contact-reply .contact-reply__text {
   white-space: pre-wrap;
-}
-.admin .subscriptions-tab .subscription-table-block .subscription-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
 }
 .admin .subscriptions-tab .table-wrap {
   scrollbar-width: thin;
