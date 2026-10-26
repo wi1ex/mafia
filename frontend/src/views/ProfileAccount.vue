@@ -32,7 +32,11 @@
             </div>
             <div class="date-row">
               <span class="date-title">Роли пользователя</span>
-              <span class="date-time profile-role-tags">{{ profileRoleTagsLabel }}</span>
+              <div class="profile-role-tags">
+                <span v-for="role in profileRoleBadges" :key="role.key" class="profile-role-badge" :class="`profile-role-badge--${role.key}`">
+                  {{ role.label }}
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -223,7 +227,7 @@ import { storeToRefs } from 'pinia'
 import { api, AUTH_SESSION_SID_HEADER } from '@/services/axios'
 import { alertDialog, confirmDialog } from '@/services/confirm'
 import { hasAuthCookieMutex, withAuthCookieLock } from '@/services/refreshCoordination'
-import { getProfileRoleTags } from '@/services/profileRoles'
+import { getProfileRoleBadges } from '@/services/profileRoles'
 import { useSubscriptionStatus } from '@/services/useSubscriptionStatus'
 import { useAuthStore, useUserStore } from '@/store'
 
@@ -284,7 +288,7 @@ const isDeleteAccountForbiddenSelf = computed(() => {
   const role = String(me.role || '').trim().toLowerCase()
   return role === 'moder'
 })
-const profileRoleTagsLabel = computed(() => getProfileRoleTags(me.role, me.additional_roles).join(' '))
+const profileRoleBadges = computed(() => getProfileRoleBadges(me.role, me.additional_roles))
 const registeredAtLabel = computed(() => formatDateWithMonthName(profileDates.registered_at || me.registered_at))
 const lastGameAtLabel = computed(() => {
   const dateLabel = formatDateOnly(profileDates.last_game_at)
@@ -571,7 +575,7 @@ onBeforeUnmount(() => {
         flex-direction: column;
         padding: 24px;
         gap: 24px;
-        height: calc(50% - 5px);
+        height: 100%;
         border-radius: 24px;
         background-color: $soft-purple-900;
         .account-div {
@@ -624,8 +628,37 @@ onBeforeUnmount(() => {
               letter-spacing: -0.32px;
             }
             .profile-role-tags {
+              display: flex;
+              flex-wrap: wrap;
+              justify-content: flex-end;
               margin-left: 16px;
-              text-align: right;
+              gap: 4px;
+              min-width: 0;
+              .profile-role-badge {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                padding: 2px 12px;
+                border-radius: 999px;
+                color: $neutral-white;
+                font-family: Hauora-SemiBold;
+                font-size: 14px;
+                line-height: 18px;
+                letter-spacing: -0.28px;
+                white-space: nowrap;
+                &--player {
+                  background-color: rgba($soft-purple-500, 0.65);
+                }
+                &--head_rate {
+                  background-color: rgba($green-500, 0.65);
+                }
+                &--moder {
+                  background-color: rgba($red-500, 0.65);
+                }
+                &--admin {
+                  background-color: rgba($neutral-black, 0.65);
+                }
+              }
             }
           }
         }
@@ -637,7 +670,7 @@ onBeforeUnmount(() => {
         flex-direction: column;
         justify-content: space-between;
         padding: 24px;
-        height: calc(50% - 5px);
+        height: 100%;
         border-radius: 24px;
         background-color: $soft-purple-900;
         &--verified {
