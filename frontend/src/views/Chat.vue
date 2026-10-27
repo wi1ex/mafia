@@ -2499,6 +2499,7 @@ watch(() => user.timeoutActive, () => {
                 justify-content: center;
                 box-sizing: border-box;
                 padding: 0 6px;
+                gap: 2px;
                 height: 30px;
                 border: 1px solid $neutral-100;
                 border-radius: 12px;
