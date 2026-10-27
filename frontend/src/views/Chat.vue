@@ -64,8 +64,13 @@
                 </button>
 
                 <div class="message-bubble">
-                  <p v-if="isAuthorBlacklisted(message.author.id)" class="tombstone">{{ BLACKLISTED_MESSAGE_TEXT }}</p>
+                  <p v-if="isAuthorBlacklisted(message.author.id) && !isBlacklistedMessageRevealed(message.id)" class="tombstone">{{ BLACKLISTED_MESSAGE_TEXT }}</p>
                   <p v-else-if="message.deleted" class="tombstone">Сообщение удалено</p>
+                  <div v-if="isAuthorBlacklisted(message.author.id) && !isBlacklistedMessageRevealed(message.id)" class="tombstone-actions">
+                    <button class="icon-action-button" type="button" @click="revealBlacklistedMessage(message.id)" aria-label="Показать сообщение пользователя из ЧС">
+                      <UiIcon :icon="iconVisOn" />
+                    </button>
+                  </div>
                   <div v-if="showDeletedActions(message)" class="tombstone-actions">
                     <button class="icon-action-button" type="button" aria-label="Показать удаленное сообщение"
                             :disabled="isDeletedPreviewBusy(message.id)" @click="onPreviewDeletedMessage(message.id)" v-if="showDeletedPreviewAction(message)">
@@ -76,7 +81,7 @@
                       <UiIcon :icon="iconDelete" />
                     </button>
                   </div>
-                  <template v-if="!message.deleted && !isAuthorBlacklisted(message.author.id)">
+                  <template v-if="!message.deleted && (!isAuthorBlacklisted(message.author.id) || isBlacklistedMessageRevealed(message.id))">
                     <div v-if="message.image_object_key" class="message-image-shell">
                       <div class="message-image-placeholder" role="status" aria-label="Загрузка изображения">
                         <UiIcon :icon="iconPhoto" aria-hidden="true" />
@@ -330,6 +335,7 @@ import iconEmoji from '@/assets/svg/iconEmoji.svg'
 import iconPhoto from '@/assets/svg/iconPhoto.svg'
 import iconDelete from '@/assets/svg/iconDelete.svg'
 import iconInfo from '@/assets/svg/iconInfo.svg'
+import iconVisOn from '@/assets/svg/iconVisOn.svg'
 import iconSend from '@/assets/svg/iconSendMessage.svg'
 import iconAddReaction from '@/assets/svg/iconAddReaction.svg'
 import iconReplyMessage from '@/assets/svg/iconReplyMessage.svg'
@@ -392,6 +398,7 @@ const mentionHasSearched = ref(false)
 const mentionSelectedIndex = ref(0)
 const activeMentionRange = ref<{ start: number; end: number; query: string } | null>(null)
 const reactionPickerMessageId = ref<number | null>(null)
+const revealedBlacklistedMessageIds = ref(new Set<number>())
 const highlightedMessageId = ref<number | null>(null)
 const stickToBottom = ref(true)
 const listAtTop = ref(false)
@@ -457,6 +464,15 @@ const isRoomMode = computed(() => route.name === 'room')
 
 function isAuthorBlacklisted(authorId: number): boolean {
   return friends.blacklistIds.has(authorId)
+}
+
+function isBlacklistedMessageRevealed(messageId: number): boolean {
+  return revealedBlacklistedMessageIds.value.has(messageId)
+}
+
+function revealBlacklistedMessage(messageId: number): void {
+  if (revealedBlacklistedMessageIds.value.has(messageId)) return
+  revealedBlacklistedMessageIds.value = new Set(revealedBlacklistedMessageIds.value).add(messageId)
 }
 
 function replySnippet(reply: GlobalChatReplyPreview): string {
