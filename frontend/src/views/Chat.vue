@@ -55,7 +55,7 @@
                   <span class="message-time">{{ formatMessageTime(message.created_at) }}</span>
                 </div>
 
-                <button v-if="message.reply && !isAuthorBlacklisted(message.author.id)" class="reply-preview" type="button" @click="onJumpToReply(message.reply.message_id)">
+                <button v-if="message.reply && !message.deleted && !isBlacklistedMessageHidden(message)" class="reply-preview" type="button" @click="onJumpToReply(message.reply.message_id)">
                   <div class="reply-preview-body">
                     <img class="reply-avatar" v-minio-img="{ key: message.reply.avatar_name ? `avatars/${message.reply.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="" />
                     <span class="reply-author">{{ message.reply.author_username }}</span>
@@ -64,13 +64,8 @@
                 </button>
 
                 <div class="message-bubble">
-                  <p v-if="isAuthorBlacklisted(message.author.id) && !isBlacklistedMessageRevealed(message.id)" class="tombstone">{{ BLACKLISTED_MESSAGE_TEXT }}</p>
-                  <p v-else-if="message.deleted" class="tombstone">Сообщение удалено</p>
-                  <div v-if="isAuthorBlacklisted(message.author.id) && !isBlacklistedMessageRevealed(message.id)" class="tombstone-actions">
-                    <button class="icon-action-button" type="button" @click="revealBlacklistedMessage(message.id)" aria-label="Показать сообщение пользователя из ЧС">
-                      <UiIcon :icon="iconVisOn" />
-                    </button>
-                  </div>
+                  <p v-if="message.deleted" class="tombstone">Сообщение удалено</p>
+                  <p v-else-if="isBlacklistedMessageHidden(message)" class="tombstone">{{ BLACKLISTED_MESSAGE_TEXT }}</p>
                   <div v-if="showDeletedActions(message)" class="tombstone-actions">
                     <button class="icon-action-button" type="button" aria-label="Показать удаленное сообщение"
                             :disabled="isDeletedPreviewBusy(message.id)" @click="onPreviewDeletedMessage(message.id)" v-if="showDeletedPreviewAction(message)">
@@ -81,12 +76,12 @@
                       <UiIcon :icon="iconDelete" />
                     </button>
                   </div>
-                  <template v-if="!message.deleted && (!isAuthorBlacklisted(message.author.id) || isBlacklistedMessageRevealed(message.id))">
+                  <template v-if="!message.deleted && !isBlacklistedMessageHidden(message)">
                     <div v-if="message.image_object_key" class="message-image-shell">
                       <div class="message-image-placeholder" role="status" aria-label="Загрузка изображения">
                         <UiIcon :icon="iconPhoto" aria-hidden="true" />
                       </div>
-                      <img class="message-image" @click="onOpenImageLightbox($event, 'Вложение', message.author.id)" @load="onMessageMediaLoad" @error="onMessageMediaLoad" v-minio-img="{ key: message.image_object_key, lazy: true }" alt="Вложение" />
+                      <img class="message-image" @click="onOpenImageLightbox($event, 'Вложение', message.author.id, !isBlacklistedMessageHidden(message))" @load="onMessageMediaLoad" @error="onMessageMediaLoad" v-minio-img="{ key: message.image_object_key, lazy: true }" alt="Вложение" />
                       <span class="message-image-error" role="status">Не удалось загрузить изображение</span>
                     </div>
                     <p v-if="message.text" class="message-text">
@@ -101,52 +96,61 @@
                   </template>
                 </div>
 
-                <div v-if="!message.deleted && (message.reactions.length > 0 || reactionsAllowlist.length > 0)" class="reactions-row">
-                  <div v-for="reaction in orderedReactions(message)" :key="reaction.emoji" class="reaction-details-anchor"
-                       @pointerenter="onReactionDetailsHover(message.id, reaction.emoji)" @pointerleave="closeReactionDetails(message.id, reaction.emoji)"
-                       @focusin="onReactionDetailsFocus(message.id, reaction.emoji)" @focusout="onReactionDetailsFocusOut($event, message.id, reaction.emoji)">
-                    <button :class="['reaction-chip', { 'reaction-chip--active': reaction.reacted_by_me }]"
-                            type="button" :disabled="!permissions.can_react || user.timeoutActive || chat.isReactionBusy(message.id)" @click="onToggleReaction(message.id, reaction.emoji)">
-                      <span>{{ reaction.emoji }}</span>
-                      <span>{{ reaction.count }}</span>
+                <div v-if="!message.deleted && (isBlacklistedMessageHidden(message) || message.reactions.length > 0 || reactionsAllowlist.length > 0 || message.can_delete)" class="reactions-row">
+                  <div v-if="isBlacklistedMessageHidden(message)" class="reaction-details-anchor">
+                    <button class="reaction-chip reaction-chip--picker" type="button" aria-label="Показать сообщение пользователя из ЧС" title="Показать сообщение пользователя из ЧС" @click="revealBlacklistedMessage(message.id)">
+                      <UiIcon :icon="iconVisOn" />
                     </button>
-
-                    <div v-if="reactionDetailsVisible && reactionDetailsMessageId === message.id && reactionDetailsEmoji === reaction.emoji" class="reaction-details-popover" role="tooltip">
-                      <p v-if="reactionDetailsLoadingMessageId === message.id" class="reaction-details-state">Загрузка...</p>
-                      <p v-else-if="reactionDetailsErrorMessageId === message.id" class="reaction-details-state reaction-details-state--error">
-                        Не удалось загрузить список реакций.
-                      </p>
-                      <template v-else>
-                        <div v-for="participant in reactionDetailsParticipants" :key="`${participant.user.id}-${participant.created_at}`" class="reaction-details-item">
-                          <img class="reaction-details-avatar" v-minio-img="{ key: participant.user.avatar_name ? `avatars/${participant.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="Аватар" />
-                          <div class="reaction-details-meta">
-                            <span class="reaction-details-name">{{ participant.user.username || (`user${participant.user.id}`) }}</span>
-                            <small class="reaction-details-time">{{ formatMessageTime(participant.created_at) }}</small>
-                          </div>
-                        </div>
-                      </template>
-                    </div>
                   </div>
+                  <template v-else>
+                    <div v-for="reaction in orderedReactions(message)" :key="reaction.emoji" class="reaction-details-anchor"
+                         @pointerenter="onReactionDetailsHover(message.id, reaction.emoji)" @pointerleave="closeReactionDetails(message.id, reaction.emoji)"
+                         @focusin="onReactionDetailsFocus(message.id, reaction.emoji)" @focusout="onReactionDetailsFocusOut($event, message.id, reaction.emoji)">
+                      <button :class="['reaction-chip', { 'reaction-chip--active': reaction.reacted_by_me }]"
+                              type="button" :disabled="!permissions.can_react || user.timeoutActive || chat.isReactionBusy(message.id)" @click="onToggleReaction(message.id, reaction.emoji)">
+                        <span>{{ reaction.emoji }}</span>
+                        <span>{{ reaction.count }}</span>
+                      </button>
 
-                  <div v-if="reactionsAllowlist.length > 0" class="reaction-details-anchor">
-                    <button class="reaction-chip reaction-chip--picker" type="button" aria-label="Добавить реакцию" title="Добавить реакцию" :disabled="!permissions.can_react || user.timeoutActive || chat.isReactionBusy(message.id)"
-                            @pointerdown.stop @click="toggleMessageReactionPicker(message.id)">
-                      <UiIcon :icon="iconAddReaction" />
-                    </button>
-                    <button v-if="!message.deleted" class="reaction-chip reaction-chip--picker" type="button" aria-label="Ответить" title="Ответить" @click="onReply(message.id)">
-                      <UiIcon :icon="iconReplyMessage" />
-                    </button>
-                    <button v-if="message.can_delete" class="reaction-chip reaction-chip--picker red" type="button" aria-label="Удалить сообщение" title="Удалить сообщение"
+                      <div v-if="reactionDetailsVisible && reactionDetailsMessageId === message.id && reactionDetailsEmoji === reaction.emoji" class="reaction-details-popover" role="tooltip">
+                        <p v-if="reactionDetailsLoadingMessageId === message.id" class="reaction-details-state">Загрузка...</p>
+                        <p v-else-if="reactionDetailsErrorMessageId === message.id" class="reaction-details-state reaction-details-state--error">
+                          Не удалось загрузить список реакций.
+                        </p>
+                        <template v-else>
+                          <div v-for="participant in reactionDetailsParticipants" :key="`${participant.user.id}-${participant.created_at}`" class="reaction-details-item">
+                            <img class="reaction-details-avatar" v-minio-img="{ key: participant.user.avatar_name ? `avatars/${participant.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="Аватар" />
+                            <div class="reaction-details-meta">
+                              <span class="reaction-details-name">{{ participant.user.username || (`user${participant.user.id}`) }}</span>
+                              <small class="reaction-details-time">{{ formatMessageTime(participant.created_at) }}</small>
+                            </div>
+                          </div>
+                        </template>
+                      </div>
+                    </div>
+
+                    <div v-if="reactionsAllowlist.length > 0" class="reaction-details-anchor">
+                      <button class="reaction-chip reaction-chip--picker" type="button" aria-label="Добавить реакцию" title="Добавить реакцию" :disabled="!permissions.can_react || user.timeoutActive || chat.isReactionBusy(message.id)"
+                              @pointerdown.stop @click="toggleMessageReactionPicker(message.id)">
+                        <UiIcon :icon="iconAddReaction" />
+                      </button>
+                      <button v-if="!message.deleted" class="reaction-chip reaction-chip--picker" type="button" aria-label="Ответить" title="Ответить" @click="onReply(message.id)">
+                        <UiIcon :icon="iconReplyMessage" />
+                      </button>
+                      <Transition name="emoji-picker-pop">
+                        <div v-if="reactionPickerMessageId === message.id" class="emoji-picker emoji-picker--reactions" :style="reactionPickerStyle" @click.stop>
+                          <button v-for="emoji in reactionPickerItems" :key="emoji" class="emoji-button" type="button" @click="onSelectReaction(message.id, emoji)">
+                            {{ emoji }}
+                          </button>
+                        </div>
+                      </Transition>
+                    </div>
+                  </template>
+                  <div v-if="message.can_delete" class="reaction-details-anchor">
+                    <button class="reaction-chip reaction-chip--picker red" type="button" aria-label="Удалить сообщение" title="Удалить сообщение"
                             :disabled="chat.isDeleteBusy(message.id)" @click="onDeleteMessage(message)">
                       <UiIcon :icon="iconDelete" />
                     </button>
-                    <Transition name="emoji-picker-pop">
-                      <div v-if="reactionPickerMessageId === message.id" class="emoji-picker emoji-picker--reactions" :style="reactionPickerStyle" @click.stop>
-                        <button v-for="emoji in reactionPickerItems" :key="emoji" class="emoji-button" type="button" @click="onSelectReaction(message.id, emoji)">
-                          {{ emoji }}
-                        </button>
-                      </div>
-                    </Transition>
                   </div>
                 </div>
               </div>
@@ -273,8 +277,17 @@
               <span>{{ deletedPreview.author.username || (`user${deletedPreview.author.id}`) }}</span>
             </div>
 
-            <p v-if="isAuthorBlacklisted(deletedPreview.author.id)" class="deleted-preview-empty">{{ BLACKLISTED_MESSAGE_TEXT }}</p>
-            <template v-else-if="deletedPreview.content_available">
+            <p v-if="!deletedPreview.content_available" class="deleted-preview-empty">Содержимое сообщения уже удалено окончательно.</p>
+            <template v-else-if="isAuthorBlacklisted(deletedPreview.author.id) && !deletedPreviewRevealed">
+              <p class="deleted-preview-empty">{{ BLACKLISTED_MESSAGE_TEXT }}</p>
+              <div class="deleted-preview-actions">
+                <button class="icon-action-button" type="button" aria-label="Показать удаленное сообщение пользователя из ЧС"
+                        title="Показать удаленное сообщение пользователя из ЧС" @click="revealDeletedPreviewMessage">
+                  <UiIcon :icon="iconVisOn" />
+                </button>
+              </div>
+            </template>
+            <template v-else>
               <p v-if="deletedPreview.text" class="deleted-preview-text">
                 <template v-for="(segment, index) in buildTextSegments(deletedPreview.text, deletedPreview.mentions)" :key="`deleted-preview-text-${index}`">
                   <a v-if="segment.kind === 'link'" class="message-link" :href="segment.href" target="_blank" rel="noopener noreferrer nofollow" @click.stop>{{ segment.text }}</a>
@@ -284,9 +297,8 @@
                   <span v-else>{{ segment.text }}</span>
                 </template>
               </p>
-              <img v-if="deletedPreview.image_object_key" class="deleted-preview-image" @click="onOpenImageLightbox($event, 'Удаленное вложение', deletedPreview.author.id)" v-minio-img="{ key: deletedPreview.image_object_key, lazy: false }" alt="Удаленное вложение" />
+              <img v-if="deletedPreview.image_object_key" class="deleted-preview-image" @click="onOpenImageLightbox($event, 'Удаленное вложение', deletedPreview.author.id, deletedPreviewRevealed)" v-minio-img="{ key: deletedPreview.image_object_key, lazy: false }" alt="Удаленное вложение" />
             </template>
-            <p v-else class="deleted-preview-empty">Содержимое сообщения уже удалено окончательно.</p>
           </div>
         </div>
       </div>
@@ -405,6 +417,7 @@ const listAtTop = ref(false)
 const deletedPreviewOpen = ref(false)
 const deletedPreviewArmed = ref(false)
 const deletedPreview = ref<GlobalChatDeletedMessagePreview | null>(null)
+const deletedPreviewRevealed = ref(false)
 const deletedPreviewLoadingMessageId = ref<number | null>(null)
 const imageLightboxOpen = ref(false)
 const imageLightboxArmed = ref(false)
@@ -470,12 +483,17 @@ function isBlacklistedMessageRevealed(messageId: number): boolean {
   return revealedBlacklistedMessageIds.value.has(messageId)
 }
 
+function isBlacklistedMessageHidden(message: GlobalChatMessage): boolean {
+  return !message.deleted && isAuthorBlacklisted(message.author.id) && !isBlacklistedMessageRevealed(message.id)
+}
+
 function revealBlacklistedMessage(messageId: number): void {
   if (revealedBlacklistedMessageIds.value.has(messageId)) return
   revealedBlacklistedMessageIds.value = new Set(revealedBlacklistedMessageIds.value).add(messageId)
 }
 
 function replySnippet(reply: GlobalChatReplyPreview): string {
+  if (reply.deleted) return 'Сообщение удалено'
   if (isAuthorBlacklisted(reply.author_id)) return BLACKLISTED_MESSAGE_TEXT
   return reply.snippet || (reply.has_image ? 'Изображение' : 'Сообщение')
 }
@@ -1223,8 +1241,8 @@ function closeImageLightbox(): void {
   imageLightboxAuthorId.value = null
 }
 
-function onOpenImageLightbox(event: Event, alt: string, authorId: number): void {
-  if (isAuthorBlacklisted(authorId)) return
+function onOpenImageLightbox(event: Event, alt: string, authorId: number, allowBlacklisted = false): void {
+  if (isAuthorBlacklisted(authorId) && !allowBlacklisted) return
   const image = event.currentTarget as HTMLImageElement | null
   const src = image?.currentSrc || image?.src || ''
   if (!src) return
@@ -1483,6 +1501,12 @@ function closeDeletedPreview(): void {
   deletedPreviewArmed.value = false
   deletedPreviewOpen.value = false
   deletedPreview.value = null
+  deletedPreviewRevealed.value = false
+}
+
+function revealDeletedPreviewMessage(): void {
+  if (!deletedPreview.value?.content_available) return
+  deletedPreviewRevealed.value = true
 }
 
 async function onPreviewDeletedMessage(messageId: number): Promise<void> {
@@ -1492,6 +1516,7 @@ async function onPreviewDeletedMessage(messageId: number): Promise<void> {
     const preview = await chat.previewDeletedMessage(messageId)
     if (!preview) return
     deletedPreview.value = preview
+    deletedPreviewRevealed.value = false
     deletedPreviewArmed.value = false
     deletedPreviewOpen.value = true
   } finally {
@@ -1849,6 +1874,7 @@ watch(() => chat.open, (open) => {
     composerPickerOpen.value = false
     resetComposerDragState()
     reactionPickerMessageId.value = null
+    revealedBlacklistedMessageIds.value = new Set<number>()
     clearMentionSuggestions()
     closeReactionDetails()
     closeDeletedPreview()
@@ -3108,6 +3134,29 @@ watch(() => user.timeoutActive, () => {
         }
         .deleted-preview-empty {
           color: $neutral-500;
+        }
+        .deleted-preview-actions {
+          display: flex;
+          justify-content: flex-end;
+          gap: 4px;
+          .icon-action-button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 30px;
+            height: 30px;
+            padding: 0;
+            border: none;
+            border-radius: 12px;
+            background-color: $soft-purple-100;
+            color: $neutral-black;
+            cursor: pointer;
+            --ui-icon-width: 20px;
+            --ui-icon-height: 20px;
+            &:hover {
+              background-color: $soft-purple-200;
+            }
+          }
         }
         .deleted-preview-image {
           width: 100%;
