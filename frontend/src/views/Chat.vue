@@ -2321,8 +2321,9 @@ watch(() => user.timeoutActive, () => {
           }
           .message-bubble {
             display: flex;
-            flex-direction: column;
-            min-width: 0;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
             gap: 8px;
             .message-text,
             .tombstone {
@@ -2348,10 +2349,9 @@ watch(() => user.timeoutActive, () => {
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                width: 30px;
                 height: 30px;
-                padding: 0;
-                border: none;
+                padding: 0 6px;
+                border: 1px solid $neutral-100;
                 border-radius: 12px;
                 background-color: $soft-purple-100;
                 color: $neutral-black;
