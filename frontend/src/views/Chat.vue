@@ -103,29 +103,31 @@
                     </button>
                   </div>
                   <template v-else>
-                    <div v-for="reaction in orderedReactions(message)" :key="reaction.emoji" class="reaction-details-anchor left"
-                         @pointerenter="onReactionDetailsHover(message.id, reaction.emoji)" @pointerleave="closeReactionDetails(message.id, reaction.emoji)"
-                         @focusin="onReactionDetailsFocus(message.id, reaction.emoji)" @focusout="onReactionDetailsFocusOut($event, message.id, reaction.emoji)">
-                      <button :class="['reaction-chip', { 'reaction-chip--active': reaction.reacted_by_me }]"
-                              type="button" :disabled="!permissions.can_react || user.timeoutActive || chat.isReactionBusy(message.id)" @click="onToggleReaction(message.id, reaction.emoji)">
-                        <span>{{ reaction.emoji }}</span>
-                        <span>{{ reaction.count }}</span>
-                      </button>
+                    <div v-if="orderedReactions(message).length > 0" class="reaction-details-anchor-div">
+                      <div v-for="reaction in orderedReactions(message)" :key="reaction.emoji" class="reaction-details-anchor left"
+                           @pointerenter="onReactionDetailsHover(message.id, reaction.emoji)" @pointerleave="closeReactionDetails(message.id, reaction.emoji)"
+                           @focusin="onReactionDetailsFocus(message.id, reaction.emoji)" @focusout="onReactionDetailsFocusOut($event, message.id, reaction.emoji)">
+                        <button :class="['reaction-chip', { 'reaction-chip--active': reaction.reacted_by_me }]"
+                                type="button" :disabled="!permissions.can_react || user.timeoutActive || chat.isReactionBusy(message.id)" @click="onToggleReaction(message.id, reaction.emoji)">
+                          <span>{{ reaction.emoji }}</span>
+                          <span>{{ reaction.count }}</span>
+                        </button>
 
-                      <div v-if="reactionDetailsVisible && reactionDetailsMessageId === message.id && reactionDetailsEmoji === reaction.emoji" class="reaction-details-popover" role="tooltip">
-                        <p v-if="reactionDetailsLoadingMessageId === message.id" class="reaction-details-state">Загрузка...</p>
-                        <p v-else-if="reactionDetailsErrorMessageId === message.id" class="reaction-details-state reaction-details-state--error">
-                          Не удалось загрузить список реакций.
-                        </p>
-                        <template v-else>
-                          <div v-for="participant in reactionDetailsParticipants" :key="`${participant.user.id}-${participant.created_at}`" class="reaction-details-item">
-                            <img class="reaction-details-avatar" v-minio-img="{ key: participant.user.avatar_name ? `avatars/${participant.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="Аватар" />
-                            <div class="reaction-details-meta">
-                              <span class="reaction-details-name">{{ participant.user.username || (`user${participant.user.id}`) }}</span>
-                              <small class="reaction-details-time">{{ formatMessageTime(participant.created_at) }}</small>
+                        <div v-if="reactionDetailsVisible && reactionDetailsMessageId === message.id && reactionDetailsEmoji === reaction.emoji" class="reaction-details-popover" role="tooltip">
+                          <p v-if="reactionDetailsLoadingMessageId === message.id" class="reaction-details-state">Загрузка...</p>
+                          <p v-else-if="reactionDetailsErrorMessageId === message.id" class="reaction-details-state reaction-details-state--error">
+                            Не удалось загрузить список реакций.
+                          </p>
+                          <template v-else>
+                            <div v-for="participant in reactionDetailsParticipants" :key="`${participant.user.id}-${participant.created_at}`" class="reaction-details-item">
+                              <img class="reaction-details-avatar" v-minio-img="{ key: participant.user.avatar_name ? `avatars/${participant.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="Аватар" />
+                              <div class="reaction-details-meta">
+                                <span class="reaction-details-name">{{ participant.user.username || (`user${participant.user.id}`) }}</span>
+                                <small class="reaction-details-time">{{ formatMessageTime(participant.created_at) }}</small>
+                              </div>
                             </div>
-                          </div>
-                        </template>
+                          </template>
+                        </div>
                       </div>
                     </div>
 
@@ -2478,14 +2480,18 @@ watch(() => user.timeoutActive, () => {
             align-items: center;
             justify-content: flex-end;
             gap: 4px;
+            .reaction-details-anchor-div {
+              display: flex;
+              flex-wrap: wrap;
+              align-items: center;
+              margin-right: auto;
+              gap: 4px;
+            }
             .reaction-details-anchor {
               display: flex;
               position: relative;
               align-items: center;
               gap: 4px;
-              &.left {
-                margin-right: auto;
-              }
               .reaction-chip {
                 display: flex;
                 align-items: center;
