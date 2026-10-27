@@ -103,7 +103,7 @@
                     </button>
                   </div>
                   <template v-else>
-                    <div v-for="reaction in orderedReactions(message)" :key="reaction.emoji" class="reaction-details-anchor"
+                    <div v-for="reaction in orderedReactions(message)" :key="reaction.emoji" class="reaction-details-anchor left"
                          @pointerenter="onReactionDetailsHover(message.id, reaction.emoji)" @pointerleave="closeReactionDetails(message.id, reaction.emoji)"
                          @focusin="onReactionDetailsFocus(message.id, reaction.emoji)" @focusout="onReactionDetailsFocusOut($event, message.id, reaction.emoji)">
                       <button :class="['reaction-chip', { 'reaction-chip--active': reaction.reacted_by_me }]"
@@ -2483,6 +2483,9 @@ watch(() => user.timeoutActive, () => {
               position: relative;
               align-items: center;
               gap: 4px;
+              &.left {
+                margin-right: auto;
+              }
               .reaction-chip {
                 display: flex;
                 align-items: center;
