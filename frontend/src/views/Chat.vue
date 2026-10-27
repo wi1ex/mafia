@@ -2476,15 +2476,13 @@ watch(() => user.timeoutActive, () => {
             display: flex;
             flex-wrap: wrap;
             align-items: center;
-            gap: 8px;
+            justify-content: flex-end;
+            gap: 4px;
             .reaction-details-anchor {
               display: flex;
               position: relative;
               align-items: center;
               gap: 4px;
-              &:last-child {
-                margin-left: auto;
-              }
               .reaction-chip {
                 display: flex;
                 align-items: center;
