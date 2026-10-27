@@ -105,6 +105,7 @@ class UserMiniProfileOut(BaseModel):
     last_game_id: Optional[int] = None
     online: bool = False
     subscription_active: bool = False
+    subscription_until: Optional[datetime] = None
     timeout_active: bool = False
     timeout_until: Optional[datetime] = None
     ban_active: bool = False

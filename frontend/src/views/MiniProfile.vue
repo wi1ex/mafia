@@ -180,9 +180,9 @@
                   <span class="date-title">Последний раз в сети</span>
                   <span class="date-time">{{ lastOnlineLabel }}</span>
                 </div>
-                <div v-if="isSelfProfile" class="date-row">
+                <div v-if="showSubscriptionInfo" class="date-row">
                   <span class="date-title">Подписка</span>
-                  <span class="date-time">{{ subscriptionExpiryLabel }}</span>
+                  <span class="date-time">{{ displayedSubscriptionExpiryLabel }}</span>
                 </div>
                 <div class="date-row">
                   <span class="date-title">Роли пользователя</span>
@@ -325,6 +325,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { api } from '@/services/axios'
+import { formatLocalDateTime } from '@/services/datetime'
 import { useSubscriptionStatus } from '@/services/useSubscriptionStatus'
 import { alertDialog, confirmDialog, confirmDialogWithAction, useConfirmState } from '@/services/confirm'
 import { isMiniProfilePrivilegedViewer, normalizeMiniProfileRole } from '@/services/miniProfile'
@@ -496,6 +497,7 @@ type MiniProfileResponse = {
   last_game_id?: number | null
   online?: boolean
   subscription_active?: boolean
+  subscription_until?: string | null
   timeout_active?: boolean
   timeout_until?: string | null
   ban_active?: boolean
@@ -679,6 +681,19 @@ const isSelfProfile = computed(() => targetUserId.value > 0 && viewerUserId.valu
 const viewerSubscriptionActive = computed(() => Boolean(userStore.subscriptionActive))
 const viewerAccountRestricted = computed(() => Boolean(userStore.accountRestricted && !isSelfProfile.value))
 const privilegedViewer = computed(() => isMiniProfilePrivilegedViewer(viewerRole.value, props.adminMode))
+const showSubscriptionInfo = computed(() => isSelfProfile.value || isAdminViewer.value || isModerViewer.value)
+const targetSubscriptionExpiryLabel = computed(() => {
+  if (!profileLoadedForTarget.value || !profile.value?.subscription_active) return '—'
+  const formatted = formatLocalDateTime(
+    profile.value.subscription_until,
+    { day: '2-digit', month: '2-digit', year: 'numeric' },
+    'ru-RU',
+  )
+  return formatted === '—' ? '—' : `до ${formatted}`
+})
+const displayedSubscriptionExpiryLabel = computed(() => (
+  isSelfProfile.value ? subscriptionExpiryLabel.value : targetSubscriptionExpiryLabel.value
+))
 const initialTargetDeleted = computed(() => {
   const initial = initialProfileForTarget.value
   return Boolean(initial?.deleted || initial?.deleted_at)
@@ -1867,6 +1882,7 @@ async function loadProfile() {
       last_game_id: Number.isFinite(Number(data?.last_game_id)) ? Math.trunc(Number(data?.last_game_id)) : null,
       online: Boolean(data?.online),
       subscription_active: Boolean(data?.subscription_active),
+      subscription_until: data?.subscription_until ?? null,
       timeout_active: Boolean(data?.timeout_active),
       timeout_until: data?.timeout_until ?? null,
       ban_active: Boolean(data?.ban_active),

@@ -447,6 +447,7 @@ async def mini_profile(user_id: int, allow_deleted: bool = False, ident: Identit
         last_game_id=last_game_id,
         online=online,
         subscription_active=theme_state.subscription_active,
+        subscription_until=theme_state.subscription_until if (uid == viewer_id or is_staff_viewer) else None,
         timeout_active=bool(active_sanctions.get("timeout")),
         timeout_until=active_sanctions.get("timeout").expires_at if active_sanctions.get("timeout") else None,
         ban_active=bool(active_sanctions.get("ban")),
