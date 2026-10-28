@@ -669,7 +669,7 @@ const profileThemeIconSrcs = computed(() => getProfileThemeBadgeSources(
       min-width: 11px;
       color: $neutral-white;
       font-family: Hauora-Bold;
-      font-size: 18px;
+      font-size: 20px;
       line-height: 20px;
       letter-spacing: -0.36px;
     }
