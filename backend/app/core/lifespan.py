@@ -26,19 +26,6 @@ async def lifespan(app) -> AsyncIterator[None]:
             await conn.execute(text("SELECT pg_advisory_xact_lock(20261020, 1)"))
             await conn.run_sync(Base.metadata.create_all)
 
-            # Одноразовая очистка после удаления истории выдач и переименования рулетки.
-            # После первого успешного запуска удалите этот блок целиком.
-            await conn.execute(text("DROP TABLE IF EXISTS subscription_grants"))
-            await conn.execute(text("""
-                UPDATE notifs
-                SET text = replace(text, ' подписки в лотерее. ', ' подписки в рулетке. ')
-                WHERE title = 'Подписка'
-                  AND (
-                    text LIKE 'Вы выиграли % подписки в лотерее. Подписка активирована до %.'
-                    OR text LIKE 'Вы выиграли % подписки в лотерее. Подписка продлена до %.'
-                  )
-            """))
-
         async with SessionLocal() as session:
             await ensure_app_settings(session)
             await ensure_game_scoring_settings(session)
