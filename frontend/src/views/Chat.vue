@@ -2556,7 +2556,7 @@ watch(() => user.timeoutActive, () => {
                 width: 220px;
                 max-height: min(220px, var(--reaction-popover-max-height, 220px));
                 padding: 8px 12px;
-                gap: 4px;
+                gap: 8px;
                 border: 1px solid $neutral-200;
                 border-radius: 16px;
                 background-color: $neutral-white;
@@ -2580,21 +2580,19 @@ watch(() => user.timeoutActive, () => {
                   }
                   .reaction-details-meta {
                     display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    width: 100%;
+                    flex-direction: column;
                     .reaction-details-name {
                       color: $neutral-black;
-                      font-size: 14px;
+                      font-size: 12px;
+                      line-height: 12px;
                       overflow: hidden;
                       text-overflow: ellipsis;
                       white-space: nowrap;
                     }
                     .reaction-details-time {
                       color: $neutral-500;
-                      font-size: 12px;
-                      line-height: 12px;
-                      font-variant: tabular-nums;
+                      font-size: 10px;
+                      line-height: 10px;
                     }
                   }
                 }
