@@ -2409,7 +2409,7 @@ onBeforeUnmount(() => {
                   top: calc(100% + 6px);
                   left: 50%;
                   padding: 16px;
-                  width: 208px;
+                  width: 228px;
                   border-radius: 24px;
                   background-color: $neutral-100;
                   box-shadow: 0 2px 16px 0 rgba($neutral-black, 0.20);
@@ -2454,8 +2454,8 @@ onBeforeUnmount(() => {
                         margin-bottom: 8px;
                         color: $neutral-black;
                         font-family: Hauora-Bold;
-                        font-size: 16px;
-                        line-height: 18px;
+                        font-size: 18px;
+                        line-height: 20px;
                         letter-spacing: -0.32px;
                       }
                     }
@@ -2464,8 +2464,8 @@ onBeforeUnmount(() => {
                       align-items: center;
                       gap: 8px;
                       .profile-friend-avatar {
-                        width: 32px;
-                        height: 32px;
+                        width: 36px;
+                        height: 36px;
                         border-radius: 50%;
                         object-fit: cover;
                       }
@@ -2474,12 +2474,12 @@ onBeforeUnmount(() => {
                         flex-direction: column;
                         gap: 2px;
                         .profile-friend-name {
-                          max-width: 168px;
+                          max-width: 188px;
                           height: 18px;
                           color: $neutral-black;
                           font-family: Hauora-Regular;
                           font-size: 16px;
-                          line-height: 16px;
+                          line-height: 18px;
                           letter-spacing: -0.32px;
                           overflow: hidden;
                           text-overflow: ellipsis;

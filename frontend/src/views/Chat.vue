@@ -2580,19 +2580,21 @@ watch(() => user.timeoutActive, () => {
                   }
                   .reaction-details-meta {
                     display: flex;
-                    flex-direction: column;
-                    min-width: 0;
+                    align-items: center;
+                    justify-content: space-between;
+                    width: 100%;
                     .reaction-details-name {
                       color: $neutral-black;
-                      font-size: 12px;
+                      font-size: 14px;
                       overflow: hidden;
                       text-overflow: ellipsis;
                       white-space: nowrap;
                     }
                     .reaction-details-time {
                       color: $neutral-500;
-                      font-size: 10px;
-                      line-height: 10px;
+                      font-size: 12px;
+                      line-height: 12px;
+                      font-variant: tabular-nums;
                     }
                   }
                 }
