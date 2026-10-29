@@ -108,7 +108,6 @@ async def remove_livekit_participant(*, rid: int, uid: int, timeout_seconds: flo
     attempted_urls: list[str] = []
     last_err: str | None = None
     rounds = max(1, int(retry_rounds))
-    not_found_only = True
 
     for round_idx in range(rounds):
         for url in urls:
@@ -128,13 +127,19 @@ async def remove_livekit_participant(*, rid: int, uid: int, timeout_seconds: flo
 
             except TwirpError as err:
                 if err.code == "not_found":
-                    continue
+                    log.info(
+                        "livekit.participant.already_absent",
+                        rid=rid,
+                        uid=uid,
+                        room=room,
+                        urls=attempted_urls,
+                        rounds=round_idx + 1,
+                    )
+                    return True
 
-                not_found_only = False
                 last_err = f"{type(err).__name__}:{err.code}"
 
             except Exception as err:
-                not_found_only = False
                 last_err = type(err).__name__
 
             finally:
@@ -146,17 +151,6 @@ async def remove_livekit_participant(*, rid: int, uid: int, timeout_seconds: flo
 
         if round_idx + 1 < rounds:
             await asyncio.sleep(min(0.25 * (round_idx + 1), 1.0))
-
-    if not_found_only:
-        log.info(
-            "livekit.participant.already_absent",
-            rid=rid,
-            uid=uid,
-            room=room,
-            urls=attempted_urls,
-            rounds=rounds,
-        )
-        return True
 
     log.warning("livekit.participant.remove_failed", rid=rid, uid=uid, room=room, urls=attempted_urls, err=last_err, rounds=rounds)
     return False

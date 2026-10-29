@@ -3773,6 +3773,7 @@ async function onLeave(goHome = true) {
   clearForegroundMediaRecoveryTimers()
   try {
     await stopScreenBeforeLeave()
+    await rtc.disconnect().catch(() => {})
     const s = socket.value
     socket.value = null
     if (s) {
@@ -3784,9 +3785,7 @@ async function onLeave(goHome = true) {
       try { s.removeAllListeners?.() } catch {}
       try { s.close() } catch {}
     }
-    const disc = rtc.disconnect().catch(() => {})
     if (goHome) await router.replace('/')
-    await disc
   } finally {
     leaving.value = false
   }

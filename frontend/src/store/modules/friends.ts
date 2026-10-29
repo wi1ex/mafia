@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { api } from '@/services/axios'
+import { useUserStore } from './user'
 
 export type FriendStatus = 'self' | 'friends' | 'outgoing' | 'incoming' | 'none'
 
@@ -209,6 +210,12 @@ export const useFriendsStore = defineStore('friends', () => {
   }
 
   function fetchBlacklist(): Promise<void> {
+    const userStore = useUserStore()
+    if (!userStore.user || !userStore.subscriptionActive) {
+      blacklist.value = []
+      blacklistQueued = false
+      return Promise.resolve()
+    }
     if (blacklistRequest) {
       blacklistQueued = true
       return blacklistRequest
@@ -217,8 +224,17 @@ export const useFriendsStore = defineStore('friends', () => {
       try {
         do {
           blacklistQueued = false
+          if (!userStore.user || !userStore.subscriptionActive) {
+            blacklist.value = []
+            break
+          }
+          const requestUserId = userStore.user?.id
           const { data } = await api.get<BlacklistResponse>('/friends/blacklist')
-          blacklist.value = Array.isArray(data?.items) ? data.items : []
+          if (requestUserId !== userStore.user?.id || !userStore.subscriptionActive) {
+            blacklist.value = []
+          } else {
+            blacklist.value = Array.isArray(data?.items) ? data.items : []
+          }
         } while (blacklistQueued)
       } catch (e: any) {
         if (String(e?.response?.data?.detail || '') === 'subscription_required') {
