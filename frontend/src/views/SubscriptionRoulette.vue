@@ -327,7 +327,7 @@ onBeforeUnmount(() => {
       }
       .roulette-machine {
         position: relative;
-        width: min(100%, 350px);
+        width: min(100%, 325px);
         justify-self: end;
         padding-right: 60px;
         box-sizing: border-box;
