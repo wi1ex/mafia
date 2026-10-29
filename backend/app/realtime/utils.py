@@ -896,8 +896,10 @@ async def finalize_guarded_disconnect_cleanup(*, rid: int, uid: int, expected_ep
 
     try:
         await reset_room_session(sid, sess, uid=uid)
-    except Exception:
-        log.warning("sio.disconnect.reset_session_failed", rid=rid, uid=uid)
+    except KeyError:
+        pass
+    except Exception as err:
+        log.warning("sio.disconnect.reset_session_failed", rid=rid, uid=uid, err=type(err).__name__)
 
     await _evict_livekit_after_epoch_cleanup(r, rid, uid, expected_epoch)
     if spectator_cleaned:
@@ -2382,7 +2384,10 @@ async def _can_use_room_admin_actions(r, rid: int, actor_uid: int, sess: Mapping
 
 
 async def build_game_context(sid, *, namespace="/room") -> tuple[GameActionContext | None, dict | None]:
-    sess = await sio.get_session(sid, namespace=namespace)
+    try:
+        sess = await sio.get_session(sid, namespace=namespace)
+    except KeyError:
+        return None, {"ok": False, "error": "Unauthorized", "status": 401}
     uid = int(sess["uid"])
     rid = int(sess.get("rid") or 0)
     if not rid:

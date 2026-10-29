@@ -24,11 +24,14 @@ def _normalize_livekit_url(raw: str) -> str:
     if not value:
         return ""
 
+    if "://" not in value:
+        value = f"http://{value}"
     parsed = urlparse(value)
-    if parsed.scheme:
-        return value
+    if parsed.scheme in {"ws", "wss"}:
+        parsed = parsed._replace(scheme="https" if parsed.scheme == "wss" else "http")
+        return parsed.geturl()
 
-    return f"http://{value}"
+    return value
 
 
 def _iter_livekit_api_urls() -> Iterable[str]:
@@ -44,7 +47,7 @@ def _iter_livekit_api_urls() -> Iterable[str]:
         seen.add(upstream)
         yield upstream
 
-    nginx_url = "http://nginx/rtc"
+    nginx_url = "http://nginx:8082"
     if nginx_url not in seen:
         seen.add(nginx_url)
         yield nginx_url
@@ -138,9 +141,19 @@ async def remove_livekit_participant(*, rid: int, uid: int, timeout_seconds: flo
                     return True
 
                 last_err = f"{type(err).__name__}:{err.code}"
+                log.warning(
+                    "livekit.participant.remove_attempt_failed",
+                    rid=rid, uid=uid, room=room, url=url, round=round_idx + 1,
+                    err=type(err).__name__, code=err.code, status=getattr(err, "status", None),
+                )
 
             except Exception as err:
                 last_err = type(err).__name__
+                log.warning(
+                    "livekit.participant.remove_attempt_failed",
+                    rid=rid, uid=uid, room=room, url=url, round=round_idx + 1,
+                    err=type(err).__name__,
+                )
 
             finally:
                 if api is not None:

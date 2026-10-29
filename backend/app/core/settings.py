@@ -32,8 +32,8 @@ class Settings(BaseSettings):
     TG_BOT_NAME: str
     TG_BOT_TOKEN: str
     BOT_API_TOKEN: str
-    BOT_SERVICE_RATE_LIMIT_PER_SECOND: int = Field(default=30, ge=1)
-    BOT_SERVICE_RATE_LIMIT_PER_MINUTE: int = Field(default=1200, ge=1)
+    BOT_SERVICE_RATE_LIMIT_PER_SECOND: int = Field(default=60, ge=1)
+    BOT_SERVICE_RATE_LIMIT_PER_MINUTE: int = Field(default=2400, ge=1)
     BOT_WEBHOOK_PATH: str
     BOT_WEBHOOK_SECRET: str
     ADMIN_TELEGRAM_ID: int = 59404714

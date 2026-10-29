@@ -27,8 +27,8 @@ def build_fastapi() -> FastAPI:
         redoc_url=None,
         openapi_url=None,
     )
-    main_app.add_middleware(LoggingMiddleware)
     main_app.add_middleware(LastLoginTouchMiddleware)
+    main_app.add_middleware(LoggingMiddleware)
 
     main_app.add_middleware(
         CORSMiddleware,

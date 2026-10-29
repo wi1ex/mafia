@@ -51,7 +51,7 @@ async def connect(sid, environ, auth):
 @sio.event(namespace="/rooms")
 @rate_limited_sio(
     lambda sid, uid=None, **__: f"rl:sio:rooms_list:{uid or sid}",
-    limit=20,
+    limit=40,
     window_s=1,
     session_ns="/rooms",
     auth_optional=True,

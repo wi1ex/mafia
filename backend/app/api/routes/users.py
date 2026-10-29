@@ -201,17 +201,19 @@ async def profile_info(ident: Identity = Depends(get_identity), db: AsyncSession
 
 @router.post("/me/rules/accept", response_model=UserOut)
 @log_route("users.site_rules_accept")
-@rate_limited(lambda ident, **_: f"rl:site_rules_accept:{ident['id']}", limit=1, window_s=1)
+@rate_limited(lambda ident, **_: f"rl:site_rules_accept:{ident['id']}", limit=3, window_s=1)
 async def accept_site_rules(payload: UserRulesAcceptIn, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserOut:
     uid = int(ident["id"])
     user = await accept_site_rules_version(db, user_id=uid, version=payload.version)
     await db.refresh(user)
+    profile = await build_user_out_payload(db, user_id=uid, role=str(user.role))
 
     with suppress(Exception):
-        await emit_auth_profile_sync(uid, role=str(user.role))
+        await emit_auth_profile_sync(uid, payload=profile)
     with suppress(Exception):
         await emit_global_chat_permissions_updated(uid)
-    return await build_user_out_payload(db, user_id=uid, role=str(user.role))
+
+    return profile
 
 
 @router.get("/profile_dates", response_model=UserProfileDatesOut)

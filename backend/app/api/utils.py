@@ -6,7 +6,7 @@ import asyncio
 import calendar
 from contextlib import suppress
 import structlog
-from time import time
+from time import perf_counter, time
 from datetime import date, datetime, timezone, timedelta
 from typing import Optional, Dict, Any, Literal, Sequence, Iterable, Mapping, cast, TYPE_CHECKING
 from fastapi import Depends, HTTPException, status, Header, Request
@@ -15,7 +15,7 @@ from sqlalchemy import update, func, select, or_, and_, delete, literal_column
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.clients import get_redis
 from ..core.db import SessionLocal, get_session
-from ..core.logging import log_action
+from ..core.logging import log_action, trusted_client_ip
 from ..core.roles import ROLE_ADMIN, ROLE_USER, normalize_user_role, room_moderation_role
 from ..core.settings import settings
 from ..models.game import Game
@@ -47,12 +47,12 @@ from ..services.blacklist import clear_user_blacklist_if_subscription_inactive
 from ..services.telegram import send_text_message
 from ..schemas.common import Ok, Identity
 if TYPE_CHECKING:
-    from ..schemas.auth import BotResetIn, BotStatusIn, BotVerifyIn
+    from ..schemas.auth import BotResetIn, BotStatusIn, BotVerifyIn, PasswordLoginIn
     from ..schemas.admin import SiteSettingsOut, GameSettingsOut, PublicSettingsOut, RegistrationsPoint, AdminRoomUserStat, AdminSanctionDurationAdjustIn, AdminGameActionFieldOut
     from ..schemas.sanction_rules import SanctionRulesOut
     from ..schemas.friend import FriendsListItemOut
     from ..schemas.room import GameParams, RoomBriefOut
-    from ..schemas.user import UserGamesHistoryOut, GameHistoryItemOut, GameHistoryHostOut, UserMiniProfileNominationStatsOut, UserStatsOut
+    from ..schemas.user import UserGamesHistoryOut, GameHistoryItemOut, GameHistoryHostOut, UserMiniProfileNominationStatsOut, UserStatsOut, UserOut
 
 __all__ = [
     "SANCTION_TIMEOUT",
@@ -199,6 +199,7 @@ __all__ = [
     "find_user_by_username",
     "generate_user_id",
     "require_bot_token",
+    "login_rate_key",
     "bot_verify_telegram_rate_key",
     "bot_verify_account_rate_key",
     "bot_reset_rate_key",
@@ -1584,6 +1585,12 @@ def require_bot_token(x_bot_token: str = Header(default="")) -> None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="bot_forbidden")
 
 
+def login_rate_key(payload: PasswordLoginIn, request: Request) -> str:
+    ip = trusted_client_ip(request.headers, request.client.host if request.client else None)
+    username = normalize_username(payload.username).lower()
+    return f"rl:auth:login:ip_account:{ip}:{username}"
+
+
 def bot_verify_telegram_rate_key(payload: BotVerifyIn, **_: object) -> str:
     return f"rl:bot:verify:telegram:{int(payload.telegram_id)}"
 
@@ -1639,16 +1646,28 @@ async def build_user_out_payload(session: AsyncSession, *, user_id: int, role: s
     from ..schemas.user import UserOut
     from ..services.global_chat import count_global_chat_unread
 
+    started = stage_started = perf_counter()
+    stages_ms: dict[str, float] = {}
+
+    def finish_stage(name: str) -> None:
+        nonlocal stage_started
+        finished = perf_counter()
+        stages_ms[name] = round((finished - stage_started) * 1000, 2)
+        stage_started = finished
+
     user = await session.get(User, int(user_id))
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
     uid = cast(int, user.id)
     normalized_role = str(role or user.role or "")
+    finish_stage("user")
     defaults_changed = await ensure_profile_theme_defaults(session, uid)
     if defaults_changed:
         await session.commit()
+    finish_stage("theme_defaults")
     theme_state = await resolve_profile_theme_state(session, uid)
+    finish_stage("theme")
     await write_user_profile_cache(
         uid,
         username=str(user.username),
@@ -1660,26 +1679,33 @@ async def build_user_out_payload(session: AsyncSession, *, user_id: int, role: s
         theme_icon=theme_state.icon,
         streaming_url=user.streaming_url,
     )
+    finish_stage("profile_cache")
     if defaults_changed:
         with suppress(Exception):
             await emit_room_profile_theme_sync(uid, theme_state.color, theme_state.icon)
         with suppress(Exception):
             from ..services.global_chat import emit_global_chat_profile_theme_sync
             await emit_global_chat_profile_theme_sync(uid, theme_state.color, theme_state.icon)
+    finish_stage("theme_sync")
     active = await fetch_active_sanctions(session, uid)
+    finish_stage("sanctions")
     timeout = active.get(SANCTION_TIMEOUT)
     ban = active.get(SANCTION_BAN)
     suspend = active.get(SANCTION_SUSPEND)
     in_active_game_as_alive_player = await is_user_in_active_alive_game(uid)
+    finish_stage("active_alive_game")
     in_active_game_as_player = await is_user_in_active_game(uid, scan_if_missing=True)
+    finish_stage("active_game")
     chat_unread_count = await count_global_chat_unread(session, user_id=uid)
+    finish_stage("chat_unread")
     roulette_state = (await session.execute(
         select(User.subscription_roulette_days, func.abs(AppSettings.subscription_roulette_state))
         .select_from(User).join(AppSettings, AppSettings.id == 1).where(User.id == uid)
     )).one_or_none()
     roulette_days, roulette_round = roulette_state if roulette_state is not None else (None, 0)
+    finish_stage("roulette")
 
-    return UserOut(
+    payload = UserOut(
         id=uid,
         username=user.username,
         avatar_name=user.avatar_name,
@@ -1710,15 +1736,23 @@ async def build_user_out_payload(session: AsyncSession, *, user_id: int, role: s
         in_active_game_as_player=in_active_game_as_player,
         chat_unread_count=chat_unread_count,
     )
+    finish_stage("payload")
+    duration_ms = (perf_counter() - started) * 1000
+    if duration_ms >= 1000:
+        log.info("users.profile.slow", user_id=uid, duration_ms=round(duration_ms, 2), stages_ms=stages_ms)
+    return payload
 
 
-async def emit_auth_profile_sync(user_id: int, *, role: str | None = None) -> None:
+async def emit_auth_profile_sync(user_id: int, *, role: str | None = None, payload: UserOut | None = None) -> None:
     uid = int(user_id)
     if uid <= 0:
         return
 
-    async with SessionLocal() as session:
-        payload = await build_user_out_payload(session, user_id=uid, role=role)
+    if payload is None:
+        async with SessionLocal() as session:
+            payload = await build_user_out_payload(session, user_id=uid, role=role)
+    elif int(payload.id) != uid:
+        raise ValueError("profile_sync_user_mismatch")
 
     await sio.emit(
         "profile_sync",

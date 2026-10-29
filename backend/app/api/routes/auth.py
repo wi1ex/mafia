@@ -9,7 +9,7 @@ from ...core.roles import is_reserved_role_nickname
 from ...core.settings import settings
 from ...security.parameters import get_cached_settings
 from ...core.logging import append_auth_log_metadata, log_action
-from ...security.decorators import log_route
+from ...security.decorators import log_route, rate_limited
 from ...security.auth_tokens import (
     AUTH_SESSION_SID_HEADER,
     create_access_token,
@@ -24,6 +24,7 @@ from ...services.nickname import FREE_NICKNAME_CHANGE_LIMIT
 from ...schemas.common import Ok
 from ...schemas.auth import AccessTokenOut, PasswordLoginIn, PasswordRegisterIn
 from ..utils import (
+    login_rate_key,
     touch_user_last_login,
     normalize_username,
     normalize_password,
@@ -107,6 +108,8 @@ async def register(payload: PasswordRegisterIn, resp: Response, request: Request
 
 @router.post("/login", response_model=AccessTokenOut)
 @log_route("auth.login")
+@rate_limited(lambda payload, request, **_: f"{login_rate_key(payload, request)}:w10", limit=3, window_s=10)
+@rate_limited(lambda payload, request, **_: f"{login_rate_key(payload, request)}:w60", limit=8, window_s=60)
 async def login(payload: PasswordLoginIn, resp: Response, request: Request, db: AsyncSession = Depends(get_session)) -> AccessTokenOut:
     username = normalize_username(payload.username)
     password = normalize_password(payload.password, allow_whitespace=True)

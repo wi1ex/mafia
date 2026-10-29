@@ -3,6 +3,7 @@ import re
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from time import perf_counter
 from typing import Any, Sequence
 from uuid import UUID, uuid4
 import structlog
@@ -839,16 +840,15 @@ async def _ensure_global_chat_read_state(session: AsyncSession, *, user_id: int)
         return row
 
     latest_message_id = await _get_latest_global_chat_message_id(session)
-    row = GlobalChatReadState(
+    await session.execute(insert(GlobalChatReadState).values(
         user_id=uid,
         last_seen_message_id=latest_message_id or None,
         last_read_alert_message_id=latest_message_id or None,
         read_alert_message_ids=[],
         updated_at=datetime.now(timezone.utc),
-    )
-    session.add(row)
+    ).on_conflict_do_nothing(index_elements=[GlobalChatReadState.user_id]))
     await session.commit()
-    return row
+    return await session.get(GlobalChatReadState, uid)
 
 
 async def mark_global_chat_seen(session: AsyncSession, *, user_id: int, message_id: int | None = None) -> int:
@@ -872,9 +872,11 @@ async def mark_global_chat_seen(session: AsyncSession, *, user_id: int, message_
     return max(current_seen_message_id, seen_message_id)
 
 
-async def _build_global_chat_alert_user_ids_map(session: AsyncSession, messages: Sequence[GlobalChatMessage]) -> dict[int, set[int]]:
+async def _build_global_chat_alert_user_ids_map(session: AsyncSession, messages: Sequence[GlobalChatMessage], *, target_user_id: int | None = None) -> dict[int, set[int]]:
     if not messages:
         return {}
+
+    started = perf_counter()
 
     reply_ids = {
         _positive_int(message.reply_to_message_id)
@@ -963,6 +965,8 @@ async def _build_global_chat_alert_user_ids_map(session: AsyncSession, messages:
         author_user_id = _positive_int(message.user_id)
         if author_user_id > 0:
             alert_user_ids.discard(author_user_id)
+        if target_user_id is not None:
+            alert_user_ids.intersection_update((target_user_id,))
 
         out[message_id] = alert_user_ids
         author_ids[message_id] = author_user_id
@@ -973,6 +977,7 @@ async def _build_global_chat_alert_user_ids_map(session: AsyncSession, messages:
         if author_ids[message_id] > 0
         for target_id in target_ids
     })
+    blacklist_started = perf_counter()
     blocked_pairs: set[tuple[int, int]] = set()
     for start in range(0, len(candidate_pairs), 1000):
         rows = await session.execute(
@@ -983,6 +988,18 @@ async def _build_global_chat_alert_user_ids_map(session: AsyncSession, messages:
         blocked_pairs.update((int(owner_id), int(target_id)) for owner_id, target_id in rows.all())
     for message_id, target_ids in out.items():
         out[message_id] = {target_id for target_id in target_ids if (target_id, author_ids[message_id]) not in blocked_pairs}
+
+    duration_ms = (perf_counter() - started) * 1000
+    if duration_ms >= 1000:
+        log.info(
+            "chat.alert_targets.slow",
+            duration_ms=round(duration_ms, 2),
+            blacklist_ms=round((perf_counter() - blacklist_started) * 1000, 2),
+            message_count=len(messages),
+            candidate_pair_count=len(candidate_pairs),
+            blacklist_batches=(len(candidate_pairs) + 999) // 1000,
+            target_user_id=target_user_id,
+        )
 
     return out
 
@@ -1074,6 +1091,7 @@ async def _fetch_global_chat_unread_message_alert_targets(session: AsyncSession,
         for message_id in _normalize_positive_int_list(getattr(read_state, "read_alert_message_ids", None))
         if message_id > last_read_alert_message_id
     }
+    started = perf_counter()
     rows = await session.execute(
         select(GlobalChatMessage)
         .where(
@@ -1084,11 +1102,10 @@ async def _fetch_global_chat_unread_message_alert_targets(session: AsyncSession,
         .order_by(GlobalChatMessage.id.asc())
     )
     messages = rows.scalars().all()
-    if not messages:
-        return []
+    query_finished = perf_counter()
 
-    alert_map = await _build_global_chat_alert_user_ids_map(session, messages)
-    return [
+    alert_map = await _build_global_chat_alert_user_ids_map(session, messages, target_user_id=uid)
+    targets = [
         (_alert_sort_value(message.created_at), int(message.id))
         for message in messages
         if (
@@ -1096,6 +1113,18 @@ async def _fetch_global_chat_unread_message_alert_targets(session: AsyncSession,
             and int(message.id) not in read_alert_message_ids
         )
     ]
+    duration_ms = (perf_counter() - started) * 1000
+    if duration_ms >= 1000:
+        log.info(
+            "chat.unread_messages.slow",
+            user_id=uid,
+            duration_ms=round(duration_ms, 2),
+            query_ms=round((query_finished - started) * 1000, 2),
+            targets_ms=round((perf_counter() - query_finished) * 1000, 2),
+            message_count=len(messages),
+            unread_message_count=len(targets),
+        )
+    return targets
 
 
 async def _fetch_global_chat_unread_reaction_alert_targets(session: AsyncSession, *, user_id: int) -> list[tuple[float, int]]:
@@ -1131,14 +1160,14 @@ async def _fetch_global_chat_unread_reaction_alert_targets(session: AsyncSession
     return targets
 
 
-async def fetch_global_chat_unread_target_message_ids(session: AsyncSession, *, user_id: int) -> list[int]:
+async def _fetch_global_chat_unread_targets(session: AsyncSession, *, user_id: int) -> dict[int, float]:
     uid = _positive_int(user_id)
     if uid <= 0:
-        return []
+        return {}
 
     read_state = await _ensure_global_chat_read_state(session, user_id=uid)
     if read_state is None:
-        return []
+        return {}
 
     targets_by_message_id: dict[int, float] = {}
     targets = await _fetch_global_chat_unread_message_alert_targets(
@@ -1153,6 +1182,11 @@ async def fetch_global_chat_unread_target_message_ids(session: AsyncSession, *, 
         if current_sort_value is None or sort_value > current_sort_value:
             targets_by_message_id[message_id] = sort_value
 
+    return targets_by_message_id
+
+
+async def fetch_global_chat_unread_target_message_ids(session: AsyncSession, *, user_id: int) -> list[int]:
+    targets_by_message_id = await _fetch_global_chat_unread_targets(session, user_id=user_id)
     return [
         message_id
         for message_id, _ in sorted(
@@ -1163,7 +1197,7 @@ async def fetch_global_chat_unread_target_message_ids(session: AsyncSession, *, 
 
 
 async def count_global_chat_unread(session: AsyncSession, *, user_id: int) -> int:
-    return len(await fetch_global_chat_unread_target_message_ids(session, user_id=user_id))
+    return len(await _fetch_global_chat_unread_targets(session, user_id=user_id))
 
 
 async def mark_global_chat_alert_read(session: AsyncSession, *, user_id: int, message_id: int) -> bool:

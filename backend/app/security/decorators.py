@@ -25,7 +25,7 @@ RateLimitRules = tuple[tuple[int, int], ...]
 SAFE_HTTP_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 PRIVILEGED_HTTP_PREFIXES = ("/api/admin", "/api/moderation")
 PRIVILEGED_ALERT_WINDOW_S = 300
-PRIVILEGED_SAFE_HTTP_LIMITS: RateLimitRules = ((15, 1), (90, 60))
+PRIVILEGED_SAFE_HTTP_LIMITS: RateLimitRules = ((30, 1), (600, 60))
 NON_PRIVILEGED_ROUTE_PATHS = frozenset({"/api/admin/settings/public"})
 CONTENT_SAFE_ROUTE_PATHS = frozenset({
     "/api/admin/settings/public",
@@ -33,47 +33,49 @@ CONTENT_SAFE_ROUTE_PATHS = frozenset({
     "/api/rooms/{room_id}/info",
 })
 AUTH_ROUTE_LIMITS: dict[str, RateLimitRules] = {
-    "/api/auth/login": ((3, 10), (8, 60)),
-    "/api/auth/register": ((3, 30), (8, 60)),
-    "/api/auth/refresh": ((7, 10), (24, 60)),
-    "/api/auth/logout": ((5, 10), (20, 60)),
+    "/api/auth/login": ((20, 10), (60, 60)),
+    "/api/auth/register": ((6, 30), (12, 60)),
+    "/api/auth/refresh": ((20, 10), (120, 60)),
+    "/api/auth/logout": ((10, 10), (60, 60)),
 }
 PUBLIC_SAFE_ROUTE_LIMITS: dict[str, RateLimitRules] = {
-    "/api/admin/settings/public": ((30, 1), (120, 60)),
-    "/api/media/presign": ((120, 1), (600, 60)),
-    "/api/rooms/{room_id}/info": ((100, 1), (300, 60)),
+    "/api/admin/settings/public": ((60, 1), (600, 60)),
+    "/api/media/presign": ((200, 1), (3000, 60)),
+    "/api/rooms/{room_id}/info": ((100, 1), (1200, 60)),
 }
-DEFAULT_SAFE_HTTP_LIMITS: RateLimitRules = ((25, 1), (120, 60))
-DEFAULT_MUTATING_HTTP_LIMITS: RateLimitRules = ((8, 1), (30, 60))
+DEFAULT_SAFE_HTTP_LIMITS: RateLimitRules = ((50, 1), (600, 60))
+DEFAULT_MUTATING_HTTP_LIMITS: RateLimitRules = ((15, 1), (120, 60))
 ROOM_GAME_UPDATE_HTTP_PATH = "/api/rooms/{room_id}/game"
-ROOM_GAME_UPDATE_HTTP_LIMITS: RateLimitRules = ((5, 1), (60, 60))
-ACTOR_AUTH_HTTP_LIMITS: RateLimitRules = ((8, 10), (20, 60))
+ROOM_GAME_UPDATE_HTTP_LIMITS: RateLimitRules = ((5, 1), (120, 60))
+PAYMENT_WEBHOOK_HTTP_PATH = "/api/payments/kassa/webhook"
+PAYMENT_WEBHOOK_HTTP_LIMITS: RateLimitRules = ((60, 1), (1200, 60))
+ACTOR_AUTH_HTTP_LIMITS: RateLimitRules = ((40, 10), (180, 60))
 ACTOR_BOT_HTTP_LIMITS: RateLimitRules = ((30, 1), (120, 60))
-ACTOR_CONTENT_HTTP_LIMITS: RateLimitRules = ((120, 1), (600, 60))
-ACTOR_SAFE_HTTP_LIMITS: RateLimitRules = ((30, 1), (180, 60))
-ACTOR_MUTATING_HTTP_LIMITS: RateLimitRules = ((10, 1), (30, 60))
-AUTO_BLOCK_IP_VIOLATION_LIMIT = 8
+ACTOR_CONTENT_HTTP_LIMITS: RateLimitRules = ((250, 1), (3600, 60))
+ACTOR_SAFE_HTTP_LIMITS: RateLimitRules = ((100, 1), (1800, 60))
+ACTOR_MUTATING_HTTP_LIMITS: RateLimitRules = ((30, 1), (240, 60))
+AUTO_BLOCK_IP_VIOLATION_LIMIT = 30
 AUTO_BLOCK_IP_WINDOW_S = 300
-AUTO_BLOCK_IP_TTL_S = 1800
+AUTO_BLOCK_IP_TTL_S = 300
 AUTO_BLOCK_IP_VIOLATION_DEDUPE_TTL_S = 60
 PRIVILEGED_SENSITIVE_MUTATION_LIMITS: dict[str, int] = {
-    "/api/admin/settings": 6,
-    "/api/admin/rooms/{room_id}/close": 6,
-    "/api/admin/rooms/kick": 5,
-    "/api/admin/rules/update": 5,
-    "/api/admin/users/{user_id}/role": 4,
-    "/api/admin/users/{user_id}/additional_roles": 4,
-    "/api/moderation/users/{user_id}/additional_roles": 4,
-    "/api/admin/users/{user_id}/delete": 4,
-    "/api/admin/users/{user_id}/restore": 4,
-    "/api/admin/users/{user_id}/timeout": 5,
-    "/api/admin/users/{user_id}/ban": 5,
-    "/api/admin/users/{user_id}/suspend": 5,
-    "/api/moderation/rooms/{room_id}/close": 6,
-    "/api/moderation/users/{user_id}/avatar_delete": 4,
-    "/api/moderation/users/{user_id}/nickname_reset": 4,
-    "/api/moderation/users/{user_id}/timeout": 5,
-    "/api/moderation/users/{user_id}/suspend": 5,
+    "/api/admin/settings": 20,
+    "/api/admin/rooms/{room_id}/close": 30,
+    "/api/admin/rooms/kick": 30,
+    "/api/admin/rules/update": 10,
+    "/api/admin/users/{user_id}/role": 20,
+    "/api/admin/users/{user_id}/additional_roles": 20,
+    "/api/moderation/users/{user_id}/additional_roles": 20,
+    "/api/admin/users/{user_id}/delete": 10,
+    "/api/admin/users/{user_id}/restore": 20,
+    "/api/admin/users/{user_id}/timeout": 30,
+    "/api/admin/users/{user_id}/ban": 30,
+    "/api/admin/users/{user_id}/suspend": 30,
+    "/api/moderation/rooms/{room_id}/close": 30,
+    "/api/moderation/users/{user_id}/avatar_delete": 20,
+    "/api/moderation/users/{user_id}/nickname_reset": 20,
+    "/api/moderation/users/{user_id}/timeout": 30,
+    "/api/moderation/users/{user_id}/suspend": 30,
 }
 
 
@@ -226,12 +228,25 @@ def _extract_blockable_ip(request: Request) -> str | None:
         return None
 
 
+def _request_route_path(request: Request) -> str:
+    fastapi_scope = request.scope.get("fastapi")
+    context = fastapi_scope.get("effective_route_context") if isinstance(fastapi_scope, dict) else None
+    route = context if getattr(context, "path", None) else request.scope.get("route")
+    path = getattr(route, "path", None)
+    if not path:
+        path = str(request.url.path or "/")
+        root_path = str(request.scope.get("root_path") or "").rstrip("/")
+        if root_path and (path == root_path or path.startswith(root_path + "/")):
+            path = path[len(root_path):] or "/"
+    return str(path).rstrip("/") or "/"
+
+
 def _extract_rate_limit_actor(request: Request) -> str:
     uid = _extract_rate_limit_uid(str(request.headers.get("authorization") or ""))
     if uid is not None:
         return f"user:{uid}"
 
-    request_path = str(request.url.path or "").rstrip("/") or "/"
+    request_path = _request_route_path(request)
     if request_path in {"/api/auth/refresh", "/api/auth/logout"}:
         raw_refresh = str(request.cookies.get("rt") or "")
         if raw_refresh:
@@ -269,6 +284,9 @@ def _bot_service_http_rate_limits() -> RateLimitRules:
 def _default_http_rate_limits(method: str, path: str, *, authenticated_bot: bool = False) -> RateLimitRules:
     normalized_path = str(path or "/").rstrip("/") or "/"
 
+    if normalized_path == PAYMENT_WEBHOOK_HTTP_PATH:
+        return PAYMENT_WEBHOOK_HTTP_LIMITS
+
     auth_limits = AUTH_ROUTE_LIMITS.get(normalized_path)
     if auth_limits is not None:
         return auth_limits
@@ -290,15 +308,18 @@ def _default_http_rate_limits(method: str, path: str, *, authenticated_bot: bool
             return PRIVILEGED_SAFE_HTTP_LIMITS
 
         if normalized_path in PRIVILEGED_SENSITIVE_MUTATION_LIMITS:
-            return (2, 10), (PRIVILEGED_SENSITIVE_MUTATION_LIMITS[normalized_path], 60)
+            return (10, 10), (PRIVILEGED_SENSITIVE_MUTATION_LIMITS[normalized_path], 60)
 
-        return (4, 10), (10, 60)
+        return (10, 10), (60, 60)
 
     return DEFAULT_SAFE_HTTP_LIMITS if method in SAFE_HTTP_METHODS else DEFAULT_MUTATING_HTTP_LIMITS
 
 
 def _actor_http_rate_limit(method: str, path: str, *, authenticated_bot: bool = False) -> tuple[str, RateLimitRules]:
     normalized_path = str(path or "/").rstrip("/") or "/"
+
+    if normalized_path == PAYMENT_WEBHOOK_HTTP_PATH:
+        return "payment_webhook", PAYMENT_WEBHOOK_HTTP_LIMITS
 
     if normalized_path.startswith("/api/bot"):
         if authenticated_bot:
@@ -441,8 +462,7 @@ async def _emit_privileged_rate_limit_alert(*, redis_client, method: str, path: 
 
 async def minimal_route_rate_limit(request: Request) -> None:
     method = str(request.method or "GET").upper()
-    route = request.scope.get("route")
-    route_path = str(getattr(route, "path", "") or request.url.path or "/").rstrip("/") or "/"
+    route_path = _request_route_path(request)
     authenticated_bot = _is_authenticated_bot_request(request, route_path)
     route_rules = _default_http_rate_limits(method, route_path, authenticated_bot=authenticated_bot)
     is_privileged = _is_privileged_route(route_path)

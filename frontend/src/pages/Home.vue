@@ -342,6 +342,9 @@ const roomsMap = reactive(new Map<number, Room>())
 const roomsList = ref<HTMLElement | null>(null)
 const rightColumn = ref<HTMLElement | null>(null)
 const sio = ref<Socket | null>(null)
+let roomsSnapshotRequest: Promise<void> | null = null
+let roomsSnapshotQueued = false
+let roomsSnapshotRevision = 0
 const suppressedAutoselect = ref(true)
 
 const selArmed = ref(false)
@@ -863,18 +866,38 @@ async function onAdminSpectateRoom() {
   }
 }
 
-async function syncRoomsSnapshot() {
-  if (!sio.value) return
-  try {
-    const resp: any = await sio.value.timeout(1500).emitWithAck('rooms_list')
-    if (!resp?.ok || !Array.isArray(resp.rooms)) return
-    const nextIds = new Set<number>()
-    for (const r of resp.rooms as Room[]) {
-      nextIds.add(r.id)
-      upsert(r)
+function syncRoomsSnapshot(): Promise<void> {
+  const socket = sio.value
+  if (!socket?.connected) return Promise.resolve()
+  if (roomsSnapshotRequest) {
+    roomsSnapshotQueued = true
+    return roomsSnapshotRequest
+  }
+  const revision = roomsSnapshotRevision
+  roomsSnapshotRequest = Promise.resolve().then(async () => {
+    try {
+      do {
+        if (revision !== roomsSnapshotRevision || sio.value !== socket || !socket.connected) break
+        roomsSnapshotQueued = false
+        const resp: any = await socket.timeout(1500).emitWithAck('rooms_list')
+        if (revision !== roomsSnapshotRevision || sio.value !== socket || !socket.connected) break
+        if (!resp?.ok || !Array.isArray(resp.rooms)) continue
+        const nextIds = new Set<number>()
+        for (const r of resp.rooms as Room[]) {
+          nextIds.add(r.id)
+          upsert(r)
+        }
+        for (const id of Array.from(roomsMap.keys())) if (!nextIds.has(id)) roomsMap.delete(id)
+      } while (roomsSnapshotQueued)
+    } catch {} finally {
+      roomsSnapshotRequest = null
+      if (roomsSnapshotQueued) {
+        roomsSnapshotQueued = false
+        void syncRoomsSnapshot()
+      }
     }
-    for (const id of Array.from(roomsMap.keys())) if (!nextIds.has(id)) roomsMap.delete(id)
-  } catch {}
+  })
+  return roomsSnapshotRequest
 }
 
 function startWS() {
@@ -891,6 +914,10 @@ function startWS() {
   })
 
   sio.value.on('connect', syncRoomsSnapshot)
+  sio.value.on('disconnect', () => {
+    roomsSnapshotRevision += 1
+    roomsSnapshotQueued = false
+  })
 
   sio.value.on('settings_update', (payload: unknown) => {
     if (!settings.applyPublicPayload(payload)) void settings.fetchPublic()
@@ -935,6 +962,8 @@ function startWS() {
 }
 
 function stopWS() {
+  roomsSnapshotRevision += 1
+  roomsSnapshotQueued = false
   const socket = sio.value as unknown as Socket | null
   disposeAuthedSocket(socket)
   try { socket?.off?.() } catch {}

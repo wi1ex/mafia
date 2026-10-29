@@ -178,7 +178,7 @@ async def create_room(payload: RoomCreateIn, session: AsyncSession = Depends(get
 
 @router.get("/active", response_model=list[RoomBriefOut])
 @log_route("rooms.active_list")
-@rate_limited(lambda ident, **_: f"rl:rooms:active_list:{ident['id']}", limit=5, window_s=1)
+@rate_limited(lambda ident, **_: f"rl:rooms:active_list:{ident['id']}", limit=10, window_s=1)
 async def list_active_rooms(ident: Identity = Depends(get_identity)) -> list[RoomBriefOut]:
     r = get_redis()
     raw_ids = await r.zrange("rooms:index", 0, -1)

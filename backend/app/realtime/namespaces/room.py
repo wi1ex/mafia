@@ -220,7 +220,11 @@ async def connect(sid, environ, auth):
 @rate_limited_sio(lambda *, uid=None, **__: f"rl:sio:join:{uid or 'nouid'}", limit=15, window_s=1, session_ns="/room")
 async def join(sid, data) -> JoinAck:
     try:
-        sess = await sio.get_session(sid, namespace="/room")
+        try:
+            sess = await sio.get_session(sid, namespace="/room")
+        except KeyError:
+            return {"ok": False, "error": "Unauthorized", "status": 401}
+
         uid = int(sess["uid"])
         prev_rid = int(sess.get("rid") or 0)
         base_role = str(sess.get("base_role") or "user")
@@ -936,7 +940,11 @@ async def bg_state(sid, data):
         if err:
             return err
 
-        sess = await sio.get_session(sid, namespace="/room")
+        try:
+            sess = await sio.get_session(sid, namespace="/room")
+        except KeyError:
+            return {"ok": False, "error": "Unauthorized", "status": 401}
+
         if sess.get("spectator"):
             return {"ok": True}
 
@@ -973,7 +981,11 @@ async def bg_restore(sid, data):
         if err:
             return err
 
-        sess = await sio.get_session(sid, namespace="/room")
+        try:
+            sess = await sio.get_session(sid, namespace="/room")
+        except KeyError:
+            return {"ok": False, "error": "Unauthorized", "status": 401}
+
         if sess.get("spectator"):
             return {"ok": True}
 

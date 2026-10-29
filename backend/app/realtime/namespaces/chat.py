@@ -210,7 +210,7 @@ async def chat_history(sid, data):
 
 
 @sio.event(namespace="/chat")
-@rate_limited_sio(lambda *, uid=None, **__: f"rl:sio:chat_mark_seen:{uid or 'nouid'}", limit=20, window_s=2, session_ns="/chat")
+@rate_limited_sio(lambda *, uid=None, **__: f"rl:sio:chat_mark_seen:{uid or 'nouid'}", limit=40, window_s=2, session_ns="/chat")
 async def chat_mark_seen(sid, data=None):
     try:
         sess = await sio.get_session(sid, namespace="/chat")
@@ -238,7 +238,7 @@ async def chat_mark_seen(sid, data=None):
 
 
 @sio.event(namespace="/chat")
-@rate_limited_sio(lambda *, uid=None, **__: f"rl:sio:chat_mark_alert_read:{uid or 'nouid'}", limit=20, window_s=2, session_ns="/chat")
+@rate_limited_sio(lambda *, uid=None, **__: f"rl:sio:chat_mark_alert_read:{uid or 'nouid'}", limit=40, window_s=2, session_ns="/chat")
 async def chat_mark_alert_read(sid, data=None):
     try:
         sess = await sio.get_session(sid, namespace="/chat")
@@ -458,7 +458,7 @@ async def chat_react_toggle(sid, data):
 
 
 @sio.event(namespace="/chat")
-@rate_limited_sio(lambda *, uid=None, **__: f"rl:sio:chat_reaction_participants:{uid or 'nouid'}", limit=20, window_s=10, session_ns="/chat")
+@rate_limited_sio(lambda *, uid=None, **__: f"rl:sio:chat_reaction_participants:{uid or 'nouid'}", limit=40, window_s=10, session_ns="/chat")
 async def chat_reaction_participants(sid, data):
     try:
         sess = await sio.get_session(sid, namespace="/chat")
@@ -605,7 +605,7 @@ async def chat_delete(sid, data):
 
 
 @sio.event(namespace="/chat")
-@rate_limited_sio(lambda *, uid=None, **__: f"rl:sio:chat_deleted_preview:{uid or 'nouid'}", limit=10, window_s=10, session_ns="/chat")
+@rate_limited_sio(lambda *, uid=None, **__: f"rl:sio:chat_deleted_preview:{uid or 'nouid'}", limit=20, window_s=10, session_ns="/chat")
 async def chat_deleted_message_preview(sid, data):
     try:
         sess = await sio.get_session(sid, namespace="/chat")

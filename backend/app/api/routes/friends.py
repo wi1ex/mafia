@@ -722,7 +722,7 @@ async def remove_friend(user_id: int, ident: Identity = Depends(get_identity), d
 
 @router.post("/invite", response_model=Ok)
 @log_route("friends.invite")
-@rate_limited(lambda ident, **_: f"rl:friends:invite:{ident['id']}", limit=5, window_s=5)
+@rate_limited(lambda ident, **_: f"rl:friends:invite:{ident['id']}", limit=10, window_s=5)
 async def invite_friend(payload: FriendInviteIn, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> Ok:
     uid = int(ident["id"])
     target_id = int(payload.user_id)

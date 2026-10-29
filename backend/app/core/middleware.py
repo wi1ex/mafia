@@ -148,6 +148,8 @@ class LoggingMiddleware:
         if scope.get("type") != "http":
             return await self.app(scope, receive, send)
 
+        t0 = time.perf_counter()
+
         def _get(h: str) -> str:
             hb = h.encode()
             for k, v in headers:
@@ -176,35 +178,48 @@ class LoggingMiddleware:
             forwarded_for=forwarded_for,
             user_agent=user_agent,
         )
-        auth_ctx = await build_auth_log_context(auth_header)
-        if auth_ctx:
-            structlog.contextvars.bind_contextvars(**auth_ctx)
-
-        log.info("request.start")
-        t0 = time.perf_counter()
         headers_sent = False
         status_code: int | None = None
+        auth_context_ms: float | None = None
+        response_start_ms: float | None = None
+        response_end_ms: float | None = None
 
         async def send_wrapper(message: Message):
-            nonlocal headers_sent, status_code
+            nonlocal headers_sent, status_code, response_start_ms, response_end_ms
             if message["type"] == "http.response.start" and not headers_sent:
                 status_code = int(message.get("status") or 0)
                 out = list(message.get("headers") or [])
                 out.append((b"x-request-id", rid.encode()))
                 dur = round((time.perf_counter() - t0) * 1000.0, 2)
+                response_start_ms = dur
                 out.append((b"server-timing", f"app;dur={dur}".encode()))
                 message["headers"] = out
                 headers_sent = True
             await send(message)
+            if message["type"] == "http.response.body" and not message.get("more_body", False):
+                response_end_ms = round((time.perf_counter() - t0) * 1000.0, 2)
 
         try:
+            auth_ctx = await build_auth_log_context(auth_header)
+            auth_context_ms = round((time.perf_counter() - t0) * 1000.0, 2)
+            if auth_ctx:
+                structlog.contextvars.bind_contextvars(**auth_ctx)
+            log.info("request.start")
             await self.app(scope, receive, send_wrapper)
         except Exception as exc:
             log.exception("request.error", error=str(exc))
             raise
         finally:
             dur_ms = (time.perf_counter() - t0) * 1000.0
-            log.info("request.end", duration_ms=round(dur_ms, 2), status_code=status_code)
+            log.info(
+                "request.end",
+                duration_ms=round(dur_ms, 2),
+                status_code=status_code,
+                auth_context_ms=auth_context_ms,
+                response_start_ms=response_start_ms,
+                response_end_ms=response_end_ms,
+                post_response_ms=round(max(0.0, dur_ms - response_end_ms), 2) if response_end_ms is not None else None,
+            )
             try:
                 structlog.contextvars.clear_contextvars()
             except Exception as e:
@@ -252,7 +267,7 @@ class LastLoginTouchMiddleware:
                                 await s.commit()
 
             except ExpiredSignatureError:
-                log.info("last_touch.failed", err="ExpiredSignatureError")
+                log.debug("last_touch.skipped", reason="expired_token")
             except InvalidTokenError as e:
                 log.info("last_touch.failed", err=type(e).__name__)
             except Exception as e:
