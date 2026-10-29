@@ -7,6 +7,7 @@ from urllib.parse import quote
 import aiohttp
 from aiohttp import web
 from aiogram import Bot, Dispatcher, Router, F, types
+from aiogram.enums import ChatType
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -71,6 +72,18 @@ class ResetState(StatesGroup):
 
 
 router = Router()
+router.message.filter(F.chat.type == ChatType.PRIVATE)
+
+
+def private_callback(callback: types.CallbackQuery) -> bool:
+    return (
+        isinstance(callback.message, types.Message)
+        and callback.message.chat.type == ChatType.PRIVATE
+        and callback.message.chat.id == callback.from_user.id
+    )
+
+
+router.callback_query.filter(private_callback)
 
 
 @router.message(Command("start"))

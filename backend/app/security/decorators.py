@@ -3,6 +3,7 @@ import asyncio
 import functools
 import inspect
 import ipaddress
+import secrets
 import sys
 import structlog
 from typing import Any, Callable, Awaitable, Union, Optional, cast
@@ -10,6 +11,8 @@ from jwt import ExpiredSignatureError, InvalidTokenError
 from fastapi import HTTPException, Depends, APIRouter, Request
 from fastapi.routing import APIRoute
 from ..core.clients import get_redis
+from ..core.logging import trusted_client_ip
+from ..core.settings import settings
 from ..security.admin_guard import get_protected_admin_user_id, is_protected_admin_uid
 from ..security.auth_tokens import get_identity, decode_token, parse_refresh_token
 from ..realtime.connections import validate_socket_session
@@ -209,10 +212,7 @@ def _extract_rate_limit_uid(auth_header: str) -> int | None:
 
 
 def _request_client_ip(request: Request) -> str:
-    forwarded_for = str(request.headers.get("x-forwarded-for") or "").strip()
-    real_ip = str(request.headers.get("x-real-ip") or "").strip()
-    client_host = str((request.client.host if request.client else "") or "").strip()
-    return (forwarded_for.split(",", 1)[0].strip() if forwarded_for else "") or real_ip or client_host or "unknown"
+    return trusted_client_ip(request.headers, request.client.host if request.client else None)
 
 
 def _extract_blockable_ip(request: Request) -> str | None:
@@ -250,7 +250,23 @@ def _is_privileged_route(path: str) -> bool:
     return any(normalized_path.startswith(prefix) for prefix in PRIVILEGED_HTTP_PREFIXES)
 
 
-def _default_http_rate_limits(method: str, path: str) -> RateLimitRules:
+def _is_authenticated_bot_request(request: Request, path: str) -> bool:
+    if not path.startswith("/api/bot/"):
+        return False
+
+    token = str(request.headers.get("x-bot-token") or "")
+    secret = settings.BOT_API_TOKEN
+    return bool(token and secret and secrets.compare_digest(token.encode(), secret.encode()))
+
+
+def _bot_service_http_rate_limits() -> RateLimitRules:
+    return (
+        (settings.BOT_SERVICE_RATE_LIMIT_PER_SECOND, 1),
+        (settings.BOT_SERVICE_RATE_LIMIT_PER_MINUTE, 60),
+    )
+
+
+def _default_http_rate_limits(method: str, path: str, *, authenticated_bot: bool = False) -> RateLimitRules:
     normalized_path = str(path or "/").rstrip("/") or "/"
 
     auth_limits = AUTH_ROUTE_LIMITS.get(normalized_path)
@@ -262,6 +278,8 @@ def _default_http_rate_limits(method: str, path: str) -> RateLimitRules:
         return public_safe_limits
 
     if normalized_path.startswith("/api/bot"):
+        if authenticated_bot:
+            return _bot_service_http_rate_limits()
         return (30, 1), (90, 60)
 
     if method == "PATCH" and normalized_path == ROOM_GAME_UPDATE_HTTP_PATH:
@@ -279,10 +297,13 @@ def _default_http_rate_limits(method: str, path: str) -> RateLimitRules:
     return DEFAULT_SAFE_HTTP_LIMITS if method in SAFE_HTTP_METHODS else DEFAULT_MUTATING_HTTP_LIMITS
 
 
-def _actor_http_rate_limit(method: str, path: str) -> tuple[str, RateLimitRules]:
+def _actor_http_rate_limit(method: str, path: str, *, authenticated_bot: bool = False) -> tuple[str, RateLimitRules]:
     normalized_path = str(path or "/").rstrip("/") or "/"
 
     if normalized_path.startswith("/api/bot"):
+        if authenticated_bot:
+            return "bot_service", _bot_service_http_rate_limits()
+
         return "bot", ACTOR_BOT_HTTP_LIMITS
 
     if normalized_path.startswith("/api/auth"):
@@ -422,11 +443,12 @@ async def minimal_route_rate_limit(request: Request) -> None:
     method = str(request.method or "GET").upper()
     route = request.scope.get("route")
     route_path = str(getattr(route, "path", "") or request.url.path or "/").rstrip("/") or "/"
-    route_rules = _default_http_rate_limits(method, route_path)
+    authenticated_bot = _is_authenticated_bot_request(request, route_path)
+    route_rules = _default_http_rate_limits(method, route_path, authenticated_bot=authenticated_bot)
     is_privileged = _is_privileged_route(route_path)
     client_ip = _extract_blockable_ip(request)
 
-    actor = _extract_rate_limit_actor(request)
+    actor = "service:bot" if authenticated_bot else _extract_rate_limit_actor(request)
     route_key = f"rl:http:{method}:{route_path}:{actor}"
 
     try:
@@ -480,7 +502,7 @@ async def minimal_route_rate_limit(request: Request) -> None:
                 )
             raise
 
-        actor_bucket, actor_rules = _actor_http_rate_limit(method, route_path)
+        actor_bucket, actor_rules = _actor_http_rate_limit(method, route_path, authenticated_bot=authenticated_bot)
         actor_key = f"rl:http:actor:{actor_bucket}:{actor}"
         try:
             await _enforce_rate_limit_rules(

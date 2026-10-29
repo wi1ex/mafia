@@ -100,7 +100,7 @@ server {
     proxy_set_header Host              $host;
     proxy_set_header X-Request-ID      $request_id;
     proxy_set_header X-Real-IP         $remote_addr;
-    proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-For   $remote_addr;
     proxy_set_header X-Forwarded-Proto $scheme;
     proxy_read_timeout 300s;
     proxy_send_timeout 300s;
@@ -114,7 +114,7 @@ server {
     proxy_set_header Host              $host;
     proxy_set_header X-Request-ID      $request_id;
     proxy_set_header X-Real-IP         $remote_addr;
-    proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-For   $remote_addr;
     proxy_set_header X-Forwarded-Proto $scheme;
     proxy_read_timeout 300s;
     proxy_send_timeout 300s;
@@ -129,7 +129,7 @@ server {
     proxy_set_header Host              $host;
     proxy_set_header X-Request-ID      $request_id;
     proxy_set_header X-Real-IP         $remote_addr;
-    proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-For   $remote_addr;
     proxy_set_header X-Forwarded-Proto $scheme;
     proxy_read_timeout 30s;
     proxy_send_timeout 30s;
@@ -145,7 +145,7 @@ server {
     proxy_set_header Sec-WebSocket-Extensions $http_sec_websocket_extensions;
     proxy_set_header Host                     $host;
     proxy_set_header X-Real-IP                $remote_addr;
-    proxy_set_header X-Forwarded-For          $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-For          $remote_addr;
     proxy_set_header X-Forwarded-Proto        $scheme;
     proxy_set_header X-Request-ID             $request_id;
     proxy_buffering off;
@@ -161,7 +161,7 @@ server {
     proxy_set_header Connection              $connection_upgrade;
     proxy_set_header Sec-WebSocket-Protocol  $http_sec_websocket_protocol;
     proxy_set_header Host                    $host;
-    proxy_set_header X-Forwarded-For         $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-For         $remote_addr;
     proxy_set_header X-Forwarded-Proto       $scheme;
     proxy_set_header X-Request-ID            $request_id;
     proxy_buffering off;
@@ -175,7 +175,7 @@ server {
     proxy_http_version 1.1;
     proxy_set_header Host              $host;
     proxy_set_header X-Real-IP         $remote_addr;
-    proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-For   $remote_addr;
     proxy_set_header X-Forwarded-Proto $scheme;
     proxy_request_buffering off;
     proxy_buffering on;
@@ -189,14 +189,14 @@ server {
     proxy_set_header Host              $host;
     proxy_set_header X-Request-ID      $request_id;
     proxy_set_header X-Real-IP         $remote_addr;
-    proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-For   $remote_addr;
     proxy_set_header X-Forwarded-Proto $scheme;
     proxy_read_timeout 30s;
     proxy_send_timeout 30s;
   }
 
   # статика SPA
-  location ~* \.(?:js|css|png|jpg|jpeg|gif|svg|ico|webp|avif|mp3|ogg|wav|webm|m4a|woff2?|ttf|otf)$ {
+  location ~* \.(?:js|css|png|jpg|jpeg|gif|svg|ico|webp|avif|mp3|ogg|wav|webm|mp4|m4a|woff2?|ttf|otf)$ {
     if ($request_method !~ ^(GET|HEAD)$) { return 405; }
     # This location defines Cache-Control, so nginx no longer inherits the
     # server-level add_header directives. Repeat them here deliberately.

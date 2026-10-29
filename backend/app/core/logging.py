@@ -15,6 +15,16 @@ _BROWSER_ID_RE = re.compile(r"[0-9a-fA-F]{32}")
 _UNAVAILABLE = "—"
 
 
+def trusted_client_ip(headers: Mapping[str, str], client_host: str | None = None) -> str:
+    for candidate in (headers.get("x-real-ip", ""), client_host):
+        try:
+            return str(ip_address(str(candidate or "").strip()))
+        except ValueError:
+            continue
+
+    return "unknown"
+
+
 def configure_logging() -> None:
     pre = [
         structlog.contextvars.merge_contextvars,
@@ -54,13 +64,9 @@ def append_auth_log_metadata(details: str, *, headers: Mapping[str, str], client
         else _UNAVAILABLE
     )
 
-    client_ip = _UNAVAILABLE
-    for raw_ip in (headers.get("x-real-ip", ""), client_host):
-        try:
-            client_ip = str(ip_address(str(raw_ip or "").strip()))
-            break
-        except ValueError:
-            continue
+    client_ip = trusted_client_ip(headers, client_host)
+    if client_ip == "unknown":
+        client_ip = _UNAVAILABLE
 
     return f"{details} | browser_id={browser_id} | ip={client_ip}"
 

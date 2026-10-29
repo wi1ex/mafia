@@ -6,6 +6,7 @@ from jwt import ExpiredSignatureError, InvalidTokenError
 from sqlalchemy import update, func
 from starlette.types import ASGIApp, Receive, Scope, Send, Message
 from .clients import get_redis
+from .logging import trusted_client_ip
 from ..security.admin_guard import normalize_protected_admin_role
 from ..security.auth_tokens import decode_token
 from ..core.db import SessionLocal
@@ -161,11 +162,10 @@ class LoggingMiddleware:
         rid = _get("x-request-id") or uuid.uuid4().hex
         auth_header = _get("authorization")
         forwarded_for = _get("x-forwarded-for")
-        real_ip = _get("x-real-ip")
         user_agent = _get("user-agent")
         client = scope.get("client") or ("", 0)
         client_host = str(client[0] or "")
-        client_ip = (forwarded_for.split(",", 1)[0].strip() if forwarded_for else "") or real_ip or client_host
+        client_ip = trusted_client_ip({"x-real-ip": _get("x-real-ip")}, client_host)
 
         structlog.contextvars.clear_contextvars()
         structlog.contextvars.bind_contextvars(

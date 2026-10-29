@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from typing import Any, Sequence
 from uuid import UUID, uuid4
 import structlog
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import delete, func, or_, select, tuple_
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..models.global_chat import (
@@ -16,6 +16,7 @@ from ..models.global_chat import (
     GlobalChatReadState,
 )
 from ..models.sanction import UserSanction
+from ..models.friend import UserBlacklist
 from ..models.user import User
 from ..core.db import SessionLocal
 from ..core.roles import (
@@ -31,7 +32,7 @@ from ..core.roles import (
 from ..realtime.sio import sio
 from ..security.parameters import get_cached_settings
 from ..api.utils import is_user_in_active_game, schedule_contact_request_admin_telegram_message
-from ..services.blacklist import filter_notification_targets_for_actor, is_user_blacklisted_by
+from ..services.blacklist import is_user_blacklisted_by
 from ..services.minio import (
     CHAT_IMAGE_PENDING_SEGMENT,
     CHAT_IMAGE_PREFIX,
@@ -898,6 +899,7 @@ async def _build_global_chat_alert_user_ids_map(session: AsyncSession, messages:
     head_user_ids: set[int] | None = None
 
     out: dict[int, set[int]] = {}
+    author_ids: dict[int, int] = {}
     for message in messages:
         message_id = _positive_int(message.id)
         if message_id <= 0:
@@ -961,16 +963,26 @@ async def _build_global_chat_alert_user_ids_map(session: AsyncSession, messages:
         author_user_id = _positive_int(message.user_id)
         if author_user_id > 0:
             alert_user_ids.discard(author_user_id)
-            if alert_user_ids:
-                alert_user_ids = set(
-                    await filter_notification_targets_for_actor(
-                        session,
-                        actor_id=author_user_id,
-                        target_ids=alert_user_ids,
-                    )
-                )
 
         out[message_id] = alert_user_ids
+        author_ids[message_id] = author_user_id
+
+    candidate_pairs = sorted({
+        (target_id, author_ids[message_id])
+        for message_id, target_ids in out.items()
+        if author_ids[message_id] > 0
+        for target_id in target_ids
+    })
+    blocked_pairs: set[tuple[int, int]] = set()
+    for start in range(0, len(candidate_pairs), 1000):
+        rows = await session.execute(
+            select(UserBlacklist.owner_id, UserBlacklist.target_id).where(
+                tuple_(UserBlacklist.owner_id, UserBlacklist.target_id).in_(candidate_pairs[start:start + 1000])
+            )
+        )
+        blocked_pairs.update((int(owner_id), int(target_id)) for owner_id, target_id in rows.all())
+    for message_id, target_ids in out.items():
+        out[message_id] = {target_id for target_id in target_ids if (target_id, author_ids[message_id]) not in blocked_pairs}
 
     return out
 

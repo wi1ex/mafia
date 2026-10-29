@@ -139,7 +139,7 @@ export async function presign(key: string): Promise<string> {
   const inflight = presignInflight.get(key)
   if (inflight) return inflight
   const req = (async () => {
-    const { data } = await api.get('/media/presign', { params: { key }, __skipAuth: true })
+    const { data } = await api.get('/media/presign', { params: { key } })
     const url = String(data?.url || '')
     const ttlMs = Math.max(0, Number(data?.expires_in || 0) * 1000)
     if (url) rememberPresign(key, url, now + ttlMs)

@@ -1,5 +1,5 @@
 <template>
-  <main class="card home-page">
+  <main class="card">
     <div class="left" :class="{ 'left--top-banner': topBannerActive }">
       <header>
         <h1 class="left-title">Список комнат</h1>
@@ -200,7 +200,7 @@
         </Transition>
       </aside>
       <div class="right-extra right-extra--primary">
-        <img class="background-image-6" :src="seasonImage(5, imageSlide6)" alt="" aria-hidden="true" @error="resetHomeSeason" />
+        <img class="background-image-6" :src="imageSlide6" alt="" aria-hidden="true" />
         <div class="right-extra-content">
           <div class="right-extra-copy-subscription">
             <span>Оформи подписку и открой</span>
@@ -213,7 +213,7 @@
       </div>
 
       <div class="right-extra right-extra--secondary">
-        <img class="background-image-7" :src="seasonImage(6, imageSlide7)" alt="" aria-hidden="true" @error="resetHomeSeason" />
+        <img class="background-image-7" :src="imageSlide7" alt="" aria-hidden="true" />
         <div class="right-extra-content">
           <div class="right-extra-copy-connect">
             <span>Связаться с администрацией платформы</span>
@@ -246,7 +246,6 @@ import { alertDialog, confirmDialog } from '@/services/confirm'
 import { api } from '@/services/axios'
 import { canOpenMiniProfileTarget, normalizeMiniProfileUserId } from '@/services/miniProfile'
 import { roomGameDefault, type RoomGameParams } from '@/services/gameParams'
-import { useHomeSeason } from '../../halloween/homeSeason'
 import { useAuthStore, useSettingsStore, useUserStore } from '@/store'
 import Carousel from '@/views/Carousel.vue'
 import RoomModal from '@/views/RoomModal.vue'
@@ -274,8 +273,6 @@ import iconDot from '@/assets/svg/iconDot.svg'
 import iconTwitch from '@/assets/svg/iconTwitch.svg'
 import imageSlide6 from '@/assets/images/carousel-image6.png'
 import imageSlide7 from '@/assets/images/carousel-image7.png'
-
-const { seasonImage, resetHomeSeason } = useHomeSeason()
 
 type Room = {
   id: number

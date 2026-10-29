@@ -2,7 +2,6 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import path from 'node:path'
 import compression from 'vite-plugin-compression'
-import halloweenThemePlugin from './halloween/vite-plugin.ts'
 
 const vendorChunkRules: Array<[string, string]> = [
   ['/node_modules/vue/', 'vue-vendor'],
@@ -44,7 +43,6 @@ function vendorChunkFor(id: string): string | undefined {
 export default defineConfig({
   plugins: [
     vue(),
-    halloweenThemePlugin(),
     compression({ algorithm: 'gzip' }),
   ],
   resolve: {
