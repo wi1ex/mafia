@@ -744,9 +744,9 @@
             <div class="field">
               <UiInput class="admin-input" size="low" id="logs-day" v-model="logsDay" type="date" label="Дата" :disabled="logsLoading" />
             </div>
-            <div class="field">
+            <div class="field logs-action-field">
               <label for="admin-logs-action">Событие</label>
-              <select id="admin-logs-action" :value="logsAction" :disabled="logsLoading" @change="setLogsAction">
+              <select id="admin-logs-action" :value="logsAction" :title="logsAction === 'all' ? 'Все события' : logActionLabel(logsAction)" :disabled="logsLoading" @change="setLogsAction">
                 <option v-for="option in logActionOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
               </select>
             </div>
@@ -786,7 +786,7 @@
                     </div>
                     <span v-else>-</span>
                   </td>
-                  <td>{{ row.action }}</td>
+                  <td class="logs-event-cell">{{ logActionLabel(row.action) }}</td>
                   <td>{{ row.details }}</td>
                 </tr>
                 <tr v-if="logs.length === 0">
@@ -1498,6 +1498,7 @@ import { api } from '@/services/axios'
 import { alertDialog, confirmDialog } from '@/services/confirm'
 import { formatLocalDateTime } from '@/services/datetime'
 import { SANCTION_BADGES, type SanctionBadgeKey } from '@/constants/sanctionReasons'
+import { logActionLabel } from '@/constants/logActions'
 import { canOpenMiniProfileTarget, normalizeMiniProfileUserId } from '@/services/miniProfile'
 import { useSettingsStore, useUserStore } from '@/store'
 
@@ -2712,15 +2713,11 @@ const logActionOptions = computed(() => {
   const actions = new Set([...logActions.value, 'site_rules_accepted', 'admin_site_rules_update'])
   return [
     { value: 'all', label: 'Все' },
-    ...Array.from(actions, action => ({ value: action, label: logActionLabel(action) })),
+    ...Array.from(actions, action => ({ value: action, label: logActionLabel(action) }))
+      .sort((left, right) => left.label.localeCompare(right.label, 'ru')),
   ]
 })
 
-function logActionLabel(action: string): string {
-  if (action === 'site_rules_accepted') return 'Принятие правил сайта'
-  if (action === 'admin_site_rules_update') return 'Обновление правил сайта'
-  return action
-}
 const subscriptionsByUserId = computed(() => {
   const mapped = new Map<number, SubscriptionRow>()
   for (const item of subscriptions.value) mapped.set(item.user_id, item)
@@ -5206,6 +5203,22 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 .admin {
+  .logs-tab {
+    .filters {
+      .field.logs-action-field {
+        width: 420px;
+        max-width: 100%;
+      }
+    }
+    .logs-table {
+      .logs-event-cell {
+        min-width: 220px;
+        max-width: 320px;
+        white-space: normal;
+        overflow-wrap: anywhere;
+      }
+    }
+  }
   .multiaccounts-tab {
     .filters {
       .multiaccounts-query-field {
