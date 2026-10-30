@@ -429,6 +429,34 @@ class AdminLogActionsOut(BaseModel):
     actions: List[str]
 
 
+class AdminMultiaccountSearchIn(BaseModel):
+    month: str = Field(pattern=r"^[0-9]{4}-(?:0[1-9]|1[0-2])$")
+
+
+class AdminMultiaccountUserOut(BaseModel):
+    user_id: int
+    username: Optional[str] = None
+    avatar_name: Optional[str] = None
+    role: Optional[str] = None
+    deleted_at: Optional[datetime] = None
+    events_count: int
+    first_seen: datetime
+    last_seen: datetime
+
+
+class AdminMultiaccountGroupOut(BaseModel):
+    kind: Literal["telegram", "browser", "ip"]
+    value: str
+    users: List[AdminMultiaccountUserOut]
+
+
+class AdminMultiaccountSearchOut(BaseModel):
+    month: str
+    logs_scanned: int
+    users_scanned: int
+    items: List[AdminMultiaccountGroupOut]
+
+
 class AdminContactRequestReplyOut(BaseModel):
     id: int
     author_id: int

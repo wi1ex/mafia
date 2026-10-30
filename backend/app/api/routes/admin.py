@@ -37,6 +37,7 @@ from ...security.parameters import ensure_app_settings, sync_cache_from_row, ref
 from ...services.livekit import remove_livekit_participant
 from ...services.user_cache import refresh_user_profile_cache, get_user_profiles_cached
 from ...services.site_rules import update_site_rules_version
+from ...services.multiaccounts import MULTIACCOUNT_ACTIONS, MultiaccountScan
 from ...services.subscription_roulette import start_roulette_round
 from ...services.game_scoring import (
     build_game_scoring_rules_snapshot,
@@ -99,6 +100,10 @@ from ...schemas.admin import (
     AdminLogOut,
     AdminLogsOut,
     AdminLogActionsOut,
+    AdminMultiaccountSearchIn,
+    AdminMultiaccountUserOut,
+    AdminMultiaccountGroupOut,
+    AdminMultiaccountSearchOut,
     AdminContactRequestOut,
     AdminContactRequestsOut,
     AdminContactRequestReplyIn,
@@ -742,6 +747,68 @@ async def logs_list(page: int = 1, limit: int = 20, action: str | None = None, u
         )
 
     return AdminLogsOut(total=total, items=items)
+
+
+@router.post("/multiaccounts/search", response_model=AdminMultiaccountSearchOut, dependencies=ADMIN_GUARD)
+@log_route("admin.multiaccounts.search")
+async def search_multiaccounts(
+    payload: AdminMultiaccountSearchIn,
+    session: AsyncSession = Depends(get_session),
+) -> AdminMultiaccountSearchOut:
+    try:
+        scan = MultiaccountScan(payload.month)
+    except (ValueError, OverflowError):
+        raise HTTPException(status_code=422, detail="invalid_month")
+
+    rows = await session.stream(
+        select(AppLog.user_id, AppLog.username, AppLog.action, AppLog.details, AppLog.created_at)
+        .where(
+            AppLog.action.in_(MULTIACCOUNT_ACTIONS),
+            AppLog.user_id > 0,
+            AppLog.created_at >= scan.start,
+            AppLog.created_at < scan.end,
+        )
+        .execution_options(yield_per=1000)
+    )
+    try:
+        async for row in rows:
+            scan.add_log(row.user_id, row.username, row.action, row.details, row.created_at)
+    finally:
+        await rows.close()
+
+    groups = scan.groups()
+    user_ids = sorted({user.user_id for group in groups for user in group.users})
+    profiles = {}
+    for offset in range(0, len(user_ids), 1000):
+        profile_rows = await session.execute(
+            select(User.id, User.username, User.avatar_name, User.role, User.deleted_at)
+            .where(User.id.in_(user_ids[offset:offset + 1000]))
+        )
+        profiles.update({row.id: row for row in profile_rows})
+
+    items = []
+    for group in groups:
+        users = []
+        for activity in group.users:
+            profile = profiles.get(activity.user_id)
+            users.append(AdminMultiaccountUserOut(
+                user_id=activity.user_id,
+                username=profile.username if profile else scan.usernames[activity.user_id][1],
+                avatar_name=profile.avatar_name if profile else None,
+                role=profile.role if profile else None,
+                deleted_at=profile.deleted_at if profile else None,
+                events_count=activity.events_count,
+                first_seen=activity.first_seen,
+                last_seen=activity.last_seen,
+            ))
+        items.append(AdminMultiaccountGroupOut(kind=group.kind, value=group.value, users=users))
+
+    return AdminMultiaccountSearchOut(
+        month=payload.month,
+        logs_scanned=scan.logs_scanned,
+        users_scanned=len(scan.usernames),
+        items=items,
+    )
 
 
 @router.get("/contact_requests", response_model=AdminContactRequestsOut, dependencies=ADMIN_GUARD)

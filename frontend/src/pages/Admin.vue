@@ -30,6 +30,9 @@
         <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'sanctions' }" :aria-selected="activeTab === 'sanctions'" @click="activeTab = 'sanctions'" id="admin-tab-sanctions" aria-controls="admin-tab-panel" :tabindex="activeTab === 'sanctions' ? 0 : -1">
           Санкции
         </button>
+        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'multiaccounts' }" :aria-selected="activeTab === 'multiaccounts'" @click="activeTab = 'multiaccounts'" id="admin-tab-multiaccounts" aria-controls="admin-tab-panel" :tabindex="activeTab === 'multiaccounts' ? 0 : -1">
+          Мультиаккаунт
+        </button>
         <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'contact_requests' }" :aria-selected="activeTab === 'contact_requests'" @click="activeTab = 'contact_requests'" id="admin-tab-contact_requests" aria-controls="admin-tab-panel" :tabindex="activeTab === 'contact_requests' ? 0 : -1">
           Обращения
         </button>
@@ -1185,6 +1188,105 @@
           </div>
         </div>
 
+        <div v-else-if="activeTab === 'multiaccounts'" class="multiaccounts-tab" :aria-busy="multiaccountsLoading">
+          <form class="filters" @submit.prevent="searchMultiaccounts">
+            <div class="field">
+              <UiInput class="admin-input" size="low" id="multiaccounts-month" v-model="multiaccountsMonth" type="month" label="Месяц" required :disabled="multiaccountsLoading" />
+            </div>
+            <UiButton variant="green" size="low" type="submit" :disabled="multiaccountsLoading || !multiaccountsMonthValid">
+              {{ multiaccountsLoading ? 'Поиск…' : 'Поиск' }}
+            </UiButton>
+          </form>
+          <div v-if="multiaccountsLoading" class="multiaccounts-state" role="status">Проверяем логи выбранного месяца…</div>
+          <div v-else-if="multiaccountsError" class="multiaccounts-state multiaccounts-error" role="alert">{{ multiaccountsError }}</div>
+          <div v-else-if="!multiaccountsResult" class="multiaccounts-state">
+            Выберите месяц и нажмите «Поиск», чтобы найти пересечения между пользователями.
+          </div>
+          <template v-else>
+            <div class="multiaccounts-summary" role="status">
+              <div>
+                <strong>{{ multiaccountsResultMonthLabel }}</strong>
+                <span>Групп пересечений: {{ multiaccountsResult.items.length }} · Пользователей: {{ multiaccountsMatchedUsers }}</span>
+                <span>Проверено событий: {{ multiaccountsResult.logs_scanned }} · Пользователей в логах: {{ multiaccountsResult.users_scanned }}</span>
+              </div>
+              <div class="multiaccounts-kinds">
+                <span v-for="kind in MULTIACCOUNT_KINDS" :key="kind.value" class="multiaccounts-kind" :data-kind="kind.value">
+                  {{ kind.label }}: {{ multiaccountsKindCounts[kind.value] }}
+                </span>
+              </div>
+            </div>
+            <div v-if="multiaccountsResult.items.length" class="filters">
+              <div class="field">
+                <label for="admin-multiaccounts-kind">Общий параметр</label>
+                <select id="admin-multiaccounts-kind" v-model="multiaccountsKind">
+                  <option value="all">Все параметры</option>
+                  <option v-for="kind in MULTIACCOUNT_KINDS" :key="kind.value" :value="kind.value">{{ kind.label }}</option>
+                </select>
+              </div>
+              <div class="field multiaccounts-query-field">
+                <UiInput class="admin-input" size="low" id="multiaccounts-query" v-model.trim="multiaccountsQuery" label="Никнейм, ID или значение" />
+              </div>
+              <div class="field">
+                <label for="admin-multiaccounts-limit">Групп на странице</label>
+                <select id="admin-multiaccounts-limit" v-model.number="multiaccountsLimit">
+                  <option v-for="option in PAGE_LIMIT_OPTIONS" :key="option.value" :value="option.value">{{ option.label }}</option>
+                </select>
+              </div>
+            </div>
+            <div class="list-results">
+              <div class="table-wrap">
+                <table class="table multiaccounts-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Общий параметр</th>
+                      <th scope="col">Значение</th>
+                      <th scope="col">Пользователь</th>
+                      <th scope="col">Событий</th>
+                      <th scope="col">Первое появление</th>
+                      <th scope="col">Последнее появление</th>
+                    </tr>
+                  </thead>
+                  <tbody v-for="group in multiaccountsPageItems" :key="`${group.kind}:${group.value}`">
+                    <tr v-for="(user, index) in group.users" :key="user.user_id">
+                      <td v-if="index === 0" :rowspan="group.users.length" class="multiaccounts-shared">
+                        <span class="multiaccounts-kind" :data-kind="group.kind">{{ multiaccountKindLabel(group.kind) }}</span>
+                        <span class="multiaccounts-user-count">Пользователей: {{ group.users.length }}</span>
+                      </td>
+                      <td v-if="index === 0" :rowspan="group.users.length" class="multiaccounts-shared multiaccounts-value">{{ group.value }}</td>
+                      <td>
+                        <div class="user-cell">
+                          <button class="user-link user-profile-trigger" type="button" :disabled="!canOpenMultiaccountUserMiniProfile(user)" @click="openMultiaccountUserMiniProfile(user)">
+                            <img class="user-avatar" v-minio-img="{ key: user.avatar_name ? `avatars/${user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" />
+                            <span class="multiaccounts-user-name">
+                              <span>{{ user.username || `user${user.user_id}` }}</span>
+                              <small>ID: {{ user.user_id }}{{ user.deleted_at ? ' · Удалён' : '' }}</small>
+                            </span>
+                          </button>
+                        </div>
+                      </td>
+                      <td>{{ user.events_count }}</td>
+                      <td>{{ formatLocalDateTime(user.first_seen) }}</td>
+                      <td>{{ formatLocalDateTime(user.last_seen) }}</td>
+                    </tr>
+                  </tbody>
+                  <tbody v-if="!multiaccountsFilteredItems.length">
+                    <tr>
+                      <td colspan="6" class="muted">
+                        {{ multiaccountsResult.items.length ? 'Нет пересечений по выбранным фильтрам' : 'За выбранный месяц пересечений не найдено' }}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div v-if="multiaccountsFilteredItems.length" class="pager">
+                <UiButton variant="white" size="low" :disabled="multiaccountsPage <= 1" @click="multiaccountsPage -= 1">Назад</UiButton>
+                <span>{{ multiaccountsPage }} / {{ multiaccountsPages }} · Групп: {{ multiaccountsFilteredItems.length }}</span>
+                <UiButton variant="white" size="low" :disabled="multiaccountsPage >= multiaccountsPages" @click="multiaccountsPage += 1">Вперед</UiButton>
+              </div>
+            </div>
+          </template>
+        </div>
+
         <div v-else-if="activeTab === 'contact_requests'" class="contact-requests-tab">
           <div class="filters">
             <div class="field">
@@ -1780,10 +1882,39 @@ type SanctionsRow = {
 }
 
 type RoomFilter = 'all' | 'stream_only' | 'hidden_only' | 'has_games' | 'duo_only'
+
+const MULTIACCOUNT_KINDS = [
+  { value: 'telegram', label: 'Telegram ID' },
+  { value: 'browser', label: 'ID браузера' },
+  { value: 'ip', label: 'IP' },
+] as const
+type MultiaccountKind = typeof MULTIACCOUNT_KINDS[number]['value']
+type MultiaccountUser = {
+  user_id: number
+  username: string | null
+  avatar_name: string | null
+  role: string | null
+  deleted_at: string | null
+  events_count: number
+  first_seen: string
+  last_seen: string
+}
+type MultiaccountGroup = {
+  kind: MultiaccountKind
+  value: string
+  users: MultiaccountUser[]
+}
+type MultiaccountResult = {
+  month: string
+  logs_scanned: number
+  users_scanned: number
+  items: MultiaccountGroup[]
+}
+
 const route = useRoute()
 const router = useRouter()
 
-const TAB_KEYS = ['settings', 'scoring', 'rules', 'updates', 'stats', 'logs', 'rooms', 'users', 'sanctions', 'contact_requests', 'subscriptions'] as const
+const TAB_KEYS = ['settings', 'scoring', 'rules', 'updates', 'stats', 'logs', 'rooms', 'users', 'sanctions', 'multiaccounts', 'contact_requests', 'subscriptions'] as const
 type TabKey = typeof TAB_KEYS[number]
 
 const PAGE_LIMIT_OPTIONS = [
@@ -2094,6 +2225,75 @@ const logsAction = ref('all')
 const logsUser = ref('')
 const logsDay = ref('')
 const logsAutoRefreshEnabled = ref(false)
+
+const multiaccountsMonth = ref('')
+const multiaccountsLoading = ref(false)
+const multiaccountsError = ref('')
+const multiaccountsResult = ref<MultiaccountResult | null>(null)
+const multiaccountsKind = ref<MultiaccountKind | 'all'>('all')
+const multiaccountsQuery = ref('')
+const multiaccountsPage = ref(1)
+const multiaccountsLimit = ref(20)
+const multiaccountsAbortController = new AbortController()
+const multiaccountsMonthValid = computed(() => /^[0-9]{4}-(0[1-9]|1[0-2])$/.test(multiaccountsMonth.value))
+const multiaccountsResultMonthLabel = computed(() => {
+  const month = multiaccountsResult.value?.month
+  return month ? formatLocalDateTime(`${month}-01T00:00:00Z`, { month: 'long', year: 'numeric', timeZone: 'UTC' }, 'ru-RU') : ''
+})
+const multiaccountsMatchedUsers = computed(() => new Set(
+  multiaccountsResult.value?.items.flatMap(group => group.users.map(user => user.user_id)) ?? [],
+).size)
+const multiaccountsKindCounts = computed(() => {
+  const counts: Record<MultiaccountKind, number> = { telegram: 0, browser: 0, ip: 0 }
+  for (const group of multiaccountsResult.value?.items ?? []) counts[group.kind] += 1
+  return counts
+})
+const multiaccountsFilteredItems = computed(() => {
+  const needle = multiaccountsQuery.value.trim().toLocaleLowerCase()
+  return (multiaccountsResult.value?.items ?? []).filter(group => (
+    (multiaccountsKind.value === 'all' || group.kind === multiaccountsKind.value)
+    && (!needle || group.value.toLocaleLowerCase().includes(needle)
+      || group.users.some(user => (user.username ?? '').toLocaleLowerCase().includes(needle) || String(user.user_id).includes(needle)))
+  ))
+})
+const multiaccountsPages = computed(() => Math.max(1, Math.ceil(multiaccountsFilteredItems.value.length / multiaccountsLimit.value)))
+const multiaccountsPageItems = computed(() => multiaccountsFilteredItems.value.slice(
+  (multiaccountsPage.value - 1) * multiaccountsLimit.value,
+  multiaccountsPage.value * multiaccountsLimit.value,
+))
+
+function multiaccountKindLabel(kind: MultiaccountKind): string {
+  return MULTIACCOUNT_KINDS.find(option => option.value === kind)?.label ?? kind
+}
+
+function canOpenMultiaccountUserMiniProfile(user: MultiaccountUser): boolean {
+  return canOpenMiniProfileOnAdminPage({ id: user.user_id, role: user.role, deleted_at: user.deleted_at })
+}
+
+function openMultiaccountUserMiniProfile(user: MultiaccountUser): void {
+  if (!canOpenMultiaccountUserMiniProfile(user)) return
+  openUserMiniProfile({ ...user, id: user.user_id })
+}
+
+async function searchMultiaccounts(): Promise<void> {
+  if (multiaccountsLoading.value || !multiaccountsMonthValid.value) return
+  multiaccountsLoading.value = true
+  multiaccountsError.value = ''
+  try {
+    const { data } = await api.post<MultiaccountResult>('/admin/multiaccounts/search', {
+      month: multiaccountsMonth.value,
+    }, { timeout: 60_000, signal: multiaccountsAbortController.signal })
+    multiaccountsResult.value = data
+    multiaccountsPage.value = 1
+  } catch (error: any) {
+    if (multiaccountsAbortController.signal.aborted) return
+    multiaccountsError.value = error?.response?.status === 422
+      ? 'Укажите корректный месяц для поиска'
+      : 'Не удалось выполнить поиск. Попробуйте ещё раз.'
+  } finally {
+    multiaccountsLoading.value = false
+  }
+}
 
 const rooms = ref<RoomRow[]>([])
 const roomsTotal = ref(0)
@@ -4222,6 +4422,10 @@ watch(statsMonth, () => {
   void loadStats()
 })
 
+watch([multiaccountsKind, multiaccountsQuery, multiaccountsLimit], () => {
+  multiaccountsPage.value = 1
+})
+
 watch([logsAction, logsLimit, logsDay], () => {
   logsPage.value = 1
   if (activeTab.value !== 'logs') return
@@ -4291,6 +4495,7 @@ onMounted(() => {
   window.addEventListener('resize', closeTooltip)
   const now = new Date()
   statsMonth.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  multiaccountsMonth.value = statsMonth.value
   refreshActiveTab(activeTab.value)
   const requestedTab = normalizeTab(route.query.tab)
   if (typeof route.query.tab === 'string' && requestedTab !== activeTab.value) {
@@ -4301,6 +4506,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  multiaccountsAbortController.abort()
   window.removeEventListener('resize', closeTooltip)
   closeTooltip()
   if (logsRefreshTimer !== undefined) window.clearInterval(logsRefreshTimer)
@@ -4408,6 +4614,7 @@ onBeforeUnmount(() => {
 .admin .rooms-tab,
 .admin .users-tab,
 .admin .sanctions-tab,
+.admin .multiaccounts-tab,
 .admin .contact-requests-tab {
   min-width: 0;
   padding: 24px;
@@ -4974,6 +5181,7 @@ onBeforeUnmount(() => {
 .admin .rooms-tab,
 .admin .users-tab,
 .admin .sanctions-tab,
+.admin .multiaccounts-tab,
 .admin .contact-requests-tab {
   display: flex;
   flex: 1;
@@ -4985,6 +5193,7 @@ onBeforeUnmount(() => {
 .admin .rooms-tab .filters,
 .admin .users-tab .filters,
 .admin .sanctions-tab .filters,
+.admin .multiaccounts-tab .filters,
 .admin .contact-requests-tab .filters {
   flex: 0 0 auto;
 }
@@ -4995,6 +5204,94 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 20px;
   min-width: 0;
+}
+.admin {
+  .multiaccounts-tab {
+    .filters {
+      .multiaccounts-query-field {
+        width: 260px;
+      }
+    }
+  }
+  .multiaccounts-state {
+    padding: 40px 16px;
+    border-radius: 20px;
+    background-color: $soft-purple-800;
+    color: $neutral-300;
+    text-align: center;
+  }
+  .multiaccounts-error {
+    color: $red-200;
+  }
+  .multiaccounts-summary,
+  .multiaccounts-kinds {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .multiaccounts-summary {
+    justify-content: space-between;
+    > div:first-child {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      color: $neutral-300;
+      font-size: 14px;
+      line-height: 20px;
+    }
+    strong {
+      color: $neutral-100;
+      font-size: 16px;
+      font-weight: 400;
+    }
+  }
+  .multiaccounts-kind {
+    display: inline-flex;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background-color: rgba($green-500, 0.15);
+    color: $green-300;
+    font-size: 13px;
+    line-height: 18px;
+    white-space: nowrap;
+    &[data-kind="browser"] {
+      background-color: rgba($purple-300, 0.15);
+      color: $purple-200;
+    }
+    &[data-kind="ip"] {
+      background-color: rgba($yellow-500, 0.15);
+      color: $yellow-300;
+    }
+  }
+  .multiaccounts-table {
+    tbody + tbody tr:first-child td {
+      border-top: 3px solid $soft-purple-700;
+    }
+    td.multiaccounts-shared {
+      vertical-align: top;
+    }
+  }
+  .multiaccounts-user-count {
+    display: block;
+    margin-top: 8px;
+    color: $neutral-300;
+    font-size: 13px;
+  }
+  .multiaccounts-value {
+    font-family: monospace;
+    user-select: all;
+  }
+  .multiaccounts-user-name {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    small {
+      color: $neutral-300;
+      font-size: 12px;
+      line-height: 16px;
+    }
+  }
 }
 .admin .list-results .table-wrap {
   scrollbar-width: thin;
