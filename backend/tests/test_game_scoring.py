@@ -78,7 +78,7 @@ RULE_SPECS = {
     "black_win_3v3": (0.3, "Один раз каждому чёрному при итоговой победе чёрных и конечном составе 3в3, независимо от причины ухода. Состав восстанавливается по всем уходам журнала; промежуточный состав подъёма не считается итогом."),
     "black_win_2v2_1v1_alive": (0.2, "Один раз каждому живому чёрному при итоговой победе чёрных на 2в2/1в1 независимо от причины ухода. Учитываются все уходы до завершения партии."),
     "black_win_2v2_1v1_dead": (0.1, "При итоговой победе чёрных на 2в2/1в1 каждому мёртвому чёрному вместо бонуса живому. При другом итоговом результате бонуса нет."),
-    "vote_lift_same_team": (-0.3, "Участнику by успешного подъёма минимум двух уникальных целей, если все цели его команды, включая его самого. Смешанный состав не оценивается; скорер опирается на vote."),
+    "vote_lift_same_team": (-0.3, "Участнику by успешного подъёма минимум двух уникальных целей своей команды, включая его самого, только при 9–10 живых перед началом этого голосования. Используется alive из соответствующего vote_start; для старых логов без такого снимка — alive события vote. Без снимка или при 8 и менее живых штрафа нет. Смешанный состав не оценивается; скорер опирается на vote."),
     "vote_lift_opponent_team": (0.3, "Участнику by успешного подъёма минимум двух уникальных целей, если все они противоположной команды. Смешанный состав и непринятый подъём не оцениваются."),
     "nomination_black_prevents_black_win": (-0.5, "Чёрному номинатору единственного чёрного кандидата первого сохранённого vote дня, реально ушедшего через vote. Более четырёх живых, критичность B>=R-2 при B>0, после номинации нет запланированной красной речи, в vote-уходах дня нет победы чёрных. Очевидность не нужна."),
     "nomination_red_last_hope": (0.3, "Красному при тех же условиях критического выставления, если цель неочевидна. Используются версии и живые снимка номинации; текущая реализация использует накопленные до конца журнала проверки шерифа."),
@@ -172,7 +172,7 @@ events = [death(uid, reason="night") for uid in (10, 3, 4, 5, 6, 7)]
 add_case("black_win_2v2_1v1_alive", events, {8: 0.2, 9: 0.2}, [death(3, reason="night")], "black")
 add_case("black_win_2v2_1v1_dead", events, {10: 0.1}, [death(3, reason="night")], "black")
 for key, actor in (("vote_lift_same_team", 8), ("vote_lift_opponent_team", 2)):
-    event = dict(type="vote", lift=True, passed=True, targets=[8, 9], by=[actor])
+    event = dict(type="vote", lift=True, passed=True, targets=[8, 9], by=[actor], alive=IDS)
     add_case(key, [event], {actor: RULE_SPECS[key][0]}, [{**event, "passed": False}])
 for key, actor in (("nomination_black_prevents_black_win", 10), ("nomination_red_last_hope", 2)):
     alive = [1, 2, 3, 4, 5, 8, 9, 10]
@@ -261,6 +261,64 @@ add_case("vote_black_unchecked_nine_ten", black_unchecked_actions(), {8: -0.1},
 
 class ScoringRulesTests(unittest.TestCase):
     maxDiff = None
+
+    def test_same_team_lift_requires_nine_or_ten_alive(self):
+        """Штраф своей команде только при 9–10 живых; бонус противникам не зависит от размера стола."""
+        key = "vote_lift_same_team"
+        rules = isolated_rules(key)
+        rules["vote_lift_opponent_team"] = 0.3
+        for targets, same, opponent in (([2, 3], 2, 8), ([8, 9], 8, 2)):
+            for count in (4, 7, 8, 9, 10):
+                alive = targets + [uid for uid in IDS if uid not in targets][:count - len(targets)]
+                for day in (1, 2, 3):
+                    with self.subTest(targets=targets, count=count, day=day):
+                        vote = dict(type="vote", day=day, lift=True, passed=True,
+                                    targets=targets, by=[same, opponent], alive=alive)
+                        points, breakdown = score([vote], rules=rules)
+                        expected = -0.3 if count in (9, 10) else 0
+                        self.assertEqual(points[str(same)], expected)
+                        self.assertEqual(points[str(opponent)], 0.3)
+                        penalties = [item for item in breakdown[str(same)]["adjustments"] if item["rule_key"] == key]
+                        self.assertEqual([item["points"] for item in penalties], [expected] if expected else [])
+
+    def test_same_team_lift_uses_its_start_snapshot(self):
+        """Берём число живых до старта подъёма, а не после уходов, первого тура или другого голосования."""
+        rules = isolated_rules("vote_lift_same_team")
+        vote = dict(type="vote", day=2, lift=True, passed=True, targets=[2, 3], by=[2])
+        for before, after, expected in ((9, 8, -0.3), (10, 8, -0.3), (8, 9, 0), (8, 10, 0)):
+            with self.subTest(before=before, after=after):
+                start = dict(type="vote_start", day=2, lift=True, alive=IDS[:before])
+                actions = [start, death(4, reason="foul", day=2), {**vote, "alive": IDS[:after]}]
+                self.assertEqual(score(actions, rules=rules)[0]["2"], expected)
+        start = dict(type="vote_start", day=2, lift=True, alive=IDS)
+        self.assertEqual(score([start, vote], rules=rules)[0]["2"], -0.3)
+        # Обычное голосование, другой день и уже завершённый подъём не передают свой снимок.
+        for prefix in (
+            [{**start, "lift": False}],
+            [{**start, "day": 1}],
+            [start, {**vote, "passed": False, "alive": IDS}],
+            [start, dict(type="vote", day=2, leaders=[])],
+            [start, dict(type="vote_start", day=2, lift=False, alive=IDS)],
+        ):
+            self.assertEqual(score(prefix + [{**vote, "alive": IDS[:8]}], rules=rules)[0]["2"], 0)
+        # Повторный старт подъёма заменяет старый снимок.
+        self.assertEqual(score([start, {**start, "alive": IDS[:8]}, {**vote, "alive": IDS}], rules=rules)[0]["2"], 0)
+
+    def test_same_team_lift_legacy_missing_and_invalid_snapshots(self):
+        """Старые итоги с alive пригодны; без снимка штраф не угадываем, повторы и посторонних не считаем."""
+        rules = isolated_rules("vote_lift_same_team")
+        vote = dict(type="vote", day=2, lift=True, passed=True, targets=[2, 3], by=[2])
+        for alive, expected in ((None, 0), ([], 0), (IDS[:8] + [1], 0),
+                                (IDS[:8] + [100, 101], 0), (IDS[:9] * 2, -0.3), (IDS, -0.3)):
+            with self.subTest(alive=alive):
+                self.assertEqual(score([{**vote, "alive": alive}], rules=rules)[0]["2"], expected)
+        self.assertEqual(score([vote], rules=rules)[0]["2"], 0)
+        old_start = dict(type="vote_start", day=2, lift=True)
+        self.assertEqual(score([old_start, {**vote, "alive": IDS[:9]}], rules=rules)[0]["2"], -0.3)
+        # Явно пустой снимок старта не заменяется более поздним снимком итогов.
+        self.assertEqual(score([{**old_start, "alive": []}, {**vote, "alive": IDS}], rules=rules)[0]["2"], 0)
+        for changes in ({"passed": False}, {"targets": [2]}, {"targets": [2, 8]}, {"by": []}):
+            self.assertEqual(score([{**vote, "alive": IDS, **changes}], rules=rules)[0]["2"], 0)
 
     def test_admin_marks_override_without_changing_versions(self):
         """Админ может назначить, заменить и снять три отметки; исправление не меняет версии и не обходит условия слома."""

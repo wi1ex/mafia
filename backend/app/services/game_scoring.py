@@ -1655,12 +1655,17 @@ def _apply_action_points(
             )
 
     alive_player_ids = set(points)
+    lift_vote_start: dict[str, Any] | None = None
     black_won = str(result or "").strip().lower() == "black"
     for action in normalized_actions:
         action_type = str(action.get("type") or "").strip().lower()
 
+        if action_type == "vote_start":
+            lift_vote_start = action if _action_bool(action, "lift") else None
         if action_type == "vote":
             latest_votes[_action_user_id(action, "day")] = action
+            lift_start = lift_vote_start
+            lift_vote_start = None
         if action_type == "versions":
             departure_versions = _normalize_action_versions(action.get("versions"), set(points))
 
@@ -1736,6 +1741,12 @@ def _apply_action_points(
             if not _action_bool(action, "passed"):
                 continue
 
+            alive_context = action
+            if (lift_start is not None and "alive" in lift_start
+                    and _action_user_id(lift_start, "day") == _action_user_id(action, "day")):
+                alive_context = lift_start
+            large_table_lift = len(set(_action_user_ids(alive_context, "alive")) & set(points)) in (9, 10)
+
             target_ids = _action_user_ids(action, "targets")
             if len(target_ids) < 2:
                 continue
@@ -1750,6 +1761,8 @@ def _apply_action_points(
                     continue
                 voter_team = _team_for_role(_role_for_user(roles, voter_id))
                 if not voter_team:
+                    continue
+                if voter_team == target_team and not large_table_lift:
                     continue
                 rule_key = "vote_lift_same_team" if voter_team == target_team else "vote_lift_opponent_team"
                 apply_rule(

@@ -3790,7 +3790,10 @@ async def game_vote_lift_start(sid, data):
         now_ms = int(time() * 1000)
         now_ts = now_ms // 1000
         vote_duration = get_positive_setting_int("VOTE_SECONDS", 3)
-        await log_game_action(r, rid, {"type": "vote_start", "day": ctx.gint("day_number"), "lift": True})
+        await log_game_action(r, rid, {
+            "type": "vote_start", "day": ctx.gint("day_number"), "lift": True,
+            "alive": sorted(await smembers_ints(r, f"room:{rid}:game_alive")),
+        })
         async with r.pipeline() as p:
             await p.hset(
                 f"room:{rid}:game_state",
