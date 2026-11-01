@@ -23,8 +23,6 @@ class SiteSettingsOut(BaseModel):
     rtc_echo_cancellation_enabled: bool
     rtc_noise_suppression_enabled: bool
     rtc_auto_gain_control_enabled: bool
-    subscription_roulette_enabled: bool
-    subscription_roulette_round: int = Field(default=0, ge=0)
     admin_banner_text: str
     admin_banner_link: str
     home_carousel_banner_key: Optional[str] = None
@@ -50,7 +48,6 @@ class SiteSettingsUpdateIn(BaseModel):
     rtc_echo_cancellation_enabled: Optional[bool] = None
     rtc_noise_suppression_enabled: Optional[bool] = None
     rtc_auto_gain_control_enabled: Optional[bool] = None
-    subscription_roulette_enabled: Optional[bool] = None
     admin_banner_text: Optional[str] = Field(default=None, max_length=2048)
     admin_banner_link: Optional[str] = Field(default=None, max_length=2048)
     donation_url: Optional[str] = Field(default=None, max_length=2048)
@@ -330,8 +327,6 @@ class PublicSettingsOut(BaseModel):
     rtc_echo_cancellation_enabled: bool
     rtc_noise_suppression_enabled: bool
     rtc_auto_gain_control_enabled: bool
-    subscription_roulette_enabled: bool
-    subscription_roulette_round: int = Field(default=0, ge=0)
     admin_banner_text: str
     admin_banner_link: str
     home_carousel_banner_key: Optional[str] = None

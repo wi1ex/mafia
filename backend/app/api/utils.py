@@ -631,8 +631,6 @@ def build_app_settings_snapshot_defaults(core_settings_obj: Any, *, default_star
         rtc_echo_cancellation_enabled=getattr(core_settings_obj, "RTC_ECHO_CANCELLATION_ENABLED", True),
         rtc_noise_suppression_enabled=getattr(core_settings_obj, "RTC_NOISE_SUPPRESSION_ENABLED", True),
         rtc_auto_gain_control_enabled=getattr(core_settings_obj, "RTC_AUTO_GAIN_CONTROL_ENABLED", True),
-        subscription_roulette_enabled=False,
-        subscription_roulette_round=0,
         admin_banner_text=normalize_admin_banner_text(getattr(core_settings_obj, "ADMIN_BANNER_TEXT", "0")),
         admin_banner_link=normalize_admin_banner_link(getattr(core_settings_obj, "ADMIN_BANNER_LINK", "0")),
         home_carousel_banner_key=None,
@@ -686,8 +684,6 @@ def build_app_settings_snapshot_from_row(row: Any, *, default_starts: Sequence[i
         rtc_echo_cancellation_enabled=bool(getattr(row, "rtc_echo_cancellation_enabled", True)),
         rtc_noise_suppression_enabled=bool(getattr(row, "rtc_noise_suppression_enabled", True)),
         rtc_auto_gain_control_enabled=bool(getattr(row, "rtc_auto_gain_control_enabled", True)),
-        subscription_roulette_enabled=bool(getattr(row, "subscription_roulette_enabled", False)),
-        subscription_roulette_round=int(getattr(row, "subscription_roulette_round", 0) or 0),
         admin_banner_text=normalize_admin_banner_text(getattr(row, "admin_banner_text", "0")),
         admin_banner_link=normalize_admin_banner_link(getattr(row, "admin_banner_link", "0")),
         home_carousel_banner_key=normalize_home_carousel_banner_key(getattr(row, "home_carousel_banner_key", None)),
@@ -1642,7 +1638,6 @@ async def emit_sanctions_update(session: AsyncSession, user_id: int) -> None:
 
 
 async def build_user_out_payload(session: AsyncSession, *, user_id: int, role: str | None = None):
-    from ..models.settings import AppSettings
     from ..schemas.user import UserOut
     from ..services.global_chat import count_global_chat_unread
 
@@ -1698,12 +1693,6 @@ async def build_user_out_payload(session: AsyncSession, *, user_id: int, role: s
     finish_stage("active_game")
     chat_unread_count = await count_global_chat_unread(session, user_id=uid)
     finish_stage("chat_unread")
-    roulette_state = (await session.execute(
-        select(User.subscription_roulette_days, func.abs(AppSettings.subscription_roulette_state))
-        .select_from(User).join(AppSettings, AppSettings.id == 1).where(User.id == uid)
-    )).one_or_none()
-    roulette_days, roulette_round = roulette_state if roulette_state is not None else (None, 0)
-    finish_stage("roulette")
 
     payload = UserOut(
         id=uid,
@@ -1723,8 +1712,6 @@ async def build_user_out_payload(session: AsyncSession, *, user_id: int, role: s
         subscription_active=theme_state.subscription_active,
         subscription_started_at=theme_state.subscription_started_at,
         subscription_until=theme_state.subscription_until,
-        subscription_roulette_days=roulette_days,
-        subscription_roulette_round=int(roulette_round or 0),
         nickname_changes_left=normalize_nickname_changes_left(user.nickname_changes_left),
         profile_theme_color=theme_state.color,
         profile_theme_icon=theme_state.icon,
@@ -4046,8 +4033,6 @@ def site_settings_out(row) -> SiteSettingsOut:
         rtc_echo_cancellation_enabled=bool(getattr(row, "rtc_echo_cancellation_enabled", True)),
         rtc_noise_suppression_enabled=bool(getattr(row, "rtc_noise_suppression_enabled", True)),
         rtc_auto_gain_control_enabled=bool(getattr(row, "rtc_auto_gain_control_enabled", True)),
-        subscription_roulette_enabled=bool(getattr(row, "subscription_roulette_enabled", False)),
-        subscription_roulette_round=int(getattr(row, "subscription_roulette_round", 0) or 0),
         admin_banner_text=normalize_admin_banner_text(getattr(row, "admin_banner_text", "0")),
         admin_banner_link=normalize_admin_banner_link(getattr(row, "admin_banner_link", "0")),
         home_carousel_banner_key=normalize_home_carousel_banner_key(getattr(row, "home_carousel_banner_key", None)),
@@ -4077,8 +4062,6 @@ def public_settings_out(settings) -> "PublicSettingsOut":
         rtc_echo_cancellation_enabled=bool(getattr(settings, "rtc_echo_cancellation_enabled", True)),
         rtc_noise_suppression_enabled=bool(getattr(settings, "rtc_noise_suppression_enabled", True)),
         rtc_auto_gain_control_enabled=bool(getattr(settings, "rtc_auto_gain_control_enabled", True)),
-        subscription_roulette_enabled=bool(getattr(settings, "subscription_roulette_enabled", False)),
-        subscription_roulette_round=int(getattr(settings, "subscription_roulette_round", 0) or 0),
         admin_banner_text=normalize_admin_banner_text(getattr(settings, "admin_banner_text", "0")),
         admin_banner_link=normalize_admin_banner_link(getattr(settings, "admin_banner_link", "0")),
         home_carousel_banner_key=normalize_home_carousel_banner_key(getattr(settings, "home_carousel_banner_key", None)),

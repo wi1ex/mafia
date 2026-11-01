@@ -23,7 +23,6 @@ class AppSettings(Base):
     rtc_echo_cancellation_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.RTC_ECHO_CANCELLATION_ENABLED))
     rtc_noise_suppression_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.RTC_NOISE_SUPPRESSION_ENABLED))
     rtc_auto_gain_control_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.RTC_AUTO_GAIN_CONTROL_ENABLED))
-    subscription_roulette_state: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0, server_default="0")
     admin_banner_text: Mapped[str] = mapped_column(String(2048), nullable=False, server_default="0")
     admin_banner_link: Mapped[str] = mapped_column(String(2048), nullable=False, server_default="0")
     home_carousel_banner_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
@@ -49,16 +48,3 @@ class AppSettings(Base):
     knocks_limit: Mapped[int] = mapped_column(Integer, nullable=False, server_default=str(settings.KNOCKS_LIMIT))
     wink_spot_chance_percent: Mapped[int] = mapped_column(Integer, nullable=False, server_default=str(settings.WINK_SPOT_CHANCE_PERCENT))
     game_roles_reveal_seconds: Mapped[int] = mapped_column(Integer, nullable=False, server_default=str(settings.GAME_ROLES_REVEAL_SECONDS))
-
-    @property
-    def subscription_roulette_enabled(self) -> bool:
-        return (self.subscription_roulette_state or 0) > 0
-
-    @subscription_roulette_enabled.setter
-    def subscription_roulette_enabled(self, enabled: bool) -> None:
-        round_id = self.subscription_roulette_round
-        self.subscription_roulette_state = (round_id or 1) if enabled else -round_id
-
-    @property
-    def subscription_roulette_round(self) -> int:
-        return abs(self.subscription_roulette_state or 0)

@@ -38,7 +38,6 @@ from ...services.livekit import remove_livekit_participant
 from ...services.user_cache import refresh_user_profile_cache, get_user_profiles_cached
 from ...services.site_rules import update_site_rules_version
 from ...services.multiaccounts import MULTIACCOUNT_ACTIONS, MultiaccountScan
-from ...services.subscription_roulette import start_roulette_round
 from ...services.game_scoring import (
     build_game_scoring_rules_snapshot,
     can_set_game_mode,
@@ -427,10 +426,6 @@ async def update_settings(payload: AdminSettingsUpdateIn, session: AsyncSession 
     }
     season_changed = "season_start_game_number" in changed
 
-    roulette_reset_count = 0
-    if changed.get("subscription_roulette_enabled"):
-        roulette_reset_count = await start_roulette_round(session, row)
-
     for key, value in changed.items():
         setattr(row, key, value)
 
@@ -459,8 +454,7 @@ async def update_settings(payload: AdminSettingsUpdateIn, session: AsyncSession 
 
     details = (
         f"Обновление настроек keys={','.join(sorted(changed))} season_changed={int(season_changed)} "
-        f"room_min_ready_snapshots={room_min_ready_snapshots} "
-        f"roulette_round={row.subscription_roulette_round} roulette_reset_users={roulette_reset_count}"
+        f"room_min_ready_snapshots={room_min_ready_snapshots}"
         if changed
         else "Обновление настроек без изменений"
     )

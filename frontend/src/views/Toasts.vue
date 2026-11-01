@@ -322,7 +322,7 @@ onBeforeUnmount(() => {
   position: fixed;
   flex-direction: column;
   left: 40px;
-  bottom: calc(40px + var(--subscription-roulette-banner-offset, 0px));
+  bottom: 40px;
   gap: 10px;
   z-index: 2000;
   pointer-events: none;
