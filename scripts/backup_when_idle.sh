@@ -2,6 +2,12 @@
 # scripts/systemd/deceit-backup.service	to /etc/systemd/system/deceit-backup.service
 # scripts/systemd/deceit-backup.timer	to /etc/systemd/system/deceit-backup.timer
 
+# sed -i 's/\r$//' /root/deceit/scripts/backup_when_idle.sh /root/deceit/scripts/backup_all.sh /etc/systemd/system/deceit-backup.service /etc/systemd/system/deceit-backup.timer
+# chmod 644 /etc/systemd/system/deceit-backup.service /etc/systemd/system/deceit-backup.timer
+# systemctl daemon-reload
+# systemctl enable --now deceit-backup.timer
+# systemctl list-timers --all deceit-backup.timer
+
 # Called by deceit-backup.timer; one successful backup per Moscow calendar day.
 set -euo pipefail
 umask 077
