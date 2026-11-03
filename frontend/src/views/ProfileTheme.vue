@@ -11,19 +11,11 @@
           />
         </div>
         <UiButton
-          v-if="canEditProfileTheme"
           variant="green"
           size="middle"
           :text="themeSaveBusy ? '...' : 'Сохранить изменения'"
           :disabled="themeSaveDisabled"
           @click="saveProfileTheme"
-        />
-        <UiButton
-          v-else
-          variant="green"
-          size="middle"
-          text="Оформить подписку"
-          @click="openSubscriptionModal"
         />
       </div>
       <div class="theme-changes">
@@ -83,7 +75,6 @@
         </div>
       </div>
     </div>
-    <Subscription v-model:open="subscriptionModalOpen" @select="onSubscriptionPaymentSelect" />
   </div>
 </template>
 
@@ -109,7 +100,6 @@ import {
   type ProfileThemeIcon,
 } from '@/constants/profileIcons'
 
-import Subscription from '@/views/Subscription.vue'
 import UiTooltip from '@/components/UiTooltip.vue'
 import UiButton from '@/components/UiButton.vue'
 import UiIcon from '@/components/UiIcon.vue'
@@ -118,12 +108,6 @@ import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
 import iconDush from '@/assets/svg/iconDush.svg'
 import iconClose from '@/assets/svg/iconClose.svg'
 import iconTwitch from '@/assets/svg/iconTwitch.svg'
-
-type SubscriptionSite = {
-  id: string
-  name: string
-  url: string
-}
 
 const userStore = useUserStore()
 const { subscriptionHint } = useSubscriptionStatus()
@@ -146,7 +130,6 @@ const me = reactive({
 })
 const selectedProfileThemeColor = ref<ProfileThemeColor>(resolveProfileThemeColor(null))
 const selectedProfileThemeIcon = ref<ProfileThemeIcon | null>(null)
-const subscriptionModalOpen = ref(false)
 const themeSaveBusy = ref(false)
 const isBanned = computed(() => userStore.banActive)
 let onProfileSync: ((e: Event) => void) | null = null
@@ -220,20 +203,6 @@ function pickProfileTheme(color: ProfileThemeColor) {
 function pickProfileThemeIcon(icon: ProfileThemeIcon) {
   if (themeSaveBusy.value || isBanned.value) return
   selectedProfileThemeIcon.value = icon
-}
-
-function openSubscriptionModal() {
-  subscriptionModalOpen.value = true
-}
-
-function onSubscriptionPaymentSelect(site: SubscriptionSite) {
-  if (site.id === 'kassa') return
-  void api.post('/users/support_link_click', {
-    source: 'profile_theme',
-    site_id: site.id,
-    site_name: site.name,
-    url: site.url,
-  }).catch(() => {})
 }
 
 async function loadMe(options: { keepThemeDraft?: boolean } = {}) {
