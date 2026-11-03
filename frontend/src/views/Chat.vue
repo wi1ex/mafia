@@ -158,7 +158,7 @@
               </div>
             </article>
           </div>
-          <UiScrollbar :target="listEl" :active="chat.open" theme="light" :inset-top="16" :inset-bottom="composerHeight + 16" :right="-4" />
+          <UiScrollbar :target="listEl" :active="chat.open" theme="light" :inset-top="16" :inset-bottom="composerHeight + 16" :right="4" />
         </div>
 
         <div v-if="hasUnreadTargets || showJumpToBottomButton" class="floating-chat-actions" :style="floatingChatActionsStyle">
@@ -2061,7 +2061,6 @@ watch(() => user.timeoutActive, () => {
     position: relative;
     flex-direction: column;
     box-sizing: border-box;
-    padding: 0 8px;
     width: 510px;
     height: min(720px, calc(var(--app-viewport-height, 100dvh) - 112px));
     border: 1px solid transparent;
@@ -2224,7 +2223,6 @@ watch(() => user.timeoutActive, () => {
       .global-chat-message {
         box-sizing: border-box;
         width: 100%;
-        padding: 12px;
         border: 1px solid transparent;
         border-radius: 24px;
         background-color: $neutral-white;
@@ -2237,15 +2235,14 @@ watch(() => user.timeoutActive, () => {
           display: flex;
           flex-direction: column;
           min-width: 0;
+          padding: 12px;
           gap: 8px;
           .message-meta {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 8px 12px;
             gap: 12px;
             border-radius: 12px;
-            background-color: $neutral-50;
             .message-meta-author {
               display: flex;
               align-items: center;
@@ -2308,7 +2305,7 @@ watch(() => user.timeoutActive, () => {
           .reply-preview {
             display: flex;
             flex-direction: column;
-            padding: 8px 12px;
+            padding: 4px 8px;
             gap: 4px;
             border: none;
             border-left: 4px solid $green-500;
@@ -2323,7 +2320,7 @@ watch(() => user.timeoutActive, () => {
               display: flex;
               align-items: center;
               min-width: 0;
-              gap: 6px;
+              gap: 4px;
               .reply-avatar {
                 width: 20px;
                 height: 20px;
@@ -2355,7 +2352,7 @@ watch(() => user.timeoutActive, () => {
             .message-text,
             .tombstone {
               margin: 0;
-              padding: 4px;
+              padding: 0 2px;
               color: $neutral-900;
               font-size: 16px;
               line-height: 22px;
@@ -2800,7 +2797,7 @@ watch(() => user.timeoutActive, () => {
       width: 100%;
       bottom: 0;
       left: 0;
-      padding: 16px 22px;
+      padding: 16px;
       gap: 8px;
       background: linear-gradient(360deg, #00000033, #00000000);
       z-index: 3;
