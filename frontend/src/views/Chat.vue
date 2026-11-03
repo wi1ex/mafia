@@ -2373,15 +2373,15 @@ watch(() => user.timeoutActive, () => {
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                height: 30px;
+                height: 24px;
                 padding: 0 6px;
                 border: 1px solid $neutral-100;
                 border-radius: 12px;
                 background-color: $soft-purple-100;
                 color: $neutral-black;
                 cursor: pointer;
-                --ui-icon-width: 20px;
-                --ui-icon-height: 20px;
+                --ui-icon-width: 16px;
+                --ui-icon-height: 16px;
                 &:hover:not(:disabled) {
                   background-color: $soft-purple-200;
                 }
@@ -2497,17 +2497,17 @@ watch(() => user.timeoutActive, () => {
                 box-sizing: border-box;
                 padding: 0 6px;
                 gap: 2px;
-                height: 30px;
+                height: 24px;
                 border: 1px solid $neutral-100;
                 border-radius: 12px;
                 background-color: $neutral-50;
                 color: $neutral-600;
                 font-weight: bold;
-                font-size: 14px;
-                line-height: 16px;
+                font-size: 12px;
+                line-height: 12px;
                 cursor: pointer;
-                --ui-icon-width: 20px;
-                --ui-icon-height: 20px;
+                --ui-icon-width: 16px;
+                --ui-icon-height: 16px;
                 &:hover:not(:disabled) {
                   border-color: $green-500;
                   background-color: $green-100;
