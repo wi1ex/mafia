@@ -6,8 +6,6 @@
 : << 'COMMENT'
 bash <<'BASH'
 set -euo pipefail
-
-# Выбираем каталог проекта.
 if [[ -d /root/deceit ]]; then
   PROJECT_DIR=/root/deceit
 elif [[ -d /root/mafia ]]; then
@@ -16,11 +14,8 @@ else
   echo "Не найдены /root/deceit и /root/mafia" >&2
   exit 1
 fi
-
 cd "$PROJECT_DIR"
 echo "Каталог проекта: $PROJECT_DIR"
-
-# Проверяем наличие файлов.
 for file in \
   .env \
   scripts/backup_all.sh \
@@ -34,28 +29,12 @@ do
   }
 done
 
-# Исправляем переносы строк после Windows.
-sed -i 's/\r$//' \
-  .env \
-  scripts/backup_all.sh \
-  scripts/backup_when_idle.sh \
-  /etc/systemd/system/deceit-backup.service \
-  /etc/systemd/system/deceit-backup.timer
-
-# Выставляем права.
+sed -i 's/\r$//' .env scripts/backup_all.sh scripts/backup_when_idle.sh /etc/systemd/system/deceit-backup.service /etc/systemd/system/deceit-backup.timer
 chmod +x scripts/backup_all.sh scripts/backup_when_idle.sh
-chmod 644 \
-  /etc/systemd/system/deceit-backup.service \
-  /etc/systemd/system/deceit-backup.timer
-
-# Проверяем конфигурацию.
+chmod 644 /etc/systemd/system/deceit-backup.service /etc/systemd/system/deceit-backup.timer
 bash -n scripts/backup_all.sh
 bash -n scripts/backup_when_idle.sh
-systemd-analyze verify \
-  /etc/systemd/system/deceit-backup.service \
-  /etc/systemd/system/deceit-backup.timer
-
-# Включаем таймер и автозапуск после перезагрузки.
+systemd-analyze verify /etc/systemd/system/deceit-backup.service /etc/systemd/system/deceit-backup.timer
 systemctl daemon-reload
 systemctl enable --now deceit-backup.timer
 systemctl list-timers --all deceit-backup.timer
