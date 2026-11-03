@@ -1,0 +1,16 @@
+[Unit]
+Description=Back up Deceit once per day when no rooms exist
+Wants=network-online.target
+After=network-online.target docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/root/deceit
+StateDirectory=deceit-backup
+StateDirectoryMode=0700
+UMask=0077
+Environment=TZ=Europe/Moscow
+ExecStart=/usr/bin/bash /root/deceit/scripts/backup_when_idle.sh
+TimeoutStartSec=infinity
