@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# scripts/systemd/deceit-backup.service	to /etc/systemd/system/deceit-backup.service
+# scripts/systemd/deceit-backup.timer	to /etc/systemd/system/deceit-backup.timer
+
 # Called by deceit-backup.timer; one successful backup per Moscow calendar day.
 set -euo pipefail
 umask 077
