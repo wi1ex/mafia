@@ -1,14 +1,69 @@
 #!/usr/bin/env bash
+
 # scripts/systemd/deceit-backup.service	to /etc/systemd/system/deceit-backup.service
 # scripts/systemd/deceit-backup.timer	to /etc/systemd/system/deceit-backup.timer
 
-# sed -i 's/\r$//' /root/deceit/scripts/backup_when_idle.sh /root/deceit/scripts/backup_all.sh /etc/systemd/system/deceit-backup.service /etc/systemd/system/deceit-backup.timer
-# chmod 644 /etc/systemd/system/deceit-backup.service /etc/systemd/system/deceit-backup.timer
-# systemctl daemon-reload
-# systemctl enable --now deceit-backup.timer
-# systemctl list-timers --all deceit-backup.timer
+: << 'COMMENT'
+bash <<'BASH'
+set -euo pipefail
+
+# Выбираем каталог проекта.
+if [[ -d /root/deceit ]]; then
+  PROJECT_DIR=/root/deceit
+elif [[ -d /root/mafia ]]; then
+  PROJECT_DIR=/root/mafia
+else
+  echo "Не найдены /root/deceit и /root/mafia" >&2
+  exit 1
+fi
+
+cd "$PROJECT_DIR"
+echo "Каталог проекта: $PROJECT_DIR"
+
+# Проверяем наличие файлов.
+for file in \
+  .env \
+  scripts/backup_all.sh \
+  scripts/backup_when_idle.sh \
+  /etc/systemd/system/deceit-backup.service \
+  /etc/systemd/system/deceit-backup.timer
+do
+  [[ -f "$file" ]] || {
+    echo "Не найден файл: $file" >&2
+    exit 1
+  }
+done
+
+# Исправляем переносы строк после Windows.
+sed -i 's/\r$//' \
+  .env \
+  scripts/backup_all.sh \
+  scripts/backup_when_idle.sh \
+  /etc/systemd/system/deceit-backup.service \
+  /etc/systemd/system/deceit-backup.timer
+
+# Выставляем права.
+chmod +x scripts/backup_all.sh scripts/backup_when_idle.sh
+chmod 644 \
+  /etc/systemd/system/deceit-backup.service \
+  /etc/systemd/system/deceit-backup.timer
+
+# Проверяем конфигурацию.
+bash -n scripts/backup_all.sh
+bash -n scripts/backup_when_idle.sh
+systemd-analyze verify \
+  /etc/systemd/system/deceit-backup.service \
+  /etc/systemd/system/deceit-backup.timer
+
+# Включаем таймер и автозапуск после перезагрузки.
+systemctl daemon-reload
+systemctl enable --now deceit-backup.timer
+systemctl list-timers --all deceit-backup.timer
+BASH
+COMMENT
 
 # Called by deceit-backup.timer; one successful backup per Moscow calendar day.
+# The service selects /root/deceit first, then /root/mafia if deceit is absent.
 set -euo pipefail
 umask 077
 export TZ=Europe/Moscow
