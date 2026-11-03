@@ -1,7 +1,7 @@
 from __future__ import annotations
 from datetime import datetime
 from typing import Optional
-from sqlalchemy import BigInteger, String, DateTime, Boolean, Text, Integer, func
+from sqlalchemy import BigInteger, String, DateTime, Boolean, Text, Integer, Index, func
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import JSONB
 from ..core.db import Base
@@ -34,6 +34,10 @@ class User(Base):
     last_login_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     last_visit_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        Index("ix_users_telegram_nickname_ci", func.lower(telegram_nickname)),
+    )
 
     @property
     def rules_acceptance_required(self) -> bool:

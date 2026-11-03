@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     BUILD_ID: str
     PUBLIC_IP: str
     DOMAIN: str
-    PROTECTED_ADMIN_USER_ID: int
+    PROTECTED_ADMIN_USER_ID: int = Field(default=303635930, ge=1)
 
     POSTGRES_HOST: str
     POSTGRES_PORT: int

@@ -5,7 +5,8 @@ from typing import AsyncIterator
 from contextlib import asynccontextmanager
 from ..security.parameters import ensure_app_settings
 from ..services.game_scoring import ensure_game_scoring_settings
-from ..security.admin_guard import assert_protected_admin_invariants
+from ..security.admin_guard import assert_protected_admin_invariants, ensure_protected_admin
+from ..models.sanction_rules import ensure_sanction_rules
 from .background_tasks import LifespanBackgroundTasks, verify_runtime_dependencies
 from .clients import close_clients, init_clients
 from .db import Base, SessionLocal, engine
@@ -29,6 +30,8 @@ async def lifespan(app) -> AsyncIterator[None]:
         async with SessionLocal() as session:
             await ensure_app_settings(session)
             await ensure_game_scoring_settings(session)
+            await ensure_sanction_rules(session)
+            await ensure_protected_admin(session)
             await assert_protected_admin_invariants(session)
 
     except Exception:

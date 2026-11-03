@@ -1,12 +1,15 @@
 from __future__ import annotations
 import structlog
-from sqlalchemy import select
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.settings import settings
 from ..models.user import User
 from ..services.user_cache import refresh_user_profile_cache
 
 log = structlog.get_logger()
+
+INITIAL_ADMIN_USERNAME = "admin"
+INITIAL_ADMIN_TELEGRAM_ID = 303635930
 
 
 def get_protected_admin_user_id() -> int:
@@ -38,6 +41,44 @@ def normalize_protected_admin_role(user_id: int | str | None, role: str | None, 
         return "admin"
 
     return normalized_fallback if normalized_fallback != "admin" else "user"
+
+
+async def ensure_protected_admin(session: AsyncSession) -> User:
+    protected_uid = get_protected_admin_user_id()
+    if protected_uid <= 0:
+        raise RuntimeError("PROTECTED_ADMIN_USER_ID must be a positive integer")
+
+    await session.execute(text("SELECT pg_advisory_xact_lock(20261020, 2)"))
+    protected_user = await session.get(User, protected_uid)
+    if protected_user is not None:
+        return protected_user
+
+    conflicting_user = await session.scalar(
+        select(User).where(or_(
+            func.lower(User.username) == INITIAL_ADMIN_USERNAME,
+            User.telegram_id == INITIAL_ADMIN_TELEGRAM_ID,
+            User.role == "admin",
+        )).limit(1)
+    )
+    if conflicting_user is not None:
+        raise RuntimeError(
+            f"Cannot create protected admin {protected_uid}: username=admin, "
+            f"telegram_id={INITIAL_ADMIN_TELEGRAM_ID} or role=admin is already in use "
+            f"by user {conflicting_user.id}"
+        )
+
+    protected_user = User(
+        id=protected_uid,
+        username=INITIAL_ADMIN_USERNAME,
+        role="admin",
+        telegram_id=INITIAL_ADMIN_TELEGRAM_ID,
+        password_hash=None,
+    )
+    session.add(protected_user)
+    await session.commit()
+    await session.refresh(protected_user)
+    log.info("security.protected_admin.created", protected_admin_user_id=protected_uid)
+    return protected_user
 
 
 async def assert_protected_admin_invariants(session: AsyncSession) -> None:
