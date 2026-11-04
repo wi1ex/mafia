@@ -1,7 +1,7 @@
 from __future__ import annotations
 from datetime import datetime
 from typing import Optional
-from sqlalchemy import BigInteger, String, DateTime, Boolean, Text, Integer, Index, func
+from sqlalchemy import BigInteger, String, DateTime, Boolean, Text, Integer, Index, CheckConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import JSONB
 from ..core.db import Base
@@ -11,6 +11,7 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    dc_balance: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0, server_default="0")
     username: Mapped[str] = mapped_column(String(20), nullable=False, index=True, unique=True)
     role: Mapped[str] = mapped_column(String(16), nullable=False, default="user")
     additional_roles: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list, server_default="[]")
@@ -36,6 +37,7 @@ class User(Base):
     deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     __table_args__ = (
+        CheckConstraint("dc_balance >= 0", name="nonnegative_dc_balance"),
         Index("ix_users_telegram_nickname_ci", func.lower(telegram_nickname)),
     )
 

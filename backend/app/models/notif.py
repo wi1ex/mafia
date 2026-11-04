@@ -10,6 +10,7 @@ class Notif(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(BigInteger, index=True, nullable=False)
+    event_key: Mapped[str | None] = mapped_column(String(192), nullable=True, unique=True)
     title: Mapped[str] = mapped_column(String(64), nullable=False, server_default="Уведомление")
     text: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

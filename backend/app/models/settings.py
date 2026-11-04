@@ -1,8 +1,9 @@
 from __future__ import annotations
-from sqlalchemy import BigInteger, Boolean, Integer, String
+from sqlalchemy import BigInteger, Boolean, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 from ..core.db import Base
 from ..core.settings import settings
+from ..services.coin_prices import DEFAULT_DC_PACKAGES
 
 
 def _bool_default(value: bool) -> str:
@@ -26,7 +27,7 @@ class AppSettings(Base):
     admin_banner_text: Mapped[str] = mapped_column(String(2048), nullable=False, server_default="0")
     admin_banner_link: Mapped[str] = mapped_column(String(2048), nullable=False, server_default="0")
     home_carousel_banner_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    donation_url: Mapped[str] = mapped_column(String(2048), nullable=False, server_default=settings.DONATION_URL)
+    dc_coin_packages: Mapped[str] = mapped_column(Text, nullable=False, default=DEFAULT_DC_PACKAGES, server_default=DEFAULT_DC_PACKAGES)
     rooms_limit_global: Mapped[int] = mapped_column(Integer, nullable=False, server_default=str(settings.ROOMS_LIMIT_GLOBAL))
     rooms_limit_per_user: Mapped[int] = mapped_column(Integer, nullable=False, server_default=str(settings.ROOMS_LIMIT_PER_USER))
     spectators_limit: Mapped[int] = mapped_column(Integer, nullable=False, server_default=str(settings.SPECTATORS_LIMIT))
