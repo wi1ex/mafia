@@ -49,7 +49,7 @@
           <img class="background-image" :src="imageSlide9" alt="" aria-hidden="true" />
           <div class="tab-subscribe-div">
             <span class="tab-subscribe-title">Оформи подписку</span>
-            <span class="tab-subscribe-text">Подписка откроет новые функции, персонализацию профиля и дополнительные привилегии.</span>
+            <span class="tab-subscribe-text">Подписка откроет новые функции и дополнительный функционал.</span>
             <UiButton
               size="middle"
               variant="white"
@@ -329,6 +329,7 @@ onBeforeUnmount(() => {
           }
           .tab-subscribe-text {
             margin-bottom: 8px;
+            max-width: 220px;
             color: $neutral-100;
             font-family: Hauora-Regular;
             font-size: 14px;
