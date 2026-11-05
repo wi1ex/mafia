@@ -4,10 +4,15 @@
       <div v-if="open && !restriction" class="wallet-overlay" @pointerdown.self="armed = true" @pointerup.self="armed && requestClose()" @pointerleave.self="armed = false">
         <section ref="dialog" class="wallet-modal" role="dialog" aria-modal="true" aria-labelledby="wallet-title" @keydown="onDialogKeydown">
           <header>
-            <h2 id="wallet-title">Deceit Coin</h2>
+            <div class="wallet-heading">
+              <h2 id="wallet-title">Deceit Coin</h2>
+              <div class="wallet-status" aria-live="polite">
+                <p class="wallet-balance">Баланс: <strong>{{ balanceText }} <small>DC</small></strong></p>
+                <p class="wallet-subscription">{{ userStore.subscriptionActive ? `Подписка действует до ${formatMoscowDate(userStore.user?.subscription_until)}.` : 'У вас нет действующей подписки.' }}</p>
+              </div>
+            </div>
             <UiButton variant="white" size="low" :icon="iconClose" width="40px" aria-label="Закрыть" :disabled="busy" @click="requestClose" />
           </header>
-          <div class="wallet-balance" aria-live="polite"><span>Баланс</span><strong>{{ balanceText }} <small>DC</small></strong></div>
           <nav class="wallet-tabs" role="tablist" aria-label="Покупки">
             <button id="wallet-coins-tab" type="button" role="tab" :aria-selected="tab === 'coins'" aria-controls="wallet-coins" :class="{ active: tab === 'coins' }" @click="tab = 'coins'">Пополнение баланса</button>
             <button id="wallet-subscription-tab" type="button" role="tab" :aria-selected="tab === 'subscription'" aria-controls="wallet-subscription" :class="{ active: tab === 'subscription' }" @click="tab = 'subscription'">Покупка подписки</button>
@@ -52,7 +57,6 @@
                 </button>
               </div>
               <UiInput id="dc-email" v-model.trim="email" type="email" autocomplete="email" label="Email для оформления платежа" placeholder="mail@example.com" :disabled="busy || opening" />
-              <div class="wallet-summary"><span>На баланс поступит {{ quantity }} DC</span><strong>К оплате: {{ totalPrice }}</strong></div>
               <UiButton type="submit" :text="wallet.invoiceBusy ? 'Создаём счёт…' : `Оплатить ${totalPrice}`" :disabled="!canPay" width="100%" />
             </form>
             <div v-if="otherInvoices.length" class="wallet-orders">
@@ -64,7 +68,6 @@
           </div>
 
           <div v-show="tab === 'subscription'" id="wallet-subscription" role="tabpanel" aria-labelledby="wallet-subscription-tab" class="wallet-panel">
-            <p class="wallet-state">{{ userStore.subscriptionActive ? `Подписка действует до ${formatMoscowDate(userStore.user?.subscription_until)}.` : 'У вас нет действующей подписки.' }}</p>
             <div v-if="wallet.pending.subscription" class="wallet-summary">
               <p>Проверяем результат покупки…</p>
               <span>Тариф: {{ planLabel(wallet.pending.subscription.plan) }}</span>
@@ -79,12 +82,7 @@
                   <strong>{{ plan.label }}</strong><span>{{ plan.cost }} DC</span>
                 </button>
               </div>
-              <div class="wallet-summary"><strong>Стоимость: {{ selectedPlan.cost }} DC</strong><p v-if="preview">После покупки подписка будет действовать до {{ formatMoscowDate(preview) }}.</p></div>
-              <template v-if="!canAffordSubscription">
-                <p class="wallet-error">{{ wallet.balance === 0 ? 'Для покупки подписки пополните баланс.' : 'Недостаточно DC для покупки выбранной подписки.' }}</p>
-                <UiButton variant="white" text="Пополнить баланс" @click="tab = 'coins'" />
-              </template>
-              <UiButton type="submit" :text="wallet.subscriptionBusy ? 'Покупаем…' : `Купить за ${selectedPlan.cost} DC`" :disabled="!canAffordSubscription || busy || opening" width="100%" />
+              <UiButton class="wallet-subscription-buy" type="submit" :text="wallet.subscriptionBusy ? 'Покупаем…' : `Купить за ${selectedPlan.cost} DC${canAffordSubscription ? '' : ' — недостаточно монет'}`" :disabled="!canAffordSubscription || busy || opening" width="100%" />
             </form>
           </div>
         </section>
@@ -98,7 +96,7 @@ import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore, useSettingsStore, useUserStore } from '@/store'
 import { useWalletStore, dcErrorMessage, type CoinInvoice } from '@/store/modules/wallet'
-import { COIN_PACKAGES, DC_CURRENCIES, SUBSCRIPTION_PLANS, dcMoney, dcPurchaseRestriction, formatMoscowDate, subscriptionPreview, type CoinPackageQuantity, type DcCurrency, type SubscriptionPlan, type WalletTab } from '@/services/dc'
+import { COIN_PACKAGES, DC_CURRENCIES, SUBSCRIPTION_PLANS, dcMoney, dcPurchaseRestriction, formatMoscowDate, type CoinPackageQuantity, type DcCurrency, type SubscriptionPlan, type WalletTab } from '@/services/dc'
 import { alertDialog } from '@/services/confirm'
 import UiButton from '@/components/UiButton.vue'
 import UiInput from '@/components/UiInput.vue'
@@ -137,7 +135,6 @@ const packageAmount = computed(() => settings.dcCoinPackages[quantity.value][cur
 const totalPrice = computed(() => dcMoney(packageAmount.value, 1, currency.value))
 const selectedPlan = computed(() => SUBSCRIPTION_PLANS.find(item => item.id === subscriptionPlan.value)!)
 const canAffordSubscription = computed(() => wallet.balance >= selectedPlan.value.cost)
-const preview = computed(() => subscriptionPreview(userStore.now, userStore.user?.subscription_until, subscriptionPlan.value))
 const canPay = computed(() => !busy.value && !opening.value && !restriction.value && email.value.trim().length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim()))
 const selectedInvoice = computed(() => wallet.invoices.find(item => item.order_id === selectedOrderId.value))
 const otherInvoices = computed(() => wallet.invoices.filter(item => !['processed', 'failed'].includes(item.status) && item.order_id !== selectedOrderId.value))
@@ -241,8 +238,12 @@ async function purchaseSubscription(recover: boolean): Promise<void> {
     if (seq === openSequence) emit('update:open', false)
   } catch (err) {
     if (seq !== openSequence) return
-    error.value = dcErrorMessage(err)
-    if (!wallet.pending.subscription) await wallet.refreshWallet().catch(() => {})
+    const detail = (err as { response?: { data?: { detail?: string | { code?: string } } } })?.response?.data?.detail
+    const insufficientBalance = (typeof detail === 'object' ? detail?.code : detail) === 'insufficient_dc_balance'
+    error.value = insufficientBalance ? '' : dcErrorMessage(err)
+    if (!wallet.pending.subscription) await wallet.refreshWallet().catch(() => {
+      if (seq === openSequence && insufficientBalance) error.value = dcErrorMessage(err)
+    })
     else if (!retriedSubscription) {
       retriedSubscription = true
       subscriptionRetryTimer = setTimeout(() => { if (props.open && !restriction.value) void purchaseSubscription(true) }, 1500)
@@ -298,9 +299,6 @@ watch(restriction, reason => {
   }
 })
 watch(() => userStore.user?.id, () => { wallet.ensureOwner(); email.value = ''; selectedOrderId.value = null })
-watch(() => wallet.balance, (value, previous) => {
-  if (props.open && value < previous && !canAffordSubscription.value) error.value = 'Баланс изменился. Недостаточно DC для выбранной подписки.'
-})
 watch(() => [route.query.dc_payment, route.query.invoiceId, route.query.invoice_id], values => {
   if (values.some(Boolean) && !props.open) emit('update:open', true)
 }, { immediate: true })
@@ -340,35 +338,50 @@ onBeforeUnmount(() => { openSequence++; stopTimers() })
     header {
       display: flex;
       justify-content: space-between;
-      align-items: center;
+      align-items: flex-start;
       gap: 16px;
-      h2 {
-        font-family: Involve-Medium;
-        font-size: 26px;
-        margin: 0;
+      .wallet-heading {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-width: 0;
+        h2 {
+          font-family: Involve-Medium;
+          font-size: 26px;
+          margin: 0;
+        }
+        .wallet-status {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: baseline;
+          gap: 4px 16px;
+          color: $neutral-300;
+          font-size: 14px;
+          .wallet-balance {
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+            min-width: 0;
+            strong {
+              font-family: Hauora-Bold;
+              font-size: 18px;
+              color: $neutral-100;
+              overflow-wrap: anywhere;
+              small {
+                font-family: Hauora-Regular;
+                font-size: 14px;
+                color: $neutral-300;
+              }
+            }
+          }
+          .wallet-subscription {
+            overflow-wrap: anywhere;
+          }
+        }
       }
     }
     p {
       margin: 0;
-    }
-    .wallet-balance {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 20px;
-      border-radius: 20px;
-      background: $soft-purple-800;
-      strong {
-        font-size: 32px;
-        line-height: 1.1;
-        font-family: Hauora-Bold;
-        overflow-wrap: anywhere;
-        small {
-          font-size: 18px;
-          color: $neutral-300;
-        }
-      }
     }
     .wallet-tabs {
       display: flex;
@@ -435,6 +448,15 @@ onBeforeUnmount(() => { openSequence++; stopTimers() })
         display: flex;
         flex-direction: column;
         gap: 20px;
+        .wallet-subscription-buy {
+          height: auto;
+          min-height: var(--ui-button-height);
+          padding: 12px 16px;
+          :deep(.ui-button__text) {
+            white-space: normal;
+            overflow: visible;
+          }
+        }
         .wallet-currencies {
           display: flex;
           gap: 6px;

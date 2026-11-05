@@ -48,14 +48,14 @@
         <div class="tab-subscribe">
           <img class="background-image" :src="imageSlide9" alt="" aria-hidden="true" />
           <div class="tab-subscribe-div">
-            <span class="tab-subscribe-title">Баланс</span>
-            <span class="tab-subscribe-text">Выбирайте пакет Deceit Coin и пополняйте свой баланс.</span>
+            <span class="tab-subscribe-title">Оформи подписку</span>
+            <span class="tab-subscribe-text">Подписка откроет новые функции, персонализацию профиля и дополнительные привилегии.</span>
             <UiButton
               size="middle"
               variant="white"
               width="100%"
               type="button"
-              text="Пополнить баланс"
+              text="Оформить"
               @click="openSubscriptionModal()"
             />
           </div>
@@ -85,7 +85,7 @@
       </div>
     </Transition>
 
-    <Subscription v-model:open="subscriptionModalOpen" />
+    <Subscription v-model:open="subscriptionModalOpen" initial-tab="subscription" />
   </section>
 </template>
 

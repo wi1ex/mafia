@@ -37,6 +37,8 @@
                     </div>
 
                     <div v-if="showRestrictedProfileSections && showProfileMeta" class="profile-meta">
+                      <span v-if="isAdminViewer && targetDcBalance !== null" class="profile-friends-count profile-dc-balance">{{ formatNominationCount(targetDcBalance) }} DC</span>
+
                       <div v-if="friendsCount !== null" class="profile-friends-tooltip-wrap" :class="{ enabled: showAdminFriendsTooltip }" :tabindex="showAdminFriendsTooltip ? 0 : undefined">
                         <span class="profile-friends-count" aria-label="Количество друзей">Друзья: {{ friendsCount }}</span>
                         <div v-if="showAdminFriendsTooltip" class="profile-friends-tooltip" role="tooltip">
@@ -67,8 +69,6 @@
                           <UiScrollbar :target="profileFriendsList" :active="showAdminFriendsTooltip" theme="grey" :inset-top="16" :inset-bottom="16" right="6px" :overflow-tolerance="4" />
                         </div>
                       </div>
-
-                      <span v-if="isAdminViewer && targetDcBalance !== null" class="profile-friends-count profile-dc-balance">Баланс: {{ formatNominationCount(targetDcBalance) }} DC</span>
 
                       <div v-if="activeSanction" class="sanction-tooltip-wrap" tabindex="0">
                         <UiIcon class="profile-meta-icon" :icon="iconJudgeHummer" />
@@ -3215,9 +3215,6 @@ onBeforeUnmount(() => {
       &.profile-actions--main {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
-        .friend-action {
-          grid-column: 1 / -1;
-        }
       }
       .profile-action {
         display: flex;

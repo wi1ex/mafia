@@ -1,19 +1,18 @@
 <template>
   <Teleport to="#desktop-teleport-root">
-    <Transition name="balance-overlay">
-      <div v-if="open && snapshot && isAdmin" class="balance-overlay" :style="{ zIndex }" @pointerdown.stop.self="armed = true" @pointerup.stop.self="armed && close()" @pointerleave.stop.self="armed = false" @click.stop>
-        <section ref="panel" class="balance-modal" role="dialog" aria-modal="true" aria-labelledby="balance-modal-title" @keydown.esc.stop="close">
+    <Transition name="balance-overlay" @after-enter="onAfterEnter">
+      <div v-if="open && snapshot && isAdmin" class="balance-overlay" :style="{ zIndex }" @pointerdown.stop.self="armed = true" @pointerup.stop.self="armed && close()" @pointerleave.stop.self="armed = false" @pointercancel.stop.self="armed = false" @click.stop>
+        <section ref="panel" class="balance-modal" role="dialog" aria-modal="true" aria-labelledby="balance-modal-title" tabindex="-1" @pointerdown.stop @pointerup.stop @click.stop @keydown.esc.stop="close">
           <header><h2 id="balance-modal-title">{{ snapshot.action === 'credit' ? 'Выдать монеты' : 'Снять монеты' }}</h2><UiButton variant="white" size="low" :icon="iconClose" width="40px" aria-label="Закрыть" :disabled="saving" @click="close" /></header>
           <div class="balance-target"><img v-minio-img="{ key: snapshot.avatar_name ? `avatars/${snapshot.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="" /><span>{{ snapshot.username || `user${snapshot.user_id}` }}</span></div>
-          <p v-if="loading" role="status">Загрузка баланса…</p>
-          <form v-else @submit.prevent="save">
-            <strong>Баланс: {{ formatBalance(balance) }} DC</strong>
-            <UiInput id="balance-modal-quantity" v-model="quantity" type="number" min="1" :max="snapshot.action === 'debit' ? balance : undefined" step="1" inputmode="numeric" label="Количество, DC" size="low" :disabled="saving || !!pending" />
-            <p v-if="preview !== null">{{ snapshot.action === 'credit' ? 'После выдачи' : 'После снятия' }}: {{ formatBalance(preview) }} DC</p>
-            <p v-if="snapshot.action === 'debit' && balance === 0" class="balance-error">На балансе нет монет для снятия.</p>
+          <form :aria-busy="loading || saving" @submit.prevent="save">
+            <strong role="status" aria-live="polite">{{ loading ? 'Загрузка баланса…' : `Баланс: ${formatBalance(balance)} DC` }}</strong>
+            <UiInput id="balance-modal-quantity" v-model="quantity" type="number" min="1" :max="snapshot.action === 'debit' ? balance : undefined" step="1" inputmode="numeric" label="Количество, DC" size="low" :disabled="loading || saving || !!pending" />
+            <p class="balance-preview" aria-live="polite">{{ preview !== null && !loading ? `${snapshot.action === 'credit' ? 'После выдачи' : 'После снятия'}: ${formatBalance(preview)} DC` : '\u00a0' }}</p>
+            <p v-if="!loading && snapshot.action === 'debit' && balance === 0" class="balance-error">На балансе нет монет для снятия.</p>
             <p v-if="error" class="balance-error" role="alert">{{ error }}</p>
             <p v-if="pending && !saving" class="balance-error">Результат операции пока не получен. Проверьте тот же запрос.</p>
-            <div class="balance-actions"><UiButton variant="white" size="middle" text="Отмена" :disabled="saving" @click="close" /><UiButton type="submit" size="middle" :text="saving ? 'Сохранение…' : pending ? 'Проверить результат' : snapshot.action === 'credit' ? 'Выдать' : 'Снять'" :disabled="saving || (!pending && !valid)" /></div>
+            <div class="balance-actions"><UiButton variant="white" size="middle" text="Отмена" :disabled="saving" @click="close" /><UiButton type="submit" size="middle" :text="saving ? 'Сохранение…' : pending ? 'Проверить результат' : snapshot.action === 'credit' ? 'Выдать' : 'Снять'" :disabled="loading || saving || (!pending && !valid)" /></div>
           </form>
         </section>
       </div>
@@ -49,6 +48,7 @@ const saving = ref(false)
 const error = ref('')
 const armed = ref(false)
 let sequence = 0
+let entered = false
 const numericQuantity = computed(() => positiveDc(quantity.value))
 const preview = computed(() => {
   if (!numericQuantity.value || !snapshot.value) return null
@@ -62,6 +62,15 @@ function persist(): void {
   try { if (pending.value) sessionStorage.setItem(key(), JSON.stringify(pending.value)); else sessionStorage.removeItem(key()) } catch {}
 }
 function close(): void { if (!saving.value) emit('update:open', false) }
+function focusQuantity(): void {
+  if (!props.open || !entered) return
+  const target = loading.value ? panel.value : panel.value?.querySelector<HTMLInputElement>('input:not(:disabled)') || panel.value
+  target?.focus({ preventScroll: true })
+}
+function onAfterEnter(): void {
+  entered = true
+  focusQuantity()
+}
 async function refreshBalance(target: Target, seq: number): Promise<void> {
   const { data } = await api.get<{ dc_balance?: number | null }>(`/users/${target.user_id}/mini_profile`, { params: { allow_deleted: 1 } })
   if (seq !== sequence) return
@@ -70,7 +79,7 @@ async function refreshBalance(target: Target, seq: number): Promise<void> {
 }
 async function save(): Promise<void> {
   const target = snapshot.value
-  if (!target || !isAdmin.value || user.user?.id !== target.actorId || saving.value || (!pending.value && !valid.value)) return
+  if (!target || !isAdmin.value || user.user?.id !== target.actorId || loading.value || saving.value || (!pending.value && !valid.value)) return
   pending.value ||= { action: target.action, quantity: numericQuantity.value!, request_id: newDcRequestId() }
   persist()
   saving.value = true; error.value = ''
@@ -101,8 +110,10 @@ async function save(): Promise<void> {
 }
 watch(() => props.open, async open => {
   const seq = ++sequence
+  entered = false
   if (!open || !props.target || !isAdmin.value) return
   snapshot.value = { ...props.target, action: props.action, actorId: user.user!.id }
+  balance.value = Number.isSafeInteger(props.currentBalance) && Number(props.currentBalance) >= 0 ? props.currentBalance! : 0
   quantity.value = ''; pending.value = null; error.value = ''; armed.value = false; loading.value = true
   try {
     const saved = JSON.parse(sessionStorage.getItem(key()) || 'null') as Request | null
@@ -110,7 +121,13 @@ watch(() => props.open, async open => {
   } catch {}
   try { await refreshBalance(snapshot.value, seq) }
   catch { if (seq === sequence) error.value = 'Не удалось загрузить баланс. Закройте окно и повторите попытку.' }
-  finally { if (seq === sequence) { loading.value = false; await nextTick(); panel.value?.querySelector<HTMLInputElement>('input')?.focus() } }
+  finally {
+    if (seq === sequence) {
+      loading.value = false
+      await nextTick()
+      if (seq === sequence) focusQuantity()
+    }
+  }
 })
 watch(() => props.currentBalance, value => { if (props.open && Number.isSafeInteger(value) && Number(value) >= 0) balance.value = value! })
 watch(isAdmin, allowed => { if (!allowed) emit('update:open', false) })
@@ -197,7 +214,7 @@ onBeforeUnmount(() => { sequence++ })
 }
 .balance-overlay-enter-active,
 .balance-overlay-leave-active {
-  transition: opacity .2s ease;
+  transition: opacity 0.25s ease-in-out;
 }
 .balance-overlay-enter-from,
 .balance-overlay-leave-to {
