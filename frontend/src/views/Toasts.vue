@@ -121,6 +121,7 @@ type ToastItem = {
   text?: string
   date: number
   kind?: string
+  tone?: 'yellow' | 'orange' | 'red' | 'green' | 'blue'
   action?: ToastAction
   actions?: ToastAction[]
   ttl?: number
@@ -235,25 +236,10 @@ function onApproved(e: any) {
 }
 
 function toastToneClass(t: ToastItem): ToastToneClass {
-  const title = String(t.title || '')
-  const text = String(t.text || '')
-
-  if (title === 'Заявка в друзья от' || title === 'Заявка в комнату от' || t.kind === 'app') return 'tone-blue'
-  if (title === 'Заявка в друзья принята' || title === 'Доступ разрешен' || title === 'Приглашение в комнату от') return 'tone-green'
-  if (title === 'Доступ к комнате отозван' || title === 'Обратная связь') return 'tone-blue'
-  if (title === 'Таймаут') return 'tone-orange'
-  if (title === 'Бан' || title === 'Аватар' || title === 'Никнейм') return 'tone-red'
-  if (title === 'Отстранение от игр') return 'tone-yellow'
-  if (title === 'Подписка') {
-    if (text.includes('истекла')) return 'tone-red'
-    if (text.includes('истекает')) return 'tone-orange'
-    return 'tone-green'
-  }
-  if (title === 'Роль') {
-    if (text.includes('выдана')) return 'tone-green'
-    return 'tone-blue'
-  }
-
+  if (t.tone && ['yellow', 'orange', 'red', 'green', 'blue'].includes(t.tone)) return `tone-${t.tone}`
+  if (['friend_accept', 'approve', 'room_invite', 'subscription', 'dc_topup', 'coin_purchase', 'dc_grant', 'host_reward'].includes(t.kind || '')) return 'tone-green'
+  if (['nickname_reset', 'avatar_reset', 'subscription_expired'].includes(t.kind || '')) return 'tone-red'
+  if (t.kind === 'subscription_expiring') return 'tone-orange'
   return 'tone-blue'
 }
 
@@ -292,6 +278,7 @@ onMounted(() => {
       text,
       date: d.date ? Number(new Date(d.date)) : Date.now(),
       kind,
+      tone: d.tone,
       action: d.action,
       actions,
       ttl: TOAST_TTL_MS,

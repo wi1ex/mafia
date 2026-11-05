@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { api } from '@/services/axios'
+import { DEFAULT_COIN_PACKAGES, normalizeCoinPackages, normalizeDcPrice, serializeCoinPackagePrices, type CoinPackageQuantity, type DcCurrency } from '@/services/dc'
 import {
   SANCTION_BADGES,
   type RulesSection,
@@ -20,7 +21,7 @@ export interface PublicSettings {
   admin_banner_text: string
   admin_banner_link: string
   home_carousel_banner_key: string | null
-  donation_url: string
+  dc_coin_packages: string
   rooms_limit_global: number
   spectators_limit: number
   game_min_ready_players: number
@@ -54,7 +55,7 @@ const PUBLIC_SETTINGS_KEYS: readonly (keyof PublicSettings)[] = [
   'admin_banner_text',
   'admin_banner_link',
   'home_carousel_banner_key',
-  'donation_url',
+  'dc_coin_packages',
   'rooms_limit_global',
   'spectators_limit',
   'game_min_ready_players',
@@ -78,7 +79,8 @@ export const useSettingsStore = defineStore('settings', () => {
   const adminBannerText = ref('0')
   const adminBannerLink = ref('0')
   const homeCarouselBannerKey = ref<string | null>(null)
-  const donationUrl = ref('')
+  const dcCoinPackagePrices = ref(serializeCoinPackagePrices(DEFAULT_COIN_PACKAGES))
+  const dcCoinPackages = computed(() => normalizeCoinPackages(dcCoinPackagePrices.value))
   const roomsLimitGlobal = ref(100)
   const spectatorsLimit = ref(10)
   const gameMinReadyPlayers = ref(4)
@@ -168,7 +170,7 @@ export const useSettingsStore = defineStore('settings', () => {
     homeCarouselBannerKey.value = /^home\/carousel-banner\/\d{9,}-[a-f0-9]{32}\.(jpg|png)$/.test(homeCarouselBannerKeyValue)
       ? homeCarouselBannerKeyValue
       : null
-    donationUrl.value = String(data.donation_url || '').trim()
+    dcCoinPackagePrices.value = data.dc_coin_packages
     const roomsLimit = Number(data.rooms_limit_global)
     if (Number.isFinite(roomsLimit) && roomsLimit > 0) roomsLimitGlobal.value = Math.trunc(roomsLimit)
     const spectatorsLimitValue = Number(data.spectators_limit)
@@ -212,6 +214,12 @@ export const useSettingsStore = defineStore('settings', () => {
     if (!isPublicSettingsPayload(payload)) return false
     applyPublic(payload)
     return true
+  }
+
+  function setCoinPackagePrice(quantity: CoinPackageQuantity, currency: DcCurrency, value: unknown): void {
+    const catalog = normalizeCoinPackages(dcCoinPackagePrices.value)
+    catalog[quantity][currency] = normalizeDcPrice(value, catalog[quantity][currency])
+    dcCoinPackagePrices.value = serializeCoinPackagePrices(catalog)
   }
 
   async function fetchPublic(): Promise<void> {
@@ -264,7 +272,7 @@ export const useSettingsStore = defineStore('settings', () => {
     adminBannerText,
     adminBannerLink,
     homeCarouselBannerKey,
-    donationUrl,
+    dcCoinPackages,
     roomsLimitGlobal,
     spectatorsLimit,
     gameMinReadyPlayers,
@@ -284,6 +292,7 @@ export const useSettingsStore = defineStore('settings', () => {
     fetchPublic,
     applyPublic,
     applyPublicPayload,
+    setCoinPackagePrice,
     applySanctionRulesPayload,
     ensureWS,
     fetchSanctionRules,

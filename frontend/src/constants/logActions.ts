@@ -85,6 +85,8 @@ export const LOG_ACTION_LABELS: Readonly<Record<string, string>> = {
   admin_games_end_all: 'Админ завершение всех игр',
 
   kassa_payment: 'Обработка платежа',
+  admin_coin_grant: 'Выдача монет',
+  admin_coin_remove: 'Снятие монет',
   admin_subscription_upsert: 'Админ выдача подписки',
   admin_subscription_reduce: 'Админ сокращение подписки',
   admin_subscription_delete: 'Админ удаление подписки',

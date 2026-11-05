@@ -148,7 +148,10 @@ export function startAuthSocket(opts?: { onForceLogout?: () => void }): Socket {
     reconnectionDelayMax: 2000,
   })
   if (opts?.onForceLogout) authSocket.on('force_logout', opts.onForceLogout)
-  authSocket.on('connect', () => { startAuthHeartbeat(authSocket as Socket) })
+  authSocket.on('connect', () => {
+    startAuthHeartbeat(authSocket as Socket)
+    window.dispatchEvent(new CustomEvent('auth-connected'))
+  })
   authSocket.on('disconnect', stopAuthHeartbeat)
   authSocket.on('close', stopAuthHeartbeat)
 
@@ -207,6 +210,10 @@ export function startAuthSocket(opts?: { onForceLogout?: () => void }): Socket {
     window.dispatchEvent(new CustomEvent('auth-profile_sync', { detail: p }))
   })
 
+  authSocket.on('dc_balance_update', (payload: unknown) => {
+    window.dispatchEvent(new CustomEvent('auth-dc_balance_update', { detail: payload }))
+  })
+
   authSocket.on('chat_unread_count', (p:any) => {
     window.dispatchEvent(new CustomEvent('auth-chat_unread_count', { detail: p }))
   })
@@ -215,6 +222,7 @@ export function startAuthSocket(opts?: { onForceLogout?: () => void }): Socket {
     window.dispatchEvent(new CustomEvent('auth-room_invite', { detail: p }))
     const dto = {
       title: 'Заявка в комнату от',
+      text: `Комната «${p.room_title}».`,
       date: new Date().toISOString(),
       kind: 'app',
       room_id: p.room_id,

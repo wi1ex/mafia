@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { api } from '@/services/axios'
+import { useAuthStore } from './auth'
 
 const PAGE_SIZE = 50
 
@@ -49,6 +50,7 @@ function getTailCursor(list: Note[]): number | null {
 }
 
 export const useNotifStore = defineStore('notif', () => {
+  const auth = useAuthStore()
   const items = ref<Note[]>([])
   const unread = ref(0)
   const hasMore = ref(false)
@@ -58,13 +60,65 @@ export const useNotifStore = defineStore('notif', () => {
 
   let inited = false
   let onNotifyEv: ((e: any) => void) | null = null
-  let onRoomAppEv: ((e: any) => void) | null = null
+  let onConnectedEv: (() => void) | null = null
   let fetchGeneration = 0
+  let headPageLoaded = false
+  let mutationVersion = 0
+  let ownerSession = auth.sessionId
+  let ownerAbort = new AbortController()
+  let refreshTimer: number | undefined
+  const locallyRead = new Set<number>()
+  let locallyReadThrough = 0
 
   const pending = new Set<number>()
+  let pendingAllBeforeId = 0
   let flushing = false
   let tFlush: number | undefined
   let backoffMs = 0
+
+  function resetOwner(session: string): void {
+    ownerAbort.abort()
+    ownerAbort = new AbortController()
+    ownerSession = session
+    fetchGeneration++
+    headPageLoaded = false
+    mutationVersion++
+    if (tFlush) window.clearTimeout(tFlush)
+    if (refreshTimer) window.clearTimeout(refreshTimer)
+    tFlush = undefined
+    refreshTimer = undefined
+    pending.clear()
+    pendingAllBeforeId = 0
+    locallyRead.clear()
+    locallyReadThrough = 0
+    flushing = false
+    backoffMs = 0
+    items.value = []
+    unread.value = 0
+    hasMore.value = false
+    nextBeforeId.value = null
+    loadingInitial.value = false
+    loadingMore.value = false
+  }
+
+  function scheduleRefresh(): void {
+    if (refreshTimer || !ownerSession) return
+    refreshTimer = window.setTimeout(() => {
+      refreshTimer = undefined
+      void fetchAll().catch(() => {})
+    }, 300)
+  }
+
+  function mergePage(page: Note[]): void {
+    const known = new Map(items.value.map(item => [item.id, item]))
+    for (const item of page) {
+      known.set(item.id, {
+        ...item,
+        read: Boolean(item.read || known.get(item.id)?.read || locallyRead.has(item.id) || item.id <= locallyReadThrough),
+      })
+    }
+    items.value = [...known.values()].sort((left, right) => right.id - left.id)
+  }
 
   function scheduleFlush() {
     if (tFlush) return
@@ -83,48 +137,60 @@ export const useNotifStore = defineStore('notif', () => {
     nextBeforeId.value = hasMore.value ? (nextCursorFromServer ?? getTailCursor(page)) : null
   }
 
-  function applyUnreadFromResponse(data: NotifsListResponse) {
+  function applyUnreadFromResponse(data: NotifsListResponse, version: number) {
+    if (pending.size || pendingAllBeforeId || flushing) return
+    if (version !== mutationVersion) {
+      scheduleRefresh()
+      return
+    }
     if (typeof data?.unread_count !== 'number' || !Number.isFinite(data.unread_count)) return
     unread.value = Math.max(0, Math.trunc(data.unread_count))
   }
 
   async function fetchAll() {
+    if (!ownerSession) return
     const gen = ++fetchGeneration
+    const version = mutationVersion
+    const signal = ownerAbort.signal
     loadingInitial.value = true
     loadingMore.value = false
     try {
-      const { data } = await api.get<NotifsListResponse>('/notifs', { params: { limit: PAGE_SIZE } })
-      if (gen !== fetchGeneration) return
+      const { data } = await api.get<NotifsListResponse>('/notifs', { params: { limit: PAGE_SIZE }, signal })
+      if (signal.aborted || gen !== fetchGeneration) return
       const rawPage = Array.isArray(data?.items) ? data.items : []
       const page = dedupeByIdDesc(rawPage)
-      items.value = page
-      applyUnreadFromResponse(data)
-      applyPageMeta(data, page, rawPage.length)
+      const existingIds = new Set(items.value.map(item => item.id))
+      const preservePagination = headPageLoaded && page.some(item => existingIds.has(item.id))
+      mergePage(page)
+      applyUnreadFromResponse(data, version)
+      if (!preservePagination) applyPageMeta(data, page, rawPage.length)
+      headPageLoaded = true
     } finally {
       if (gen === fetchGeneration) loadingInitial.value = false
     }
   }
 
   async function loadMore() {
-    const cursor = nextBeforeId.value
-    if (!cursor || !hasMore.value || loadingInitial.value || loadingMore.value) return
+    let cursor = nextBeforeId.value
+    if (!ownerSession || !cursor || !hasMore.value || loadingInitial.value || loadingMore.value) return
     const gen = fetchGeneration
+    const version = mutationVersion
+    const signal = ownerAbort.signal
     loadingMore.value = true
     try {
-      const { data } = await api.get<NotifsListResponse>('/notifs', { params: { limit: PAGE_SIZE, before_id: cursor } })
-      if (gen !== fetchGeneration) return
-      const rawPage = Array.isArray(data?.items) ? data.items : []
-      const page = dedupeByIdDesc(rawPage)
-      const known = new Set(items.value.map(x => x.id))
-      const append: Note[] = []
-      for (const it of page) {
-        if (known.has(it.id)) continue
-        known.add(it.id)
-        append.push(it)
+      while (cursor) {
+        const { data } = await api.get<NotifsListResponse>('/notifs', { params: { limit: PAGE_SIZE, before_id: cursor }, signal })
+        if (signal.aborted || gen !== fetchGeneration) return
+        const rawPage = Array.isArray(data?.items) ? data.items : []
+        const page = dedupeByIdDesc(rawPage)
+        const existingIds = new Set(items.value.map(item => item.id))
+        const hasNewItems = page.some(item => !existingIds.has(item.id))
+        mergePage(page)
+        applyUnreadFromResponse(data, version)
+        applyPageMeta(data, page, rawPage.length)
+        if (hasNewItems || !hasMore.value || nextBeforeId.value === cursor) break
+        cursor = nextBeforeId.value
       }
-      if (append.length) items.value = [...items.value, ...append]
-      applyUnreadFromResponse(data)
-      applyPageMeta(data, page, rawPage.length)
     } finally {
       if (gen === fetchGeneration) loadingMore.value = false
     }
@@ -133,10 +199,10 @@ export const useNotifStore = defineStore('notif', () => {
   function ensureWS() {
     if (inited) return
     if (onNotifyEv) window.removeEventListener('auth-notify', onNotifyEv)
-    if (onRoomAppEv) window.removeEventListener('auth-room_invite', onRoomAppEv)
+    if (onConnectedEv) window.removeEventListener('auth-connected', onConnectedEv)
     onNotifyEv = (e: any) => {
       const p = e?.detail as WsNotePayload | undefined
-      if (!p) return
+      if (!p || !ownerSession) return
       if (p.kind === 'app') return
 
       const { action, ...clean } = p
@@ -146,40 +212,60 @@ export const useNotifStore = defineStore('notif', () => {
 
       const note: Note = {
         id,
-        title: clean.title.trim() ? clean.title : 'Уведомление',
+        title: typeof clean.title === 'string' && clean.title.trim() ? clean.title : 'Уведомление',
         text: typeof clean.text === 'string' && clean.text.trim() ? clean.text : undefined,
         date: clean.date,
-        read: Boolean(clean.read)
+        read: Boolean(clean.read || locallyRead.has(id) || id <= locallyReadThrough)
       }
 
       items.value.unshift(note)
       if (!note.read) unread.value++
+      mutationVersion++
     }
-    onRoomAppEv = (_e: any) => {}
+    onConnectedEv = () => { void fetchAll().catch(() => {}) }
     window.addEventListener('auth-notify', onNotifyEv)
-    window.addEventListener('auth-room_invite', onRoomAppEv)
+    window.addEventListener('auth-connected', onConnectedEv)
     inited = true
   }
 
   async function flush() {
-    if (flushing || pending.size === 0) return
+    if (!ownerSession || flushing || (!pending.size && !pendingAllBeforeId)) return
     flushing = true
-    const ids = Array.from(pending)
+    const session = ownerSession
+    const signal = ownerAbort.signal
+    let allBeforeId = pendingAllBeforeId
+    let ids = Array.from(pending).filter(id => id > allBeforeId)
+    pendingAllBeforeId = 0
     pending.clear()
     try {
-      await api.post('/notifs/mark_read', { ids })
-      backoffMs = 0
-    } catch (e: any) {
-      if (e?.response?.status === 429) {
-        backoffMs = Math.min(2000, backoffMs ? backoffMs * 2 : 300)
-        ids.forEach(id => pending.add(id))
-        scheduleFlush()
+      if (allBeforeId) {
+        await api.post('/notifs/mark_read', { all_before_id: allBeforeId }, { signal })
+        allBeforeId = 0
       }
-    } finally { flushing = false }
+      if (ids.length) await api.post('/notifs/mark_read', { ids }, { signal })
+      ids = []
+      if (session !== ownerSession || signal.aborted) return
+      backoffMs = 0
+      mutationVersion++
+      scheduleRefresh()
+    } catch (e: any) {
+      if (session !== ownerSession || signal.aborted) return
+      const status = Number(e?.response?.status || 0)
+      if (!status || status === 429 || status >= 500) {
+        backoffMs = Math.min(10000, backoffMs ? backoffMs * 2 : 300)
+        pendingAllBeforeId = Math.max(pendingAllBeforeId, allBeforeId)
+        ids.forEach(id => pending.add(id))
+      }
+    } finally {
+      if (session === ownerSession && !signal.aborted) {
+        flushing = false
+        if (pending.size || pendingAllBeforeId) scheduleFlush()
+      }
+    }
   }
 
   async function markReadVisible(ids: number[]) {
-    if (!ids.length) return
+    if (!ownerSession || !ids.length) return
     const uniqueIds = Array.from(new Set(ids))
     for (const rawId of uniqueIds) {
       const id = toPositiveIntOrNull(rawId)
@@ -189,17 +275,26 @@ export const useNotifStore = defineStore('notif', () => {
         it.read = true
         unread.value = Math.max(0, unread.value - 1)
       }
+      locallyRead.add(id)
       pending.add(id)
     }
+    mutationVersion++
     scheduleFlush()
   }
 
   async function markAll() {
+    if (!ownerSession) return
     const maxId = items.value.reduce((m, x) => Math.max(m, x.id), 0)
-    try { await api.post('/notifs/mark_read', { all_before_id: maxId }) } catch {}
-    items.value.forEach(x => x.read = true)
+    if (!maxId) return
+    locallyReadThrough = Math.max(locallyReadThrough, maxId)
+    pendingAllBeforeId = Math.max(pendingAllBeforeId, maxId)
+    items.value.forEach(item => { if (item.id <= maxId) item.read = true })
     unread.value = 0
+    mutationVersion++
+    scheduleFlush()
   }
+
+  watch(() => auth.sessionId, resetOwner, { flush: 'sync' })
 
   return {
     items,

@@ -68,6 +68,8 @@
                         </div>
                       </div>
 
+                      <span v-if="isAdminViewer && targetDcBalance !== null" class="profile-friends-count profile-dc-balance">Баланс: {{ formatNominationCount(targetDcBalance) }} DC</span>
+
                       <div v-if="activeSanction" class="sanction-tooltip-wrap" tabindex="0">
                         <UiIcon class="profile-meta-icon" :icon="iconJudgeHummer" />
                         <div class="sanction-tooltip" role="tooltip">
@@ -319,6 +321,15 @@
       @update:open="onStaffSubscriptionModalOpenUpdate"
       @save="saveStaffSubscription"
     />
+    <BalanceModal
+      v-model:open="balanceModalOpen"
+      :target="balanceTarget"
+      :action="balanceAction"
+      :current-balance="targetUserId === balanceTarget?.user_id ? targetDcBalance : null"
+      :z-index="STAFF_MODAL_Z_INDEX"
+      @busy="balanceSaving = $event"
+      @complete="onBalanceComplete"
+    />
   </Teleport>
 </template>
 
@@ -345,6 +356,7 @@ import ProfileStats from '@/views/ProfileStats.vue'
 import ProfileHistory from '@/views/ProfileHistory.vue'
 import SanctionModal from '@/views/SanctionModal.vue'
 import SubscriptionModal from '@/views/SubscriptionModal.vue'
+import BalanceModal from '@/views/BalanceModal.vue'
 import UiIcon from '@/components/UiIcon.vue'
 import UiLoaderIcon from '@/components/UiLoaderIcon.vue'
 import UiButton from '@/components/UiButton.vue'
@@ -384,7 +396,7 @@ import iconTwitch from '@/assets/svg/iconTwitch.svg'
 type FriendActionKind = 'add' | 'remove' | 'incoming' | 'outgoing'
 type MiniProfileSanctionKind = 'timeout' | 'ban' | 'suspend'
 type StaffSubscriptionMode = 'grant' | 'extend' | 'reduce'
-type StaffActionKey = 'suspend' | 'timeout' | 'avatar' | 'nickname' | 'ban' | 'account' | 'role' | 'head_rate' | 'subscription' | 'subscription_extend' | 'subscription_reduce'
+type StaffActionKey = 'suspend' | 'timeout' | 'avatar' | 'nickname' | 'ban' | 'account' | 'role' | 'head_rate' | 'subscription' | 'subscription_extend' | 'subscription_reduce' | 'coins_credit' | 'coins_debit'
 type StaffActionScope = 'admin' | 'moderation'
 type MiniProfileRoomControlKey = 'mic' | 'cam' | 'speakers' | 'screen'
 type NominationLevel = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
@@ -485,6 +497,7 @@ type MiniProfileInitial = {
 
 type MiniProfileResponse = {
   id: number
+  dc_balance?: number | null
   username?: string | null
   avatar_name?: string | null
   role?: string | null
@@ -591,6 +604,10 @@ const staffSanctionForm = reactive({
   description: '',
 })
 const staffSubscriptionModalOpen = ref(false)
+const balanceModalOpen = ref(false)
+const balanceSaving = ref(false)
+const balanceAction = ref<'credit' | 'debit'>('credit')
+const balanceTarget = ref<{ user_id: number; username?: string | null; avatar_name?: string | null } | null>(null)
 const staffSubscriptionSaving = ref(false)
 const staffSubscriptionMode = ref<StaffSubscriptionMode>('grant')
 const staffSubscriptionForm = reactive({
@@ -676,6 +693,10 @@ const panelStateVisible = computed(() => Boolean((loading.value && !profileLoade
 const viewerUserId = computed(() => Number(userStore.user?.id || 0))
 const viewerRole = computed(() => normalizeMiniProfileRole(userStore.user?.role))
 const isAdminViewer = computed(() => viewerRole.value === 'admin')
+const targetDcBalance = computed(() => {
+  const value = profile.value?.dc_balance
+  return isAdminViewer.value && value !== null && value !== undefined && Number.isSafeInteger(value) && value >= 0 ? value : null
+})
 const isModerViewer = computed(() => viewerRole.value === 'moder')
 const isSelfProfile = computed(() => targetUserId.value > 0 && viewerUserId.value === targetUserId.value)
 const viewerSubscriptionActive = computed(() => Boolean(userStore.subscriptionActive))
@@ -1087,6 +1108,16 @@ const staffActionItems = computed<StaffActionItem[]>(() => {
         ariaLabel: targetHasHeadRate.value ? `Снять ведущего ${displayName.value}` : `Выдать ведущего ${displayName.value}`,
       },
       ...subscriptionActionItems,
+      {
+        key: 'coins_credit', label: 'Выдать монеты', icon: iconSubscription,
+        disabled: staffAdminDeletedUserActionsLocked.value || balanceSaving.value,
+        ariaLabel: `Выдать монеты ${displayName.value}`,
+      },
+      {
+        key: 'coins_debit', label: 'Снять монеты', icon: iconSubscription,
+        disabled: staffAdminDeletedUserActionsLocked.value || balanceSaving.value || targetDcBalance.value === null || targetDcBalance.value === 0,
+        ariaLabel: `Снять монеты ${displayName.value}`,
+      },
     ]
   }
   if (isModerViewer.value) {
@@ -1364,7 +1395,7 @@ function inferInitialFriendStatus(): FriendStatus {
 }
 
 function close() {
-  if (staffSanctionModalOpen.value || staffSubscriptionModalOpen.value || confirmState.open) return
+  if (staffSanctionModalOpen.value || staffSubscriptionModalOpen.value || balanceModalOpen.value || confirmState.open) return
   closeAvatarPreview()
   emit('update:open', false)
 }
@@ -1773,6 +1804,13 @@ async function toggleStaffSanction(kind: MiniProfileSanctionKind): Promise<void>
 
 function onStaffAction(key: StaffActionKey): void {
   if (staffActionDisabled(key)) return
+  if (key === 'coins_credit' || key === 'coins_debit') {
+    if (!isAdminViewer.value || balanceSaving.value || targetUserId.value <= 0) return
+    balanceAction.value = key === 'coins_credit' ? 'credit' : 'debit'
+    balanceTarget.value = { user_id: targetUserId.value, username: targetUsername.value, avatar_name: avatarName.value }
+    balanceModalOpen.value = true
+    return
+  }
   if (key === 'subscription' || key === 'subscription_extend' || key === 'subscription_reduce') {
     const mode: StaffSubscriptionMode = key === 'subscription_reduce'
       ? 'reduce'
@@ -1815,6 +1853,7 @@ function onStaffDropdownSelect(value: string | number | null): void {
 }
 
 function resetStaffActionState(): void {
+  if (!balanceSaving.value) { balanceModalOpen.value = false; balanceTarget.value = null }
   blacklistBusy.value = false
   staffRoleBusy.value = false
   staffAccountBusy.value = false
@@ -1870,6 +1909,7 @@ async function loadProfile() {
     if (seq !== requestSeq) return
     profile.value = {
       id: Number(data?.id || uid),
+      dc_balance: isAdminViewer.value && data?.dc_balance !== null && data?.dc_balance !== undefined ? Number(data.dc_balance) : null,
       username: data?.username ?? null,
       avatar_name: data?.avatar_name ?? null,
       role: data?.role ?? null,
@@ -2100,6 +2140,7 @@ async function toggleBlacklist() {
 
 function onKeydown(e: KeyboardEvent) {
   if (!props.open || e.key !== 'Escape') return
+  if (balanceModalOpen.value) return
   if (avatarPreviewOpen.value) {
     closeAvatarPreview()
     return
@@ -2138,6 +2179,18 @@ function onBlacklistUpdate(e: Event) {
   }
 }
 
+function onBalanceComplete(result: { userId: number; action: 'credit' | 'debit'; dc_balance: number }): void {
+  if (result.userId === targetUserId.value) patchProfile({ dc_balance: result.dc_balance })
+  emit('staff-action-complete', { userId: result.userId, action: result.action === 'credit' ? 'coins_credit' : 'coins_debit' })
+}
+
+function onAdminBalanceUpdate(event: Event): void {
+  const detail = (event as CustomEvent)?.detail
+  if (!isAdminViewer.value || !props.open || Number(detail?.user_id) !== targetUserId.value) return
+  const balance = Number(detail?.dc_balance)
+  if (Number.isSafeInteger(balance) && balance >= 0) patchProfile({ dc_balance: balance })
+}
+
 watch([() => props.open, targetUserId, viewerAccountRestricted, deletedTargetBlocked], ([open, uid, restricted, deletedBlocked]) => {
   if (!open) {
     requestSeq += 1
@@ -2164,12 +2217,14 @@ watch([() => props.open, targetUserId, viewerAccountRestricted, deletedTargetBlo
 }, { immediate: true })
 
 onMounted(() => {
+  window.addEventListener('auth-dc_balance_update', onAdminBalanceUpdate)
   window.addEventListener('keydown', onKeydown)
   window.addEventListener('auth-friends_update', onFriendsUpdate)
   window.addEventListener('auth-blacklist_update', onBlacklistUpdate)
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('auth-dc_balance_update', onAdminBalanceUpdate)
   resetNicknameHistory()
   resetStaffActionState()
   window.removeEventListener('keydown', onKeydown)
@@ -2357,6 +2412,19 @@ onBeforeUnmount(() => {
               display: flex;
               align-items: center;
               gap: 4px;
+              flex-wrap: wrap;
+              .profile-dc-balance {
+                display: inline-flex;
+                align-items: center;
+                padding: 0 12px;
+                height: 32px;
+                border-radius: 8px;
+                background-color: rgba($soft-purple-900, 0.65);
+                color: $neutral-100;
+                font-family: Hauora-Regular;
+                font-size: 16px;
+                white-space: nowrap;
+              }
               .profile-friends-tooltip-wrap {
                 display: inline-flex;
                 position: relative;

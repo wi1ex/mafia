@@ -2906,29 +2906,29 @@ socket.value?.on('connect', async () => {
   socket.value.on('game_winked', (p: any) => {
     const seat = Number(p?.from_seat || 0)
     if (seat > 0) {
-      showTransientToast('Вам подмигнули!', `${seat}й игрок подмигнул`, true)
+      showTransientToast('Вам подмигнули!', `${seat}й игрок подмигнул вам.`, true)
     } else {
-      showTransientToast('Вам подмигнули!', 'Игрок подмигнул вам', true)
+      showTransientToast('Вам подмигнули!', 'Игрок подмигнул вам.', true)
     }
   })
   socket.value.on('game_wink_spotted', (p: any) => {
     const fromSeat = Number(p?.from_seat || 0)
     const toSeat = Number(p?.to_seat || 0)
     if (fromSeat > 0 && toSeat > 0) {
-      showTransientToast('Вы наблюдательны!', `Вы заметили как ${fromSeat}й подмигнул ${toSeat}му`, true)
+      showTransientToast('Вы наблюдательны!', `Вы заметили, как ${fromSeat}й игрок подмигнул ${toSeat}му игроку.`, true)
     } else {
-      showTransientToast('Вы наблюдательны!', 'Вы заметили подмигивание', true)
+      showTransientToast('Вы наблюдательны!', 'Вы заметили подмигивание.', true)
     }
   })
   socket.value.on('game_knocked', (p: any) => {
     const seat = Number(p?.from_seat || 0)
     const count = Number(p?.count || 0)
     if (seat > 0 && count > 0) {
-      showTransientToast('Вам отстучали!', `${seat}й игрок отстучал ${count}`, true)
+      showTransientToast('Вам отстучали!', `${seat}й игрок отстучал: ${count}.`, true)
     } else if (seat > 0) {
-      showTransientToast('Вам отстучали!', `${seat}й игрок отстучал`, true)
+      showTransientToast('Вам отстучали!', `${seat}й игрок отстучал вам.`, true)
     } else {
-      showTransientToast('Вам отстучали!', 'Игрок отстучал вам', true)
+      showTransientToast('Вам отстучали!', 'Игрок отстучал вам.', true)
     }
   })
   socket.value.on('game_nominee_added', (p: any) => {

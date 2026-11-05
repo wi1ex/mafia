@@ -45,18 +45,18 @@
         </nav>
       </div>
       <div class="tab-div">
-        <div v-if="!hasActiveSubscription" class="tab-subscribe">
+        <div class="tab-subscribe">
           <img class="background-image" :src="imageSlide9" alt="" aria-hidden="true" />
           <div class="tab-subscribe-div">
-            <span class="tab-subscribe-title">Оформи подписку</span>
-            <span class="tab-subscribe-text">Подписка откроет новые функции, персонализацию профиля и дополнительные привилегии.</span>
+            <span class="tab-subscribe-title">Баланс</span>
+            <span class="tab-subscribe-text">Выбирайте пакет Deceit Coin и пополняйте свой баланс.</span>
             <UiButton
               size="middle"
               variant="white"
               width="100%"
               type="button"
-              text="Оформить"
-              @click="openSubscriptionModal"
+              text="Пополнить баланс"
+              @click="openSubscriptionModal()"
             />
           </div>
         </div>
@@ -81,18 +81,18 @@
 
         <ProfileSanctions v-if="activeTab === 'sanctions'" />
 
-        <ProfileSubscription v-if="activeTab === 'subscription'" />
+        <ProfileSubscription v-if="activeTab === 'subscription'" @open-wallet="openSubscriptionModal" />
       </div>
     </Transition>
 
-    <Subscription v-model:open="subscriptionModalOpen" @select="onSubscriptionPaymentSelect" />
+    <Subscription v-model:open="subscriptionModalOpen" :initial-tab="subscriptionInitialTab" />
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { api } from '@/services/axios'
+import type { WalletTab } from '@/services/dc'
 import { useAuthStore, useFriendsStore, useUserStore } from '@/store'
 
 import ProfileStats from '@/views/ProfileStats.vue'
@@ -117,12 +117,6 @@ import iconJudgeHummer from '@/assets/svg/iconJudgeHummer.svg'
 import iconCard from '@/assets/svg/iconCard.svg'
 import iconLeave from '@/assets/svg/iconLeave.svg'
 
-type SubscriptionSite = {
-  id: string
-  name: string
-  url: string
-}
-
 const TAB_KEYS = ['profile', 'theme', 'account', 'stats', 'subscription', 'history', 'sanctions'] as const
 type TabKey = typeof TAB_KEYS[number]
 const DEFAULT_TAB: TabKey = 'account'
@@ -135,6 +129,7 @@ const router = useRouter()
 
 const activeTab = ref<TabKey>(DEFAULT_TAB)
 const subscriptionModalOpen = ref(false)
+const subscriptionInitialTab = ref<WalletTab | undefined>()
 const homeHref = computed(() => router.resolve({ name: 'home' }).href)
 const hasActiveSubscription = computed(() => userStore.subscriptionActive)
 const profileTabsDisabled = computed(() => userStore.accountRestricted)
@@ -161,18 +156,9 @@ async function onLogoutClick() {
   } finally {}
 }
 
-function openSubscriptionModal() {
+function openSubscriptionModal(tab?: WalletTab) {
+  subscriptionInitialTab.value = tab
   subscriptionModalOpen.value = true
-}
-
-function onSubscriptionPaymentSelect(site: SubscriptionSite) {
-  if (site.id === 'kassa') return
-  void api.post('/users/support_link_click', {
-    source: 'profile_theme',
-    site_id: site.id,
-    site_name: site.name,
-    url: site.url,
-  }).catch(() => {})
 }
 
 watch(() => route.query.tab, (tab) => {

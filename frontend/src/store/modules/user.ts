@@ -1,7 +1,8 @@
 import { defineStore } from 'pinia'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { api } from '@/services/axios'
 import { useSettingsStore } from './setting'
+import { useAuthStore } from './auth'
 
 const MAX_NICKNAME_CHANGES_LEFT = 1000
 
@@ -10,6 +11,7 @@ export interface UserProfile {
   username?: string
   avatar_name?: string | null
   role: string
+  dc_balance?: number
   additional_roles?: string[]
   registered_at?: string | null
   telegram_verified?: boolean
@@ -36,9 +38,14 @@ export interface UserProfile {
 
 export const useUserStore = defineStore('user', () => {
   const settings = useSettingsStore()
+  const auth = useAuthStore()
   const user = ref<UserProfile | null>(null)
   const now = ref(Date.now())
   let clock: number | undefined
+  let profileFetchGeneration = 0
+  let profileRevision = 0
+
+  watch(user, () => { profileRevision++ }, { deep: true, flush: 'sync' })
 
   function parseDateMs(raw: string | null | undefined): number {
     if (!raw) return 0
@@ -69,8 +76,11 @@ export const useUserStore = defineStore('user', () => {
   }
 
   async function fetchMe(): Promise<void> {
+    const session = auth.sessionId
+    const generation = ++profileFetchGeneration
+    const revision = profileRevision
     const { data } = await api.get<UserProfile>('/users/profile_info')
-    applyProfile(data)
+    if (session === auth.sessionId && generation === profileFetchGeneration && revision === profileRevision) applyProfile(data)
   }
 
   async function updateUiPrefs(payload: {
@@ -138,6 +148,13 @@ export const useUserStore = defineStore('user', () => {
   function setStreamingUrl(value: string | null): void {
     if (!user.value) return
     user.value.streaming_url = typeof value === 'string' ? value.trim() || null : null
+  }
+
+  function setWalletState(payload: { dc_balance?: number; subscription_active?: boolean; subscription_until?: string | null }): void {
+    if (!user.value) return
+    if (Number.isSafeInteger(payload.dc_balance) && Number(payload.dc_balance) >= 0) user.value.dc_balance = payload.dc_balance
+    if ('subscription_active' in payload) user.value.subscription_active = Boolean(payload.subscription_active)
+    if ('subscription_until' in payload) user.value.subscription_until = payload.subscription_until ?? null
   }
 
   function setSanctions(payload: { timeout_until?: string | null; suspend_until?: string | null; ban_active?: boolean }) {
@@ -262,6 +279,7 @@ export const useUserStore = defineStore('user', () => {
     setNicknameChangesLeft,
     setProfileTheme,
     setStreamingUrl,
+    setWalletState,
     setSanctions,
     setInActiveGameAsAlivePlayer,
     setInActiveGameAsPlayer,
