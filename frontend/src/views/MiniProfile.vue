@@ -200,8 +200,8 @@
                 <span class="profile-restricted-text">Вы в Черном списке у пользователя</span>
               </div>
 
-              <div v-if="showRestrictedProfileSections && showActionBlock" class="profile-actions profile-actions--main">
-                <button v-if="showFriendAction" class="profile-action friend-action" :class="`status-${friendStatusClass}`"
+              <div class="profile-actions profile-actions--main">
+                <button class="profile-action friend-action" :class="`status-${friendStatusClass}`"
                         type="button" :disabled="friendDisabled" :aria-label="friendActionAriaLabel" @click="onFriendAction(friendActionKind)">
                   <div class="friend-action-content friend-action-content-default" aria-hidden="true">
                     <UiIcon class="profile-action-icon" :icon="friendActionIcon" />
@@ -213,7 +213,7 @@
                   </div>
                 </button>
                 <UiButton
-                  v-if="showStatsButton"
+                  v-if="showRestrictedProfileSections && showStatsButton"
                   variant="white"
                   size="middle"
                   width="100%"
@@ -222,7 +222,7 @@
                   @click="view = 'stats'"
                 />
                 <UiButton
-                  v-if="showGameHistoryButton"
+                  v-if="showRestrictedProfileSections && showGameHistoryButton"
                   variant="white"
                   size="middle"
                   width="100%"
@@ -239,7 +239,7 @@
                   <UiButton
                     variant="white"
                     size="middle"
-                    :width="247"
+                    :width="320"
                     :icon="action.icon"
                     :text="action.label"
                     :disabled="action.disabled"
@@ -869,7 +869,7 @@ const showRestrictedProfileSections = computed(() => !(
 const friendStatusClass = computed(() => (friendStatus.value === 'self' ? 'none' : friendStatus.value))
 const friendActionLabel = computed(() => {
   if (loading.value && !profileLoadedForTarget.value && friendStatus.value === 'none') return 'Загрузка...'
-  if (friendStatus.value === 'none') return 'Добавить в друзья'
+  if (friendStatus.value === 'none' || friendStatus.value === 'self') return 'Добавить в друзья'
   if (friendStatus.value === 'friends') return 'В друзьях'
   if (friendStatus.value === 'outgoing') return 'Запрос отправлен'
   if (friendStatus.value === 'incoming') return 'Входящий запрос'
@@ -907,21 +907,21 @@ const friendActionKind = computed<FriendActionKind>(() => {
 })
 const friendDisabled = computed(() => (
   friendBusy.value
+  || targetUserId.value <= 0
+  || viewerUserId.value <= 0
+  || isSelfProfile.value
   || friendStatus.value === 'self'
   || targetDeleted.value
-  || (loading.value && !profileLoadedForTarget.value && friendStatus.value === 'none')
+  || viewerAccountRestricted.value
+  || loading.value
+  || !profileLoadedForTarget.value
+  || Boolean(loadError.value)
+  || blacklistedByMe.value
+  || viewerBlacklistedByTarget.value
+  || (friendStatus.value === 'none' && !canSendFriendRequest.value)
 ))
 const canSendFriendRequest = computed(() => (
   !isAdminViewer.value && normalizeMiniProfileRole(profileRole.value) !== 'admin'
-))
-const showFriendAction = computed(() => (
-  targetUserId.value > 0
-  && !isSelfProfile.value
-  && !targetDeleted.value
-  && !blacklistedByMe.value
-  && !viewerBlacklistedByTarget.value
-  && (friendStatus.value !== 'none' || canSendFriendRequest.value)
-  && friendActionLabel.value !== ''
 ))
 const showProfileDataButtons = computed(() => Boolean(
   props.showStatsButton
@@ -930,11 +930,6 @@ const showProfileDataButtons = computed(() => Boolean(
 ))
 const showStatsButton = computed(() => showProfileDataButtons.value)
 const showGameHistoryButton = computed(() => showProfileDataButtons.value)
-const showActionBlock = computed(() => (
-  showStatsButton.value
-  || showGameHistoryButton.value
-  || showFriendAction.value
-))
 const staffActionScope = computed<StaffActionScope | null>(() => {
   if (isAdminViewer.value) return 'admin'
   if (isModerViewer.value) return 'moderation'
@@ -2023,7 +2018,7 @@ function emitProfileRoomBlock(key: MiniProfileRoomControlKey): void {
 
 async function onFriendAction(kind: FriendActionKind) {
   const uid = targetUserId.value
-  if (uid <= 0 || friendBusy.value || (kind === 'add' && !canSendFriendRequest.value)) return
+  if (!canRenderOpen.value || friendDisabled.value || kind !== friendActionKind.value) return
   friendBusy.value = true
   let actionForError: FriendApiAction = 'unknown'
   try {
@@ -2248,7 +2243,7 @@ onBeforeUnmount(() => {
     flex-direction: column;
     padding: 24px;
     gap: 24px;
-    width: 600px;
+    width: 746px;
     border-radius: 24px;
     background-color: var(--user-theme-bg, $neutral-black);
     overflow-y: auto;
@@ -3219,7 +3214,7 @@ onBeforeUnmount(() => {
       width: 100%;
       &.profile-actions--main {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         .friend-action {
           grid-column: 1 / -1;
         }

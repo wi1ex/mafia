@@ -81,18 +81,17 @@
 
         <ProfileSanctions v-if="activeTab === 'sanctions'" />
 
-        <ProfileSubscription v-if="activeTab === 'subscription'" @open-wallet="openSubscriptionModal" />
+        <ProfileSubscription v-if="activeTab === 'subscription'" />
       </div>
     </Transition>
 
-    <Subscription v-model:open="subscriptionModalOpen" :initial-tab="subscriptionInitialTab" />
+    <Subscription v-model:open="subscriptionModalOpen" />
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import type { WalletTab } from '@/services/dc'
 import { useAuthStore, useFriendsStore, useUserStore } from '@/store'
 
 import ProfileStats from '@/views/ProfileStats.vue'
@@ -129,7 +128,6 @@ const router = useRouter()
 
 const activeTab = ref<TabKey>(DEFAULT_TAB)
 const subscriptionModalOpen = ref(false)
-const subscriptionInitialTab = ref<WalletTab | undefined>()
 const homeHref = computed(() => router.resolve({ name: 'home' }).href)
 const hasActiveSubscription = computed(() => userStore.subscriptionActive)
 const profileTabsDisabled = computed(() => userStore.accountRestricted)
@@ -156,8 +154,7 @@ async function onLogoutClick() {
   } finally {}
 }
 
-function openSubscriptionModal(tab?: WalletTab) {
-  subscriptionInitialTab.value = tab
+function openSubscriptionModal() {
   subscriptionModalOpen.value = true
 }
 

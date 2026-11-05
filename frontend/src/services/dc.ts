@@ -97,11 +97,11 @@ export function dcPurchaseRestriction(isAuthed: boolean, profile: {
   ban_active?: boolean
   telegram_verified?: boolean
   rules_acceptance_required?: boolean
-} | null | undefined): string {
+} | null | undefined, verificationRestrictions: boolean): string {
   if (!isAuthed) return 'Для покупок войдите в аккаунт.'
   if (!profile) return 'Загрузка профиля…'
   if (profile.ban_active) return 'Покупки недоступны: аккаунт забанен.'
-  if (!profile.telegram_verified) return 'Для покупок подтвердите аккаунт через Telegram.'
+  if (verificationRestrictions && !profile.telegram_verified) return 'Для покупок подтвердите аккаунт через Telegram.'
   if (profile.rules_acceptance_required) return 'Для покупок примите актуальные правила сайта.'
   return ''
 }

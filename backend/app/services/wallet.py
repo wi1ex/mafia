@@ -49,13 +49,14 @@ async def lock_dc_request(session: AsyncSession, request_id: str, *, journal: st
 
 async def ensure_purchase_access(session: AsyncSession, user: User) -> None:
     from ..api.utils import fetch_active_sanction
+    from ..security.parameters import get_cached_settings
     if user.deleted_at is not None:
         raise HTTPException(403, detail="user_deleted")
 
     if await fetch_active_sanction(session, int(user.id), "ban"):
         raise HTTPException(403, detail="user_banned")
 
-    if not user.telegram_id:
+    if get_cached_settings().verification_restrictions and not user.telegram_id:
         raise HTTPException(403, detail="telegram_verification_required")
 
     if user.rules_acceptance_required:

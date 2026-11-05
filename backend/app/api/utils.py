@@ -2544,6 +2544,7 @@ async def _can_auto_delete_unverified_user(session: AsyncSession, user: User, *,
 
 
 async def delete_stale_unverified_accounts(*, batch_limit: int = 100, min_age_minutes: int = 60) -> int:
+    from ..models.settings import AppSettings
     from ..security.parameters import get_cached_settings
 
     if not get_cached_settings().verification_restrictions:
@@ -2581,6 +2582,9 @@ async def delete_stale_unverified_accounts(*, batch_limit: int = 100, min_age_mi
             return 0
 
         for user in users:
+            if not get_cached_settings().verification_restrictions:
+                break
+
             uid = int(getattr(user, "id", 0) or 0)
             if uid <= 0:
                 continue
@@ -2610,6 +2614,18 @@ async def delete_stale_unverified_accounts(*, batch_limit: int = 100, min_age_mi
                         with suppress(Exception):
                             await get_redis().delete(redis_key)
                     continue
+
+                verification_restrictions = await session.scalar(
+                    select(AppSettings.verification_restrictions)
+                    .where(AppSettings.id == 1)
+                    .with_for_update(read=True)
+                )
+                if not verification_restrictions:
+                    await session.rollback()
+                    if use_redis_lock:
+                        with suppress(Exception):
+                            await get_redis().delete(redis_key)
+                    break
 
                 details = (
                     "Автоматическое удаление неверифицированного аккаунта "

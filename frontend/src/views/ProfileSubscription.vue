@@ -5,13 +5,6 @@
           <header class="section-header">
             <span class="section-title">История операций</span>
           </header>
-          <div class="payments-balance">
-            <strong>Баланс: {{ formattedBalance }} DC</strong>
-            <div class="payments-actions">
-              <UiButton size="low" text="Пополнить баланс" @click="emit('open-wallet', 'coins')" />
-              <UiButton variant="white" size="low" :text="userStore.subscriptionActive ? 'Продлить подписку' : 'Купить подписку'" @click="emit('open-wallet', 'subscription')" />
-            </div>
-          </div>
           <div v-if="paymentsLoading" class="payments-state">Загрузка...</div>
           <div v-else-if="paymentsError" class="payments-state danger">{{ paymentsError }}</div>
           <div v-else-if="paymentsItems.length === 0" class="payments-state">Операций пока нет</div>
@@ -106,7 +99,6 @@ import { canOpenMiniProfileTarget, normalizeMiniProfileUserId } from '@/services
 import UiTooltip from '@/components/UiTooltip.vue'
 import UiScrollbar from '@/components/UiScrollbar.vue'
 import UiButton from '@/components/UiButton.vue'
-import type { WalletTab } from '@/services/dc'
 import MiniProfile from '@/views/MiniProfile.vue'
 import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
 
@@ -125,8 +117,6 @@ type SubscriptionPaymentsResponse = {
   per_page: number
   pages: number
 }
-
-const emit = defineEmits<{ 'open-wallet': [tab: WalletTab] }>()
 
 const paymentsItems = ref<SubscriptionPaymentItem[]>([])
 const paymentsScroll = ref<HTMLElement | null>(null)
@@ -195,7 +185,6 @@ onBeforeUnmount(() => {
 
 const friendsStore = useFriendsStore()
 const userStore = useUserStore()
-const formattedBalance = computed(() => new Intl.NumberFormat('ru-RU').format(userStore.user?.dc_balance ?? 0))
 const { subscriptionHint } = useSubscriptionStatus()
 const { subscriptionActive } = storeToRefs(userStore)
 const blacklistHint = computed(() => {
@@ -324,19 +313,6 @@ onMounted(() => {
             font-family: Involve-Medium;
             font-size: 24px;
             line-height: 30px;
-          }
-        }
-        .payments-balance {
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-          color: $neutral-100;
-          font-family: Hauora-Regular;
-          .payments-actions {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            gap: 8px;
           }
         }
         .payments-state {

@@ -130,7 +130,7 @@ let invoiceRetryTimer: ReturnType<typeof setTimeout> | undefined
 let subscriptionRetryTimer: ReturnType<typeof setTimeout> | undefined
 let retriedInvoice = false
 let retriedSubscription = false
-const restriction = computed(() => dcPurchaseRestriction(auth.isAuthed, userStore.user))
+const restriction = computed(() => dcPurchaseRestriction(auth.isAuthed, userStore.user, settings.verificationRestrictions))
 const busy = computed(() => wallet.invoiceBusy || wallet.subscriptionBusy)
 const balanceText = computed(() => new Intl.NumberFormat('ru-RU').format(wallet.balance))
 const packageAmount = computed(() => settings.dcCoinPackages[quantity.value][currency.value])
@@ -324,7 +324,7 @@ onBeforeUnmount(() => { openSequence++; stopTimers() })
     display: flex;
     flex-direction: column;
     gap: 20px;
-    width: 560px;
+    width: 746px;
     max-width: 100%;
     max-height: 100%;
     padding: 28px;
@@ -462,7 +462,7 @@ onBeforeUnmount(() => { openSequence++; stopTimers() })
         }
         .wallet-package-grid {
           display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
+          grid-template-columns: repeat(4, minmax(0, 1fr));
           gap: 12px;
           .wallet-package-card {
             display: flex;
