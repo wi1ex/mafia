@@ -233,7 +233,7 @@
     :initial-profile="miniProfileInitial"
     :show-stats-button="true"
   />
-  <Subscription v-model:open="subscriptionModalOpen" @select="onSubscriptionPaymentSelect" />
+  <Subscription v-model:open="subscriptionModalOpen" />
   <Contact v-model:open="contactModalOpen" />
 </template>
 
@@ -579,17 +579,6 @@ function openSubscriptionModal() {
 
 function openContactModal() {
   contactModalOpen.value = true
-}
-
-function onSubscriptionPaymentSelect(site: { id: string; name: string; url: string }) {
-  if (!auth.isAuthed) return
-  if (site.id === 'kassa') return
-  void api.post('/users/support_link_click', {
-    source: 'home_right_extra_primary',
-    site_id: site.id,
-    site_name: site.name,
-    url: site.url,
-  }).catch(() => {})
 }
 
 function upsert(r: Room) {

@@ -106,7 +106,7 @@
                 <UiButton variant="green" size="middle" :disabled="endGamesAndKickBusy || compensationSaving" @click="openSubscriptionCompensation" width="100%">
                   Компенсация подписки
                 </UiButton>
-                <UiButton variant="green" size="middle" :disabled="savingSettings || !isSettingsDirty" @click="saveSettings" width="100%">
+                <UiButton variant="green" size="middle" :disabled="savingSettings || !isSettingsDirty || !!coinPackagePricesError" @click="saveSettings" width="100%">
                   Сохранить
                 </UiButton>
               </div>
@@ -119,8 +119,8 @@
                          autocomplete="off" :disabled="savingSettings" label="Текст баннера в хедере" />
                 <UiInput class="admin-input" id="admin-banner-link" size="low" v-model="site.admin_banner_link"
                          autocomplete="off" :disabled="savingSettings" label="Ссылка баннера в хедере" />
-                <UiInput class="admin-input" id="donation-url" size="low" v-model="site.donation_url"
-                         autocomplete="off" inputmode="url" :disabled="savingSettings" label="Ссылка для донатов" />
+                <UiInput class="admin-input" id="dc-package-prices" size="low" v-model="coinPackagePricesText"
+                         autocomplete="off" inputmode="text" :disabled="savingSettings" :invalid="!!coinPackagePricesError" :aria-invalid="!!coinPackagePricesError" label="Стоимость пакетов DC" />
                 <UiInput class="admin-input" id="rooms-limit-global" size="low" v-model.number="site.rooms_limit_global" type="number" min="1" max="100" step="1"
                          autocomplete="off" inputmode="numeric" :disabled="savingSettings" label="Общий лимит комнат" />
                 <UiInput class="admin-input" id="rooms-limit-user" size="low" v-model.number="site.rooms_limit_per_user" type="number" min="1" max="10" step="1"
@@ -983,6 +983,7 @@
                       Регистрация <span aria-hidden="true">↓</span>
                     </button>
                   </th>
+                  <th><button class="table-sort" :class="{ active: usersSort === 'dc_balance' }" type="button" title="Сортировать по убыванию" @click="sortUsers('dc_balance')">Баланс, DC <span aria-hidden="true">↓</span></button></th>
                   <th>
                     <button class="table-sort" :class="{ active: usersSort === 'last_game' }" type="button" title="Сортировать по убыванию" @click="sortUsers('last_game')">
                       Последняя игра <span aria-hidden="true">↓</span>
@@ -1060,6 +1061,7 @@
                     <span v-else>-</span>
                   </td>
                   <td>{{ formatLocalDateTime(row.registered_at) }}</td>
+                  <td>{{ new Intl.NumberFormat('ru-RU').format(row.dc_balance) }}</td>
                   <td>{{ formatAdminLastGame(row) }}</td>
                   <td>{{ formatAdminLastOnline(row.last_visit_at, row.online) }}</td>
                   <td>{{ formatRoomIdLabel(row.last_room_id) }}</td>
@@ -1074,7 +1076,7 @@
                   <td>{{ row.bans_count }}</td>
                 </tr>
                 <tr v-if="users.length === 0">
-                  <td colspan="17" class="muted">Нет данных</td>
+                  <td colspan="18" class="muted">Нет данных</td>
                 </tr>
               </tbody>
             </table>
@@ -1496,6 +1498,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { api } from '@/services/axios'
 import { alertDialog, confirmDialog } from '@/services/confirm'
 import { formatLocalDateTime } from '@/services/datetime'
+import { DEFAULT_COIN_PACKAGES, parseCoinPackagePrices, serializeCoinPackagePrices } from '@/services/dc'
 import { SANCTION_BADGES, type SanctionBadgeKey } from '@/constants/sanctionReasons'
 import { logActionLabel } from '@/constants/logActions'
 import { canOpenMiniProfileTarget, normalizeMiniProfileUserId } from '@/services/miniProfile'
@@ -1538,7 +1541,7 @@ type SiteSettings = {
   rtc_auto_gain_control_enabled: boolean
   admin_banner_text: string
   admin_banner_link: string
-  donation_url: string
+  dc_coin_packages: string
   rooms_limit_global: number
   rooms_limit_per_user: number
   spectators_limit: number
@@ -1785,6 +1788,7 @@ type RoomRow = {
 
 type UserRow = {
   id: number
+  dc_balance: number
   tg_id?: number | null
   tg_nick?: string | null
   username?: string | null
@@ -1809,6 +1813,7 @@ type UserRow = {
 }
 
 type UserSortKey =
+  | 'dc_balance'
   | 'tg_id'
   | 'tg_nick'
   | 'registered_at'
@@ -2043,7 +2048,7 @@ const site = reactive<SiteSettings>({
   rtc_auto_gain_control_enabled: true,
   admin_banner_text: '0',
   admin_banner_link: '0',
-  donation_url: '',
+  dc_coin_packages: serializeCoinPackagePrices(DEFAULT_COIN_PACKAGES),
   rooms_limit_global: 100,
   rooms_limit_per_user: 3,
   spectators_limit: 10,
@@ -2054,6 +2059,9 @@ const site = reactive<SiteSettings>({
   text_moderation_blacklist: '0',
   senior_moderator_user_id: null,
 })
+const coinPackagePricesText = ref(site.dc_coin_packages)
+const parsedCoinPackagePrices = computed(() => parseCoinPackagePrices(coinPackagePricesText.value))
+const coinPackagePricesError = computed(() => parsedCoinPackagePrices.value ? '' : 'Введите ровно 12 положительных цен через «-», не больше 9999999999999999,99 каждая и не больше двух знаков после запятой.')
 
 const game = reactive<GameSettings>({
   game_min_ready_players: 5,
@@ -2472,13 +2480,8 @@ function normalizeHomeCarouselBannerKey(raw: unknown): string | null {
   return /^home\/carousel-banner\/\d{9,}-[a-f0-9]{32}\.(jpg|png)$/.test(key) ? key : null
 }
 
-function normalizeExternalPaymentUrl(raw: unknown): string {
-  const text = String(raw ?? '').trim()
-  if (!text || text === '0') return ''
-  const lower = text.toLowerCase()
-  if (lower.startsWith('https://') || lower.startsWith('http://')) return text
-  if (text.includes('://')) return ''
-  return `https://${text.replace(/^\/+/, '')}`
+function syncSiteDcPrices(): void {
+  coinPackagePricesText.value = site.dc_coin_packages
 }
 
 function normalizeInt(value: number): number {
@@ -2555,7 +2558,7 @@ function snapshotSite(): string {
     rtc_auto_gain_control_enabled: Boolean(site.rtc_auto_gain_control_enabled),
     admin_banner_text: normalizeAdminBannerText(site.admin_banner_text),
     admin_banner_link: normalizeAdminBannerLink(site.admin_banner_link),
-    donation_url: normalizeExternalPaymentUrl(site.donation_url),
+    dc_coin_packages: coinPackagePricesText.value,
     rooms_limit_global: normalizeInt(site.rooms_limit_global),
     rooms_limit_per_user: normalizeInt(site.rooms_limit_per_user),
     spectators_limit: normalizeNonNegativeInt(site.spectators_limit),
@@ -3335,7 +3338,7 @@ async function loadSettings(): Promise<void> {
     homeCarouselBannerKey.value = normalizeHomeCarouselBannerKey(data?.site?.home_carousel_banner_key)
     site.admin_banner_text = normalizeAdminBannerText(site.admin_banner_text)
     site.admin_banner_link = normalizeAdminBannerLink(site.admin_banner_link)
-    site.donation_url = normalizeExternalPaymentUrl(site.donation_url)
+    syncSiteDcPrices()
     site.season_start_game_number = normalizeSeasonStartNumbers(site.season_start_game_number)
     site.text_moderation_whitelist = normalizeTextModerationWhitelist(site.text_moderation_whitelist)
     site.text_moderation_blacklist = normalizeTextModerationBlacklist(site.text_moderation_blacklist)
@@ -3496,6 +3499,8 @@ async function loadHomeCarouselBanner(): Promise<void> {
 
 async function saveSettings(): Promise<void> {
   if (savingSettings.value) return
+  const packagePrices = parsedCoinPackagePrices.value
+  if (!packagePrices) return
   savingSettings.value = true
   try {
     const seasonStarts = parseSeasonStartNumbers(site.season_start_game_number)
@@ -3517,7 +3522,7 @@ async function saveSettings(): Promise<void> {
         rtc_auto_gain_control_enabled: Boolean(site.rtc_auto_gain_control_enabled),
         admin_banner_text: normalizeAdminBannerText(site.admin_banner_text),
         admin_banner_link: normalizeAdminBannerLink(site.admin_banner_link),
-        donation_url: normalizeExternalPaymentUrl(site.donation_url),
+        dc_coin_packages: serializeCoinPackagePrices(packagePrices),
         rooms_limit_global: normalizeInt(site.rooms_limit_global),
         rooms_limit_per_user: normalizeInt(site.rooms_limit_per_user),
         spectators_limit: normalizeNonNegativeInt(site.spectators_limit),
@@ -3549,7 +3554,7 @@ async function saveSettings(): Promise<void> {
     homeCarouselBannerKey.value = normalizeHomeCarouselBannerKey(data?.site?.home_carousel_banner_key)
     site.admin_banner_text = normalizeAdminBannerText(site.admin_banner_text)
     site.admin_banner_link = normalizeAdminBannerLink(site.admin_banner_link)
-    site.donation_url = normalizeExternalPaymentUrl(site.donation_url)
+    syncSiteDcPrices()
     site.season_start_game_number = normalizeSeasonStartNumbers(site.season_start_game_number)
     site.text_moderation_whitelist = normalizeTextModerationWhitelist(site.text_moderation_whitelist)
     site.text_moderation_blacklist = normalizeTextModerationBlacklist(site.text_moderation_blacklist)
@@ -3569,7 +3574,7 @@ async function saveSettings(): Promise<void> {
       admin_banner_text: site.admin_banner_text,
       admin_banner_link: site.admin_banner_link,
       home_carousel_banner_key: homeCarouselBannerKey.value,
-      donation_url: site.donation_url,
+      dc_coin_packages: site.dc_coin_packages,
       rooms_limit_global: site.rooms_limit_global,
       spectators_limit: site.spectators_limit,
       game_min_ready_players: game.game_min_ready_players,
@@ -3709,6 +3714,7 @@ async function loadUsers(): Promise<void> {
     const items = Array.isArray(data?.items) ? data.items : []
     users.value = items.map((item: any) => ({
       ...item,
+      dc_balance: Math.max(0, Math.trunc(Number(item?.dc_balance) || 0)),
       tg_id: item?.tg_id ?? null,
       tg_nick: typeof item?.tg_nick === 'string' ? item.tg_nick : null,
       last_visit_at: item?.last_visit_at ?? null,
@@ -4479,7 +4485,18 @@ watch(contactRequestsUser, () => {
   contactRequestsUserTimer = window.setTimeout(() => { void loadContactRequests() }, 500)
 })
 
+function onAdminBalanceUpdate(event: Event): void {
+  if (userStore.user?.role !== 'admin') return
+  const detail = (event as CustomEvent)?.detail
+  const uid = Number(detail?.user_id)
+  const balance = Number(detail?.dc_balance)
+  if (!Number.isSafeInteger(uid) || !Number.isSafeInteger(balance) || balance < 0) return
+  if (activeTab.value === 'users' && (usersSort.value === 'dc_balance' || usersLoading.value)) void loadUsers()
+  else users.value = users.value.map(row => row.id === uid ? { ...row, dc_balance: balance } : row)
+}
+
 onMounted(() => {
+  window.addEventListener('auth-dc_balance_update', onAdminBalanceUpdate)
   window.addEventListener('resize', closeTooltip)
   const now = new Date()
   statsMonth.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
@@ -4494,6 +4511,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('auth-dc_balance_update', onAdminBalanceUpdate)
   multiaccountsAbortController.abort()
   window.removeEventListener('resize', closeTooltip)
   closeTooltip()
