@@ -1,5 +1,6 @@
 from __future__ import annotations
 import asyncio
+from collections.abc import Awaitable, Callable
 from contextlib import suppress
 from datetime import datetime, timedelta, timezone
 from time import time
@@ -20,6 +21,7 @@ from ..services.minio import delete_stale_pending_chat_images_async, ensure_buck
 from ..services.nickname import reset_monthly_nickname_change_limits
 from ..services.telegram import get_telegram_nickname
 from .clients import get_redis
+from .background_jobs import run_shared_job
 from .db import SessionLocal
 
 __all__ = ["LifespanBackgroundTasks", "verify_runtime_dependencies"]
@@ -27,29 +29,21 @@ __all__ = ["LifespanBackgroundTasks", "verify_runtime_dependencies"]
 EMPTY_ROOM_MARKER_TTL_SECONDS = 30 * 24 * 60 * 60
 EMPTY_ROOM_GC_SCAN_INTERVAL_SECONDS = 60
 TELEGRAM_NICKNAME_SYNC_INTERVAL_SECONDS = 1.0
+MOSCOW = ZoneInfo("Europe/Moscow")
 
 
-def _next_local_daily_run_at(*, hour: int, minute: int = 0) -> datetime:
-    now = datetime.now().astimezone()
-    next_run = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
-    if next_run <= now:
-        next_run += timedelta(days=1)
-    return next_run
-
-
-def _next_monday_utc_run_at(*, hour: int, minute: int = 0) -> datetime:
-    now = datetime.now(timezone.utc)
-    next_run = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
-    next_run += timedelta(days=(0 - next_run.weekday()) % 7)
-    if next_run <= now:
-        next_run += timedelta(days=7)
-    return next_run
-
-
-def _next_moscow_daily_run_at(*, hour: int, minute: int = 0) -> datetime:
-    now = datetime.now(ZoneInfo("Europe/Moscow"))
-    next_run = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
-    return next_run if next_run > now else next_run + timedelta(days=1)
+def _moscow_run_at(*, hour: int, minute: int = 0, weekday: int | None = None,
+                   now: datetime | None = None, after: datetime | None = None) -> datetime:
+    current = now or datetime.now(timezone.utc)
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=timezone.utc)
+    local_now = current.astimezone(MOSCOW)
+    run_at = local_now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    if weekday is not None:
+        run_at += timedelta(days=(weekday - local_now.weekday()) % 7)
+    if after is not None and run_at <= after:
+        run_at += timedelta(days=7 if weekday is not None else 1)
+    return run_at
 
 
 async def verify_runtime_dependencies() -> None:
@@ -80,32 +74,67 @@ class LifespanBackgroundTasks:
         self._coin_reconciliation_task = asyncio.create_task(self.coin_reconciliation_loop())
 
     async def stop(self) -> None:
-        try:
-            managed_tasks = (
-                self._settings_task,
-                self._expired_sanctions_chat_task,
-                self._expired_subscriptions_task,
-                self._stale_unverified_accounts_task,
-                self._empty_rooms_gc_task,
-                self._stale_chat_uploads_task,
-                self._telegram_nickname_sync_task,
-                self._coin_reconciliation_task,
-            )
-            for managed_task in managed_tasks:
-                await self._cancel_and_wait(managed_task)
-            for gc_task in tuple(self._empty_room_gc_tasks.values()):
-                await self._cancel_and_wait(gc_task)
-            self._empty_room_gc_tasks.clear()
-        except Exception:
-            self._log.warning("app.shutdown.settings_task_failed")
+        managed_tasks = (
+            self._settings_task,
+            self._expired_sanctions_chat_task,
+            self._expired_subscriptions_task,
+            self._stale_unverified_accounts_task,
+            self._empty_rooms_gc_task,
+            self._stale_chat_uploads_task,
+            self._telegram_nickname_sync_task,
+            self._coin_reconciliation_task,
+            *tuple(self._empty_room_gc_tasks.values()),
+        )
+        tasks = [task for task in managed_tasks if task is not None]
+        for task in tasks:
+            task.cancel()
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        for result in results:
+            if isinstance(result, BaseException) and not isinstance(result, asyncio.CancelledError):
+                self._log.warning("app.shutdown.background_task_failed", error=type(result).__name__)
+        self._empty_room_gc_tasks.clear()
 
-    @staticmethod
-    async def _cancel_and_wait(background_task: asyncio.Task[None] | None) -> None:
-        if background_task is None:
-            return
-        background_task.cancel()
-        with suppress(asyncio.CancelledError):
-            await background_task
+    async def _periodic_job_loop(self, name: str, interval: int,
+                                 callback: Callable[[], Awaitable[Any]]) -> None:
+        try:
+            while True:
+                slot = int(time() // interval) * interval
+                try:
+                    completed = await run_shared_job(name, slot, callback)
+                except Exception:
+                    self._log.exception("app.background.job_failed", job=name)
+                    completed = False
+                remaining = max(0.1, slot + interval - time())
+                await asyncio.sleep(remaining if completed else min(5.0, remaining))
+        except asyncio.CancelledError:
+            pass
+
+    async def _scheduled_job_loop(self, name: str, *, hour: int,
+                                  callback: Callable[[datetime], Awaitable[Any]],
+                                  weekday: int | None = None) -> None:
+        scheduled_at = _moscow_run_at(hour=hour, weekday=weekday)
+        try:
+            while True:
+                now = datetime.now(timezone.utc)
+                if now.astimezone(MOSCOW).date() > scheduled_at.date():
+                    scheduled_at = _moscow_run_at(hour=hour, weekday=weekday, now=now)
+                delay = (scheduled_at - now).total_seconds()
+                if delay > 0:
+                    await asyncio.sleep(min(delay, 60.0))
+                    continue
+                try:
+                    completed = await run_shared_job(
+                        name, int(scheduled_at.timestamp()), lambda: callback(scheduled_at),
+                    )
+                except Exception:
+                    self._log.exception("app.background.job_failed", job=name)
+                    completed = False
+                if completed:
+                    scheduled_at = _moscow_run_at(hour=hour, weekday=weekday, after=scheduled_at)
+                else:
+                    await asyncio.sleep(15)
+        except asyncio.CancelledError:
+            pass
 
     def schedule_empty_room_gc(self, room_id: int) -> None:
         rid = int(room_id)
@@ -190,48 +219,23 @@ class LifespanBackgroundTasks:
             self.schedule_empty_room_gc(rid)
 
     async def empty_rooms_gc_loop(self) -> None:
-        try:
-            while True:
-                try:
-                    await self.recover_empty_rooms_gc()
-                except Exception:
-                    self._log.exception("app.rooms.empty_gc.recovery_loop_failed")
-                await asyncio.sleep(EMPTY_ROOM_GC_SCAN_INTERVAL_SECONDS)
-        except asyncio.CancelledError:
-            pass
+        await self._periodic_job_loop(
+            "empty_rooms_scan", EMPTY_ROOM_GC_SCAN_INTERVAL_SECONDS, self.recover_empty_rooms_gc,
+        )
 
     async def stale_chat_uploads_loop(self) -> None:
-        try:
-            while True:
-                next_run = _next_local_daily_run_at(hour=3, minute=0)
-                delay_s = max(0.0, (next_run - datetime.now(next_run.tzinfo)).total_seconds())
-                await asyncio.sleep(delay_s)
-                try:
-                    deleted = await delete_stale_pending_chat_images_async()
-                    if deleted:
-                        self._log.info("app.chat.pending_uploads_cleaned", deleted=deleted)
-                except Exception:
-                    self._log.exception("app.chat.pending_upload_cleanup_failed")
-        except asyncio.CancelledError:
-            pass
+        async def clean_uploads(scheduled_at: datetime) -> None:
+            deleted = await delete_stale_pending_chat_images_async()
+            self._log.info("app.chat.pending_uploads_cleaned", deleted=deleted,
+                           scheduled_at=scheduled_at.isoformat())
+        await self._scheduled_job_loop("chat_pending_uploads", hour=6, callback=clean_uploads)
 
     async def telegram_nickname_sync_loop(self) -> None:
-        try:
-            while True:
-                next_run = _next_monday_utc_run_at(hour=4)
-                delay_s = max(0.0, (next_run - datetime.now(timezone.utc)).total_seconds())
-                self._log.info(
-                    "app.telegram_nicknames.sync_scheduled",
-                    run_at=next_run.isoformat(),
-                    delay_s=int(delay_s),
-                )
-                await asyncio.sleep(delay_s)
-                try:
-                    await self.sync_telegram_nicknames()
-                except Exception:
-                    self._log.exception("app.telegram_nicknames.sync_failed")
-        except asyncio.CancelledError:
-            pass
+        async def sync_nicknames(_scheduled_at: datetime) -> None:
+            await self.sync_telegram_nicknames()
+        await self._scheduled_job_loop(
+            "telegram_nicknames", hour=7, weekday=0, callback=sync_nicknames,
+        )
 
     async def sync_telegram_nicknames(self) -> None:
         async with SessionLocal() as session:
@@ -301,106 +305,97 @@ class LifespanBackgroundTasks:
         )
 
     async def settings_pubsub_loop(self) -> None:
-        r = get_redis()
-        pubsub = r.pubsub()
-        await pubsub.subscribe("settings:update")
+        loop = asyncio.get_running_loop()
+        pubsub = None
+        next_refresh = 0.0
+        next_subscription_warning = 0.0
+
+        async def refresh_settings() -> None:
+            nonlocal next_refresh
+            next_refresh = loop.time() + 30
+            try:
+                async with SessionLocal() as session:
+                    await refresh_app_settings(session)
+            except Exception:
+                self._log.warning("app.settings.refresh_failed")
+
+        async def close_subscription() -> None:
+            nonlocal pubsub
+            current, pubsub = pubsub, None
+            if current is not None:
+                with suppress(Exception):
+                    await asyncio.wait_for(current.unsubscribe("settings:update"), timeout=1)
+                with suppress(Exception):
+                    await asyncio.wait_for(current.close(), timeout=1)
+
         try:
-            async for message in pubsub.listen():
-                if not message or message.get("type") != "message":
-                    continue
+            while True:
                 try:
-                    async with SessionLocal() as session:
-                        await refresh_app_settings(session)
+                    if pubsub is None:
+                        pubsub = get_redis().pubsub()
+                        await pubsub.subscribe("settings:update")
+                        await refresh_settings()
+                    elif loop.time() >= next_refresh:
+                        await refresh_settings()
+
+                    message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1)
+                    if message and message.get("type") == "message":
+                        await refresh_settings()
                 except Exception:
-                    self._log.warning("app.settings.refresh_failed")
+                    if loop.time() >= next_subscription_warning:
+                        self._log.warning("app.settings.subscription_failed")
+                        next_subscription_warning = loop.time() + 30
+                    await close_subscription()
+                    if loop.time() >= next_refresh:
+                        await refresh_settings()
+                    await asyncio.sleep(1)
         except asyncio.CancelledError:
             pass
         finally:
-            with suppress(Exception):
-                await pubsub.unsubscribe("settings:update")
-            with suppress(Exception):
-                await pubsub.close()
+            await close_subscription()
 
     async def expired_sanctions_chat_loop(self) -> None:
-        try:
-            while True:
-                try:
-                    await emit_expired_timed_sanctions_chat_notices()
-                except Exception:
-                    self._log.exception("app.sanctions.expired_chat_loop_failed")
-                await asyncio.sleep(15)
-        except asyncio.CancelledError:
-            pass
+        await self._periodic_job_loop(
+            "expired_sanctions", 15, emit_expired_timed_sanctions_chat_notices,
+        )
 
     async def stale_unverified_accounts_loop(self) -> None:
-        try:
-            while True:
-                try:
-                    deleted = await delete_stale_unverified_accounts()
-                    if deleted > 0:
-                        self._log.info("app.users.auto_delete_unverified.done", deleted=deleted)
-                except Exception:
-                    self._log.exception("app.users.auto_delete_unverified.failed")
-                await asyncio.sleep(15 * 60)
-        except asyncio.CancelledError:
-            pass
+        async def delete_unverified() -> None:
+            deleted = await delete_stale_unverified_accounts()
+            if deleted > 0:
+                self._log.info("app.users.auto_delete_unverified.done", deleted=deleted)
+        await self._periodic_job_loop("unverified_accounts", 15 * 60, delete_unverified)
 
     async def coin_reconciliation_loop(self) -> None:
         from ..services.payments import reconcile_coin_invoices
-        try:
-            while True:
-                try:
-                    async with SessionLocal() as session:
-                        await reconcile_coin_invoices(session, limit=50)
-                except Exception:
-                    self._log.exception("app.coins.reconciliation_failed")
-                await asyncio.sleep(60)
-        except asyncio.CancelledError:
-            pass
+        async def reconcile() -> None:
+            async with SessionLocal() as session:
+                await reconcile_coin_invoices(session, limit=50)
+        await self._periodic_job_loop("coin_reconciliation", 60, reconcile)
 
     async def expired_profile_subscriptions_loop(self) -> None:
-        try:
-            while True:
-                next_run = _next_moscow_daily_run_at(hour=3, minute=0)
-                delay_s = max(0.0, (next_run - datetime.now(next_run.tzinfo)).total_seconds())
-                self._log.info(
-                    "app.subscriptions.maintenance.scheduled",
-                    run_at=next_run.isoformat(),
-                    delay_s=int(delay_s),
-                )
-                await asyncio.sleep(delay_s)
-                try:
-                    reset_users = await reset_monthly_nickname_change_limits()
-                    if reset_users > 0:
-                        synced_online_profiles = await self.sync_online_profiles_after_nickname_limit_reset()
-                        self._log.info(
-                            "app.users.nickname_changes_monthly_reset.done",
-                            reset_users=reset_users,
-                            synced_online_profiles=synced_online_profiles,
-                            scheduled_at=next_run.isoformat(),
-                        )
-                except Exception:
-                    self._log.exception("app.users.nickname_changes_monthly_reset.failed")
-                try:
-                    synced = await sync_expired_profile_subscriptions()
-                    self._log.info(
-                        "app.subscriptions.expired_sync.done",
-                        synced=synced,
-                        scheduled_at=next_run.isoformat(),
-                    )
-                except Exception:
-                    self._log.exception("app.subscriptions.expired_sync.failed")
-                try:
-                    notified = await notify_expiring_profile_subscriptions()
-                    self._log.info(
-                        "app.subscriptions.expiring_soon.done",
-                        notified=notified,
-                        scheduled_at=next_run.isoformat(),
-                    )
-                except Exception:
-                    self._log.exception("app.subscriptions.expiring_soon.failed")
-        except asyncio.CancelledError:
-            pass
+        async def maintain_subscriptions(scheduled_at: datetime) -> None:
+            async def reset_nickname_limits() -> None:
+                reset_users = await reset_monthly_nickname_change_limits()
+                if reset_users > 0:
+                    synced_profiles = await self.sync_online_profiles_after_nickname_limit_reset()
+                    self._log.info("app.users.nickname_changes_monthly_reset.done",
+                                   reset_users=reset_users, synced_online_profiles=synced_profiles,
+                                   scheduled_at=scheduled_at.isoformat())
+
+            local_now = datetime.now(MOSCOW)
+            if scheduled_at.day == 1 and local_now.date() == scheduled_at.date():
+                month_slot = int(scheduled_at.timestamp())
+                if not await run_shared_job("monthly_nickname_limits", month_slot, reset_nickname_limits):
+                    raise RuntimeError("Monthly nickname limit reset is already running")
+            synced = await sync_expired_profile_subscriptions()
+            self._log.info("app.subscriptions.expired_sync.done", synced=synced,
+                           scheduled_at=scheduled_at.isoformat())
+            notified = await notify_expiring_profile_subscriptions()
+            self._log.info("app.subscriptions.expiring_soon.done", notified=notified,
+                           scheduled_at=scheduled_at.isoformat())
+
+        await self._scheduled_job_loop("subscription_maintenance", hour=5, callback=maintain_subscriptions)
 
     async def sync_online_profiles_after_nickname_limit_reset(self) -> int:
         try:

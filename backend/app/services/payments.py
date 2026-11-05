@@ -240,7 +240,8 @@ async def _resolve_coin_offer(product_id: str, expected_prices: dict[str, str]) 
             break
 
         for item in items:
-            product = _dict(_dict(item).get("data"))
+            item = _dict(item)
+            product = _dict(item.get("data")) if "data" in item else item
             if _uuid(product.get("id")) != product_id:
                 continue
             offers = product.get("offers")

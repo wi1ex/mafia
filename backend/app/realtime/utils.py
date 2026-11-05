@@ -9104,6 +9104,9 @@ async def gc_singleton_room(rid: int, *, expected_since: str | None = None) -> b
 
 
 async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
+    from ..core.background_jobs import run_shared_job
+
+    caller_task = asyncio.current_task()
     r = get_redis()
     ts1 = await r.get(f"room:{rid}:empty_since")
     if not ts1:
@@ -9120,22 +9123,25 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
         log.warning("gc.skip.race_or_reset", rid=rid)
         return False
 
-    if expected_seq is not None:
-        cur_seq = int(await r.get(f"room:{rid}:gc_seq") or 0)
-        if cur_seq != expected_seq:
-            log.warning("gc.skip.seq_mismatch", rid=rid, expected=expected_seq, current=cur_seq)
-            return False
+    cur_seq = int(await r.get(f"room:{rid}:gc_seq") or 0)
+    if expected_seq is not None and cur_seq != expected_seq:
+        log.warning("gc.skip.seq_mismatch", rid=rid, expected=expected_seq, current=cur_seq)
+        return False
 
     if int(await r.scard(f"room:{rid}:members") or 0) > 0:
         log.warning("gc.skip.not_empty_anymore", rid=rid)
         return False
 
-    got = await r.set(f"room:{rid}:gc_lock", "1", nx=True, ex=20)
-    if not got:
-        log.warning("gc.skip.no_lock", rid=rid)
-        return False
+    did_remove = False
+    state_changed = RuntimeError("room_gc_state_changed")
 
-    try:
+    async def cleanup() -> None:
+        nonlocal did_remove
+        if (await r.get(f"room:{rid}:empty_since") != ts1
+                or int(await r.get(f"room:{rid}:gc_seq") or 0) != cur_seq
+                or int(await r.scard(f"room:{rid}:members") or 0) > 0):
+            raise state_changed
+
         raw = await r.hgetall(f"room:{rid}:visitors")
         room_anonymity_raw = await r.hget(f"room:{rid}:params", "anonymity")
         room_creator_raw = await r.hget(f"room:{rid}:params", "creator")
@@ -9321,7 +9327,6 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
             f"room:{rid}:gc_seq",
             f"room:{rid}:empty_since",
             f"room:{rid}:single_since",
-            f"room:{rid}:gc_lock",
             f"room:{rid}:gc_single_lock",
             f"room:{rid}:allow",
             f"room:{rid}:pending",
@@ -9352,7 +9357,7 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
         entry = _single_gc_tasks.pop(rid, None)
         if entry:
             _, task = entry
-            if not task.done():
+            if task is not caller_task and not task.done():
                 task.cancel()
 
         try:
@@ -9364,10 +9369,14 @@ async def gc_empty_room(rid: int, *, expected_seq: int | None = None) -> bool:
             )
         except Exception as e:
             log.warning("gc.rooms_remove.emit_failed", rid=rid, err=type(e).__name__)
-    finally:
-        try:
-            await r.delete(f"room:{rid}:gc_lock")
-        except Exception as e:
-            log.warning("gc.lock.release_failed", rid=rid, err=type(e).__name__)
+        did_remove = True
 
-    return True
+    try:
+        await run_shared_job(f"room_gc:{rid}", cur_seq, cleanup, completion_ttl=3600)
+    except RuntimeError as exc:
+        if exc is state_changed:
+            return False
+
+        raise
+
+    return did_remove

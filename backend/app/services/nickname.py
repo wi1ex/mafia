@@ -2,6 +2,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from typing import Any, Iterable
+from zoneinfo import ZoneInfo
 from sqlalchemy import case, exists, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.db import SessionLocal
@@ -57,7 +58,9 @@ async def _set_monthly_nickname_change_limits(session: AsyncSession, *, now: dat
 
 async def reset_monthly_nickname_change_limits(*, now: datetime | None = None) -> int:
     current = now or _utc_now()
-    local_current = current.astimezone() if current.tzinfo is not None else current.replace(tzinfo=timezone.utc).astimezone()
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=timezone.utc)
+    local_current = current.astimezone(ZoneInfo("Europe/Moscow"))
     if local_current.day != 1:
         return 0
 
