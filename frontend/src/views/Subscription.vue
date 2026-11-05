@@ -56,7 +56,7 @@
                   <span>{{ dcMoney(settings.dcCoinPackages[coinPackage.quantity][currency], 1, currency) }}</span>
                 </button>
               </div>
-              <UiInput id="dc-email" v-model.trim="email" type="email" autocomplete="email" label="Email для оформления платежа" placeholder="mail@example.com" :disabled="busy || opening" />
+              <UiInput id="dc-email" v-model.trim="email" type="email" autocomplete="email" label="Email для оформления платежа" placeholder="mail@example.com" mode="light" :disabled="busy || opening" />
               <UiButton type="submit" :text="wallet.invoiceBusy ? 'Создаём счёт…' : `Оплатить ${totalPrice}`" :disabled="!canPay" width="100%" />
             </form>
             <div v-if="otherInvoices.length" class="wallet-orders">
@@ -68,6 +68,12 @@
           </div>
 
           <div v-show="tab === 'subscription'" id="wallet-subscription" role="tabpanel" aria-labelledby="wallet-subscription-tab" class="wallet-panel">
+            <ul class="wallet-benefits" aria-label="Привилегии подписки">
+              <li v-for="benefit in subscriptionBenefits" :key="benefit">
+                <UiIcon class="wallet-benefit-icon" :icon="iconCheckCircle" />
+                <span>{{ benefit }}</span>
+              </li>
+            </ul>
             <div v-if="wallet.pending.subscription" class="wallet-summary">
               <p>Проверяем результат покупки…</p>
               <span>Тариф: {{ planLabel(wallet.pending.subscription.plan) }}</span>
@@ -99,8 +105,10 @@ import { useWalletStore, dcErrorMessage, type CoinInvoice } from '@/store/module
 import { COIN_PACKAGES, DC_CURRENCIES, SUBSCRIPTION_PLANS, dcMoney, dcPurchaseRestriction, formatMoscowDate, type CoinPackageQuantity, type DcCurrency, type SubscriptionPlan, type WalletTab } from '@/services/dc'
 import { alertDialog } from '@/services/confirm'
 import UiButton from '@/components/UiButton.vue'
+import UiIcon from '@/components/UiIcon.vue'
 import UiInput from '@/components/UiInput.vue'
 import iconClose from '@/assets/svg/iconClose.svg'
+import iconCheckCircle from '@/assets/svg/iconCheckCircle.svg'
 
 const props = defineProps<{ open: boolean; initialTab?: WalletTab }>()
 const emit = defineEmits<{ 'update:open': [boolean] }>()
@@ -112,6 +120,15 @@ const route = useRoute()
 const router = useRouter()
 const dialog = ref<HTMLElement | null>(null)
 const tab = ref<WalletTab>('coins')
+const subscriptionBenefits: readonly string[] = [
+  'GIF-аватар, выбор цвета и иконки профиля',
+  'статистика и история игр пользователей',
+  'вход зрителем игры сверх лимита',
+  'трансляции в высоком качестве',
+  'создание скрытых комнат',
+  'черный список пользователей',
+  'безлимитное изменение никнейма и его истории',
+]
 const currencies = DC_CURRENCIES
 const currency = ref<DcCurrency>('RUB')
 const quantity = ref<CoinPackageQuantity>(30)
@@ -315,7 +332,7 @@ onBeforeUnmount(() => { openSequence++; stopTimers() })
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: rgba($neutral-black, 0.6);
+  background: rgba($neutral-800, 0.2);
   backdrop-filter: blur(12px);
   box-sizing: border-box;
   .wallet-modal {
@@ -325,16 +342,21 @@ onBeforeUnmount(() => { openSequence++; stopTimers() })
     width: 746px;
     max-width: 100%;
     max-height: 100%;
-    padding: 28px;
+    padding: 24px;
     box-sizing: border-box;
     overflow-y: auto;
     overscroll-behavior: contain;
     border-radius: 24px;
-    background: $soft-purple-900;
-    color: $neutral-100;
+    background: $neutral-100;
+    box-shadow: 0 2px 16px 0 rgba($neutral-black, 0.2);
+    color: $neutral-black;
     font-family: Hauora-Regular;
     line-height: 1.4;
-    --ui-input-label-bg: #{$soft-purple-900};
+    --ui-input-label-bg: #{$neutral-100};
+    :deep(.ui-button--disabled) {
+      --ui-button-disabled-bg: #{$neutral-200};
+      --ui-button-disabled-color: #{$neutral-600};
+    }
     header {
       display: flex;
       justify-content: space-between;
@@ -347,7 +369,9 @@ onBeforeUnmount(() => { openSequence++; stopTimers() })
         min-width: 0;
         h2 {
           font-family: Involve-Medium;
-          font-size: 26px;
+          font-size: 24px;
+          line-height: 26px;
+          letter-spacing: -0.48px;
           margin: 0;
         }
         .wallet-status {
@@ -355,7 +379,7 @@ onBeforeUnmount(() => { openSequence++; stopTimers() })
           flex-wrap: wrap;
           align-items: baseline;
           gap: 4px 16px;
-          color: $neutral-300;
+          color: $neutral-600;
           font-size: 14px;
           .wallet-balance {
             display: flex;
@@ -365,12 +389,12 @@ onBeforeUnmount(() => { openSequence++; stopTimers() })
             strong {
               font-family: Hauora-Bold;
               font-size: 18px;
-              color: $neutral-100;
+              color: $neutral-black;
               overflow-wrap: anywhere;
               small {
                 font-family: Hauora-Regular;
                 font-size: 14px;
-                color: $neutral-300;
+                color: $neutral-600;
               }
             }
           }
@@ -385,23 +409,23 @@ onBeforeUnmount(() => { openSequence++; stopTimers() })
     }
     .wallet-tabs {
       display: flex;
-      gap: 6px;
-      padding: 5px;
-      border-radius: 16px;
-      background: $soft-purple-800;
+      gap: 10px;
       button {
         flex: 1;
         min-width: 0;
         border: 0;
-        border-radius: 12px;
+        border-radius: 999px;
         padding: 12px 8px;
-        background: transparent;
-        color: $neutral-300;
+        background: $neutral-white;
+        color: $neutral-700;
         font: inherit;
         cursor: pointer;
         &.active {
-          background: $green-700;
+          background: linear-gradient(261deg, $soft-purple-800 0%, $green-700 100%);
           color: $neutral-white;
+        }
+        &:not(.active):hover {
+          color: $neutral-black;
         }
         &:focus-visible {
           outline: 2px solid $green-400;
@@ -409,22 +433,48 @@ onBeforeUnmount(() => { openSequence++; stopTimers() })
       }
     }
     .wallet-state {
-      color: $neutral-300;
+      color: $neutral-600;
       font-size: 14px;
     }
     .wallet-error {
-      color: $orange-500;
+      color: $red-700;
       font-size: 14px;
     }
     .wallet-panel {
       display: flex;
       flex-direction: column;
       gap: 20px;
+      .wallet-benefits {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        li {
+          display: flex;
+          align-items: flex-start;
+          gap: 8px;
+          .wallet-benefit-icon {
+            --ui-icon-width: 24px;
+            --ui-icon-height: 24px;
+            --ui-icon-color: #{$green-700};
+          }
+          span {
+            min-width: 0;
+            padding-top: 1px;
+            font-size: 16px;
+            line-height: 22px;
+            letter-spacing: -0.32px;
+            overflow-wrap: anywhere;
+          }
+        }
+      }
       .wallet-summary {
         display: flex;
         flex-direction: column;
         gap: 8px;
-        background: $soft-purple-800;
+        background: $neutral-white;
         padding: 20px;
         border-radius: 20px;
         strong {
@@ -432,10 +482,10 @@ onBeforeUnmount(() => { openSequence++; stopTimers() })
           font-size: 18px;
         }
         span {
-          color: $neutral-300;
+          color: $neutral-600;
         }
         p {
-          color: $neutral-200;
+          color: $neutral-700;
         }
         .wallet-actions {
           display: flex;
@@ -459,23 +509,23 @@ onBeforeUnmount(() => { openSequence++; stopTimers() })
         }
         .wallet-currencies {
           display: flex;
-          gap: 6px;
-          padding: 5px;
-          border-radius: 16px;
-          background: $soft-purple-800;
+          gap: 10px;
           button {
             flex: 1;
             min-width: 0;
             border: 0;
-            border-radius: 12px;
+            border-radius: 999px;
             padding: 12px 8px;
-            background: transparent;
-            color: $neutral-300;
+            background: $neutral-white;
+            color: $neutral-700;
             font: inherit;
             cursor: pointer;
             &.active {
-              background: $green-700;
+              background: linear-gradient(261deg, $soft-purple-800 0%, $green-700 100%);
               color: $neutral-white;
+            }
+            &:not(.active):not(:disabled):hover {
+              color: $neutral-black;
             }
             &:focus-visible {
               outline: 2px solid $green-400;
@@ -542,7 +592,7 @@ onBeforeUnmount(() => { openSequence++; stopTimers() })
         display: flex;
         flex-direction: column;
         gap: 8px;
-        color: $neutral-300;
+        color: $neutral-600;
         button {
           display: flex;
           align-items: center;
@@ -550,14 +600,14 @@ onBeforeUnmount(() => { openSequence++; stopTimers() })
           gap: 12px;
           text-align: left;
           padding: 12px;
-          background: $soft-purple-800;
-          color: $neutral-100;
+          background: $neutral-white;
+          color: $neutral-black;
           border: 0;
           border-radius: 12px;
           font: inherit;
           cursor: pointer;
           small {
-            color: $neutral-400;
+            color: $neutral-600;
           }
         }
       }
@@ -566,7 +616,7 @@ onBeforeUnmount(() => { openSequence++; stopTimers() })
 }
 .wallet-overlay-enter-active,
 .wallet-overlay-leave-active {
-  transition: opacity 0.2s ease;
+  transition: opacity 0.25s ease-in-out;
 }
 .wallet-overlay-enter-from,
 .wallet-overlay-leave-to {
