@@ -1,796 +1,553 @@
 <template>
   <Teleport to="#desktop-teleport-root">
-    <Transition name="subscription-purchase-overlay">
-      <div v-if="open" class="subscription-purchase-overlay" @pointerdown.self="armed = true" @pointerup.self="armed && requestClose()" @pointerleave.self="armed = false" @pointercancel.self="armed = false">
-        <div class="subscription-purchase-modal" role="dialog" aria-modal="true">
-          <button class="close-btn" type="button" aria-label="Закрыть" @click="requestClose">
-            <UiIcon class="close-icon" :icon="iconClose" />
-          </button>
+    <Transition name="wallet-overlay">
+      <div v-if="open && !restriction" class="wallet-overlay" @pointerdown.self="armed = true" @pointerup.self="armed && requestClose()" @pointerleave.self="armed = false">
+        <section ref="dialog" class="wallet-modal" role="dialog" aria-modal="true" aria-labelledby="wallet-title" @keydown="onDialogKeydown">
           <header>
-            <div class="header-track" :class="{ 'is-kassa': kassaFormOpen }">
-              <div class="header-div" :aria-hidden="kassaFormOpen ? 'true' : 'false'">
-                <span class="header-title">Оформи подписку или просто поддержи проект</span>
-              </div>
-              <div class="header-div" :aria-hidden="kassaFormOpen ? 'false' : 'true'">
-                <span class="header-title">Оформление подписки</span>
-                <span class="header-text">Настрой параметры платежа перед переходом на страницу оплаты</span>
-              </div>
-            </div>
+            <h2 id="wallet-title">Deceit Coin</h2>
+            <UiButton variant="white" size="low" :icon="iconClose" width="40px" aria-label="Закрыть" :disabled="busy" @click="requestClose" />
           </header>
+          <div class="wallet-balance" aria-live="polite"><span>Баланс</span><strong>{{ balanceText }} <small>DC</small></strong></div>
+          <nav class="wallet-tabs" role="tablist" aria-label="Покупки">
+            <button id="wallet-coins-tab" type="button" role="tab" :aria-selected="tab === 'coins'" aria-controls="wallet-coins" :class="{ active: tab === 'coins' }" @click="tab = 'coins'">Пополнение баланса</button>
+            <button id="wallet-subscription-tab" type="button" role="tab" :aria-selected="tab === 'subscription'" aria-controls="wallet-subscription" :class="{ active: tab === 'subscription' }" @click="tab = 'subscription'">Покупка подписки</button>
+          </nav>
+          <p v-if="opening" class="wallet-state" role="status">Загрузка…</p>
+          <p v-if="error" class="wallet-error" role="alert">{{ error }}</p>
 
-          <div class="subscription-purchase-content">
-            <div class="subscription-purchase-track" :class="{ 'is-kassa': kassaFormOpen }">
-              <div class="subscription-purchase-slide" :inert="kassaFormOpen ? true : undefined" :aria-hidden="kassaFormOpen ? 'true' : 'false'">
-                <div class="subscribe">
-                  <img class="background-image" :src="imageSlide8" alt="" aria-hidden="true" />
-                  <span class="subscribe-price-value">Оформи подписку всего за <span class="subscribe-price-amount">{{ selectedSubscribePrice.amount }}</span><span class="subscribe-price-period">{{ selectedSubscribePrice.period }}</span></span>
-                  <ul class="subscribe-benefits">
-                    <li v-for="benefit in subscriptionBenefits" :key="benefit">
-                      <UiIcon class="subscribe-benefit-icon" :icon="iconCheckCircle" />
-                      <span>{{ benefit }}</span>
-                    </li>
-                  </ul>
-                </div>
-                <div class="subscription-actions">
-                  <UiButton
-                    variant="white"
-                    text="Поддержать проект"
-                    :icon="iconDonation"
-                    :href="donateSite.url"
-                    :disabled="!donateSite.url"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    @click="onDonateSelect"
-                  />
-                  <UiButton
-                    text="Оформить подписку"
-                    :icon="iconCard"
-                    :disabled="kassaBusy"
-                    @click="openKassaForm"
-                  />
+          <div v-show="tab === 'coins'" id="wallet-coins" role="tabpanel" aria-labelledby="wallet-coins-tab" class="wallet-panel">
+            <template v-if="selectedInvoice">
+              <div class="wallet-summary invoice-summary">
+                <strong>{{ invoiceHeading(selectedInvoice) }}</strong>
+                <span>Заказ №{{ selectedInvoice.order_id }}</span>
+                <span>{{ selectedInvoice.quantity }} DC за {{ invoiceMoney(selectedInvoice) }}</span>
+                <p>{{ invoiceStatusText(selectedInvoice) }}</p>
+                <div class="wallet-actions">
+                  <UiButton v-if="selectedInvoice.status === 'pending' && paymentLink(selectedInvoice)" :href="paymentLink(selectedInvoice)" text="Продолжить оплату" :disabled="busy || checking" />
+                  <UiButton v-if="selectedInvoice.status !== 'processed' && selectedInvoice.status !== 'failed'" variant="white" :text="checking ? 'Проверяем оплату…' : 'Проверить оплату'" :disabled="checking || busy" @click="checkSelectedInvoice(false)" />
+                  <UiButton v-if="selectedInvoice.status === 'processed'" text="Купить подписку" @click="tab = 'subscription'" />
                 </div>
               </div>
-
-              <div class="subscription-purchase-slide" :inert="kassaFormOpen ? undefined : true" :aria-hidden="kassaFormOpen ? 'false' : 'true'">
-                <form class="kassa-form" @submit.prevent="onKassaPay">
-                  <UiInput
-                    id="kassa-email"
-                    v-model.trim="kassaForm.email"
-                    type="email"
-                    autocomplete="email"
-                    label="Введите email"
-                    placeholder="mail@example.com"
-                    mode="light"
-                  />
-
-                  <div class="kassa-field">
-                    <span class="kassa-text">Срок подписки</span>
-                    <div class="kassa-segmented">
-                      <button v-for="plan in kassaPlans" :key="plan.id" type="button" :class="{ active: kassaForm.plan === plan.id }" @click="kassaForm.plan = plan.id">
-                        <span>{{ plan.label }}</span>
-                        <span v-if="plan.id === 'year'" class="kassa-segmented-badge">-15%</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  <div class="kassa-field">
-                    <span class="kassa-text">Валюта</span>
-                    <div class="kassa-segmented">
-                      <button v-for="currency in kassaCurrencies" :key="currency" type="button" :class="{ active: kassaForm.currency === currency }" @click="kassaForm.currency = currency">
-                        <UiIcon class="kassa-segmented-icon" :icon="kassaCurrencyIcons[currency]" />
-                        <span>{{ currency }}</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  <Transition name="kassa-payment-expand">
-                    <div v-if="kassaForm.currency === 'RUB'" class="kassa-field">
-                      <span class="kassa-text">Способ оплаты</span>
-                      <div class="kassa-segmented">
-                        <button v-for="method in availableKassaPaymentOptions" :key="method.id" type="button" :class="{ active: kassaForm.payment_option === method.id }" @click="kassaForm.payment_option = method.id">
-                          <UiIcon class="kassa-segmented-icon" :icon="kassaPaymentOptionIcons[method.id]" />
-                          <span>{{ method.label }}</span>
-                        </button>
-                      </div>
-                    </div>
-                  </Transition>
-
-                  <UiInput
-                    v-if="kassaForm.plan === 'month'"
-                    id="kassa-promo-code"
-                    v-model.trim="kassaForm.promo_code"
-                    type="text"
-                    inputmode="text"
-                    autocomplete="off"
-                    label="Введите промокод"
-                    placeholder="PROMOCODE"
-                    mode="light"
-                  />
-
-                  <div class="kassa-actions">
-                    <UiButton
-                      class="kassa-back"
-                      variant="white"
-                      :icon="iconArrowDown"
-                      icon-position="left"
-                      text="Назад"
-                      :disabled="kassaBusy"
-                      @click="closeKassaForm"
-                    />
-                    <UiButton
-                      class="kassa-submit"
-                      type="submit"
-                      :text="kassaSubmitText"
-                      :disabled="kassaBusy"
-                    />
-                  </div>
-                </form>
+              <template v-if="selectedInvoice.status === 'unknown' && !paymentLink(selectedInvoice)">
+                <p class="wallet-state">Ссылка на оплату недоступна. Можно оформить другой счёт. Прежний заказ сохранится и будет доступен для проверки в списке выставленных счетов.</p>
+                <UiButton variant="white" text="Оформить другой счёт" :disabled="busy || checking" @click="newInvoice" />
+              </template>
+              <UiButton v-else-if="!['creating', 'unknown', 'review'].includes(selectedInvoice.status)" variant="white" text="Новый счёт" :disabled="busy || checking" @click="newInvoice" />
+            </template>
+            <div v-else-if="wallet.pending.invoice" class="wallet-summary">
+              <p>Подтверждение создания счёта пока не получено. Проверим тот же заказ.</p>
+              <UiButton :text="wallet.invoiceBusy ? 'Проверяем…' : 'Проверить создание счёта'" :disabled="busy" @click="recoverInvoice" />
+            </div>
+            <form v-else class="wallet-form" @submit.prevent="payCoins">
+              <div class="wallet-currencies" role="group" aria-label="Валюта оплаты">
+                <button v-for="item in currencies" :key="item" type="button" :class="{ active: currency === item }" :aria-pressed="currency === item" :disabled="busy" @click="currency = item">{{ item }}</button>
               </div>
+              <div class="wallet-package-grid" role="group" aria-label="Пакет монет">
+                <button v-for="coinPackage in COIN_PACKAGES" :key="coinPackage.quantity" class="wallet-package-card" type="button"
+                        :class="{ active: quantity === coinPackage.quantity }" :aria-pressed="quantity === coinPackage.quantity"
+                        :disabled="busy || opening" @click="quantity = coinPackage.quantity">
+                  <span v-if="coinPackage.discount" class="wallet-discount">−{{ coinPackage.discount }}%</span>
+                  <strong>{{ coinPackage.quantity }} DC</strong>
+                  <span>{{ dcMoney(settings.dcCoinPackages[coinPackage.quantity][currency], 1, currency) }}</span>
+                </button>
+              </div>
+              <UiInput id="dc-email" v-model.trim="email" type="email" autocomplete="email" label="Email для оформления платежа" placeholder="mail@example.com" :disabled="busy || opening" />
+              <div class="wallet-summary"><span>На баланс поступит {{ quantity }} DC</span><strong>К оплате: {{ totalPrice }}</strong></div>
+              <UiButton type="submit" :text="wallet.invoiceBusy ? 'Создаём счёт…' : `Оплатить ${totalPrice}`" :disabled="!canPay" width="100%" />
+            </form>
+            <div v-if="otherInvoices.length" class="wallet-orders">
+              <span>Выставленные счета</span>
+              <button v-for="invoice in otherInvoices" :key="invoice.order_id" type="button" :disabled="busy" @click="selectedOrderId = invoice.order_id">
+                <span>№{{ invoice.order_id }} · {{ invoice.quantity }} DC · {{ invoiceMoney(invoice) }}</span><small>{{ invoiceHeading(invoice) }}</small>
+              </button>
             </div>
           </div>
-        </div>
+
+          <div v-show="tab === 'subscription'" id="wallet-subscription" role="tabpanel" aria-labelledby="wallet-subscription-tab" class="wallet-panel">
+            <p class="wallet-state">{{ userStore.subscriptionActive ? `Подписка действует до ${formatMoscowDate(userStore.user?.subscription_until)}.` : 'У вас нет действующей подписки.' }}</p>
+            <div v-if="wallet.pending.subscription" class="wallet-summary">
+              <p>Проверяем результат покупки…</p>
+              <span>Тариф: {{ planLabel(wallet.pending.subscription.plan) }}</span>
+              <UiButton :text="wallet.subscriptionBusy ? 'Проверяем…' : 'Проверить результат покупки'" :disabled="busy" @click="purchaseSubscription(true)" />
+            </div>
+            <form v-else class="wallet-form" @submit.prevent="purchaseSubscription(false)">
+              <div class="wallet-package-grid" role="group" aria-label="Тариф подписки">
+                <button v-for="plan in SUBSCRIPTION_PLANS" :key="plan.id" class="wallet-package-card" type="button"
+                        :class="{ active: subscriptionPlan === plan.id }" :aria-pressed="subscriptionPlan === plan.id"
+                        :disabled="busy || opening" @click="subscriptionPlan = plan.id">
+                  <span v-if="plan.discount" class="wallet-discount">−{{ plan.discount }}%</span>
+                  <strong>{{ plan.label }}</strong><span>{{ plan.cost }} DC</span>
+                </button>
+              </div>
+              <div class="wallet-summary"><strong>Стоимость: {{ selectedPlan.cost }} DC</strong><p v-if="preview">После покупки подписка будет действовать до {{ formatMoscowDate(preview) }}.</p></div>
+              <template v-if="!canAffordSubscription">
+                <p class="wallet-error">{{ wallet.balance === 0 ? 'Для покупки подписки пополните баланс.' : 'Недостаточно DC для покупки выбранной подписки.' }}</p>
+                <UiButton variant="white" text="Пополнить баланс" @click="tab = 'coins'" />
+              </template>
+              <UiButton type="submit" :text="wallet.subscriptionBusy ? 'Покупаем…' : `Купить за ${selectedPlan.cost} DC`" :disabled="!canAffordSubscription || busy || opening" width="100%" />
+            </form>
+          </div>
+        </section>
       </div>
     </Transition>
   </Teleport>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import { api } from '@/services/axios'
-import { alertDialog } from '@/services/confirm'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore, useSettingsStore, useUserStore } from '@/store'
-
-import UiIcon from '@/components/UiIcon.vue'
-import UiInput from '@/components/UiInput.vue'
+import { useWalletStore, dcErrorMessage, type CoinInvoice } from '@/store/modules/wallet'
+import { COIN_PACKAGES, DC_CURRENCIES, SUBSCRIPTION_PLANS, dcMoney, dcPurchaseRestriction, formatMoscowDate, subscriptionPreview, type CoinPackageQuantity, type DcCurrency, type SubscriptionPlan, type WalletTab } from '@/services/dc'
+import { alertDialog } from '@/services/confirm'
 import UiButton from '@/components/UiButton.vue'
-
-import imageSlide8 from '@/assets/images/carousel-image8.png'
+import UiInput from '@/components/UiInput.vue'
 import iconClose from '@/assets/svg/iconClose.svg'
-import iconCheckCircle from '@/assets/svg/iconCheckCircle.svg'
-import iconDonation from '@/assets/svg/iconPresent.svg'
-import iconArrowDown from '@/assets/svg/iconArrowDown.svg'
-import iconRouble from '@/assets/svg/iconRouble.svg'
-import iconDollar from '@/assets/svg/iconDollar.svg'
-import iconEuro from '@/assets/svg/iconEuro.svg'
-import iconCard from '@/assets/svg/iconCard.svg'
-import iconSBP from '@/assets/svg/iconSBP.svg'
 
-const props = defineProps<{
-  open: boolean
-}>()
-
-type PaymentSite = {
-  id: string
-  name: string
-  url: string
-}
-
-const emit = defineEmits<{
-  'update:open': [boolean]
-  'select': [PaymentSite]
-}>()
-
+const props = defineProps<{ open: boolean; initialTab?: WalletTab }>()
+const emit = defineEmits<{ 'update:open': [boolean] }>()
 const auth = useAuthStore()
-const settings = useSettingsStore()
 const userStore = useUserStore()
-const kassaBusy = ref(false)
-const kassaFormOpen = ref(false)
-const legacyKassaEmailStorageKey = 'kassa:buyerEmail'
-const emailRe = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$/i
-const promoCodeRe = /^[A-Z0-9_-]{3,36}$/
-
-try { localStorage.removeItem(legacyKassaEmailStorageKey) } catch {}
-
-function kassaEmailStorageKey(userId = Number(userStore.user?.id || 0)): string {
-  return userId > 0 ? `kassa:buyerEmail:${userId}` : ''
-}
-
-function readSavedKassaEmail(): string {
-  const key = kassaEmailStorageKey()
-  if (!key) return ''
-  try { return sessionStorage.getItem(key) || '' } catch { return '' }
-}
-
-function saveKassaEmail(email: string): void {
-  const key = kassaEmailStorageKey()
-  if (!key) return
-  try { sessionStorage.setItem(key, email) } catch {}
-}
-
-function clearSavedKassaEmail(userId: number): void {
-  const key = kassaEmailStorageKey(userId)
-  if (!key) return
-  try { sessionStorage.removeItem(key) } catch {}
-}
-
-type KassaPlan = 'month' | 'year'
-type KassaCurrency = 'RUB' | 'USD' | 'EUR'
-type KassaPaymentOptionId = 'card' | 'sbp'
-
-type KassaPaymentOption = {
-  id: KassaPaymentOptionId
-  label: string
-  currencies: readonly KassaCurrency[]
-  payment_provider: string
-  payment_method: string
-}
-
-const kassaCurrencyIcons: Record<KassaCurrency, string> = {
-  RUB: iconRouble,
-  USD: iconDollar,
-  EUR: iconEuro,
-}
-
-const kassaPaymentOptionIcons: Record<KassaPaymentOptionId, string> = {
-  card: iconCard,
-  sbp: iconSBP,
-}
-
-const kassaPlans: readonly { id: KassaPlan; label: string }[] = [
-  { id: 'month', label: 'Месяц' },
-  { id: 'year', label: 'Год' },
-]
-
-const kassaPlanPrices: Record<KassaPlan, { amount: string; period: string }> = {
-  month: { amount: '490 ₽', period: '/мес' },
-  year: { amount: '4990 ₽', period: '/год' },
-}
-
-const kassaPaymentPrices: Record<KassaCurrency, Record<KassaPlan, string>> = {
-  RUB: { month: '490 ₽', year: '4990 ₽' },
-  EUR: { month: '6.9 €', year: '69 €' },
-  USD: { month: '7.9 $', year: '79 $' },
-}
-
-const subscriptionBenefits: readonly string[] = [
-  'GIF-аватар, выбор цвета и иконки профиля',
-  'статистика и история игр пользователей',
-  'вход зрителем игры сверх лимита',
-  'трансляции в высоком качестве',
-  'создание скрытых комнат',
-  'черный список пользователей',
-  'безлимитное изменение никнейма и его истории',
-]
-
-const kassaCurrencies: readonly KassaCurrency[] = ['RUB', 'USD', 'EUR']
-
-const kassaPaymentOptions: readonly KassaPaymentOption[] = [
-  {
-    id: 'card',
-    label: 'Карта',
-    currencies: ['RUB'],
-    payment_provider: 'SMART_GLOCAL',
-    payment_method: 'CARD',
-  },
-  {
-    id: 'sbp',
-    label: 'СБП',
-    currencies: ['RUB'],
-    payment_provider: 'PAY2ME',
-    payment_method: 'SBP',
-  },
-]
-
-const kassaForm = ref<{
-  email: string
-  plan: KassaPlan
-  currency: KassaCurrency
-  payment_option: KassaPaymentOptionId
-  promo_code: string
-}>({
-  email: '',
-  plan: 'month',
-  currency: 'RUB',
-  payment_option: 'card',
-  promo_code: '',
-})
-
-const availableKassaPaymentOptions = computed(() => (
-  kassaPaymentOptions.filter((option) => option.currencies.includes(kassaForm.value.currency))
-))
-watch(
-  () => kassaForm.value.plan,
-  (plan) => {
-    if (plan === 'year') kassaForm.value.promo_code = ''
-  },
-)
-
-const selectedSubscribePrice = computed(() => kassaPlanPrices[kassaForm.value.plan])
-const kassaSubmitText = computed(() => (
-  `Оплатить ${kassaPaymentPrices[kassaForm.value.currency][kassaForm.value.plan]}`
-))
-
-const donateSite = computed<PaymentSite>(() => ({
-  id: 'donate',
-  name: 'Donate',
-  url: String(settings.donationUrl || '').trim(),
-}))
-
+const settings = useSettingsStore()
+const wallet = useWalletStore()
+const route = useRoute()
+const router = useRouter()
+const dialog = ref<HTMLElement | null>(null)
+const tab = ref<WalletTab>('coins')
+const currencies = DC_CURRENCIES
+const currency = ref<DcCurrency>('RUB')
+const quantity = ref<CoinPackageQuantity>(30)
+const subscriptionPlan = ref<SubscriptionPlan>('week')
+const email = ref('')
+const error = ref('')
+const opening = ref(false)
+const checking = ref(false)
+const selectedOrderId = ref<number | null>(null)
 const armed = ref(false)
+let openSequence = 0
+let pollTimer: ReturnType<typeof setTimeout> | undefined
+let invoiceRetryTimer: ReturnType<typeof setTimeout> | undefined
+let subscriptionRetryTimer: ReturnType<typeof setTimeout> | undefined
+let retriedInvoice = false
+let retriedSubscription = false
+const restriction = computed(() => dcPurchaseRestriction(auth.isAuthed, userStore.user))
+const busy = computed(() => wallet.invoiceBusy || wallet.subscriptionBusy)
+const balanceText = computed(() => new Intl.NumberFormat('ru-RU').format(wallet.balance))
+const packageAmount = computed(() => settings.dcCoinPackages[quantity.value][currency.value])
+const totalPrice = computed(() => dcMoney(packageAmount.value, 1, currency.value))
+const selectedPlan = computed(() => SUBSCRIPTION_PLANS.find(item => item.id === subscriptionPlan.value)!)
+const canAffordSubscription = computed(() => wallet.balance >= selectedPlan.value.cost)
+const preview = computed(() => subscriptionPreview(userStore.now, userStore.user?.subscription_until, subscriptionPlan.value))
+const canPay = computed(() => !busy.value && !opening.value && !restriction.value && email.value.trim().length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim()))
+const selectedInvoice = computed(() => wallet.invoices.find(item => item.order_id === selectedOrderId.value))
+const otherInvoices = computed(() => wallet.invoices.filter(item => !['processed', 'failed'].includes(item.status) && item.order_id !== selectedOrderId.value))
 
-function requestClose(): void {
-  if (!kassaBusy.value) kassaFormOpen.value = false
-  emit('update:open', false)
+function paymentLink(invoice: CoinInvoice): string {
+  try { const url = new URL(invoice.payment_url || ''); return url.protocol === 'https:' && !url.username && !url.password ? url.href : '' } catch { return '' }
 }
-
-function onDonateSelect(): void {
-  if (!donateSite.value.url) return
-  emit('select', donateSite.value)
-  requestClose()
+function invoiceMoney(invoice: CoinInvoice): string {
+  return invoice.amount && invoice.currency ? dcMoney(invoice.amount, 1, invoice.currency) : '—'
 }
-
-function openKassaForm(): void {
-  if (kassaBusy.value) return
-  if (!auth.isAuthed) {
-    void alertDialog('Войдите в аккаунт перед оплатой')
-    return
-  }
-
-  const saved = readSavedKassaEmail()
-  kassaForm.value.email = kassaForm.value.email || saved
-  kassaFormOpen.value = true
+function planLabel(planId: SubscriptionPlan): string { return SUBSCRIPTION_PLANS.find(item => item.id === planId)?.label || 'Подписка' }
+function invoiceHeading(invoice: CoinInvoice): string {
+  return { pending: 'Неоплаченный счёт', processed: 'Баланс пополнен', failed: 'Оплата не прошла', review: 'Оплата подтверждена', creating: 'Проверяем счёт…', unknown: 'Проверяем счёт…' }[invoice.status] || 'Счёт'
 }
-
-function closeKassaForm(): void {
-  if (kassaBusy.value) return
-  kassaFormOpen.value = false
+function invoiceStatusText(invoice: CoinInvoice): string {
+  if (invoice.status === 'processed') return 'Монеты зачислены на баланс. Подписку можно купить отдельно.'
+  if (invoice.status === 'review') return 'Оплата подтверждена. Монеты пока не зачислены. Повторно оплачивать счёт не нужно.'
+  if (invoice.status === 'failed') return 'Оплата не прошла. Проверьте статус счёта перед повторной попыткой.'
+  return 'Подтверждение оплаты пока не получено. Если вы уже оплатили счёт, повторно оплачивать не нужно.'
 }
-
-function selectedKassaPaymentOption(): KassaPaymentOption {
-  const selected = availableKassaPaymentOptions.value.find((option) => option.id === kassaForm.value.payment_option)
-  return selected || kassaPaymentOptions[0]
+function requestClose(): void { if (!busy.value) emit('update:open', false) }
+function onDialogKeydown(event: KeyboardEvent): void {
+  if (event.key === 'Escape') { event.stopPropagation(); requestClose() }
+  if (event.key !== 'Tab') return
+  const focusable = dialog.value?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), a[href]')
+  const visible = Array.from(focusable || []).filter(item => item.offsetParent !== null)
+  const first = visible[0]; const last = visible.at(-1)
+  if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus() }
+  else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus() }
 }
-
-function paymentProviderForOption(option: KassaPaymentOption): string {
-  return option.payment_provider
+function saveEmail(): void {
+  try { sessionStorage.setItem(`dc:email:${userStore.user?.id}`, email.value.trim().toLowerCase()) } catch {}
 }
-
-function normalizedKassaEmail(): string | null {
-  const email = kassaForm.value.email.trim().toLowerCase()
-  if (!emailRe.test(email)) {
-    void alertDialog('Введите корректный email')
-    return null
-  }
-
-  kassaForm.value.email = email
-  saveKassaEmail(email)
-  return email
+function newInvoice(): void { selectedOrderId.value = null; quantity.value = 30; error.value = '' }
+function stopTimers(): void {
+  clearTimeout(pollTimer)
+  clearTimeout(invoiceRetryTimer)
+  clearTimeout(subscriptionRetryTimer)
 }
-
-function normalizedPromoCode(): string | null {
-  const promoCode = kassaForm.value.promo_code.trim()
-  if (promoCode && !promoCodeRe.test(promoCode)) {
-    void alertDialog('Промокод должен быть от 3 до 36 символов: заглавные латинские буквы A-Z, цифры 0-9, "-" или "_"')
-    return null
-  }
-
-  kassaForm.value.promo_code = promoCode
-  return promoCode
+function scheduleCheck(): void {
+  clearTimeout(pollTimer)
+  if (!props.open || restriction.value || !selectedInvoice.value || !['creating', 'unknown', 'pending'].includes(selectedInvoice.value.status)) return
+  pollTimer = setTimeout(() => { void checkSelectedInvoice(true) }, 15_000)
 }
-
-async function onKassaPay(): Promise<void> {
-  if (kassaBusy.value) return
-  if (!auth.isAuthed) {
-    void alertDialog('Войдите в аккаунт перед оплатой')
-    return
-  }
-
-  const email = normalizedKassaEmail()
-  if (!email) return
-
-  const promoCode = kassaForm.value.plan === 'month' ? normalizedPromoCode() : ''
-  if (promoCode === null) return
-
-  const paymentOption = kassaForm.value.currency === 'RUB' ? selectedKassaPaymentOption() : null
-  const paymentProvider = paymentOption ? paymentProviderForOption(paymentOption) : ''
-
-  kassaBusy.value = true
-  const paymentWindow = window.open('', '_blank')
-  if (paymentWindow) paymentWindow.opener = null
+async function checkSelectedInvoice(quiet = false): Promise<void> {
+  const orderId = selectedOrderId.value
+  if (!orderId || checking.value || restriction.value) return
+  checking.value = true
+  if (!quiet) error.value = ''
+  try { await wallet.checkInvoice(orderId) }
+  catch (err) { if (!quiet) error.value = dcErrorMessage(err) }
+  finally { checking.value = false; scheduleCheck() }
+}
+async function payCoins(): Promise<void> {
+  if (!canPay.value) return
+  error.value = ''
+  saveEmail()
+  const seq = openSequence
+  const requestedCurrency = currency.value
+  const requestedQuantity = quantity.value
+  const requestedAmount = packageAmount.value
   try {
-    const payload = {
-      email,
-      plan: kassaForm.value.plan,
-      currency: kassaForm.value.currency,
-      payment_provider: paymentProvider,
-      payment_method: paymentOption?.payment_method || '',
+    const invoice = await wallet.createInvoice({ quantity: requestedQuantity, currency: requestedCurrency, email: email.value.trim().toLowerCase(), expected_amount: requestedAmount })
+    if (seq !== openSequence || restriction.value) return
+    selectedOrderId.value = invoice.order_id
+    const url = invoice.status === 'pending' ? paymentLink(invoice) : ''
+    if (url) window.location.assign(url)
+    scheduleCheck()
+  } catch (err: any) {
+    if (seq !== openSequence) return
+    error.value = dcErrorMessage(err)
+    const detail = err?.response?.data?.detail
+    if (detail?.code === 'dc_price_changed') {
+      if (settings.dcCoinPackages[requestedQuantity][requestedCurrency] === requestedAmount && detail.amount) settings.setCoinPackagePrice(requestedQuantity, requestedCurrency, detail.amount)
+      void settings.fetchPublic().catch(() => {})
     }
-    if (promoCode) Object.assign(payload, { promo_code: promoCode })
-    const { data } = await api.post<{ payment_url: string; processed?: boolean }>('/payments/kassa/link', payload)
-    const paymentUrl = String(data?.payment_url || '')
-    if (!paymentUrl && data?.processed) {
-      if (paymentWindow) paymentWindow.close()
-      requestClose()
-      void alertDialog('Подписка активирована')
-      return
+    if (wallet.pending.invoice && !retriedInvoice) {
+      retriedInvoice = true
+      invoiceRetryTimer = setTimeout(() => { if (props.open && !restriction.value) void recoverInvoice() }, 1500)
     }
-
-    if (!paymentUrl) throw new Error('payment_url_missing')
-    emit('select', { id: 'kassa', name: 'kassa', url: paymentUrl })
-    requestClose()
-    if (paymentWindow) paymentWindow.location.href = paymentUrl
-    else window.location.assign(paymentUrl)
-  } catch (e: any) {
-    if (paymentWindow) paymentWindow.close()
-    const st = Number(e?.response?.status || 0)
-    const detail = String(e?.response?.data?.detail || '')
-    if (st === 401) void alertDialog('Войдите в аккаунт перед оплатой')
-    else if (st === 422 && detail === 'kassa_email_required') void alertDialog('Введите email для отправки чека и оформления платежа')
-    else if (st === 422 && detail === 'kassa_email_invalid') void alertDialog('Введите корректный email')
-    else if (st === 422 && detail === 'kassa_email_rejected') void alertDialog('Сервис не принял этот email. Проверьте адрес или попробуйте другой')
-    else if (st === 422 && detail === 'kassa_promo_code_invalid') void alertDialog('Промокод должен содержать только заглавные латинские буквы, цифры, "-" или "_"')
-    else if (st === 422 && detail === 'kassa_promo_code_usage_limit_exceeded') void alertDialog('Лимит использования промокода исчерпан')
-    else if (st === 422 && detail === 'kassa_promo_code_rejected') void alertDialog('Сервис не принял промокод для выбранного тарифа или валюты')
-    else if (st === 422 && detail === 'kassa_currency_rejected') void alertDialog('Сервис не принял выбранную валюту. Выберите другую валюту')
-    else if (st === 422 && detail === 'kassa_currency_invalid') void alertDialog('Выбрана неподдерживаемая валюта')
-    else if (st === 422 && detail === 'kassa_plan_invalid') void alertDialog('Выбран неподдерживаемый тариф подписки')
-    else if (st === 422 && detail === 'kassa_payment_method_rejected') void alertDialog('Сервис не принял выбранный способ оплаты. Выберите другой способ')
-    else if (st === 422 && detail === 'kassa_payment_provider_invalid') void alertDialog('Выбран неподдерживаемый платежный провайдер')
-    else if (st === 422 && detail === 'kassa_payment_method_invalid') void alertDialog('Выбран неподдерживаемый способ оплаты')
-    else if (st === 422 && detail === 'kassa_payment_method_required') void alertDialog('Выберите способ оплаты')
-    else if (st === 422 && detail === 'kassa_payment_method_unsupported') void alertDialog('Выбранный способ оплаты недоступен для этой валюты')
-    else if (st === 422 && detail === 'kassa_request_rejected') void alertDialog('Сервис отклонил параметры платежа. Проверьте тариф, валюту и промокод')
-    else if (st === 429 && detail === 'kassa_rate_limited') void alertDialog('Сервис временно ограничил частоту запросов. Повторите попытку позже')
-    else if (st === 503 && detail === 'kassa_offer_not_found') void alertDialog('Тариф сервиса не найден. Сообщите администратору')
-    else if (st === 503 && detail === 'kassa_api_unauthorized') void alertDialog('Оплата сервиса настроена неверно: API-ключ не принят')
-    else if (st === 503 && detail === 'kassa_service_unavailable') void alertDialog('Сервис временно недоступен. Повторите попытку позже')
-    else if (st === 503 && detail === 'kassa_product_missing') void alertDialog('Оплата сервиса не настроена: не указан продукт')
-    else if (st === 503 && detail === 'kassa_api_key_missing') void alertDialog('Оплата сервиса не настроена: не указан API-ключ')
-    else if (st === 503 && detail === 'kassa_monthly_offer_missing') void alertDialog('Оплата сервиса не настроена: не указан месячный тариф')
-    else if (st === 503 && detail === 'kassa_yearly_offer_missing') void alertDialog('Оплата сервиса не настроена: не указан годовой тариф')
-    else if (st === 502 && detail === 'kassa_contract_id_missing') void alertDialog('Сервис создал платеж без номера договора. Повторите попытку позже')
-    else if (st === 502 && detail === 'kassa_payment_url_missing') void alertDialog('Сервис не вернул ссылку на оплату. Повторите попытку позже')
-    else if (st === 502 && detail === 'kassa_payment_url_invalid') void alertDialog('Сервис вернул некорректную ссылку на оплату. Повторите попытку позже')
-    else if (st === 502 && detail === 'kassa_subscription_grant_failed') void alertDialog('Оплата подтверждена, но подписка не активировалась. Не повторяйте платёж и обратитесь в поддержку')
-    else if (st === 502 && detail === 'kassa_invoice_invalid_response') void alertDialog('Сервис вернул некорректный ответ. Повторите попытку позже')
-    else if (st === 502 && detail === 'kassa_invoice_request_failed') void alertDialog('Не удалось подключиться к сервису. Повторите попытку позже')
-    else if (st === 502 && detail === 'kassa_invoice_failed') void alertDialog('Сервис отклонил создание платежа. Проверьте параметры или повторите попытку позже')
-    else if (st === 502 && detail === 'kassa_free_invoice_not_processed') void alertDialog('Платеж без оплаты создан, но подписка не активировалась. Сообщите администратору')
-    else if (st === 504 && detail === 'kassa_invoice_timeout') void alertDialog('Сервис не ответил вовремя. Повторите попытку позже')
-    else if (st === 503 && detail.startsWith('kassa_')) void alertDialog('Оплата сервиса пока не настроена')
-    else if (st === 422 && detail.startsWith('kassa_')) void alertDialog('Проверьте параметры оплаты')
-    else void alertDialog('Не удалось открыть оплату сервиса')
-  } finally {
-    kassaBusy.value = false
+  }
+}
+async function recoverInvoice(): Promise<void> {
+  if (busy.value || restriction.value) return
+  error.value = ''
+  const requestId = wallet.pending.invoice?.request_id
+  try {
+    await wallet.loadInvoices()
+    if (!props.open || restriction.value) return
+    if (wallet.pending.invoice) selectedOrderId.value = (await wallet.createInvoice()).order_id
+    else selectedOrderId.value = wallet.invoices.find(item => item.request_id === requestId)?.order_id ?? selectedOrderId.value
+    scheduleCheck()
+  } catch (err) { error.value = dcErrorMessage(err) }
+}
+async function purchaseSubscription(recover: boolean): Promise<void> {
+  if (busy.value || restriction.value || (!recover && !canAffordSubscription.value)) return
+  error.value = ''
+  const seq = openSequence
+  try {
+    await wallet.buySubscription(recover ? undefined : subscriptionPlan.value)
+    if (seq === openSequence) emit('update:open', false)
+  } catch (err) {
+    if (seq !== openSequence) return
+    error.value = dcErrorMessage(err)
+    if (!wallet.pending.subscription) await wallet.refreshWallet().catch(() => {})
+    else if (!retriedSubscription) {
+      retriedSubscription = true
+      subscriptionRetryTimer = setTimeout(() => { if (props.open && !restriction.value) void purchaseSubscription(true) }, 1500)
+    }
   }
 }
 
-function onKeydown(event: KeyboardEvent): void {
-  if (!props.open) return
-  if (event.key === 'Escape') requestClose()
-}
-
-watch(() => kassaForm.value.currency, () => {
-  if (kassaForm.value.currency !== 'RUB') return
-
-  const available = availableKassaPaymentOptions.value.some((option) => option.id === kassaForm.value.payment_option)
-  if (!available) {
-    kassaForm.value.payment_option = availableKassaPaymentOptions.value[0]?.id || 'card'
-  }
-})
-
-watch(() => Number(userStore.user?.id || 0), (nextUserId, previousUserId) => {
-  if (previousUserId > 0 && previousUserId !== nextUserId) {
-    clearSavedKassaEmail(previousUserId)
-  }
-  if (previousUserId !== nextUserId) kassaForm.value.email = ''
-})
-
-watch(() => props.open, (open) => {
+watch(() => props.open, async open => {
+  stopTimers()
+  const seq = ++openSequence
   armed.value = false
-  if (open) {
-    kassaForm.value.email = kassaForm.value.email || readSavedKassaEmail()
-    document.addEventListener('keydown', onKeydown)
-  } else {
-    kassaFormOpen.value = false
-    document.removeEventListener('keydown', onKeydown)
+  if (!open) return
+  if (!userStore.user && auth.isAuthed) await userStore.fetchMe().catch(() => {})
+  if (seq !== openSequence) return
+  if (restriction.value) { emit('update:open', false); void alertDialog(restriction.value); return }
+  wallet.ensureOwner()
+  userStore.ensureClock()
+  error.value = ''; opening.value = true
+  selectedOrderId.value = null
+  retriedInvoice = false; retriedSubscription = false
+  tab.value = props.initialTab || (wallet.balance > 0 ? 'subscription' : 'coins')
+  try { email.value = sessionStorage.getItem(`dc:email:${userStore.user?.id}`) || '' } catch {}
+  try {
+    await Promise.all([wallet.refreshWallet(), wallet.loadInvoices(), settings.fetchPublic().catch(() => {})])
+    if (seq !== openSequence) return
+    const rawOrder = Number(route.query.order_id || 0)
+    const invoiceId = String(route.query.invoice_id || route.query.invoiceId || '')
+    const returnInvoice = wallet.invoices.find(item => item.order_id === rawOrder || (!!invoiceId && item.invoice_id === invoiceId))
+    if (route.query.dc_payment || invoiceId) {
+      tab.value = 'coins'
+      selectedOrderId.value = returnInvoice?.order_id ?? (Number.isSafeInteger(rawOrder) && rawOrder > 0 ? rawOrder : null)
+      if (selectedOrderId.value) await checkSelectedInvoice()
+      else error.value = 'Счёт не найден в вашем аккаунте.'
+      if (seq !== openSequence) return
+      const query = { ...route.query }
+      for (const key of ['dc_payment', 'order_id', 'invoice_id', 'invoiceId', 'status']) delete query[key]
+      await router.replace({ query })
+    } else {
+      selectedOrderId.value = wallet.invoices.find(item => !['processed', 'failed'].includes(item.status))?.order_id ?? null
+      scheduleCheck()
+    }
+    if (wallet.pending.subscription) { tab.value = 'subscription'; void purchaseSubscription(true) }
+  } catch (err) { if (seq === openSequence) error.value = dcErrorMessage(err) }
+  finally {
+    if (seq === openSequence) { opening.value = false; await nextTick(); dialog.value?.querySelector<HTMLButtonElement>('button')?.focus() }
   }
 })
-
-onBeforeUnmount(() => {
-  document.removeEventListener('keydown', onKeydown)
+watch(restriction, reason => {
+  if (props.open && reason && (userStore.user || !auth.isAuthed)) {
+    stopTimers()
+    emit('update:open', false)
+    void alertDialog(reason)
+  }
 })
+watch(() => userStore.user?.id, () => { wallet.ensureOwner(); email.value = ''; selectedOrderId.value = null })
+watch(() => wallet.balance, (value, previous) => {
+  if (props.open && value < previous && !canAffordSubscription.value) error.value = 'Баланс изменился. Недостаточно DC для выбранной подписки.'
+})
+watch(() => [route.query.dc_payment, route.query.invoiceId, route.query.invoice_id], values => {
+  if (values.some(Boolean) && !props.open) emit('update:open', true)
+}, { immediate: true })
+watch(selectedOrderId, scheduleCheck)
+onBeforeUnmount(() => { openSequence++; stopTimers() })
 </script>
 
 <style scoped lang="scss">
-.subscription-purchase-overlay {
-  display: flex;
+.wallet-overlay {
   position: fixed;
+  inset: 0;
+  z-index: 1600;
+  display: flex;
   align-items: center;
   justify-content: center;
-  inset: 0;
-  background-color: rgba($neutral-800, 0.2);
+  padding: 24px;
+  background: rgba($neutral-black, 0.6);
   backdrop-filter: blur(12px);
-  z-index: 1000;
-  .subscription-purchase-modal {
+  box-sizing: border-box;
+  .wallet-modal {
     display: flex;
-    position: relative;
     flex-direction: column;
-    padding: 24px;
-    width: 570px;
-    height: 500px;
+    gap: 20px;
+    width: 560px;
+    max-width: 100%;
+    max-height: 100%;
+    padding: 28px;
+    box-sizing: border-box;
+    overflow-y: auto;
+    overscroll-behavior: contain;
     border-radius: 24px;
-    background-color: $neutral-100;
-    box-shadow: 0 2px 16px 0 rgba($neutral-black, 0.20);
-    overflow: hidden;
-    .close-btn {
-      position: absolute;
-      top: 24px;
-      right: 24px;
-      z-index: 1;
-      padding: 0;
-      width: 24px;
-      height: 24px;
-      border: none;
-      background: none;
-      cursor: pointer;
-      .close-icon {
-        --ui-icon-width: 24px;
-        --ui-icon-height: 24px;
-        --ui-icon-color: #{$neutral-black};
-      }
-      &:not(:disabled):hover,
-      &:not(:disabled):focus-visible,
-      &:not(:disabled):active {
-        .close-icon {
-          --ui-icon-color: #{$green-500};
-        }
-      }
-    }
+    background: $soft-purple-900;
+    color: $neutral-100;
+    font-family: Hauora-Regular;
+    line-height: 1.4;
+    --ui-input-label-bg: #{$soft-purple-900};
     header {
       display: flex;
-      overflow: hidden;
-      .header-track {
-        display: flex;
-        flex: 0 0 200%;
-        transition: transform 0.35s cubic-bezier(0.25, 1, 0.5, 1);
-        &.is-kassa {
-          transform: translateX(-50%);
-        }
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      h2 {
+        font-family: Involve-Medium;
+        font-size: 26px;
+        margin: 0;
       }
-      .header-div {
-        display: flex;
-        flex: 0 0 50%;
-        flex-direction: column;
-        align-items: center;
-        gap: 8px;
-        .header-title {
-          max-width: 300px;
-          text-align: center;
-          color: $neutral-black;
-          font-family: Involve-Medium;
-          font-size: 24px;
-          line-height: 26px;
-          letter-spacing: -0.48px;
-        }
-        .header-text {
-          color: $neutral-500;
-          font-family: Hauora-Regular;
-          font-size: 16px;
-          line-height: 22px;
-          letter-spacing: -0.32px;
+    }
+    p {
+      margin: 0;
+    }
+    .wallet-balance {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 20px;
+      border-radius: 20px;
+      background: $soft-purple-800;
+      strong {
+        font-size: 32px;
+        line-height: 1.1;
+        font-family: Hauora-Bold;
+        overflow-wrap: anywhere;
+        small {
+          font-size: 18px;
+          color: $neutral-300;
         }
       }
     }
-    .subscription-purchase-content {
+    .wallet-tabs {
       display: flex;
-      overflow: hidden;
-      .subscription-purchase-track {
-        display: flex;
-        flex: 0 0 200%;
-        transition: transform 0.35s cubic-bezier(0.25, 1, 0.5, 1);
-        &.is-kassa {
-          transform: translateX(-50%);
+      gap: 6px;
+      padding: 5px;
+      border-radius: 16px;
+      background: $soft-purple-800;
+      button {
+        flex: 1;
+        min-width: 0;
+        border: 0;
+        border-radius: 12px;
+        padding: 12px 8px;
+        background: transparent;
+        color: $neutral-300;
+        font: inherit;
+        cursor: pointer;
+        &.active {
+          background: $green-700;
+          color: $neutral-white;
         }
-        .subscription-purchase-slide {
-          flex: 0 0 50%;
-          position: relative;
-          overflow-y: auto;
-          scrollbar-width: none;
-          &[inert] {
-            pointer-events: none;
+        &:focus-visible {
+          outline: 2px solid $green-400;
+        }
+      }
+    }
+    .wallet-state {
+      color: $neutral-300;
+      font-size: 14px;
+    }
+    .wallet-error {
+      color: $orange-500;
+      font-size: 14px;
+    }
+    .wallet-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      .wallet-summary {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        background: $soft-purple-800;
+        padding: 20px;
+        border-radius: 20px;
+        strong {
+          font-family: Hauora-Bold;
+          font-size: 18px;
+        }
+        span {
+          color: $neutral-300;
+        }
+        p {
+          color: $neutral-200;
+        }
+        .wallet-actions {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          margin-top: 8px;
+        }
+      }
+      .wallet-form {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        .wallet-currencies {
+          display: flex;
+          gap: 6px;
+          padding: 5px;
+          border-radius: 16px;
+          background: $soft-purple-800;
+          button {
+            flex: 1;
+            min-width: 0;
+            border: 0;
+            border-radius: 12px;
+            padding: 12px 8px;
+            background: transparent;
+            color: $neutral-300;
+            font: inherit;
+            cursor: pointer;
+            &.active {
+              background: $green-700;
+              color: $neutral-white;
+            }
+            &:focus-visible {
+              outline: 2px solid $green-400;
+            }
           }
-          &::-webkit-scrollbar {
-            display: none;
-          }
-          .subscribe {
+        }
+        .wallet-package-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 12px;
+          .wallet-package-card {
             display: flex;
             position: relative;
             flex-direction: column;
-            margin: 24px 0;
-            padding: 24px;
-            gap: 40px;
-            border-radius: 24px;
-            .background-image {
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            min-width: 0;
+            min-height: 108px;
+            padding: 22px 12px;
+            border: 2px solid transparent;
+            border-radius: 20px;
+            background: $neutral-white;
+            color: $neutral-700;
+            font-family: Hauora-Regular;
+            cursor: pointer;
+            .wallet-discount {
               position: absolute;
-              left: 0;
-              top: 0;
-              width: 100%;
-              height: 100%;
-              border-radius: inherit;
-              object-fit: cover;
-            }
-            .subscribe-price-value {
-              max-width: 250px;
+              top: -8px;
+              right: 10px;
+              padding: 4px 7px;
+              border-radius: 999px;
+              background: $red-500;
               color: $neutral-white;
-              font-family: Involve-Medium;
-              font-size: 24px;
-              line-height: 26px;
-              letter-spacing: -0.48px;
-              z-index: 1;
-              .subscribe-price-amount {
-                color: $green-500;
-              }
-              .subscribe-price-period {
-                color: $neutral-500;
-              }
+              font-family: Hauora-Bold;
+              font-size: 13px;
+              line-height: 16px;
             }
-            .subscribe-benefits {
-              display: flex;
-              flex-direction: column;
-              gap: 4px;
-              margin: 0;
-              padding: 0;
-              list-style: none;
-              z-index: 1;
-              li {
-                display: flex;
-                align-items: center;
-                gap: 4px;
-                .subscribe-benefit-icon {
-                  --ui-icon-width: 24px;
-                  --ui-icon-height: 24px;
-                  --ui-icon-color: #{$neutral-white};
-                }
-                span {
-                  color: $neutral-white;
-                  font-family: Hauora-Regular;
-                  font-size: 16px;
-                  line-height: 16px;
-                  letter-spacing: -0.32px;
-                }
-              }
+            strong {
+              font-family: Hauora-Bold;
+              font-size: 22px;
+            }
+            > span:not(.wallet-discount) {
+              font-size: 17px;
+              overflow-wrap: anywhere;
+            }
+            &.active {
+              background: linear-gradient(261deg, $soft-purple-800 0%, $green-700 100%);
+              border-color: $green-500;
+              color: $neutral-white;
+            }
+            &:focus-visible {
+              outline: 2px solid $green-400;
+              outline-offset: 3px;
+            }
+            &:disabled {
+              cursor: default;
+              opacity: 0.65;
             }
           }
-          .subscription-actions {
-            display: flex;
-            justify-self: center;
-            gap: 10px;
-          }
-          .kassa-form {
-            display: flex;
-            flex-direction: column;
-            margin: 24px 0;
-            gap: 18px;
-            .kassa-field {
-              display: flex;
-              align-items: center;
-              justify-content: space-between;
-              gap: 40px;
-              .kassa-text {
-                color: $neutral-black;
-                font-family: Hauora-Bold;
-                font-size: 16px;
-                line-height: 18px;
-                letter-spacing: -0.32px;
-              }
-              .kassa-segmented {
-                display: flex;
-                align-items: center;
-                gap: 10px;
-                button {
-                  display: flex;
-                  position: relative;
-                  align-items: center;
-                  justify-content: center;
-                  padding: 0 16px;
-                  gap: 4px;
-                  width: 129px;
-                  height: 48px;
-                  border: none;
-                  border-radius: 999px;
-                  background-color: $neutral-white;
-                  color: $neutral-400;
-                  font-family: Hauora-Regular;
-                  font-size: 18px;
-                  line-height: 20px;
-                  letter-spacing: -0.36px;
-                  overflow: hidden;
-                  cursor: pointer;
-                  transition: color 0.25s ease-in-out;
-                  &::before {
-                    content: "";
-                    position: absolute;
-                    inset: 0;
-                    border-radius: inherit;
-                    background: linear-gradient(261deg, $soft-purple-800 0%, $green-700 100%);
-                    opacity: 0;
-                    pointer-events: none;
-                    transition: opacity 0.25s ease-in-out;
-                  }
-                  span {
-                    position: relative;
-                    z-index: 1;
-                  }
-                  .kassa-segmented-icon {
-                    position: relative;
-                    z-index: 1;
-                    --ui-icon-width: 24px;
-                    --ui-icon-height: 24px;
-                    --ui-icon-color: currentColor;
-                  }
-                  .kassa-segmented-badge {
-                    display: inline-flex;
-                    align-items: center;
-                    justify-content: center;
-                    padding: 3px 5px;
-                    border-radius: 999px;
-                    background-color: $red-500;
-                    color: $neutral-white;
-                    font-family: Hauora-Regular;
-                    font-size: 14px;
-                    line-height: 14px;
-                    letter-spacing: -0.28px;
-                    pointer-events: none;
-                  }
-                  &.active {
-                    color: $neutral-white;
-                    &::before {
-                      opacity: 1;
-                    }
-                  }
-                  &:not(.active):hover,
-                  &:not(.active):focus-visible,
-                  &:not(.active):active {
-                    color: $neutral-black;
-                  }
-                }
-              }
-            }
-            .kassa-actions {
-              display: flex;
-              position: absolute;
-              left: 135px;
-              bottom: 0;
-              gap: 10px;
-              .kassa-submit {
-                min-width: 175px;
-              }
-              :deep(.kassa-back .ui-button__icon) {
-                transform: rotate(90deg);
-              }
-            }
+        }
+      }
+      .wallet-orders {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        color: $neutral-300;
+        button {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          text-align: left;
+          padding: 12px;
+          background: $soft-purple-800;
+          color: $neutral-100;
+          border: 0;
+          border-radius: 12px;
+          font: inherit;
+          cursor: pointer;
+          small {
+            color: $neutral-400;
           }
         }
       }
     }
   }
 }
-
-.subscription-purchase-overlay-enter-active,
-.subscription-purchase-overlay-leave-active {
-  transition: opacity 0.25s ease-in-out;
+.wallet-overlay-enter-active,
+.wallet-overlay-leave-active {
+  transition: opacity 0.2s ease;
 }
-.subscription-purchase-overlay-enter-from,
-.subscription-purchase-overlay-leave-to {
+.wallet-overlay-enter-from,
+.wallet-overlay-leave-to {
   opacity: 0;
 }
-.kassa-payment-expand-enter-active,
-.kassa-payment-expand-leave-active {
-  overflow: hidden;
-  transition: max-height 0.25s ease-in-out, opacity 0.2s ease-in-out, transform 0.25s ease-in-out;
-}
-.kassa-payment-expand-enter-from,
-.kassa-payment-expand-leave-to {
-  max-height: 0;
-  opacity: 0;
-  transform: translateY(-10px);
-}
-.kassa-payment-expand-enter-to,
-.kassa-payment-expand-leave-from {
-  max-height: 120px;
-  opacity: 1;
-  transform: translateY(0);
-}
-
 </style>

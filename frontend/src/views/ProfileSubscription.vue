@@ -3,33 +3,45 @@
     <div class="subscription-blocks">
         <section class="block-payments block-scrollable">
           <header class="section-header">
-            <span class="section-title">История платежей</span>
+            <span class="section-title">История операций</span>
           </header>
+          <div class="payments-balance">
+            <strong>Баланс: {{ formattedBalance }} DC</strong>
+            <div class="payments-actions">
+              <UiButton size="low" text="Пополнить баланс" @click="emit('open-wallet', 'coins')" />
+              <UiButton variant="white" size="low" :text="userStore.subscriptionActive ? 'Продлить подписку' : 'Купить подписку'" @click="emit('open-wallet', 'subscription')" />
+            </div>
+          </div>
           <div v-if="paymentsLoading" class="payments-state">Загрузка...</div>
           <div v-else-if="paymentsError" class="payments-state danger">{{ paymentsError }}</div>
-          <div v-else-if="paymentsItems.length === 0" class="payments-state">Успешных платежей пока нет</div>
+          <div v-else-if="paymentsItems.length === 0" class="payments-state">Операций пока нет</div>
           <div v-else class="subscription-scroll-wrap">
             <div ref="paymentsScroll" class="payments-table-wrap subscription-scroll">
             <table class="payments-table">
               <thead>
                 <tr>
-                  <th>Дата платежа</th>
-                  <th>Срок подписки</th>
-                  <th>Стоимость</th>
-                  <th>Промокод</th>
+                  <th>Дата и время</th>
+                  <th>Тип</th>
+                  <th>Получено</th>
+                  <th>Потрачено</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="item in paymentsItems" :key="item.id">
-                  <td>{{ formatPaymentPaidAt(item.paid_at) }}</td>
-                  <td>{{ formatPaymentSubscriptionTerm(item) }}</td>
-                  <td>{{ formatPaymentMoney(item.amount, item.currency) }}</td>
-                  <td>{{ formatPaymentPromoDiscount(item.promo_discount_percent) }}</td>
+                  <td>{{ formatLocalDateTime(item.date, PAYMENT_DATE_OPTIONS) }}</td>
+                  <td>{{ item.type }}</td>
+                  <td>{{ item.received }}</td>
+                  <td>{{ item.spent }}</td>
                 </tr>
               </tbody>
             </table>
             </div>
             <UiScrollbar :target="paymentsScroll" theme="dark" right="-14px" />
+          </div>
+          <div v-if="paymentsPages > 1" class="payments-pager">
+            <UiButton variant="white" size="low" text="Назад" :disabled="paymentsPage <= 1 || paymentsLoading" @click="changePaymentsPage(paymentsPage - 1)" />
+            <span>{{ paymentsPage }} / {{ paymentsPages }}</span>
+            <UiButton variant="white" size="low" text="Вперёд" :disabled="paymentsPage >= paymentsPages || paymentsLoading" @click="changePaymentsPage(paymentsPage + 1)" />
           </div>
         </section>
     </div>
@@ -93,24 +105,28 @@ import { useFriendsStore, useUserStore, type BlacklistItem } from '@/store'
 import { canOpenMiniProfileTarget, normalizeMiniProfileUserId } from '@/services/miniProfile'
 import UiTooltip from '@/components/UiTooltip.vue'
 import UiScrollbar from '@/components/UiScrollbar.vue'
+import UiButton from '@/components/UiButton.vue'
+import type { WalletTab } from '@/services/dc'
 import MiniProfile from '@/views/MiniProfile.vue'
 import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
 
-type SubscriptionPaymentPlan = 'month' | 'year'
-
 type SubscriptionPaymentItem = {
-  id: number
-  paid_at: string
-  plan?: SubscriptionPaymentPlan | null
-  subscription_months: number
-  amount?: string | null
-  currency?: string | null
-  promo_discount_percent?: number | null
+  id: string
+  date: string
+  type: string
+  received: string
+  spent: string
 }
 
 type SubscriptionPaymentsResponse = {
   items?: SubscriptionPaymentItem[] | null
+  total: number
+  page: number
+  per_page: number
+  pages: number
 }
+
+const emit = defineEmits<{ 'open-wallet': [tab: WalletTab] }>()
 
 const paymentsItems = ref<SubscriptionPaymentItem[]>([])
 const paymentsScroll = ref<HTMLElement | null>(null)
@@ -118,6 +134,8 @@ const blacklistScroll = ref<HTMLElement | null>(null)
 const paymentsLoading = ref(false)
 const paymentsLoaded = ref(false)
 const paymentsError = ref('')
+const paymentsPage = ref(1)
+const paymentsPages = ref(1)
 let paymentsRequestSeq = 0
 
 const PAYMENT_DATE_OPTIONS: Intl.DateTimeFormatOptions = {
@@ -128,96 +146,56 @@ const PAYMENT_DATE_OPTIONS: Intl.DateTimeFormatOptions = {
   minute: '2-digit',
 }
 
-function paymentMonths(raw: unknown): number {
-  const value = Number(raw)
-  if (!Number.isFinite(value)) return 0
-  return Math.max(0, Math.trunc(value))
-}
-
-function paymentMonthWord(value: number): string {
-  const mod100 = value % 100
-  const mod10 = value % 10
-  if (mod100 >= 11 && mod100 <= 14) return 'месяцев'
-  if (mod10 === 1) return 'месяц'
-  if (mod10 >= 2 && mod10 <= 4) return 'месяца'
-  return 'месяцев'
-}
-
-function formatPaymentPaidAt(value: string): string {
-  return formatLocalDateTime(value, PAYMENT_DATE_OPTIONS)
-}
-
-function formatPaymentSubscriptionTerm(item: SubscriptionPaymentItem): string {
-  if (item.plan === 'month') return '1 месяц'
-  if (item.plan === 'year') return '1 год'
-
-  const months = paymentMonths(item.subscription_months)
-  if (months <= 0) return '—'
-  return `${months} ${paymentMonthWord(months)}`
-}
-
-function formatPaymentMoney(amountRaw?: string | null, currencyRaw?: string | null): string {
-  const amountText = String(amountRaw || '').trim()
-  if (!amountText) return '—'
-
-  const currency = String(currencyRaw || '').trim().toUpperCase()
-  const value = Number(amountText)
-  if (Number.isFinite(value) && /^[A-Z]{3}$/.test(currency)) {
-    try {
-      return new Intl.NumberFormat(undefined, {
-        style: 'currency',
-        currency,
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 2,
-      }).format(value)
-    } catch {
-      return `${amountText} ${currency}`.trim()
-    }
-  }
-
-  return `${amountText} ${currency}`.trim()
-}
-
-function formatPaymentPromoDiscount(valueRaw?: number | null): string {
-  const value = Number(valueRaw)
-  if (!Number.isFinite(value) || value <= 0) return 'нет'
-
-  const formatted = new Intl.NumberFormat('ru-RU', {
-    maximumFractionDigits: 2,
-  }).format(value)
-  return `${formatted}%`
-}
-
 async function loadPayments(force = false): Promise<void> {
-  if (paymentsLoading.value) return
   if (paymentsLoaded.value && !force) return
   const seq = ++paymentsRequestSeq
   paymentsLoading.value = true
   paymentsError.value = ''
   try {
-    const { data } = await api.get<SubscriptionPaymentsResponse>('/users/payments/subscriptions')
+    const { data } = await api.get<SubscriptionPaymentsResponse>('/users/payments/history', { params: { page: paymentsPage.value, per_page: 20 } })
     if (seq !== paymentsRequestSeq) return
     paymentsItems.value = Array.isArray(data?.items) ? data.items : []
+    paymentsPages.value = Math.max(1, Number(data.pages) || 1)
+    if (paymentsPage.value > paymentsPages.value) {
+      paymentsPage.value = paymentsPages.value
+      void loadPayments(true)
+      return
+    }
     paymentsLoaded.value = true
   } catch {
     if (seq !== paymentsRequestSeq) return
     paymentsItems.value = []
-    paymentsError.value = 'Не удалось загрузить платежи'
+    paymentsError.value = 'Не удалось загрузить историю операций'
   } finally {
     if (seq === paymentsRequestSeq) paymentsLoading.value = false
   }
 }
 
+function changePaymentsPage(page: number): void {
+  paymentsPage.value = Math.max(1, Math.min(paymentsPages.value, page))
+  void loadPayments(true)
+}
+
+function onWalletChanged(event: Event): void {
+  const uid = Number((event as CustomEvent)?.detail?.user_id || 0)
+  if (uid && uid !== userStore.user?.id) return
+  paymentsPage.value = 1
+  void loadPayments(true)
+}
+
 onMounted(() => {
   void loadPayments(true)
+  window.addEventListener('dc-wallet-changed', onWalletChanged)
 })
 
 onBeforeUnmount(() => {
   paymentsRequestSeq += 1
+  window.removeEventListener('dc-wallet-changed', onWalletChanged)
 })
 
 const friendsStore = useFriendsStore()
 const userStore = useUserStore()
+const formattedBalance = computed(() => new Intl.NumberFormat('ru-RU').format(userStore.user?.dc_balance ?? 0))
 const { subscriptionHint } = useSubscriptionStatus()
 const { subscriptionActive } = storeToRefs(userStore)
 const blacklistHint = computed(() => {
@@ -277,7 +255,8 @@ watch(subscriptionActive, () => {
   void loadBlacklist()
 })
 
-watch(() => userStore.user?.subscription_until, () => {
+watch(() => [userStore.user?.subscription_until, userStore.user?.dc_balance], () => {
+  paymentsPage.value = 1
   void loadPayments(true)
 })
 
@@ -295,207 +274,257 @@ onMounted(() => {
   width: 100%;
   height: 100%;
   min-height: 0;
-}
-.subscription-blocks {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  box-sizing: border-box;
-  width: calc(50% - 5px);
-  min-width: 0;
-  height: 100%;
-  min-height: 0;
-  > .block-scrollable {
-    flex-shrink: 0;
-    max-height: 100%;
-  }
-}
-.block-scrollable {
-  box-sizing: border-box;
-  min-height: 0;
-  .section-header, .blacklist-head { flex-shrink: 0; }
-  .subscription-scroll-wrap {
-    position: relative;
+  .subscription-blocks {
     display: flex;
-    min-height: 0;
-  }
-  .subscription-scroll {
-    min-height: 0;
-    overflow: auto;
-    scrollbar-width: none;
-    &::-webkit-scrollbar { display: none; }
-  }
-}
-.block-payments {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  padding: 24px;
-  border-radius: 24px;
-  background-color: $soft-purple-900;
-  .section-header {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 16px;
-  }
-  .section-title {
-    display: block;
-    color: $neutral-white;
-    font-family: Involve-Medium;
-    font-size: 24px;
-    line-height: 30px;
-  }
-  .payments-state {
-    padding: 20px 10px;
-    text-align: center;
-    color: $neutral-300;
-    &.danger {
-      color: $orange-500;
-    }
-  }
-  .payments-table-wrap {
-    width: 100%;
-    overflow-x: auto;
-    border-radius: 20px;
-    background-color: $soft-purple-800;
-    .payments-table {
-      width: 100%;
-      border-collapse: collapse;
-      color: $neutral-100;
-      th,
-      td {
-        padding: 14px 16px;
-        border-bottom: 1px solid rgba($neutral-500, 0.2);
-        text-align: left;
-        vertical-align: top;
-        line-height: 1.25;
-      }
-      th:not(:first-child),
-      td:not(:first-child) {
-        text-align: center;
-      }
-      th {
-        color: $neutral-white;
-        font-family: Hauora-SemiBold;
-        font-size: 16px;
-        white-space: nowrap;
-      }
-      td {
-        font-size: 15px;
-        overflow-wrap: anywhere;
-      }
-      tbody tr:last-child td {
-        border-bottom: none;
-      }
-    }
-  }
-}
-.block-blacklist {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  padding: 24px;
-  border-radius: 24px;
-  background-color: $soft-purple-900;
-  .section-title {
-    display: block;
-    color: $neutral-white;
-    font-family: Involve-Medium;
-    font-size: 24px;
-    line-height: 30px;
-  }
-  .blacklist-title {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .blacklist-head {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    justify-content: space-between;
+    flex-direction: column;
     gap: 10px;
-  }
-  .blacklist-empty {
-    text-align: center;
-    padding: 20px 0;
-    color: $neutral-300;
-    &.danger {
-      color: $red-500;
-    }
-  }
-  .blacklist-table-wrap {
-    width: 100%;
-    overflow-x: auto;
-    border: 1px solid $soft-purple-800;
-    border-radius: 20px;
-    background-color: $soft-purple-800;
-  }
-  .blacklist-table {
-    width: 100%;
-    border-collapse: collapse;
-    color: $neutral-100;
-    th,
-    td {
-      padding: 14px 16px;
-      border-bottom: 1px solid rgba($neutral-500, 0.2);
-      text-align: center;
-      vertical-align: middle;
-      line-height: 1.25;
-    }
-    th:first-child,
-    td:first-child {
-      text-align: left;
-    }
-    th {
-      color: $neutral-white;
-      font-family: Hauora-SemiBold;
-      font-size: 16px;
-      white-space: nowrap;
-    }
-    td {
-      font-size: 15px;
-    }
-    tbody tr:last-child td {
-      border-bottom: none;
-    }
-  }
-  .blacklist-user {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
+    box-sizing: border-box;
+    width: calc(50% - 5px);
     min-width: 0;
-    padding: 0;
-    border: none;
-    border-radius: 12px;
-    background: transparent;
-    text-align: left;
-    cursor: pointer;
-    &:disabled {
-      cursor: default;
-    }
-    &:focus-visible {
-      outline: 2px solid $green-500;
-      outline-offset: 4px;
-    }
-    .blacklist-avatar {
-      flex: 0 0 auto;
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      object-fit: cover;
-      background-color: black;
-    }
-    span {
-      color: $neutral-100;
-      font-family: Hauora-SemiBold;
-      font-size: 16px;
-      line-height: 1.2;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+    height: 100%;
+    min-height: 0;
+    > .block-scrollable {
+      flex-shrink: 0;
+      max-height: 100%;
+      box-sizing: border-box;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      padding: 24px;
+      border-radius: 24px;
+      background-color: $soft-purple-900;
+      .section-header,
+      .blacklist-head {
+        flex-shrink: 0;
+      }
+      .subscription-scroll-wrap {
+        position: relative;
+        display: flex;
+        min-height: 0;
+        .subscription-scroll {
+          min-height: 0;
+          overflow: auto;
+          scrollbar-width: none;
+          &::-webkit-scrollbar {
+            display: none;
+          }
+        }
+      }
+      &.block-payments {
+        .section-header {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 16px;
+          .section-title {
+            display: block;
+            color: $neutral-white;
+            font-family: Involve-Medium;
+            font-size: 24px;
+            line-height: 30px;
+          }
+        }
+        .payments-balance {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          color: $neutral-100;
+          font-family: Hauora-Regular;
+          .payments-actions {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+          }
+        }
+        .payments-state {
+          padding: 20px 10px;
+          text-align: center;
+          color: $neutral-300;
+          &.danger {
+            color: $orange-500;
+          }
+        }
+        .subscription-scroll-wrap {
+          .payments-table-wrap {
+            width: 100%;
+            overflow-x: auto;
+            border-radius: 20px;
+            background-color: $soft-purple-800;
+            .payments-table {
+              width: 100%;
+              border-collapse: collapse;
+              color: $neutral-100;
+              thead {
+                tr {
+                  th {
+                    padding: 14px 16px;
+                    border-bottom: 1px solid rgba($neutral-500, 0.2);
+                    text-align: left;
+                    vertical-align: top;
+                    line-height: 1.25;
+                    color: $neutral-white;
+                    font-family: Hauora-SemiBold;
+                    font-size: 16px;
+                    white-space: nowrap;
+                    &:not(:first-child) {
+                      text-align: center;
+                    }
+                  }
+                }
+              }
+              tbody {
+                tr {
+                  td {
+                    padding: 14px 16px;
+                    border-bottom: 1px solid rgba($neutral-500, 0.2);
+                    text-align: left;
+                    vertical-align: top;
+                    line-height: 1.25;
+                    font-size: 15px;
+                    overflow-wrap: anywhere;
+                    &:not(:first-child) {
+                      text-align: center;
+                    }
+                  }
+                  &:last-child {
+                    td {
+                      border-bottom: none;
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        .payments-pager {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 8px;
+          justify-content: space-between;
+          color: $neutral-300;
+        }
+      }
+      &.block-blacklist {
+        .blacklist-head {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 10px;
+          .blacklist-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            .section-title {
+              display: block;
+              color: $neutral-white;
+              font-family: Involve-Medium;
+              font-size: 24px;
+              line-height: 30px;
+            }
+          }
+        }
+        .blacklist-empty {
+          text-align: center;
+          padding: 20px 0;
+          color: $neutral-300;
+          &.danger {
+            color: $red-500;
+          }
+        }
+        .subscription-scroll-wrap {
+          .blacklist-table-wrap {
+            width: 100%;
+            overflow-x: auto;
+            border: 1px solid $soft-purple-800;
+            border-radius: 20px;
+            background-color: $soft-purple-800;
+            .blacklist-table {
+              width: 100%;
+              border-collapse: collapse;
+              color: $neutral-100;
+              thead {
+                tr {
+                  th {
+                    padding: 14px 16px;
+                    border-bottom: 1px solid rgba($neutral-500, 0.2);
+                    text-align: center;
+                    vertical-align: middle;
+                    line-height: 1.25;
+                    color: $neutral-white;
+                    font-family: Hauora-SemiBold;
+                    font-size: 16px;
+                    white-space: nowrap;
+                    &:first-child {
+                      text-align: left;
+                    }
+                  }
+                }
+              }
+              tbody {
+                tr {
+                  td {
+                    padding: 14px 16px;
+                    border-bottom: 1px solid rgba($neutral-500, 0.2);
+                    text-align: center;
+                    vertical-align: middle;
+                    line-height: 1.25;
+                    font-size: 15px;
+                    &:first-child {
+                      text-align: left;
+                    }
+                    .blacklist-user {
+                      display: inline-flex;
+                      align-items: center;
+                      gap: 4px;
+                      min-width: 0;
+                      padding: 0;
+                      border: none;
+                      border-radius: 12px;
+                      background: transparent;
+                      text-align: left;
+                      cursor: pointer;
+                      &:disabled {
+                        cursor: default;
+                      }
+                      &:focus-visible {
+                        outline: 2px solid $green-500;
+                        outline-offset: 4px;
+                      }
+                      .blacklist-avatar {
+                        flex: 0 0 auto;
+                        width: 24px;
+                        height: 24px;
+                        border-radius: 50%;
+                        object-fit: cover;
+                        background-color: black;
+                      }
+                      span {
+                        color: $neutral-100;
+                        font-family: Hauora-SemiBold;
+                        font-size: 16px;
+                        line-height: 1.2;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                        white-space: nowrap;
+                      }
+                    }
+                  }
+                  &:last-child {
+                    td {
+                      border-bottom: none;
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }
