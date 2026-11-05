@@ -20,7 +20,6 @@ from ..core.roles import ROLE_ADMIN, ROLE_USER, normalize_user_role, room_modera
 from ..core.settings import settings
 from ..models.game import Game
 from ..services.game_scoring import normalize_game_mode, normalize_game_points_value
-from ..models.kassa_payment import KassaPayment
 from ..models.room import Room
 from ..models.friend import FriendLink, UserBlacklist
 from ..models.notif import Notif
@@ -30,7 +29,7 @@ from ..models.user import User
 from ..realtime.sio import sio
 from ..security.admin_guard import is_protected_admin_uid
 from ..security.auth_tokens import get_identity
-from ..services.minio import delete_avatars_async
+from ..services.minio import delete_avatars_async, delete_avatar_version_async
 from ..services.user_cache import (
     get_user_profile_cached,
     get_user_profiles_cached,
@@ -43,8 +42,19 @@ from ..services.nickname import (
     normalize_nickname_changes_left,
     reset_nickname_changes_after_subscription_expired,
 )
-from ..services.blacklist import clear_user_blacklist_if_subscription_inactive
+from ..services.blacklist import emit_blacklist_update
+from ..services.coin_prices import normalize_dc_packages
 from ..services.telegram import send_text_message
+from ..services.notification_texts import (
+    _ru_plural,
+    _split_admin_telegram_text,
+    _subscription_datetime_as_utc,
+    _subscription_expiring_soon_notice_window,
+    _subscription_expiry_matches,
+    _subscription_notice_event_key,
+    format_subscription_purchase_duration,
+    format_subscription_until,
+)
 from ..schemas.common import Ok, Identity
 if TYPE_CHECKING:
     from ..schemas.auth import BotResetIn, BotStatusIn, BotVerifyIn, PasswordLoginIn
@@ -157,7 +167,6 @@ __all__ = [
     "sync_expired_profile_subscriptions",
     "notify_expiring_profile_subscriptions",
     "notify_subscription_upsert",
-    "send_sanction_finished_telegram_notice",
     "delete_gif_avatar_for_inactive_subscription",
     "emit_sanctions_update",
     "build_user_out_payload",
@@ -184,11 +193,6 @@ __all__ = [
     "format_duration_seconds_compact",
     "format_subscription_until",
     "format_subscription_purchase_duration",
-    "SUBSCRIPTION_PAYMENT_BASE_PRICES",
-    "payment_decimal",
-    "payment_amount_text",
-    "payment_plan",
-    "payment_promo_discount_percent",
     "normalize_chat_mention_query",
     "normalize_username",
     "normalize_password",
@@ -238,7 +242,6 @@ __all__ = [
     "normalize_admin_banner_text",
     "normalize_admin_banner_link",
     "normalize_home_carousel_banner_key",
-    "normalize_donation_url",
     "normalize_season_start_value",
     "build_app_settings_snapshot_defaults",
     "build_app_settings_snapshot_from_row",
@@ -297,9 +300,6 @@ HOSTED_GAME_SUSPEND_REDUCTION_CHANGED_AT = datetime(2026, 5, 1, tzinfo=timezone.
 MSK_TZ = timezone(timedelta(hours=3))
 SUSPEND_HOSTED_WORKOFF_LOOKAHEAD = timedelta(minutes=5)
 EXPIRED_SANCTION_CHAT_NOTICE_TTL_S = 60 * 60 * 24 * 365
-EXPIRED_SUBSCRIPTION_SYNC_TTL_S = 14 * 24 * 60 * 60
-SUBSCRIPTION_EXPIRING_SOON_NOTICE_BEFORE = timedelta(days=3)
-SUBSCRIPTION_EXPIRING_SOON_NOTICE_TTL_S = 14 * 24 * 60 * 60
 AUTO_DELETE_UNVERIFIED_ACCOUNT_LOCK_TTL_S = 60 * 60
 TIMED_KINDS = {SANCTION_TIMEOUT, SANCTION_SUSPEND}
 
@@ -580,21 +580,6 @@ def normalize_home_carousel_banner_key(raw: object) -> str | None:
     return value
 
 
-def normalize_donation_url(raw: object) -> str:
-    value = str(raw or "").strip()
-    if not value or value == "0":
-        return ""
-
-    lowered = value.lower()
-    if lowered.startswith("https://") or lowered.startswith("http://"):
-        return value
-
-    if "://" in value:
-        return ""
-
-    return f"https://{value.lstrip('/')}"
-
-
 def normalize_season_start_value(raw: object, *, default_starts: Sequence[int]) -> tuple[str, tuple[int, ...]]:
     starts = parse_season_starts_or_default(raw, default=default_starts)
     return season_starts_csv(starts), starts
@@ -634,7 +619,7 @@ def build_app_settings_snapshot_defaults(core_settings_obj: Any, *, default_star
         admin_banner_text=normalize_admin_banner_text(getattr(core_settings_obj, "ADMIN_BANNER_TEXT", "0")),
         admin_banner_link=normalize_admin_banner_link(getattr(core_settings_obj, "ADMIN_BANNER_LINK", "0")),
         home_carousel_banner_key=None,
-        donation_url=normalize_donation_url(getattr(core_settings_obj, "DONATION_URL", "")),
+        dc_coin_packages=normalize_dc_packages(None),
         rooms_limit_global=getattr(core_settings_obj, "ROOMS_LIMIT_GLOBAL"),
         rooms_limit_per_user=getattr(core_settings_obj, "ROOMS_LIMIT_PER_USER"),
         spectators_limit=max(0, int(getattr(core_settings_obj, "SPECTATORS_LIMIT", 10))),
@@ -687,7 +672,7 @@ def build_app_settings_snapshot_from_row(row: Any, *, default_starts: Sequence[i
         admin_banner_text=normalize_admin_banner_text(getattr(row, "admin_banner_text", "0")),
         admin_banner_link=normalize_admin_banner_link(getattr(row, "admin_banner_link", "0")),
         home_carousel_banner_key=normalize_home_carousel_banner_key(getattr(row, "home_carousel_banner_key", None)),
-        donation_url=normalize_donation_url(getattr(row, "donation_url", "")),
+        dc_coin_packages=normalize_dc_packages(getattr(row, "dc_coin_packages", None)),
         rooms_limit_global=int(getattr(row, "rooms_limit_global")),
         rooms_limit_per_user=int(getattr(row, "rooms_limit_per_user")),
         spectators_limit=max(0, int(getattr(row, "spectators_limit", 10))),
@@ -1106,16 +1091,7 @@ async def adjust_active_sanction_duration(sanction_id: int, payload: AdminSancti
     await session.refresh(note)
 
     with suppress(Exception):
-        await emit_notify(uid, note, kind="sanction")
-    if action_value == "decrease":
-        with suppress(Exception):
-            await _send_sanction_telegram_notice(
-                session,
-                user_id=uid,
-                telegram_id=user.telegram_id,
-                note=note,
-                log_event="sanction_duration_decreased.telegram_notify_failed",
-            )
+        await emit_notify(uid, note, kind="sanction", extra={"tone": "orange" if kind == SANCTION_TIMEOUT else "yellow"})
     with suppress(Exception):
         await emit_sanctions_update(session, uid)
     with suppress(Exception):
@@ -1324,9 +1300,7 @@ async def revoke_active_suspend(session: AsyncSession, sanction: UserSanction, *
     await session.refresh(note)
 
     with suppress(Exception):
-        await emit_notify(uid, note, kind="sanction")
-    with suppress(Exception):
-        await send_sanction_finished_telegram_notice(session, user_id=uid, note=note)
+        await emit_notify(uid, note, kind="sanction", extra={"tone": "yellow"})
     with suppress(Exception):
         await emit_sanctions_update(session, uid)
     with suppress(Exception):
@@ -1375,13 +1349,13 @@ async def reduce_suspend_after_hosted_game(session: AsyncSession, user_id: int, 
 def format_duration_parts(months: int, days: int, hours: int, minutes: int) -> str:
     parts: list[str] = []
     if months:
-        parts.append(f"{months} мес")
+        parts.append(f"{months} {_ru_plural(months, 'месяц', 'месяца', 'месяцев')}")
     if days:
-        parts.append(f"{days} д")
+        parts.append(f"{days} {_ru_plural(days, 'день', 'дня', 'дней')}")
     if hours:
-        parts.append(f"{hours} ч")
+        parts.append(f"{hours} {_ru_plural(hours, 'час', 'часа', 'часов')}")
     if minutes or not parts:
-        parts.append(f"{minutes} мин")
+        parts.append(f"{minutes} {_ru_plural(minutes, 'минута', 'минуты', 'минут')}")
 
     return " ".join(parts)
 
@@ -1389,7 +1363,7 @@ def format_duration_parts(months: int, days: int, hours: int, minutes: int) -> s
 def format_duration_seconds_compact(total_seconds: int) -> str:
     seconds_value = max(0, int(total_seconds or 0))
     if seconds_value <= 0:
-        return "0 мин"
+        return "0 минут"
 
     total_minutes = (seconds_value + 59) // 60
     minutes_in_month = 30 * 24 * 60
@@ -1640,6 +1614,7 @@ async def emit_sanctions_update(session: AsyncSession, user_id: int) -> None:
 async def build_user_out_payload(session: AsyncSession, *, user_id: int, role: str | None = None):
     from ..schemas.user import UserOut
     from ..services.global_chat import count_global_chat_unread
+    from ..services.wallet import get_dc_balance
 
     started = stage_started = perf_counter()
     stages_ms: dict[str, float] = {}
@@ -1722,6 +1697,7 @@ async def build_user_out_payload(session: AsyncSession, *, user_id: int, role: s
         in_active_game_as_alive_player=in_active_game_as_alive_player,
         in_active_game_as_player=in_active_game_as_player,
         chat_unread_count=chat_unread_count,
+        dc_balance=await get_dc_balance(session, uid),
     )
     finish_stage("payload")
     duration_ms = (perf_counter() - started) * 1000
@@ -1749,142 +1725,20 @@ async def emit_auth_profile_sync(user_id: int, *, role: str | None = None, paylo
     )
 
 
-def _expired_subscription_sync_key(user_id: int, ends_at: datetime) -> str:
-    normalized = _subscription_datetime_as_utc(ends_at)
-    return f"user:{int(user_id)}:subscription_expired_sync:{int(normalized.timestamp())}"
 
 
-def _subscription_expiring_soon_notice_key(user_id: int, ends_at: datetime) -> str:
-    normalized = _subscription_datetime_as_utc(ends_at)
-    return f"user:{int(user_id)}:subscription_expiring_soon:{int(normalized.timestamp())}"
 
 
-def _subscription_datetime_as_utc(value: datetime) -> datetime:
-    if value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
-
-    return value.astimezone(timezone.utc)
 
 
-def _subscription_expiring_soon_notice_window(now: datetime) -> tuple[datetime, datetime]:
-    local_now = (
-        now.astimezone()
-        if now.tzinfo is not None
-        else now.replace(tzinfo=timezone.utc).astimezone()
-    )
-    target_start_local = (
-        local_now.replace(hour=0, minute=0, second=0, microsecond=0)
-        + SUBSCRIPTION_EXPIRING_SOON_NOTICE_BEFORE
-    )
-    target_end_local = target_start_local + timedelta(days=1)
-    return target_start_local.astimezone(timezone.utc), target_end_local.astimezone(timezone.utc)
 
 
-def format_subscription_until(ends_at: datetime) -> str:
-    local_dt = ends_at.astimezone() if ends_at.tzinfo is not None else ends_at
-    return local_dt.strftime("%d.%m.%Y")
 
 
-def _ru_plural(value: int, one: str, few: str, many: str) -> str:
-    number = abs(int(value))
-    if 11 <= number % 100 <= 14:
-        return many
-
-    last_digit = number % 10
-    if last_digit == 1:
-        return one
-
-    if 2 <= last_digit <= 4:
-        return few
-
-    return many
-
-
-def format_subscription_purchase_duration(*, months: int = 0, days: int = 0) -> str:
-    parts: list[str] = []
-    months_value = max(0, int(months or 0))
-    days_value = max(0, int(days or 0))
-    if months_value:
-        parts.append(
-            f"{months_value} "
-            f"{_ru_plural(months_value, 'месяц', 'месяца', 'месяцев')}"
-        )
-    if days_value:
-        parts.append(
-            f"{days_value} "
-            f"{_ru_plural(days_value, 'день', 'дня', 'дней')}"
-        )
-
-    return " ".join(parts) or "выбранный срок"
 
 
 def _is_admin_subscription_target(role: object) -> bool:
     return normalize_user_role(role) == ROLE_ADMIN
-
-
-SUBSCRIPTION_PAYMENT_BASE_PRICES: dict[str, dict[str, Decimal]] = {
-    "RUB": {"month": Decimal("490"), "year": Decimal("4990")},
-    "EUR": {"month": Decimal("6.9"), "year": Decimal("69")},
-    "USD": {"month": Decimal("7.9"), "year": Decimal("79")},
-}
-
-
-def payment_decimal(value: object) -> Decimal | None:
-    if value is None or value == "":
-        return None
-
-    try:
-        return Decimal(str(value))
-
-    except (InvalidOperation, TypeError, ValueError):
-        return None
-
-
-def payment_amount_text(value: object) -> str | None:
-    amount = payment_decimal(value)
-    if amount is None:
-        return None
-
-    return format(amount, "f")
-
-
-def payment_plan(payment: KassaPayment) -> Literal["month", "year"] | None:
-    plan = str(payment.plan or "").strip().lower()
-    if plan in {"month", "year"}:
-        return cast(Literal["month", "year"], plan)
-
-    months = int(payment.subscription_months or 0)
-    if months == 1:
-        return "month"
-
-    if months == 12:
-        return "year"
-
-    return None
-
-
-def payment_promo_discount_percent(payment: KassaPayment) -> float | None:
-    amount = payment_decimal(payment.amount)
-    if amount is None or amount < 0:
-        return None
-
-    currency = str(payment.currency or "").strip().upper()
-    plan = payment_plan(payment)
-    if not currency or plan is None:
-        return None
-
-    base_amount = SUBSCRIPTION_PAYMENT_BASE_PRICES.get(currency, {}).get(plan)
-    if base_amount is None or base_amount <= 0 or amount >= base_amount:
-        return None
-
-    percent = ((base_amount - amount) * Decimal("100") / base_amount).quantize(
-        Decimal("0.01"),
-        rounding=ROUND_HALF_UP,
-    )
-    if percent <= 0:
-        return None
-
-    return float(percent)
 
 
 async def _send_user_telegram_notice(uid: int, telegram_id: int | None, title: str, text: str, *, log_event: str) -> bool:
@@ -1941,31 +1795,27 @@ def schedule_user_telegram_notice(uid: int, telegram_id: int | None, title: str,
     _schedule_user_telegram_notice(uid, telegram_id, title, text, log_event=log_event)
 
 
-async def send_contact_request_admin_telegram_message(text: str) -> None:
-    try:
-        result = await send_text_message(
-            chat_id=int(settings.ADMIN_TELEGRAM_ID),
-            text=text,
-        )
-    except Exception:
-        log.warning("contact_request.admin_telegram_notify_failed", reason="unexpected_error", exc_info=True)
-        return
-
-    if not result.ok:
-        log.warning(
-            "contact_request.admin_telegram_notify_failed",
-            reason=result.reason,
-        )
 
 
-def schedule_contact_request_admin_telegram_message(text: str) -> None:
+async def send_contact_request_admin_telegram_message(text: str, *, context: str | None = None) -> None:
+    for part_index, part in enumerate(_split_admin_telegram_text(text, context=context), 1):
+        try:
+            result = await send_text_message(chat_id=int(settings.ADMIN_TELEGRAM_ID), text=part)
+        except Exception:
+            log.warning("contact_request.admin_telegram_notify_failed", reason="unexpected_error", part=part_index, exc_info=True)
+            continue
+        if not result.ok:
+            log.warning("contact_request.admin_telegram_notify_failed", reason=result.reason, part=part_index)
+
+
+def schedule_contact_request_admin_telegram_message(text: str, *, context: str | None = None) -> None:
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:
         log.warning("contact_request.admin_telegram_notify_failed", reason="event_loop_unavailable")
         return
 
-    loop.create_task(send_contact_request_admin_telegram_message(text))
+    loop.create_task(send_contact_request_admin_telegram_message(text, context=context))
 
 
 def _schedule_subscription_telegram_message(uid: int, telegram_id: int, title: str, text: str) -> None:
@@ -1978,6 +1828,32 @@ def _schedule_subscription_telegram_message(uid: int, telegram_id: int, title: s
     )
 
 
+def build_subscription_upsert_notice(
+    user: User,
+    subscription: UserSubscription,
+    *,
+    extended: bool,
+    months: int = 0,
+    days: int = 0,
+    source: Literal["admin", "purchase"] = "admin",
+) -> Notif:
+    uid = int(user.id)
+    until_text = format_subscription_until(subscription.ends_at)
+    duration_text = format_subscription_purchase_duration(months=months, days=days)
+    title = "Подписка"
+    if source == "admin":
+        action = "продлил" if extended else "активировал"
+        text = (
+            f"Администратор бесплатно {action} вашу подписку на {duration_text}. "
+            f"Подписка действует до {until_text}."
+        )
+    else:
+        action = "продлили" if extended else "купили"
+        text = f"Вы {action} подписку на {duration_text}. Подписка действует до {until_text}."
+
+    return Notif(user_id=uid, title=title, text=text)
+
+
 async def notify_subscription_upsert(
     session: AsyncSession,
     user: User,
@@ -1988,66 +1864,23 @@ async def notify_subscription_upsert(
     days: int = 0,
     note: Notif | None = None,
     notify_telegram: bool = True,
+    source: Literal["admin", "purchase"] = "admin",
 ) -> None:
-    uid = int(user.id)
-    until_text = format_subscription_until(subscription.ends_at)
-    duration_text = format_subscription_purchase_duration(months=months, days=days)
-    action_text = "продлена" if extended else "активирована"
-    title = "Подписка"
-    text = (
-        f"Покупка подписки на {duration_text} успешно завершена! "
-        f"Подписка {action_text} до {until_text}."
-    )
-
     if note is None:
-        note = Notif(user_id=uid, title=title, text=text)
-    else:
-        title = note.title
-        text = note.text
-    try:
-        session.add(note)
-        await session.commit()
-        await session.refresh(note)
-    except Exception:
-        with suppress(Exception):
-            await session.rollback()
-        raise
+        note = build_subscription_upsert_notice(user, subscription, extended=extended, months=months, days=days, source=source)
+        try:
+            session.add(note)
+            await session.commit()
+        except Exception:
+            with suppress(Exception):
+                await session.rollback()
+            raise
 
-    await emit_notify(uid, note, kind="subscription")
-
-    if not notify_telegram:
-        return
-
+    uid = int(user.id)
     telegram_id = int(user.telegram_id or 0)
-    if telegram_id <= 0 or _is_admin_subscription_target(user.role):
-        return
-
-    _schedule_subscription_telegram_message(uid, telegram_id, title, text)
-
-
-async def _send_sanction_telegram_notice(session: AsyncSession, *, user_id: int, note: Notif, telegram_id: int | None = None, log_event: str) -> bool:
-    uid = int(user_id or 0)
-    if uid <= 0:
-        return False
-
-    _schedule_user_telegram_notice(
-        uid,
-        telegram_id,
-        str(note.title or ""),
-        str(note.text or ""),
-        log_event=log_event,
-    )
-    return True
-
-
-async def send_sanction_finished_telegram_notice(session: AsyncSession, *, user_id: int, note: Notif, telegram_id: int | None = None) -> bool:
-    return await _send_sanction_telegram_notice(
-        session,
-        user_id=user_id,
-        telegram_id=telegram_id,
-        note=note,
-        log_event="sanction_finished.telegram_notify_failed",
-    )
+    if notify_telegram and telegram_id > 0 and not _is_admin_subscription_target(user.role):
+        _schedule_subscription_telegram_message(uid, telegram_id, note.title, note.text)
+    await emit_notify(uid, note, kind="subscription", extra={"tone": "green"})
 
 
 async def _send_subscription_telegram_notice(session: AsyncSession, *, user_id: int, title: str, text: str) -> bool:
@@ -2065,25 +1898,31 @@ async def _send_subscription_telegram_notice(session: AsyncSession, *, user_id: 
     return True
 
 
-async def _create_subscription_site_notice_once(session: AsyncSession, user_id: int, *, title: str, text: str, no_toast: bool) -> Notif | None:
+
+
+async def _create_subscription_site_notice_once(
+    session: AsyncSession, user_id: int, *, title: str, text: str,
+    no_toast: bool, event_key: str, commit: bool = True, tone: str = "green",
+) -> Notif | None:
     uid = int(user_id)
     existing_note_id = await session.scalar(
         select(Notif.id)
         .where(
             Notif.user_id == uid,
-            Notif.title == title,
-            Notif.text == text,
+            Notif.event_key == event_key,
         )
         .limit(1)
     )
     if existing_note_id:
         return None
 
-    note = Notif(user_id=uid, title=title, text=text)
+    note = Notif(user_id=uid, title=title, text=text, event_key=event_key)
     session.add(note)
-    await session.commit()
-    await session.refresh(note)
-    await emit_notify(uid, note, kind="subscription", no_toast=no_toast)
+    await session.flush()
+    if commit:
+        await session.commit()
+        await session.refresh(note)
+        await emit_notify(uid, note, kind="subscription", no_toast=no_toast, extra={"tone": tone})
     return note
 
 
@@ -2096,8 +1935,17 @@ async def delete_gif_avatar_for_inactive_subscription(session: AsyncSession, use
     if uid <= 0:
         return False
 
-    row = await session.execute(select(User.avatar_name).where(User.id == uid))
-    old_avatar_name = cast(str | None, row.scalar_one_or_none())
+    user = await session.scalar(select(User).where(User.id == uid).with_for_update().execution_options(populate_existing=True))
+    if user is None:
+        return False
+    subscription = await session.scalar(
+        select(UserSubscription).where(UserSubscription.user_id == uid)
+        .with_for_update().execution_options(populate_existing=True)
+    )
+    now = datetime.now(timezone.utc)
+    if subscription is not None and subscription.starts_at <= now < subscription.ends_at:
+        return False
+    old_avatar_name = user.avatar_name
     if not _is_gif_avatar_name(old_avatar_name):
         return False
 
@@ -2112,9 +1960,11 @@ async def delete_gif_avatar_for_inactive_subscription(session: AsyncSession, use
     with suppress(Exception):
         await invalidate_avatar_presign_cache(old_avatar_name, redis_client=redis_client)
     with suppress(Exception):
-        await delete_avatars_async(uid)
+        await delete_avatar_version_async(uid, old_avatar_name)
     with suppress(Exception):
-        await broadcast_creator_rooms(uid, avatar="delete")
+        current_avatar = await session.scalar(select(User.avatar_name).where(User.id == uid))
+        if current_avatar is None:
+            await broadcast_creator_rooms(uid, avatar="delete")
 
     return True
 
@@ -2159,174 +2009,145 @@ async def delete_user_avatar(session: AsyncSession, user_id: int, *, missing_sta
 async def sync_expired_profile_subscriptions() -> int:
     now = datetime.now(timezone.utc)
     async with SessionLocal() as session:
-        rows = (
-            await session.execute(
-                select(UserSubscription.user_id, UserSubscription.ends_at, User.role)
-                .outerjoin(User, User.id == UserSubscription.user_id)
-                .where(UserSubscription.ends_at <= now)
-                .order_by(UserSubscription.ends_at.desc(), UserSubscription.user_id.asc())
-            )
-        ).all()
-        if not rows:
-            return 0
-
-        r = get_redis()
+        candidates = (await session.execute(
+            select(UserSubscription.user_id, UserSubscription.ends_at)
+            .where(UserSubscription.ends_at <= now)
+            .order_by(UserSubscription.ends_at.desc(), UserSubscription.user_id.asc())
+        )).all()
+        await session.rollback()
+        redis_client = get_redis()
         synced = 0
-        for user_id_raw, ends_at, role_raw in rows:
-            try:
-                uid = int(user_id_raw)
-            except Exception:
+        for user_id_raw, expected_ends_at in candidates:
+            uid = int(user_id_raw)
+            if uid <= 0 or not isinstance(expected_ends_at, datetime):
                 continue
-            if uid <= 0 or not isinstance(ends_at, datetime):
-                continue
-
-            dedupe_key = _expired_subscription_sync_key(uid, ends_at)
-            claimed = True
             try:
-                claimed = bool(await r.set(dedupe_key, "1", ex=EXPIRED_SUBSCRIPTION_SYNC_TTL_S, nx=True))
-            except Exception:
-                claimed = True
-            if not claimed:
-                continue
-
-            try:
-                nickname_counter_reset = await reset_nickname_changes_after_subscription_expired(
-                    session,
-                    user_id=uid,
+                user = await session.scalar(
+                    select(User).where(User.id == uid).with_for_update()
+                    .execution_options(populate_existing=True)
                 )
-                avatar_deleted = await delete_gif_avatar_for_inactive_subscription(session, uid, redis_client=r)
-                removed_blacklist_target_ids = await clear_user_blacklist_if_subscription_inactive(session, uid)
-                if nickname_counter_reset and not avatar_deleted:
-                    await session.commit()
-                if not avatar_deleted:
-                    await refresh_user_profile_cache(session, uid, redis_client=r)
+                subscription = await session.scalar(
+                    select(UserSubscription).where(UserSubscription.user_id == uid)
+                    .with_for_update().execution_options(populate_existing=True)
+                )
+                if (user is None or subscription is None
+                        or not _subscription_expiry_matches(subscription.ends_at, expected_ends_at, now)):
+                    await session.rollback()
+                    continue
+                event_key = _subscription_notice_event_key(uid, subscription.ends_at, event="expired")
+                await reset_nickname_changes_after_subscription_expired(session, user_id=uid)
+                old_avatar_name = user.avatar_name if _is_gif_avatar_name(user.avatar_name) else None
+                if old_avatar_name:
+                    user.avatar_name = None
+                removed_ids = tuple((await session.scalars(
+                    select(UserBlacklist.target_id).where(UserBlacklist.owner_id == uid)
+                )).all())
+                if removed_ids:
+                    await session.execute(delete(UserBlacklist).where(UserBlacklist.owner_id == uid))
+                note = None
+                if not _is_admin_subscription_target(user.role):
+                    note = await _create_subscription_site_notice_once(
+                        session, uid, title="Подписка",
+                        text=("Ваша подписка истекла. Оформить подписку за DC можно "
+                              "на главной странице или в личном кабинете."),
+                        no_toast=False, event_key=event_key, commit=False, tone="red",
+                    )
+                await session.commit()
+                if note is not None:
+                    await session.refresh(note)
+                    await emit_notify(uid, note, kind="subscription", extra={"tone": "red"})
+                    await _send_subscription_telegram_notice(session, user_id=uid, title=note.title, text=note.text)
+                if old_avatar_name:
+                    with suppress(Exception):
+                        await invalidate_avatar_presign_cache(old_avatar_name, redis_client=redis_client)
+                    with suppress(Exception):
+                        await delete_avatar_version_async(uid, old_avatar_name)
+                for target_id in removed_ids:
+                    await emit_blacklist_update(uid, int(target_id), blacklisted=False, cleared=True)
+                    await emit_blacklist_update(int(target_id), uid, blacklisted_by_target=False, cleared=True)
+                await refresh_user_profile_cache(session, uid, redis_client=redis_client)
+                theme = await resolve_profile_theme_state(session, uid)
                 await emit_auth_profile_sync(uid)
-                await emit_room_profile_theme_sync(uid, None, None)
+                await emit_room_profile_theme_sync(uid, theme.color, theme.icon)
                 with suppress(Exception):
                     from ..services.global_chat import emit_global_chat_profile_theme_sync
-                    await emit_global_chat_profile_theme_sync(uid, None, None)
-                if not _is_admin_subscription_target(role_raw):
-                    created = await _create_subscription_site_notice_once(
-                        session,
-                        uid,
-                        title="Подписка",
-                        text=(
-                            "Нам очень жаль, но Ваша подписка истекла. "
-                            "Оформить подписку можно на главной странице или в Личном кабинете."
-                        ),
-                        no_toast=False,
-                    )
-                    if created is not None:
-                        await _send_subscription_telegram_notice(
-                            session,
-                            user_id=uid,
-                            title="Подписка",
-                            text=(
-                                "Нам очень жаль, но Ваша подписка истекла. "
-                                "Оформить подписку можно на главной странице или в Личном кабинете."
-                            ),
-                        )
+                    await emit_global_chat_profile_theme_sync(uid, theme.color, theme.icon)
+                current_avatar = await session.scalar(select(User.avatar_name).where(User.id == uid))
+                if current_avatar is None:
+                    with suppress(Exception):
+                        await broadcast_creator_rooms(uid, avatar="delete")
+                await session.rollback()
                 synced += 1
-                if removed_blacklist_target_ids:
-                    log.info(
-                        "subscriptions.expired_blacklist_clear.done",
-                        uid=uid,
-                        removed=len(removed_blacklist_target_ids),
-                    )
             except Exception as exc:
                 with suppress(Exception):
                     await session.rollback()
-                with suppress(Exception):
-                    await r.delete(dedupe_key)
                 log.warning("subscriptions.expired_sync_failed", uid=uid, err=type(exc).__name__)
-
         return synced
 
 
 async def notify_expiring_profile_subscriptions() -> int:
     now = datetime.now(timezone.utc)
     notice_start, notice_end = _subscription_expiring_soon_notice_window(now)
-
     async with SessionLocal() as session:
-        rows = (
-            await session.execute(
-                select(UserSubscription.user_id, UserSubscription.ends_at, User.role)
-                .join(User, User.id == UserSubscription.user_id)
-                .where(
-                    User.deleted_at.is_(None),
-                    UserSubscription.starts_at <= now,
-                    UserSubscription.ends_at > now,
-                    UserSubscription.ends_at >= notice_start,
-                    UserSubscription.ends_at < notice_end,
-                )
-                .order_by(UserSubscription.ends_at.asc(), UserSubscription.user_id.asc())
-            )
-        ).all()
-        if not rows:
-            return 0
-
-        r = get_redis()
+        candidates = (await session.execute(
+            select(UserSubscription.user_id, UserSubscription.ends_at)
+            .join(User, User.id == UserSubscription.user_id)
+            .where(
+                User.deleted_at.is_(None), UserSubscription.starts_at <= now,
+                UserSubscription.ends_at > now, UserSubscription.ends_at >= notice_start,
+                UserSubscription.ends_at < notice_end,
+            ).order_by(UserSubscription.ends_at.asc(), UserSubscription.user_id.asc())
+        )).all()
+        await session.rollback()
         notified = 0
-        for user_id_raw, ends_at, role_raw in rows:
+        for user_id_raw, expected_ends_at in candidates:
+            uid = int(user_id_raw)
             try:
-                uid = int(user_id_raw)
-            except Exception:
-                continue
-            if uid <= 0 or not isinstance(ends_at, datetime):
-                continue
-            if _is_admin_subscription_target(role_raw):
-                continue
-
-            dedupe_key = _subscription_expiring_soon_notice_key(uid, ends_at)
-            claimed = True
-            try:
-                claimed = bool(
-                    await r.set(
-                        dedupe_key,
-                        "1",
-                        ex=SUBSCRIPTION_EXPIRING_SOON_NOTICE_TTL_S,
-                        nx=True,
-                    )
+                user = await session.scalar(
+                    select(User).where(User.id == uid).with_for_update()
+                    .execution_options(populate_existing=True)
                 )
-            except Exception:
-                claimed = True
-            if not claimed:
-                continue
-
-            title = "Подписка"
-            text = f"Срок Вашей подписки истекает {format_subscription_until(ends_at)}. Успейте продлить!"
-            try:
-                created = await _create_subscription_site_notice_once(
-                    session,
-                    uid,
-                    title=title,
-                    text=text,
-                    no_toast=False,
+                subscription = await session.scalar(
+                    select(UserSubscription).where(UserSubscription.user_id == uid)
+                    .with_for_update().execution_options(populate_existing=True)
                 )
-                if created is not None:
-                    await _send_subscription_telegram_notice(
-                        session,
-                        user_id=uid,
-                        title=title,
-                        text=text,
-                    )
-                    notified += 1
+                if (user is None or user.deleted_at is not None or _is_admin_subscription_target(user.role)
+                        or subscription is None or subscription.ends_at != expected_ends_at
+                        or not (subscription.starts_at <= now < subscription.ends_at)
+                        or not (notice_start <= subscription.ends_at < notice_end)):
+                    await session.rollback()
+                    continue
+                text = (
+                    f"Срок вашей подписки истекает {format_subscription_until(subscription.ends_at)}. "
+                    "Продлить подписку за DC можно на главной странице или в личном кабинете."
+                )
+                note = await _create_subscription_site_notice_once(
+                    session, uid, title="Подписка", text=text, no_toast=False,
+                    event_key=_subscription_notice_event_key(uid, subscription.ends_at, event="expiring"),
+                    commit=False, tone="orange",
+                )
+                if note is None:
+                    await session.rollback()
+                    continue
+                await session.commit()
+                await session.refresh(note)
+                await emit_notify(uid, note, kind="subscription", extra={"tone": "orange"})
+                await _send_subscription_telegram_notice(session, user_id=uid, title=note.title, text=note.text)
+                await session.rollback()
+                notified += 1
             except Exception as exc:
                 with suppress(Exception):
                     await session.rollback()
-                with suppress(Exception):
-                    await r.delete(dedupe_key)
                 log.warning("subscriptions.expiring_soon_notify_failed", uid=uid, err=type(exc).__name__)
-
         return notified
 
 
 def _expired_sanction_note(kind: str) -> tuple[str, str] | None:
     if kind == SANCTION_TIMEOUT:
-        return "Таймаут", "Срок вашего таймаута истек. Доступ к комнатам восстановлен."
+        return "Таймаут", "Срок вашего таймаута истёк."
 
     if kind == SANCTION_SUSPEND:
-        return "Отстранение от игр", "Срок отстранения от игр истек."
+        return "Отстранение от игр", "Срок вашего отстранения от игр истёк."
 
     return None
 
@@ -2351,7 +2172,7 @@ async def _notify_expired_timed_sanctions(user_id: int, *, emit_chat_notice: boo
         if not rows:
             return
 
-        notes: list[Notif] = []
+        notes: list[tuple[Notif, str]] = []
         chat_rows: list[UserSanction] = []
         notified_kinds: set[str] = set()
         for sanction in rows:
@@ -2367,25 +2188,23 @@ async def _notify_expired_timed_sanctions(user_id: int, *, emit_chat_notice: boo
             title, text = note_data
             note = Notif(user_id=int(user_id), title=title, text=text)
             session.add(note)
-            notes.append(note)
+            notes.append((note, "orange" if kind == SANCTION_TIMEOUT else "yellow"))
             chat_rows.append(sanction)
 
         if not notes:
             return
 
         await session.commit()
-        for note in notes:
+        for note, _tone in notes:
             await session.refresh(note)
         if emit_chat_notice:
             for sanction in chat_rows:
                 with suppress(Exception):
                     await emit_expired_timed_sanction_chat_notice_once(session, sanction)
 
-        for note in notes:
+        for note, tone in notes:
             with suppress(Exception):
-                await emit_notify(int(user_id), note, kind="sanction")
-            with suppress(Exception):
-                await send_sanction_finished_telegram_notice(session, user_id=int(user_id), note=note)
+                await emit_notify(int(user_id), note, kind="sanction", extra={"tone": tone})
 
 
 async def emit_expired_timed_sanction_chat_notice_once(session: AsyncSession, sanction: UserSanction) -> bool:
@@ -4036,7 +3855,7 @@ def site_settings_out(row) -> SiteSettingsOut:
         admin_banner_text=normalize_admin_banner_text(getattr(row, "admin_banner_text", "0")),
         admin_banner_link=normalize_admin_banner_link(getattr(row, "admin_banner_link", "0")),
         home_carousel_banner_key=normalize_home_carousel_banner_key(getattr(row, "home_carousel_banner_key", None)),
-        donation_url=normalize_donation_url(getattr(row, "donation_url", "")),
+        dc_coin_packages=normalize_dc_packages(getattr(row, "dc_coin_packages", None)),
         rooms_limit_global=int(row.rooms_limit_global),
         rooms_limit_per_user=int(row.rooms_limit_per_user),
         spectators_limit=max(0, int(row.spectators_limit)),
@@ -4065,7 +3884,7 @@ def public_settings_out(settings) -> "PublicSettingsOut":
         admin_banner_text=normalize_admin_banner_text(getattr(settings, "admin_banner_text", "0")),
         admin_banner_link=normalize_admin_banner_link(getattr(settings, "admin_banner_link", "0")),
         home_carousel_banner_key=normalize_home_carousel_banner_key(getattr(settings, "home_carousel_banner_key", None)),
-        donation_url=normalize_donation_url(getattr(settings, "donation_url", "")),
+        dc_coin_packages=normalize_dc_packages(getattr(settings, "dc_coin_packages", None)),
         rooms_limit_global=int(settings.rooms_limit_global),
         spectators_limit=max(0, int(settings.spectators_limit)),
         game_min_ready_players=int(settings.game_min_ready_players),
@@ -4867,7 +4686,7 @@ def build_avatar_reset_notice(user_id: int) -> Notif:
         user_id=int(user_id),
         title="Аватар",
         text=(
-            "Ваш аватар был сброшен администрацией платформы. Пункт правил: 3.3"
+            "Администрация сбросила ваш аватар. Пункт правил: 3.3."
         ),
     )
 
@@ -4878,8 +4697,8 @@ def build_nickname_reset_notice(user_id: int, new_username: str) -> Notif:
         user_id=int(user_id),
         title="Никнейм",
         text=(
-            "Ваш никнейм был сброшен администрацией платформы. Пункт правил: 3.3. "
-            f"Ваш новый никнейм (логин): {username}."
+            "Администрация сбросила ваш никнейм. Пункт правил: 3.3. "
+            f"Новый никнейм и логин: {username}."
         ),
     )
 

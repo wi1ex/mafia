@@ -27,6 +27,7 @@ python-socketio = "^5.17.0"
 python-engineio = "^4.15.1"
 python-multipart = "0.0.32"
 structlog = "^26.1.0"
+tzdata = ">=2025.1"
 
 [tool.poetry.group.dev.dependencies]
 

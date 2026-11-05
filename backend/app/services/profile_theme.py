@@ -4,10 +4,13 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Iterable
 from urllib.parse import urlsplit
+from zoneinfo import ZoneInfo
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..models.subscription import UserSubscription
 from ..models.user import User
+
+MOSCOW = ZoneInfo("Europe/Moscow")
 
 PROFILE_THEME_COLORS: tuple[str, ...] = (
     "violet",
@@ -215,7 +218,7 @@ def normalize_subscription_end_time(dt: datetime) -> datetime:
             microsecond=0,
         )
 
-    local_dt = dt.astimezone()
+    local_dt = dt.astimezone(MOSCOW)
     rounded_local_dt = local_dt.replace(
         hour=SUBSCRIPTION_END_LOCAL_HOUR,
         minute=0,
@@ -226,27 +229,29 @@ def normalize_subscription_end_time(dt: datetime) -> datetime:
 
 
 def subscription_local_datetime(dt: datetime) -> datetime:
-    if dt.tzinfo is None:
-        return dt
-
-    return dt.astimezone()
+    return (dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)).astimezone(MOSCOW)
 
 
 def restore_subscription_datetime_timezone(dt: datetime, source: datetime) -> datetime:
     if source.tzinfo is None:
-        return dt
+        return dt.astimezone(timezone.utc).replace(tzinfo=None)
 
     return dt.astimezone(source.tzinfo)
 
 
-def compute_subscription_end(starts_at: datetime, *, months: int = 0, days: int = 0) -> datetime:
+def compute_subscription_end(starts_at: datetime, *, months: int = 0, days: int = 0, active: bool = False) -> datetime:
     result = subscription_local_datetime(starts_at)
+    if not active:
+        anchor = result.replace(hour=SUBSCRIPTION_END_LOCAL_HOUR, minute=0, second=0, microsecond=0)
+        if result > anchor:
+            anchor += timedelta(days=1)
+        result = anchor
     if int(months or 0) > 0:
         result = add_months(result, int(months or 0))
     if int(days or 0) > 0:
         result = result + timedelta(days=int(days or 0))
     return restore_subscription_datetime_timezone(
-        normalize_subscription_end_time(result),
+        result,
         starts_at,
     )
 
@@ -259,7 +264,7 @@ def compute_subscription_reduced_end(ends_at: datetime, *, months: int = 0, days
         result = result - timedelta(days=int(days or 0))
 
     return restore_subscription_datetime_timezone(
-        normalize_subscription_end_time(result),
+        result,
         ends_at,
     )
 

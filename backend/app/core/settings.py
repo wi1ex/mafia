@@ -61,11 +61,12 @@ class Settings(BaseSettings):
     RTC_AUTO_GAIN_CONTROL_ENABLED: bool = True
 
     KASSA_API_KEY: str = ""
-    KASSA_PRODUCT_URL: str = ""
-    KASSA_MONTHLY_OFFER_ID: str = ""
-    KASSA_YEARLY_OFFER_ID: str = ""
+    KASSA_COIN_PRODUCT_ID: str = ""
+    KASSA_COIN_OFFER_30_ID: str = ""
+    KASSA_COIN_OFFER_100_ID: str = ""
+    KASSA_COIN_OFFER_300_ID: str = ""
+    KASSA_COIN_OFFER_1000_ID: str = ""
     KASSA_WEBHOOK_SECRET: str = ""
-    DONATION_URL: str = ""
 
     ROOMS_LIMIT_GLOBAL: int = 15
     ROOMS_LIMIT_PER_USER: int = 3

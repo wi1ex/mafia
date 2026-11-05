@@ -13,6 +13,7 @@ UsernameClean = Annotated[str, BeforeValidator(sanitize_username_for_schema)]
 
 class UserOut(BaseModel):
     id: int
+    dc_balance: int = 0
     username: Optional[str] = None
     avatar_name: Optional[str] = None
     role: str
@@ -91,6 +92,7 @@ class UserMiniProfileNominationStatsOut(BaseModel):
 
 class UserMiniProfileOut(BaseModel):
     id: int
+    dc_balance: Optional[int] = None
     username: Optional[str] = None
     avatar_name: Optional[str] = None
     role: str
@@ -126,19 +128,20 @@ class UserNicknameHistoryOut(BaseModel):
     items: List[str] = Field(default_factory=list)
 
 
-class UserSubscriptionPaymentOut(BaseModel):
-    id: int
-    paid_at: datetime
-    email: Optional[str] = None
-    plan: Optional[Literal["month", "year"]] = None
-    subscription_months: int = 0
-    amount: Optional[str] = None
-    currency: Optional[str] = None
-    promo_discount_percent: Optional[float] = None
+class UserOperationOut(BaseModel):
+    id: str
+    date: datetime
+    type: str
+    received: str
+    spent: str
 
 
-class UserSubscriptionPaymentsOut(BaseModel):
-    items: List[UserSubscriptionPaymentOut] = Field(default_factory=list)
+class UserOperationHistoryOut(BaseModel):
+    items: List[UserOperationOut] = Field(default_factory=list)
+    total: int
+    page: int
+    per_page: int
+    pages: int
 
 
 class UserTopPlayerOut(BaseModel):

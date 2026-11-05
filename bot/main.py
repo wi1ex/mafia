@@ -178,7 +178,7 @@ async def verify_password(message: types.Message, state: FSMContext, session: ai
 
     await state.clear()
     if status_code == 200:
-        await safe_message_answer(message, "Верификация прошла успешно. Доступ к комнатам открыт.", reply_markup=keyboard_reset_only())
+        await safe_message_answer(message, "Аккаунт подтверждён через Telegram.", reply_markup=keyboard_reset_only())
         return
 
     detail = (payload or {}).get("detail")

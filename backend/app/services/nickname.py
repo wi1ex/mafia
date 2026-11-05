@@ -2,7 +2,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from typing import Any, Iterable
-from sqlalchemy import case, exists, update
+from sqlalchemy import case, exists, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.db import SessionLocal
 from ..models.subscription import UserSubscription
@@ -35,6 +35,9 @@ def set_user_nickname_changes(user: User, value: int) -> int:
 
 
 async def _set_monthly_nickname_change_limits(session: AsyncSession, *, now: datetime) -> int:
+    await session.execute(
+        select(User.id).where(User.deleted_at.is_(None)).order_by(User.id).with_for_update()
+    )
     active_subscription = exists().where(
         UserSubscription.user_id == User.id,
         UserSubscription.starts_at <= now,

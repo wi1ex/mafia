@@ -43,14 +43,12 @@ from ..utils import (
     build_admin_mini_profile_blacklist,
     build_user_mini_profile_nomination_stats_out,
     friend_status_for,
-    payment_amount_text,
-    payment_plan,
-    payment_promo_discount_percent,
 )
 from ...models.game import Game
 from ...services.game_scoring import calculate_game_points_breakdown, normalize_game_mode, normalize_game_points_value
 from ...models.contact_request import ContactRequestRecord
-from ...models.kassa_payment import KassaPayment
+from ...services.wallet import get_dc_balance
+from ...services.payment_history import operation_history
 from ...models.notif import Notif
 from ...models.user import User
 from ...core.db import get_session
@@ -103,8 +101,7 @@ from ...schemas.user import (
     UserMiniProfileSanctionOut,
     UserMiniProfileNominationStatsOut,
     UserNicknameHistoryOut,
-    UserSubscriptionPaymentOut,
-    UserSubscriptionPaymentsOut,
+    UserOperationHistoryOut,
 )
 from ...security.passwords import hash_password_async, verify_password_async
 from ...services.global_chat import global_chat_send_error, resolve_global_chat_permissions
@@ -226,41 +223,16 @@ async def profile_dates(ident: Identity = Depends(get_identity), db: AsyncSessio
     )
 
 
-@router.get("/payments/subscriptions", response_model=UserSubscriptionPaymentsOut)
-@log_route("users.subscription_payments")
-@rate_limited(lambda ident, **_: f"rl:user_subscription_payments:{ident['id']}", limit=10, window_s=1)
-async def user_subscription_payments(ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserSubscriptionPaymentsOut:
-    uid = int(ident["id"])
-    user = await db.get(User, uid)
-    if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
-
-    rows = await db.scalars(
-        select(KassaPayment)
-        .where(
-            KassaPayment.user_id == uid,
-            KassaPayment.status == "processed",
-            KassaPayment.processed_at.is_not(None),
-        )
-        .order_by(KassaPayment.processed_at.desc(), KassaPayment.id.desc())
-    )
-    items: list[UserSubscriptionPaymentOut] = []
-    for payment in rows.all():
-        if payment.processed_at is None:
-            continue
-        items.append(
-            UserSubscriptionPaymentOut(
-                id=int(payment.id),
-                paid_at=payment.processed_at,
-                email=payment.email or None,
-                plan=payment_plan(payment),
-                subscription_months=int(payment.subscription_months or 0),
-                amount=payment_amount_text(payment.amount),
-                currency=(str(payment.currency or "").strip().upper() or None),
-                promo_discount_percent=payment_promo_discount_percent(payment),
-            )
-        )
-    return UserSubscriptionPaymentsOut(items=items)
+@router.get("/payments/history", response_model=UserOperationHistoryOut)
+@log_route("users.operation_history")
+@rate_limited(lambda ident, **_: f"rl:operation_history:{ident['id']}", limit=10, window_s=1)
+async def user_operation_history(
+    page: int = Query(default=1, ge=1),
+    per_page: int = Query(default=20, ge=1, le=100),
+    ident: Identity = Depends(get_identity),
+    db: AsyncSession = Depends(get_session),
+) -> UserOperationHistoryOut:
+    return await operation_history(db, int(ident["id"]), page=page, per_page=per_page)
 
 
 @router.get("/stats", response_model=UserStatsOut)
@@ -405,6 +377,7 @@ async def mini_profile(user_id: int, allow_deleted: bool = False, ident: Identit
 
     return UserMiniProfileOut(
         id=uid,
+        dc_balance=await get_dc_balance(db, uid) if is_admin_viewer else None,
         username=user.username,
         avatar_name=user.avatar_name,
         role=target_role,
@@ -539,24 +512,26 @@ async def contact_request(request: Request, payload: ContactRequestIn, ident: Id
     uid = int(ident["id"]) if ident else None
     username = str(ident.get("username") or "") if ident else None
 
-    db.add(
-        ContactRequestRecord(
-            user_id=uid,
-            contact=stored_contact,
-            topic=topic,
-            text=text,
-        )
+    contact_request_row = ContactRequestRecord(
+        user_id=uid,
+        contact=stored_contact,
+        topic=topic,
+        text=text,
     )
+    db.add(contact_request_row)
     await db.commit()
+    await db.refresh(contact_request_row)
 
     author_label = username or (f"user{uid}" if uid else "Гость")
     schedule_contact_request_admin_telegram_message(
         "Новое обращение с сайта\n\n"
+        f"Обращение: №{int(contact_request_row.id)}\n"
         f"Пользователь: {author_label}\n"
-        f"ID пользователя: {uid or '-'}\n"
-        f"Контакт: {stored_contact}\n"
+        f"ID пользователя: {uid or '—'}\n"
+        f"Контакт: {contact or '—'}\n"
         f"Тема: {topic}\n\n"
-        f"Сообщение:\n{text}"
+        f"Сообщение:\n{text}",
+        context=f"Обращение №{int(contact_request_row.id)}",
     )
 
     with suppress(Exception):
@@ -566,14 +541,12 @@ async def contact_request(request: Request, payload: ContactRequestIn, ident: Id
                 User.deleted_at.is_(None),
             )
         )
-        author_label = f"пользователя {username}" or (
-            f"пользователя с id={uid}" if uid else "неизвестного пользователя"
-        )
+        author_label = f"пользователя {username or f'user{uid}'}" if uid else "гостя"
         notes = [
             Notif(
                 user_id=int(staff_id),
                 title="Обратная связь",
-                text=f"Поступило обращение от {author_label}",
+                text=f"Поступило обращение от {author_label}.",
             )
             for staff_id in staff_ids.all()
         ]

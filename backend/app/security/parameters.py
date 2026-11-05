@@ -1,5 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass
+from ..services.coin_prices import normalize_dc_packages
 from typing import Optional
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,7 +15,6 @@ from ..api.utils import (
     normalize_season_start_value,
     normalize_text_moderation_whitelist,
     normalize_text_moderation_blacklist,
-    normalize_donation_url,
     build_app_settings_snapshot_defaults,
     build_app_settings_snapshot_from_row,
 )
@@ -34,7 +34,7 @@ class AppSettingsSnapshot:
     admin_banner_text: str
     admin_banner_link: str
     home_carousel_banner_key: str | None
-    donation_url: str
+    dc_coin_packages: str
     rooms_limit_global: int
     rooms_limit_per_user: int
     spectators_limit: int
@@ -93,7 +93,7 @@ async def ensure_app_settings(session: AsyncSession) -> AppSettings:
             admin_banner_text=normalize_admin_banner_text(defaults.admin_banner_text),
             admin_banner_link=normalize_admin_banner_link(defaults.admin_banner_link),
             home_carousel_banner_key=None,
-            donation_url=normalize_donation_url(defaults.donation_url),
+            dc_coin_packages=defaults.dc_coin_packages,
             rooms_limit_global=defaults.rooms_limit_global,
             rooms_limit_per_user=defaults.rooms_limit_per_user,
             spectators_limit=defaults.spectators_limit,
@@ -147,10 +147,9 @@ async def ensure_app_settings(session: AsyncSession) -> AppSettings:
             row.text_moderation_blacklist = normalized_text_moderation_blacklist
             changed = True
 
-        normalized_donation_url = normalize_donation_url(getattr(row, "donation_url", ""))
-        current_donation_url = str(getattr(row, "donation_url", "") or "").strip()
-        if current_donation_url != normalized_donation_url:
-            row.donation_url = normalized_donation_url
+        packages = normalize_dc_packages(getattr(row, "dc_coin_packages", None))
+        if getattr(row, "dc_coin_packages", None) != packages:
+            row.dc_coin_packages = packages
             changed = True
 
         normalized_home_carousel_banner_key = normalize_home_carousel_banner_key(getattr(row, "home_carousel_banner_key", None))

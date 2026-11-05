@@ -531,24 +531,24 @@ def build_global_chat_sanction_issued_text(*, target_username: str, kind: str, r
     details = _format_sanction_reason_details(reason)
     duration = str(duration_label or "").strip()
     if kind_value == SANCTION_SUSPEND:
-        base = f"Пользователь {target_mention} отстранен от игр"
+        base = f"Пользователь {target_mention} отстранён от игр"
         if duration:
             base += f" на {duration}"
-        return f"{base}{details}"
+        return f"{base}{details}."
 
     if kind_value == SANCTION_TIMEOUT:
         base = f"Пользователь {target_mention} получил таймаут"
         if duration:
             base += f" на {duration}"
-        return f"{base}{details}"
+        return f"{base}{details}."
 
     if kind_value == SANCTION_BAN:
-        return f"Пользователь {target_mention} был забанен{details}"
+        return f"Пользователь {target_mention} забанен{details}."
 
     base = f"Пользователь {target_mention} получил {_sanction_kind_label(kind)}"
     if duration:
         base += f" на {duration}"
-    return f"{base}{details}"
+    return f"{base}{details}."
 
 
 def build_global_chat_sanction_removed_text(*, target_username: str, kind: str, reason: str, source: str, remaining_duration_label: str | None = None) -> str:
@@ -557,31 +557,31 @@ def build_global_chat_sanction_removed_text(*, target_username: str, kind: str, 
     target_mention = _format_chat_notice_target_mention(target_username)
     if source_value == "expired":
         if kind_value == SANCTION_TIMEOUT:
-            return f"У пользователя {target_mention} истек срок таймаута"
+            return f"У пользователя {target_mention} истёк срок таймаута."
 
         if kind_value == SANCTION_SUSPEND:
-            return f"У пользователя {target_mention} истек срок отстранения от игр"
+            return f"У пользователя {target_mention} истёк срок отстранения от игр."
 
-        return f"У пользователя {target_mention} истек срок {_sanction_kind_label(kind)}"
+        return f"У пользователя {target_mention} истёк срок {_sanction_kind_label(kind)}."
 
     if source_value == "game":
         if kind_value == SANCTION_SUSPEND:
-            return f"У пользователя {target_mention} истек срок отстранения от игр (после проведенной игры)"
+            return f"У пользователя {target_mention} завершилось отстранение от игр после проведённой игры."
 
-        return f"У пользователя {target_mention} истек срок {_sanction_kind_label(kind)} (после проведенной игры)"
+        return f"У пользователя {target_mention} истёк срок {_sanction_kind_label(kind)} после проведённой игры."
 
     remaining = str(remaining_duration_label or "").strip()
     remaining_suffix = f" (раньше срока на {remaining})" if remaining else ""
     if kind_value == SANCTION_TIMEOUT:
-        return f"У пользователя {target_mention} досрочно снят таймаут{remaining_suffix}"
+        return f"У пользователя {target_mention} досрочно снят таймаут{remaining_suffix}."
 
     if kind_value == SANCTION_SUSPEND:
-        return f"У пользователя {target_mention} досрочно снято отстранение от игр{remaining_suffix}"
+        return f"У пользователя {target_mention} досрочно снято отстранение от игр{remaining_suffix}."
 
     if kind_value == SANCTION_BAN:
-        return f"Пользователь {target_mention} разбанен"
+        return f"Пользователь {target_mention} разбанен."
 
-    return f"У пользователя {target_mention} снята {_sanction_kind_label(kind)}"
+    return f"У пользователя {target_mention} снята {_sanction_kind_label(kind)}."
 
 
 def build_global_chat_sanction_adjusted_text(*, target_username: str, kind: str, action: str, duration_label: str, remaining_duration_label: str | None = None) -> str:
@@ -605,7 +605,7 @@ def build_global_chat_sanction_adjusted_text(*, target_username: str, kind: str,
     if remaining:
         base += f". До окончания осталось {remaining}"
 
-    return base
+    return f"{base}."
 
 
 def build_global_chat_role_changed_text(*, target_username: str, role: str, granted: bool) -> str:
@@ -614,30 +614,33 @@ def build_global_chat_role_changed_text(*, target_username: str, role: str, gran
 
     if role_value == "moder":
         if granted:
-            return f"Пользователю {target_mention} выдана роль @Модератор"
-        return f"У пользователя {target_mention} снята роль @Модератор"
+            return f"Пользователю {target_mention} выдана роль @Модератор."
+
+        return f"У пользователя {target_mention} снята роль @Модератор."
 
     if role_value == "head_rate":
         if granted:
-            return f"Пользователю {target_mention} выдана роль @Ведущий"
-        return f"У пользователя {target_mention} снята роль @Ведущий"
+            return f"Пользователю {target_mention} выдана роль @Ведущий."
+
+        return f"У пользователя {target_mention} снята роль @Ведущий."
 
     role_label = role_value or "role"
     if granted:
-        return f"Пользователю {target_mention} выдана роль {role_label}"
-    return f"У пользователя {target_mention} снята роль {role_label}"
+        return f"Пользователю {target_mention} выдана роль {role_label}."
+
+    return f"У пользователя {target_mention} снята роль {role_label}."
 
 
 def build_global_chat_nickname_reset_text(*, previous_username: str, new_username: str) -> str:
     previous_mention = _format_chat_notice_target_mention(previous_username)
     return (
-        f"У пользователя {previous_mention} сброшен никнейм (пункт правил: 3.3)"
+        f"У пользователя {previous_mention} сброшен никнейм (пункт правил: 3.3)."
     )
 
 
 def build_global_chat_avatar_deleted_text(*, target_username: str) -> str:
     target_mention = _format_chat_notice_target_mention(target_username)
-    return f"У пользователя {target_mention} удален аватар (пункт правил: 3.3)"
+    return f"У пользователя {target_mention} удалён аватар (пункт правил: 3.3)."
 
 
 def _message_public_dict(message: GlobalChatMessage) -> dict[str, Any]:
@@ -1808,7 +1811,7 @@ async def publish_global_chat_notice(session: AsyncSession, *, author_user_id: i
         return None
 
     schedule_contact_request_admin_telegram_message(
-        f"Сообщение администратора в общем чате\n\n{normalized_text}"
+        f"Служебное сообщение в общем чате\n\n{normalized_text}"
     )
 
     alert_user_ids: set[int] = set()

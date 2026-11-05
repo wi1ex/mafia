@@ -75,10 +75,8 @@ from ..utils import (
     get_moderation_target_user,
     moderation_timed_sanction_duration_limit,
     normalize_pagination,
-    send_sanction_finished_telegram_notice,
     revoke_active_suspend,
     schedule_contact_request_admin_telegram_message,
-    send_user_telegram_notice,
     sanction_actor_display,
     sanction_finished_at,
     sanction_served_seconds,
@@ -132,7 +130,7 @@ async def moderation_update_user_additional_role(user_id: int, payload: AdminUse
     note = Notif(
         user_id=uid,
         title="Роль",
-        text=("Вам выдана роль Ведущий Рейтинга." if granted else "С вас снята роль Ведущий Рейтинга."),
+        text=("Вам выдана роль «Ведущий Рейтинга»." if granted else "С вас снята роль «Ведущий Рейтинга»."),
     )
     session.add(note)
     await session.commit()
@@ -151,7 +149,7 @@ async def moderation_update_user_additional_role(user_id: int, payload: AdminUse
     )
 
     with suppress(Exception):
-        await emit_notify(uid, note, kind="role_update")
+        await emit_notify(uid, note, kind="role_update", extra={"tone": "green" if granted else "blue"})
     with suppress(Exception):
         await emit_global_chat_role_notice(
             session,
@@ -375,19 +373,6 @@ async def moderation_reply_to_contact_request(contact_request_id: int, payload: 
         title="Ответ администрации по обращению",
         text=reply_text,
     )
-    if not target_user.telegram_id:
-        raise HTTPException(status_code=409, detail="contact_request_telegram_missing")
-
-    delivered = await send_user_telegram_notice(
-        target_user_id,
-        target_user.telegram_id,
-        note.title,
-        note.text,
-        log_event="contact_request.reply_telegram_notify_failed",
-    )
-    if not delivered:
-        raise HTTPException(status_code=502, detail="contact_request_telegram_failed")
-
     session.add(ContactRequestReply(
         contact_request_id=int(row.id),
         author_id=int(ident["id"]),
@@ -401,11 +386,13 @@ async def moderation_reply_to_contact_request(contact_request_id: int, payload: 
     await emit_notify(target_user_id, note, kind="contact_request_reply")
     schedule_contact_request_admin_telegram_message(
         "Ответ на обращение с сайта\n\n"
-        f"Модератор: {ident['username']}\n"
+        f"Обращение: №{int(row.id)}\n"
+        f"Ответил: {ident['username']} (ID {int(ident['id'])})\n"
         f"Пользователь: {target_user.username}\n"
         f"ID пользователя: {target_user_id}\n"
         f"Тема: {str(row.topic or '-')}\n\n"
-        f"Ответ:\n{reply_text}"
+        f"Ответ:\n{reply_text}",
+        context=f"Обращение №{int(row.id)}",
     )
 
     await log_action(
@@ -753,7 +740,7 @@ async def moderation_apply_user_timeout(user_id: int, payload: AdminSanctionTime
     await session.refresh(note)
 
     with suppress(Exception):
-        await emit_notify(uid, note, kind="sanction")
+        await emit_notify(uid, note, kind="sanction", extra={"tone": "orange"})
     with suppress(Exception):
         await emit_sanctions_update(session, uid)
     with suppress(Exception):
@@ -831,9 +818,8 @@ async def moderation_apply_user_suspend(user_id: int, payload: AdminSanctionTime
         user_id=uid,
         title="Отстранение от игр",
         text=(
-            f"Доступ к играм ограничен на {duration_label}. "
-            f"Пункт правил: {reason} "
-            "Проводите игры: после каждой игры срок отстранения будет уменьшаться на 4 часа."
+            f"Вы отстранены от игр на {duration_label}. Пункт правил: {reason}. "
+            "Каждая проведённая игра сокращает срок отстранения на 4 часа."
         ),
     )
     session.add(sanction)
@@ -854,7 +840,7 @@ async def moderation_apply_user_suspend(user_id: int, payload: AdminSanctionTime
             )
 
     with suppress(Exception):
-        await emit_notify(uid, note, kind="sanction")
+        await emit_notify(uid, note, kind="sanction", extra={"tone": "yellow"})
     with suppress(Exception):
         await emit_sanctions_update(session, uid)
     with suppress(Exception):
@@ -904,16 +890,14 @@ async def moderation_revoke_user_timeout(user_id: int, ident: Identity = Depends
     note = Notif(
         user_id=uid,
         title="Таймаут",
-        text="Ваш таймаут снят досрочно. Доступ к комнатам восстановлен.",
+        text="Ваш таймаут снят досрочно.",
     )
     session.add(note)
     await session.commit()
     await session.refresh(note)
 
     with suppress(Exception):
-        await emit_notify(uid, note, kind="sanction")
-    with suppress(Exception):
-        await send_sanction_finished_telegram_notice(session, user_id=uid, telegram_id=user.telegram_id, note=note)
+        await emit_notify(uid, note, kind="sanction", extra={"tone": "orange"})
     with suppress(Exception):
         await emit_sanctions_update(session, uid)
     with suppress(Exception):

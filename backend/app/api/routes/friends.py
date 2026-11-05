@@ -806,7 +806,7 @@ async def invite_friend(payload: FriendInviteIn, ident: Identity = Depends(get_i
 
     if target_online:
         title = "Приглашение в комнату"
-        text = f"{inviter_name} приглашает Вас в «{room_title}»."
+        text = f"{inviter_name} приглашает вас в комнату «{room_title}»."
         note = Notif(user_id=target_id, title=title, text=text)
         db.add(note)
         await db.commit()
@@ -828,12 +828,16 @@ async def invite_friend(payload: FriendInviteIn, ident: Identity = Depends(get_i
                     "theme_icon": (inviter_profile or {}).get("theme_icon"),
                 },
                 "toast_title": "Приглашение в комнату от",
-                "toast_text": "",
+                "toast_text": f"Комната «{room_title}».",
             },
         )
     else:
         room_url = f"https://{settings.DOMAIN}/room/{room_id}"
-        tg_text = f"{inviter_name} приглашает Вас в «{room_title}»\n{room_url}\n\nПриглашения можно отключить в Личном кабинете\nhttps://deceit.games/profile"
+        tg_text = (
+            f"{inviter_name} приглашает вас в комнату «{room_title}».\n{room_url}\n\n"
+            "Отключить приглашения в Telegram можно в личном кабинете:\n"
+            f"https://{settings.DOMAIN}/profile"
+        )
         send_result = await send_text_message(chat_id=int(target.telegram_id or 0), text=tg_text)
         if not send_result.ok:
             if send_result.reason == "telegram_chat_unavailable":

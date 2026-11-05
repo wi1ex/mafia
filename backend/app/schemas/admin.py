@@ -1,7 +1,9 @@
 from __future__ import annotations
 from datetime import datetime
+from uuid import UUID
 from typing import Annotated, Optional, List, Literal
 from pydantic import AfterValidator, BaseModel, Field, field_validator
+from ..services.coin_prices import normalize_dc_packages
 from ..api.utils import (
     normalize_season_start_game_number,
     normalize_text_moderation_whitelist,
@@ -26,7 +28,7 @@ class SiteSettingsOut(BaseModel):
     admin_banner_text: str
     admin_banner_link: str
     home_carousel_banner_key: Optional[str] = None
-    donation_url: str
+    dc_coin_packages: str
     rooms_limit_global: int
     rooms_limit_per_user: int
     spectators_limit: int
@@ -50,7 +52,7 @@ class SiteSettingsUpdateIn(BaseModel):
     rtc_auto_gain_control_enabled: Optional[bool] = None
     admin_banner_text: Optional[str] = Field(default=None, max_length=2048)
     admin_banner_link: Optional[str] = Field(default=None, max_length=2048)
-    donation_url: Optional[str] = Field(default=None, max_length=2048)
+    dc_coin_packages: Optional[str] = None
     rooms_limit_global: Optional[int] = Field(default=None, ge=1)
     rooms_limit_per_user: Optional[int] = Field(default=None, ge=1)
     spectators_limit: Optional[int] = Field(default=None, ge=0, le=100)
@@ -60,6 +62,14 @@ class SiteSettingsUpdateIn(BaseModel):
     text_moderation_whitelist: Optional[TextModerationWhitelistCsv] = Field(default=None, max_length=4096)
     text_moderation_blacklist: Optional[TextModerationBlacklistCsv] = Field(default=None, max_length=4096)
     senior_moderator_user_id: Optional[int] = Field(default=None, ge=1)
+
+    @field_validator("dc_coin_packages", mode="before")
+    @classmethod
+    def validate_dc_packages(cls, value: object) -> str:
+        if value is None:
+            raise ValueError("dc_packages_invalid")
+
+        return normalize_dc_packages(value)
 
 
 class GameSettingsOut(BaseModel):
@@ -330,7 +340,7 @@ class PublicSettingsOut(BaseModel):
     admin_banner_text: str
     admin_banner_link: str
     home_carousel_banner_key: Optional[str] = None
-    donation_url: str
+    dc_coin_packages: str
     rooms_limit_global: int
     spectators_limit: int
     game_min_ready_players: int
@@ -649,6 +659,7 @@ class AdminGameFoulRemovalsOut(BaseModel):
 
 class AdminUserOut(BaseModel):
     id: int
+    dc_balance: int = 0
     tg_id: Optional[int] = None
     tg_nick: Optional[str] = None
     username: Optional[str] = None
@@ -675,6 +686,19 @@ class AdminUserOut(BaseModel):
 class AdminUsersOut(BaseModel):
     total: int
     items: List[AdminUserOut]
+
+
+class AdminCoinAdjustIn(BaseModel):
+    action: Literal["credit", "debit"]
+    quantity: int = Field(strict=True, gt=0, le=9223372036854775807)
+    request_id: UUID
+
+
+class AdminCoinAdjustOut(BaseModel):
+    operation_id: int
+    dc_balance: int
+    balance_before: int
+    balance_after: int
 
 
 class AdminSubscriptionOut(BaseModel):

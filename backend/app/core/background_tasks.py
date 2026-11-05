@@ -4,6 +4,7 @@ from contextlib import suppress
 from datetime import datetime, timedelta, timezone
 from time import time
 from typing import Any
+from zoneinfo import ZoneInfo
 from sqlalchemy import select
 from ..api.utils import (
     delete_stale_unverified_accounts,
@@ -45,6 +46,12 @@ def _next_monday_utc_run_at(*, hour: int, minute: int = 0) -> datetime:
     return next_run
 
 
+def _next_moscow_daily_run_at(*, hour: int, minute: int = 0) -> datetime:
+    now = datetime.now(ZoneInfo("Europe/Moscow"))
+    next_run = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    return next_run if next_run > now else next_run + timedelta(days=1)
+
+
 async def verify_runtime_dependencies() -> None:
     await asyncio.gather(get_redis().ping(), asyncio.to_thread(ensure_bucket))
 
@@ -59,6 +66,7 @@ class LifespanBackgroundTasks:
         self._empty_rooms_gc_task: asyncio.Task[None] | None = None
         self._stale_chat_uploads_task: asyncio.Task[None] | None = None
         self._telegram_nickname_sync_task: asyncio.Task[None] | None = None
+        self._coin_reconciliation_task: asyncio.Task[None] | None = None
         self._empty_room_gc_tasks: dict[int, asyncio.Task[None]] = {}
 
     def start(self) -> None:
@@ -69,6 +77,7 @@ class LifespanBackgroundTasks:
         self._empty_rooms_gc_task = asyncio.create_task(self.empty_rooms_gc_loop())
         self._stale_chat_uploads_task = asyncio.create_task(self.stale_chat_uploads_loop())
         self._telegram_nickname_sync_task = asyncio.create_task(self.telegram_nickname_sync_loop())
+        self._coin_reconciliation_task = asyncio.create_task(self.coin_reconciliation_loop())
 
     async def stop(self) -> None:
         try:
@@ -80,6 +89,7 @@ class LifespanBackgroundTasks:
                 self._empty_rooms_gc_task,
                 self._stale_chat_uploads_task,
                 self._telegram_nickname_sync_task,
+                self._coin_reconciliation_task,
             )
             for managed_task in managed_tasks:
                 await self._cancel_and_wait(managed_task)
@@ -335,10 +345,23 @@ class LifespanBackgroundTasks:
         except asyncio.CancelledError:
             pass
 
+    async def coin_reconciliation_loop(self) -> None:
+        from ..services.payments import reconcile_coin_invoices
+        try:
+            while True:
+                try:
+                    async with SessionLocal() as session:
+                        await reconcile_coin_invoices(session, limit=50)
+                except Exception:
+                    self._log.exception("app.coins.reconciliation_failed")
+                await asyncio.sleep(60)
+        except asyncio.CancelledError:
+            pass
+
     async def expired_profile_subscriptions_loop(self) -> None:
         try:
             while True:
-                next_run = _next_local_daily_run_at(hour=3, minute=0)
+                next_run = _next_moscow_daily_run_at(hour=3, minute=0)
                 delay_s = max(0.0, (next_run - datetime.now(next_run.tzinfo)).total_seconds())
                 self._log.info(
                     "app.subscriptions.maintenance.scheduled",

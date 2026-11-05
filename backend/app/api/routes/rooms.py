@@ -590,8 +590,8 @@ async def approve(room_id: int, user_id: int, ident: Identity = Depends(get_iden
         return Ok()
 
     title_room = (params.get("title") or "").strip()
-    toast_title = "Доступ разрешен"
-    toast_text = f"Вход в «{title_room}» разрешен"
+    toast_title = "Доступ к комнате разрешён"
+    toast_text = f"Владелец разрешил вам вход в комнату «{title_room}»."
 
     with suppress(Exception):
         await emit_rooms_upsert(room_id)
@@ -664,7 +664,7 @@ async def deny(room_id: int, user_id: int, ident: Identity = Depends(get_identit
     title_room = (params.get("title") or "").strip()
     is_hidden_room = str(params.get("anonymity") or "visible") == "hidden"
     toast_title = "Доступ к комнате отозван"
-    toast_text = f"Вход в «{title_room}» больше недоступен."
+    toast_text = f"Владелец отозвал разрешение на вход в комнату «{title_room}»."
 
     with suppress(Exception):
         await sio.emit("notify",

@@ -6,20 +6,31 @@ from contextlib import suppress
 from time import time
 from datetime import date, datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status, Query
-from sqlalchemy import select, func, or_
+from sqlalchemy import select, func, or_, delete
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import IntegrityError
 from ...core.clients import get_redis
 from ...core.db import get_session
 from ...models.log import AppLog
 from ...core.roles import ADDITIONAL_ROLE_HEAD_RATE, ROLE_MODER, normalize_additional_roles
 from ...models.contact_request import ContactRequestRecord, ContactRequestReply
 from ...models.game import Game
+from ...models.friend import UserBlacklist
 from ...models.room import Room
 from ...models.notif import Notif
 from ...models.settings import AppSettings
 from ...models.subscription import UserSubscription
 from ...models.sanction import UserSanction
 from ...models.user import User
+from ...models.coin_purchase import CoinPurchase
+from ...services.wallet import (
+    adjust_dc_balance,
+    lock_dc_request,
+    lock_user_balance,
+    notify_coin_operation,
+    persist_coin_operation_notice,
+    record_admin_subscription,
+)
 from ...core.logging import log_action
 from ...realtime.sio import sio
 from ...realtime.utils import (
@@ -35,7 +46,7 @@ from ...security.decorators import log_route, require_protected_admin_dep
 from ...security.auth_tokens import get_identity
 from ...security.parameters import ensure_app_settings, sync_cache_from_row, refresh_app_settings, get_cached_settings
 from ...services.livekit import remove_livekit_participant
-from ...services.user_cache import refresh_user_profile_cache, get_user_profiles_cached
+from ...services.user_cache import refresh_user_profile_cache, get_user_profiles_cached, invalidate_avatar_presign_cache
 from ...services.site_rules import update_site_rules_version
 from ...services.multiaccounts import MULTIACCOUNT_ACTIONS, MultiaccountScan
 from ...services.game_scoring import (
@@ -74,10 +85,11 @@ from ...services.minio import (
     CHAT_IMAGE_PREFIX,
     MAX_BYTES,
     delete_object_async,
+    delete_avatar_version_async,
     get_prefix_storage_stats_async,
     put_home_carousel_banner_async,
 )
-from ...services.blacklist import clear_user_blacklist
+from ...services.blacklist import emit_blacklist_update
 from ...models.sanction_rules import get_sanction_rules
 from ...services.nickname import prepend_nickname_history
 from ...schemas.common import Ok, Identity
@@ -123,6 +135,8 @@ from ...schemas.admin import (
     AdminGameFoulRemovalsUpdateIn,
     AdminGameResultUpdateIn,
     AdminGameResultOut,
+    AdminCoinAdjustIn,
+    AdminCoinAdjustOut,
     AdminUserOut,
     AdminUserAdditionalRoleIn,
     AdminUserAdditionalRolesOut,
@@ -150,7 +164,6 @@ from ..utils import (
     normalize_admin_banner_text,
     normalize_admin_banner_link,
     normalize_home_carousel_banner_key,
-    normalize_donation_url,
     sanction_rules_out,
     parse_cached_deleted_at,
     normalize_game_result,
@@ -227,7 +240,6 @@ from ..utils import (
     emit_nickname_reset_notice,
     emit_notify,
     emit_sanctions_update,
-    send_sanction_finished_telegram_notice,
     refresh_rooms_after,
     set_user_deleted,
     delete_user_account_as_admin_action,
@@ -243,11 +255,10 @@ from ..utils import (
     emit_room_profile_theme_sync,
     emit_room_role_sync,
     notify_subscription_upsert,
+    build_subscription_upsert_notice,
     format_subscription_purchase_duration,
     format_subscription_until,
     schedule_user_telegram_notice,
-    send_user_telegram_notice,
-    delete_gif_avatar_for_inactive_subscription,
 )
 
 public_router = APIRouter()
@@ -256,6 +267,7 @@ router = APIRouter(dependencies=ADMIN_GUARD)
 log = structlog.get_logger()
 
 AdminUserSortKey = Literal[
+    "dc_balance",
     "tg_id",
     "tg_nick",
     "registered_at",
@@ -416,8 +428,6 @@ async def update_settings(payload: AdminSettingsUpdateIn, session: AsyncSession 
         incoming["admin_banner_text"] = normalize_admin_banner_text(incoming.get("admin_banner_text"))
     if "admin_banner_link" in incoming:
         incoming["admin_banner_link"] = normalize_admin_banner_link(incoming.get("admin_banner_link"))
-    if "donation_url" in incoming:
-        incoming["donation_url"] = normalize_donation_url(incoming.get("donation_url"))
 
     changed = {
         key: value
@@ -909,19 +919,6 @@ async def reply_to_contact_request(contact_request_id: int, payload: AdminContac
         title="Ответ администрации по обращению",
         text=reply_text,
     )
-    if not target_user.telegram_id:
-        raise HTTPException(status_code=409, detail="contact_request_telegram_missing")
-
-    delivered = await send_user_telegram_notice(
-        target_user_id,
-        target_user.telegram_id,
-        note.title,
-        note.text,
-        log_event="contact_request.reply_telegram_notify_failed",
-    )
-    if not delivered:
-        raise HTTPException(status_code=502, detail="contact_request_telegram_failed")
-
     session.add(ContactRequestReply(
         contact_request_id=int(row.id),
         author_id=int(ident["id"]),
@@ -1862,7 +1859,15 @@ async def users_list(
         "registered_at": User.registered_at,
         "last_online": User.last_visit_at,
     }
-    if sort == "tg_nick":
+    if sort == "dc_balance":
+        rows = await session.execute(
+            select(User)
+            .where(*filters)
+            .order_by(User.dc_balance.desc(), User.id.desc())
+            .offset(offset).limit(limit)
+        )
+        users = list(rows.scalars().all())
+    elif sort == "tg_nick":
         rows = await session.execute(
             select(User)
             .where(*filters)
@@ -1977,6 +1982,7 @@ async def users_list(
         last_game_id, last_game_at = last_games.get(uid, (None, None))
         items.append(AdminUserOut(
             id=uid,
+            dc_balance=int(u.dc_balance),
             tg_id=u.telegram_id,
             tg_nick=u.telegram_nickname,
             username=u.username,
@@ -2001,6 +2007,46 @@ async def users_list(
         ))
 
     return AdminUsersOut(total=total, items=items)
+
+
+@router.post("/users/{user_id}/coins", response_model=AdminCoinAdjustOut, dependencies=ADMIN_GUARD)
+@log_route("admin.users.coins")
+async def adjust_user_coins(
+    user_id: int,
+    payload: AdminCoinAdjustIn,
+    ident: Identity = Depends(get_identity),
+    session: AsyncSession = Depends(get_session),
+) -> AdminCoinAdjustOut:
+    user = await lock_user_balance(session, user_id)
+    ensure_admin_target_allowed(user)
+    ensure_admin_target_not_deleted(user)
+    source = "admin_grant" if payload.action == "credit" else "admin_remove"
+    delta = payload.quantity if payload.action == "credit" else -payload.quantity
+    request_id = str(payload.request_id)
+    await lock_dc_request(session, request_id, journal="coin")
+    previous = await session.scalar(select(CoinPurchase.id).where(CoinPurchase.request_id == request_id))
+    try:
+        operation = await adjust_dc_balance(
+            session, user_id, delta, source=source, actor_id=int(ident["id"]), request_id=request_id,
+        )
+        note = None
+        if previous is None:
+            note = await persist_coin_operation_notice(session, operation)
+            await log_action(
+                session, user_id=int(ident["id"]), username=ident["username"],
+                action="admin_coin_grant" if delta > 0 else "admin_coin_remove",
+                details=f"user_id={user_id} quantity={payload.quantity} balance_before={operation.balance_before} balance_after={operation.balance_after}",
+                commit=False,
+            )
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail="idempotency_conflict") from None
+
+    result = AdminCoinAdjustOut(operation_id=operation.id, dc_balance=int(operation.balance_after),
+                                balance_before=int(operation.balance_before), balance_after=int(operation.balance_after))
+    await notify_coin_operation(session, operation, note=note)
+    return result
 
 
 @router.get("/sanctions", response_model=AdminSanctionsOut, dependencies=ADMIN_GUARD)
@@ -2243,6 +2289,7 @@ async def subscriptions_upsert(payload: AdminSubscriptionCreateIn, ident: Identi
     ensure_admin_target_not_deleted(user)
 
     uid = int(user.id)
+    await lock_user_balance(session, uid)
     now = datetime.now(timezone.utc)
     subscription = await session.scalar(
         select(UserSubscription)
@@ -2252,6 +2299,7 @@ async def subscriptions_upsert(payload: AdminSubscriptionCreateIn, ident: Identi
         .execution_options(populate_existing=True)
     )
 
+    previous_ends_at = subscription.ends_at if subscription is not None else None
     had_active_subscription = False
     should_issue_subscription_nickname_limit = False
     if subscription is None:
@@ -2263,7 +2311,7 @@ async def subscriptions_upsert(payload: AdminSubscriptionCreateIn, ident: Identi
     else:
         had_active_subscription = subscription.starts_at <= now < subscription.ends_at
         if had_active_subscription:
-            subscription.ends_at = compute_subscription_end(subscription.ends_at, months=months, days=days)
+            subscription.ends_at = compute_subscription_end(subscription.ends_at, months=months, days=days, active=True)
             user.nickname_changes_left = normalize_nickname_changes_left(user.nickname_changes_left)
         else:
             subscription.starts_at = now
@@ -2273,11 +2321,13 @@ async def subscriptions_upsert(payload: AdminSubscriptionCreateIn, ident: Identi
     if should_issue_subscription_nickname_limit:
         set_user_nickname_changes(user, SUBSCRIPTION_NICKNAME_CHANGE_LIMIT)
     await ensure_profile_theme_defaults(session, uid, now=now)
-    await session.commit()
-    await session.refresh(subscription)
-    await refresh_user_profile_cache(session, uid)
+    await record_admin_subscription(
+        session, user_id=uid, months=months, days=days, ends_before=previous_ends_at,
+        ends_after=subscription.ends_at, starts_at=subscription.starts_at, actor_id=int(ident["id"]),
+    )
     theme_state = await resolve_profile_theme_state(session, uid)
-
+    note = build_subscription_upsert_notice(user, subscription, extended=had_active_subscription, months=months, days=days)
+    session.add(note)
     await log_action(
         session,
         user_id=int(ident["id"]),
@@ -2288,8 +2338,23 @@ async def subscriptions_upsert(payload: AdminSubscriptionCreateIn, ident: Identi
             f"months={months} days={days} starts_at={subscription.starts_at.isoformat()} "
             f"ends_at={subscription.ends_at.isoformat()}"
         ),
+        commit=False,
     )
+    result = AdminSubscriptionOut(
+        user_id=uid,
+        username=user.username,
+        avatar_name=user.avatar_name,
+        role=str(user.role or "user"),
+        starts_at=subscription.starts_at,
+        ends_at=subscription.ends_at,
+        is_active=True,
+        profile_theme_color=theme_state.color,
+        profile_theme_icon=theme_state.icon,
+    )
+    await session.commit()
 
+    with suppress(Exception):
+        await refresh_user_profile_cache(session, uid)
     with suppress(Exception):
         await emit_auth_profile_sync(uid, role=str(user.role))
     with suppress(Exception):
@@ -2305,6 +2370,7 @@ async def subscriptions_upsert(payload: AdminSubscriptionCreateIn, ident: Identi
             extended=had_active_subscription,
             months=months,
             days=days,
+            note=note,
         )
     except Exception as exc:
         log.warning(
@@ -2314,17 +2380,7 @@ async def subscriptions_upsert(payload: AdminSubscriptionCreateIn, ident: Identi
             err=type(exc).__name__,
         )
 
-    return AdminSubscriptionOut(
-        user_id=uid,
-        username=user.username,
-        avatar_name=user.avatar_name,
-        role=str(user.role or "user"),
-        starts_at=subscription.starts_at,
-        ends_at=subscription.ends_at,
-        is_active=True,
-        profile_theme_color=theme_state.color,
-        profile_theme_icon=theme_state.icon,
-    )
+    return result
 
 
 @router.post("/subscriptions/compensation", response_model=AdminSubscriptionCompensationOut, dependencies=ADMIN_GUARD)
@@ -2340,32 +2396,39 @@ async def subscriptions_compensation(
         raise HTTPException(status_code=422, detail="duration_required")
 
     now = datetime.now(timezone.utc)
-    active_rows = await session.execute(
-        select(User, UserSubscription)
-        .join(UserSubscription, UserSubscription.user_id == User.id)
-        .where(
-            User.deleted_at.is_(None),
-            UserSubscription.starts_at <= now,
-            UserSubscription.ends_at > now,
-        )
+    candidate_ids = list((await session.scalars(
+        select(User.id).join(UserSubscription, UserSubscription.user_id == User.id)
+        .where(User.deleted_at.is_(None), UserSubscription.starts_at <= now, UserSubscription.ends_at > now)
         .order_by(User.id)
-        .with_for_update()
-        .execution_options(populate_existing=True)
-    )
-    active_subscriptions = active_rows.all()
+    )).all())
+    active_subscriptions: list[tuple[User, UserSubscription]] = []
+    for uid in candidate_ids:
+        user = await lock_user_balance(session, uid)
+        subscription = await session.scalar(
+            select(UserSubscription).where(UserSubscription.user_id == uid).with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        if user.deleted_at is None and subscription is not None and subscription.starts_at <= now < subscription.ends_at:
+            active_subscriptions.append((user, subscription))
     duration_text = format_subscription_purchase_duration(months=months, days=days)
     notes: list[Notif] = []
 
     for user, subscription in active_subscriptions:
-        subscription.ends_at = compute_subscription_end(subscription.ends_at, months=months, days=days)
+        previous_ends_at = subscription.ends_at
+        subscription.ends_at = compute_subscription_end(subscription.ends_at, months=months, days=days, active=True)
         user.nickname_changes_left = normalize_nickname_changes_left(user.nickname_changes_left)
+        await record_admin_subscription(
+            session, user_id=int(user.id), months=months, days=days, ends_before=previous_ends_at,
+            ends_after=subscription.ends_at, starts_at=subscription.starts_at,
+            actor_id=int(ident["id"]), source="compensation",
+        )
         until_text = format_subscription_until(subscription.ends_at)
         notes.append(
             Notif(
                 user_id=int(user.id),
                 title="Компенсация подписки",
                 text=(
-                    f"В качестве компенсации ваша подписка продлена на {duration_text} "
+                    f"В качестве компенсации ваша подписка бесплатно продлена на {duration_text} "
                     f"и действует до {until_text}."
                 ),
                 created_at=now,
@@ -2426,6 +2489,7 @@ async def subscriptions_reduce(user_id: int, payload: AdminSubscriptionDurationI
 
     ensure_admin_target_not_deleted(user)
 
+    await lock_user_balance(session, uid)
     now = datetime.now(timezone.utc)
     subscription = await session.scalar(
         select(UserSubscription)
@@ -2452,10 +2516,6 @@ async def subscriptions_reduce(user_id: int, payload: AdminSubscriptionDurationI
     subscription.ends_at = next_ends_at
 
     await ensure_profile_theme_defaults(session, uid, now=now)
-
-    await session.commit()
-    await session.refresh(subscription)
-    await refresh_user_profile_cache(session, uid)
     theme_state = await resolve_profile_theme_state(session, uid)
 
     await log_action(
@@ -2469,17 +2529,9 @@ async def subscriptions_reduce(user_id: int, payload: AdminSubscriptionDurationI
             f"old_ends_at={previous_ends_at.isoformat()} "
             f"ends_at={subscription.ends_at.isoformat()}"
         ),
+        commit=False,
     )
-
-    with suppress(Exception):
-        await emit_auth_profile_sync(uid, role=str(user.role))
-    with suppress(Exception):
-        await emit_room_profile_theme_sync(uid, theme_state.color, theme_state.icon)
-    with suppress(Exception):
-        from ...services.global_chat import emit_global_chat_profile_theme_sync
-        await emit_global_chat_profile_theme_sync(uid, theme_state.color, theme_state.icon)
-
-    return AdminSubscriptionOut(
+    result = AdminSubscriptionOut(
         user_id=uid,
         username=user.username,
         avatar_name=user.avatar_name,
@@ -2490,6 +2542,19 @@ async def subscriptions_reduce(user_id: int, payload: AdminSubscriptionDurationI
         profile_theme_color=theme_state.color,
         profile_theme_icon=theme_state.icon,
     )
+    await session.commit()
+
+    with suppress(Exception):
+        await refresh_user_profile_cache(session, uid)
+    with suppress(Exception):
+        await emit_auth_profile_sync(uid, role=str(user.role))
+    with suppress(Exception):
+        await emit_room_profile_theme_sync(uid, theme_state.color, theme_state.icon)
+    with suppress(Exception):
+        from ...services.global_chat import emit_global_chat_profile_theme_sync
+        await emit_global_chat_profile_theme_sync(uid, theme_state.color, theme_state.icon)
+
+    return result
 
 
 @router.delete("/subscriptions/{user_id}", response_model=Ok, dependencies=ADMIN_GUARD)
@@ -2505,6 +2570,7 @@ async def subscriptions_delete(user_id: int, ident: Identity = Depends(get_ident
     if not user:
         raise HTTPException(status_code=404, detail="user_not_found")
 
+    await lock_user_balance(session, uid)
     subscription = await session.scalar(
         select(UserSubscription)
         .where(UserSubscription.user_id == uid)
@@ -2516,20 +2582,35 @@ async def subscriptions_delete(user_id: int, ident: Identity = Depends(get_ident
         raise HTTPException(status_code=404, detail="subscription_not_found")
 
     set_user_nickname_changes(user, SUBSCRIPTION_EXPIRED_NICKNAME_CHANGE_RESET)
+    old_avatar_name = user.avatar_name if isinstance(user.avatar_name, str) and user.avatar_name.strip().lower().endswith(".gif") else None
+    if old_avatar_name:
+        user.avatar_name = None
+    removed_blacklist_target_ids = tuple((await session.scalars(
+        select(UserBlacklist.target_id).where(UserBlacklist.owner_id == uid)
+    )).all())
+    if removed_blacklist_target_ids:
+        await session.execute(delete(UserBlacklist).where(UserBlacklist.owner_id == uid))
     await session.delete(subscription)
-    await session.commit()
-    avatar_deleted = await delete_gif_avatar_for_inactive_subscription(session, uid)
-    removed_blacklist_target_ids = await clear_user_blacklist(session, uid)
-    if not avatar_deleted:
-        await refresh_user_profile_cache(session, uid)
-
     await log_action(
         session,
         user_id=int(ident["id"]),
         username=ident["username"],
         action="admin_subscription_delete",
         details=f"Подписка снята user_id={uid} username={user.username or f'user{uid}'}",
+        commit=False,
     )
+    await session.commit()
+    if old_avatar_name:
+        with suppress(Exception):
+            await invalidate_avatar_presign_cache(old_avatar_name)
+        with suppress(Exception):
+            await delete_avatar_version_async(uid, old_avatar_name)
+    for target_id in removed_blacklist_target_ids:
+        with suppress(Exception):
+            await emit_blacklist_update(uid, int(target_id), blacklisted=False, cleared=True)
+            await emit_blacklist_update(int(target_id), uid, blacklisted_by_target=False, cleared=True)
+    with suppress(Exception):
+        await refresh_user_profile_cache(session, uid)
     if removed_blacklist_target_ids:
         log.info(
             "admin.subscription.blacklist_clear.done",
@@ -2540,10 +2621,14 @@ async def subscriptions_delete(user_id: int, ident: Identity = Depends(get_ident
     with suppress(Exception):
         await emit_auth_profile_sync(uid, role=str(user.role))
     with suppress(Exception):
-        await emit_room_profile_theme_sync(uid, None, None)
-    with suppress(Exception):
+        theme = await resolve_profile_theme_state(session, uid)
+        await emit_room_profile_theme_sync(uid, theme.color, theme.icon)
         from ...services.global_chat import emit_global_chat_profile_theme_sync
-        await emit_global_chat_profile_theme_sync(uid, None, None)
+        await emit_global_chat_profile_theme_sync(uid, theme.color, theme.icon)
+    if old_avatar_name:
+        with suppress(Exception):
+            if await session.scalar(select(User.avatar_name).where(User.id == uid)) is None:
+                await broadcast_creator_rooms(uid, avatar="delete")
 
     return Ok()
 
@@ -2614,13 +2699,13 @@ async def update_user_role(user_id: int, payload: AdminUserRoleIn, ident: Identi
             note = Notif(
                 user_id=uid,
                 title="Роль",
-                text="Вам выдана роль Модератор.",
+                text="Вам выдана роль «Модератор».",
             )
             session.add(note)
             await session.commit()
             await session.refresh(note)
             with suppress(Exception):
-                await emit_notify(uid, note, kind="role_update")
+                await emit_notify(uid, note, kind="role_update", extra={"tone": "green"})
             with suppress(Exception):
                 await emit_global_chat_role_notice(
                     session,
@@ -2634,13 +2719,13 @@ async def update_user_role(user_id: int, payload: AdminUserRoleIn, ident: Identi
             note = Notif(
                 user_id=uid,
                 title="Роль",
-                text="С вас снята роль Модератор.",
+                text="С вас снята роль «Модератор».",
             )
             session.add(note)
             await session.commit()
             await session.refresh(note)
             with suppress(Exception):
-                await emit_notify(uid, note, kind="role_update")
+                await emit_notify(uid, note, kind="role_update", extra={"tone": "blue"})
             with suppress(Exception):
                 await emit_global_chat_role_notice(
                     session,
@@ -2697,7 +2782,7 @@ async def update_user_additional_role(user_id: int, payload: AdminUserAdditional
     note = Notif(
         user_id=uid,
         title="Роль",
-        text=("Вам выдана роль Ведущий Рейтинга." if granted else "С вас снята роль Ведущий Рейтинга."),
+        text=("Вам выдана роль «Ведущий Рейтинга»." if granted else "С вас снята роль «Ведущий Рейтинга»."),
     )
     session.add(note)
     await session.commit()
@@ -2716,7 +2801,7 @@ async def update_user_additional_role(user_id: int, payload: AdminUserAdditional
     )
 
     with suppress(Exception):
-        await emit_notify(uid, note, kind="role_update")
+        await emit_notify(uid, note, kind="role_update", extra={"tone": "green" if granted else "blue"})
     with suppress(Exception):
         await emit_global_chat_role_notice(
             session,
@@ -2927,6 +3012,7 @@ async def apply_user_timeout(user_id: int, payload: AdminSanctionTimedIn, ident:
                 "text": note.text,
                 "date": note.created_at.isoformat(),
                 "kind": "sanction",
+                "tone": "orange",
                 "ttl_ms": 15000,
                 "read": False,
             },
@@ -2989,7 +3075,7 @@ async def revoke_user_timeout(user_id: int, ident: Identity = Depends(get_identi
     note = Notif(
         user_id=uid,
         title="Таймаут",
-        text="Ваш таймаут снят досрочно. Доступ к комнатам восстановлен.",
+        text="Ваш таймаут снят досрочно.",
     )
     session.add(note)
     await session.commit()
@@ -3004,14 +3090,13 @@ async def revoke_user_timeout(user_id: int, ident: Identity = Depends(get_identi
                 "text": note.text,
                 "date": note.created_at.isoformat(),
                 "kind": "sanction",
+                "tone": "orange",
                 "ttl_ms": 15000,
                 "read": False,
             },
             room=f"user:{uid}",
             namespace="/auth",
         )
-    with suppress(Exception):
-        await send_sanction_finished_telegram_notice(session, user_id=uid, telegram_id=user.telegram_id, note=note)
     with suppress(Exception):
         await emit_sanctions_update(session, uid)
     with suppress(Exception):
@@ -3075,7 +3160,7 @@ async def apply_user_ban(user_id: int, payload: AdminSanctionBanIn, ident: Ident
     note = Notif(
         user_id=uid,
         title="Бан",
-        text=f"Вам выдан бан. Пункт правил: {reason}.",
+        text=f"Вам выдан бессрочный бан. Пункт правил: {reason}.",
     )
     session.add(sanction)
     session.add(note)
@@ -3091,6 +3176,7 @@ async def apply_user_ban(user_id: int, payload: AdminSanctionBanIn, ident: Ident
                 "text": note.text,
                 "date": note.created_at.isoformat(),
                 "kind": "sanction",
+                "tone": "red",
                 "ttl_ms": 15000,
                 "read": False,
             },
@@ -3148,7 +3234,7 @@ async def revoke_user_ban(user_id: int, ident: Identity = Depends(get_identity),
     note = Notif(
         user_id=uid,
         title="Бан",
-        text="Ваш бан снят. Доступ к сайту восстановлен.",
+        text="Ваш бан снят.",
     )
     session.add(note)
     await session.commit()
@@ -3163,14 +3249,13 @@ async def revoke_user_ban(user_id: int, ident: Identity = Depends(get_identity),
                 "text": note.text,
                 "date": note.created_at.isoformat(),
                 "kind": "sanction",
+                "tone": "red",
                 "ttl_ms": 15000,
                 "read": False,
             },
             room=f"user:{uid}",
             namespace="/auth",
         )
-    with suppress(Exception):
-        await send_sanction_finished_telegram_notice(session, user_id=uid, telegram_id=user.telegram_id, note=note)
     with suppress(Exception):
         await emit_sanctions_update(session, uid)
     with suppress(Exception):
@@ -3245,9 +3330,8 @@ async def apply_user_suspend(user_id: int, payload: AdminSanctionTimedIn, ident:
         user_id=uid,
         title="Отстранение от игр",
         text=(
-            f"Доступ к играм ограничен на {duration_label}. "
-            f"Пункт правил: {reason} "
-            "Проводите игры: после каждой игры срок отстранения будет уменьшаться на 4 часа."
+            f"Вы отстранены от игр на {duration_label}. Пункт правил: {reason}. "
+            "Каждая проведённая игра сокращает срок отстранения на 4 часа."
         ),
     )
     session.add(sanction)
@@ -3276,6 +3360,7 @@ async def apply_user_suspend(user_id: int, payload: AdminSanctionTimedIn, ident:
                 "text": note.text,
                 "date": note.created_at.isoformat(),
                 "kind": "sanction",
+                "tone": "yellow",
                 "ttl_ms": 15000,
                 "read": False,
             },

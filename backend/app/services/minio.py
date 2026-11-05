@@ -603,6 +603,28 @@ async def delete_avatars_async(user_id: int) -> int:
     return await asyncio.to_thread(delete_avatars, user_id)
 
 
+async def delete_avatar_version_async(user_id: int, avatar_name: str) -> int:
+    name = str(avatar_name or "")
+    if not name.startswith(f"{int(user_id)}-") or any(value in name for value in ("/", "\\", "..")):
+        raise ValueError("avatar_version_invalid")
+
+    names = [f"avatars/{name}"]
+    if name.lower().endswith(".gif"):
+        names.append(f"avatars/{name[:-4]}.png")
+
+    def remove() -> int:
+        minio = get_minio_private()
+        errors = list(minio.remove_objects(
+            bucket_name=_bucket,
+            delete_object_list=[DeleteObject(object_name) for object_name in names],
+        ))
+        if errors:
+            log.warning("avatar.version.remove_errors", user_id=user_id, count=len(errors))
+        return len(names) - len(errors)
+
+    return await asyncio.to_thread(remove)
+
+
 async def delete_stale_pending_chat_images_async() -> int:
     return await asyncio.to_thread(delete_stale_pending_chat_images)
 

@@ -6276,12 +6276,15 @@ def build_short_game_admin_telegram_message(game: Game, *, head_username: str | 
         return None
 
     minutes, seconds = divmod(int(duration.total_seconds()), 60)
-    head_name = (head_username or "").strip() or f"ID {game.head_id or 'не указан'}"
-    room_name = (room_title or "").strip() or f"№{game.room_id}"
+    head_name = (head_username or "").strip() or f"user{game.head_id}"
+    head_label = f"{head_name} (ID {game.head_id})" if game.head_id else "не указан"
+    room_name = (room_title or "").strip()
+    room_label = f"{room_name} (ID {game.room_id})" if room_name else f"ID {game.room_id}"
     return (
-        "Завершилась быстрая игра\n\n"
-        f"Игра №{game.id}, комната {room_name}\n"
-        f"Ведущий: {head_name}\n"
+        "Короткая игра с удалениями\n\n"
+        f"Игра: №{game.id}\n"
+        f"Комната: {room_label}\n"
+        f"Ведущий: {head_label}\n"
         f"Длительность: {minutes} мин {seconds} сек\n"
         f"Удалений по фолам/техфолам: {removals['foul']}\n"
         f"Самоубийств: {removals['suicide']}"
