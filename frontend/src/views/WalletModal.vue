@@ -2,25 +2,34 @@
   <Teleport to="#desktop-teleport-root">
     <Transition name="wallet-overlay">
       <div v-if="open && !restriction" class="wallet-overlay" @pointerdown.self="armed = true" @pointerup.self="armed && requestClose()" @pointerleave.self="armed = false">
-        <section ref="dialog" class="wallet-modal" role="dialog" aria-modal="true" aria-labelledby="wallet-title" @keydown="onDialogKeydown">
+        <section ref="dialog" class="wallet-modal" role="dialog" aria-modal="true" aria-labelledby="wallet-title" tabindex="-1" @keydown="onDialogKeydown">
           <header>
             <div class="wallet-heading">
-              <h2 id="wallet-title">Deceit Coin</h2>
+              <h2 id="wallet-title">{{ tab === 'coins' ? 'Пополнение баланса' : 'Покупка подписки' }}</h2>
               <div class="wallet-status" aria-live="polite">
-                <p class="wallet-balance">Баланс: <strong>{{ balanceText }} <small>DC</small></strong></p>
-                <p class="wallet-subscription">{{ userStore.subscriptionActive ? `Подписка действует до ${formatMoscowDate(userStore.user?.subscription_until)}.` : 'У вас нет действующей подписки.' }}</p>
+                <div class="wallet-status-item wallet-balance">
+                  <span class="wallet-status-symbol"><UiIcon :icon="iconCard" /></span>
+                  <div class="wallet-status-content">
+                    <span class="wallet-status-label">Баланс</span>
+                    <strong>{{ balanceText }} <small>DC</small></strong>
+                  </div>
+                </div>
+                <div class="wallet-status-item wallet-subscription" :class="{ 'is-active': userStore.subscriptionActive }">
+                  <span class="wallet-status-symbol"><UiIcon :icon="iconTimeHistory" /></span>
+                  <div class="wallet-status-content">
+                    <span class="wallet-status-label">{{ userStore.subscriptionActive ? 'Подписка активна' : 'Подписка' }}</span>
+                    <span class="wallet-status-value">{{ userStore.subscriptionActive ? `До ${formatMoscowDate(userStore.user?.subscription_until)}` : 'Нет активной подписки' }}</span>
+                  </div>
+                </div>
               </div>
             </div>
             <UiButton variant="white" size="low" :icon="iconClose" width="40px" aria-label="Закрыть" :disabled="busy" @click="requestClose" />
           </header>
-          <nav class="wallet-tabs" role="tablist" aria-label="Покупки">
-            <button id="wallet-coins-tab" type="button" role="tab" :aria-selected="tab === 'coins'" aria-controls="wallet-coins" :class="{ active: tab === 'coins' }" @click="tab = 'coins'">Пополнение баланса</button>
-            <button id="wallet-subscription-tab" type="button" role="tab" :aria-selected="tab === 'subscription'" aria-controls="wallet-subscription" :class="{ active: tab === 'subscription' }" @click="tab = 'subscription'">Покупка подписки</button>
-          </nav>
+          <UiSwitch v-model="subscriptionTabActive" class="wallet-tabs" off-label="Пополнение баланса" on-label="Покупка подписки" aria-label="Пополнение баланса / Покупка подписки" theme="light" without-text @change="onTabChange" />
           <p v-if="opening" class="wallet-state" role="status">Загрузка…</p>
           <p v-if="error" class="wallet-error" role="alert">{{ error }}</p>
 
-          <div v-show="tab === 'coins'" id="wallet-coins" role="tabpanel" aria-labelledby="wallet-coins-tab" class="wallet-panel">
+          <div v-show="tab === 'coins'" id="wallet-coins" role="region" aria-label="Пополнение баланса" class="wallet-panel">
             <template v-if="selectedInvoice">
               <div class="wallet-summary invoice-summary">
                 <strong>{{ invoiceHeading(selectedInvoice) }}</strong>
@@ -49,10 +58,11 @@
                 <button v-for="item in currencies" :key="item" type="button" :class="{ active: currency === item }" :aria-pressed="currency === item" :disabled="busy" @click="currency = item">{{ item }}</button>
               </div>
               <div class="wallet-package-grid" role="group" aria-label="Пакет монет">
-                <button v-for="coinPackage in COIN_PACKAGES" :key="coinPackage.quantity" class="wallet-package-card" type="button"
+                <button v-for="coinPackage in COIN_PACKAGES" :key="coinPackage.quantity" class="wallet-package-card wallet-package-card--coins" type="button"
                         :class="{ active: quantity === coinPackage.quantity }" :aria-pressed="quantity === coinPackage.quantity"
                         :disabled="busy || opening" @click="quantity = coinPackage.quantity">
                   <span v-if="coinPackage.discount" class="wallet-discount">−{{ coinPackage.discount }}%</span>
+                  <img class="wallet-coin-illustration" :src="coinPackageImages[coinPackage.quantity]" width="512" height="384" alt="" aria-hidden="true" loading="lazy" decoding="async" />
                   <strong>{{ coinPackage.quantity }} DC</strong>
                   <span>{{ dcMoney(settings.dcCoinPackages[coinPackage.quantity][currency], 1, currency) }}</span>
                 </button>
@@ -67,7 +77,7 @@
             </div>
           </div>
 
-          <div v-show="tab === 'subscription'" id="wallet-subscription" role="tabpanel" aria-labelledby="wallet-subscription-tab" class="wallet-panel">
+          <div v-show="tab === 'subscription'" id="wallet-subscription" role="region" aria-label="Покупка подписки" class="wallet-panel">
             <div class="wallet-benefits-card">
               <img class="background-image" :src="imageSlide8" alt="" aria-hidden="true" />
               <ul class="wallet-benefits" aria-label="Привилегии подписки">
@@ -110,9 +120,16 @@ import { alertDialog } from '@/services/confirm'
 import UiButton from '@/components/UiButton.vue'
 import UiIcon from '@/components/UiIcon.vue'
 import UiInput from '@/components/UiInput.vue'
+import UiSwitch from '@/components/UiSwitch.vue'
 import imageSlide8 from '@/assets/images/carousel-image8.png'
+import coins30 from '@/assets/images/coins-30.webp'
+import coins100 from '@/assets/images/coins-100.webp'
+import coins300 from '@/assets/images/coins-300.webp'
+import coins1000 from '@/assets/images/coins-1000.webp'
 import iconClose from '@/assets/svg/iconClose.svg'
 import iconCheckCircle from '@/assets/svg/iconCheckCircle.svg'
+import iconCard from '@/assets/svg/iconCard.svg'
+import iconTimeHistory from '@/assets/svg/iconTimeHistory.svg'
 
 const props = defineProps<{ open: boolean; initialTab?: WalletTab }>()
 const emit = defineEmits<{ 'update:open': [boolean] }>()
@@ -124,6 +141,10 @@ const route = useRoute()
 const router = useRouter()
 const dialog = ref<HTMLElement | null>(null)
 const tab = ref<WalletTab>('coins')
+const subscriptionTabActive = computed({
+  get: () => tab.value === 'subscription',
+  set: (value: boolean) => { tab.value = value ? 'subscription' : 'coins' },
+})
 const subscriptionBenefits: readonly string[] = [
   'GIF-аватар, выбор цвета и иконки профиля',
   'статистика и история игр пользователей',
@@ -134,6 +155,7 @@ const subscriptionBenefits: readonly string[] = [
   'безлимитное изменение никнейма и его истории',
 ]
 const currencies = DC_CURRENCIES
+const coinPackageImages: Record<CoinPackageQuantity, string> = { 30: coins30, 100: coins100, 300: coins300, 1000: coins1000 }
 const currency = ref<DcCurrency>('RUB')
 const quantity = ref<CoinPackageQuantity>(30)
 const subscriptionPlan = ref<SubscriptionPlan>('week')
@@ -177,12 +199,19 @@ function invoiceStatusText(invoice: CoinInvoice): string {
   return 'Подтверждение оплаты пока не получено. Если вы уже оплатили счёт, повторно оплачивать не нужно.'
 }
 function requestClose(): void { if (!busy.value) emit('update:open', false) }
+async function onTabChange(): Promise<void> {
+  const seq = openSequence
+  await nextTick()
+  if (props.open && seq === openSequence) dialog.value?.focus({ preventScroll: true })
+}
 function onDialogKeydown(event: KeyboardEvent): void {
   if (event.key === 'Escape') { event.stopPropagation(); requestClose() }
   if (event.key !== 'Tab') return
   const focusable = dialog.value?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), a[href]')
   const visible = Array.from(focusable || []).filter(item => item.offsetParent !== null)
   const first = visible[0]; const last = visible.at(-1)
+  if (!first || !last) { event.preventDefault(); return }
+  if (document.activeElement === dialog.value) { event.preventDefault(); (event.shiftKey ? last : first).focus(); return }
   if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus() }
   else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus() }
 }
@@ -343,7 +372,7 @@ onBeforeUnmount(() => { openSequence++; stopTimers() })
     display: flex;
     flex-direction: column;
     gap: 20px;
-    width: 746px;
+    width: 800px;
     max-width: 100%;
     max-height: 100%;
     padding: 24px;
@@ -368,8 +397,9 @@ onBeforeUnmount(() => { openSequence++; stopTimers() })
       gap: 16px;
       .wallet-heading {
         display: flex;
+        flex: 1;
         flex-direction: column;
-        gap: 8px;
+        gap: 14px;
         min-width: 0;
         h2 {
           font-family: Involve-Medium;
@@ -379,31 +409,73 @@ onBeforeUnmount(() => { openSequence++; stopTimers() })
           margin: 0;
         }
         .wallet-status {
-          display: flex;
-          flex-wrap: wrap;
-          align-items: baseline;
-          gap: 4px 16px;
-          color: $neutral-600;
-          font-size: 14px;
-          .wallet-balance {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr));
+          gap: 10px;
+          .wallet-status-item {
             display: flex;
-            align-items: baseline;
-            gap: 6px;
+            align-items: center;
+            gap: 12px;
             min-width: 0;
-            strong {
-              font-family: Hauora-Bold;
-              font-size: 18px;
-              color: $neutral-black;
+            padding: 12px 14px;
+            border: 1px solid rgba($neutral-black, 0.04);
+            border-radius: 16px;
+            background: rgba($neutral-white, 0.9);
+            .wallet-status-symbol {
+              display: grid;
+              flex: 0 0 36px;
+              place-items: center;
+              width: 36px;
+              height: 36px;
+              border-radius: 12px;
+              background: $green-100;
+              --ui-icon-width: 20px;
+              --ui-icon-height: 20px;
+              --ui-icon-color: #{$green-700};
+            }
+            .wallet-status-content {
+              display: flex;
+              flex-direction: column;
+              gap: 2px;
+              min-width: 0;
               overflow-wrap: anywhere;
-              small {
-                font-family: Hauora-Regular;
-                font-size: 14px;
+              .wallet-status-label {
+                font-family: Hauora-Medium;
+                font-size: 12px;
+                line-height: 16px;
                 color: $neutral-600;
+              }
+              strong {
+                font-family: Hauora-Bold;
+                font-size: 22px;
+                line-height: 26px;
+                color: $green-800;
+                small {
+                  font-family: Hauora-Medium;
+                  font-size: 14px;
+                  color: $green-700;
+                }
+              }
+              .wallet-status-value {
+                font-family: Hauora-Medium;
+                font-size: 14px;
+                line-height: 20px;
+                color: $neutral-800;
               }
             }
           }
+          .wallet-balance {
+            background: linear-gradient(120deg, rgba($green-100, 0.8), rgba($neutral-white, 0.9));
+          }
           .wallet-subscription {
-            overflow-wrap: anywhere;
+            .wallet-status-symbol {
+              background: $neutral-50;
+              --ui-icon-color: #{$neutral-600};
+            }
+            &.is-active .wallet-status-symbol {
+              background: $green-100;
+              --ui-icon-color: #{$green-700};
+            }
           }
         }
       }
@@ -412,28 +484,18 @@ onBeforeUnmount(() => { openSequence++; stopTimers() })
       margin: 0;
     }
     .wallet-tabs {
-      display: flex;
-      gap: 10px;
-      button {
-        flex: 1;
-        min-width: 0;
-        border: 0;
-        border-radius: 999px;
-        padding: 12px 8px;
-        background: $neutral-white;
-        color: $neutral-700;
-        font: inherit;
-        cursor: pointer;
-        &.active {
-          background: linear-gradient(261deg, $soft-purple-800 0%, $green-700 100%);
-          color: $neutral-white;
-        }
-        &:not(.active):hover {
-          color: $neutral-black;
-        }
-        &:focus-visible {
-          outline: 2px solid $green-400;
-        }
+      width: 100%;
+      --switch-height: 48px;
+      --switch-knob: 50%;
+      --switch-translate: 100%;
+      :deep(label) {
+        width: 100%;
+      }
+      :deep(.slider-option) {
+        box-sizing: border-box;
+        padding: 0 8px;
+        font-size: 16px;
+        line-height: 20px;
       }
     }
     .wallet-state {
@@ -553,12 +615,19 @@ onBeforeUnmount(() => { openSequence++; stopTimers() })
             &:focus-visible {
               outline: 2px solid $green-400;
             }
+            &:disabled {
+              cursor: default;
+              opacity: 0.65;
+            }
           }
         }
         .wallet-package-grid {
           display: grid;
           grid-template-columns: repeat(4, minmax(0, 1fr));
           gap: 12px;
+          @media (max-width: 600px) {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
           .wallet-package-card {
             display: flex;
             position: relative;
@@ -587,9 +656,19 @@ onBeforeUnmount(() => { openSequence++; stopTimers() })
               font-size: 13px;
               line-height: 16px;
             }
+            .wallet-coin-illustration {
+              display: block;
+              flex: 0 0 auto;
+              width: 100%;
+              height: 100px;
+              object-fit: contain;
+            }
             strong {
+              max-width: 100%;
               font-family: Hauora-Bold;
               font-size: 22px;
+              text-align: center;
+              overflow-wrap: anywhere;
             }
             > span:not(.wallet-discount) {
               font-size: 17px;
