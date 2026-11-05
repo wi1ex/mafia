@@ -6,7 +6,6 @@
           <header>
             <div class="heading">
               <h2 id="balance-modal-title">{{ snapshot.action === 'credit' ? 'Выдать монеты' : 'Снять монеты' }}</h2>
-              <small role="status" aria-live="polite">{{ loading ? 'Загрузка баланса…' : `Баланс: ${formatBalance(balance)} DC` }}</small>
             </div>
             <UiButton variant="white" size="low" :icon="iconClose" width="40px" aria-label="Закрыть" :disabled="saving" @click="close" />
           </header>
@@ -72,7 +71,6 @@ const preview = computed(() => {
   return Number.isSafeInteger(next) && next >= 0 ? next : null
 })
 const valid = computed(() => numericQuantity.value !== null && preview.value !== null && !loading.value && !error.value.startsWith('Не удалось загрузить'))
-const formatBalance = (value: number) => new Intl.NumberFormat('ru-RU').format(value)
 function key(target = snapshot.value): string { return `dc:admin:${target?.actorId}:${target?.user_id}:${target?.action}` }
 function persist(): void {
   try { if (pending.value) sessionStorage.setItem(key(), JSON.stringify(pending.value)); else sessionStorage.removeItem(key()) } catch {}
@@ -203,11 +201,6 @@ onBeforeUnmount(() => { sequence++ })
           font-size: 24px;
           line-height: 26px;
           letter-spacing: -0.48px;
-        }
-        small {
-          color: $neutral-300;
-          font-size: 14px;
-          line-height: 20px;
         }
       }
     }

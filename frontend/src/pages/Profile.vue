@@ -56,7 +56,7 @@
               width="100%"
               type="button"
               text="Оформить"
-              @click="openSubscriptionModal()"
+              @click="openWalletModal()"
             />
           </div>
         </div>
@@ -85,7 +85,7 @@
       </div>
     </Transition>
 
-    <Subscription v-model:open="subscriptionModalOpen" initial-tab="subscription" />
+    <WalletModal v-model:open="walletModalOpen" initial-tab="subscription" />
   </section>
 </template>
 
@@ -101,7 +101,7 @@ import ProfileAvatarNick from '@/views/ProfileAvatarNick.vue'
 import ProfileTheme from '@/views/ProfileTheme.vue'
 import ProfileSanctions from '@/views/ProfileSanctions.vue'
 import ProfileSubscription from '@/views/ProfileSubscription.vue'
-import Subscription from '@/views/Subscription.vue'
+import WalletModal from '@/views/WalletModal.vue'
 import UiIcon from '@/components/UiIcon.vue'
 import UiButton from '@/components/UiButton.vue'
 
@@ -127,7 +127,7 @@ const route = useRoute()
 const router = useRouter()
 
 const activeTab = ref<TabKey>(DEFAULT_TAB)
-const subscriptionModalOpen = ref(false)
+const walletModalOpen = ref(false)
 const homeHref = computed(() => router.resolve({ name: 'home' }).href)
 const hasActiveSubscription = computed(() => userStore.subscriptionActive)
 const profileTabsDisabled = computed(() => userStore.accountRestricted)
@@ -154,8 +154,8 @@ async function onLogoutClick() {
   } finally {}
 }
 
-function openSubscriptionModal() {
-  subscriptionModalOpen.value = true
+function openWalletModal() {
+  walletModalOpen.value = true
 }
 
 watch(() => route.query.tab, (tab) => {
@@ -329,7 +329,6 @@ onBeforeUnmount(() => {
           }
           .tab-subscribe-text {
             margin-bottom: 8px;
-            max-width: 220px;
             color: $neutral-100;
             font-family: Hauora-Regular;
             font-size: 14px;

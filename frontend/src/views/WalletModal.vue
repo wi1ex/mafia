@@ -44,6 +44,7 @@
               <UiButton :text="wallet.invoiceBusy ? 'Проверяем…' : 'Проверить создание счёта'" :disabled="busy" @click="recoverInvoice" />
             </div>
             <form v-else class="wallet-form" @submit.prevent="payCoins">
+              <UiInput id="dc-email" v-model.trim="email" type="email" autocomplete="email" label="Email для оформления платежа" placeholder="mail@example.com" mode="light" :disabled="busy || opening" />
               <div class="wallet-currencies" role="group" aria-label="Валюта оплаты">
                 <button v-for="item in currencies" :key="item" type="button" :class="{ active: currency === item }" :aria-pressed="currency === item" :disabled="busy" @click="currency = item">{{ item }}</button>
               </div>
@@ -56,7 +57,6 @@
                   <span>{{ dcMoney(settings.dcCoinPackages[coinPackage.quantity][currency], 1, currency) }}</span>
                 </button>
               </div>
-              <UiInput id="dc-email" v-model.trim="email" type="email" autocomplete="email" label="Email для оформления платежа" placeholder="mail@example.com" mode="light" :disabled="busy || opening" />
               <UiButton type="submit" :text="wallet.invoiceBusy ? 'Создаём счёт…' : `Оплатить ${totalPrice}`" :disabled="!canPay" width="100%" />
             </form>
             <div v-if="otherInvoices.length" class="wallet-orders">
@@ -68,12 +68,15 @@
           </div>
 
           <div v-show="tab === 'subscription'" id="wallet-subscription" role="tabpanel" aria-labelledby="wallet-subscription-tab" class="wallet-panel">
-            <ul class="wallet-benefits" aria-label="Привилегии подписки">
-              <li v-for="benefit in subscriptionBenefits" :key="benefit">
-                <UiIcon class="wallet-benefit-icon" :icon="iconCheckCircle" />
-                <span>{{ benefit }}</span>
-              </li>
-            </ul>
+            <div class="wallet-benefits-card">
+              <img class="background-image" :src="imageSlide8" alt="" aria-hidden="true" />
+              <ul class="wallet-benefits" aria-label="Привилегии подписки">
+                <li v-for="benefit in subscriptionBenefits" :key="benefit">
+                  <UiIcon class="wallet-benefit-icon" :icon="iconCheckCircle" />
+                  <span>{{ benefit }}</span>
+                </li>
+              </ul>
+            </div>
             <div v-if="wallet.pending.subscription" class="wallet-summary">
               <p>Проверяем результат покупки…</p>
               <span>Тариф: {{ planLabel(wallet.pending.subscription.plan) }}</span>
@@ -107,6 +110,7 @@ import { alertDialog } from '@/services/confirm'
 import UiButton from '@/components/UiButton.vue'
 import UiIcon from '@/components/UiIcon.vue'
 import UiInput from '@/components/UiInput.vue'
+import imageSlide8 from '@/assets/images/carousel-image8.png'
 import iconClose from '@/assets/svg/iconClose.svg'
 import iconCheckCircle from '@/assets/svg/iconCheckCircle.svg'
 
@@ -444,29 +448,48 @@ onBeforeUnmount(() => { openSequence++; stopTimers() })
       display: flex;
       flex-direction: column;
       gap: 20px;
-      .wallet-benefits {
+      .wallet-benefits-card {
         display: flex;
+        position: relative;
         flex-direction: column;
-        gap: 4px;
-        margin: 0;
-        padding: 0;
-        list-style: none;
-        li {
+        padding: 24px;
+        border-radius: 24px;
+        background: $soft-purple-900;
+        .background-image {
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 100%;
+          height: 100%;
+          border-radius: inherit;
+          object-fit: cover;
+        }
+        .wallet-benefits {
           display: flex;
-          align-items: flex-start;
-          gap: 8px;
-          .wallet-benefit-icon {
-            --ui-icon-width: 24px;
-            --ui-icon-height: 24px;
-            --ui-icon-color: #{$green-700};
-          }
-          span {
-            min-width: 0;
-            padding-top: 1px;
-            font-size: 16px;
-            line-height: 22px;
-            letter-spacing: -0.32px;
-            overflow-wrap: anywhere;
+          flex-direction: column;
+          gap: 4px;
+          margin: 0;
+          padding: 0;
+          list-style: none;
+          z-index: 1;
+          li {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            .wallet-benefit-icon {
+              --ui-icon-width: 24px;
+              --ui-icon-height: 24px;
+              --ui-icon-color: #{$neutral-white};
+            }
+            span {
+              min-width: 0;
+              color: $neutral-white;
+              font-family: Hauora-Regular;
+              font-size: 16px;
+              line-height: 16px;
+              letter-spacing: -0.32px;
+              overflow-wrap: anywhere;
+            }
           }
         }
       }

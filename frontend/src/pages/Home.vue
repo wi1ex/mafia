@@ -206,7 +206,7 @@
             <span>Оформи подписку и открой</span>
             <span class="right-extra-copy-accent">новые функции!</span>
           </div>
-          <button type="button" class="right-extra-btn" @click="openSubscriptionModal">
+          <button type="button" class="right-extra-btn" @click="openWalletModal">
             <UiIcon class="btn-icon" :icon="iconArrowNext" />
           </button>
         </div>
@@ -233,7 +233,7 @@
     :initial-profile="miniProfileInitial"
     :show-stats-button="true"
   />
-  <Subscription v-model:open="subscriptionModalOpen" />
+  <WalletModal v-model:open="walletModalOpen" />
   <Contact v-model:open="contactModalOpen" />
 </template>
 
@@ -250,7 +250,7 @@ import { useAuthStore, useSettingsStore, useUserStore } from '@/store'
 import Carousel from '@/views/Carousel.vue'
 import RoomModal from '@/views/RoomModal.vue'
 import MiniProfile from '@/views/MiniProfile.vue'
-import Subscription from '@/views/Subscription.vue'
+import WalletModal from '@/views/WalletModal.vue'
 import Contact from '@/views/Contact.vue'
 import UiIcon from '@/components/UiIcon.vue'
 import UiButton from '@/components/UiButton.vue'
@@ -365,7 +365,7 @@ let spectatorsReqSeq = 0
 const miniProfileOpen = ref(false)
 const miniProfileUserId = ref<number | null>(null)
 const miniProfileInitial = ref<HomeMiniProfileInitial | null>(null)
-const subscriptionModalOpen = ref(false)
+const walletModalOpen = ref(false)
 const contactModalOpen = ref(false)
 
 const selectedId = ref<number | null>(null)
@@ -573,8 +573,8 @@ function openMiniProfileFromRoomInfo(user: { id: number; username?: string | nul
   miniProfileOpen.value = true
 }
 
-function openSubscriptionModal() {
-  subscriptionModalOpen.value = true
+function openWalletModal() {
+  walletModalOpen.value = true
 }
 
 function openContactModal() {
