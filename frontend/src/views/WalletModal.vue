@@ -583,7 +583,7 @@ onBeforeUnmount(() => { openSequence++; stopTimers(); emit('busy', false) })
     }
     .wallet-gift-recipient {
       display: flex;
-      flex-direction: column;
+      align-items: center;
       gap: 8px;
       padding: 12px 16px;
       border-radius: 16px;
@@ -595,13 +595,13 @@ onBeforeUnmount(() => { openSequence++; stopTimers(); emit('busy', false) })
       .wallet-gift-user {
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 4px;
         min-width: 0;
         img {
           display: block;
-          flex: 0 0 36px;
-          width: 36px;
-          height: 36px;
+          flex: 0 0 24px;
+          width: 24px;
+          height: 24px;
           border-radius: 50%;
           object-fit: cover;
         }

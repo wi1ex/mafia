@@ -201,7 +201,7 @@
               </div>
 
               <div v-if="showRestrictedProfileSections" class="profile-actions profile-actions--main">
-                <div class="profile-actions-row profile-actions-row--free">
+                <div v-if="!isSelfProfile && !blacklistedByMe" class="profile-actions-row profile-actions-row--free">
                   <button class="profile-action friend-action" :class="`status-${friendStatusClass}`"
                           type="button" :disabled="friendDisabled" :aria-label="friendActionAriaLabel" @click="onFriendAction(friendActionKind)">
                     <div class="friend-action-content friend-action-content-default" aria-hidden="true">
@@ -223,7 +223,7 @@
                     @click="openSubscriptionGift"
                   />
                 </div>
-                <div v-if="viewerSubscriptionActive" class="profile-actions-row profile-actions-row--subscription">
+                <div v-if="canViewProfileData" class="profile-actions-row profile-actions-row--subscription">
                   <UiButton
                     v-if="showStatsButton"
                     variant="white"
@@ -727,6 +727,7 @@ const targetDcBalance = computed(() => {
 const isModerViewer = computed(() => viewerRole.value === 'moder')
 const isSelfProfile = computed(() => targetUserId.value > 0 && viewerUserId.value === targetUserId.value)
 const viewerSubscriptionActive = computed(() => Boolean(userStore.subscriptionActive))
+const canViewProfileData = computed(() => isSelfProfile.value || viewerSubscriptionActive.value)
 const viewerAccountRestricted = computed(() => Boolean(userStore.accountRestricted && !isSelfProfile.value))
 const privilegedViewer = computed(() => isMiniProfilePrivilegedViewer(viewerRole.value, props.adminMode))
 const showSubscriptionInfo = computed(() => isSelfProfile.value || isAdminViewer.value || isModerViewer.value)
@@ -963,7 +964,7 @@ const giftDisabled = computed(() => (
   || Boolean(loadError.value)
 ))
 const showProfileDataButtons = computed(() => Boolean(
-  props.showStatsButton
+  (isSelfProfile.value || props.showStatsButton)
   && targetUserId.value > 0
 ))
 const showStatsButton = computed(() => showProfileDataButtons.value)
@@ -2246,8 +2247,8 @@ function onAdminBalanceUpdate(event: Event): void {
   if (Number.isSafeInteger(balance) && balance >= 0) patchProfile({ dc_balance: balance })
 }
 
-watch([showRestrictedProfileSections, viewerSubscriptionActive], ([visible, subscriptionActive]) => {
-  if (!visible || !subscriptionActive) view.value = 'profile'
+watch([showRestrictedProfileSections, canViewProfileData], ([visible, canView]) => {
+  if (!visible || !canView) view.value = 'profile'
 })
 
 watch([() => props.open, targetUserId, viewerAccountRestricted, deletedTargetBlocked], ([open, uid, restricted, deletedBlocked]) => {
