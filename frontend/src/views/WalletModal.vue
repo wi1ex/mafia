@@ -17,24 +17,12 @@
           </template>
           <template v-else>
             <header>
+              <div class="wallet-header-balance" :class="{ 'wallet-header-balance--long': balanceText.length > 12 }" role="status" aria-live="polite" aria-atomic="true" :aria-label="`Баланс: ${balanceText} DC`">
+                <strong>{{ balanceText }}</strong>
+                <img :src="coins30" width="32" height="28" alt="" aria-hidden="true" />
+              </div>
               <div class="wallet-heading">
                 <h2 id="wallet-title">Магазин</h2>
-                <div class="wallet-status" aria-live="polite">
-                  <div class="wallet-status-item wallet-balance">
-                    <span class="wallet-status-symbol"><UiIcon :icon="iconCard" /></span>
-                    <div class="wallet-status-content">
-                      <span class="wallet-status-label">Баланс</span>
-                      <strong>{{ balanceText }} <small>DC</small></strong>
-                    </div>
-                  </div>
-                  <div class="wallet-status-item wallet-subscription" :class="{ 'is-active': userStore.subscriptionActive }">
-                    <span class="wallet-status-symbol"><UiIcon :icon="iconTimeHistory" /></span>
-                    <div class="wallet-status-content">
-                      <span class="wallet-status-label">{{ userStore.subscriptionActive ? 'Подписка активна' : 'Подписка' }}</span>
-                      <span class="wallet-status-value">{{ userStore.subscriptionActive ? `До ${formatMoscowDate(userStore.user?.subscription_until)}` : 'Нет активной подписки' }}</span>
-                    </div>
-                  </div>
-                </div>
               </div>
               <UiButton variant="white" size="low" :icon="iconClose" width="40px" aria-label="Закрыть" :disabled="busy" @click="requestClose" />
             </header>
@@ -129,7 +117,7 @@ import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore, useSettingsStore, useUserStore } from '@/store'
 import { useWalletStore, dcErrorMessage, type CoinInvoice } from '@/store/modules/wallet'
-import { COIN_PACKAGES, DC_CURRENCIES, SUBSCRIPTION_PLANS, dcMoney, dcPurchaseRestriction, formatMoscowDate, type CoinPackageQuantity, type DcCurrency, type SubscriptionPlan, type WalletTab } from '@/services/dc'
+import { COIN_PACKAGES, DC_CURRENCIES, SUBSCRIPTION_PLANS, dcMoney, dcPurchaseRestriction, type CoinPackageQuantity, type DcCurrency, type SubscriptionPlan, type WalletTab } from '@/services/dc'
 import { alertDialog } from '@/services/confirm'
 import UiButton from '@/components/UiButton.vue'
 import UiIcon from '@/components/UiIcon.vue'
@@ -143,8 +131,6 @@ import coins1000 from '@/assets/images/coins-1000.webp'
 import paymentsUnavailableImage from '@/assets/images/payments-unavailable.webp'
 import iconClose from '@/assets/svg/iconClose.svg'
 import iconCheckCircle from '@/assets/svg/iconCheckCircle.svg'
-import iconCard from '@/assets/svg/iconCard.svg'
-import iconTimeHistory from '@/assets/svg/iconTimeHistory.svg'
 
 const props = defineProps<{ open: boolean; initialTab?: WalletTab }>()
 const emit = defineEmits<{ 'update:open': [boolean] }>()
@@ -408,6 +394,7 @@ onBeforeUnmount(() => { openSequence++; stopTimers() })
   box-sizing: border-box;
   .wallet-modal {
     display: flex;
+    position: relative;
     flex-direction: column;
     gap: 20px;
     width: 800px;
@@ -484,11 +471,43 @@ onBeforeUnmount(() => { openSequence++; stopTimers() })
       justify-content: space-between;
       align-items: flex-start;
       gap: 16px;
+      .wallet-header-balance {
+        display: flex;
+        position: absolute;
+        top: 0;
+        left: 50%;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        max-width: calc(100% - 48px);
+        height: 38px;
+        padding: 2px 14px 6px;
+        box-sizing: border-box;
+        border-radius: 0 0 18px 18px;
+        background: $neutral-white;
+        transform: translateX(-50%);
+        strong {
+          min-width: 0;
+          color: $neutral-black;
+          font-family: Hauora-Bold;
+          font-size: 20px;
+          font-variant-numeric: tabular-nums;
+          line-height: 24px;
+        }
+        img {
+          display: block;
+          flex: 0 0 32px;
+          width: 32px;
+          height: 28px;
+          object-fit: contain;
+        }
+        &--long strong {
+          font-size: 16px;
+        }
+      }
       .wallet-heading {
         display: flex;
         flex: 1;
-        flex-direction: column;
-        gap: 14px;
         min-width: 0;
         h2 {
           font-weight: normal;
@@ -497,76 +516,6 @@ onBeforeUnmount(() => { openSequence++; stopTimers() })
           line-height: 26px;
           letter-spacing: -0.48px;
           margin: 0;
-        }
-        .wallet-status {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr));
-          gap: 10px;
-          .wallet-status-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            min-width: 0;
-            padding: 12px 14px;
-            border: 1px solid rgba($neutral-black, 0.04);
-            border-radius: 16px;
-            background: rgba($neutral-white, 0.9);
-            .wallet-status-symbol {
-              display: grid;
-              flex: 0 0 36px;
-              place-items: center;
-              width: 36px;
-              height: 36px;
-              border-radius: 12px;
-              background: $green-100;
-              --ui-icon-width: 20px;
-              --ui-icon-height: 20px;
-              --ui-icon-color: #{$green-700};
-            }
-            .wallet-status-content {
-              display: flex;
-              flex-direction: column;
-              gap: 2px;
-              min-width: 0;
-              overflow-wrap: anywhere;
-              .wallet-status-label {
-                font-family: Hauora-Medium;
-                font-size: 12px;
-                line-height: 16px;
-                color: $neutral-600;
-              }
-              strong {
-                font-family: Hauora-Bold;
-                font-size: 22px;
-                line-height: 26px;
-                color: $green-800;
-                small {
-                  font-family: Hauora-Medium;
-                  font-size: 14px;
-                  color: $green-700;
-                }
-              }
-              .wallet-status-value {
-                font-family: Hauora-Medium;
-                font-size: 14px;
-                line-height: 20px;
-                color: $neutral-800;
-              }
-            }
-          }
-          .wallet-balance {
-            background: linear-gradient(120deg, rgba($green-100, 0.8), rgba($neutral-white, 0.9));
-          }
-          .wallet-subscription {
-            .wallet-status-symbol {
-              background: $neutral-50;
-              --ui-icon-color: #{$neutral-600};
-            }
-            &.is-active .wallet-status-symbol {
-              background: $green-100;
-              --ui-icon-color: #{$green-700};
-            }
-          }
         }
       }
     }
