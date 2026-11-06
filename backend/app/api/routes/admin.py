@@ -48,6 +48,7 @@ from ...security.parameters import ensure_app_settings, sync_cache_from_row, ref
 from ...services.livekit import remove_livekit_participant
 from ...services.user_cache import refresh_user_profile_cache, get_user_profiles_cached, invalidate_avatar_presign_cache
 from ...services.site_rules import update_site_rules_version
+from ...services.payment_history import operation_history
 from ...services.multiaccounts import MULTIACCOUNT_ACTIONS, MultiaccountScan
 from ...services.game_scoring import (
     build_game_scoring_rules_snapshot,
@@ -94,7 +95,7 @@ from ...models.sanction_rules import get_sanction_rules
 from ...services.nickname import prepend_nickname_history
 from ...schemas.common import Ok, Identity
 from ...schemas.sanction_rules import SanctionRulesOut, SanctionRulesUpdateIn
-from ...schemas.user import UserGamesHistoryOut, UserStatsOut
+from ...schemas.user import UserGamesHistoryOut, UserOperationHistoryOut, UserStatsOut
 from ...schemas.admin import (
     AdminSettingsOut,
     AdminSettingsUpdateIn,
@@ -2631,6 +2632,25 @@ async def subscriptions_delete(user_id: int, ident: Identity = Depends(get_ident
                 await broadcast_creator_rooms(uid, avatar="delete")
 
     return Ok()
+
+
+@router.get("/users/{user_id}/payments/history", response_model=UserOperationHistoryOut, dependencies=ADMIN_GUARD)
+@log_route("admin.users.operation_history")
+async def user_operation_history(
+    user_id: int,
+    page: int = Query(default=1, ge=1),
+    per_page: int = Query(default=20, ge=1, le=100),
+    session: AsyncSession = Depends(get_session),
+) -> UserOperationHistoryOut:
+    uid = int(user_id)
+    if uid <= 0:
+        raise HTTPException(status_code=400, detail="bad_user_id")
+
+    user = await session.get(User, uid)
+    if user is None:
+        raise HTTPException(status_code=404, detail="user_not_found")
+
+    return await operation_history(session, uid, page=page, per_page=per_page)
 
 
 @router.get("/users/{user_id}/stats", response_model=UserStatsOut, dependencies=ADMIN_GUARD)

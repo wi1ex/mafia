@@ -37,7 +37,12 @@
                     </div>
 
                     <div v-if="showRestrictedProfileSections && showProfileMeta" class="profile-meta">
-                      <span v-if="isAdminViewer && targetDcBalance !== null" class="profile-friends-count profile-dc-balance">{{ formatNominationCount(targetDcBalance) }} DC</span>
+                      <div v-if="balanceHistoryAllowed" ref="balanceHistoryTrigger" class="profile-balance-history-wrap" tabindex="0" role="button"
+                           aria-haspopup="dialog" :aria-expanded="balanceHistoryOpen" aria-label="Показать историю операций"
+                           @pointerenter="showBalanceHistory" @pointerleave="scheduleBalanceHistoryClose" @focusin="onBalanceHistoryFocus" @focusout="scheduleBalanceHistoryClose"
+                           @keydown.enter.prevent="focusBalanceHistory" @keydown.space.prevent="focusBalanceHistory" @keydown.down.prevent="focusBalanceHistory">
+                        <span class="profile-friends-count profile-dc-balance">{{ formatNominationCount(targetDcBalance || 0) }} DC</span>
+                      </div>
 
                       <div v-if="friendsCount !== null" class="profile-friends-tooltip-wrap" :class="{ enabled: showAdminFriendsTooltip }" :tabindex="showAdminFriendsTooltip ? 0 : undefined">
                         <span class="profile-friends-count" aria-label="Количество друзей">Друзья: {{ friendsCount }}</span>
@@ -351,11 +356,35 @@
       @busy="giftSaving = $event"
       @subscription-purchased="onSubscriptionGiftPurchased"
     />
+    <div v-if="balanceHistoryAllowed" v-show="balanceHistoryOpen" ref="balanceHistoryPopover" class="profile-balance-history-tooltip"
+         :class="{ 'profile-balance-history-tooltip--above': balanceHistoryAbove }" :style="balanceHistoryStyle" role="dialog" :aria-label="`История операций ${displayName}`" tabindex="-1"
+         @pointerenter="showBalanceHistory" @pointerleave="scheduleBalanceHistoryClose" @focusin="showBalanceHistory" @focusout="scheduleBalanceHistoryClose" @pointerdown.stop @click.stop>
+      <span class="balance-history-title">История операций</span>
+      <div v-if="balanceHistoryLoading && !balanceHistoryItems.length" class="balance-history-state" role="status">Загрузка...</div>
+      <div v-else-if="balanceHistoryError && !balanceHistoryItems.length" class="balance-history-state balance-history-state--error" role="alert">
+        <span>{{ balanceHistoryError }}</span>
+        <button type="button" @click="scheduleBalanceHistoryLoad(true)">Повторить</button>
+      </div>
+      <div v-else-if="!balanceHistoryItems.length" class="balance-history-state">Операций пока нет</div>
+      <div v-else class="balance-history-scroll-wrap">
+        <div ref="balanceHistoryList" class="balance-history-list" tabindex="0" @scroll.passive="onBalanceHistoryScroll">
+          <div v-for="item in balanceHistoryItems" :key="item.id" class="balance-history-row">
+            <time>{{ formatDateOnly(item.date) }}</time> {{ item.type }} <strong>{{ balanceHistoryAmount(item) }}</strong>
+          </div>
+          <div v-if="balanceHistoryLoading" class="balance-history-state" role="status">Загрузка...</div>
+          <div v-else-if="balanceHistoryError" class="balance-history-state balance-history-state--error" role="alert">
+            <span>{{ balanceHistoryError }}</span>
+            <button type="button" @click="loadMoreBalanceHistory">Повторить</button>
+          </div>
+        </div>
+        <UiScrollbar :target="balanceHistoryList" :active="balanceHistoryOpen" theme="grey" right="-9px" :overflow-tolerance="4" />
+      </div>
+    </div>
   </Teleport>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { api } from '@/services/axios'
 import { formatLocalDateTime } from '@/services/datetime'
 import { useSubscriptionStatus } from '@/services/useSubscriptionStatus'
@@ -366,6 +395,7 @@ import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
 import { getProfileThemeBadgeSources } from '@/constants/profileIcons'
 import {
   useFriendsStore,
+  useAuthStore,
   useSettingsStore,
   useUserStore,
   resolveFriendsApiError,
@@ -590,6 +620,7 @@ const emit = defineEmits<{
 }>()
 
 const friends = useFriendsStore()
+const auth = useAuthStore()
 const settingsStore = useSettingsStore()
 const userStore = useUserStore()
 const { subscriptionExpiryLabel } = useSubscriptionStatus()
@@ -604,6 +635,25 @@ const blacklistBusy = ref(false)
 const view = ref<'profile' | 'stats' | 'history'>('profile')
 const avatarImageEl = ref<HTMLImageElement | null>(null)
 const profileFriendsList = ref<HTMLElement | null>(null)
+const balanceHistoryTrigger = ref<HTMLElement | null>(null)
+const balanceHistoryPopover = ref<HTMLElement | null>(null)
+const balanceHistoryOpen = ref(false)
+const balanceHistoryAbove = ref(false)
+const balanceHistoryStyle = ref<Record<string, string>>({})
+type BalanceHistoryItem = { id: string; date: string; type: string; received: string; spent: string }
+type BalanceHistoryResponse = { items?: BalanceHistoryItem[] | null; pages: number }
+const balanceHistoryItems = ref<BalanceHistoryItem[]>([])
+const balanceHistoryList = ref<HTMLElement | null>(null)
+const balanceHistoryLoading = ref(false)
+const balanceHistoryError = ref('')
+const balanceHistoryPage = ref(1)
+const balanceHistoryPages = ref(1)
+let balanceHistoryCloseTimer: ReturnType<typeof setTimeout> | undefined
+let balanceHistoryLoadTimer: ReturnType<typeof setTimeout> | undefined
+let balanceHistoryObserver: ResizeObserver | undefined
+let balanceHistoryController: AbortController | undefined
+let balanceHistorySequence = 0
+let balanceHistorySuppressFocus = false
 const nicknameHistoryList = ref<HTMLElement | null>(null)
 const avatarPreviewOpen = ref(false)
 const avatarPreviewSrc = ref('')
@@ -724,6 +774,7 @@ const targetDcBalance = computed(() => {
   const value = profile.value?.dc_balance
   return isAdminViewer.value && value !== null && value !== undefined && Number.isSafeInteger(value) && value >= 0 ? value : null
 })
+const balanceHistoryAllowed = computed(() => props.open && auth.isAuthed && isAdminViewer.value && profileLoadedForTarget.value && targetDcBalance.value !== null && !avatarPreviewOpen.value)
 const isModerViewer = computed(() => viewerRole.value === 'moder')
 const isSelfProfile = computed(() => targetUserId.value > 0 && viewerUserId.value === targetUserId.value)
 const viewerSubscriptionActive = computed(() => Boolean(userStore.subscriptionActive))
@@ -2197,6 +2248,16 @@ async function toggleBlacklist() {
 function onKeydown(e: KeyboardEvent) {
   if (!props.open || e.key !== 'Escape') return
   if (balanceModalOpen.value || giftModalOpen.value) return
+  if (balanceHistoryOpen.value) {
+    e.preventDefault()
+    e.stopPropagation()
+    balanceHistoryOpen.value = false
+    if (balanceHistoryPopover.value?.contains(document.activeElement)) {
+      balanceHistorySuppressFocus = true
+      balanceHistoryTrigger.value?.focus({ preventScroll: true })
+    }
+    return
+  }
   if (avatarPreviewOpen.value) {
     closeAvatarPreview()
     return
@@ -2240,12 +2301,173 @@ function onBalanceComplete(result: { userId: number; action: 'credit' | 'debit';
   emit('staff-action-complete', { userId: result.userId, action: result.action === 'credit' ? 'coins_credit' : 'coins_debit' })
 }
 
+function cancelBalanceHistoryLoad(): void {
+  balanceHistorySequence++
+  balanceHistoryController?.abort()
+  clearTimeout(balanceHistoryLoadTimer)
+  balanceHistoryLoadTimer = undefined
+  balanceHistoryLoading.value = false
+}
+
+function resetBalanceHistory(): void {
+  balanceHistoryOpen.value = false
+  clearTimeout(balanceHistoryCloseTimer)
+  cancelBalanceHistoryLoad()
+  balanceHistoryItems.value = []
+  balanceHistoryError.value = ''
+  balanceHistoryPage.value = 1
+  balanceHistoryPages.value = 1
+  balanceHistorySuppressFocus = false
+}
+
+function showBalanceHistory(): void {
+  if (!balanceHistoryAllowed.value) return
+  clearTimeout(balanceHistoryCloseTimer)
+  balanceHistoryOpen.value = true
+}
+
+function onBalanceHistoryFocus(): void {
+  if (balanceHistorySuppressFocus) { balanceHistorySuppressFocus = false; return }
+  showBalanceHistory()
+}
+
+async function focusBalanceHistory(): Promise<void> {
+  showBalanceHistory()
+  await nextTick()
+  if (balanceHistoryOpen.value) balanceHistoryPopover.value?.focus({ preventScroll: true })
+}
+
+function scheduleBalanceHistoryClose(): void {
+  clearTimeout(balanceHistoryCloseTimer)
+  balanceHistoryCloseTimer = setTimeout(() => {
+    const trigger = balanceHistoryTrigger.value
+    const popover = balanceHistoryPopover.value
+    if (trigger?.matches(':hover') || popover?.matches(':hover') || trigger?.contains(document.activeElement) || popover?.contains(document.activeElement)) return
+    balanceHistoryOpen.value = false
+  }, 120)
+}
+
+function scheduleBalanceHistoryLoad(resetPage = false): void {
+  if (balanceHistoryPopover.value?.contains(document.activeElement)) balanceHistoryPopover.value.focus({ preventScroll: true })
+  cancelBalanceHistoryLoad()
+  if (resetPage) {
+    balanceHistoryPage.value = 1
+    balanceHistoryPages.value = 1
+    balanceHistoryItems.value = []
+  }
+  if (!balanceHistoryOpen.value || !balanceHistoryAllowed.value) return
+  balanceHistoryLoading.value = true
+  balanceHistoryError.value = ''
+  balanceHistoryLoadTimer = setTimeout(() => { balanceHistoryLoadTimer = undefined; void loadBalanceHistory() }, 80)
+}
+
+function balanceHistoryAmount(item: BalanceHistoryItem): string {
+  const paid = item.spent !== 'Бесплатно' && item.spent !== '—'
+  if (item.received.endsWith(' DC')) return paid ? `${item.received} за ${item.spent}` : item.received
+  if (paid) return item.spent
+  return item.received === '—' ? item.spent : item.received.replace(/\s+подписки$/, '')
+}
+
+async function loadBalanceHistory(append = false): Promise<void> {
+  if (!balanceHistoryOpen.value || !balanceHistoryAllowed.value) return
+  if (append && (balanceHistoryLoading.value || balanceHistoryPage.value >= balanceHistoryPages.value)) return
+  if (append && balanceHistoryError.value && balanceHistoryPopover.value?.contains(document.activeElement)) balanceHistoryPopover.value.focus({ preventScroll: true })
+  balanceHistoryLoading.value = true
+  balanceHistoryError.value = ''
+  const seq = ++balanceHistorySequence
+  const page = append ? balanceHistoryPage.value + 1 : 1
+  const uid = targetUserId.value
+  const viewer = viewerUserId.value
+  const session = auth.sessionId
+  const request = new AbortController()
+  balanceHistoryController = request
+  try {
+    const { data } = await api.get<BalanceHistoryResponse>(`/admin/users/${uid}/payments/history`, { params: { page, per_page: 20 }, signal: request.signal })
+    if (seq !== balanceHistorySequence || request.signal.aborted || !balanceHistoryOpen.value || !balanceHistoryAllowed.value || uid !== targetUserId.value || viewer !== viewerUserId.value || session !== auth.sessionId) return
+    balanceHistoryPages.value = Math.max(1, Math.trunc(Number(data.pages) || 1))
+    balanceHistoryPage.value = page
+    const rows = Array.isArray(data.items) ? data.items : []
+    if (append) {
+      const merged = new Map([...balanceHistoryItems.value, ...rows].map(item => [item.id, item]))
+      balanceHistoryItems.value = [...merged.values()]
+    } else {
+      balanceHistoryItems.value = rows
+      if (balanceHistoryList.value) balanceHistoryList.value.scrollTop = 0
+    }
+  } catch {
+    if (seq !== balanceHistorySequence || request.signal.aborted || !balanceHistoryAllowed.value || uid !== targetUserId.value || viewer !== viewerUserId.value || session !== auth.sessionId) return
+    if (!append) balanceHistoryItems.value = []
+    balanceHistoryError.value = 'Не удалось загрузить историю операций'
+  } finally {
+    if (seq === balanceHistorySequence) balanceHistoryLoading.value = false
+  }
+}
+
+function loadMoreBalanceHistory(): void {
+  void loadBalanceHistory(true)
+}
+
+function onBalanceHistoryScroll(): void {
+  const list = balanceHistoryList.value
+  if (!list || balanceHistoryError.value) return
+  if (list.scrollHeight - list.scrollTop - list.clientHeight <= 48) loadMoreBalanceHistory()
+}
+
+function updateBalanceHistoryPosition(): void {
+  if (!balanceHistoryOpen.value) return
+  const trigger = balanceHistoryTrigger.value
+  const root = document.getElementById('desktop-teleport-root')
+  if (!trigger || !root) return
+  const bounds = root.getBoundingClientRect()
+  const scale = bounds.width / root.offsetWidth || 1
+  const anchor = trigger.getBoundingClientRect()
+  const viewportLeft = (Math.max(0, bounds.left) - bounds.left) / scale
+  const viewportTop = (Math.max(0, bounds.top) - bounds.top) / scale
+  const viewportRight = (Math.min(window.innerWidth, bounds.right) - bounds.left) / scale
+  const viewportBottom = (Math.min(window.innerHeight, bounds.bottom) - bounds.top) / scale
+  const width = Math.min(380, Math.max(0, viewportRight - viewportLeft - 32))
+  const anchorTop = (anchor.top - bounds.top) / scale
+  const anchorBottom = (anchor.bottom - bounds.top) / scale
+  const below = viewportBottom - anchorBottom - 22
+  const above = anchorTop - viewportTop - 22
+  balanceHistoryAbove.value = below < 220 && above > below
+  const maxHeight = Math.max(0, Math.min(420, balanceHistoryAbove.value ? above : below))
+  const height = Math.min(maxHeight, (balanceHistoryPopover.value?.getBoundingClientRect().height || 0) / scale)
+  const left = Math.max(viewportLeft + 16, Math.min(viewportRight - width - 16, (anchor.left + anchor.width / 2 - bounds.left) / scale - width / 2))
+  const top = balanceHistoryAbove.value ? anchorTop - height - 6 : anchorBottom + 6
+  balanceHistoryStyle.value = { left: `${left}px`, top: `${Math.max(viewportTop + 16, top)}px`, width: `${width}px`, maxHeight: `${maxHeight}px` }
+}
+
+function onBalanceHistoryResize(): void {
+  void nextTick(updateBalanceHistoryPosition)
+}
+
 function onAdminBalanceUpdate(event: Event): void {
   const detail = (event as CustomEvent)?.detail
   if (!isAdminViewer.value || !props.open || Number(detail?.user_id) !== targetUserId.value) return
   const balance = Number(detail?.dc_balance)
   if (Number.isSafeInteger(balance) && balance >= 0) patchProfile({ dc_balance: balance })
+  scheduleBalanceHistoryLoad(true)
 }
+
+watch(balanceHistoryOpen, async open => {
+  balanceHistoryObserver?.disconnect()
+  window.removeEventListener('resize', onBalanceHistoryResize)
+  window.removeEventListener('scroll', updateBalanceHistoryPosition, true)
+  if (!open) { cancelBalanceHistoryLoad(); return }
+  scheduleBalanceHistoryLoad(true)
+  await nextTick()
+  if (!balanceHistoryOpen.value) return
+  updateBalanceHistoryPosition()
+  if (balanceHistoryPopover.value) {
+    balanceHistoryObserver = new ResizeObserver(updateBalanceHistoryPosition)
+    balanceHistoryObserver.observe(balanceHistoryPopover.value)
+  }
+  window.addEventListener('resize', onBalanceHistoryResize)
+  window.addEventListener('scroll', updateBalanceHistoryPosition, true)
+})
+watch([() => props.open, targetUserId, () => auth.sessionId, viewerUserId, viewerRole], resetBalanceHistory)
+watch(balanceHistoryAllowed, allowed => { if (!allowed) resetBalanceHistory() })
 
 watch([showRestrictedProfileSections, canViewProfileData], ([visible, canView]) => {
   if (!visible || !canView) view.value = 'profile'
@@ -2284,6 +2506,10 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  resetBalanceHistory()
+  balanceHistoryObserver?.disconnect()
+  window.removeEventListener('resize', onBalanceHistoryResize)
+  window.removeEventListener('scroll', updateBalanceHistoryPosition, true)
   window.removeEventListener('auth-dc_balance_update', onAdminBalanceUpdate)
   resetNicknameHistory()
   resetStaffActionState()
@@ -2484,6 +2710,15 @@ onBeforeUnmount(() => {
                 font-family: Hauora-Regular;
                 font-size: 16px;
                 white-space: nowrap;
+              }
+              .profile-balance-history-wrap {
+                display: inline-flex;
+                border-radius: 8px;
+                cursor: default;
+                &:focus-visible {
+                  outline: 2px solid $green-500;
+                  outline-offset: 2px;
+                }
               }
               .profile-friends-tooltip-wrap {
                 display: inline-flex;
@@ -3384,6 +3619,109 @@ onBeforeUnmount(() => {
     }
     :deep(.profile-back-button .ui-button__icon) {
       transform: rotate(90deg);
+    }
+  }
+}
+.profile-balance-history-tooltip {
+  display: flex;
+  position: fixed;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  box-sizing: border-box;
+  border-radius: 24px;
+  background: $neutral-100;
+  box-shadow: 0 2px 16px 0 rgba($neutral-black, 0.2);
+  color: $neutral-black;
+  z-index: 1600;
+  &::before {
+    content: '';
+    position: absolute;
+    top: -8px;
+    left: 0;
+    width: 100%;
+    height: 8px;
+  }
+  &--above {
+    &::before {
+      top: auto;
+      bottom: -8px;
+    }
+  }
+  .balance-history-title {
+    flex-shrink: 0;
+    font-family: Hauora-Bold;
+    font-size: 18px;
+    line-height: 22px;
+  }
+  .balance-history-state {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    color: $neutral-600;
+    font-family: Hauora-Regular;
+    font-size: 14px;
+    line-height: 18px;
+    &--error {
+      color: $red-500;
+    }
+  }
+  .balance-history-scroll-wrap {
+    display: flex;
+    position: relative;
+    min-height: 0;
+    .balance-history-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      width: 100%;
+      max-height: 264px;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      scrollbar-width: none;
+      &::-webkit-scrollbar {
+        display: none;
+      }
+      .balance-history-row {
+        color: $neutral-900;
+        font-family: Hauora-Regular;
+        font-size: 13px;
+        line-height: 18px;
+        overflow-wrap: anywhere;
+        time {
+          color: $neutral-600;
+          font-size: 12px;
+          line-height: 16px;
+        }
+        strong {
+          font-family: Hauora-SemiBold;
+          font-weight: normal;
+        }
+      }
+    }
+  }
+  button {
+    padding: 6px 10px;
+    border: 0;
+    border-radius: 8px;
+    background: $neutral-200;
+    color: $neutral-900;
+    font-family: Hauora-Regular;
+    font-size: 12px;
+    line-height: 16px;
+    cursor: pointer;
+    &:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+    &:focus-visible {
+      outline: 2px solid $green-500;
+      outline-offset: 2px;
+    }
+    &:not(:disabled):hover {
+      background: $neutral-300;
     }
   }
 }
