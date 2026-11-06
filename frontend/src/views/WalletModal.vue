@@ -2,7 +2,7 @@
   <Teleport to="#desktop-teleport-root">
     <Transition name="wallet-overlay">
       <div v-if="open && !restriction" class="wallet-overlay" @pointerdown.self="armed = true" @pointerup.self="armed && requestClose()" @pointerleave.self="armed = false">
-        <section ref="dialog" class="wallet-modal" :class="{ 'wallet-modal--unavailable': !settings.paymentsEnabled }" role="dialog" aria-modal="true" :aria-labelledby="settings.paymentsEnabled ? 'wallet-title' : 'wallet-unavailable-title'" tabindex="-1" @keydown="onDialogKeydown">
+        <section ref="dialog" class="wallet-modal" role="dialog" aria-modal="true" :aria-labelledby="settings.paymentsEnabled ? 'wallet-title' : 'wallet-unavailable-title'" tabindex="-1" @keydown="onDialogKeydown">
           <template v-if="!settings.paymentsEnabled">
             <div class="wallet-unavailable">
               <img class="wallet-unavailable-art" :src="paymentsUnavailableImage" width="800" height="600" alt="" aria-hidden="true" />
@@ -398,6 +398,7 @@ onBeforeUnmount(() => { openSequence++; stopTimers() })
     flex-direction: column;
     gap: 20px;
     width: 800px;
+    height: 616px;
     max-width: 100%;
     max-height: 100%;
     padding: 24px;
@@ -411,14 +412,11 @@ onBeforeUnmount(() => { openSequence++; stopTimers() })
     font-family: Hauora-Regular;
     line-height: 1.4;
     --ui-input-label-bg: #{$neutral-100};
-    &.wallet-modal--unavailable {
-      gap: 0;
-    }
     .wallet-unavailable {
       display: grid;
       position: relative;
       min-height: min(420px, 55vh);
-      padding: 32px 16px;
+      padding: 16px;
       box-sizing: border-box;
       isolation: isolate;
       .wallet-unavailable-art {
@@ -460,7 +458,7 @@ onBeforeUnmount(() => { openSequence++; stopTimers() })
     .wallet-unavailable-actions {
       display: flex;
       justify-content: center;
-      padding-top: 16px;
+      padding: 16px;
     }
     :deep(.ui-button--disabled) {
       --ui-button-disabled-bg: #{$neutral-200};
@@ -481,7 +479,7 @@ onBeforeUnmount(() => { openSequence++; stopTimers() })
         gap: 6px;
         max-width: calc(100% - 48px);
         height: 38px;
-        padding: 2px 14px 6px;
+        padding: 2px 14px 6px 18px;
         box-sizing: border-box;
         border-radius: 0 0 18px 18px;
         background: $neutral-white;
@@ -553,7 +551,7 @@ onBeforeUnmount(() => { openSequence++; stopTimers() })
         display: flex;
         position: relative;
         flex-direction: column;
-        padding: 24px;
+        padding: 16px 24px;
         border-radius: 24px;
         background: $soft-purple-900;
         .background-image {
