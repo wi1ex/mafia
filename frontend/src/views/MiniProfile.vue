@@ -252,7 +252,7 @@
                   <UiButton
                     variant="white"
                     size="middle"
-                    :width="320"
+                    :width="310"
                     :icon="action.icon"
                     :text="action.label"
                     :disabled="action.disabled"
@@ -277,7 +277,7 @@
                         v-bind="triggerProps"
                         variant="white"
                         size="middle"
-                        :width="90"
+                        :width="92"
                         :text="displayLabel"
                         :icon="iconEllipsis"
                         icon-position="right"
@@ -2308,7 +2308,7 @@ onBeforeUnmount(() => {
     flex-direction: column;
     padding: 24px;
     gap: 24px;
-    width: 746px;
+    width: 728px;
     border-radius: 24px;
     background-color: var(--user-theme-bg, $neutral-black);
     overflow-y: auto;
