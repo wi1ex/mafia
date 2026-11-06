@@ -384,6 +384,7 @@ async def mini_profile(user_id: int, allow_deleted: bool = False, ident: Identit
         additional_roles=list(normalize_additional_roles(user.additional_roles)),
         protected_user=bool(is_staff_viewer and is_protected_admin(uid)),
         deleted=bool(user.deleted_at),
+        telegram_verified=bool(user.telegram_id),
         registered_at=None if viewer_blacklisted_by_target and not is_staff_viewer else user.registered_at,
         last_visit_at=None if viewer_blacklisted_by_target and not is_staff_viewer else user.last_visit_at,
         last_game_at=last_game_at,

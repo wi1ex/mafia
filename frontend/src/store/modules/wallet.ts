@@ -19,8 +19,9 @@ export type CoinInvoice = {
   dc_balance: number
 }
 export type WalletState = { dc_balance: number; subscription_active: boolean; subscription_until: string | null }
+export type SubscriptionPurchaseResult = WalletState & { purchase_id: number; recipient_id?: number; recipient_username?: string | null }
 type InvoiceRequest = { quantity: CoinPackageQuantity; currency: DcCurrency; email: string; expected_amount: string; request_id: string }
-type SubscriptionRequest = { plan: SubscriptionPlan; request_id: string }
+type SubscriptionRequest = { plan: SubscriptionPlan; request_id: string; recipient_id?: number }
 type PendingRequests = { invoice?: InvoiceRequest; subscription?: SubscriptionRequest }
 
 function storageKey(userId: number): string { return `dc:requests:v2:${userId}` }
@@ -30,7 +31,7 @@ function readPending(userId: number): PendingRequests {
     const validId = (id: unknown) => typeof id === 'string' && /^[a-f0-9-]{36}$/i.test(id)
     return {
       invoice: validId(raw.invoice?.request_id) && isCoinPackage(raw.invoice?.quantity) && DC_CURRENCIES.includes(raw.invoice!.currency) && typeof raw.invoice?.email === 'string' && priceToMinor(raw.invoice?.expected_amount) !== null ? raw.invoice : undefined,
-      subscription: validId(raw.subscription?.request_id) && isSubscriptionPlan(raw.subscription?.plan) ? raw.subscription : undefined,
+      subscription: validId(raw.subscription?.request_id) && isSubscriptionPlan(raw.subscription?.plan) && (raw.subscription?.recipient_id === undefined || (Number.isSafeInteger(raw.subscription.recipient_id) && raw.subscription.recipient_id > 0)) ? raw.subscription : undefined,
     }
   } catch { return {} }
 }
@@ -56,6 +57,12 @@ export function dcErrorMessage(error: any): string {
     dc_email_required: 'Введите корректный email.',
     kassa_email_invalid: 'Введите корректный email.',
     subscription_plan_invalid: 'Выберите тариф подписки.',
+    gift_self_not_allowed: 'Нельзя подарить подписку самому себе.',
+    gift_recipient_not_found: 'Получатель подарка не найден или его аккаунт удалён.',
+    gift_recipient_deleted: 'Нельзя подарить подписку: аккаунт получателя удалён.',
+    gift_recipient_invalid: 'Выберите другого пользователя для подарка.',
+    gift_recipient_banned: 'Нельзя подарить подписку: пользователь находится в бане.',
+    gift_recipient_unverified: 'Нельзя подарить подписку: пользователь не прошёл Telegram-верификацию.',
     subscription_duration_too_large: 'Выберите меньший срок подписки.',
     dc_balance_too_large: 'Количество монет превышает допустимый предел.',
     coin_order_not_found: 'Счёт не найден в вашем аккаунте.',
@@ -192,12 +199,14 @@ export const useWalletStore = defineStore('wallet', () => {
     addInvoice(data, uid, session)
     return data
   }
-  async function buySubscription(plan?: SubscriptionPlan): Promise<WalletState & { purchase_id: number }> {
+  async function buySubscription(plan?: SubscriptionPlan, recipientId?: number): Promise<SubscriptionPurchaseResult> {
     const uid = ensureOwner()
     if (!uid || subscriptionBusy.value) throw new Error('operation_busy')
     const session = ownerSession
     const replay = !!pending.value.subscription
-    const request = pending.value.subscription || (plan ? { plan, request_id: newDcRequestId() } : null)
+    if (recipientId !== undefined && (!Number.isSafeInteger(recipientId) || recipientId <= 0 || recipientId === uid)) throw new Error('gift_recipient_invalid')
+    if (plan && pending.value.subscription && (pending.value.subscription.recipient_id ?? uid) !== (recipientId ?? uid)) throw new Error('pending_recipient_mismatch')
+    const request = pending.value.subscription || (plan ? { plan, request_id: newDcRequestId(), ...(recipientId === undefined ? {} : { recipient_id: recipientId }) } : null)
     if (!request) throw new Error('request_missing')
     pending.value.subscription = request
     savePending(uid)
@@ -206,12 +215,16 @@ export const useWalletStore = defineStore('wallet', () => {
     const previousBalance = previous?.dc_balance
     const previousEnd = previous?.subscription_until
     try {
-      const { data } = await api.post<WalletState & { purchase_id: number }>('/payments/subscriptions', request)
-      if (!replay && ownsRequest(uid, session) && user.user === previous && user.user?.dc_balance === previousBalance && user.user?.subscription_until === previousEnd) applyState(data, uid)
+      const { data } = await api.post<SubscriptionPurchaseResult>('/payments/subscriptions', request)
+      if (!replay && ownsRequest(uid, session) && user.user === previous && user.user?.dc_balance === previousBalance && user.user?.subscription_until === previousEnd) {
+        const recipient = data.recipient_id ?? request.recipient_id ?? uid
+        applyState(recipient === uid ? data : { dc_balance: data.dc_balance }, uid)
+      }
       if (ownsRequest(uid, session)) void refreshWallet().catch(() => {})
       if (ownsRequest(uid, session)) {
         delete pending.value.subscription
         savePending(uid)
+        window.dispatchEvent(new CustomEvent('dc-wallet-changed', { detail: { user_id: uid } }))
       }
       return data
     } catch (error) {

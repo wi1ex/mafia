@@ -45,6 +45,7 @@ class SubscriptionPurchaseIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     plan: Literal["week", "month", "quarter", "year"]
     request_id: UUID
+    recipient_id: int | None = Field(default=None, strict=True, gt=0, le=9223372036854775807)
 
 
 class SubscriptionPurchaseOut(BaseModel):
@@ -52,6 +53,8 @@ class SubscriptionPurchaseOut(BaseModel):
     dc_balance: int
     subscription_until: datetime
     subscription_active: bool = True
+    recipient_id: int | None = None
+    recipient_username: str | None = None
 
 
 class WalletOut(BaseModel):

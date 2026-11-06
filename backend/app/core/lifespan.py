@@ -48,6 +48,7 @@ async def lifespan(app) -> AsyncIterator[None]:
             await conn.execute(text("ALTER TABLE settings ALTER COLUMN dc_coin_packages SET NOT NULL"))
             await conn.execute(text("ALTER TABLE notifs ADD COLUMN IF NOT EXISTS event_key VARCHAR(192)"))
             await conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_notifs_event_key ON notifs(event_key) WHERE event_key IS NOT NULL"))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_subscription_purchases_actor_id ON subscription_purchases(actor_id)"))
             await conn.execute(text("ALTER TABLE settings DROP COLUMN IF EXISTS donation_url"))
             await conn.execute(text("DROP TABLE IF EXISTS kassa_payments"))
             # END ONE-TIME DC MIGRATION

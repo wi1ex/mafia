@@ -1,5 +1,5 @@
 from __future__ import annotations
-from sqlalchemy import String, cast, func, literal, select, union_all
+from sqlalchemy import and_, func, literal, or_, select, union_all
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..models.coin_purchase import CoinPurchase
 from ..models.subscription_purchase import SubscriptionPurchase
@@ -26,6 +26,19 @@ def subscription_term(months: int, days: int) -> str:
     return " ".join(parts) + " подписки" if parts else "Подписка"
 
 
+def _gift_user_label(snapshot: object, party: str, fallback_id: int | None) -> str:
+    data = snapshot if isinstance(snapshot, dict) else {}
+    username = data.get(f"{party}_username")
+    if isinstance(username, str) and username.strip():
+        return username.strip()
+
+    try:
+        user_id = int(data.get(f"{party}_id") or fallback_id or 0)
+    except (TypeError, ValueError, OverflowError):
+        user_id = int(fallback_id or 0)
+    return f"пользователя #{user_id}" if user_id > 0 else "пользователя"
+
+
 async def operation_history(session: AsyncSession, user_id: int, *, page: int = 1, per_page: int = 20) -> UserOperationHistoryOut:
     page, per_page = max(1, page), max(1, min(100, per_page))
     coin = select(
@@ -34,6 +47,7 @@ async def operation_history(session: AsyncSession, user_id: int, *, page: int = 
         CoinPurchase.quantity.label("quantity"), CoinPurchase.amount.label("amount"),
         CoinPurchase.currency.label("currency"), literal(0).label("days"),
         literal(0).label("months"), literal(0).label("dc_cost"),
+        CoinPurchase.user_id.label("user_id"), CoinPurchase.actor_id.label("actor_id"),
     ).where(CoinPurchase.user_id == user_id, CoinPurchase.status == "processed",
             CoinPurchase.processed_at.is_not(None), CoinPurchase.source != "provider_event")
     subscription = select(
@@ -42,13 +56,22 @@ async def operation_history(session: AsyncSession, user_id: int, *, page: int = 
         literal(0).label("quantity"), literal(None).label("amount"), literal(None).label("currency"),
         SubscriptionPurchase.days.label("days"), SubscriptionPurchase.months.label("months"),
         SubscriptionPurchase.dc_cost.label("dc_cost"),
-    ).where(SubscriptionPurchase.user_id == user_id, SubscriptionPurchase.status == "processed",
+        SubscriptionPurchase.user_id.label("user_id"), SubscriptionPurchase.actor_id.label("actor_id"),
+    ).where(or_(SubscriptionPurchase.user_id == user_id,
+                and_(SubscriptionPurchase.source == "gift", SubscriptionPurchase.actor_id == user_id)),
+            SubscriptionPurchase.status == "processed",
             SubscriptionPurchase.processed_at.is_not(None))
     combined = union_all(coin, subscription).subquery()
     total = int(await session.scalar(select(func.count()).select_from(combined)) or 0)
     rows = (await session.execute(select(combined).order_by(
         combined.c.date.desc(), combined.c.journal.desc(), combined.c.operation_id.desc(),
     ).offset((page - 1) * per_page).limit(per_page))).mappings().all()
+    gift_ids = [int(row["operation_id"]) for row in rows
+                if row["journal"] == "subscription" and row["source"] == "gift"]
+    gift_metadata = dict((await session.execute(
+        select(SubscriptionPurchase.id, SubscriptionPurchase.result)
+        .where(SubscriptionPurchase.id.in_(gift_ids))
+    )).all()) if gift_ids else {}
     items: list[UserOperationOut] = []
     for row in rows:
         source = row["source"]
@@ -60,6 +83,18 @@ async def operation_history(session: AsyncSession, user_id: int, *, page: int = 
             }.get(source, "Начисление монет")
             received = "—" if source == "admin_remove" else f"{quantity} DC"
             spent = money_text(row["amount"], row["currency"]) if source == "lava" else f"{quantity} DC" if source == "admin_remove" else "Бесплатно"
+        elif source == "gift":
+            snapshot = gift_metadata.get(row["operation_id"])
+            if row["actor_id"] == user_id:
+                recipient = _gift_user_label(snapshot, "recipient", row["user_id"])
+                operation_type = f"Подарок подписки для {recipient}"
+                received = "—"
+                spent = f"{int(row['dc_cost'])} DC"
+            else:
+                sender = _gift_user_label(snapshot, "sender", row["actor_id"])
+                operation_type = f"Подарок подписки от {sender}"
+                received = subscription_term(int(row["months"] or 0), int(row["days"] or 0))
+                spent = "Бесплатно"
         else:
             operation_type = {
                 "admin": "Выдача подписки",

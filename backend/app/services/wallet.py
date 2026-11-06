@@ -72,6 +72,24 @@ async def ensure_payments_enabled(session: AsyncSession) -> None:
         raise HTTPException(503, detail="payments_disabled")
 
 
+async def ensure_gift_recipient_access(session: AsyncSession, recipient: User) -> None:
+    from ..api.utils import fetch_active_sanction
+
+    if recipient.deleted_at is not None:
+        raise HTTPException(403, detail="gift_recipient_deleted")
+
+    if await fetch_active_sanction(session, int(recipient.id), "ban"):
+        raise HTTPException(403, detail="gift_recipient_banned")
+
+    verification_restrictions = await session.scalar(
+        select(AppSettings.verification_restrictions).where(AppSettings.id == 1)
+    )
+    if verification_restrictions is None:
+        verification_restrictions = settings.VERIFICATION_RESTRICTIONS
+    if verification_restrictions and not recipient.telegram_id:
+        raise HTTPException(403, detail="gift_recipient_unverified")
+
+
 def checked_balance(before: int, delta: int) -> int:
     after = int(before) + int(delta)
     if after < 0:
@@ -122,27 +140,55 @@ async def record_admin_subscription(session: AsyncSession, *, user_id: int, mont
     return purchase
 
 
-async def buy_subscription(session: AsyncSession, *, user_id: int, plan: str, request_id: str) -> dict:
+async def buy_subscription(session: AsyncSession, *, user_id: int, plan: str, request_id: str,
+                           recipient_id: int | None = None) -> dict:
     if not isinstance(plan, str) or plan not in SUBSCRIPTION_PLANS:
         raise HTTPException(422, detail="subscription_plan_invalid")
 
+    if recipient_id is not None:
+        if type(recipient_id) is not int or not 0 < recipient_id <= MAX_DC:
+            raise HTTPException(422, detail="gift_recipient_invalid")
+
+        if recipient_id == user_id:
+            raise HTTPException(422, detail="gift_self_not_allowed")
+
+    target_id = recipient_id if recipient_id is not None else user_id
+    source = "gift" if recipient_id is not None else "dc"
+    actor_id = user_id if source == "gift" else None
     days, months, cost = SUBSCRIPTION_PLANS[plan]
-    user = await lock_user_balance(session, user_id)
+    locked_users = {}
+    for uid in sorted({user_id, target_id}):
+        try:
+            locked_users[uid] = await lock_user_balance(session, uid)
+        except HTTPException as exc:
+            if source == "gift" and uid == target_id and exc.status_code == 404:
+                raise HTTPException(404, detail="gift_recipient_not_found") from None
+
+            raise
+
+    user = locked_users[user_id]
+    recipient = locked_users[target_id]
     await lock_dc_request(session, str(request_id), journal="subscription")
     existing = await session.scalar(select(SubscriptionPurchase).where(SubscriptionPurchase.request_id == str(request_id)))
     if existing:
-        if existing.user_id != user_id or existing.days != days or existing.months != months or existing.source != "dc":
+        if (existing.user_id != target_id or existing.days != days or existing.months != months
+                or existing.source != source or existing.actor_id != actor_id):
             raise HTTPException(409, detail="idempotency_conflict")
 
-        result = {key: value for key, value in (existing.result or {}).items() if key != "extended"}
+        result = {key: value for key, value in (existing.result or {}).items()
+                  if key in {"purchase_id", "dc_balance", "subscription_until", "subscription_active",
+                             "recipient_id", "recipient_username"}}
         await session.commit()
         await notify_subscription_purchase(session, existing)
         return result
 
     await ensure_payments_enabled(session)
     await ensure_purchase_access(session, user)
+    if source == "gift":
+        await ensure_gift_recipient_access(session, recipient)
+
     now = datetime.now(timezone.utc)
-    subscription = await session.scalar(select(UserSubscription).where(UserSubscription.user_id == user_id).with_for_update().execution_options(populate_existing=True))
+    subscription = await session.scalar(select(UserSubscription).where(UserSubscription.user_id == target_id).with_for_update().execution_options(populate_existing=True))
     active = bool(subscription and subscription.starts_at <= now < subscription.ends_at)
     ends_before = subscription.ends_at if subscription else None
     base = subscription.ends_at if active else now
@@ -154,28 +200,32 @@ async def buy_subscription(session: AsyncSession, *, user_id: int, plan: str, re
     before = int(user.dc_balance)
     user.dc_balance = checked_balance(before, -cost)
     if subscription is None:
-        subscription = UserSubscription(user_id=user_id, starts_at=now, ends_at=ends_after)
+        subscription = UserSubscription(user_id=target_id, starts_at=now, ends_at=ends_after)
         session.add(subscription)
     else:
         subscription.ends_at = ends_after
         if not active:
             subscription.starts_at = now
     if not active:
-        set_user_nickname_changes(user, SUBSCRIPTION_NICKNAME_CHANGE_LIMIT)
+        set_user_nickname_changes(recipient, SUBSCRIPTION_NICKNAME_CHANGE_LIMIT)
     await session.flush()
-    await ensure_profile_theme_defaults(session, user_id, now=now)
-    purchase = SubscriptionPurchase(user_id=user_id, source="dc", days=days, months=months, dc_cost=cost,
+    await ensure_profile_theme_defaults(session, target_id, now=now)
+    purchase = SubscriptionPurchase(user_id=target_id, source=source, actor_id=actor_id,
+                                    days=days, months=months, dc_cost=cost,
                                     request_id=str(request_id), status="processed", starts_at=subscription.starts_at,
                                     ends_before=ends_before, ends_after=ends_after, balance_before=before,
                                     balance_after=user.dc_balance, processed_at=now)
     session.add(purchase)
     await session.flush()
     result = {"purchase_id": purchase.id, "dc_balance": user.dc_balance,
-              "subscription_until": ends_after.isoformat(), "subscription_active": True}
-    purchase.result = {**result, "extended": active}
+              "subscription_until": ends_after.isoformat(), "subscription_active": True,
+              "recipient_id": target_id, "recipient_username": recipient.username}
+    purchase.result = {**result, "extended": active, "sender_id": user_id,
+                       "sender_username": user.username}
     note = await _persist_subscription_purchase_notice(session, purchase)
+    sender_note = await _persist_subscription_gift_sender_notice(session, purchase) if source == "gift" else None
     await session.commit()
-    await notify_subscription_purchase(session, purchase, note=note)
+    await notify_subscription_purchase(session, purchase, note=note, sender_note=sender_note)
     return result
 
 
@@ -219,12 +269,31 @@ async def _persist_subscription_purchase_notice(session: AsyncSession, purchase:
     action = "продлили" if (purchase.result or {}).get("extended") else "купили"
     duration = format_subscription_purchase_duration(days=purchase.days, months=purchase.months)
     end = format_subscription_until(purchase.ends_after)
+    title = "Подписка"
+    if purchase.source == "gift":
+        sender = (purchase.result or {}).get("sender_username") or f"user{purchase.actor_id}"
+        title = "Вам подарили подписку"
+        text = f"{sender} подарил вам подписку на {duration}. Подписка действует до {end}."
+    else:
+        text = (
+            f"Вы {action} подписку на {duration} за {purchase.dc_cost} DC. "
+            f"Подписка действует до {end}. Баланс: {purchase.balance_after} DC."
+        )
+    return await _persist_notice_once(
+        session, user_id=purchase.user_id, event_key=f"dc:subscription:{purchase.id}", title=title, text=text,
+    )
+
+
+async def _persist_subscription_gift_sender_notice(session: AsyncSession, purchase: SubscriptionPurchase) -> Notif | None:
+    recipient = (purchase.result or {}).get("recipient_username") or f"user{purchase.user_id}"
+    duration = format_subscription_purchase_duration(days=purchase.days, months=purchase.months)
     text = (
-        f"Вы {action} подписку на {duration} за {purchase.dc_cost} DC. "
-        f"Подписка действует до {end}. Баланс: {purchase.balance_after} DC."
+        f"Вы подарили {recipient} подписку на {duration}. "
+        f"Списано: {purchase.dc_cost} DC. Баланс: {purchase.balance_after} DC."
     )
     return await _persist_notice_once(
-        session, user_id=purchase.user_id, event_key=f"dc:subscription:{purchase.id}", title="Подписка", text=text,
+        session, user_id=purchase.actor_id, event_key=f"dc:subscription:{purchase.id}:sender",
+        title="Подарок подписки", text=text,
     )
 
 
@@ -274,7 +343,62 @@ async def notify_coin_operation(session: AsyncSession, operation: CoinPurchase, 
         await sync_wallet_profile(session, uid)
 
 
-async def notify_subscription_purchase(session: AsyncSession, purchase: SubscriptionPurchase, *, note: Notif | None = None) -> None:
+async def notify_subscription_gift(session: AsyncSession, purchase: SubscriptionPurchase, *,
+                                   note: Notif | None = None, sender_note: Notif | None = None) -> None:
+    from ..api.utils import emit_notify, schedule_contact_request_admin_telegram_message
+
+    recipient_id = int(purchase.user_id)
+    sender_id = int(purchase.actor_id)
+    purchase_id = purchase.id
+    metadata = purchase.result or {}
+    popup = {
+        "sender_id": sender_id,
+        "sender_username": metadata.get("sender_username") or f"user{sender_id}",
+        "recipient_id": recipient_id,
+        "duration": format_subscription_purchase_duration(days=purchase.days, months=purchase.months),
+        "subscription_until": purchase.ends_after.isoformat(),
+        "purchase_id": purchase_id,
+    }
+    for uid, message, kind, extra in (
+        (recipient_id, note, "subscription_gift", {"subscription_gift": popup}),
+        (sender_id, sender_note, "subscription", None),
+    ):
+        if message is not None:
+            try:
+                await emit_notify(uid, message, kind=kind, no_toast=True, extra=extra)
+            except Exception:
+                log.exception("dc.subscription_gift_notification_failed", purchase_id=purchase_id, user_id=uid)
+    if note is not None or sender_note is not None:
+        try:
+            sender_name = metadata.get("sender_username") or f"user{sender_id}"
+            recipient_name = metadata.get("recipient_username") or f"user{recipient_id}"
+            action = "Продление" if metadata.get("extended") else "Активация"
+            end = format_subscription_until(purchase.ends_after)
+            schedule_contact_request_admin_telegram_message(
+                "Подписка в подарок\n\n"
+                f"Даритель: {sender_name}\nID дарителя: {sender_id}\n"
+                f"Получатель: {recipient_name}\nID получателя: {recipient_id}\n"
+                f"Действие: {action}\nСрок: {popup['duration']}\nСписано: {purchase.dc_cost} DC\n"
+                f"Подписка до: {end}\nБаланс дарителя после операции: {purchase.balance_after} DC\n"
+                f"Покупка: №{purchase_id}"
+            )
+        except Exception:
+            log.exception("dc.subscription_gift_admin_notification_failed", purchase_id=purchase_id)
+    for uid in sorted({sender_id, recipient_id}):
+        try:
+            await sync_wallet_profile(session, uid)
+        except Exception:
+            log.exception("dc.subscription_gift_profile_sync_failed", purchase_id=purchase_id, user_id=uid)
+            with suppress(Exception):
+                await session.rollback()
+
+
+async def notify_subscription_purchase(session: AsyncSession, purchase: SubscriptionPurchase, *,
+                                       note: Notif | None = None, sender_note: Notif | None = None) -> None:
+    if purchase.source == "gift" and purchase.status == "processed" and purchase.user_id and purchase.actor_id:
+        await notify_subscription_gift(session, purchase, note=note, sender_note=sender_note)
+        return
+
     if purchase.source != "dc" or purchase.status != "processed" or not purchase.user_id:
         return
 

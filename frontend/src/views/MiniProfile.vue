@@ -219,7 +219,8 @@
                     width="100%"
                     :icon="iconSubscription"
                     text="Подарить подписку"
-                    disabled
+                    :disabled="giftDisabled"
+                    @click="openSubscriptionGift"
                   />
                 </div>
                 <div v-if="viewerSubscriptionActive" class="profile-actions-row profile-actions-row--subscription">
@@ -342,6 +343,14 @@
       @busy="balanceSaving = $event"
       @complete="onBalanceComplete"
     />
+    <WalletModal
+      v-if="giftRecipient"
+      v-model:open="giftModalOpen"
+      :gift-recipient="giftRecipient"
+      :z-index="STAFF_MODAL_Z_INDEX"
+      @busy="giftSaving = $event"
+      @subscription-purchased="onSubscriptionGiftPurchased"
+    />
   </Teleport>
 </template>
 
@@ -369,6 +378,8 @@ import ProfileHistory from '@/views/ProfileHistory.vue'
 import SanctionModal from '@/views/SanctionModal.vue'
 import SubscriptionModal from '@/views/SubscriptionModal.vue'
 import BalanceModal from '@/views/BalanceModal.vue'
+import WalletModal from '@/views/WalletModal.vue'
+import type { SubscriptionPurchaseResult } from '@/store/modules/wallet'
 import UiIcon from '@/components/UiIcon.vue'
 import UiLoaderIcon from '@/components/UiLoaderIcon.vue'
 import UiButton from '@/components/UiButton.vue'
@@ -516,6 +527,7 @@ type MiniProfileResponse = {
   additional_roles?: string[] | null
   protected_user?: boolean
   deleted?: boolean
+  telegram_verified?: boolean
   registered_at?: string | null
   last_visit_at?: string | null
   last_game_at?: string | null
@@ -618,6 +630,9 @@ const staffSanctionForm = reactive({
 const staffSubscriptionModalOpen = ref(false)
 const balanceModalOpen = ref(false)
 const balanceSaving = ref(false)
+const giftModalOpen = ref(false)
+const giftSaving = ref(false)
+const giftRecipient = ref<{ user_id: number; username?: string | null; avatar_name?: string | null } | null>(null)
 const balanceAction = ref<'credit' | 'debit'>('credit')
 const balanceTarget = ref<{ user_id: number; username?: string | null; avatar_name?: string | null } | null>(null)
 const staffSubscriptionSaving = ref(false)
@@ -934,6 +949,18 @@ const friendDisabled = computed(() => (
 ))
 const canSendFriendRequest = computed(() => (
   !isAdminViewer.value && normalizeMiniProfileRole(profileRole.value) !== 'admin'
+))
+const giftDisabled = computed(() => (
+  giftSaving.value
+  || giftModalOpen.value
+  || targetUserId.value <= 0
+  || viewerUserId.value <= 0
+  || isSelfProfile.value
+  || targetDeleted.value
+  || viewerAccountRestricted.value
+  || loading.value
+  || !profileLoadedForTarget.value
+  || Boolean(loadError.value)
 ))
 const showProfileDataButtons = computed(() => Boolean(
   props.showStatsButton
@@ -1401,9 +1428,28 @@ function inferInitialFriendStatus(): FriendStatus {
 }
 
 function close() {
-  if (staffSanctionModalOpen.value || staffSubscriptionModalOpen.value || balanceModalOpen.value || confirmState.open) return
+  if (staffSanctionModalOpen.value || staffSubscriptionModalOpen.value || balanceModalOpen.value || giftModalOpen.value || confirmState.open) return
   closeAvatarPreview()
   emit('update:open', false)
+}
+
+function openSubscriptionGift(): void {
+  if (giftDisabled.value || !showRestrictedProfileSections.value) return
+  if (profile.value?.ban_active) {
+    void alertDialog('Нельзя подарить подписку: пользователь находится в бане.')
+    return
+  }
+  if (settingsStore.verificationRestrictions && !profile.value?.telegram_verified) {
+    void alertDialog('Нельзя подарить подписку: пользователь не прошёл Telegram-верификацию.')
+    return
+  }
+  giftRecipient.value = { user_id: targetUserId.value, username: targetUsername.value, avatar_name: avatarName.value }
+  giftModalOpen.value = true
+}
+
+function onSubscriptionGiftPurchased(result: SubscriptionPurchaseResult): void {
+  const recipientId = result.recipient_id
+  if (props.open && recipientId === targetUserId.value) void loadProfile()
 }
 
 function closeAvatarPreview() {
@@ -1859,6 +1905,8 @@ function onStaffDropdownSelect(value: string | number | null): void {
 }
 
 function resetStaffActionState(): void {
+  giftModalOpen.value = false
+  if (!giftSaving.value) giftRecipient.value = null
   if (!balanceSaving.value) { balanceModalOpen.value = false; balanceTarget.value = null }
   blacklistBusy.value = false
   staffRoleBusy.value = false
@@ -1922,6 +1970,7 @@ async function loadProfile() {
       additional_roles: Array.isArray(data?.additional_roles) ? data.additional_roles : [],
       protected_user: Boolean(data?.protected_user),
       deleted: Boolean(data?.deleted),
+      telegram_verified: Boolean(data?.telegram_verified),
       registered_at: data?.registered_at ?? null,
       last_visit_at: data?.last_visit_at ?? null,
       last_game_at: data?.last_game_at ?? null,
@@ -2146,7 +2195,7 @@ async function toggleBlacklist() {
 
 function onKeydown(e: KeyboardEvent) {
   if (!props.open || e.key !== 'Escape') return
-  if (balanceModalOpen.value) return
+  if (balanceModalOpen.value || giftModalOpen.value) return
   if (avatarPreviewOpen.value) {
     closeAvatarPreview()
     return

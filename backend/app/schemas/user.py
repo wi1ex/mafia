@@ -99,6 +99,7 @@ class UserMiniProfileOut(BaseModel):
     additional_roles: List[str] = Field(default_factory=list)
     protected_user: bool = False
     deleted: bool = False
+    telegram_verified: bool = False
     registered_at: Optional[datetime] = None
     last_visit_at: Optional[datetime] = None
     last_game_at: Optional[datetime] = None

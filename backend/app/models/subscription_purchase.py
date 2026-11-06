@@ -16,7 +16,7 @@ class SubscriptionPurchase(Base):
     months: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     dc_cost: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0, server_default="0")
     status: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
-    actor_id: Mapped[int | None] = mapped_column(BigInteger)
+    actor_id: Mapped[int | None] = mapped_column(BigInteger, index=True)
     request_id: Mapped[str | None] = mapped_column(String(128), unique=True)
     starts_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     ends_before: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
