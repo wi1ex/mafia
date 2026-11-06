@@ -369,7 +369,7 @@
       <div v-else class="balance-history-scroll-wrap">
         <div ref="balanceHistoryList" class="balance-history-list" tabindex="0" @scroll.passive="onBalanceHistoryScroll">
           <div v-for="item in balanceHistoryItems" :key="item.id" class="balance-history-row">
-            <time>{{ formatDateOnly(item.date) }}</time> {{ item.type }} <strong>{{ balanceHistoryAmount(item) }}</strong>
+            <time>{{ formatDateOnly(item.date) }}</time> <strong>{{ balanceHistoryAmount(item) }}</strong> {{ item.type }}
           </div>
           <div v-if="balanceHistoryLoading" class="balance-history-state" role="status">Загрузка...</div>
           <div v-else-if="balanceHistoryError" class="balance-history-state balance-history-state--error" role="alert">
