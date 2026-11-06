@@ -39,29 +39,7 @@
             <p v-if="isGift && !giftRecipientValid" class="wallet-error" role="alert">Выберите другого пользователя для подарка.</p>
 
             <div v-if="!isGift" v-show="tab === 'coins'" id="wallet-coins" role="region" aria-label="Пополнение баланса" class="wallet-panel">
-              <template v-if="selectedInvoice">
-                <div class="wallet-summary invoice-summary">
-                  <strong>{{ invoiceHeading(selectedInvoice) }}</strong>
-                  <span>Заказ №{{ selectedInvoice.order_id }}</span>
-                  <span>{{ selectedInvoice.quantity }} DC за {{ invoiceMoney(selectedInvoice) }}</span>
-                  <p>{{ invoiceStatusText(selectedInvoice) }}</p>
-                  <div class="wallet-actions">
-                    <UiButton v-if="selectedInvoice.status === 'pending' && paymentLink(selectedInvoice)" :href="paymentLink(selectedInvoice)" text="Продолжить оплату" :disabled="busy || checking" />
-                    <UiButton v-if="selectedInvoice.status !== 'processed' && selectedInvoice.status !== 'failed'" variant="white" :text="checking ? 'Проверяем оплату…' : 'Проверить оплату'" :disabled="checking || busy" @click="checkSelectedInvoice(false)" />
-                    <UiButton v-if="selectedInvoice.status === 'processed'" text="Купить подписку" @click="tab = 'subscription'" />
-                  </div>
-                </div>
-                <template v-if="selectedInvoice.status === 'unknown' && !paymentLink(selectedInvoice)">
-                  <p class="wallet-state">Ссылка на оплату недоступна. Можно оформить другой счёт. Прежний заказ сохранится и будет доступен для проверки в списке выставленных счетов.</p>
-                  <UiButton variant="white" text="Оформить другой счёт" :disabled="busy || checking" @click="newInvoice" />
-                </template>
-                <UiButton v-else-if="!['creating', 'unknown', 'review'].includes(selectedInvoice.status)" variant="white" text="Новый счёт" :disabled="busy || checking" @click="newInvoice" />
-              </template>
-              <div v-else-if="wallet.pending.invoice" class="wallet-summary">
-                <p>Подтверждение создания счёта пока не получено. Проверим тот же заказ.</p>
-                <UiButton :text="wallet.invoiceBusy ? 'Проверяем…' : 'Проверить создание счёта'" :disabled="busy" @click="recoverInvoice" />
-              </div>
-              <form v-else class="wallet-form" @submit.prevent="payCoins">
+              <form class="wallet-form" @submit.prevent="payCoins">
                 <UiInput id="dc-email" v-model.trim="email" type="email" autocomplete="email" label="Email для оформления платежа" placeholder="mail@example.com" mode="light" :disabled="busy || opening" />
                 <div class="wallet-currencies" role="group" aria-label="Валюта оплаты">
                   <button v-for="item in currencies" :key="item" type="button" :class="{ active: currency === item }" :aria-pressed="currency === item" :disabled="busy" @click="currency = item">{{ item }}</button>
@@ -78,12 +56,6 @@
                 </div>
                 <UiButton type="submit" :text="wallet.invoiceBusy ? 'Создаём счёт…' : `Оплатить ${totalPrice}`" :disabled="!canPay" width="100%" />
               </form>
-              <div v-if="otherInvoices.length" class="wallet-orders">
-                <span>Выставленные счета</span>
-                <button v-for="invoice in otherInvoices" :key="invoice.order_id" type="button" :disabled="busy" @click="selectedOrderId = invoice.order_id">
-                  <span>№{{ invoice.order_id }} · {{ invoice.quantity }} DC · {{ invoiceMoney(invoice) }}</span><small>{{ invoiceHeading(invoice) }}</small>
-                </button>
-              </div>
             </div>
 
             <div v-show="isGift || tab === 'subscription'" id="wallet-subscription" role="region" :aria-label="isGift ? 'Подарить подписку' : 'Покупка подписки'" class="wallet-panel">
@@ -126,7 +98,7 @@
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore, useSettingsStore, useUserStore } from '@/store'
-import { useWalletStore, dcErrorMessage, type CoinInvoice, type SubscriptionPurchaseResult } from '@/store/modules/wallet'
+import { useWalletStore, dcErrorMessage, dcRequestUncertain, type CoinInvoice, type SubscriptionPurchaseResult } from '@/store/modules/wallet'
 import { COIN_PACKAGES, DC_CURRENCIES, SUBSCRIPTION_PLANS, dcMoney, dcPurchaseRestriction, type CoinPackageQuantity, type DcCurrency, type SubscriptionPlan, type WalletTab } from '@/services/dc'
 import { alertDialog } from '@/services/confirm'
 import UiButton from '@/components/UiButton.vue'
@@ -197,14 +169,9 @@ const subscriptionPlan = ref<SubscriptionPlan>('week')
 const email = ref('')
 const error = ref('')
 const opening = ref(false)
-const checking = ref(false)
-const selectedOrderId = ref<number | null>(null)
 const armed = ref(false)
 let openSequence = 0
-let pollTimer: ReturnType<typeof setTimeout> | undefined
-let invoiceRetryTimer: ReturnType<typeof setTimeout> | undefined
 let subscriptionRetryTimer: ReturnType<typeof setTimeout> | undefined
-let retriedInvoice = false
 let retriedSubscription = false
 const restriction = computed(() => dcPurchaseRestriction(auth.isAuthed, userStore.user, settings.verificationRestrictions))
 const busy = computed(() => wallet.invoiceBusy || wallet.subscriptionBusy)
@@ -223,25 +190,11 @@ const totalPrice = computed(() => dcMoney(packageAmount.value, 1, currency.value
 const selectedPlan = computed(() => SUBSCRIPTION_PLANS.find(item => item.id === subscriptionPlan.value)!)
 const canAffordSubscription = computed(() => wallet.balance >= selectedPlan.value.cost)
 const canPay = computed(() => !isGift.value && settings.paymentsEnabled && !busy.value && !opening.value && !restriction.value && email.value.trim().length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim()))
-const selectedInvoice = computed(() => wallet.invoices.find(item => item.order_id === selectedOrderId.value))
-const otherInvoices = computed(() => wallet.invoices.filter(item => !['processed', 'failed'].includes(item.status) && item.order_id !== selectedOrderId.value))
 
 function paymentLink(invoice: CoinInvoice): string {
   try { const url = new URL(invoice.payment_url || ''); return url.protocol === 'https:' && !url.username && !url.password ? url.href : '' } catch { return '' }
 }
-function invoiceMoney(invoice: CoinInvoice): string {
-  return invoice.amount && invoice.currency ? dcMoney(invoice.amount, 1, invoice.currency) : '—'
-}
 function planLabel(planId: SubscriptionPlan): string { return SUBSCRIPTION_PLANS.find(item => item.id === planId)?.label || 'Подписка' }
-function invoiceHeading(invoice: CoinInvoice): string {
-  return { pending: 'Неоплаченный счёт', processed: 'Баланс пополнен', failed: 'Оплата не прошла', review: 'Оплата подтверждена', creating: 'Проверяем счёт…', unknown: 'Проверяем счёт…' }[invoice.status] || 'Счёт'
-}
-function invoiceStatusText(invoice: CoinInvoice): string {
-  if (invoice.status === 'processed') return 'Монеты зачислены на баланс. Подписку можно купить отдельно.'
-  if (invoice.status === 'review') return 'Оплата подтверждена. Монеты пока не зачислены. Повторно оплачивать счёт не нужно.'
-  if (invoice.status === 'failed') return 'Оплата не прошла. Проверьте статус счёта перед повторной попыткой.'
-  return 'Подтверждение оплаты пока не получено. Если вы уже оплатили счёт, повторно оплачивать не нужно.'
-}
 function requestClose(): void { if (!busy.value || !settings.paymentsEnabled) emit('update:open', false) }
 function handlePaymentsDisabled(err: unknown): boolean {
   const detail = (err as { response?: { data?: { detail?: string | { code?: string } } } })?.response?.data?.detail
@@ -268,77 +221,90 @@ function onDialogKeydown(event: KeyboardEvent): void {
 function saveEmail(): void {
   try { sessionStorage.setItem(`dc:email:${userStore.user?.id}`, email.value.trim().toLowerCase()) } catch {}
 }
-function newInvoice(): void { selectedOrderId.value = null; quantity.value = 30; error.value = '' }
 function stopTimers(): void {
-  clearTimeout(pollTimer)
-  clearTimeout(invoiceRetryTimer)
   clearTimeout(subscriptionRetryTimer)
-}
-function scheduleCheck(): void {
-  clearTimeout(pollTimer)
-  if (isGift.value || !props.open || !settings.paymentsEnabled || restriction.value || !selectedInvoice.value || !['creating', 'unknown', 'pending'].includes(selectedInvoice.value.status)) return
-  pollTimer = setTimeout(() => { void checkSelectedInvoice(true) }, 15_000)
-}
-async function checkSelectedInvoice(quiet = false): Promise<void> {
-  const orderId = selectedOrderId.value
-  if (isGift.value || !props.open || !settings.paymentsEnabled || !orderId || checking.value || restriction.value) return
-  checking.value = true
-  if (!quiet) error.value = ''
-  try { await wallet.checkInvoice(orderId) }
-  catch (err) { if (!quiet) error.value = dcErrorMessage(err) }
-  finally { checking.value = false; scheduleCheck() }
 }
 async function payCoins(): Promise<void> {
   if (!canPay.value) return
   error.value = ''
+  const paymentTab = window.open('about:blank', '_blank')
+  if (!paymentTab) {
+    error.value = 'Разрешите открытие новой вкладки для перехода к оплате.'
+    return
+  }
+  let paymentOpened = false
+  const closePaymentTab = () => {
+    try { if (!paymentTab.closed && paymentTab.location.href === 'about:blank') paymentTab.close() } catch {}
+  }
+  try {
+    paymentTab.opener = null
+    paymentTab.document.title = 'Переход к оплате'
+    paymentTab.document.body.textContent = 'Подготавливаем страницу оплаты…'
+  } catch {
+    closePaymentTab()
+    error.value = 'Не удалось открыть страницу оплаты. Попробуйте ещё раз.'
+    return
+  }
   saveEmail()
   const seq = openSequence
+  const buyerId = userStore.user?.id
+  const buyerSession = auth.sessionId
   const requestedCurrency = currency.value
   const requestedQuantity = quantity.value
   const requestedAmount = packageAmount.value
   try {
     const invoice = await wallet.createInvoice({ quantity: requestedQuantity, currency: requestedCurrency, email: email.value.trim().toLowerCase(), expected_amount: requestedAmount })
-    if (seq !== openSequence || !settings.paymentsEnabled || restriction.value) return
-    selectedOrderId.value = invoice.order_id
+    if (seq !== openSequence || !props.open || !auth.isAuthed || buyerId !== userStore.user?.id || buyerSession !== auth.sessionId || !settings.paymentsEnabled || restriction.value) return
     const url = invoice.status === 'pending' ? paymentLink(invoice) : ''
-    if (url) window.location.assign(url)
-    scheduleCheck()
+    if (url) {
+      if (paymentTab.closed) error.value = 'Вкладка оплаты закрыта. Нажмите «Оплатить», чтобы начать заново.'
+      else if (paymentTab.location.href === 'about:blank') {
+        paymentTab.location.replace(url)
+        paymentOpened = true
+      }
+    } else if (invoice.status !== 'processed') {
+      error.value = invoice.status === 'review'
+        ? 'Оплата подтверждена. Начисление монет проверяется.'
+        : 'Не удалось открыть страницу оплаты. Попробуйте ещё раз.'
+    }
   } catch (err: any) {
-    if (seq !== openSequence) return
+    if (seq !== openSequence || buyerId !== userStore.user?.id || buyerSession !== auth.sessionId) return
     if (handlePaymentsDisabled(err)) return
-    error.value = dcErrorMessage(err)
+    error.value = dcRequestUncertain(err)
+      ? 'Не удалось открыть страницу оплаты. Попробуйте ещё раз.'
+      : Number(err?.response?.status) === 429 ? 'Слишком много запросов. Попробуйте позже.' : dcErrorMessage(err)
     const detail = err?.response?.data?.detail
     if (detail?.code === 'dc_price_changed') {
       if (settings.dcCoinPackages[requestedQuantity][requestedCurrency] === requestedAmount && detail.amount) settings.setCoinPackagePrice(requestedQuantity, requestedCurrency, detail.amount)
       void settings.fetchPublic().catch(() => {})
     }
-    if (wallet.pending.invoice && !retriedInvoice) {
-      retriedInvoice = true
-      invoiceRetryTimer = setTimeout(() => { if (props.open && !restriction.value) void recoverInvoice() }, 1500)
-    }
+  } finally {
+    if (!paymentOpened) closePaymentTab()
   }
-}
-async function recoverInvoice(): Promise<void> {
-  if (isGift.value || busy.value || !settings.paymentsEnabled || restriction.value) return
-  error.value = ''
-  const requestId = wallet.pending.invoice?.request_id
-  try {
-    await wallet.loadInvoices()
-    if (!props.open || !settings.paymentsEnabled || restriction.value) return
-    if (wallet.pending.invoice) selectedOrderId.value = (await wallet.createInvoice()).order_id
-    else selectedOrderId.value = wallet.invoices.find(item => item.request_id === requestId)?.order_id ?? selectedOrderId.value
-    scheduleCheck()
-  } catch (err) { if (!handlePaymentsDisabled(err)) error.value = dcErrorMessage(err) }
 }
 async function purchaseSubscription(recover: boolean): Promise<void> {
   if (!props.open || busy.value || !settings.paymentsEnabled || restriction.value || (!recover && (!canAffordSubscription.value || !giftRecipientValid.value || !!wallet.pending.subscription))) return
   error.value = ''
   const seq = openSequence
+  const buyerId = userStore.user?.id
+  const buyerSession = auth.sessionId
+  const purchasedPlan = recover ? wallet.pending.subscription?.plan : subscriptionPlan.value
+  const requestedRecipientId = recover ? wallet.pending.subscription?.recipient_id : giftRecipientSnapshot.value?.user_id
   try {
     const result = await wallet.buySubscription(recover ? undefined : subscriptionPlan.value, recover ? undefined : giftRecipientSnapshot.value?.user_id)
-    if (seq === openSequence) {
+    if (seq === openSequence && props.open && auth.isAuthed && buyerId === userStore.user?.id && buyerSession === auth.sessionId) {
       emit('subscription-purchased', result)
       emit('update:open', false)
+      const recipientId = result.recipient_id ?? requestedRecipientId ?? buyerId
+      if (recipientId && recipientId !== buyerId) {
+        const recipientName = result.recipient_username || (recipientId === giftRecipientSnapshot.value?.user_id ? giftRecipientName.value : `user${recipientId}`)
+        await nextTick()
+        if (!auth.isAuthed || buyerId !== userStore.user?.id || buyerSession !== auth.sessionId) return
+        void alertDialog({
+          title: 'Подписка подарена',
+          text: `Вы подарили подписку пользователю ${recipientName}.${purchasedPlan ? ` Срок: ${planLabel(purchasedPlan)}.` : ''}`,
+        })
+      }
     }
   } catch (err) {
     if (seq !== openSequence) return
@@ -386,31 +352,12 @@ watch([() => props.open, () => settings.paymentsEnabled], async ([open], previou
   wallet.ensureOwner()
   userStore.ensureClock()
   error.value = ''; opening.value = true
-  selectedOrderId.value = null
-  retriedInvoice = false; retriedSubscription = false
-  tab.value = isGift.value ? 'subscription' : props.initialTab || (wallet.balance > 0 ? 'subscription' : 'coins')
+  retriedSubscription = false
+  tab.value = isGift.value ? 'subscription' : props.initialTab || 'coins'
   try { email.value = sessionStorage.getItem(`dc:email:${userStore.user?.id}`) || '' } catch {}
   try {
-    await Promise.all(isGift.value ? [wallet.refreshWallet()] : [wallet.refreshWallet(), wallet.loadInvoices()])
+    await wallet.refreshWallet()
     if (seq !== openSequence) return
-    if (!isGift.value) {
-      const rawOrder = Number(route.query.order_id || 0)
-      const invoiceId = String(route.query.invoice_id || route.query.invoiceId || '')
-      const returnInvoice = wallet.invoices.find(item => item.order_id === rawOrder || (!!invoiceId && item.invoice_id === invoiceId))
-      if (route.query.dc_payment || invoiceId) {
-        tab.value = 'coins'
-        selectedOrderId.value = returnInvoice?.order_id ?? (Number.isSafeInteger(rawOrder) && rawOrder > 0 ? rawOrder : null)
-        if (selectedOrderId.value) await checkSelectedInvoice()
-        else error.value = 'Счёт не найден в вашем аккаунте.'
-        if (seq !== openSequence) return
-        const query = { ...route.query }
-        for (const key of ['dc_payment', 'order_id', 'invoice_id', 'invoiceId', 'status']) delete query[key]
-        await router.replace({ query })
-      } else {
-        selectedOrderId.value = wallet.invoices.find(item => !['processed', 'failed'].includes(item.status))?.order_id ?? null
-        scheduleCheck()
-      }
-    }
     if (wallet.pending.subscription) {
       tab.value = 'subscription'
       if (!pendingSubscriptionMismatch.value && giftRecipientValid.value) void purchaseSubscription(true)
@@ -432,12 +379,14 @@ watch(restriction, reason => {
     void alertDialog(reason)
   }
 })
-watch(() => userStore.user?.id, () => { wallet.ensureOwner(); email.value = ''; selectedOrderId.value = null })
+watch(() => userStore.user?.id, () => { wallet.ensureOwner(); email.value = '' })
 watch(() => [route.query.dc_payment, route.query.invoiceId, route.query.invoice_id], values => {
-  if (props.open ? isGift.value : !!props.giftRecipient) return
-  if (values.some(Boolean) && !props.open) emit('update:open', true)
+  if (props.giftRecipient || !values.some(Boolean)) return
+  const query = { ...route.query }
+  for (const key of ['dc_payment', 'order_id', 'invoice_id', 'invoiceId', 'status']) delete query[key]
+  void router.replace({ query }).catch(() => {})
+  if (auth.isAuthed) void userStore.fetchMe().catch(() => {})
 }, { immediate: true })
-watch(selectedOrderId, scheduleCheck)
 onBeforeUnmount(() => { openSequence++; stopTimers(); emit('busy', false) })
 </script>
 
@@ -703,12 +652,6 @@ onBeforeUnmount(() => { openSequence++; stopTimers(); emit('busy', false) })
         p {
           color: $neutral-700;
         }
-        .wallet-actions {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 8px;
-          margin-top: 8px;
-        }
       }
       .wallet-form {
         display: flex;
@@ -818,29 +761,6 @@ onBeforeUnmount(() => { openSequence++; stopTimers(); emit('busy', false) })
               cursor: default;
               opacity: 0.65;
             }
-          }
-        }
-      }
-      .wallet-orders {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        color: $neutral-600;
-        button {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 12px;
-          text-align: left;
-          padding: 12px;
-          background: $neutral-white;
-          color: $neutral-black;
-          border: 0;
-          border-radius: 12px;
-          font: inherit;
-          cursor: pointer;
-          small {
-            color: $neutral-600;
           }
         }
       }

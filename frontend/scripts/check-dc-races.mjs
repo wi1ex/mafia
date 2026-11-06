@@ -12,11 +12,12 @@ function moduleFrom(path, dependencies = {}) {
   new Function('exports', ...Object.keys(bindings), code)(exports, ...Object.values(bindings))
   return exports
 }
-const deferred = () => { let resolve; const promise = new Promise(done => { resolve = done }); return { promise, resolve } }
+const deferred = () => { let resolve, reject; const promise = new Promise((done, fail) => { resolve = done; reject = fail }); return { promise, resolve, reject } }
 const response = data => ({ data })
 const auth = reactive({ sessionId: 'session-a' })
 const listeners = new Map()
 const timers = new Map()
+const events = []
 let timerId = 0
 globalThis.window = {
   setInterval: () => ++timerId, clearInterval() {},
@@ -24,6 +25,7 @@ globalThis.window = {
   clearTimeout(id) { timers.delete(id) },
   addEventListener(name, fn) { listeners.set(name, fn) },
   removeEventListener(name) { listeners.delete(name) },
+  dispatchEvent(event) { events.push(event); return true },
 }
 const storage = new Map()
 globalThis.sessionStorage = { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value), removeItem: key => storage.delete(key) }
@@ -56,41 +58,127 @@ try {
   assert.equal(user.user.value.dc_balance, 40)
   console.log('PASS user: account/session ownership, newer wallet/local mutations, latest invocation')
 
-  const invoiceGets = [], posts = []
+  const walletGets = [], posts = []
   const actor = reactive({ user: profile(17, 0), setWalletState(state) { Object.assign(this.user, state) } })
   const dc = moduleFrom('src/services/dc.ts')
   const wallet = moduleFrom('src/store/modules/wallet.ts', {
     ...dc, useUserStore: () => actor, useAuthStore: () => auth,
     api: {
-      get(url) { if (url === '/payments/wallet') return Promise.resolve(response({ dc_balance: actor.user.dc_balance, subscription_until: actor.user.subscription_until, subscription_active: false })); const next = deferred(); invoiceGets.push(next); return next.promise },
-      post() { const next = deferred(); posts.push(next); return next.promise },
+      get(url) { assert.equal(url, '/payments/wallet'); const next = deferred(); walletGets.push(next); return next.promise },
+      post(url, input) { const next = deferred(); posts.push({ ...next, url, input: JSON.parse(JSON.stringify(input)) }); return next.promise },
     },
   }).useWalletStore()
   const invoice = (order_id, status, request_id = undefined) => ({ order_id, status, quantity: 30, unit_price: null, amount: '500.00', currency: 'RUB', dc_balance: 0, request_id })
-  let list = wallet.loadInvoices()
-  const check = wallet.checkInvoice(1)
-  posts.shift().resolve(response(invoice(1, 'processed'))); await check
-  invoiceGets.shift().resolve(response({ items: [invoice(1, 'pending')] })); await list
-  assert.equal(wallet.invoices.value[0].status, 'processed')
-  const olderList = wallet.loadInvoices(), newerList = wallet.loadInvoices()
-  const oldPage = invoiceGets.shift(), newPage = invoiceGets.shift()
-  newPage.resolve(response({ items: [invoice(1, 'processed')] })); await newerList
-  oldPage.resolve(response({ items: [invoice(1, 'pending')] })); await olderList
-  assert.equal(wallet.invoices.value[0].status, 'processed')
-  const oldCreate = wallet.createInvoice({ quantity: 30, currency: 'RUB', email: 'a@example.org', expected_amount: '500.00' })
+  const firstInput = { quantity: 30, currency: 'RUB', email: 'a@example.org', expected_amount: '500.00' }
+  const nextInput = { quantity: 100, currency: 'USD', email: 'b@example.org', expected_amount: '21.00' }
+  storage.set('dc:requests:v2:17', JSON.stringify({ invoice: { ...firstInput, request_id: dc.newDcRequestId() } }))
+  let creation = wallet.createInvoice(firstInput)
+  let created = posts.shift()
+  assert.equal(created.url, '/payments/coins/invoices')
+  const firstRequestId = created.input.request_id
+  assert.deepEqual(created.input, { ...firstInput, request_id: firstRequestId })
+  assert.match(firstRequestId, /^[a-f0-9-]{36}$/i)
+  await assert.rejects(wallet.createInvoice(nextInput), /operation_busy/)
+  assert.equal(posts.length, 0)
+  created.resolve(response(invoice(1, 'pending', firstRequestId))); await creation
+  creation = wallet.createInvoice(nextInput)
+  created = posts.shift()
+  const nextRequestId = created.input.request_id
+  assert.notEqual(nextRequestId, firstRequestId)
+  assert.deepEqual(created.input, { ...nextInput, request_id: nextRequestId })
+  created.reject(new Error('connection lost'))
+  await assert.rejects(creation, /connection lost/)
+  creation = wallet.createInvoice(nextInput)
+  created = posts.shift()
+  assert.notEqual(created.input.request_id, nextRequestId)
+  assert.deepEqual(created.input, { ...nextInput, request_id: created.input.request_id })
+  created.resolve(response(invoice(2, 'pending', created.input.request_id))); await creation
+  assert.equal(Object.values(wallet.pending.value).every(value => value === undefined), true)
+  assert.equal(wallet.invoiceBusy.value, false)
+  console.log('PASS wallet invoices: fresh UUID and current input on each click, busy guard, no replay after uncertain failure or old stored invoice')
+
+  const oldCreate = wallet.createInvoice(firstInput)
   const oldPost = posts.shift()
   auth.sessionId = 'new-session-same-user'; wallet.ensureOwner()
-  const newCreate = wallet.createInvoice({ quantity: 100, currency: 'RUB', email: 'a@example.org', expected_amount: '1500.00' })
-  const newPost = posts.shift(), newRequestId = wallet.pending.value.invoice.request_id
-  oldPost.resolve(response(invoice(2, 'pending'))); await oldCreate
+  const newCreate = wallet.createInvoice(nextInput)
+  const newPost = posts.shift()
+  oldPost.resolve(response(invoice(3, 'processed'))); await oldCreate
   assert.equal(wallet.invoiceBusy.value, true)
-  assert.equal(wallet.pending.value.invoice.request_id, newRequestId)
-  assert.equal(wallet.invoices.value.length, 0)
-  newPost.resolve(response(invoice(3, 'pending', newRequestId))); await newCreate
+  assert.equal(walletGets.length, 0)
+  assert.equal(actor.user.dc_balance, 0)
+  newPost.resolve(response(invoice(4, 'pending', newPost.input.request_id))); await newCreate
   assert.equal(wallet.invoiceBusy.value, false)
-  assert.equal(wallet.pending.value.invoice, undefined)
-  assert.equal(wallet.invoices.value[0].order_id, 3)
-  console.log('PASS wallet: stale pending list after processed check, latest list, same-user reauthentication')
+
+  creation = wallet.createInvoice(firstInput)
+  posts.shift().resolve(response({ ...invoice(5, 'processed'), dc_balance: 999 })); await creation
+  assert.equal(walletGets.length, 1)
+  assert.equal(actor.user.dc_balance, 0)
+  actor.setWalletState({ dc_balance: 70, subscription_until: '2027-01-01T23:00:00Z' })
+  walletGets.shift().resolve(response({ dc_balance: 30, subscription_until: null, subscription_active: false }))
+  await Promise.resolve(); await Promise.resolve()
+  assert.equal(actor.user.dc_balance, 70)
+  assert.equal(actor.user.subscription_until, '2027-01-01T23:00:00Z')
+  console.log('PASS wallet invoices: same-user reauthentication isolates busy/refresh; processed invoice refresh cannot overwrite newer wallet state')
+
+  const oldRefresh = wallet.refreshWallet(), newRefresh = wallet.refreshWallet()
+  const oldWallet = walletGets.shift(), newWallet = walletGets.shift()
+  newWallet.resolve(response({ dc_balance: 80, subscription_until: null, subscription_active: false })); await newRefresh
+  oldWallet.resolve(response({ dc_balance: 20, subscription_until: null, subscription_active: false })); await oldRefresh
+  assert.equal(actor.user.dc_balance, 80)
+  const previousSessionRefresh = wallet.refreshWallet()
+  const previousSessionWallet = walletGets.shift()
+  auth.sessionId = 'another-session-same-user'; wallet.ensureOwner()
+  const currentSessionRefresh = wallet.refreshWallet()
+  previousSessionWallet.resolve(response({ dc_balance: 10, subscription_until: null, subscription_active: false })); await previousSessionRefresh
+  assert.equal(wallet.loading.value, true)
+  assert.equal(actor.user.dc_balance, 80)
+  walletGets.shift().resolve(response({ dc_balance: 90, subscription_until: null, subscription_active: false })); await currentSessionRefresh
+  assert.equal(wallet.loading.value, false)
+  const previousAccountRefresh = wallet.refreshWallet()
+  actor.user = profile(18, 400); auth.sessionId = 'different-account'; wallet.ensureOwner()
+  walletGets.shift().resolve(response({ dc_balance: 5, subscription_until: null, subscription_active: false })); await previousAccountRefresh
+  assert.equal(actor.user.dc_balance, 400)
+  console.log('PASS wallet refresh: latest invocation wins; old session/account cannot replace wallet state or clear current loading')
+
+  actor.user = profile(17, 100); auth.sessionId = 'subscription-session'; wallet.ensureOwner()
+  let purchase = wallet.buySubscription('week')
+  const uncertainPurchase = posts.shift()
+  assert.equal(uncertainPurchase.url, '/payments/subscriptions')
+  assert.equal(uncertainPurchase.input.plan, 'week')
+  uncertainPurchase.reject(new Error('connection lost'))
+  await assert.rejects(purchase, /connection lost/)
+  assert.deepEqual(wallet.pending.value.subscription, uncertainPurchase.input)
+  assert.deepEqual(JSON.parse(storage.get('dc:requests:v2:17')).subscription, uncertainPurchase.input)
+  actor.setWalletState({ dc_balance: 150 })
+  purchase = wallet.buySubscription()
+  const replayedPurchase = posts.shift()
+  assert.deepEqual(replayedPurchase.input, uncertainPurchase.input)
+  replayedPurchase.resolve(response({ purchase_id: 1, dc_balance: 93, subscription_until: '2027-01-01T23:00:00Z', subscription_active: true })); await purchase
+  assert.equal(actor.user.dc_balance, 150)
+  assert.equal(actor.user.subscription_until, null)
+  assert.equal(wallet.pending.value.subscription, undefined)
+  assert.equal(storage.has('dc:requests:v2:17'), false)
+  walletGets.shift().resolve(response({ dc_balance: 150, subscription_until: '2027-02-01T23:00:00Z', subscription_active: true }))
+  await Promise.resolve(); await Promise.resolve()
+  assert.equal(actor.user.subscription_until, '2027-02-01T23:00:00Z')
+
+  const oldPurchase = wallet.buySubscription('month')
+  const oldPurchasePost = posts.shift()
+  auth.sessionId = 'subscription-reauthenticated'; wallet.ensureOwner()
+  const currentPurchase = wallet.buySubscription()
+  const currentPurchasePost = posts.shift()
+  assert.deepEqual(currentPurchasePost.input, oldPurchasePost.input)
+  oldPurchasePost.resolve(response({ purchase_id: 2, dc_balance: 123, subscription_until: '2027-03-01T23:00:00Z', subscription_active: true })); await oldPurchase
+  assert.equal(wallet.subscriptionBusy.value, true)
+  assert.deepEqual(wallet.pending.value.subscription, currentPurchasePost.input)
+  assert.equal(walletGets.length, 0)
+  currentPurchasePost.resolve(response({ purchase_id: 2, dc_balance: 123, subscription_until: '2027-03-01T23:00:00Z', subscription_active: true })); await currentPurchase
+  assert.equal(wallet.subscriptionBusy.value, false)
+  walletGets.shift().resolve(response({ dc_balance: 123, subscription_until: '2027-03-01T23:00:00Z', subscription_active: true }))
+  await Promise.resolve(); await Promise.resolve()
+  assert.equal(actor.user.dc_balance, 123)
+  assert.equal(events.filter(event => event.type === 'dc-wallet-changed').length, 2)
+  console.log('PASS wallet subscriptions: uncertain requests replay original UUID/input; receipts do not overwrite newer state; session guards preserve current pending/busy')
 
   const notifGets = []
   const notifs = moduleFrom('src/store/modules/notif.ts', {

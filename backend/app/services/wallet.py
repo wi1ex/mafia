@@ -359,13 +359,13 @@ async def notify_subscription_gift(session: AsyncSession, purchase: Subscription
         "subscription_until": purchase.ends_after.isoformat(),
         "purchase_id": purchase_id,
     }
-    for uid, message, kind, extra in (
-        (recipient_id, note, "subscription_gift", {"subscription_gift": popup}),
-        (sender_id, sender_note, "subscription", None),
+    for uid, message, kind, no_toast, extra in (
+        (recipient_id, note, "subscription_gift", False, {"tone": "green", "subscription_gift": popup}),
+        (sender_id, sender_note, "subscription", True, None),
     ):
         if message is not None:
             try:
-                await emit_notify(uid, message, kind=kind, no_toast=True, extra=extra)
+                await emit_notify(uid, message, kind=kind, no_toast=no_toast, extra=extra)
             except Exception:
                 log.exception("dc.subscription_gift_notification_failed", purchase_id=purchase_id, user_id=uid)
     if note is not None or sender_note is not None:
@@ -379,8 +379,7 @@ async def notify_subscription_gift(session: AsyncSession, purchase: Subscription
                 f"Даритель: {sender_name}\nID дарителя: {sender_id}\n"
                 f"Получатель: {recipient_name}\nID получателя: {recipient_id}\n"
                 f"Действие: {action}\nСрок: {popup['duration']}\nСписано: {purchase.dc_cost} DC\n"
-                f"Подписка до: {end}\nБаланс дарителя после операции: {purchase.balance_after} DC\n"
-                f"Покупка: №{purchase_id}"
+                f"Подписка до: {end}\nБаланс дарителя после операции: {purchase.balance_after} DC"
             )
         except Exception:
             log.exception("dc.subscription_gift_admin_notification_failed", purchase_id=purchase_id)
@@ -417,8 +416,7 @@ async def notify_subscription_purchase(session: AsyncSession, purchase: Subscrip
                 "Покупка подписки за DC\n\n"
                 f"Пользователь: {user.username if user else f'user{uid}'}\nID пользователя: {uid}\n"
                 f"Действие: {action}\nСрок: {duration}\nСписано: {purchase.dc_cost} DC\n"
-                f"Подписка до: {end}\nБаланс после операции: {purchase.balance_after} DC\n"
-                f"Покупка: №{purchase_id}"
+                f"Подписка до: {end}\nБаланс после операции: {purchase.balance_after} DC"
             )
     except Exception:
         log.exception("dc.subscription_notification_failed", purchase_id=purchase_id)

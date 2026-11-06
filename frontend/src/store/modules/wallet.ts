@@ -1,7 +1,7 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { api } from '@/services/axios'
-import { DC_CURRENCIES, isCoinPackage, isSubscriptionPlan, newDcRequestId, priceToMinor, type CoinPackageQuantity, type DcCurrency, type SubscriptionPlan } from '@/services/dc'
+import { isSubscriptionPlan, newDcRequestId, type CoinPackageQuantity, type DcCurrency, type SubscriptionPlan } from '@/services/dc'
 import { useUserStore } from './user'
 import { useAuthStore } from './auth'
 
@@ -22,7 +22,7 @@ export type WalletState = { dc_balance: number; subscription_active: boolean; su
 export type SubscriptionPurchaseResult = WalletState & { purchase_id: number; recipient_id?: number; recipient_username?: string | null }
 type InvoiceRequest = { quantity: CoinPackageQuantity; currency: DcCurrency; email: string; expected_amount: string; request_id: string }
 type SubscriptionRequest = { plan: SubscriptionPlan; request_id: string; recipient_id?: number }
-type PendingRequests = { invoice?: InvoiceRequest; subscription?: SubscriptionRequest }
+type PendingRequests = { subscription?: SubscriptionRequest }
 
 function storageKey(userId: number): string { return `dc:requests:v2:${userId}` }
 function readPending(userId: number): PendingRequests {
@@ -30,7 +30,6 @@ function readPending(userId: number): PendingRequests {
     const raw = JSON.parse(sessionStorage.getItem(storageKey(userId)) || '{}') as PendingRequests
     const validId = (id: unknown) => typeof id === 'string' && /^[a-f0-9-]{36}$/i.test(id)
     return {
-      invoice: validId(raw.invoice?.request_id) && isCoinPackage(raw.invoice?.quantity) && DC_CURRENCIES.includes(raw.invoice!.currency) && typeof raw.invoice?.email === 'string' && priceToMinor(raw.invoice?.expected_amount) !== null ? raw.invoice : undefined,
       subscription: validId(raw.subscription?.request_id) && isSubscriptionPlan(raw.subscription?.plan) && (raw.subscription?.recipient_id === undefined || (Number.isSafeInteger(raw.subscription.recipient_id) && raw.subscription.recipient_id > 0)) ? raw.subscription : undefined,
     }
   } catch { return {} }
@@ -86,7 +85,6 @@ export function dcRequestUncertain(error: any): boolean {
 export const useWalletStore = defineStore('wallet', () => {
   const user = useUserStore()
   const auth = useAuthStore()
-  const invoices = ref<CoinInvoice[]>([])
   const loading = ref(false)
   const invoiceBusy = ref(false)
   const subscriptionBusy = ref(false)
@@ -94,7 +92,6 @@ export const useWalletStore = defineStore('wallet', () => {
   const ownerId = ref(0)
   let ownerSession = ''
   let refreshSequence = 0
-  let invoiceGeneration = 0
   const balance = computed(() => user.user?.dc_balance ?? 0)
 
   function ensureOwner(): number {
@@ -103,11 +100,9 @@ export const useWalletStore = defineStore('wallet', () => {
       ownerId.value = uid
       ownerSession = auth.sessionId
       refreshSequence++
-      invoiceGeneration++
       loading.value = false
       invoiceBusy.value = false
       subscriptionBusy.value = false
-      invoices.value = []
       pending.value = uid > 0 ? readPending(uid) : {}
     }
     return uid
@@ -118,21 +113,13 @@ export const useWalletStore = defineStore('wallet', () => {
   function savePending(uid: number): void {
     if (uid !== ownerId.value) return
     try {
-      if (pending.value.invoice || pending.value.subscription) sessionStorage.setItem(storageKey(uid), JSON.stringify(pending.value))
+      if (pending.value.subscription) sessionStorage.setItem(storageKey(uid), JSON.stringify(pending.value))
       else sessionStorage.removeItem(storageKey(uid))
     } catch {}
   }
   function applyState(state: Partial<WalletState>, uid: number): void {
     if (Number(user.user?.id) !== uid) return
     user.setWalletState(state)
-  }
-  function addInvoice(invoice: CoinInvoice, uid: number, session: string): void {
-    if (!ownsRequest(uid, session)) return
-    invoiceGeneration++
-    const existing = invoices.value.find(item => item.order_id === invoice.order_id)
-    if (existing?.status === 'processed' && invoice.status !== 'processed') return
-    invoices.value = [invoice, ...invoices.value.filter(item => item.order_id !== invoice.order_id)]
-    if (invoice.status === 'processed') void refreshWallet().catch(() => {})
   }
   async function refreshWallet(): Promise<void> {
     const uid = ensureOwner()
@@ -148,56 +135,17 @@ export const useWalletStore = defineStore('wallet', () => {
       if (ownsRequest(uid, session) && sequence === refreshSequence && user.user === previous && user.user?.dc_balance === previousBalance && user.user?.subscription_until === previousEnd) applyState(data, uid)
     } finally { if (sequence === refreshSequence) loading.value = false }
   }
-  async function loadInvoices(): Promise<void> {
-    const uid = ensureOwner()
-    if (!uid) return
-    const session = ownerSession
-    const generation = ++invoiceGeneration
-    const { data } = await api.get<{ items: CoinInvoice[] }>('/payments/coins/invoices')
-    if (!ownsRequest(uid, session) || generation !== invoiceGeneration) return
-    const previous = new Map(invoices.value.map(item => [item.order_id, item]))
-    invoices.value = (Array.isArray(data.items) ? data.items : []).map(item => {
-      const existing = previous.get(item.order_id)
-      return existing?.status === 'processed' ? existing : item
-    })
-    const requestId = pending.value.invoice?.request_id
-    if (requestId && invoices.value.some(item => item.request_id === requestId)) {
-      delete pending.value.invoice
-      savePending(uid)
-    }
-  }
-  async function createInvoice(input?: Omit<InvoiceRequest, 'request_id'>): Promise<CoinInvoice> {
+  async function createInvoice(input: Omit<InvoiceRequest, 'request_id'>): Promise<CoinInvoice> {
     const uid = ensureOwner()
     if (!uid || invoiceBusy.value) throw new Error('operation_busy')
     const session = ownerSession
-    invoiceGeneration++
-    const request = pending.value.invoice || (input ? { ...input, request_id: newDcRequestId() } : null)
-    if (!request) throw new Error('request_missing')
-    pending.value.invoice = request
-    savePending(uid)
+    const request = { ...input, request_id: newDcRequestId() }
     invoiceBusy.value = true
     try {
       const { data } = await api.post<CoinInvoice>('/payments/coins/invoices', request)
-      addInvoice(data, uid, session)
-      if (ownsRequest(uid, session)) {
-        delete pending.value.invoice
-        savePending(uid)
-      }
+      if (data.status === 'processed' && ownsRequest(uid, session)) void refreshWallet().catch(() => {})
       return data
-    } catch (error) {
-      if (!dcRequestUncertain(error) && ownsRequest(uid, session)) {
-        delete pending.value.invoice
-        savePending(uid)
-      }
-      throw error
     } finally { if (ownsRequest(uid, session)) invoiceBusy.value = false }
-  }
-  async function checkInvoice(orderId: number): Promise<CoinInvoice> {
-    const uid = ensureOwner()
-    const session = ownerSession
-    const { data } = await api.post<CoinInvoice>(`/payments/coins/invoices/${orderId}/check`)
-    addInvoice(data, uid, session)
-    return data
   }
   async function buySubscription(plan?: SubscriptionPlan, recipientId?: number): Promise<SubscriptionPurchaseResult> {
     const uid = ensureOwner()
@@ -236,5 +184,5 @@ export const useWalletStore = defineStore('wallet', () => {
     } finally { if (ownsRequest(uid, session)) subscriptionBusy.value = false }
   }
 
-  return { balance, invoices, loading, invoiceBusy, subscriptionBusy, pending, ensureOwner, refreshWallet, loadInvoices, createInvoice, checkInvoice, buySubscription }
+  return { balance, loading, invoiceBusy, subscriptionBusy, pending, ensureOwner, refreshWallet, createInvoice, buySubscription }
 })

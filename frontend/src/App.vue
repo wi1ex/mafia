@@ -22,7 +22,7 @@ import { useUserStore } from '@/store'
 import { useNotifStore } from '@/store'
 import { useGlobalChatStore } from '@/store'
 import { useSettingsStore } from '@/store'
-import { alertDialog, resolveConfirm, useConfirmState } from '@/services/confirm'
+import { alertDialog } from '@/services/confirm'
 import { createPublicSocket, disposeAuthedSocket } from '@/services/sio'
 import rotateDeviceVideo from '@/assets/video/rotate-device.mp4'
 
@@ -37,11 +37,7 @@ const auth = useAuthStore()
 const user = useUserStore()
 const chat = useGlobalChatStore()
 const settings = useSettingsStore()
-const confirmState = useConfirmState()
-const giftNotices: { session: string; recipientId: number; title: string; text: string }[] = []
 const receivedGiftIds = new Set<number>()
-let giftNoticeOpen = false
-let activeGiftNotice: { title: string; text: string } | null = null
 const rotateVideo = ref<HTMLVideoElement | null>(null)
 const rotateVideoVisible = ref(false)
 
@@ -94,31 +90,7 @@ function updateViewport() {
   viewport.value = { width: window.innerWidth, height: window.innerHeight }
 }
 
-async function showNextGiftNotice(): Promise<void> {
-  if (giftNoticeOpen || confirmState.open || !user.user) return
-  const notice = giftNotices.shift()
-  if (!notice) return
-  if (!auth.isAuthed || notice.session !== auth.sessionId || notice.recipientId !== user.user.id) {
-    void showNextGiftNotice()
-    return
-  }
-  window.dispatchEvent(new CustomEvent('dc-wallet-changed', { detail: { user_id: notice.recipientId } }))
-  giftNoticeOpen = true
-  activeGiftNotice = notice
-  try { await alertDialog({ title: notice.title, text: notice.text }) }
-  finally {
-    giftNoticeOpen = false
-    activeGiftNotice = null
-    void showNextGiftNotice()
-  }
-}
-
-watch([() => confirmState.open, () => user.user?.id], ([open]) => { if (!open) void showNextGiftNotice() })
-watch(() => auth.sessionId, () => {
-  giftNotices.length = 0
-  receivedGiftIds.clear()
-  if (activeGiftNotice && confirmState.open && confirmState.mode === 'alert' && confirmState.title === activeGiftNotice.title && confirmState.text === activeGiftNotice.text) resolveConfirm(false, 'close')
-})
+watch(() => auth.sessionId, () => receivedGiftIds.clear())
 
 watchEffect(() => {
   document.body.classList.toggle('room-touch-manipulation', isRoom.value)
@@ -206,6 +178,10 @@ onMounted(async () => {
   window.addEventListener('auth-telegram_verified', onTelegramVerified)
   onAdminNotify = (e: any) => {
     const p = e?.detail
+    if (p?.kind === 'coins' && auth.isAuthed) {
+      window.dispatchEvent(new CustomEvent('dc-wallet-changed', { detail: { user_id: user.user?.id } }))
+      return
+    }
     if (p?.kind === 'subscription_gift') {
       if (!auth.isAuthed) return
       const recipientId = Number(p.subscription_gift?.recipient_id)
@@ -213,8 +189,7 @@ onMounted(async () => {
       const purchaseId = Number(p.subscription_gift?.purchase_id)
       if (!Number.isSafeInteger(purchaseId) || purchaseId <= 0 || receivedGiftIds.has(purchaseId)) return
       receivedGiftIds.add(purchaseId)
-      giftNotices.push({ session: auth.sessionId, recipientId, title: String(p.title || 'Вам подарили подписку'), text: String(p.text || '') })
-      void showNextGiftNotice()
+      window.dispatchEvent(new CustomEvent('dc-wallet-changed', { detail: { user_id: recipientId } }))
       user.fetchMe().catch(() => {})
       return
     }
