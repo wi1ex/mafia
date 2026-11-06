@@ -37,6 +37,7 @@
               :class="[
                 'global-chat-message',
                 {
+                  'global-chat-message--admin': message.author.role === 'admin',
                   'global-chat-message--deleted': message.deleted,
                   'global-chat-message--highlighted': highlightedMessageId === message.id,
                 },
@@ -2227,6 +2228,9 @@ watch(() => user.timeoutActive, () => {
         border-radius: 24px;
         background-color: $neutral-white;
         transition: border-color 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
+        &--admin {
+          border-color: $soft-purple-800;
+        }
         &--highlighted {
           border-color: $green-500;
           box-shadow: 0 0 0 2px rgba($green-500, 0.18);
