@@ -89,6 +89,7 @@
               <h3>Доступ и возможности</h3>
               <UiSwitch class="switch-item" :width="140" size="low" v-model="site.registration_enabled" label="Регистрация" :disabled="savingSettings" />
               <UiSwitch class="switch-item" :width="140" size="low" v-model="site.verification_restrictions" label="Ограничения верификации" :disabled="savingSettings" />
+              <UiSwitch class="switch-item" :width="140" size="low" v-model="site.payments_enabled" label="Платежный сервис" :disabled="savingSettings" />
               <UiSwitch class="switch-item" :width="140" size="low" v-model="site.rooms_can_create" label="Создание комнат" :disabled="savingSettings" />
               <UiSwitch class="switch-item" :width="140" size="low" v-model="site.rooms_can_enter" label="Вход в комнату" :disabled="savingSettings" />
               <UiSwitch class="switch-item" :width="140" size="low" v-model="site.chat_open_enabled" label="Открытие чата" :disabled="savingSettings" />
@@ -1536,6 +1537,7 @@ type SiteSettings = {
   games_can_start: boolean
   chat_open_enabled: boolean
   verification_restrictions: boolean
+  payments_enabled: boolean
   rtc_echo_cancellation_enabled: boolean
   rtc_noise_suppression_enabled: boolean
   rtc_auto_gain_control_enabled: boolean
@@ -2043,6 +2045,7 @@ const site = reactive<SiteSettings>({
   games_can_start: true,
   chat_open_enabled: true,
   verification_restrictions: true,
+  payments_enabled: true,
   rtc_echo_cancellation_enabled: true,
   rtc_noise_suppression_enabled: true,
   rtc_auto_gain_control_enabled: true,
@@ -2553,6 +2556,7 @@ function snapshotSite(): string {
     games_can_start: Boolean(site.games_can_start),
     chat_open_enabled: Boolean(site.chat_open_enabled),
     verification_restrictions: Boolean(site.verification_restrictions),
+    payments_enabled: Boolean(site.payments_enabled ?? true),
     rtc_echo_cancellation_enabled: Boolean(site.rtc_echo_cancellation_enabled),
     rtc_noise_suppression_enabled: Boolean(site.rtc_noise_suppression_enabled),
     rtc_auto_gain_control_enabled: Boolean(site.rtc_auto_gain_control_enabled),
@@ -3334,6 +3338,7 @@ async function loadSettings(): Promise<void> {
   try {
     const { data } = await api.get('/admin/settings')
     Object.assign(site, data?.site || {})
+    site.payments_enabled = Boolean(data?.site?.payments_enabled ?? true)
     Object.assign(game, data?.game || {})
     homeCarouselBannerKey.value = normalizeHomeCarouselBannerKey(data?.site?.home_carousel_banner_key)
     site.admin_banner_text = normalizeAdminBannerText(site.admin_banner_text)
@@ -3517,6 +3522,7 @@ async function saveSettings(): Promise<void> {
         games_can_start: Boolean(site.games_can_start),
         chat_open_enabled: Boolean(site.chat_open_enabled),
         verification_restrictions: Boolean(site.verification_restrictions),
+        payments_enabled: Boolean(site.payments_enabled ?? true),
         rtc_echo_cancellation_enabled: Boolean(site.rtc_echo_cancellation_enabled),
         rtc_noise_suppression_enabled: Boolean(site.rtc_noise_suppression_enabled),
         rtc_auto_gain_control_enabled: Boolean(site.rtc_auto_gain_control_enabled),
@@ -3550,6 +3556,7 @@ async function saveSettings(): Promise<void> {
     }
     const { data } = await api.patch('/admin/settings', payload)
     Object.assign(site, data?.site || {})
+    site.payments_enabled = Boolean(data?.site?.payments_enabled ?? true)
     Object.assign(game, data?.game || {})
     homeCarouselBannerKey.value = normalizeHomeCarouselBannerKey(data?.site?.home_carousel_banner_key)
     site.admin_banner_text = normalizeAdminBannerText(site.admin_banner_text)
@@ -3568,6 +3575,7 @@ async function saveSettings(): Promise<void> {
       games_can_start: site.games_can_start,
       chat_open_enabled: site.chat_open_enabled,
       verification_restrictions: site.verification_restrictions,
+      payments_enabled: site.payments_enabled,
       rtc_echo_cancellation_enabled: site.rtc_echo_cancellation_enabled,
       rtc_noise_suppression_enabled: site.rtc_noise_suppression_enabled,
       rtc_auto_gain_control_enabled: site.rtc_auto_gain_control_enabled,

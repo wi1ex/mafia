@@ -28,6 +28,7 @@ class AppSettingsSnapshot:
     games_can_start: bool
     chat_open_enabled: bool
     verification_restrictions: bool
+    payments_enabled: bool
     rtc_echo_cancellation_enabled: bool
     rtc_noise_suppression_enabled: bool
     rtc_auto_gain_control_enabled: bool
@@ -87,6 +88,7 @@ async def ensure_app_settings(session: AsyncSession) -> AppSettings:
             games_can_start=defaults.games_can_start,
             chat_open_enabled=defaults.chat_open_enabled,
             verification_restrictions=defaults.verification_restrictions,
+            payments_enabled=defaults.payments_enabled,
             rtc_echo_cancellation_enabled=defaults.rtc_echo_cancellation_enabled,
             rtc_noise_suppression_enabled=defaults.rtc_noise_suppression_enabled,
             rtc_auto_gain_control_enabled=defaults.rtc_auto_gain_control_enabled,

@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.settings import settings
 from ..models.coin_purchase import CoinPurchase
 from ..models.notif import Notif
+from ..models.settings import AppSettings
 from ..models.subscription import UserSubscription
 from ..models.subscription_purchase import SubscriptionPurchase
 from ..models.user import User
@@ -61,6 +62,14 @@ async def ensure_purchase_access(session: AsyncSession, user: User) -> None:
 
     if user.rules_acceptance_required:
         raise HTTPException(403, detail="rules_required")
+
+
+async def ensure_payments_enabled(session: AsyncSession) -> None:
+    enabled = await session.scalar(
+        select(AppSettings.payments_enabled).where(AppSettings.id == 1).with_for_update(read=True)
+    )
+    if enabled is False:
+        raise HTTPException(503, detail="payments_disabled")
 
 
 def checked_balance(before: int, delta: int) -> int:
@@ -130,6 +139,7 @@ async def buy_subscription(session: AsyncSession, *, user_id: int, plan: str, re
         await notify_subscription_purchase(session, existing)
         return result
 
+    await ensure_payments_enabled(session)
     await ensure_purchase_access(session, user)
     now = datetime.now(timezone.utc)
     subscription = await session.scalar(select(UserSubscription).where(UserSubscription.user_id == user_id).with_for_update().execution_options(populate_existing=True))

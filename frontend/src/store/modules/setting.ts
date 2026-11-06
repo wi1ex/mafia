@@ -15,6 +15,7 @@ export interface PublicSettings {
   games_can_start: boolean
   chat_open_enabled: boolean
   verification_restrictions: boolean
+  payments_enabled?: boolean
   rtc_echo_cancellation_enabled: boolean
   rtc_noise_suppression_enabled: boolean
   rtc_auto_gain_control_enabled: boolean
@@ -73,6 +74,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const gamesCanStart = ref(true)
   const chatOpenEnabled = ref(true)
   const verificationRestrictions = ref(true)
+  const paymentsEnabled = ref(true)
   const rtcEchoCancellationEnabled = ref(true)
   const rtcNoiseSuppressionEnabled = ref(true)
   const rtcAutoGainControlEnabled = ref(true)
@@ -161,6 +163,7 @@ export const useSettingsStore = defineStore('settings', () => {
     gamesCanStart.value = Boolean(data.games_can_start)
     chatOpenEnabled.value = Boolean(data.chat_open_enabled)
     verificationRestrictions.value = Boolean(data.verification_restrictions)
+    paymentsEnabled.value = Boolean(data.payments_enabled ?? true)
     rtcEchoCancellationEnabled.value = Boolean(data.rtc_echo_cancellation_enabled)
     rtcNoiseSuppressionEnabled.value = Boolean(data.rtc_noise_suppression_enabled)
     rtcAutoGainControlEnabled.value = Boolean(data.rtc_auto_gain_control_enabled)
@@ -266,6 +269,7 @@ export const useSettingsStore = defineStore('settings', () => {
     gamesCanStart,
     chatOpenEnabled,
     verificationRestrictions,
+    paymentsEnabled,
     rtcEchoCancellationEnabled,
     rtcNoiseSuppressionEnabled,
     rtcAutoGainControlEnabled,

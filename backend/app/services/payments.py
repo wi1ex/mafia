@@ -20,7 +20,7 @@ from ..models.coin_purchase import CoinPurchase
 from ..models.settings import AppSettings
 from ..models.user import User
 from .coin_prices import DC_CURRENCIES, DC_PACKAGE_QUANTITIES, parse_dc_packages
-from .wallet import checked_balance, ensure_purchase_access, get_dc_balance, lock_dc_request, lock_user_balance, notify_coin_operation, persist_coin_operation_notice
+from .wallet import checked_balance, ensure_payments_enabled, ensure_purchase_access, get_dc_balance, lock_dc_request, lock_user_balance, notify_coin_operation, persist_coin_operation_notice
 
 log = structlog.get_logger()
 API_BASE = "https://gate.lava.top"
@@ -289,6 +289,7 @@ async def create_coin_invoice(session: AsyncSession, *, user_id: int, payload) -
     offer_id = None
     product_id = _uuid(settings.KASSA_COIN_PRODUCT_ID)
     if existing_id is None:
+        await ensure_payments_enabled(session)
         user = await session.get(User, user_id)
         if user is None:
             raise HTTPException(404, detail="user_not_found")
@@ -336,6 +337,7 @@ async def create_coin_invoice(session: AsyncSession, *, user_id: int, payload) -
             await notify_coin_operation(session, existing)
         return result
 
+    await ensure_payments_enabled(session)
     if offer_id is None:
         raise HTTPException(409, detail="idempotency_conflict")
 

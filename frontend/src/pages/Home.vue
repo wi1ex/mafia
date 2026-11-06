@@ -267,10 +267,11 @@ import iconGameStop from '@/assets/svg/iconStop.svg'
 import iconVisOn from '@/assets/svg/iconVisOn.svg'
 import iconArrowNext from '@/assets/svg/iconArrowNext.svg'
 import iconAddPlus from '@/assets/svg/iconAddPlus.svg'
-import iconNoRooms from '@/assets/svg/iconNoRooms.svg'
-import iconNoMembers from '@/assets/svg/iconNoMembers.svg'
 import iconDot from '@/assets/svg/iconDot.svg'
 import iconTwitch from '@/assets/svg/iconTwitch.svg'
+
+import iconNoRooms from '@/assets/images/noRooms.webp'
+import iconNoMembers from '@/assets/images/noMembers.webp'
 import imageSlide6 from '@/assets/images/carousel-image6.png'
 import imageSlide7 from '@/assets/images/carousel-image7.png'
 

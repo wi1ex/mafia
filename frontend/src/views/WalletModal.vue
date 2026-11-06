@@ -2,108 +2,122 @@
   <Teleport to="#desktop-teleport-root">
     <Transition name="wallet-overlay">
       <div v-if="open && !restriction" class="wallet-overlay" @pointerdown.self="armed = true" @pointerup.self="armed && requestClose()" @pointerleave.self="armed = false">
-        <section ref="dialog" class="wallet-modal" role="dialog" aria-modal="true" aria-labelledby="wallet-title" tabindex="-1" @keydown="onDialogKeydown">
-          <header>
-            <div class="wallet-heading">
-              <h2 id="wallet-title">{{ tab === 'coins' ? 'Пополнение баланса' : 'Покупка подписки' }}</h2>
-              <div class="wallet-status" aria-live="polite">
-                <div class="wallet-status-item wallet-balance">
-                  <span class="wallet-status-symbol"><UiIcon :icon="iconCard" /></span>
-                  <div class="wallet-status-content">
-                    <span class="wallet-status-label">Баланс</span>
-                    <strong>{{ balanceText }} <small>DC</small></strong>
-                  </div>
-                </div>
-                <div class="wallet-status-item wallet-subscription" :class="{ 'is-active': userStore.subscriptionActive }">
-                  <span class="wallet-status-symbol"><UiIcon :icon="iconTimeHistory" /></span>
-                  <div class="wallet-status-content">
-                    <span class="wallet-status-label">{{ userStore.subscriptionActive ? 'Подписка активна' : 'Подписка' }}</span>
-                    <span class="wallet-status-value">{{ userStore.subscriptionActive ? `До ${formatMoscowDate(userStore.user?.subscription_until)}` : 'Нет активной подписки' }}</span>
-                  </div>
-                </div>
+        <section ref="dialog" class="wallet-modal" :class="{ 'wallet-modal--unavailable': !settings.paymentsEnabled }" role="dialog" aria-modal="true" :aria-labelledby="settings.paymentsEnabled ? 'wallet-title' : 'wallet-unavailable-title'" tabindex="-1" @keydown="onDialogKeydown">
+          <template v-if="!settings.paymentsEnabled">
+            <div class="wallet-unavailable">
+              <img class="wallet-unavailable-art" :src="paymentsUnavailableImage" width="800" height="600" alt="" aria-hidden="true" />
+              <div class="wallet-unavailable-copy">
+                <h2 id="wallet-unavailable-title">Упс! Что-то пошло не так.</h2>
+                <p>В данный момент платежи не принимаются</p>
               </div>
             </div>
-            <UiButton variant="white" size="low" :icon="iconClose" width="40px" aria-label="Закрыть" :disabled="busy" @click="requestClose" />
-          </header>
-          <UiSwitch v-model="subscriptionTabActive" class="wallet-tabs" off-label="Пополнение баланса" on-label="Покупка подписки" aria-label="Пополнение баланса / Покупка подписки" theme="light" without-text @change="onTabChange" />
-          <p v-if="opening" class="wallet-state" role="status">Загрузка…</p>
-          <p v-if="error" class="wallet-error" role="alert">{{ error }}</p>
-
-          <div v-show="tab === 'coins'" id="wallet-coins" role="region" aria-label="Пополнение баланса" class="wallet-panel">
-            <template v-if="selectedInvoice">
-              <div class="wallet-summary invoice-summary">
-                <strong>{{ invoiceHeading(selectedInvoice) }}</strong>
-                <span>Заказ №{{ selectedInvoice.order_id }}</span>
-                <span>{{ selectedInvoice.quantity }} DC за {{ invoiceMoney(selectedInvoice) }}</span>
-                <p>{{ invoiceStatusText(selectedInvoice) }}</p>
-                <div class="wallet-actions">
-                  <UiButton v-if="selectedInvoice.status === 'pending' && paymentLink(selectedInvoice)" :href="paymentLink(selectedInvoice)" text="Продолжить оплату" :disabled="busy || checking" />
-                  <UiButton v-if="selectedInvoice.status !== 'processed' && selectedInvoice.status !== 'failed'" variant="white" :text="checking ? 'Проверяем оплату…' : 'Проверить оплату'" :disabled="checking || busy" @click="checkSelectedInvoice(false)" />
-                  <UiButton v-if="selectedInvoice.status === 'processed'" text="Купить подписку" @click="tab = 'subscription'" />
+            <div class="wallet-unavailable-actions">
+              <UiButton size="middle" text="Закрыть" width="180px" @click="requestClose" />
+            </div>
+          </template>
+          <template v-else>
+            <header>
+              <div class="wallet-heading">
+                <h2 id="wallet-title">{{ tab === 'coins' ? 'Пополнение баланса' : 'Покупка подписки' }}</h2>
+                <div class="wallet-status" aria-live="polite">
+                  <div class="wallet-status-item wallet-balance">
+                    <span class="wallet-status-symbol"><UiIcon :icon="iconCard" /></span>
+                    <div class="wallet-status-content">
+                      <span class="wallet-status-label">Баланс</span>
+                      <strong>{{ balanceText }} <small>DC</small></strong>
+                    </div>
+                  </div>
+                  <div class="wallet-status-item wallet-subscription" :class="{ 'is-active': userStore.subscriptionActive }">
+                    <span class="wallet-status-symbol"><UiIcon :icon="iconTimeHistory" /></span>
+                    <div class="wallet-status-content">
+                      <span class="wallet-status-label">{{ userStore.subscriptionActive ? 'Подписка активна' : 'Подписка' }}</span>
+                      <span class="wallet-status-value">{{ userStore.subscriptionActive ? `До ${formatMoscowDate(userStore.user?.subscription_until)}` : 'Нет активной подписки' }}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
-              <template v-if="selectedInvoice.status === 'unknown' && !paymentLink(selectedInvoice)">
-                <p class="wallet-state">Ссылка на оплату недоступна. Можно оформить другой счёт. Прежний заказ сохранится и будет доступен для проверки в списке выставленных счетов.</p>
-                <UiButton variant="white" text="Оформить другой счёт" :disabled="busy || checking" @click="newInvoice" />
+              <UiButton variant="white" size="low" :icon="iconClose" width="40px" aria-label="Закрыть" :disabled="busy" @click="requestClose" />
+            </header>
+            <UiSwitch v-model="subscriptionTabActive" class="wallet-tabs" off-label="Пополнение баланса" on-label="Покупка подписки" aria-label="Пополнение баланса / Покупка подписки" theme="light" without-text @change="onTabChange" />
+            <p v-if="opening" class="wallet-state" role="status">Загрузка…</p>
+            <p v-if="error" class="wallet-error" role="alert">{{ error }}</p>
+
+            <div v-show="tab === 'coins'" id="wallet-coins" role="region" aria-label="Пополнение баланса" class="wallet-panel">
+              <template v-if="selectedInvoice">
+                <div class="wallet-summary invoice-summary">
+                  <strong>{{ invoiceHeading(selectedInvoice) }}</strong>
+                  <span>Заказ №{{ selectedInvoice.order_id }}</span>
+                  <span>{{ selectedInvoice.quantity }} DC за {{ invoiceMoney(selectedInvoice) }}</span>
+                  <p>{{ invoiceStatusText(selectedInvoice) }}</p>
+                  <div class="wallet-actions">
+                    <UiButton v-if="selectedInvoice.status === 'pending' && paymentLink(selectedInvoice)" :href="paymentLink(selectedInvoice)" text="Продолжить оплату" :disabled="busy || checking" />
+                    <UiButton v-if="selectedInvoice.status !== 'processed' && selectedInvoice.status !== 'failed'" variant="white" :text="checking ? 'Проверяем оплату…' : 'Проверить оплату'" :disabled="checking || busy" @click="checkSelectedInvoice(false)" />
+                    <UiButton v-if="selectedInvoice.status === 'processed'" text="Купить подписку" @click="tab = 'subscription'" />
+                  </div>
+                </div>
+                <template v-if="selectedInvoice.status === 'unknown' && !paymentLink(selectedInvoice)">
+                  <p class="wallet-state">Ссылка на оплату недоступна. Можно оформить другой счёт. Прежний заказ сохранится и будет доступен для проверки в списке выставленных счетов.</p>
+                  <UiButton variant="white" text="Оформить другой счёт" :disabled="busy || checking" @click="newInvoice" />
+                </template>
+                <UiButton v-else-if="!['creating', 'unknown', 'review'].includes(selectedInvoice.status)" variant="white" text="Новый счёт" :disabled="busy || checking" @click="newInvoice" />
               </template>
-              <UiButton v-else-if="!['creating', 'unknown', 'review'].includes(selectedInvoice.status)" variant="white" text="Новый счёт" :disabled="busy || checking" @click="newInvoice" />
-            </template>
-            <div v-else-if="wallet.pending.invoice" class="wallet-summary">
-              <p>Подтверждение создания счёта пока не получено. Проверим тот же заказ.</p>
-              <UiButton :text="wallet.invoiceBusy ? 'Проверяем…' : 'Проверить создание счёта'" :disabled="busy" @click="recoverInvoice" />
-            </div>
-            <form v-else class="wallet-form" @submit.prevent="payCoins">
-              <UiInput id="dc-email" v-model.trim="email" type="email" autocomplete="email" label="Email для оформления платежа" placeholder="mail@example.com" mode="light" :disabled="busy || opening" />
-              <div class="wallet-currencies" role="group" aria-label="Валюта оплаты">
-                <button v-for="item in currencies" :key="item" type="button" :class="{ active: currency === item }" :aria-pressed="currency === item" :disabled="busy" @click="currency = item">{{ item }}</button>
+              <div v-else-if="wallet.pending.invoice" class="wallet-summary">
+                <p>Подтверждение создания счёта пока не получено. Проверим тот же заказ.</p>
+                <UiButton :text="wallet.invoiceBusy ? 'Проверяем…' : 'Проверить создание счёта'" :disabled="busy" @click="recoverInvoice" />
               </div>
-              <div class="wallet-package-grid" role="group" aria-label="Пакет монет">
-                <button v-for="coinPackage in COIN_PACKAGES" :key="coinPackage.quantity" class="wallet-package-card wallet-package-card--coins" type="button"
-                        :class="{ active: quantity === coinPackage.quantity }" :aria-pressed="quantity === coinPackage.quantity"
-                        :disabled="busy || opening" @click="quantity = coinPackage.quantity">
-                  <span v-if="coinPackage.discount" class="wallet-discount">−{{ coinPackage.discount }}%</span>
-                  <img class="wallet-coin-illustration" :src="coinPackageImages[coinPackage.quantity]" width="512" height="384" alt="" aria-hidden="true" loading="lazy" decoding="async" />
-                  <strong>{{ coinPackage.quantity }} DC</strong>
-                  <span>{{ dcMoney(settings.dcCoinPackages[coinPackage.quantity][currency], 1, currency) }}</span>
+              <form v-else class="wallet-form" @submit.prevent="payCoins">
+                <UiInput id="dc-email" v-model.trim="email" type="email" autocomplete="email" label="Email для оформления платежа" placeholder="mail@example.com" mode="light" :disabled="busy || opening" />
+                <div class="wallet-currencies" role="group" aria-label="Валюта оплаты">
+                  <button v-for="item in currencies" :key="item" type="button" :class="{ active: currency === item }" :aria-pressed="currency === item" :disabled="busy" @click="currency = item">{{ item }}</button>
+                </div>
+                <div class="wallet-package-grid" role="group" aria-label="Пакет монет">
+                  <button v-for="coinPackage in COIN_PACKAGES" :key="coinPackage.quantity" class="wallet-package-card wallet-package-card--coins" type="button"
+                          :class="{ active: quantity === coinPackage.quantity }" :aria-pressed="quantity === coinPackage.quantity"
+                          :disabled="busy || opening" @click="quantity = coinPackage.quantity">
+                    <span v-if="coinPackage.discount" class="wallet-discount">−{{ coinPackage.discount }}%</span>
+                    <img class="wallet-coin-illustration" :src="coinPackageImages[coinPackage.quantity]" width="512" height="384" alt="" aria-hidden="true" loading="lazy" decoding="async" />
+                    <strong>{{ coinPackage.quantity }} DC</strong>
+                    <span>{{ dcMoney(settings.dcCoinPackages[coinPackage.quantity][currency], 1, currency) }}</span>
+                  </button>
+                </div>
+                <UiButton type="submit" :text="wallet.invoiceBusy ? 'Создаём счёт…' : `Оплатить ${totalPrice}`" :disabled="!canPay" width="100%" />
+              </form>
+              <div v-if="otherInvoices.length" class="wallet-orders">
+                <span>Выставленные счета</span>
+                <button v-for="invoice in otherInvoices" :key="invoice.order_id" type="button" :disabled="busy" @click="selectedOrderId = invoice.order_id">
+                  <span>№{{ invoice.order_id }} · {{ invoice.quantity }} DC · {{ invoiceMoney(invoice) }}</span><small>{{ invoiceHeading(invoice) }}</small>
                 </button>
               </div>
-              <UiButton type="submit" :text="wallet.invoiceBusy ? 'Создаём счёт…' : `Оплатить ${totalPrice}`" :disabled="!canPay" width="100%" />
-            </form>
-            <div v-if="otherInvoices.length" class="wallet-orders">
-              <span>Выставленные счета</span>
-              <button v-for="invoice in otherInvoices" :key="invoice.order_id" type="button" :disabled="busy" @click="selectedOrderId = invoice.order_id">
-                <span>№{{ invoice.order_id }} · {{ invoice.quantity }} DC · {{ invoiceMoney(invoice) }}</span><small>{{ invoiceHeading(invoice) }}</small>
-              </button>
             </div>
-          </div>
 
-          <div v-show="tab === 'subscription'" id="wallet-subscription" role="region" aria-label="Покупка подписки" class="wallet-panel">
-            <div class="wallet-benefits-card">
-              <img class="background-image" :src="imageSlide8" alt="" aria-hidden="true" />
-              <ul class="wallet-benefits" aria-label="Привилегии подписки">
-                <li v-for="benefit in subscriptionBenefits" :key="benefit">
-                  <UiIcon class="wallet-benefit-icon" :icon="iconCheckCircle" />
-                  <span>{{ benefit }}</span>
-                </li>
-              </ul>
-            </div>
-            <div v-if="wallet.pending.subscription" class="wallet-summary">
-              <p>Проверяем результат покупки…</p>
-              <span>Тариф: {{ planLabel(wallet.pending.subscription.plan) }}</span>
-              <UiButton :text="wallet.subscriptionBusy ? 'Проверяем…' : 'Проверить результат покупки'" :disabled="busy" @click="purchaseSubscription(true)" />
-            </div>
-            <form v-else class="wallet-form" @submit.prevent="purchaseSubscription(false)">
-              <div class="wallet-package-grid" role="group" aria-label="Тариф подписки">
-                <button v-for="plan in SUBSCRIPTION_PLANS" :key="plan.id" class="wallet-package-card" type="button"
-                        :class="{ active: subscriptionPlan === plan.id }" :aria-pressed="subscriptionPlan === plan.id"
-                        :disabled="busy || opening" @click="subscriptionPlan = plan.id">
-                  <span v-if="plan.discount" class="wallet-discount">−{{ plan.discount }}%</span>
-                  <strong>{{ plan.label }}</strong><span>{{ plan.cost }} DC</span>
-                </button>
+            <div v-show="tab === 'subscription'" id="wallet-subscription" role="region" aria-label="Покупка подписки" class="wallet-panel">
+              <div class="wallet-benefits-card">
+                <img class="background-image" :src="imageSlide8" alt="" aria-hidden="true" />
+                <ul class="wallet-benefits" aria-label="Привилегии подписки">
+                  <li v-for="benefit in subscriptionBenefits" :key="benefit">
+                    <UiIcon class="wallet-benefit-icon" :icon="iconCheckCircle" />
+                    <span>{{ benefit }}</span>
+                  </li>
+                </ul>
               </div>
-              <UiButton class="wallet-subscription-buy" type="submit" :text="wallet.subscriptionBusy ? 'Покупаем…' : `Купить за ${selectedPlan.cost} DC${canAffordSubscription ? '' : ' — недостаточно монет'}`" :disabled="!canAffordSubscription || busy || opening" width="100%" />
-            </form>
-          </div>
+              <div v-if="wallet.pending.subscription" class="wallet-summary">
+                <p>Проверяем результат покупки…</p>
+                <span>Тариф: {{ planLabel(wallet.pending.subscription.plan) }}</span>
+                <UiButton :text="wallet.subscriptionBusy ? 'Проверяем…' : 'Проверить результат покупки'" :disabled="busy" @click="purchaseSubscription(true)" />
+              </div>
+              <form v-else class="wallet-form" @submit.prevent="purchaseSubscription(false)">
+                <div class="wallet-package-grid" role="group" aria-label="Тариф подписки">
+                  <button v-for="plan in SUBSCRIPTION_PLANS" :key="plan.id" class="wallet-package-card" type="button"
+                          :class="{ active: subscriptionPlan === plan.id }" :aria-pressed="subscriptionPlan === plan.id"
+                          :disabled="busy || opening" @click="subscriptionPlan = plan.id">
+                    <span v-if="plan.discount" class="wallet-discount">−{{ plan.discount }}%</span>
+                    <strong>{{ plan.label }}</strong><span>{{ plan.cost }} DC</span>
+                  </button>
+                </div>
+                <UiButton class="wallet-subscription-buy" type="submit" :text="wallet.subscriptionBusy ? 'Покупаем…' : `Купить за ${selectedPlan.cost} DC${canAffordSubscription ? '' : ' — недостаточно монет'}`" :disabled="!canAffordSubscription || busy || opening" width="100%" />
+              </form>
+            </div>
+          </template>
         </section>
       </div>
     </Transition>
@@ -126,6 +140,7 @@ import coins30 from '@/assets/images/coins-30.webp'
 import coins100 from '@/assets/images/coins-100.webp'
 import coins300 from '@/assets/images/coins-300.webp'
 import coins1000 from '@/assets/images/coins-1000.webp'
+import paymentsUnavailableImage from '@/assets/images/payments-unavailable.webp'
 import iconClose from '@/assets/svg/iconClose.svg'
 import iconCheckCircle from '@/assets/svg/iconCheckCircle.svg'
 import iconCard from '@/assets/svg/iconCard.svg'
@@ -178,7 +193,7 @@ const packageAmount = computed(() => settings.dcCoinPackages[quantity.value][cur
 const totalPrice = computed(() => dcMoney(packageAmount.value, 1, currency.value))
 const selectedPlan = computed(() => SUBSCRIPTION_PLANS.find(item => item.id === subscriptionPlan.value)!)
 const canAffordSubscription = computed(() => wallet.balance >= selectedPlan.value.cost)
-const canPay = computed(() => !busy.value && !opening.value && !restriction.value && email.value.trim().length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim()))
+const canPay = computed(() => settings.paymentsEnabled && !busy.value && !opening.value && !restriction.value && email.value.trim().length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim()))
 const selectedInvoice = computed(() => wallet.invoices.find(item => item.order_id === selectedOrderId.value))
 const otherInvoices = computed(() => wallet.invoices.filter(item => !['processed', 'failed'].includes(item.status) && item.order_id !== selectedOrderId.value))
 
@@ -198,7 +213,13 @@ function invoiceStatusText(invoice: CoinInvoice): string {
   if (invoice.status === 'failed') return 'Оплата не прошла. Проверьте статус счёта перед повторной попыткой.'
   return 'Подтверждение оплаты пока не получено. Если вы уже оплатили счёт, повторно оплачивать не нужно.'
 }
-function requestClose(): void { if (!busy.value) emit('update:open', false) }
+function requestClose(): void { if (!busy.value || !settings.paymentsEnabled) emit('update:open', false) }
+function handlePaymentsDisabled(err: unknown): boolean {
+  const detail = (err as { response?: { data?: { detail?: string | { code?: string } } } })?.response?.data?.detail
+  if ((typeof detail === 'object' ? detail?.code : detail) !== 'payments_disabled') return false
+  settings.paymentsEnabled = false
+  return true
+}
 async function onTabChange(): Promise<void> {
   const seq = openSequence
   await nextTick()
@@ -226,7 +247,7 @@ function stopTimers(): void {
 }
 function scheduleCheck(): void {
   clearTimeout(pollTimer)
-  if (!props.open || restriction.value || !selectedInvoice.value || !['creating', 'unknown', 'pending'].includes(selectedInvoice.value.status)) return
+  if (!props.open || !settings.paymentsEnabled || restriction.value || !selectedInvoice.value || !['creating', 'unknown', 'pending'].includes(selectedInvoice.value.status)) return
   pollTimer = setTimeout(() => { void checkSelectedInvoice(true) }, 15_000)
 }
 async function checkSelectedInvoice(quiet = false): Promise<void> {
@@ -248,13 +269,14 @@ async function payCoins(): Promise<void> {
   const requestedAmount = packageAmount.value
   try {
     const invoice = await wallet.createInvoice({ quantity: requestedQuantity, currency: requestedCurrency, email: email.value.trim().toLowerCase(), expected_amount: requestedAmount })
-    if (seq !== openSequence || restriction.value) return
+    if (seq !== openSequence || !settings.paymentsEnabled || restriction.value) return
     selectedOrderId.value = invoice.order_id
     const url = invoice.status === 'pending' ? paymentLink(invoice) : ''
     if (url) window.location.assign(url)
     scheduleCheck()
   } catch (err: any) {
     if (seq !== openSequence) return
+    if (handlePaymentsDisabled(err)) return
     error.value = dcErrorMessage(err)
     const detail = err?.response?.data?.detail
     if (detail?.code === 'dc_price_changed') {
@@ -268,19 +290,19 @@ async function payCoins(): Promise<void> {
   }
 }
 async function recoverInvoice(): Promise<void> {
-  if (busy.value || restriction.value) return
+  if (busy.value || !settings.paymentsEnabled || restriction.value) return
   error.value = ''
   const requestId = wallet.pending.invoice?.request_id
   try {
     await wallet.loadInvoices()
-    if (!props.open || restriction.value) return
+    if (!props.open || !settings.paymentsEnabled || restriction.value) return
     if (wallet.pending.invoice) selectedOrderId.value = (await wallet.createInvoice()).order_id
     else selectedOrderId.value = wallet.invoices.find(item => item.request_id === requestId)?.order_id ?? selectedOrderId.value
     scheduleCheck()
-  } catch (err) { error.value = dcErrorMessage(err) }
+  } catch (err) { if (!handlePaymentsDisabled(err)) error.value = dcErrorMessage(err) }
 }
 async function purchaseSubscription(recover: boolean): Promise<void> {
-  if (busy.value || restriction.value || (!recover && !canAffordSubscription.value)) return
+  if (busy.value || !settings.paymentsEnabled || restriction.value || (!recover && !canAffordSubscription.value)) return
   error.value = ''
   const seq = openSequence
   try {
@@ -288,6 +310,7 @@ async function purchaseSubscription(recover: boolean): Promise<void> {
     if (seq === openSequence) emit('update:open', false)
   } catch (err) {
     if (seq !== openSequence) return
+    if (handlePaymentsDisabled(err)) return
     const detail = (err as { response?: { data?: { detail?: string | { code?: string } } } })?.response?.data?.detail
     const insufficientBalance = (typeof detail === 'object' ? detail?.code : detail) === 'insufficient_dc_balance'
     error.value = insufficientBalance ? '' : dcErrorMessage(err)
@@ -301,14 +324,25 @@ async function purchaseSubscription(recover: boolean): Promise<void> {
   }
 }
 
-watch(() => props.open, async open => {
+watch([() => props.open, () => settings.paymentsEnabled], async ([open], previous) => {
   stopTimers()
   const seq = ++openSequence
   armed.value = false
+  opening.value = false
   if (!open) return
+  opening.value = true
   if (!userStore.user && auth.isAuthed) await userStore.fetchMe().catch(() => {})
   if (seq !== openSequence) return
-  if (restriction.value) { emit('update:open', false); void alertDialog(restriction.value); return }
+  if (restriction.value) { opening.value = false; emit('update:open', false); void alertDialog(restriction.value); return }
+  if (!previous[0]) await settings.fetchPublic().catch(() => {})
+  if (seq !== openSequence || restriction.value) return
+  if (!settings.paymentsEnabled) {
+    opening.value = false
+    error.value = ''
+    await nextTick()
+    if (seq === openSequence && props.open) dialog.value?.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true })
+    return
+  }
   wallet.ensureOwner()
   userStore.ensureClock()
   error.value = ''; opening.value = true
@@ -317,7 +351,7 @@ watch(() => props.open, async open => {
   tab.value = props.initialTab || (wallet.balance > 0 ? 'subscription' : 'coins')
   try { email.value = sessionStorage.getItem(`dc:email:${userStore.user?.id}`) || '' } catch {}
   try {
-    await Promise.all([wallet.refreshWallet(), wallet.loadInvoices(), settings.fetchPublic().catch(() => {})])
+    await Promise.all([wallet.refreshWallet(), wallet.loadInvoices()])
     if (seq !== openSequence) return
     const rawOrder = Number(route.query.order_id || 0)
     const invoiceId = String(route.query.invoice_id || route.query.invoiceId || '')
@@ -338,7 +372,11 @@ watch(() => props.open, async open => {
     if (wallet.pending.subscription) { tab.value = 'subscription'; void purchaseSubscription(true) }
   } catch (err) { if (seq === openSequence) error.value = dcErrorMessage(err) }
   finally {
-    if (seq === openSequence) { opening.value = false; await nextTick(); dialog.value?.querySelector<HTMLButtonElement>('button')?.focus() }
+    if (seq === openSequence) {
+      opening.value = false
+      await nextTick()
+      if (seq === openSequence && props.open) dialog.value?.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true })
+    }
   }
 })
 watch(restriction, reason => {
@@ -386,6 +424,58 @@ onBeforeUnmount(() => { openSequence++; stopTimers() })
     font-family: Hauora-Regular;
     line-height: 1.4;
     --ui-input-label-bg: #{$neutral-100};
+    &.wallet-modal--unavailable {
+      gap: 0;
+    }
+    .wallet-unavailable {
+      display: grid;
+      position: relative;
+      place-items: center;
+      min-height: min(420px, 55vh);
+      padding: 32px 16px;
+      box-sizing: border-box;
+      isolation: isolate;
+      .wallet-unavailable-art {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        object-position: center bottom;
+        image-rendering: pixelated;
+        opacity: 0.32;
+        z-index: -1;
+      }
+      .wallet-unavailable-copy {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        width: min(100%, 520px);
+        text-align: center;
+        h2 {
+          margin: 0;
+          color: $neutral-black;
+          font-family: Involve-Medium;
+          font-weight: 500;
+          font-size: 26px;
+          line-height: 30px;
+          letter-spacing: -0.52px;
+        }
+        p {
+          max-width: 380px;
+          color: $neutral-700;
+          font-size: 18px;
+          line-height: 26px;
+          letter-spacing: -0.36px;
+        }
+      }
+    }
+    .wallet-unavailable-actions {
+      display: flex;
+      justify-content: center;
+      padding-top: 16px;
+    }
     :deep(.ui-button--disabled) {
       --ui-button-disabled-bg: #{$neutral-200};
       --ui-button-disabled-color: #{$neutral-600};

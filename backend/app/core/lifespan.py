@@ -44,6 +44,7 @@ async def lifespan(app) -> AsyncIterator[None]:
                 END $$;
             """))
             await conn.execute(text(f"ALTER TABLE settings ADD COLUMN IF NOT EXISTS dc_coin_packages TEXT NOT NULL DEFAULT '{DEFAULT_DC_PACKAGES}'"))
+            await conn.execute(text("ALTER TABLE settings ADD COLUMN IF NOT EXISTS payments_enabled BOOLEAN NOT NULL DEFAULT TRUE"))
             await conn.execute(text("ALTER TABLE settings ALTER COLUMN dc_coin_packages SET NOT NULL"))
             await conn.execute(text("ALTER TABLE notifs ADD COLUMN IF NOT EXISTS event_key VARCHAR(192)"))
             await conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_notifs_event_key ON notifs(event_key) WHERE event_key IS NOT NULL"))

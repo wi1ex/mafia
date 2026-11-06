@@ -99,7 +99,8 @@ import iconRemove from '@/assets/svg/iconDelete.svg'
 import iconInviteOnline from '@/assets/svg/iconNotifBell.svg'
 import iconInviteOffline from '@/assets/svg/iconTelegram.svg'
 import iconDefaultAvatarBlack from '@/assets/svg/iconDefaultAvatarBlack.svg'
-import iconNoFriends from '@/assets/svg/iconNoFriendsNotifs.svg'
+
+import iconNoFriends from '@/assets/images/noFriendsNotifs.webp'
 
 const props = defineProps<{
   open: boolean

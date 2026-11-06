@@ -21,6 +21,7 @@ class AppSettings(Base):
     games_can_start: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.GAMES_CAN_START))
     chat_open_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.CHAT_OPEN_ENABLED))
     verification_restrictions: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.VERIFICATION_RESTRICTIONS))
+    payments_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
     rtc_echo_cancellation_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.RTC_ECHO_CANCELLATION_ENABLED))
     rtc_noise_suppression_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.RTC_NOISE_SUPPRESSION_ENABLED))
     rtc_auto_gain_control_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=_bool_default(settings.RTC_AUTO_GAIN_CONTROL_ENABLED))

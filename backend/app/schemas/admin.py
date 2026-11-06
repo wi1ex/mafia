@@ -22,6 +22,7 @@ class SiteSettingsOut(BaseModel):
     games_can_start: bool
     chat_open_enabled: bool
     verification_restrictions: bool
+    payments_enabled: bool
     rtc_echo_cancellation_enabled: bool
     rtc_noise_suppression_enabled: bool
     rtc_auto_gain_control_enabled: bool
@@ -47,6 +48,7 @@ class SiteSettingsUpdateIn(BaseModel):
     games_can_start: Optional[bool] = None
     chat_open_enabled: Optional[bool] = None
     verification_restrictions: Optional[bool] = None
+    payments_enabled: Optional[bool] = None
     rtc_echo_cancellation_enabled: Optional[bool] = None
     rtc_noise_suppression_enabled: Optional[bool] = None
     rtc_auto_gain_control_enabled: Optional[bool] = None
@@ -62,6 +64,14 @@ class SiteSettingsUpdateIn(BaseModel):
     text_moderation_whitelist: Optional[TextModerationWhitelistCsv] = Field(default=None, max_length=4096)
     text_moderation_blacklist: Optional[TextModerationBlacklistCsv] = Field(default=None, max_length=4096)
     senior_moderator_user_id: Optional[int] = Field(default=None, ge=1)
+
+    @field_validator("payments_enabled", mode="before")
+    @classmethod
+    def validate_payments_enabled(cls, value: object) -> object:
+        if value is None:
+            raise ValueError("payments_enabled_invalid")
+
+        return value
 
     @field_validator("dc_coin_packages", mode="before")
     @classmethod
@@ -334,6 +344,7 @@ class PublicSettingsOut(BaseModel):
     games_can_start: bool
     chat_open_enabled: bool
     verification_restrictions: bool
+    payments_enabled: bool
     rtc_echo_cancellation_enabled: bool
     rtc_noise_suppression_enabled: bool
     rtc_auto_gain_control_enabled: bool

@@ -58,7 +58,8 @@ import UiScrollbar from '@/components/UiScrollbar.vue'
 
 import iconClose from '@/assets/svg/iconClose.svg'
 import iconNotifBell from '@/assets/svg/iconNotifBell.svg'
-import iconNoNotifs from '@/assets/svg/iconNoFriendsNotifs.svg'
+
+import iconNoNotifs from '@/assets/images/noFriendsNotifs.webp'
 
 const NOTIF_TIME_OPTIONS: Intl.DateTimeFormatOptions = {
   hour: '2-digit',

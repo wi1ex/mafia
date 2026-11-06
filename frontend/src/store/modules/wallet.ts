@@ -39,6 +39,7 @@ export function dcErrorMessage(error: any): string {
   const detail = error?.response?.data?.detail
   const code = typeof detail === 'object' ? detail?.code : detail
   const messages: Record<string, string> = {
+    payments_disabled: 'В данный момент платежи не принимаются.',
     dc_price_changed: 'Стоимость монет изменилась. Проверьте новую сумму и нажмите «Оплатить» ещё раз.',
     insufficient_dc_balance: 'Недостаточно DC для покупки выбранной подписки.',
     insufficient_balance: 'Недостаточно DC для выполнения операции.',
@@ -71,7 +72,7 @@ export function dcErrorMessage(error: any): string {
 export function dcRequestUncertain(error: any): boolean {
   const status = Number(error?.response?.status || 0)
   const detail = error?.response?.data?.detail
-  const definiteErrors = ['kassa_coin_offer_missing', 'kassa_coin_offer_invalid', 'kassa_coin_offer_prices_mismatch', 'kassa_api_key_missing', 'kassa_api_unauthorized', 'dc_price_invalid']
+  const definiteErrors = ['payments_disabled', 'kassa_coin_offer_missing', 'kassa_coin_offer_invalid', 'kassa_coin_offer_prices_mismatch', 'kassa_api_key_missing', 'kassa_api_unauthorized', 'dc_price_invalid']
   return status === 0 || (status >= 500 && !definiteErrors.includes(detail)) || (status === 409 && ['request_pending', 'operation_pending'].includes(detail))
 }
 

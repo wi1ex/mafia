@@ -889,8 +889,8 @@ function openAuth(mode: 'login' | 'register') {
           align-items: center;
           gap: 8px;
           .avatar {
-            width: 56px;
-            height: 56px;
+            width: 64px;
+            height: 64px;
             border-radius: 50%;
             object-fit: cover;
           }

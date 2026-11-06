@@ -73,7 +73,8 @@ import UiScrollbar from '@/components/UiScrollbar.vue'
 import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatarBlack.svg'
 import iconAccept from '@/assets/svg/iconCheckMark.svg'
 import iconClose from '@/assets/svg/iconClose.svg'
-import iconNoRequests from '@/assets/svg/iconNoRequests.svg'
+
+import iconNoRequests from '@/assets/images/noRequests.webp'
 
 type AppItem = {id: number; username?: string; avatar_name?: string|null; role?: string|null; theme_color?: string|null; theme_icon?: string|null; status: 'pending'|'approved'; requested_at?: string|null}
 
