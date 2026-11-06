@@ -18,7 +18,7 @@
           <template v-else>
             <header>
               <div class="wallet-heading">
-                <h2 id="wallet-title">{{ tab === 'coins' ? 'Пополнение баланса' : 'Покупка подписки' }}</h2>
+                <h2 id="wallet-title">Магазин</h2>
                 <div class="wallet-status" aria-live="polite">
                   <div class="wallet-status-item wallet-balance">
                     <span class="wallet-status-symbol"><UiIcon :icon="iconCard" /></span>
@@ -430,7 +430,6 @@ onBeforeUnmount(() => { openSequence++; stopTimers() })
     .wallet-unavailable {
       display: grid;
       position: relative;
-      place-items: center;
       min-height: min(420px, 55vh);
       padding: 32px 16px;
       box-sizing: border-box;
@@ -451,7 +450,7 @@ onBeforeUnmount(() => { openSequence++; stopTimers() })
         flex-direction: column;
         align-items: center;
         gap: 12px;
-        width: min(100%, 520px);
+        width: 100%;
         text-align: center;
         h2 {
           margin: 0;
@@ -492,6 +491,7 @@ onBeforeUnmount(() => { openSequence++; stopTimers() })
         gap: 14px;
         min-width: 0;
         h2 {
+          font-weight: normal;
           font-family: Involve-Medium;
           font-size: 24px;
           line-height: 26px;
