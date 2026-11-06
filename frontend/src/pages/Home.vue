@@ -203,8 +203,8 @@
         <img class="background-image-6" :src="imageSlide6" alt="" aria-hidden="true" />
         <div class="right-extra-content">
           <div class="right-extra-copy-subscription">
-            <span>Оформи подписку и открой</span>
-            <span class="right-extra-copy-accent">новые функции!</span>
+            <span>Перейти в</span>
+            <span class="right-extra-copy-accent">магазин</span>
           </div>
           <button type="button" class="right-extra-btn" @click="openWalletModal">
             <UiIcon class="btn-icon" :icon="iconArrowNext" />
@@ -1699,9 +1699,9 @@ onBeforeUnmount(() => {
         }
       }
       &--primary {
-        min-height: 110px;
-        height: 110px;
-        max-height: 310px;
+        min-height: 80px;
+        height: 80px;
+        max-height: 160px;
         .background-image-6 {
           position: absolute;
           left: 0;
