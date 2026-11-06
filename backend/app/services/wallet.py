@@ -345,7 +345,7 @@ async def notify_coin_operation(session: AsyncSession, operation: CoinPurchase, 
 
 async def notify_subscription_gift(session: AsyncSession, purchase: SubscriptionPurchase, *,
                                    note: Notif | None = None, sender_note: Notif | None = None) -> None:
-    from ..api.utils import emit_notify, schedule_contact_request_admin_telegram_message
+    from ..api.utils import emit_notify
 
     recipient_id = int(purchase.user_id)
     sender_id = int(purchase.actor_id)
@@ -359,8 +359,30 @@ async def notify_subscription_gift(session: AsyncSession, purchase: Subscription
         "subscription_until": purchase.ends_after.isoformat(),
         "purchase_id": purchase_id,
     }
+    recipient_extra = {"tone": "green", "subscription_gift": popup}
+    if note is not None:
+        sender_profile = {}
+        try:
+            from ..core.db import SessionLocal
+            from .user_cache import get_user_profile_cached
+
+            async with SessionLocal() as profile_session:
+                sender_profile = await get_user_profile_cached(profile_session, sender_id) or {}
+        except Exception:
+            log.exception("dc.subscription_gift_sender_profile_failed", purchase_id=purchase_id)
+        recipient_extra.update({
+            "user": {
+                "id": sender_id,
+                "username": popup["sender_username"],
+                "avatar_name": sender_profile.get("avatar_name"),
+                "role": sender_profile.get("role"),
+                "theme_color": sender_profile.get("theme_color"),
+                "theme_icon": sender_profile.get("theme_icon"),
+            },
+            "toast_text": f"Срок: {popup['duration']}. Подписка действует до {format_subscription_until(purchase.ends_after)}.",
+        })
     for uid, message, kind, no_toast, extra in (
-        (recipient_id, note, "subscription_gift", False, {"tone": "green", "subscription_gift": popup}),
+        (recipient_id, note, "subscription_gift", False, recipient_extra),
         (sender_id, sender_note, "subscription", True, None),
     ):
         if message is not None:
@@ -368,21 +390,6 @@ async def notify_subscription_gift(session: AsyncSession, purchase: Subscription
                 await emit_notify(uid, message, kind=kind, no_toast=no_toast, extra=extra)
             except Exception:
                 log.exception("dc.subscription_gift_notification_failed", purchase_id=purchase_id, user_id=uid)
-    if note is not None or sender_note is not None:
-        try:
-            sender_name = metadata.get("sender_username") or f"user{sender_id}"
-            recipient_name = metadata.get("recipient_username") or f"user{recipient_id}"
-            action = "Продление" if metadata.get("extended") else "Активация"
-            end = format_subscription_until(purchase.ends_after)
-            schedule_contact_request_admin_telegram_message(
-                "Подписка в подарок\n\n"
-                f"Даритель: {sender_name}\nID дарителя: {sender_id}\n"
-                f"Получатель: {recipient_name}\nID получателя: {recipient_id}\n"
-                f"Действие: {action}\nСрок: {popup['duration']}\nСписано: {purchase.dc_cost} DC\n"
-                f"Подписка до: {end}\nБаланс дарителя после операции: {purchase.balance_after} DC"
-            )
-        except Exception:
-            log.exception("dc.subscription_gift_admin_notification_failed", purchase_id=purchase_id)
     for uid in sorted({sender_id, recipient_id}):
         try:
             await sync_wallet_profile(session, uid)
@@ -405,19 +412,9 @@ async def notify_subscription_purchase(session: AsyncSession, purchase: Subscrip
     purchase_id = purchase.id
     try:
         if note is not None:
-            from ..api.utils import emit_notify, schedule_contact_request_admin_telegram_message
+            from ..api.utils import emit_notify
 
             await emit_notify(uid, note, kind="subscription", extra={"tone": "green"})
-            user = await session.get(User, uid)
-            action = "Продление" if (purchase.result or {}).get("extended") else "Активация"
-            duration = format_subscription_purchase_duration(days=purchase.days, months=purchase.months)
-            end = format_subscription_until(purchase.ends_after)
-            schedule_contact_request_admin_telegram_message(
-                "Покупка подписки за DC\n\n"
-                f"Пользователь: {user.username if user else f'user{uid}'}\nID пользователя: {uid}\n"
-                f"Действие: {action}\nСрок: {duration}\nСписано: {purchase.dc_cost} DC\n"
-                f"Подписка до: {end}\nБаланс после операции: {purchase.balance_after} DC"
-            )
     except Exception:
         log.exception("dc.subscription_notification_failed", purchase_id=purchase_id)
         with suppress(Exception):

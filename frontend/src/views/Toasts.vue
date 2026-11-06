@@ -12,7 +12,7 @@
         </header>
 
         <div class="user">
-          <div class="meta" :class="{ 'has-theme-color': hasToastUserThemeColor(t.user) }" :style="toastUserNickStyle(t.user)">
+          <div class="meta" :class="{ 'has-theme-color': hasToastUserThemeColor(t.user), 'meta--subscription-gift': t.kind === 'subscription_gift' }" :style="toastUserNickStyle(t.user)">
             <button v-if="t.user" class="user-profile-trigger" type="button" @click.stop="openToastUserMiniProfile(t.user)"
                     :disabled="!canOpenToastUserMiniProfile(t.user)" :aria-label="`Открыть мини-профиль пользователя ${toastUserName(t.user)}`" aria-haspopup="dialog">
               <img v-minio-img="{ key: t.user.avatar_name ? `avatars/${t.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
@@ -405,6 +405,10 @@ onBeforeUnmount(() => {
           align-items: center;
           gap: 8px;
           min-width: 0;
+          &.meta--subscription-gift {
+            flex-direction: column;
+            align-items: flex-start;
+          }
           &.has-theme-color .nick {
             background: var(--toast-user-nick-theme);
             background-clip: text;
