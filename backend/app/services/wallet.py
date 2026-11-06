@@ -23,8 +23,8 @@ MAX_DC = 2**63 - 1
 SUBSCRIPTION_PLANS = {
     "week": (7, 0, 7),
     "month": (0, 1, 27),
-    "quarter": (0, 3, 76),
-    "year": (0, 12, 274),
+    "quarter": (0, 3, 75),
+    "year": (0, 12, 275),
 }
 
 
@@ -131,7 +131,7 @@ async def buy_subscription(session: AsyncSession, *, user_id: int, plan: str, re
     await lock_dc_request(session, str(request_id), journal="subscription")
     existing = await session.scalar(select(SubscriptionPurchase).where(SubscriptionPurchase.request_id == str(request_id)))
     if existing:
-        if existing.user_id != user_id or existing.days != days or existing.months != months or existing.dc_cost != cost or existing.source != "dc":
+        if existing.user_id != user_id or existing.days != days or existing.months != months or existing.source != "dc":
             raise HTTPException(409, detail="idempotency_conflict")
 
         result = {key: value for key, value in (existing.result or {}).items() if key != "extended"}

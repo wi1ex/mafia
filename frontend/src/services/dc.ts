@@ -20,8 +20,8 @@ export const DEFAULT_COIN_PACKAGES: CoinPackageCatalog = {
 export const SUBSCRIPTION_PLANS: readonly { id: SubscriptionPlan; label: string; cost: number; discount: number; months: number; days: number }[] = [
   { id: 'week', label: '1 неделя', cost: 7, discount: 0, months: 0, days: 7 },
   { id: 'month', label: '1 месяц', cost: 27, discount: 10, months: 1, days: 0 },
-  { id: 'quarter', label: '3 месяца', cost: 76, discount: 15, months: 3, days: 0 },
-  { id: 'year', label: '1 год', cost: 274, discount: 25, months: 12, days: 0 },
+  { id: 'quarter', label: '3 месяца', cost: 75, discount: 15, months: 3, days: 0 },
+  { id: 'year', label: '1 год', cost: 275, discount: 25, months: 12, days: 0 },
 ]
 const MAX_PRICE_MINOR = 999_999_999_999_999_999n
 
