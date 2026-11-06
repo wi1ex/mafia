@@ -200,36 +200,48 @@
                 <span class="profile-restricted-text">Вы в Черном списке у пользователя</span>
               </div>
 
-              <div class="profile-actions profile-actions--main">
-                <button class="profile-action friend-action" :class="`status-${friendStatusClass}`"
-                        type="button" :disabled="friendDisabled" :aria-label="friendActionAriaLabel" @click="onFriendAction(friendActionKind)">
-                  <div class="friend-action-content friend-action-content-default" aria-hidden="true">
-                    <UiIcon class="profile-action-icon" :icon="friendActionIcon" />
-                    <span>{{ friendActionLabel }}</span>
-                  </div>
-                  <div class="friend-action-content friend-action-content-hover" aria-hidden="true">
-                    <UiIcon class="profile-action-icon" :icon="friendActionHoverIcon" />
-                    <span>{{ friendActionHoverLabel }}</span>
-                  </div>
-                </button>
-                <UiButton
-                  v-if="showRestrictedProfileSections && showStatsButton"
-                  variant="white"
-                  size="middle"
-                  width="100%"
-                  :icon="iconStats"
-                  text="Статистика"
-                  @click="view = 'stats'"
-                />
-                <UiButton
-                  v-if="showRestrictedProfileSections && showGameHistoryButton"
-                  variant="white"
-                  size="middle"
-                  width="100%"
-                  :icon="iconHistory"
-                  text="История игр"
-                  @click="view = 'history'"
-                />
+              <div v-if="showRestrictedProfileSections" class="profile-actions profile-actions--main">
+                <div class="profile-actions-row profile-actions-row--free">
+                  <button class="profile-action friend-action" :class="`status-${friendStatusClass}`"
+                          type="button" :disabled="friendDisabled" :aria-label="friendActionAriaLabel" @click="onFriendAction(friendActionKind)">
+                    <div class="friend-action-content friend-action-content-default" aria-hidden="true">
+                      <UiIcon class="profile-action-icon" :icon="friendActionIcon" />
+                      <span>{{ friendActionLabel }}</span>
+                    </div>
+                    <div class="friend-action-content friend-action-content-hover" aria-hidden="true">
+                      <UiIcon class="profile-action-icon" :icon="friendActionHoverIcon" />
+                      <span>{{ friendActionHoverLabel }}</span>
+                    </div>
+                  </button>
+                  <UiButton
+                    variant="white"
+                    size="middle"
+                    width="100%"
+                    :icon="iconSubscription"
+                    text="Подарить подписку"
+                    disabled
+                  />
+                </div>
+                <div v-if="viewerSubscriptionActive" class="profile-actions-row profile-actions-row--subscription">
+                  <UiButton
+                    v-if="showStatsButton"
+                    variant="white"
+                    size="middle"
+                    width="100%"
+                    :icon="iconStats"
+                    text="Статистика"
+                    @click="view = 'stats'"
+                  />
+                  <UiButton
+                    v-if="showGameHistoryButton"
+                    variant="white"
+                    size="middle"
+                    width="100%"
+                    :icon="iconHistory"
+                    text="История игр"
+                    @click="view = 'history'"
+                  />
+                </div>
               </div>
 
               <div v-if="showStaffActionBlock" class="profile-staff-line"></div>
@@ -926,7 +938,6 @@ const canSendFriendRequest = computed(() => (
 const showProfileDataButtons = computed(() => Boolean(
   props.showStatsButton
   && targetUserId.value > 0
-  && (isSelfProfile.value || isAdminViewer.value || viewerSubscriptionActive.value)
 ))
 const showStatsButton = computed(() => showProfileDataButtons.value)
 const showGameHistoryButton = computed(() => showProfileDataButtons.value)
@@ -2186,6 +2197,10 @@ function onAdminBalanceUpdate(event: Event): void {
   if (Number.isSafeInteger(balance) && balance >= 0) patchProfile({ dc_balance: balance })
 }
 
+watch([showRestrictedProfileSections, viewerSubscriptionActive], ([visible, subscriptionActive]) => {
+  if (!visible || !subscriptionActive) view.value = 'profile'
+})
+
 watch([() => props.open, targetUserId, viewerAccountRestricted, deletedTargetBlocked], ([open, uid, restricted, deletedBlocked]) => {
   if (!open) {
     requestSeq += 1
@@ -3212,83 +3227,86 @@ onBeforeUnmount(() => {
       flex-direction: column;
       gap: 10px;
       width: 100%;
-      &.profile-actions--main {
+      .profile-actions-row {
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-      }
-      .profile-action {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 0 16px;
-        gap: 8px;
-        width: 100%;
-        height: 40px;
-        border: none;
-        border-radius: 12px;
-        color: $neutral-900;
-        font-family: Hauora-Regular;
-        font-size: 18px;
-        line-height: 20px;
-        letter-spacing: -0.36px;
-        cursor: pointer;
-        transition: background-color 0.25s ease-in-out;
-        .profile-action-icon {
-          --ui-icon-width: 24px;
-          --ui-icon-height: 24px;
-          --ui-icon-color: #{$neutral-900};
-        }
-        &.friend-action {
-          .friend-action-content {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
+        grid-auto-flow: column;
+        grid-auto-columns: minmax(0, 1fr);
+        gap: 10px;
+        min-width: 0;
+        .profile-action {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0 16px;
+          gap: 8px;
+          width: 100%;
+          height: 40px;
+          border: none;
+          border-radius: 12px;
+          color: $neutral-900;
+          font-family: Hauora-Regular;
+          font-size: 18px;
+          line-height: 20px;
+          letter-spacing: -0.36px;
+          cursor: pointer;
+          transition: background-color 0.25s ease-in-out;
+          .profile-action-icon {
+            --ui-icon-width: 24px;
+            --ui-icon-height: 24px;
+            --ui-icon-color: #{$neutral-900};
           }
-          .friend-action-content-hover {
-            display: none;
-          }
-          &:not(:disabled):hover,
-          &:not(:disabled):focus-visible,
-          &:not(:disabled):active {
-            .friend-action-content-default {
-              display: none;
+          &.friend-action {
+            .friend-action-content {
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              gap: 8px;
             }
             .friend-action-content-hover {
-              display: flex;
+              display: none;
+            }
+            &:not(:disabled):hover,
+            &:not(:disabled):focus-visible,
+            &:not(:disabled):active {
+              .friend-action-content-default {
+                display: none;
+              }
+              .friend-action-content-hover {
+                display: flex;
+              }
             }
           }
-        }
-        &.status-none {
-          background-color: $neutral-white;
-          &:not(:disabled):hover,
-          &:not(:disabled):focus-visible,
-          &:not(:disabled):active {
-            background-color: $green-500;
-          }
-        }
-        &.status-friends {
-          background-color: $green-500;
-          &:not(:disabled):hover,
-          &:not(:disabled):focus-visible,
-          &:not(:disabled):active {
-            background-color: $red-400;
-          }
-        }
-        &.status-outgoing {
-          background-color: $orange-400;
-          &:not(:disabled):hover,
-          &:not(:disabled):focus-visible,
-          &:not(:disabled):active {
-            background-color: $red-400;
-          }
-        }
-        &.status-incoming {
-          background-color: $orange-400;
-          &:not(:disabled):hover,
-          &:not(:disabled):focus-visible,
-          &:not(:disabled):active {
+          &.status-none {
             background-color: $neutral-white;
+            &:not(:disabled):hover,
+            &:not(:disabled):focus-visible,
+            &:not(:disabled):active {
+              background-color: $green-500;
+            }
+          }
+          &.status-friends {
+            background-color: $green-500;
+            &:not(:disabled):hover,
+            &:not(:disabled):focus-visible,
+            &:not(:disabled):active {
+              background-color: $red-400;
+            }
+          }
+          &.status-outgoing {
+            background-color: $orange-400;
+            &:not(:disabled):hover,
+            &:not(:disabled):focus-visible,
+            &:not(:disabled):active {
+              background-color: $red-400;
+            }
+          }
+          &.status-incoming {
+            background-color: $orange-400;
+            &:not(:disabled):hover,
+            &:not(:disabled):focus-visible,
+            &:not(:disabled):active {
+              background-color: $neutral-white;
+            }
           }
         }
       }

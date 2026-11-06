@@ -123,12 +123,14 @@ import UiButton from '@/components/UiButton.vue'
 import UiIcon from '@/components/UiIcon.vue'
 import UiInput from '@/components/UiInput.vue'
 import UiSwitch from '@/components/UiSwitch.vue'
+
 import imageSlide8 from '@/assets/images/carousel-image8.png'
 import coins30 from '@/assets/images/coins-30.webp'
 import coins100 from '@/assets/images/coins-100.webp'
 import coins300 from '@/assets/images/coins-300.webp'
 import coins1000 from '@/assets/images/coins-1000.webp'
-import paymentsUnavailableImage from '@/assets/images/payments-unavailable.webp'
+import paymentsUnavailableImage from '@/assets/images/noPayments.webp'
+
 import iconClose from '@/assets/svg/iconClose.svg'
 import iconCheckCircle from '@/assets/svg/iconCheckCircle.svg'
 
