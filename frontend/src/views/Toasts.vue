@@ -13,14 +13,17 @@
 
         <div class="user">
           <div class="meta" :class="{ 'has-theme-color': hasToastUserThemeColor(t.user), 'meta--subscription-gift': t.kind === 'subscription_gift' }" :style="toastUserNickStyle(t.user)">
-            <button v-if="t.user" class="user-profile-trigger" type="button" @click.stop="openToastUserMiniProfile(t.user)"
-                    :disabled="!canOpenToastUserMiniProfile(t.user)" :aria-label="`Открыть мини-профиль пользователя ${toastUserName(t.user)}`" aria-haspopup="dialog">
-              <img v-minio-img="{ key: t.user.avatar_name ? `avatars/${t.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
-              <div v-if="toastUserThemeIconSrcs(t.user).length" class="profile-theme-icons" aria-hidden="true">
-                <img v-for="badgeSrc in toastUserThemeIconSrcs(t.user)" :key="`${t.user.id}-${badgeSrc}`" class="profile-theme-icon" :src="badgeSrc" alt="" />
-              </div>
-              <span class="nick">{{ toastUserName(t.user) }}</span>
-            </button>
+            <div v-if="t.user" class="profile-line">
+              <button class="user-profile-trigger" type="button" @click.stop="openToastUserMiniProfile(t.user)"
+                      :disabled="!canOpenToastUserMiniProfile(t.user)" :aria-label="`Открыть мини-профиль пользователя ${toastUserName(t.user)}`" aria-haspopup="dialog">
+                <img v-minio-img="{ key: t.user.avatar_name ? `avatars/${t.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
+                <div v-if="toastUserThemeIconSrcs(t.user).length" class="profile-theme-icons" aria-hidden="true">
+                  <img v-for="badgeSrc in toastUserThemeIconSrcs(t.user)" :key="`${t.user.id}-${badgeSrc}`" class="profile-theme-icon" :src="badgeSrc" alt="" />
+                </div>
+                <span class="nick">{{ toastUserName(t.user) }}</span>
+              </button>
+              <span v-if="t.kind === 'subscription_gift'" class="gift-action">подарил вам подписку</span>
+            </div>
             <div v-if="t.details" class="sanction-text">
               <p class="sanction-text__lead">{{ t.text }}</p>
               <p class="sanction-text__details">{{ t.details }}</p>
@@ -361,9 +364,22 @@ onBeforeUnmount(() => {
           align-items: center;
           gap: 8px;
           min-width: 0;
+          .profile-line {
+            display: contents;
+          }
           &.meta--subscription-gift {
             flex-direction: column;
             align-items: flex-start;
+            .profile-line {
+              display: flex;
+              align-items: center;
+              gap: 4px;
+              max-width: 100%;
+              .gift-action {
+                flex-shrink: 0;
+                max-width: none;
+              }
+            }
           }
           &.has-theme-color .nick {
             background: var(--toast-user-nick-theme);
