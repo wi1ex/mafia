@@ -2640,7 +2640,7 @@ onBeforeUnmount(() => {
             width: 170px;
             height: 170px;
             border-radius: 50%;
-            border: 4px solid transparent;
+            border: 4px solid rgba($neutral-white, 0.25);
             object-fit: cover;
           }
         }
