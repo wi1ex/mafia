@@ -2456,7 +2456,12 @@ async def subscriptions_compensation(
     for (user, _subscription), note in zip(active_subscriptions, notes):
         with suppress(Exception):
             await emit_auth_profile_sync(int(user.id), role=str(user.role))
-        await emit_notify(int(user.id), note, kind="subscription", toast={"kind": "subscription_compensation"})
+        await emit_notify(
+            int(user.id),
+            note,
+            kind="subscription",
+            toast={"kind": "subscription_compensation", "title": "Подписка"},
+        )
         telegram_id = int(user.telegram_id or 0)
         if telegram_id > 0:
             schedule_user_telegram_notice(

@@ -54,6 +54,6 @@ async def reward_rating_host(session: AsyncSession, game: Game) -> Notif | None:
 async def sync_rating_host_subscription(session: AsyncSession, user_id: int, note: Notif) -> None:
     from ..api.utils import emit_notify
     with suppress(Exception):
-        await emit_notify(user_id, note, kind="coins", toast={"kind": "game_reward"})
+        await emit_notify(user_id, note, kind="coins", toast={"kind": "game_reward", "title": "Баланс"})
     with suppress(Exception):
         await sync_wallet_profile(session, user_id)

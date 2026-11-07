@@ -325,7 +325,7 @@ async def notify_coin_operation(session: AsyncSession, operation: CoinPurchase, 
             from ..api.utils import emit_notify, schedule_contact_request_admin_telegram_message
 
             toast_kind = "coin_topup" if operation.source == "lava" else "coin_grant"
-            await emit_notify(uid, note, kind="coins", toast={"kind": toast_kind})
+            await emit_notify(uid, note, kind="coins", toast={"kind": toast_kind, "title": "Баланс"})
             if operation.source == "lava":
                 user = await session.get(User, uid)
                 schedule_contact_request_admin_telegram_message(
@@ -381,6 +381,7 @@ async def notify_subscription_gift(session: AsyncSession, purchase: Subscription
             "theme_icon": sender_profile.get("theme_icon"),
         }
         recipient_toast = {
+            "title": "Подписка",
             "text": f"Срок: {popup['duration']}. Подписка действует до {format_subscription_until(purchase.ends_after)}.",
         }
     for uid, message, kind, no_toast, toast, extra in (
