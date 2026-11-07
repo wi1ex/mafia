@@ -174,37 +174,6 @@
             </header>
 
             <template v-if="view === 'profile'">
-              <div v-if="showRestrictedProfileSections" class="profile-dates" aria-label="Информация профиля">
-                <div class="date-row">
-                  <span class="date-title">Дата регистрации</span>
-                  <span class="date-time">{{ registeredAtLabel }}</span>
-                </div>
-                <div class="date-row">
-                  <span class="date-title">Последняя игра</span>
-                  <span class="date-time">{{ lastGameAtLabel }}</span>
-                </div>
-                <div v-if="!isSelfProfile" class="date-row">
-                  <span class="date-title">Последний раз в сети</span>
-                  <span class="date-time">{{ lastOnlineLabel }}</span>
-                </div>
-                <div v-if="showSubscriptionInfo" class="date-row">
-                  <span class="date-title">Подписка</span>
-                  <span class="date-time">{{ displayedSubscriptionExpiryLabel }}</span>
-                </div>
-                <div class="date-row">
-                  <span class="date-title">Роли пользователя</span>
-                  <div class="profile-role-tags">
-                    <span v-for="role in profileRoleBadges" :key="role.key" class="profile-role-badge" :class="`profile-role-badge--${role.key}`">
-                      {{ role.label }}
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div v-else class="profile-restricted-div">
-                <UiIcon class="profile-restricted-img" :icon="iconDanger" />
-                <span class="profile-restricted-text">Вы в Черном списке у пользователя</span>
-              </div>
-
               <div v-if="showRestrictedProfileSections" class="profile-actions profile-actions--main">
                 <div v-if="!isSelfProfile && !blacklistedByMe" class="profile-actions-row profile-actions-row--free">
                   <button class="profile-action friend-action" :class="`status-${friendStatusClass}`"
@@ -248,6 +217,37 @@
                     @click="view = 'history'"
                   />
                 </div>
+              </div>
+
+              <div v-if="showRestrictedProfileSections" class="profile-dates" aria-label="Информация профиля">
+                <div class="date-row">
+                  <span class="date-title">Дата регистрации</span>
+                  <span class="date-time">{{ registeredAtLabel }}</span>
+                </div>
+                <div class="date-row">
+                  <span class="date-title">Последняя игра</span>
+                  <span class="date-time">{{ lastGameAtLabel }}</span>
+                </div>
+                <div v-if="!isSelfProfile" class="date-row">
+                  <span class="date-title">Последний раз в сети</span>
+                  <span class="date-time">{{ lastOnlineLabel }}</span>
+                </div>
+                <div v-if="showSubscriptionInfo" class="date-row">
+                  <span class="date-title">Подписка</span>
+                  <span class="date-time">{{ displayedSubscriptionExpiryLabel }}</span>
+                </div>
+                <div class="date-row">
+                  <span class="date-title">Роли пользователя</span>
+                  <div class="profile-role-tags">
+                    <span v-for="role in profileRoleBadges" :key="role.key" class="profile-role-badge" :class="`profile-role-badge--${role.key}`">
+                      {{ role.label }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div v-else class="profile-restricted-div">
+                <UiIcon class="profile-restricted-img" :icon="iconDanger" />
+                <span class="profile-restricted-text">Вы в Черном списке у пользователя</span>
               </div>
 
               <div v-if="showStaffActionBlock" class="profile-staff-line"></div>
@@ -2533,7 +2533,7 @@ onBeforeUnmount(() => {
     display: flex;
     flex-direction: column;
     padding: 24px;
-    gap: 24px;
+    gap: 16px;
     width: 728px;
     border-radius: 24px;
     background-color: var(--user-theme-bg, $neutral-black);
@@ -3599,7 +3599,7 @@ onBeforeUnmount(() => {
       }
     }
     .profile-staff-line {
-      margin: -10px 0;
+      margin: -6px 0;
       width: 100%;
       border-bottom: 1px solid rgba($soft-purple-900, 0.65);
     }
