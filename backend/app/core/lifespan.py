@@ -27,32 +27,6 @@ async def lifespan(app) -> AsyncIterator[None]:
             await conn.execute(text("SELECT pg_advisory_xact_lock(20261020, 1)"))
             await conn.run_sync(Base.metadata.create_all)
 
-            # BEGIN ONE-TIME DC MIGRATION
-            from ..services.coin_prices import DEFAULT_DC_PACKAGES
-            await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS dc_balance BIGINT NOT NULL DEFAULT 0"))
-            await conn.execute(text("""
-                DO $$
-                BEGIN
-                    IF NOT EXISTS (
-                        SELECT 1 FROM pg_constraint
-                        WHERE conrelid = 'users'::regclass
-                          AND conname = 'ck_users_nonnegative_dc_balance'
-                    ) THEN
-                        ALTER TABLE users ADD CONSTRAINT ck_users_nonnegative_dc_balance
-                            CHECK (dc_balance >= 0);
-                    END IF;
-                END $$;
-            """))
-            await conn.execute(text(f"ALTER TABLE settings ADD COLUMN IF NOT EXISTS dc_coin_packages TEXT NOT NULL DEFAULT '{DEFAULT_DC_PACKAGES}'"))
-            await conn.execute(text("ALTER TABLE settings ADD COLUMN IF NOT EXISTS payments_enabled BOOLEAN NOT NULL DEFAULT TRUE"))
-            await conn.execute(text("ALTER TABLE settings ALTER COLUMN dc_coin_packages SET NOT NULL"))
-            await conn.execute(text("ALTER TABLE notifs ADD COLUMN IF NOT EXISTS event_key VARCHAR(192)"))
-            await conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_notifs_event_key ON notifs(event_key) WHERE event_key IS NOT NULL"))
-            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_subscription_purchases_actor_id ON subscription_purchases(actor_id)"))
-            await conn.execute(text("ALTER TABLE settings DROP COLUMN IF EXISTS donation_url"))
-            await conn.execute(text("DROP TABLE IF EXISTS kassa_payments"))
-            # END ONE-TIME DC MIGRATION
-
         async with SessionLocal() as session:
             await ensure_app_settings(session)
             await ensure_game_scoring_settings(session)
