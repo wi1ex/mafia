@@ -2456,7 +2456,7 @@ async def subscriptions_compensation(
     for (user, _subscription), note in zip(active_subscriptions, notes):
         with suppress(Exception):
             await emit_auth_profile_sync(int(user.id), role=str(user.role))
-        await emit_notify(int(user.id), note, kind="subscription")
+        await emit_notify(int(user.id), note, kind="subscription", toast={"kind": "subscription_compensation"})
         telegram_id = int(user.telegram_id or 0)
         if telegram_id > 0:
             schedule_user_telegram_notice(
@@ -2725,7 +2725,7 @@ async def update_user_role(user_id: int, payload: AdminUserRoleIn, ident: Identi
             await session.commit()
             await session.refresh(note)
             with suppress(Exception):
-                await emit_notify(uid, note, kind="role_update", extra={"tone": "green"})
+                await emit_notify(uid, note, kind="role_update", toast={"kind": "role_granted"})
             with suppress(Exception):
                 await emit_global_chat_role_notice(
                     session,
@@ -2745,7 +2745,7 @@ async def update_user_role(user_id: int, payload: AdminUserRoleIn, ident: Identi
             await session.commit()
             await session.refresh(note)
             with suppress(Exception):
-                await emit_notify(uid, note, kind="role_update", extra={"tone": "blue"})
+                await emit_notify(uid, note, kind="role_update", toast={"kind": "role_revoked"})
             with suppress(Exception):
                 await emit_global_chat_role_notice(
                     session,
@@ -2821,7 +2821,10 @@ async def update_user_additional_role(user_id: int, payload: AdminUserAdditional
     )
 
     with suppress(Exception):
-        await emit_notify(uid, note, kind="role_update", extra={"tone": "green" if granted else "blue"})
+        await emit_notify(
+            uid, note, kind="role_update",
+            toast={"kind": "role_granted" if granted else "role_revoked"},
+        )
     with suppress(Exception):
         await emit_global_chat_role_notice(
             session,
@@ -3013,10 +3016,12 @@ async def apply_user_timeout(user_id: int, payload: AdminSanctionTimedIn, ident:
         duration_seconds=duration_seconds,
         expires_at=expires_at,
     )
+    toast_text = f"Вам выдан таймаут на {duration_label}"
+    toast_details = f"Пункт правил: {reason}."
     note = Notif(
         user_id=uid,
         title="Таймаут",
-        text=f"Вам выдан таймаут на {duration_label}. Пункт правил: {reason}.",
+        text=f"{toast_text}. {toast_details}",
     )
     session.add(sanction)
     session.add(note)
@@ -3024,20 +3029,9 @@ async def apply_user_timeout(user_id: int, payload: AdminSanctionTimedIn, ident:
     await session.refresh(note)
 
     with suppress(Exception):
-        await sio.emit(
-            "notify",
-            {
-                "id": note.id,
-                "title": note.title,
-                "text": note.text,
-                "date": note.created_at.isoformat(),
-                "kind": "sanction",
-                "tone": "orange",
-                "ttl_ms": 15000,
-                "read": False,
-            },
-            room=f"user:{uid}",
-            namespace="/auth",
+        await emit_notify(
+            uid, note, kind="sanction",
+            toast={"kind": "timeout", "text": toast_text, "details": toast_details},
         )
     with suppress(Exception):
         await emit_sanctions_update(session, uid)
@@ -3102,21 +3096,7 @@ async def revoke_user_timeout(user_id: int, ident: Identity = Depends(get_identi
     await session.refresh(note)
 
     with suppress(Exception):
-        await sio.emit(
-            "notify",
-            {
-                "id": note.id,
-                "title": note.title,
-                "text": note.text,
-                "date": note.created_at.isoformat(),
-                "kind": "sanction",
-                "tone": "orange",
-                "ttl_ms": 15000,
-                "read": False,
-            },
-            room=f"user:{uid}",
-            namespace="/auth",
-        )
+        await emit_notify(uid, note, kind="sanction", toast={"kind": "timeout"})
     with suppress(Exception):
         await emit_sanctions_update(session, uid)
     with suppress(Exception):
@@ -3177,10 +3157,12 @@ async def apply_user_ban(user_id: int, payload: AdminSanctionBanIn, ident: Ident
         duration_seconds=None,
         expires_at=None,
     )
+    toast_text = "Вам выдан бессрочный бан"
+    toast_details = f"Пункт правил: {reason}."
     note = Notif(
         user_id=uid,
         title="Бан",
-        text=f"Вам выдан бессрочный бан. Пункт правил: {reason}.",
+        text=f"{toast_text}. {toast_details}",
     )
     session.add(sanction)
     session.add(note)
@@ -3188,20 +3170,9 @@ async def apply_user_ban(user_id: int, payload: AdminSanctionBanIn, ident: Ident
     await session.refresh(note)
 
     with suppress(Exception):
-        await sio.emit(
-            "notify",
-            {
-                "id": note.id,
-                "title": note.title,
-                "text": note.text,
-                "date": note.created_at.isoformat(),
-                "kind": "sanction",
-                "tone": "red",
-                "ttl_ms": 15000,
-                "read": False,
-            },
-            room=f"user:{uid}",
-            namespace="/auth",
+        await emit_notify(
+            uid, note, kind="sanction",
+            toast={"kind": "ban", "text": toast_text, "details": toast_details},
         )
     with suppress(Exception):
         await emit_sanctions_update(session, uid)
@@ -3261,21 +3232,7 @@ async def revoke_user_ban(user_id: int, ident: Identity = Depends(get_identity),
     await session.refresh(note)
 
     with suppress(Exception):
-        await sio.emit(
-            "notify",
-            {
-                "id": note.id,
-                "title": note.title,
-                "text": note.text,
-                "date": note.created_at.isoformat(),
-                "kind": "sanction",
-                "tone": "red",
-                "ttl_ms": 15000,
-                "read": False,
-            },
-            room=f"user:{uid}",
-            namespace="/auth",
-        )
+        await emit_notify(uid, note, kind="sanction", toast={"kind": "ban"})
     with suppress(Exception):
         await emit_sanctions_update(session, uid)
     with suppress(Exception):
@@ -3346,13 +3303,15 @@ async def apply_user_suspend(user_id: int, payload: AdminSanctionTimedIn, ident:
         duration_seconds=duration_seconds,
         expires_at=expires_at,
     )
+    toast_text = f"Вы отстранены от игр на {duration_label}"
+    toast_details = (
+        f"Пункт правил: {reason}. "
+        "Каждая проведённая игра сокращает срок отстранения на 4 часа."
+    )
     note = Notif(
         user_id=uid,
         title="Отстранение от игр",
-        text=(
-            f"Вы отстранены от игр на {duration_label}. Пункт правил: {reason}. "
-            "Каждая проведённая игра сокращает срок отстранения на 4 часа."
-        ),
+        text=f"{toast_text}. {toast_details}",
     )
     session.add(sanction)
     session.add(note)
@@ -3372,20 +3331,9 @@ async def apply_user_suspend(user_id: int, payload: AdminSanctionTimedIn, ident:
             )
 
     with suppress(Exception):
-        await sio.emit(
-            "notify",
-            {
-                "id": note.id,
-                "title": note.title,
-                "text": note.text,
-                "date": note.created_at.isoformat(),
-                "kind": "sanction",
-                "tone": "yellow",
-                "ttl_ms": 15000,
-                "read": False,
-            },
-            room=f"user:{uid}",
-            namespace="/auth",
+        await emit_notify(
+            uid, note, kind="sanction",
+            toast={"kind": "suspend", "text": toast_text, "details": toast_details},
         )
     with suppress(Exception):
         await emit_sanctions_update(session, uid)

@@ -208,9 +208,9 @@ async function deny(uid: number) {
   }
 }
 
-function onInvite(e: any) {
+function onRoomRequest(e: any) {
   const p = e?.detail
-  if (Number(p?.room_id) !== props.roomId) return
+  if (p?.kind !== 'room_request' || Number(p.room_id) !== props.roomId) return
   const uid = Number(p?.user?.id)
   if (!Number.isFinite(uid)) return
   const u = {
@@ -291,14 +291,14 @@ watch(() => props.roomId, async () => {
 }, { immediate: true })
 
 onMounted(() => {
-  window.addEventListener('auth-room_invite', onInvite)
+  window.addEventListener('auth-notify', onRoomRequest)
   window.addEventListener('auth-room_app_approved', onApproved)
   window.addEventListener('auth-room_app_revoked', onRevoked)
   window.addEventListener('room-app-seen', onSeen)
 })
 
 onBeforeUnmount(() => {
-  window.removeEventListener('auth-room_invite', onInvite)
+  window.removeEventListener('auth-notify', onRoomRequest)
   window.removeEventListener('auth-room_app_approved', onApproved)
   window.removeEventListener('auth-room_app_revoked', onRevoked)
   window.removeEventListener('room-app-seen', onSeen)

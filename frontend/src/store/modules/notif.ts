@@ -20,11 +20,6 @@ type NotifsListResponse = {
   next_before_id?: number | null
 }
 
-type WsNotePayload = Note & {
-  kind?: string
-  action?: unknown
-}
-
 function toPositiveIntOrNull(v: unknown): number | null {
   const parsed = typeof v === 'string' ? Number(v) : v
   if (typeof parsed !== 'number' || !Number.isFinite(parsed)) return null
@@ -201,21 +196,19 @@ export const useNotifStore = defineStore('notif', () => {
     if (onNotifyEv) window.removeEventListener('auth-notify', onNotifyEv)
     if (onConnectedEv) window.removeEventListener('auth-connected', onConnectedEv)
     onNotifyEv = (e: any) => {
-      const p = e?.detail as WsNotePayload | undefined
+      const p = e?.detail as Note | undefined
       if (!p || !ownerSession) return
-      if (p.kind === 'app') return
 
-      const { action, ...clean } = p
-      const id = toPositiveIntOrNull(clean?.id)
+      const id = toPositiveIntOrNull(p.id)
       if (!id) return
       if (items.value.some(x => x.id === id)) return
 
       const note: Note = {
         id,
-        title: typeof clean.title === 'string' && clean.title.trim() ? clean.title : 'Уведомление',
-        text: typeof clean.text === 'string' && clean.text.trim() ? clean.text : undefined,
-        date: clean.date,
-        read: Boolean(clean.read || locallyRead.has(id) || id <= locallyReadThrough)
+        title: typeof p.title === 'string' && p.title.trim() ? p.title : 'Уведомление',
+        text: typeof p.text === 'string' && p.text.trim() ? p.text : undefined,
+        date: p.date,
+        read: Boolean(p.read || locallyRead.has(id) || id <= locallyReadThrough)
       }
 
       items.value.unshift(note)

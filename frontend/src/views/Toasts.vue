@@ -1,8 +1,8 @@
 <template>
   <Teleport to="#desktop-teleport-root">
   <div class="toasts" @transitionend="onTransEnd">
-    <div v-for="t in items" :key="t.key" class="toast" :data-key="t.key" :class="[toastToneClass(t), { closing: t._closing }]">
-      <UiIcon class="toast-icon" :icon="toastIconVariant(t) === 'success' ? iconCheckCircle : toastIconVariant(t) === 'neutral' ? iconInfo : iconDanger" />
+    <div v-for="t in items" :key="t.key" class="toast" :data-key="t.key" :class="[toastAppearance(t.kind).tone, { closing: t._closing }]">
+      <UiIcon class="toast-icon" :icon="toastAppearance(t.kind).icon" />
       <div class="toast-div">
         <header>
           <span>{{ t.title }}</span>
@@ -21,9 +21,9 @@
               </div>
               <span class="nick">{{ toastUserName(t.user) }}</span>
             </button>
-            <div v-if="t.sanctionText" class="sanction-text">
-              <p class="sanction-text__lead">{{ t.sanctionText.lead }}</p>
-              <p class="sanction-text__details">{{ t.sanctionText.details }}</p>
+            <div v-if="t.details" class="sanction-text">
+              <p class="sanction-text__lead">{{ t.text }}</p>
+              <p class="sanction-text__details">{{ t.details }}</p>
             </div>
             <p v-else-if="t.text">{{ t.text }}</p>
           </div>
@@ -60,6 +60,7 @@ import { useNotifStore, useUserStore, inferFriendApiAction, resolveFriendsApiErr
 import { api } from '@/services/axios'
 import { alertDialog } from '@/services/confirm'
 import { canOpenMiniProfileTarget, normalizeMiniProfileUserId } from '@/services/miniProfile'
+import type { ToastAction, ToastPayload, ToastUser } from '@/services/toast'
 import { getProfileThemeOption } from '@/constants/profileThemes'
 import { getProfileThemeBadgeSources } from '@/constants/profileIcons'
 
@@ -72,6 +73,10 @@ import iconClose from '@/assets/svg/iconClose.svg'
 import iconCheckCircle from '@/assets/svg/iconCheckCircle.svg'
 import iconInfo from '@/assets/svg/iconInfo.svg'
 import iconDanger from '@/assets/svg/iconDanger.svg'
+import iconAddFriends from '@/assets/svg/iconAddFriends.svg'
+import iconInFriends from '@/assets/svg/iconInFriends.svg'
+import iconLeave from '@/assets/svg/iconLeave.svg'
+import iconPresent from '@/assets/svg/iconPresent.svg'
 import toastSoundUrl from '@/assets/audio/short.mp3'
 
 const router = useRouter()
@@ -87,54 +92,13 @@ function playToastSound(): void {
   if (result && typeof result.catch === 'function') result.catch(() => {})
 }
 
-type RouteAction = {
-  kind: 'route'
-  label: string
-  to: string
-  style?: 'primary' | 'neutral'
-}
-type ApiAction = {
-  kind: 'api'
-  label: string
-  url: string
-  method?: 'get'|'post'|'delete'|'put'
-  body?: any
-  style?: 'primary' | 'neutral'
-}
-type ToastAction = RouteAction | ApiAction
-type ToastUser = {
-  id: number
-  username?: string
-  avatar_name?: string|null
-  role?: string | null
-  theme_color?: string | null
-  theme_icon?: string | null
-}
-type ToastSanctionText = {
-  lead: string
-  details: string
-}
-
-type ToastItem = {
+type ToastItem = ToastPayload & {
   key: number
-  title: string
-  text?: string
-  date: number
-  kind?: string
-  tone?: 'yellow' | 'orange' | 'red' | 'green' | 'blue'
-  action?: ToastAction
-  actions?: ToastAction[]
-  ttl?: number
-  user?: ToastUser
-  room_id?: number
   _actionBusy?: boolean
   _closing?: boolean
-  read?: boolean
-  id?: number
-  sanctionText?: ToastSanctionText
 }
 type ToastToneClass = 'tone-yellow' | 'tone-orange' | 'tone-red' | 'tone-green' | 'tone-blue'
-type ToastIconVariant = 'success' | 'neutral' | 'attention'
+type ToastAppearance = { tone: ToastToneClass; icon: string }
 
 const items = ref<ToastItem[]>([])
 const miniProfileOpen = ref(false)
@@ -175,12 +139,12 @@ async function close(target: ToastItem | number) {
 }
 
 async function closeManual(t: ToastItem){
-  if (t.kind === 'app' && t.user?.id && t.room_id) {
+  if (t.kind === 'room_request' && t.user?.id && t.room_id) {
     try {
       window.dispatchEvent(new CustomEvent('room-app-seen', { detail: { room_id: t.room_id, user_id: t.user.id } }))
     } catch {}
   }
-  try { if (t.id && t.kind !== 'app') await notif.markReadVisible([t.id]) } catch {}
+  try { if (t.id && t.kind !== 'room_request') await notif.markReadVisible([t.id]) } catch {}
   t._closing = true
   setTimeout(() => { void close(t.key) }, 300)
 }
@@ -228,77 +192,69 @@ function onApproved(e: any) {
   const rid = Number(p.room_id)
   const uid = Number(p.user_id)
   if (!Number.isFinite(rid) || !Number.isFinite(uid)) return
-  const targets = items.value.filter(t => t.kind === 'app' && t.room_id === rid && t.user?.id === uid)
+  const targets = items.value.filter(t => t.kind === 'room_request' && t.room_id === rid && t.user?.id === uid)
   for (const t of targets) {
     t._closing = true
     setTimeout(() => { void close(t.key) }, 250)
   }
 }
 
-function toastToneClass(t: ToastItem): ToastToneClass {
-  if (t.tone && ['yellow', 'orange', 'red', 'green', 'blue'].includes(t.tone)) return `tone-${t.tone}`
-  if (['friend_accept', 'approve', 'room_invite', 'subscription', 'dc_topup', 'coin_purchase', 'dc_grant', 'host_reward'].includes(t.kind || '')) return 'tone-green'
-  if (['nickname_reset', 'avatar_reset', 'subscription_expired'].includes(t.kind || '')) return 'tone-red'
-  if (t.kind === 'subscription_expiring') return 'tone-orange'
-  return 'tone-blue'
+const defaultToastAppearance: ToastAppearance = { tone: 'tone-blue', icon: iconInfo }
+const toastAppearances = new Map<string, ToastAppearance>([
+  ['friend_request', { tone: 'tone-blue', icon: iconAddFriends }],
+  ['friend_accept', { tone: 'tone-green', icon: iconInFriends }],
+  ['room_request', { tone: 'tone-blue', icon: iconLeave }],
+  ['room_invite', { tone: 'tone-green', icon: iconLeave }],
+  ['approve', { tone: 'tone-green', icon: iconLeave }],
+  ['room_access_revoked', { tone: 'tone-red', icon: iconLeave }],
+  ['timeout', { tone: 'tone-orange', icon: iconDanger }],
+  ['suspend', { tone: 'tone-yellow', icon: iconDanger }],
+  ['ban', { tone: 'tone-red', icon: iconDanger }],
+  ['avatar_reset', { tone: 'tone-red', icon: iconDanger }],
+  ['nickname_reset', { tone: 'tone-red', icon: iconDanger }],
+  ['role_granted', { tone: 'tone-green', icon: iconCheckCircle }],
+  ['role_revoked', defaultToastAppearance],
+  ['coin_topup', { tone: 'tone-green', icon: iconPresent }],
+  ['coin_grant', { tone: 'tone-green', icon: iconPresent }],
+  ['game_reward', { tone: 'tone-green', icon: iconPresent }],
+  ['subscription_activated', { tone: 'tone-green', icon: iconPresent }],
+  ['subscription_purchase', { tone: 'tone-green', icon: iconPresent }],
+  ['subscription_gift', { tone: 'tone-green', icon: iconPresent }],
+  ['subscription_expiring', { tone: 'tone-orange', icon: iconPresent }],
+  ['subscription_expired', { tone: 'tone-red', icon: iconPresent }],
+  ['subscription_compensation', { tone: 'tone-green', icon: iconPresent }],
+  ['contact_request', defaultToastAppearance],
+  ['contact_request_reply', defaultToastAppearance],
+  ['game_winked', defaultToastAppearance],
+  ['game_wink_spotted', defaultToastAppearance],
+  ['game_knocked', defaultToastAppearance],
+])
+
+function toastAppearance(kind: string): ToastAppearance {
+  return toastAppearances.get(kind) ?? defaultToastAppearance
 }
 
-function toastIconVariant(t: ToastItem): ToastIconVariant {
-  const tone = toastToneClass(t)
-  if (tone === 'tone-green') return 'success'
-  if (tone === 'tone-blue') return 'neutral'
-  return 'attention'
-}
-
-function splitSanctionToastText(kind: string | undefined, text: string | undefined): ToastSanctionText | undefined {
-  if (kind !== 'sanction' || !text) return undefined
-
-  const marker = '. Пункт правил:'
-  const markerIndex = text.indexOf(marker)
-  if (markerIndex <= 0) return undefined
-
-  const lead = text.slice(0, markerIndex).trim()
-  const details = text.slice(markerIndex + 2).trim()
-  if (!lead || !details) return undefined
-
-  return { lead, details }
+function onToast(event: Event): void {
+  const toast = (event as CustomEvent<ToastPayload>).detail
+  if (!toast) return
+  const key = Date.now() + Math.random()
+  items.value.unshift({ ...toast, key })
+  if (!toast.silent) playToastSound()
+  window.setTimeout(() => {
+    const current = items.value.find(x => x.key === key)
+    if (!current) return
+    current._closing = true
+    window.setTimeout(() => { void close(key) }, 500)
+  }, TOAST_TTL_MS)
 }
 
 onMounted(() => {
-  window.addEventListener('toast', (e: any) => {
-    const d = e?.detail || {}
-    const key = Date.now() + Math.random()
-    const actions = Array.isArray(d.actions) ? d.actions : (d.action ? [d.action] : undefined)
-    const kind = d.kind || 'info'
-    const text = d.text ? String(d.text) : undefined
-    const t: ToastItem = {
-      key,
-      id: d.id,
-      title: d.title ?? 'Уведомление',
-      text,
-      date: d.date ? Number(new Date(d.date)) : Date.now(),
-      kind,
-      tone: d.tone,
-      action: d.action,
-      actions,
-      ttl: TOAST_TTL_MS,
-      user: d.user,
-      room_id: Number.isFinite(d.room_id) ? Number(d.room_id) : undefined,
-      sanctionText: splitSanctionToastText(kind, text),
-    }
-    items.value.unshift(t)
-    if (!d.silent) playToastSound()
-    window.setTimeout(() => {
-      const current = items.value.find(x => x.key === key)
-      if (!current) return
-      current._closing = true
-      window.setTimeout(() => { void close(key) }, 500)
-    }, t.ttl!)
-  })
+  window.addEventListener('toast', onToast)
   window.addEventListener('auth-room_app_approved', onApproved)
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('toast', onToast)
   window.removeEventListener('auth-room_app_approved', onApproved)
 })
 </script>

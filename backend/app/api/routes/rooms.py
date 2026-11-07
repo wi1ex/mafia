@@ -32,6 +32,7 @@ from ...services.profile_theme import resolve_profile_theme_state
 from ...services.blacklist import is_user_blacklisted_by
 from ...services.text_moderation import enforce_clean_text
 from ..utils import (
+    emit_notify,
     emit_rooms_upsert,
     serialize_game_for_redis,
     game_from_redis_to_model,
@@ -470,24 +471,30 @@ async def apply(room_id: int, ident: Identity = Depends(get_identity), db: Async
         return Ok()
 
     profile = await get_user_profile_cached(db, uid)
-    with suppress(Exception):
-        await sio.emit(
-            "room_invite",
-            {
-                "room_id": room_id,
-                "room_title": title,
-                "user": {
-                    "id": uid,
-                    "username": (profile or {}).get("username") or ident["username"],
-                    "avatar_name": (profile or {}).get("avatar_name"),
-                    "role": str((profile or {}).get("role") or "user"),
-                    "theme_color": (profile or {}).get("theme_color"),
-                    "theme_icon": (profile or {}).get("theme_icon"),
-                },
+    await emit_notify(
+        creator,
+        kind="room_request",
+        toast={
+            "title": "Заявка в комнату от",
+            "actions": [{
+                "kind": "api",
+                "label": "Разрешить",
+                "url": f"/rooms/{room_id}/requests/{uid}/approve",
+                "method": "post",
+            }],
+        },
+        extra={
+            "room_id": room_id,
+            "user": {
+                "id": uid,
+                "username": (profile or {}).get("username") or ident["username"],
+                "avatar_name": (profile or {}).get("avatar_name"),
+                "role": str((profile or {}).get("role") or "user"),
+                "theme_color": (profile or {}).get("theme_color"),
+                "theme_icon": (profile or {}).get("theme_icon"),
             },
-            room=f"user:{creator}",
-            namespace="/auth",
-        )
+        },
+    )
 
     details = f"Подача заявки в комнату room_id={room_id} title={title} creator={creator}"
     if creator_name:
@@ -590,24 +597,20 @@ async def approve(room_id: int, user_id: int, ident: Identity = Depends(get_iden
         return Ok()
 
     title_room = (params.get("title") or "").strip()
-    toast_title = "Доступ к комнате разрешён"
-    toast_text = f"Владелец разрешил вам вход в комнату «{title_room}»."
-
     with suppress(Exception):
         await emit_rooms_upsert(room_id)
 
+    await emit_notify(
+        user_id,
+        kind="approve",
+        toast={
+            "title": "Доступ к комнате разрешён",
+            "text": f"Владелец разрешил вам вход в комнату «{title_room}».",
+            "actions": [{"kind": "route", "label": "Перейти", "to": f"/room/{room_id}"}],
+        },
+        extra={"room_id": room_id},
+    )
     with suppress(Exception):
-        await sio.emit("notify",
-                       {"title": toast_title,
-                        "text": toast_text,
-                        "date": datetime.now(timezone.utc).isoformat(),
-                        "kind": "approve",
-                        "room_id": room_id,
-                        "action": {"kind": "route", "label": "Перейти", "to": f"/room/{room_id}"},
-                        "ttl_ms": 10000,
-                        "read": False},
-                       room=f"user:{user_id}",
-                       namespace="/auth")
         await sio.emit("room_app_approved",
                        {"room_id": room_id, "user_id": user_id},
                        room=f"user:{int(ident['id'])}",
@@ -663,20 +666,17 @@ async def deny(room_id: int, user_id: int, ident: Identity = Depends(get_identit
 
     title_room = (params.get("title") or "").strip()
     is_hidden_room = str(params.get("anonymity") or "visible") == "hidden"
-    toast_title = "Доступ к комнате отозван"
-    toast_text = f"Владелец отозвал разрешение на вход в комнату «{title_room}»."
 
+    await emit_notify(
+        user_id,
+        kind="room_access_revoked",
+        toast={
+            "title": "Доступ к комнате отозван",
+            "text": f"Владелец отозвал разрешение на вход в комнату «{title_room}».",
+        },
+        extra={"room_id": room_id},
+    )
     with suppress(Exception):
-        await sio.emit("notify",
-                       {"title": toast_title,
-                        "text": toast_text,
-                        "date": datetime.now(timezone.utc).isoformat(),
-                        "kind": "info",
-                        "room_id": room_id,
-                        "ttl_ms": 10000,
-                        "read": False},
-                       room=f"user:{user_id}",
-                       namespace="/auth")
         await sio.emit("room_app_revoked",
                        {"room_id": room_id, "user_id": user_id},
                        room=f"user:{int(ident['id'])}",

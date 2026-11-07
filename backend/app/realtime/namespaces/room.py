@@ -16,7 +16,7 @@ from ...core.logging import log_action
 from ...core.db import SessionLocal
 from ...security.parameters import get_cached_settings
 from ...schemas.realtime import StateAck, ModerateAck, JoinAck, ScreenAck, GameStartAck, GameRolePickAck, GameHostBlurAck
-from ...api.utils import game_from_redis_to_model, normalize_spectators_limit
+from ...api.utils import emit_notify, game_from_redis_to_model, normalize_spectators_limit
 from ...services.blacklist import is_user_blacklisted_by, user_has_active_subscription
 from ...services.game_scoring import RATING_MODE, normalize_game_mode, parse_game_scoring_marks
 from ...services.livekit import get_livekit_room_name, make_livekit_token, remove_livekit_participant
@@ -2362,10 +2362,17 @@ async def game_wink(sid, data):
             await r.hset(f"room:{rid}:game_winks_left", str(uid), "0")
 
         spotted = False
-        await sio.emit("game_winked",
-                       {"room_id": rid, "from_seat": seat_num},
-                       room=f"user:{target_uid}",
-                       namespace="/room")
+        await emit_notify(
+            target_uid,
+            kind="game_winked",
+            toast={
+                "title": "Вам подмигнули!",
+                "text": f"{seat_num}й игрок подмигнул вам." if seat_num > 0 else "Игрок подмигнул вам.",
+                "silent": True,
+            },
+            extra={"room_id": rid},
+            namespace="/room",
+        )
 
         if seat_target > 0 and random.random() < wink_spot_chance():
             try:
@@ -2405,10 +2412,19 @@ async def game_wink(sid, data):
 
                 if candidates:
                     witness_uid = candidates[0] if len(candidates) == 1 else random.choice(candidates)
-                    await sio.emit(
-                        "game_wink_spotted",
-                        {"room_id": rid, "from_seat": seat_num, "to_seat": seat_target},
-                        room=f"user:{witness_uid}",
+                    await emit_notify(
+                        witness_uid,
+                        kind="game_wink_spotted",
+                        toast={
+                            "title": "Вы наблюдательны!",
+                            "text": (
+                                f"Вы заметили, как {seat_num}й игрок подмигнул {seat_target}му игроку."
+                                if seat_num > 0 and seat_target > 0
+                                else "Вы заметили подмигивание."
+                            ),
+                            "silent": True,
+                        },
+                        extra={"room_id": rid},
                         namespace="/room",
                     )
                     spotted = True
@@ -2525,10 +2541,17 @@ async def game_knock(sid, data):
             left_after = 0
             await r.hset(f"room:{rid}:game_knocks_left", str(uid), "0")
 
-        await sio.emit("game_knocked",
-                       {"room_id": rid, "from_seat": seat_actor, "count": count},
-                       room=f"user:{target_uid}",
-                       namespace="/room")
+        await emit_notify(
+            target_uid,
+            kind="game_knocked",
+            toast={
+                "title": "Вам отстучали!",
+                "text": f"{seat_actor}й игрок отстучал: {count}." if seat_actor > 0 else "Игрок отстучал вам.",
+                "silent": True,
+            },
+            extra={"room_id": rid},
+            namespace="/room",
+        )
 
         await log_game_action(
             r,

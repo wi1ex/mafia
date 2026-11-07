@@ -149,7 +149,10 @@ async def moderation_update_user_additional_role(user_id: int, payload: AdminUse
     )
 
     with suppress(Exception):
-        await emit_notify(uid, note, kind="role_update", extra={"tone": "green" if granted else "blue"})
+        await emit_notify(
+            uid, note, kind="role_update",
+            toast={"kind": "role_granted" if granted else "role_revoked"},
+        )
     with suppress(Exception):
         await emit_global_chat_role_notice(
             session,
@@ -729,10 +732,12 @@ async def moderation_apply_user_timeout(user_id: int, payload: AdminSanctionTime
         duration_seconds=duration_seconds,
         expires_at=expires_at,
     )
+    toast_text = f"Вам выдан таймаут на {duration_label}"
+    toast_details = f"Пункт правил: {reason}."
     note = Notif(
         user_id=uid,
         title="Таймаут",
-        text=f"Вам выдан таймаут на {duration_label}. Пункт правил: {reason}.",
+        text=f"{toast_text}. {toast_details}",
     )
     session.add(sanction)
     session.add(note)
@@ -740,7 +745,10 @@ async def moderation_apply_user_timeout(user_id: int, payload: AdminSanctionTime
     await session.refresh(note)
 
     with suppress(Exception):
-        await emit_notify(uid, note, kind="sanction", extra={"tone": "orange"})
+        await emit_notify(
+            uid, note, kind="sanction",
+            toast={"kind": "timeout", "text": toast_text, "details": toast_details},
+        )
     with suppress(Exception):
         await emit_sanctions_update(session, uid)
     with suppress(Exception):
@@ -814,13 +822,15 @@ async def moderation_apply_user_suspend(user_id: int, payload: AdminSanctionTime
         duration_seconds=duration_seconds,
         expires_at=expires_at,
     )
+    toast_text = f"Вы отстранены от игр на {duration_label}"
+    toast_details = (
+        f"Пункт правил: {reason}. "
+        "Каждая проведённая игра сокращает срок отстранения на 4 часа."
+    )
     note = Notif(
         user_id=uid,
         title="Отстранение от игр",
-        text=(
-            f"Вы отстранены от игр на {duration_label}. Пункт правил: {reason}. "
-            "Каждая проведённая игра сокращает срок отстранения на 4 часа."
-        ),
+        text=f"{toast_text}. {toast_details}",
     )
     session.add(sanction)
     session.add(note)
@@ -840,7 +850,10 @@ async def moderation_apply_user_suspend(user_id: int, payload: AdminSanctionTime
             )
 
     with suppress(Exception):
-        await emit_notify(uid, note, kind="sanction", extra={"tone": "yellow"})
+        await emit_notify(
+            uid, note, kind="sanction",
+            toast={"kind": "suspend", "text": toast_text, "details": toast_details},
+        )
     with suppress(Exception):
         await emit_sanctions_update(session, uid)
     with suppress(Exception):
@@ -897,7 +910,7 @@ async def moderation_revoke_user_timeout(user_id: int, ident: Identity = Depends
     await session.refresh(note)
 
     with suppress(Exception):
-        await emit_notify(uid, note, kind="sanction", extra={"tone": "orange"})
+        await emit_notify(uid, note, kind="sanction", toast={"kind": "timeout"})
     with suppress(Exception):
         await emit_sanctions_update(session, uid)
     with suppress(Exception):

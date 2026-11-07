@@ -1,6 +1,6 @@
 from __future__ import annotations
 from contextlib import suppress
-from datetime import datetime, timezone
+from datetime import datetime
 from time import time
 from typing import cast
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -469,37 +469,25 @@ async def send_friend_request(user_id: int, ident: Identity = Depends(get_identi
     await db.commit()
     await db.refresh(link)
 
-    title = "Заявка в друзья от"
-    text = f"Пользователь {ident['username']} отправил вам заявку в друзья."
-
     actions = [
         {"kind": "api", "label": "Принять", "url": f"/friends/requests/{uid}/accept", "method": "post", "style": "primary"},
         {"kind": "api", "label": "Отклонить", "url": f"/friends/requests/{uid}/decline", "method": "post", "style": "neutral"},
     ]
-    with suppress(Exception):
-        await sio.emit(
-            "notify",
-            {
-                "title": title,
-                "text": text,
-                "date": datetime.now(timezone.utc).isoformat(),
-                "kind": "friend_request",
-                "ttl_ms": 15000,
-                "read": False,
-                "user": {
-                    "id": uid,
-                    "username": ident["username"],
-                    "avatar_name": (requester_profile or {}).get("avatar_name"),
-                    "role": (requester_profile or {}).get("role"),
-                    "theme_color": (requester_profile or {}).get("theme_color"),
-                    "theme_icon": (requester_profile or {}).get("theme_icon"),
-                },
-                "actions": actions,
-                "toast_text": "",
+    await emit_notify(
+        target_id,
+        kind="friend_request",
+        toast={"title": "Заявка в друзья от", "actions": actions},
+        extra={
+            "user": {
+                "id": uid,
+                "username": ident["username"],
+                "avatar_name": (requester_profile or {}).get("avatar_name"),
+                "role": (requester_profile or {}).get("role"),
+                "theme_color": (requester_profile or {}).get("theme_color"),
+                "theme_icon": (requester_profile or {}).get("theme_icon"),
             },
-            room=f"user:{target_id}",
-            namespace="/auth",
-        )
+        },
+    )
     await emit_friends_update(target_id, uid, "incoming")
     await emit_friends_update(uid, target_id, "outgoing")
 
@@ -543,31 +531,21 @@ async def accept_friend_request(user_id: int, ident: Identity = Depends(get_iden
     requester_name = cast(str | None, (requester_profile or {}).get("username"))
     accepter_profile = await get_user_profile_cached(db, uid)
 
-    title_req = "Заявка в друзья принята"
-    text_req = f"Пользователь {ident['username']} принял вашу заявку в друзья."
-    with suppress(Exception):
-        await sio.emit(
-            "notify",
-            {
-                "title": title_req,
-                "text": text_req,
-                "date": datetime.now(timezone.utc).isoformat(),
-                "kind": "friend_accept",
-                "ttl_ms": 15000,
-                "read": False,
-                "user": {
-                    "id": uid,
-                    "username": ident["username"],
-                    "avatar_name": (accepter_profile or {}).get("avatar_name"),
-                    "role": (accepter_profile or {}).get("role"),
-                    "theme_color": (accepter_profile or {}).get("theme_color"),
-                    "theme_icon": (accepter_profile or {}).get("theme_icon"),
-                },
-                "toast_text": "",
+    await emit_notify(
+        requester_id,
+        kind="friend_accept",
+        toast={"title": "Заявка в друзья принята"},
+        extra={
+            "user": {
+                "id": uid,
+                "username": ident["username"],
+                "avatar_name": (accepter_profile or {}).get("avatar_name"),
+                "role": (accepter_profile or {}).get("role"),
+                "theme_color": (accepter_profile or {}).get("theme_color"),
+                "theme_icon": (accepter_profile or {}).get("theme_icon"),
             },
-            room=f"user:{requester_id}",
-            namespace="/auth",
-        )
+        },
+    )
 
     await emit_friends_update(requester_id, uid, "friends")
     await emit_friends_update(uid, requester_id, "friends")
@@ -816,8 +794,12 @@ async def invite_friend(payload: FriendInviteIn, ident: Identity = Depends(get_i
             target_id,
             note,
             kind="room_invite",
+            toast={
+                "title": "Приглашение в комнату от",
+                "text": "",
+                "actions": [{"kind": "route", "label": "Перейти", "to": f"/room/{room_id}"}],
+            },
             extra={
-                "action": {"kind": "route", "label": "Перейти", "to": f"/room/{room_id}"},
                 "room_id": room_id,
                 "user": {
                     "id": uid,
@@ -827,8 +809,6 @@ async def invite_friend(payload: FriendInviteIn, ident: Identity = Depends(get_i
                     "theme_color": (inviter_profile or {}).get("theme_color"),
                     "theme_icon": (inviter_profile or {}).get("theme_icon"),
                 },
-                "toast_title": "Приглашение в комнату от",
-                "toast_text": f"Комната «{room_title}».",
             },
         )
     else:

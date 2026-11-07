@@ -7,6 +7,7 @@ import {
   addAuthExpiredListener,
   removeAuthExpiredListener,
 } from '@/services/axios'
+import { dispatchSocketToast } from '@/services/toast'
 
 type IoOpts = Parameters<typeof io>[1]
 
@@ -157,13 +158,8 @@ export function startAuthSocket(opts?: { onForceLogout?: () => void }): Socket {
 
   authSocket.on('notify', (payload: unknown) => {
     if (!payload || typeof payload !== 'object') return
-    const note = payload as Record<string, unknown>
-    window.dispatchEvent(new CustomEvent('auth-notify', { detail: note }))
-    if (note.no_toast) return
-    const toast = { ...note }
-    if (Object.hasOwn(note, 'toast_title')) toast.title = note.toast_title
-    if (Object.hasOwn(note, 'toast_text')) toast.text = note.toast_text
-    window.dispatchEvent(new CustomEvent('toast', { detail: toast }))
+    window.dispatchEvent(new CustomEvent('auth-notify', { detail: payload }))
+    dispatchSocketToast(payload)
   })
 
   authSocket.on('friends_update', (p:any) => {
@@ -216,22 +212,6 @@ export function startAuthSocket(opts?: { onForceLogout?: () => void }): Socket {
 
   authSocket.on('chat_unread_count', (p:any) => {
     window.dispatchEvent(new CustomEvent('auth-chat_unread_count', { detail: p }))
-  })
-
-  authSocket.on('room_invite', (p:any) => {
-    window.dispatchEvent(new CustomEvent('auth-room_invite', { detail: p }))
-    const dto = {
-      title: 'Заявка в комнату от',
-      text: `Комната «${p.room_title}».`,
-      date: new Date().toISOString(),
-      kind: 'app',
-      room_id: p.room_id,
-      user: p.user,
-      action: { kind: 'api', label: 'Разрешить', url: `/rooms/${p.room_id}/requests/${p.user.id}/approve`, method: 'post' },
-      read: true,
-      ttl_ms: 30000,
-    }
-    window.dispatchEvent(new CustomEvent('toast', { detail: dto }))
   })
 
   authSocket.on('room_app_approved', (p:any) => {

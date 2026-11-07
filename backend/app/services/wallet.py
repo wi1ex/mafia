@@ -324,7 +324,8 @@ async def notify_coin_operation(session: AsyncSession, operation: CoinPurchase, 
         if note is not None:
             from ..api.utils import emit_notify, schedule_contact_request_admin_telegram_message
 
-            await emit_notify(uid, note, kind="coins", extra={"tone": "green"})
+            toast_kind = "coin_topup" if operation.source == "lava" else "coin_grant"
+            await emit_notify(uid, note, kind="coins", toast={"kind": toast_kind})
             if operation.source == "lava":
                 user = await session.get(User, uid)
                 schedule_contact_request_admin_telegram_message(
@@ -359,7 +360,8 @@ async def notify_subscription_gift(session: AsyncSession, purchase: Subscription
         "subscription_until": purchase.ends_after.isoformat(),
         "purchase_id": purchase_id,
     }
-    recipient_extra = {"tone": "green", "subscription_gift": popup}
+    recipient_extra = {"subscription_gift": popup}
+    recipient_toast = None
     if note is not None:
         sender_profile = {}
         try:
@@ -370,24 +372,24 @@ async def notify_subscription_gift(session: AsyncSession, purchase: Subscription
                 sender_profile = await get_user_profile_cached(profile_session, sender_id) or {}
         except Exception:
             log.exception("dc.subscription_gift_sender_profile_failed", purchase_id=purchase_id)
-        recipient_extra.update({
-            "user": {
-                "id": sender_id,
-                "username": popup["sender_username"],
-                "avatar_name": sender_profile.get("avatar_name"),
-                "role": sender_profile.get("role"),
-                "theme_color": sender_profile.get("theme_color"),
-                "theme_icon": sender_profile.get("theme_icon"),
-            },
-            "toast_text": f"Срок: {popup['duration']}. Подписка действует до {format_subscription_until(purchase.ends_after)}.",
-        })
-    for uid, message, kind, no_toast, extra in (
-        (recipient_id, note, "subscription_gift", False, recipient_extra),
-        (sender_id, sender_note, "subscription", True, None),
+        recipient_extra["user"] = {
+            "id": sender_id,
+            "username": popup["sender_username"],
+            "avatar_name": sender_profile.get("avatar_name"),
+            "role": sender_profile.get("role"),
+            "theme_color": sender_profile.get("theme_color"),
+            "theme_icon": sender_profile.get("theme_icon"),
+        }
+        recipient_toast = {
+            "text": f"Срок: {popup['duration']}. Подписка действует до {format_subscription_until(purchase.ends_after)}.",
+        }
+    for uid, message, kind, no_toast, toast, extra in (
+        (recipient_id, note, "subscription_gift", False, recipient_toast, recipient_extra),
+        (sender_id, sender_note, "subscription", True, None, None),
     ):
         if message is not None:
             try:
-                await emit_notify(uid, message, kind=kind, no_toast=no_toast, extra=extra)
+                await emit_notify(uid, message, kind=kind, toast=toast, no_toast=no_toast, extra=extra)
             except Exception:
                 log.exception("dc.subscription_gift_notification_failed", purchase_id=purchase_id, user_id=uid)
     for uid in sorted({sender_id, recipient_id}):
@@ -414,7 +416,7 @@ async def notify_subscription_purchase(session: AsyncSession, purchase: Subscrip
         if note is not None:
             from ..api.utils import emit_notify
 
-            await emit_notify(uid, note, kind="subscription", extra={"tone": "green"})
+            await emit_notify(uid, note, kind="subscription", toast={"kind": "subscription_purchase"})
     except Exception:
         log.exception("dc.subscription_notification_failed", purchase_id=purchase_id)
         with suppress(Exception):

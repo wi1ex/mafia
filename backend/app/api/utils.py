@@ -8,7 +8,7 @@ from contextlib import suppress
 import structlog
 from time import perf_counter, time
 from datetime import date, datetime, timezone, timedelta
-from typing import Optional, Dict, Any, Literal, Sequence, Iterable, Mapping, cast, TYPE_CHECKING
+from typing import Optional, Dict, Any, Literal, Sequence, Iterable, Mapping, cast, TYPE_CHECKING, TypedDict
 from fastapi import Depends, HTTPException, status, Header, Request
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from sqlalchemy import update, func, select, or_, and_, delete, literal_column
@@ -1093,7 +1093,7 @@ async def adjust_active_sanction_duration(sanction_id: int, payload: AdminSancti
     await session.refresh(note)
 
     with suppress(Exception):
-        await emit_notify(uid, note, kind="sanction", extra={"tone": "orange" if kind == SANCTION_TIMEOUT else "yellow"})
+        await emit_notify(uid, note, kind="sanction", toast={"kind": kind})
     with suppress(Exception):
         await emit_sanctions_update(session, uid)
     with suppress(Exception):
@@ -1302,7 +1302,7 @@ async def revoke_active_suspend(session: AsyncSession, sanction: UserSanction, *
     await session.refresh(note)
 
     with suppress(Exception):
-        await emit_notify(uid, note, kind="sanction", extra={"tone": "yellow"})
+        await emit_notify(uid, note, kind="sanction", toast={"kind": SANCTION_SUSPEND})
     with suppress(Exception):
         await emit_sanctions_update(session, uid)
     with suppress(Exception):
@@ -1882,7 +1882,7 @@ async def notify_subscription_upsert(
     telegram_id = int(user.telegram_id or 0)
     if notify_telegram and telegram_id > 0 and not _is_admin_subscription_target(user.role):
         _schedule_subscription_telegram_message(uid, telegram_id, note.title, note.text)
-    await emit_notify(uid, note, kind="subscription", extra={"tone": "green"})
+    await emit_notify(uid, note, kind="subscription", toast={"kind": "subscription_activated"})
 
 
 async def _send_subscription_telegram_notice(session: AsyncSession, *, user_id: int, title: str, text: str) -> bool:
@@ -1904,7 +1904,7 @@ async def _send_subscription_telegram_notice(session: AsyncSession, *, user_id: 
 
 async def _create_subscription_site_notice_once(
     session: AsyncSession, user_id: int, *, title: str, text: str,
-    no_toast: bool, event_key: str, commit: bool = True, tone: str = "green",
+    no_toast: bool, event_key: str, toast_kind: str, commit: bool = True,
 ) -> Notif | None:
     uid = int(user_id)
     existing_note_id = await session.scalar(
@@ -1924,7 +1924,7 @@ async def _create_subscription_site_notice_once(
     if commit:
         await session.commit()
         await session.refresh(note)
-        await emit_notify(uid, note, kind="subscription", no_toast=no_toast, extra={"tone": tone})
+        await emit_notify(uid, note, kind="subscription", no_toast=no_toast, toast={"kind": toast_kind})
     return note
 
 
@@ -2047,17 +2047,18 @@ async def sync_expired_profile_subscriptions() -> int:
                 if removed_ids:
                     await session.execute(delete(UserBlacklist).where(UserBlacklist.owner_id == uid))
                 note = None
+                toast_kind = "subscription_expired"
                 if not _is_admin_subscription_target(user.role):
                     note = await _create_subscription_site_notice_once(
                         session, uid, title="Подписка",
                         text=("Ваша подписка истекла. Оформить подписку за DC можно "
                               "на главной странице или в личном кабинете."),
-                        no_toast=False, event_key=event_key, commit=False, tone="red",
+                        no_toast=False, event_key=event_key, toast_kind=toast_kind, commit=False,
                     )
                 await session.commit()
                 if note is not None:
                     await session.refresh(note)
-                    await emit_notify(uid, note, kind="subscription", extra={"tone": "red"})
+                    await emit_notify(uid, note, kind="subscription", toast={"kind": toast_kind})
                     await _send_subscription_telegram_notice(session, user_id=uid, title=note.title, text=note.text)
                 if old_avatar_name:
                     with suppress(Exception):
@@ -2123,17 +2124,18 @@ async def notify_expiring_profile_subscriptions() -> int:
                     f"Срок вашей подписки истекает {format_subscription_until(subscription.ends_at)}. "
                     "Продлить подписку за DC можно на главной странице или в личном кабинете."
                 )
+                toast_kind = "subscription_expiring"
                 note = await _create_subscription_site_notice_once(
                     session, uid, title="Подписка", text=text, no_toast=False,
                     event_key=_subscription_notice_event_key(uid, subscription.ends_at, event="expiring"),
-                    commit=False, tone="orange",
+                    toast_kind=toast_kind, commit=False,
                 )
                 if note is None:
                     await session.rollback()
                     continue
                 await session.commit()
                 await session.refresh(note)
-                await emit_notify(uid, note, kind="subscription", extra={"tone": "orange"})
+                await emit_notify(uid, note, kind="subscription", toast={"kind": toast_kind})
                 await _send_subscription_telegram_notice(session, user_id=uid, title=note.title, text=note.text)
                 await session.rollback()
                 notified += 1
@@ -2190,23 +2192,23 @@ async def _notify_expired_timed_sanctions(user_id: int, *, emit_chat_notice: boo
             title, text = note_data
             note = Notif(user_id=int(user_id), title=title, text=text)
             session.add(note)
-            notes.append((note, "orange" if kind == SANCTION_TIMEOUT else "yellow"))
+            notes.append((note, kind))
             chat_rows.append(sanction)
 
         if not notes:
             return
 
         await session.commit()
-        for note, _tone in notes:
+        for note, _ in notes:
             await session.refresh(note)
         if emit_chat_notice:
             for sanction in chat_rows:
                 with suppress(Exception):
                     await emit_expired_timed_sanction_chat_notice_once(session, sanction)
 
-        for note, tone in notes:
+        for note, toast_kind in notes:
             with suppress(Exception):
-                await emit_notify(int(user_id), note, kind="sanction", extra={"tone": tone})
+                await emit_notify(int(user_id), note, kind="sanction", toast={"kind": toast_kind})
 
 
 async def emit_expired_timed_sanction_chat_notice_once(session: AsyncSession, sanction: UserSanction) -> bool:
@@ -4706,7 +4708,7 @@ def build_avatar_reset_notice(user_id: int) -> Notif:
         user_id=int(user_id),
         title="Аватар",
         text=(
-            "Администрация сбросила ваш аватар. Пункт правил: 3.3."
+            "Администрация сбросила ваш аватар. Пункт правил: 3.4."
         ),
     )
 
@@ -4717,7 +4719,7 @@ def build_nickname_reset_notice(user_id: int, new_username: str) -> Notif:
         user_id=int(user_id),
         title="Никнейм",
         text=(
-            "Администрация сбросила ваш никнейм. Пункт правил: 3.3. "
+            "Администрация сбросила ваш никнейм. Пункт правил: 3.4. "
             f"Новый никнейм и логин: {username}."
         ),
     )
@@ -4740,22 +4742,39 @@ async def emit_nickname_reset_notice(user_id: int, note: Notif, *, telegram_id: 
     )
 
 
-async def emit_notify(user_id: int, note: Notif, *, kind: str, no_toast: bool = False, extra: dict | None = None) -> None:
-    payload = {
-        "id": note.id,
-        "title": note.title,
-        "text": note.text,
-        "date": note.created_at.isoformat(),
-        "kind": kind,
-        "ttl_ms": 15000,
-        "read": note.read_at is not None,
-    }
-    if no_toast:
-        payload["no_toast"] = True
-    if extra:
-        payload.update(extra)
+class ToastFields(TypedDict, total=False):
+    kind: str
+    title: str
+    text: str
+    details: str
+    actions: list[dict[str, str]]
+    silent: bool
+
+
+async def emit_notify(
+    user_id: int,
+    note: Notif | None = None,
+    *,
+    kind: str,
+    toast: ToastFields | None = None,
+    no_toast: bool = False,
+    extra: dict | None = None,
+    namespace: str = "/auth",
+) -> None:
+    payload = {**(extra or {}), "kind": kind}
+    if note is not None:
+        payload.update(id=note.id, title=note.title, text=note.text,
+                       date=note.created_at.isoformat(), read=note.read_at is not None)
+    if not no_toast:
+        payload["toast"] = {
+            "kind": kind,
+            "title": note.title if note is not None else "Уведомление",
+            "text": (note.text or "") if note is not None else "",
+            "actions": [],
+            **(toast or {}),
+        }
     with suppress(Exception):
-        await sio.emit("notify", payload, room=f"user:{int(user_id)}", namespace="/auth")
+        await sio.emit("notify", payload, room=f"user:{int(user_id)}", namespace=namespace)
 
 
 async def emit_friends_update(user_id: int, other_id: int, status: str) -> None:

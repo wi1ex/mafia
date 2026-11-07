@@ -634,13 +634,13 @@ def build_global_chat_role_changed_text(*, target_username: str, role: str, gran
 def build_global_chat_nickname_reset_text(*, previous_username: str, new_username: str) -> str:
     previous_mention = _format_chat_notice_target_mention(previous_username)
     return (
-        f"У пользователя {previous_mention} сброшен никнейм (пункт правил: 3.3)."
+        f"У пользователя {previous_mention} сброшен никнейм (пункт правил: 3.4)."
     )
 
 
 def build_global_chat_avatar_deleted_text(*, target_username: str) -> str:
     target_mention = _format_chat_notice_target_mention(target_username)
-    return f"У пользователя {target_mention} удалён аватар (пункт правил: 3.3)."
+    return f"У пользователя {target_mention} удалён аватар (пункт правил: 3.4)."
 
 
 def _message_public_dict(message: GlobalChatMessage) -> dict[str, Any]:
