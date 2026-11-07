@@ -2229,7 +2229,7 @@ watch(() => user.timeoutActive, () => {
         background-color: $neutral-white;
         transition: border-color 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
         &--admin {
-          border-color: $soft-purple-800;
+          border: 4px solid $soft-purple-200;
         }
         &--highlighted {
           border-color: $green-500;
