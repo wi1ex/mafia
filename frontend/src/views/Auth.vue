@@ -121,7 +121,7 @@ import UiSwitch from '@/components/UiSwitch.vue'
 import UiButton from '@/components/UiButton.vue'
 import UiIcon from '@/components/UiIcon.vue'
 
-import authLogoVideo from '@/assets/video/auth-logo.mp4'
+import authLogoVideo from '@/assets/video/auth-logo.webm'
 import iconClose from '@/assets/svg/iconClose.svg'
 
 const props = defineProps<{ open: boolean; mode?: 'login' | 'register' }>()

@@ -24,7 +24,7 @@ import { useGlobalChatStore } from '@/store'
 import { useSettingsStore } from '@/store'
 import { alertDialog } from '@/services/confirm'
 import { createPublicSocket, disposeAuthedSocket } from '@/services/sio'
-import rotateDeviceVideo from '@/assets/video/rotate-device.mp4'
+import rotateDeviceVideo from '@/assets/video/rotate-device.webm'
 
 import Header from '@/views/Header.vue'
 import Toast from '@/views/Toasts.vue'
