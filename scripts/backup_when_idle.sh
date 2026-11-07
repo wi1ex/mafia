@@ -6,16 +6,8 @@
 : << 'COMMENT'
 bash <<'BASH'
 set -euo pipefail
-if [[ -d /root/deceit ]]; then
-  PROJECT_DIR=/root/deceit
-elif [[ -d /root/mafia ]]; then
-  PROJECT_DIR=/root/mafia
-else
-  echo "Не найдены /root/deceit и /root/mafia" >&2
-  exit 1
-fi
-cd "$PROJECT_DIR"
-echo "Каталог проекта: $PROJECT_DIR"
+cd /root
+echo "Каталог проекта: $PWD"
 for file in \
   .env \
   scripts/backup_all.sh \
@@ -36,13 +28,13 @@ bash -n scripts/backup_all.sh
 bash -n scripts/backup_when_idle.sh
 systemd-analyze verify /etc/systemd/system/deceit-backup.service /etc/systemd/system/deceit-backup.timer
 systemctl daemon-reload
-systemctl enable --now deceit-backup.timer
+systemctl enable deceit-backup.timer
+systemctl restart deceit-backup.timer
 systemctl list-timers --all deceit-backup.timer
 BASH
 COMMENT
 
 # Called by deceit-backup.timer; one successful backup per Moscow calendar day.
-# The service selects /root/deceit first, then /root/mafia if deceit is absent.
 set -euo pipefail
 umask 077
 export TZ=Europe/Moscow
@@ -50,15 +42,14 @@ export TZ=Europe/Moscow
 log() { echo "$(date '+%F %T %Z') [INFO] $*"; }
 error() { echo "$(date '+%F %T %Z') [ERROR] $*" >&2; }
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+PROJECT_ROOT=/root
 STATE_DIR="${STATE_DIRECTORY:-/var/lib/deceit-backup}"
 SUCCESS_FILE="$STATE_DIR/last-success-date"
 
-# Check the window here as well: Persistent timers may fire after 08:00 on boot.
+# Boot and persistent timers can trigger outside the backup window.
 read -r ATTEMPT_DATE ATTEMPT_HOUR <<< "$(date '+%F %H')"
-if (( 10#$ATTEMPT_HOUR < 3 || 10#$ATTEMPT_HOUR >= 8 )); then
-  log "Outside 03:00-08:00 Europe/Moscow; waiting for the next scheduled check"
+if (( 10#$ATTEMPT_HOUR < 7 || 10#$ATTEMPT_HOUR >= 10 )); then
+  log "Outside 07:00-10:00 Europe/Moscow; waiting for the next scheduled check"
   exit 0
 fi
 
@@ -120,9 +111,9 @@ if [[ "$ROOM_COUNT" != "0" ]]; then
   exit 0
 fi
 
-# Recheck the time after the query so a delayed check cannot start after 08:00.
+# Recheck the window after querying Redis.
 read -r CURRENT_DATE CURRENT_HOUR <<< "$(date '+%F %H')"
-if [[ "$CURRENT_DATE" != "$ATTEMPT_DATE" ]] || (( 10#$CURRENT_HOUR < 3 || 10#$CURRENT_HOUR >= 8 )); then
+if [[ "$CURRENT_DATE" != "$ATTEMPT_DATE" ]] || (( 10#$CURRENT_HOUR < 7 || 10#$CURRENT_HOUR >= 10 )); then
   log "Backup window has ended; waiting for the next day"
   exit 0
 fi

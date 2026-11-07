@@ -12,5 +12,5 @@ StateDirectory=deceit-backup
 StateDirectoryMode=0700
 UMask=0077
 Environment=TZ=Europe/Moscow
-ExecStart=/usr/bin/bash -c 'if [ -d /root/deceit ]; then exec /usr/bin/bash /root/deceit/scripts/backup_when_idle.sh; elif [ -d /root/mafia ]; then exec /usr/bin/bash /root/mafia/scripts/backup_when_idle.sh; else echo "Neither /root/deceit nor /root/mafia exists" >&2; exit 1; fi'
+ExecStart=/usr/bin/bash /root/scripts/backup_when_idle.sh
 TimeoutStartSec=infinity

@@ -1,8 +1,8 @@
 [Unit]
-Description=Check Deceit rooms every 10 minutes from 03:00 to 08:00 Moscow time
+Description=Check Deceit rooms every 10 minutes from 07:00 to 10:00 Moscow time
 
 [Timer]
-OnCalendar=*-*-* 03..07:00/10:00 Europe/Moscow
+OnCalendar=*-*-* 07..09:00/10:00 Europe/Moscow
 OnBootSec=2min
 AccuracySec=1s
 Persistent=true
