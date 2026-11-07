@@ -2640,12 +2640,14 @@ onBeforeUnmount(() => {
             width: 170px;
             height: 170px;
             border-radius: 50%;
+            border: 4px solid transparent;
             object-fit: cover;
           }
         }
         .profile-block {
           display: flex;
           flex-direction: column;
+          padding: 4px 0 0;
           gap: 8px;
           height: 170px;
           .profile-div {
