@@ -468,7 +468,7 @@ onBeforeUnmount(() => { openSequence++; stopTimers(); emit('busy', false) })
     .wallet-unavailable-actions {
       display: flex;
       justify-content: center;
-      padding: 16px;
+      padding: 64px 0 16px;
     }
     :deep(.ui-button--disabled) {
       --ui-button-disabled-bg: #{$neutral-200};
