@@ -34,8 +34,8 @@
                   <strong>{{ giftRecipientName }}</strong>
                 </div>
               </div>
-              <UiSwitch v-if="tab === 'gifts' && selectedGift && !catalogError" v-model="anonymousGift" class="wallet-gift-anonymous"
-                        label="Отправить анонимно" off-label="Выкл" on-label="Вкл" theme="light" size="low"
+              <UiSwitch v-if="lockedTab === 'gifts' && !catalogError" v-model="anonymousGift" class="wallet-gift-anonymous"
+                        label="Анонимно" off-label="Нет" on-label="Да" theme="light" size="low"
                         :width="128" :disabled="busy || opening" />
             </div>
             <div v-else class="wallet-tabs" role="group" aria-label="Разделы магазина">
@@ -122,8 +122,8 @@
                 <GiftMedia :key="selectedGift.id" class="wallet-gift-preview" :media="selectedGift" animated
                            :label="`Подарок №${selectedGift.id}`" />
                 <div class="wallet-gift-actions">
-                  <UiButton class="wallet-gift-back" type="button" variant="white" size="low" :text="isGift ? 'Назад к подаркам' : 'Назад'"
-                            :disabled="busy || opening" @click="closeGiftPreview" />
+                  <UiButton class="wallet-gift-back" type="button" variant="white" size="big" :icon="iconArrowDown"
+                            text="Назад" :disabled="busy || opening" @click="closeGiftPreview" />
                   <UiButton class="wallet-action" type="submit" size="big" :text="giftButtonText" :disabled="!canBuyGift" />
                 </div>
               </form>
@@ -168,6 +168,7 @@ import coins300 from '@/assets/images/coins-300.webp'
 import coins1000 from '@/assets/images/coins-1000.webp'
 import paymentsUnavailableImage from '@/assets/images/noPayments.webp'
 
+import iconArrowDown from '@/assets/svg/iconArrowDown.svg'
 import iconClose from '@/assets/svg/iconClose.svg'
 import iconCheckCircle from '@/assets/svg/iconCheckCircle.svg'
 import iconApple from '@/assets/svg/iconApple.svg'
@@ -927,6 +928,9 @@ onBeforeUnmount(() => {
             flex-wrap: wrap;
             align-items: center;
             gap: 8px;
+            .wallet-gift-back :deep(.ui-button__icon) {
+              transform: rotate(90deg);
+            }
             .wallet-action {
               margin-left: auto;
             }
