@@ -73,10 +73,6 @@ export function isCoinPackage(value: unknown): value is CoinPackageQuantity {
   return COIN_PACKAGES.some(item => item.quantity === value)
 }
 
-export function isSubscriptionPlan(value: unknown): value is SubscriptionPlan {
-  return SUBSCRIPTION_PLANS.some(item => item.id === value)
-}
-
 export function dcMoney(unitPrice: string, quantity: number, currency: DcCurrency): string {
   const minor = moneyToMinor(unitPrice)
   if (minor === null || !Number.isSafeInteger(quantity) || quantity < 0) return '—'

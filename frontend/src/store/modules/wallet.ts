@@ -1,7 +1,7 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { api } from '@/services/axios'
-import { isSubscriptionPlan, newDcRequestId, type CoinPackageQuantity, type DcCurrency, type SubscriptionPlan } from '@/services/dc'
+import { newDcRequestId, type CoinPackageQuantity, type DcCurrency, type SubscriptionPlan } from '@/services/dc'
 import type { GiftPurchaseInput, GiftPurchaseResult } from '@/services/gifts'
 import { useUserStore } from './user'
 import { useAuthStore } from './auth'
@@ -23,25 +23,6 @@ export type WalletState = { dc_balance: number; subscription_active: boolean; su
 export type SubscriptionPurchaseResult = WalletState & { purchase_id: number; recipient_id?: number; recipient_username?: string | null }
 export type CoinPaymentMethod = 'card' | 'sbp' | 'apple_pay' | 'paypal'
 type InvoiceRequest = { quantity: CoinPackageQuantity; currency: DcCurrency; payment_method: CoinPaymentMethod; email: string; expected_amount: string; request_id: string }
-type SubscriptionRequest = { plan: SubscriptionPlan; request_id: string; recipient_id?: number }
-type GiftPurchaseRequest = GiftPurchaseInput & { request_id: string }
-type PendingRequests = { subscription?: SubscriptionRequest; gift?: GiftPurchaseRequest }
-
-function storageKey(userId: number): string { return `dc:requests:v2:${userId}` }
-function readPending(userId: number): PendingRequests {
-  try {
-    const raw = JSON.parse(sessionStorage.getItem(storageKey(userId)) || '{}') as PendingRequests
-    const validId = (id: unknown) => typeof id === 'string' && /^[a-f0-9-]{36}$/i.test(id)
-    const validPositiveInt = (value: number | undefined) => Number.isSafeInteger(value) && Number(value) > 0
-    const gift = raw.gift
-    return {
-      subscription: validId(raw.subscription?.request_id) && isSubscriptionPlan(raw.subscription?.plan) && (raw.subscription?.recipient_id === undefined || (Number.isSafeInteger(raw.subscription.recipient_id) && raw.subscription.recipient_id > 0)) ? raw.subscription : undefined,
-      gift: gift && validId(gift.request_id) && validPositiveInt(gift.gift_id) && validPositiveInt(gift.expected_dc_cost)
-        && (gift.recipient_id === undefined || validPositiveInt(gift.recipient_id))
-        && (gift.anonymous === undefined || typeof gift.anonymous === 'boolean') ? gift : undefined,
-    }
-  } catch { return {} }
-}
 
 export function dcErrorMessage(error: any): string {
   const detail = error?.response?.data?.detail
@@ -81,10 +62,10 @@ export function dcErrorMessage(error: any): string {
   if (messages[code]) return messages[code]
   if (Number(error?.response?.status) === 401) return 'Для покупок войдите в аккаунт.'
   if (Number(error?.response?.status) === 403) return 'Операция недоступна для этого аккаунта.'
-  if (Number(error?.response?.status) === 429) return 'Слишком много запросов. Повторите проверку позже.'
+  if (Number(error?.response?.status) === 429) return 'Слишком много запросов. Попробуйте позже.'
   if (Number(error?.response?.status) === 422) return 'Проверьте параметры операции.'
   if (Number(error?.response?.status) === 503) return 'Оплата временно недоступна. Попробуйте позже.'
-  return 'Не удалось получить результат. Проверьте состояние той же операции.'
+  return 'Не удалось получить результат операции.'
 }
 
 export function dcRequestUncertain(error: any): boolean {
@@ -101,7 +82,6 @@ export const useWalletStore = defineStore('wallet', () => {
   const invoiceBusy = ref(false)
   const subscriptionBusy = ref(false)
   const giftBusy = ref(false)
-  const pending = ref<PendingRequests>({})
   const ownerId = ref(0)
   let ownerSession = ''
   let refreshSequence = 0
@@ -117,19 +97,11 @@ export const useWalletStore = defineStore('wallet', () => {
       invoiceBusy.value = false
       subscriptionBusy.value = false
       giftBusy.value = false
-      pending.value = uid > 0 ? readPending(uid) : {}
     }
     return uid
   }
   function ownsRequest(uid: number, session: string): boolean {
     return uid === ownerId.value && uid === Number(user.user?.id) && session === ownerSession && session === auth.sessionId
-  }
-  function savePending(uid: number): void {
-    if (uid !== ownerId.value) return
-    try {
-      if (pending.value.subscription || pending.value.gift) sessionStorage.setItem(storageKey(uid), JSON.stringify(pending.value))
-      else sessionStorage.removeItem(storageKey(uid))
-    } catch {}
   }
   function applyState(state: Partial<WalletState>, uid: number): void {
     if (Number(user.user?.id) !== uid) return
@@ -161,75 +133,50 @@ export const useWalletStore = defineStore('wallet', () => {
       return data
     } finally { if (ownsRequest(uid, session)) invoiceBusy.value = false }
   }
-  async function buySubscription(plan?: SubscriptionPlan, recipientId?: number): Promise<SubscriptionPurchaseResult> {
+  async function buySubscription(plan: SubscriptionPlan, recipientId?: number): Promise<SubscriptionPurchaseResult> {
     const uid = ensureOwner()
     if (!uid || subscriptionBusy.value) throw new Error('operation_busy')
     const session = ownerSession
-    const replay = !!pending.value.subscription
     if (recipientId !== undefined && (!Number.isSafeInteger(recipientId) || recipientId <= 0 || recipientId === uid)) throw new Error('gift_recipient_invalid')
-    if (plan && pending.value.subscription && (pending.value.subscription.recipient_id ?? uid) !== (recipientId ?? uid)) throw new Error('pending_recipient_mismatch')
-    const request = pending.value.subscription || (plan ? { plan, request_id: newDcRequestId(), ...(recipientId === undefined ? {} : { recipient_id: recipientId }) } : null)
-    if (!request) throw new Error('request_missing')
-    pending.value.subscription = request
-    savePending(uid)
+    const request = { plan, request_id: newDcRequestId(), ...(recipientId === undefined ? {} : { recipient_id: recipientId }) }
     subscriptionBusy.value = true
     const previous = user.user
     const previousBalance = previous?.dc_balance
     const previousEnd = previous?.subscription_until
     try {
       const { data } = await api.post<SubscriptionPurchaseResult>('/payments/subscriptions', request)
-      if (!replay && ownsRequest(uid, session) && user.user === previous && user.user?.dc_balance === previousBalance && user.user?.subscription_until === previousEnd) {
-        const recipient = data.recipient_id ?? request.recipient_id ?? uid
-        applyState(recipient === uid ? data : { dc_balance: data.dc_balance }, uid)
-      }
-      if (ownsRequest(uid, session)) void refreshWallet().catch(() => {})
       if (ownsRequest(uid, session)) {
-        delete pending.value.subscription
-        savePending(uid)
+        if (user.user === previous && user.user?.dc_balance === previousBalance && user.user?.subscription_until === previousEnd) {
+          const recipient = data.recipient_id ?? recipientId ?? uid
+          applyState(recipient === uid ? data : { dc_balance: data.dc_balance }, uid)
+        }
+        void refreshWallet().catch(() => {})
         window.dispatchEvent(new CustomEvent('dc-wallet-changed', { detail: { user_id: uid } }))
       }
       return data
-    } catch (error) {
-      if (!dcRequestUncertain(error) && ownsRequest(uid, session)) {
-        delete pending.value.subscription
-        savePending(uid)
-      }
-      throw error
     } finally { if (ownsRequest(uid, session)) subscriptionBusy.value = false }
   }
 
-  async function buyGift(input?: GiftPurchaseInput): Promise<GiftPurchaseResult> {
+  async function buyGift(input: GiftPurchaseInput): Promise<GiftPurchaseResult> {
     const uid = ensureOwner()
     if (!uid || giftBusy.value || subscriptionBusy.value || invoiceBusy.value) throw new Error('operation_busy')
-    if (input && pending.value.gift) throw new Error('operation_pending')
-    const request = pending.value.gift || (input ? { ...input, request_id: newDcRequestId() } : null)
-    if (!request) throw new Error('request_missing')
+    const request = { ...input, request_id: newDcRequestId() }
     const session = ownerSession
     const previous = user.user
     const previousBalance = previous?.dc_balance
-    pending.value.gift = request
-    savePending(uid)
     giftBusy.value = true
     try {
       const { data } = await api.post<GiftPurchaseResult>('/gifts/purchases', request)
       if (ownsRequest(uid, session)) {
         if (user.user === previous && user.user?.dc_balance === previousBalance) applyState({ dc_balance: data.dc_balance }, uid)
-        delete pending.value.gift
-        savePending(uid)
         void refreshWallet().catch(() => {})
         window.dispatchEvent(new CustomEvent('dc-wallet-changed', { detail: { user_id: uid } }))
       }
       return data
-    } catch (error) {
-      if (!dcRequestUncertain(error) && ownsRequest(uid, session)) {
-        delete pending.value.gift
-        savePending(uid)
-      }
-      throw error
     } finally {
       if (ownsRequest(uid, session)) giftBusy.value = false
     }
   }
 
-  return { balance, loading, invoiceBusy, subscriptionBusy, giftBusy, pending, ensureOwner, refreshWallet, createInvoice, buySubscription, buyGift }
+  return { balance, loading, invoiceBusy, subscriptionBusy, giftBusy, ensureOwner, refreshWallet, createInvoice, buySubscription, buyGift }
 })

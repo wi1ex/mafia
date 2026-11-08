@@ -84,14 +84,7 @@
             </div>
 
             <div v-if="!lockedTab || lockedTab === 'subscription'" v-show="tab === 'subscription'" id="wallet-subscription" role="region" :aria-label="isGift ? 'Подарить подписку' : 'Покупка подписки'" class="wallet-panel">
-              <div v-if="wallet.pending.subscription" class="wallet-summary">
-                <p v-if="pendingSubscriptionMismatch">Сначала проверьте результат предыдущей покупки. {{ isGift ? 'Новый подарок ещё не отправлен.' : 'Новая покупка ещё не отправлена.' }}</p>
-                <p v-else>Проверяем результат покупки…</p>
-                <span>{{ pendingSubscriptionRecipientLabel }}</span>
-                <span>Тариф: {{ planLabel(wallet.pending.subscription.plan) }}</span>
-                <UiButton class="wallet-action" size="big" :text="wallet.subscriptionBusy ? 'Проверяем…' : pendingSubscriptionMismatch ? 'Проверить предыдущую покупку' : 'Проверить результат покупки'" :disabled="busy || opening" @click="purchaseSubscription(true)" />
-              </div>
-              <form v-else class="wallet-form" @submit.prevent="purchaseSubscription(false)">
+              <form class="wallet-form" @submit.prevent="purchaseSubscription">
                 <div class="wallet-package-grid" role="group" aria-label="Тариф подписки">
                   <button v-for="plan in SUBSCRIPTION_PLANS" :key="plan.id" class="wallet-package-card" type="button"
                           :class="{ active: subscriptionPlan === plan.id }" :aria-pressed="subscriptionPlan === plan.id"
@@ -114,19 +107,13 @@
             </div>
 
             <div v-if="tab === 'gifts'" id="wallet-gifts" role="region" aria-label="Подарки" class="wallet-panel">
-              <div v-if="wallet.pending.gift" class="wallet-summary">
-                <p>{{ pendingGiftMismatch ? 'Проверьте результат предыдущей покупки подарка во вкладке «Подарки» магазина.' : 'Сначала проверьте результат предыдущей покупки подарка.' }}</p>
-                <span>{{ pendingGiftRecipientLabel }}</span>
-                <span>Подарок №{{ wallet.pending.gift.gift_id }} · {{ wallet.pending.gift.expected_dc_cost }} DC</span>
-                <UiButton v-if="!pendingGiftMismatch" class="wallet-action" size="big" :text="wallet.giftBusy ? 'Проверяем…' : 'Проверить результат покупки'" :disabled="busy || opening" @click="purchaseGift(true)" />
-              </div>
-              <p v-else-if="catalogLoading" class="wallet-state" role="status">Загружаем подарки…</p>
-              <div v-else-if="catalogError" class="wallet-summary">
-                <p role="alert">Не удалось загрузить подарки.</p>
+              <p v-if="catalogLoading" class="wallet-state" role="status">Загружаем подарки…</p>
+              <template v-else-if="catalogError">
+                <p class="wallet-error" role="alert">Не удалось загрузить подарки.</p>
                 <UiButton size="low" text="Повторить" @click="refreshGiftCatalog" />
-              </div>
+              </template>
               <p v-else-if="!giftCatalog.length" class="wallet-state">Подарков пока нет</p>
-              <form v-else class="wallet-form" @submit.prevent="purchaseGift(false)">
+              <form v-else class="wallet-form" @submit.prevent="purchaseGift">
                 <div class="wallet-gift-grid" role="group" aria-label="Выберите подарок">
                   <button v-for="gift in giftCatalog" :key="gift.id" class="wallet-gift-card" type="button"
                           :class="{ active: selectedGiftId === gift.id }" :aria-pressed="selectedGiftId === gift.id"
@@ -257,27 +244,9 @@ const catalogError = ref(false)
 let catalogRequest: AbortController | undefined
 const armed = ref(false)
 let openSequence = 0
-let subscriptionRetryTimer: ReturnType<typeof setTimeout> | undefined
-let retriedSubscription = false
+const purchaseUnconfirmedMessage = 'Не удалось подтвердить покупку. Проверьте баланс и историю операций перед новой покупкой.'
 const restriction = computed(() => dcPurchaseRestriction(auth.isAuthed, userStore.user, settings.verificationRestrictions))
 const busy = computed(() => wallet.invoiceBusy || wallet.subscriptionBusy || wallet.giftBusy)
-const pendingSubscriptionMismatch = computed(() => !!wallet.pending.subscription && (
-  (wallet.pending.subscription.recipient_id || null) !== (giftRecipientSnapshot.value?.user_id || null)
-))
-const pendingSubscriptionRecipientLabel = computed(() => {
-  const recipientId = wallet.pending.subscription?.recipient_id
-  if (!recipientId) return 'Покупка подписки для себя'
-  const name = recipientId === giftRecipientSnapshot.value?.user_id ? giftRecipientName.value : `user${recipientId}`
-  return `Пользователю ${name}`
-})
-const pendingGiftRecipientLabel = computed(() => {
-  const request = wallet.pending.gift
-  if (!request?.recipient_id) return 'Покупка подарка для себя'
-  const recipient = request.recipient_id === giftRecipientSnapshot.value?.user_id ? giftRecipientName.value : `user${request.recipient_id}`
-  return `Пользователю ${recipient}${request.anonymous ? ' · анонимно' : ''}`
-})
-const pendingGiftMismatch = computed(() => isGift.value && !!wallet.pending.gift
-  && wallet.pending.gift.recipient_id !== giftRecipientSnapshot.value?.user_id)
 const balanceText = computed(() => new Intl.NumberFormat('ru-RU').format(wallet.balance))
 const packageAmount = computed(() => settings.dcCoinPackages[quantity.value][currency.value])
 const totalPrice = computed(() => dcMoney(packageAmount.value, 1, currency.value))
@@ -286,7 +255,7 @@ const canAffordSubscription = computed(() => wallet.balance >= selectedPlan.valu
 const canPay = computed(() => !isGift.value && settings.paymentsEnabled && !busy.value && !opening.value && !restriction.value && email.value.trim().length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim()))
 const selectedGift = computed(() => giftCatalog.value.find(item => item.id === selectedGiftId.value))
 const canBuyGift = computed(() => !!selectedGift.value && wallet.balance >= selectedGift.value.price_dc
-  && giftRecipientValid.value && !wallet.pending.gift && !busy.value && !opening.value && !catalogLoading.value && !catalogError.value)
+  && giftRecipientValid.value && !busy.value && !opening.value && !catalogLoading.value && !catalogError.value)
 const giftButtonText = computed(() => {
   if (wallet.giftBusy) return 'Покупаем…'
   if (!selectedGift.value) return 'Выберите подарок'
@@ -327,9 +296,6 @@ function onDialogKeydown(event: KeyboardEvent): void {
 }
 function saveEmail(): void {
   try { sessionStorage.setItem(`dc:email:${userStore.user?.id}`, email.value.trim().toLowerCase()) } catch {}
-}
-function stopTimers(): void {
-  clearTimeout(subscriptionRetryTimer)
 }
 function cancelGiftCatalog(): void {
   catalogRequest?.abort()
@@ -423,16 +389,16 @@ async function payCoins(): Promise<void> {
     if (!paymentOpened) closePaymentTab()
   }
 }
-async function purchaseSubscription(recover: boolean): Promise<void> {
-  if (!props.open || busy.value || !settings.paymentsEnabled || restriction.value || (!recover && (!canAffordSubscription.value || !giftRecipientValid.value || !!wallet.pending.subscription))) return
+async function purchaseSubscription(): Promise<void> {
+  if (!props.open || tab.value !== 'subscription' || busy.value || opening.value || !settings.paymentsEnabled || restriction.value || !canAffordSubscription.value || !giftRecipientValid.value) return
   error.value = ''
   const seq = openSequence
   const buyerId = userStore.user?.id
   const buyerSession = auth.sessionId
-  const purchasedPlan = recover ? wallet.pending.subscription?.plan : subscriptionPlan.value
-  const requestedRecipientId = recover ? wallet.pending.subscription?.recipient_id : giftRecipientSnapshot.value?.user_id
+  const purchasedPlan = subscriptionPlan.value
+  const requestedRecipientId = giftRecipientSnapshot.value?.user_id
   try {
-    const result = await wallet.buySubscription(recover ? undefined : subscriptionPlan.value, recover ? undefined : giftRecipientSnapshot.value?.user_id)
+    const result = await wallet.buySubscription(purchasedPlan, requestedRecipientId)
     if (seq === openSequence && props.open && auth.isAuthed && buyerId === userStore.user?.id && buyerSession === auth.sessionId) {
       emit('subscription-purchased', result)
       emit('update:open', false)
@@ -443,12 +409,12 @@ async function purchaseSubscription(recover: boolean): Promise<void> {
         if (!auth.isAuthed || buyerId !== userStore.user?.id || buyerSession !== auth.sessionId) return
         void alertDialog({
           title: 'Подписка подарена',
-          text: `Вы подарили подписку пользователю ${recipientName}.${purchasedPlan ? ` Срок: ${planLabel(purchasedPlan)}.` : ''}`,
+          text: `Вы подарили подписку пользователю ${recipientName}. Срок: ${planLabel(purchasedPlan)}.`,
         })
       }
     }
   } catch (err) {
-    if (seq !== openSequence) return
+    if (seq !== openSequence || !props.open || !auth.isAuthed || buyerId !== userStore.user?.id || buyerSession !== auth.sessionId) return
     if (handlePaymentsDisabled(err)) return
     const detail = (err as { response?: { data?: { detail?: string | { code?: string } } } })?.response?.data?.detail
     const code = typeof detail === 'object' ? detail?.code : detail
@@ -459,21 +425,17 @@ async function purchaseSubscription(recover: boolean): Promise<void> {
       return
     }
     const insufficientBalance = code === 'insufficient_dc_balance'
-    error.value = insufficientBalance ? '' : dcErrorMessage(err)
-    if (!wallet.pending.subscription) await wallet.refreshWallet().catch(() => {
+    error.value = insufficientBalance ? '' : dcRequestUncertain(err) ? purchaseUnconfirmedMessage : dcErrorMessage(err)
+    await wallet.refreshWallet().catch(() => {
       if (seq === openSequence && insufficientBalance) error.value = dcErrorMessage(err)
     })
-    else if (!retriedSubscription) {
-      retriedSubscription = true
-      subscriptionRetryTimer = setTimeout(() => { if (props.open && !restriction.value) void purchaseSubscription(true) }, 1500)
-    }
   }
 }
 
-async function purchaseGift(recover: boolean): Promise<void> {
+async function purchaseGift(): Promise<void> {
   if (!props.open || tab.value !== 'gifts' || busy.value || opening.value || !settings.paymentsEnabled || restriction.value) return
   const gift = selectedGift.value
-  if (recover ? !wallet.pending.gift || pendingGiftMismatch.value : !gift || !canBuyGift.value) return
+  if (!gift || !canBuyGift.value) return
   error.value = ''
   const seq = openSequence
   const buyerId = userStore.user?.id
@@ -482,7 +444,7 @@ async function purchaseGift(recover: boolean): Promise<void> {
   const sameBuyer = () => auth.isAuthed && buyerId === userStore.user?.id && buyerSession === auth.sessionId
   const isCurrent = () => props.open && seq === openSequence && sameBuyer()
   try {
-    const result = await wallet.buyGift(recover || !gift ? undefined : {
+    const result = await wallet.buyGift({
       gift_id: gift.id,
       expected_dc_cost: gift.price_dc,
       ...(recipient ? { recipient_id: recipient.user_id, anonymous: anonymousGift.value } : {}),
@@ -517,12 +479,13 @@ async function purchaseGift(recover: boolean): Promise<void> {
       void wallet.refreshWallet().catch(() => {})
       return
     }
-    error.value = dcErrorMessage(err)
+    const uncertain = dcRequestUncertain(err)
+    error.value = uncertain ? purchaseUnconfirmedMessage : dcErrorMessage(err)
+    if (uncertain) void wallet.refreshWallet().catch(() => {})
   }
 }
 
 watch([() => props.open, () => settings.paymentsEnabled, () => auth.sessionId], async ([open, , session], previous) => {
-  stopTimers()
   cancelGiftCatalog()
   const seq = ++openSequence
   armed.value = false
@@ -553,17 +516,11 @@ watch([() => props.open, () => settings.paymentsEnabled, () => auth.sessionId], 
   wallet.ensureOwner()
   userStore.ensureClock()
   error.value = ''; opening.value = true
-  retriedSubscription = false
   tab.value = lockedTab.value || props.initialTab || 'coins'
   if (tab.value === 'gifts') void refreshGiftCatalog()
   try { email.value = sessionStorage.getItem(`dc:email:${userStore.user?.id}`) || '' } catch {}
   try {
     await wallet.refreshWallet()
-    if (seq !== openSequence) return
-    if (wallet.pending.subscription && lockedTab.value !== 'gifts' && tab.value !== 'gifts') {
-      tab.value = 'subscription'
-      if (!pendingSubscriptionMismatch.value && giftRecipientValid.value) void purchaseSubscription(true)
-    }
   } catch (err) { if (seq === openSequence) error.value = dcErrorMessage(err) }
   finally {
     if (seq === openSequence) {
@@ -581,7 +538,6 @@ watch(tab, (next) => {
 watch([() => props.open, busy], ([open, value]) => emit('busy', open && value), { immediate: true })
 watch(restriction, reason => {
   if (props.open && reason && (userStore.user || !auth.isAuthed)) {
-    stopTimers()
     cancelGiftCatalog()
     emit('update:open', false)
     void alertDialog(reason)
@@ -598,7 +554,6 @@ watch(() => [route.query.dc_payment, route.query.invoiceId, route.query.invoice_
 onMounted(() => window.addEventListener('auth-gift_catalog_update', refreshGiftCatalog))
 onBeforeUnmount(() => {
   openSequence++
-  stopTimers()
   cancelGiftCatalog()
   window.removeEventListener('auth-gift_catalog_update', refreshGiftCatalog)
   emit('busy', false)
@@ -893,24 +848,6 @@ onBeforeUnmount(() => {
               overflow-wrap: anywhere;
             }
           }
-        }
-      }
-      .wallet-summary {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        background: $neutral-white;
-        padding: 20px;
-        border-radius: 20px;
-        strong {
-          font-family: Hauora-Bold;
-          font-size: 18px;
-        }
-        span {
-          color: $neutral-600;
-        }
-        p {
-          color: $neutral-700;
         }
       }
       .wallet-form {

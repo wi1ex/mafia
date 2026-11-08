@@ -93,7 +93,6 @@ try {
   assert.notEqual(created.input.request_id, nextRequestId)
   assert.deepEqual(created.input, { ...nextInput, request_id: created.input.request_id })
   created.resolve(response(invoice(2, 'pending', created.input.request_id))); await creation
-  assert.equal(Object.values(wallet.pending.value).every(value => value === undefined), true)
   assert.equal(wallet.invoiceBusy.value, false)
   console.log('PASS wallet invoices: fresh UUID and current input on each click, busy guard, no replay after uncertain failure or old stored invoice')
 
@@ -140,24 +139,33 @@ try {
   assert.equal(actor.user.dc_balance, 400)
   console.log('PASS wallet refresh: latest invocation wins; old session/account cannot replace wallet state or clear current loading')
 
+  const storedRequestsKey = 'dc:requests:v2:17'
+  const storedSubscriptionId = dc.newDcRequestId()
+  const storedGiftId = dc.newDcRequestId()
+  storage.set(storedRequestsKey, JSON.stringify({
+    subscription: { plan: 'year', request_id: storedSubscriptionId, recipient_id: 20 },
+    gift: { gift_id: 4, expected_dc_cost: 50, request_id: storedGiftId },
+  }))
   actor.user = profile(17, 100); auth.sessionId = 'subscription-session'; wallet.ensureOwner()
+  assert.equal(posts.length, 0)
   let purchase = wallet.buySubscription('week')
   const uncertainPurchase = posts.shift()
   assert.equal(uncertainPurchase.url, '/payments/subscriptions')
-  assert.equal(uncertainPurchase.input.plan, 'week')
+  assert.deepEqual(uncertainPurchase.input, { plan: 'week', request_id: uncertainPurchase.input.request_id })
+  assert.notEqual(uncertainPurchase.input.request_id, storedSubscriptionId)
+  await assert.rejects(wallet.buySubscription('month'), /operation_busy/)
   uncertainPurchase.reject(new Error('connection lost'))
   await assert.rejects(purchase, /connection lost/)
-  assert.deepEqual(wallet.pending.value.subscription, uncertainPurchase.input)
-  assert.deepEqual(JSON.parse(storage.get('dc:requests:v2:17')).subscription, uncertainPurchase.input)
+  assert.equal(posts.length, 0)
+  assert.equal(wallet.subscriptionBusy.value, false)
+  purchase = wallet.buySubscription('month', 18)
+  const nextPurchase = posts.shift()
+  assert.deepEqual(nextPurchase.input, { plan: 'month', request_id: nextPurchase.input.request_id, recipient_id: 18 })
+  assert.notEqual(nextPurchase.input.request_id, uncertainPurchase.input.request_id)
   actor.setWalletState({ dc_balance: 150 })
-  purchase = wallet.buySubscription()
-  const replayedPurchase = posts.shift()
-  assert.deepEqual(replayedPurchase.input, uncertainPurchase.input)
-  replayedPurchase.resolve(response({ purchase_id: 1, dc_balance: 93, subscription_until: '2027-01-01T23:00:00Z', subscription_active: true })); await purchase
+  nextPurchase.resolve(response({ purchase_id: 1, recipient_id: 18, dc_balance: 73, subscription_until: '2027-01-01T23:00:00Z', subscription_active: true })); await purchase
   assert.equal(actor.user.dc_balance, 150)
   assert.equal(actor.user.subscription_until, null)
-  assert.equal(wallet.pending.value.subscription, undefined)
-  assert.equal(storage.has('dc:requests:v2:17'), false)
   walletGets.shift().resolve(response({ dc_balance: 150, subscription_until: '2027-02-01T23:00:00Z', subscription_active: true }))
   await Promise.resolve(); await Promise.resolve()
   assert.equal(actor.user.subscription_until, '2027-02-01T23:00:00Z')
@@ -165,20 +173,41 @@ try {
   const oldPurchase = wallet.buySubscription('month')
   const oldPurchasePost = posts.shift()
   auth.sessionId = 'subscription-reauthenticated'; wallet.ensureOwner()
-  const currentPurchase = wallet.buySubscription()
+  const currentPurchase = wallet.buySubscription('month')
   const currentPurchasePost = posts.shift()
-  assert.deepEqual(currentPurchasePost.input, oldPurchasePost.input)
+  assert.notEqual(currentPurchasePost.input.request_id, oldPurchasePost.input.request_id)
   oldPurchasePost.resolve(response({ purchase_id: 2, dc_balance: 123, subscription_until: '2027-03-01T23:00:00Z', subscription_active: true })); await oldPurchase
   assert.equal(wallet.subscriptionBusy.value, true)
-  assert.deepEqual(wallet.pending.value.subscription, currentPurchasePost.input)
   assert.equal(walletGets.length, 0)
-  currentPurchasePost.resolve(response({ purchase_id: 2, dc_balance: 123, subscription_until: '2027-03-01T23:00:00Z', subscription_active: true })); await currentPurchase
+  currentPurchasePost.resolve(response({ purchase_id: 3, dc_balance: 96, subscription_until: '2027-04-01T23:00:00Z', subscription_active: true })); await currentPurchase
   assert.equal(wallet.subscriptionBusy.value, false)
-  walletGets.shift().resolve(response({ dc_balance: 123, subscription_until: '2027-03-01T23:00:00Z', subscription_active: true }))
+  assert.equal(actor.user.dc_balance, 96)
+  walletGets.shift().resolve(response({ dc_balance: 96, subscription_until: '2027-04-01T23:00:00Z', subscription_active: true }))
   await Promise.resolve(); await Promise.resolve()
-  assert.equal(actor.user.dc_balance, 123)
+  assert.equal(actor.user.subscription_until, '2027-04-01T23:00:00Z')
   assert.equal(events.filter(event => event.type === 'dc-wallet-changed').length, 2)
-  console.log('PASS wallet subscriptions: uncertain requests replay original UUID/input; receipts do not overwrite newer state; session guards preserve current pending/busy')
+  console.log('PASS wallet subscriptions: fresh UUID and current input after uncertain failure; stale receipt and session guards')
+
+  const uncertainGift = wallet.buyGift({ gift_id: 1, expected_dc_cost: 10 })
+  const uncertainGiftPost = posts.shift()
+  assert.equal(uncertainGiftPost.url, '/gifts/purchases')
+  assert.notEqual(uncertainGiftPost.input.request_id, storedGiftId)
+  uncertainGiftPost.reject(new Error('connection lost'))
+  await assert.rejects(uncertainGift, /connection lost/)
+  assert.equal(posts.length, 0)
+  assert.equal(wallet.giftBusy.value, false)
+  const giftInput = { gift_id: 2, expected_dc_cost: 25, recipient_id: 18, anonymous: true }
+  const giftPurchase = wallet.buyGift(giftInput)
+  const giftPurchasePost = posts.shift()
+  assert.deepEqual(giftPurchasePost.input, { ...giftInput, request_id: giftPurchasePost.input.request_id })
+  assert.notEqual(giftPurchasePost.input.request_id, uncertainGiftPost.input.request_id)
+  giftPurchasePost.resolve(response({ dc_balance: 71, recipient_id: 18 })); await giftPurchase
+  assert.equal(actor.user.dc_balance, 71)
+  walletGets.shift().resolve(response({ dc_balance: 71, subscription_until: '2027-04-01T23:00:00Z', subscription_active: true }))
+  await Promise.resolve(); await Promise.resolve()
+  assert.equal(JSON.parse(storage.get(storedRequestsKey)).subscription.request_id, storedSubscriptionId)
+  assert.equal(JSON.parse(storage.get(storedRequestsKey)).gift.request_id, storedGiftId)
+  console.log('PASS wallet gifts: uncertain failure leaves no replay, next purchase uses a fresh UUID and current recipient')
 
   const notifGets = []
   const notifs = moduleFrom('src/store/modules/notif.ts', {
