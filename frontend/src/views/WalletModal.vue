@@ -610,7 +610,7 @@ onBeforeUnmount(() => {
     position: relative;
     flex-direction: column;
     gap: 24px;
-    width: 800px;
+    width: 700px;
     height: 611px;
     max-width: 100%;
     max-height: 100%;
@@ -694,7 +694,8 @@ onBeforeUnmount(() => {
         padding: 2px 14px 6px 18px;
         box-sizing: border-box;
         border-radius: 0 0 18px 18px;
-        background: $neutral-white;
+        background: $green-200;
+        border: 2px solid $green-400;
         transform: translateX(-50%);
         strong {
           min-width: 0;
@@ -719,8 +720,8 @@ onBeforeUnmount(() => {
         h2 {
           font-weight: normal;
           font-family: Involve-Medium;
-          font-size: 24px;
-          line-height: 26px;
+          font-size: 32px;
+          line-height: 32px;
           letter-spacing: -0.48px;
           margin: 0;
         }
@@ -959,8 +960,8 @@ onBeforeUnmount(() => {
               gap: 10px;
               .wallet-choice {
                 flex: 1 1 auto;
-                min-width: 117px;
-                max-width: 117px;
+                min-width: 100px;
+                max-width: 100px;
               }
             }
           }
@@ -975,7 +976,7 @@ onBeforeUnmount(() => {
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 8px;
+            gap: 4px;
             min-width: 0;
             min-height: 85px;
             padding: 8px 0 12px;
@@ -1001,7 +1002,7 @@ onBeforeUnmount(() => {
               display: block;
               flex: 0 0 auto;
               width: 100%;
-              height: 100px;
+              height: 78px;
               object-fit: contain;
             }
             strong {
