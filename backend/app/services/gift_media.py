@@ -56,8 +56,10 @@ def _avif_preview(data: bytes) -> bytes:
                     if low < 255 and high > 0:
                         preview = _preview_png(animation.copy())
 
-            if preview is None or (duration_ms + 1) * MAX_GIFT_FPS < frame_count * 1000:
-                raise ValueError("avif transparency or frame rate")
+            if preview is None:
+                raise HTTPException(422, detail="gift_avif_transparency_required")
+            if (duration_ms + 1) * MAX_GIFT_FPS < frame_count * 1000:
+                raise ValueError("avif frame rate")
 
             return preview
     except (OSError, EOFError, KeyError, ValueError, RuntimeError, Image.DecompressionBombError) as exc:

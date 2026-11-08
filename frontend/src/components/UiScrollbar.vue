@@ -7,7 +7,7 @@
     aria-hidden="true"
     @pointerdown="onTrackPointerDown"
   >
-    <div class="thumb" :style="thumbStyle" @pointerdown.stop="onThumbPointerDown"></div>
+    <div ref="thumb" class="thumb" :style="thumbStyle" @pointerdown.stop="onThumbPointerDown"></div>
   </div>
 </template>
 
@@ -40,6 +40,7 @@ const visible = ref(false)
 const thumbTop = ref(0)
 const thumbHeight = ref(0)
 const track = ref<HTMLElement | null>(null)
+const thumb = ref<HTMLElement | null>(null)
 
 let targetEl: HTMLElement | null = null
 let ro: ResizeObserver | null = null
@@ -144,16 +145,17 @@ function bindTarget(el?: HTMLElement | null) {
 }
 
 function scrollToThumbCenter(clientY: number, track: HTMLElement) {
-  if (!targetEl) return
+  if (!targetEl || !thumb.value) return
 
   const trackRect = track.getBoundingClientRect()
-  const maxThumbTop = trackRect.height - thumbHeight.value
+  const renderedThumbHeight = thumb.value.getBoundingClientRect().height
+  const maxThumbTop = trackRect.height - renderedThumbHeight
   const maxScrollTop = targetEl.scrollHeight - targetEl.clientHeight
   if (maxThumbTop <= 0 || maxScrollTop <= 0) return
 
   const nextThumbTop = Math.min(
     maxThumbTop,
-    Math.max(0, clientY - trackRect.top - thumbHeight.value / 2),
+    Math.max(0, clientY - trackRect.top - renderedThumbHeight / 2),
   )
   targetEl.scrollTop = (nextThumbTop / maxThumbTop) * maxScrollTop
   update()
@@ -176,7 +178,7 @@ function onThumbPointerDown(e: PointerEvent) {
 
   const startY = e.clientY
   const startScrollTop = targetEl.scrollTop
-  const maxThumbTop = track.clientHeight - thumbHeight.value
+  const maxThumbTop = track.getBoundingClientRect().height - e.currentTarget.getBoundingClientRect().height
   const maxScrollTop = targetEl.scrollHeight - targetEl.clientHeight
 
   onThumbDragMove = (moveEvent: PointerEvent) => {

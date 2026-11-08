@@ -4412,6 +4412,7 @@ async function uploadGift(): Promise<void> {
   } catch (e: any) {
     const status = e?.response?.status
     if (status === 413) tab.error = 'Файл слишком большой. Максимальный размер — 3 МБ.'
+    else if (e?.response?.data?.detail === 'gift_avif_transparency_required') tab.error = 'В анимации нет прозрачного фона. Экспортируйте AVIF с прозрачностью.'
     else if (status === 422) tab.error = 'Нужен анимированный AVIF с прозрачным фоном. Проверьте размер кадра, длительность и частоту кадров.'
     else tab.error = 'Не удалось загрузить подарок. Попробуйте ещё раз.'
   } finally {

@@ -106,7 +106,7 @@
               </form>
             </div>
 
-            <div v-if="tab === 'gifts'" id="wallet-gifts" role="region" aria-label="Подарки" class="wallet-panel"
+            <div v-if="tab === 'gifts'" id="wallet-gifts" role="region" aria-label="Подарки" class="wallet-panel wallet-panel--gifts"
                  :class="{ 'wallet-panel--gift-detail': selectedGift && !catalogError }">
               <p v-if="catalogLoading && !selectedGift" class="wallet-state" role="status">Загружаем подарки…</p>
               <template v-else-if="catalogError">
@@ -125,13 +125,16 @@
                 </div>
               </form>
               <p v-else-if="!giftCatalog.length" class="wallet-state">Подарков пока нет</p>
-              <div v-else class="wallet-gift-grid" role="group" aria-label="Выберите подарок">
-                <button v-for="gift in giftCatalog" :key="gift.id" class="wallet-gift-card" type="button" :data-gift-id="gift.id"
-                        :aria-label="`Подарок №${gift.id}, ${gift.price_dc} DC`" :disabled="busy || opening" @click="openGiftPreview(gift.id)">
-                  <GiftMedia class="wallet-gift-media" :media="gift" />
-                  <span>{{ gift.price_dc }} DC</span>
-                </button>
-              </div>
+              <template v-else>
+                <div ref="giftList" class="wallet-gift-grid" role="group" aria-label="Выберите подарок">
+                  <button v-for="gift in giftCatalog" :key="gift.id" class="wallet-gift-card" type="button" :data-gift-id="gift.id"
+                          :aria-label="`Подарок №${gift.id}, ${gift.price_dc} DC`" :disabled="busy || opening" @click="openGiftPreview(gift.id)">
+                    <GiftMedia class="wallet-gift-media" :media="gift" />
+                    <span>{{ gift.price_dc }} DC</span>
+                  </button>
+                </div>
+                <UiScrollbar :target="giftList" />
+              </template>
             </div>
           </template>
         </section>
@@ -152,6 +155,7 @@ import GiftMedia from '@/components/GiftMedia.vue'
 import UiButton from '@/components/UiButton.vue'
 import UiIcon from '@/components/UiIcon.vue'
 import UiInput from '@/components/UiInput.vue'
+import UiScrollbar from '@/components/UiScrollbar.vue'
 import UiSwitch from '@/components/UiSwitch.vue'
 
 import imageSlide8 from '@/assets/images/carousel-image8.png'
@@ -194,6 +198,7 @@ const wallet = useWalletStore()
 const route = useRoute()
 const router = useRouter()
 const dialog = ref<HTMLElement | null>(null)
+const giftList = ref<HTMLElement | null>(null)
 const giftRecipientSnapshot = ref<GiftRecipient | null>(null)
 const lockedTab = ref<'subscription' | 'gifts' | null>(null)
 const isGift = computed(() => giftRecipientSnapshot.value !== null)
@@ -725,7 +730,8 @@ onBeforeUnmount(() => {
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 12px 16px;
+      padding: 8px 16px;
+      width: fit-content;
       border-radius: 16px;
       background: $neutral-white;
       > span {
@@ -793,14 +799,24 @@ onBeforeUnmount(() => {
       display: flex;
       flex-direction: column;
       gap: 20px;
-      &--gift-detail {
+      &--gifts {
+        position: relative;
         flex: 1 1 0;
-        min-height: 230px;
+        min-height: 0;
+        &.wallet-panel--gift-detail {
+          min-height: 230px;
+        }
       }
       .wallet-gift-grid {
         display: grid;
         grid-template-columns: repeat(5, minmax(0, 1fr));
         gap: 10px;
+        overflow-y: auto;
+        overscroll-behavior-y: contain;
+        scrollbar-width: none;
+        &::-webkit-scrollbar {
+          display: none;
+        }
         .wallet-gift-card {
           display: flex;
           flex-direction: column;
