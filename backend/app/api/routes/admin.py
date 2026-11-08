@@ -2602,25 +2602,17 @@ async def admin_gifts_list(session: AsyncSession = Depends(get_session)) -> list
 async def admin_gifts_create(
     request: Request,
     price_dc: int = Form(...),
-    webp: UploadFile | None = File(None),
-    webm: UploadFile | None = File(None),
-    hevc: UploadFile | None = File(None),
+    avif: UploadFile = File(...),
     session: AsyncSession = Depends(get_session),
 ) -> GiftAdminOut:
     if price_dc not in GIFT_PRICES:
         raise HTTPException(422, detail="gift_price_invalid")
 
     form = await request.form()
-    if any(key not in {"price_dc", "webp", "webm", "hevc"} or len(form.getlist(key)) != 1 for key in form):
+    if any(key not in {"price_dc", "avif"} or len(form.getlist(key)) != 1 for key in form):
         raise HTTPException(422, detail="gift_media_format_invalid")
 
-    webp_only = webp is not None and webm is None and hevc is None
-    video_pair = webp is None and webm is not None and hevc is not None
-    if not (webp_only or video_pair):
-        raise HTTPException(422, detail="gift_media_format_invalid")
-
-    keys = await store_gift_media(webp=await _read_gift_upload(webp), webm=await _read_gift_upload(webm),
-                                 hevc=await _read_gift_upload(hevc))
+    keys = await store_gift_media(await _read_gift_upload(avif))
     gift_id = None
     try:
         gift = Gift(price_dc=price_dc, visible=True, **keys)
@@ -2676,7 +2668,7 @@ async def admin_gifts_patch(
 @log_route("admin.gifts.delete")
 async def admin_gifts_delete(gift_id: int, session: AsyncSession = Depends(get_session)) -> Ok:
     gift = await delete_gift_and_refund(session, gift_id)
-    cleaned = await delete_gift_media((gift.preview_key, gift.webp_key, gift.webm_key, gift.hevc_key))
+    cleaned = await delete_gift_media((gift.preview_key, gift.avif_key))
     await _emit_gift_catalog_update(gift_id)
     if not cleaned:
         raise HTTPException(503, detail="gift_media_cleanup_failed")

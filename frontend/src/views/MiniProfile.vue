@@ -1259,12 +1259,12 @@ const staffActionItems = computed<StaffActionItem[]>(() => {
       },
       ...subscriptionActionItems,
       {
-        key: 'coins_credit', label: 'Выдать монеты', icon: iconSubscription,
+        key: 'coins_credit', label: 'Выдать монеты', icon: iconPresent,
         disabled: staffAdminDeletedUserActionsLocked.value || balanceSaving.value,
         ariaLabel: `Выдать монеты ${displayName.value}`,
       },
       {
-        key: 'coins_debit', label: 'Снять монеты', icon: iconSubscription,
+        key: 'coins_debit', label: 'Снять монеты', icon: iconPresent,
         disabled: staffAdminDeletedUserActionsLocked.value || balanceSaving.value || targetDcBalance.value === null || targetDcBalance.value === 0,
         ariaLabel: `Снять монеты ${displayName.value}`,
       },

@@ -1438,15 +1438,7 @@
           <form v-if="giftTab.adding" class="gift-upload" @submit.prevent="uploadGift">
             <label>
               Анимация подарка
-              <input type="file" accept=".webp,.webm,.mp4,.mov" :disabled="giftUploading" @change="selectPrimaryGiftFile" />
-            </label>
-            <label v-if="primaryGiftFormat === 'webm'">
-              HEVC с прозрачностью для Safari
-              <input ref="giftCompanionInput" type="file" accept=".mp4,.mov" :disabled="giftUploading" @change="selectCompanionGiftFile" />
-            </label>
-            <label v-else-if="primaryGiftFormat === 'hevc'">
-              WebM с прозрачностью для других браузеров
-              <input ref="giftCompanionInput" type="file" accept=".webm" :disabled="giftUploading" @change="selectCompanionGiftFile" />
+              <input type="file" accept=".avif,image/avif" :disabled="giftUploading" @change="selectGiftFile" />
             </label>
             <label>
               Цена
@@ -1454,9 +1446,9 @@
                 <option v-for="price in adminGiftPrices" :key="price" :value="price">{{ price }} DC</option>
               </select>
             </label>
-            <p class="gift-upload-hint">Один прозрачный анимированный WebP или пара WebM и HEVC. До 2 МБ на файл, 512 × 512 и 6 секунд.</p>
+            <p class="gift-upload-hint">Анимированный AVIF с прозрачным фоном. До 2 МБ, 1024 × 1024, 6 секунд и 30 кадров/с.</p>
             <div class="gift-buttons">
-              <UiButton type="submit" size="middle" :text="giftUploading ? 'Загружаем…' : 'Добавить'" :disabled="!canUploadGift || giftUploading" />
+              <UiButton type="submit" size="middle" :text="giftUploading ? 'Загружаем…' : 'Добавить'" :disabled="!giftTab.file || giftUploading" />
               <UiButton variant="white" size="middle" text="Отмена" :disabled="giftUploading" @click="closeGiftUpload()" />
             </div>
           </form>
@@ -2289,25 +2281,15 @@ function newGiftTab() {
     error: '',
     adding: false,
     uploadPrice: adminGiftPrices[0],
-    primary: null as File | null,
-    companion: null as File | null,
+    file: null as File | null,
   }
 }
 
 const giftTab = ref(newGiftTab())
 const giftUploading = ref(false)
-const giftCompanionInput = ref<HTMLInputElement | null>(null)
 const giftRowBusy = ref(new Set<number>())
 let giftCatalogController: AbortController | undefined
 
-const primaryGiftFormat = computed(() => {
-  const name = giftTab.value.primary?.name.toLowerCase() || ''
-  if (name.endsWith('.webp')) return 'webp'
-  if (name.endsWith('.webm')) return 'webm'
-  if (name.endsWith('.mov') || name.endsWith('.mp4')) return 'hevc'
-  return null
-})
-const canUploadGift = computed(() => !!primaryGiftFormat.value && (primaryGiftFormat.value === 'webp' || !!giftTab.value.companion))
 const sortedGifts = computed(() => {
   const { sort, items } = giftTab.value
   return [...items].sort((a, b) => sort === 'id' ? a.id - b.id : b[sort] - a[sort] || a.id - b.id)
@@ -4252,20 +4234,22 @@ async function loadAdminGifts(): Promise<void> {
   }
 }
 
-function selectPrimaryGiftFile(event: Event): void {
-  giftTab.value.primary = (event.target as HTMLInputElement).files?.[0] || null
-  giftTab.value.companion = null
-  if (giftCompanionInput.value) giftCompanionInput.value.value = ''
-}
-
-function selectCompanionGiftFile(event: Event): void {
-  giftTab.value.companion = (event.target as HTMLInputElement).files?.[0] || null
+function selectGiftFile(event: Event): void {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0] || null
+  if (file && !/\.avif$/i.test(file.name)) {
+    input.value = ''
+    giftTab.value.file = null
+    giftTab.value.error = 'Выберите файл AVIF.'
+    return
+  }
+  giftTab.value.file = file
+  giftTab.value.error = ''
 }
 
 function closeGiftUpload(tab = giftTab.value): void {
   tab.adding = false
-  tab.primary = null
-  tab.companion = null
+  tab.file = null
   tab.uploadPrice = adminGiftPrices[0]
 }
 
@@ -4283,12 +4267,10 @@ function applyAdminGiftChange(giftId: number, gift?: AdminGift): void {
 
 async function uploadGift(): Promise<void> {
   const tab = giftTab.value
-  const format = primaryGiftFormat.value
-  if (giftUploading.value || !canUploadGift.value || !format || !tab.primary) return
+  if (giftUploading.value || !tab.file) return
   const data = new FormData()
   data.set('price_dc', String(tab.uploadPrice))
-  data.set(format, tab.primary)
-  if (tab.companion && format !== 'webp') data.set(format === 'webm' ? 'hevc' : 'webm', tab.companion)
+  data.set('avif', tab.file)
   giftUploading.value = true
   tab.error = ''
   try {
@@ -4298,7 +4280,7 @@ async function uploadGift(): Promise<void> {
   } catch (e: any) {
     const status = e?.response?.status
     if (status === 413) tab.error = 'Файл слишком большой. Максимальный размер — 2 МБ.'
-    else if (status === 422) tab.error = 'Проверьте формат, прозрачность, размер кадра и длительность анимации.'
+    else if (status === 422) tab.error = 'Нужен анимированный AVIF с прозрачным фоном. Проверьте размер кадра, длительность и частоту кадров.'
     else tab.error = 'Не удалось загрузить подарок. Попробуйте ещё раз.'
   } finally {
     giftUploading.value = false

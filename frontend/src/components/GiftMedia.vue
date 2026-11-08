@@ -1,13 +1,12 @@
 <template>
   <span ref="container" class="gift-media" :role="label ? 'img' : undefined" :aria-label="label || undefined" :aria-hidden="label ? undefined : true">
     <img v-if="previewUrl" v-show="!animationReady" :src="previewUrl" alt="" decoding="async" />
-    <img v-if="animationUrl && animationKind === 'image'" :src="animationUrl" alt="" decoding="async" class="gift-animation" :class="{ 'gift-animation--ready': animationReady }" @load="animationReady = true" @error="onAnimationError" />
-    <video v-else-if="animationUrl" :src="animationUrl" muted loop playsinline autoplay preload="metadata" class="gift-animation" :class="{ 'gift-animation--ready': animationReady }" @playing="animationReady = true" @error="onAnimationError" />
+    <img v-if="animationUrl" :src="animationUrl" alt="" decoding="async" class="gift-animation" :class="{ 'gift-animation--ready': animationReady }" @load="animationReady = true" @error="onAnimationError" />
   </span>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { presign } from '@/services/mediaCache'
 import type { GiftMediaAsset } from '@/services/gifts'
 
@@ -20,28 +19,15 @@ const visible = ref(false)
 const seen = ref(false)
 const previewUrl = ref('')
 const animationUrl = ref('')
-const animationKind = ref<'image' | 'video'>('image')
 const animationReady = ref(false)
-const failedAnimationKeys = ref<string[]>([])
 let observer: IntersectionObserver | undefined
 
-// Prefer the alpha-compatible source for the browser and try the paired source on error.
-const prefersHevc = /AppleWebKit/i.test(navigator.userAgent) && !/Chrome\/|Chromium\/|Edg\/|OPR\//i.test(navigator.userAgent)
-const mediaKeys = computed(() => {
-  const { preview_key, webp_key, webm_key, hevc_key } = props.media
-  return { preview: preview_key, webp: webp_key, videos: prefersHevc ? [hevc_key, webm_key] : [webm_key, hevc_key] }
-})
-const animationKey = computed(() => {
-  const { webp, videos } = mediaKeys.value
-  return [webp, ...videos].find(key => key && !failedAnimationKeys.value.includes(key)) || ''
-})
-
 function onAnimationError(): void {
-  if (animationKey.value) failedAnimationKeys.value = [...failedAnimationKeys.value, animationKey.value]
+  animationReady.value = false
+  animationUrl.value = ''
 }
 
-watch(mediaKeys, () => { failedAnimationKeys.value = [] })
-watch([seen, () => mediaKeys.value.preview], async ([canLoad, key], _, onCleanup) => {
+watch([seen, () => props.media.preview_key], async ([canLoad, key], _, onCleanup) => {
   let active = true
   onCleanup(() => { active = false })
   previewUrl.value = ''
@@ -49,17 +35,14 @@ watch([seen, () => mediaKeys.value.preview], async ([canLoad, key], _, onCleanup
   const url = await presign(key).catch(() => '')
   if (active) previewUrl.value = url
 })
-watch([visible, () => props.animated, animationKey], async ([onScreen, animated, key], _, onCleanup) => {
+watch([visible, () => props.animated, () => props.media.avif_key], async ([onScreen, animated, key], _, onCleanup) => {
   let active = true
   onCleanup(() => { active = false })
   animationUrl.value = ''
   animationReady.value = false
   if (!onScreen || !animated || !key) return
   const url = await presign(key).catch(() => '')
-  if (!active) return
-  if (!url) { onAnimationError(); return }
-  animationKind.value = key === mediaKeys.value.webp ? 'image' : 'video'
-  animationUrl.value = url
+  if (active) animationUrl.value = url
 })
 
 onMounted(() => {
@@ -81,8 +64,7 @@ onBeforeUnmount(() => observer?.disconnect())
   overflow: hidden;
   width: 100%;
   height: 100%;
-  img,
-  video {
+  img {
     position: absolute;
     inset: 0;
     width: 100%;

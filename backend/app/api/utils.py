@@ -6243,10 +6243,7 @@ async def _emit_gift_catalog_update(gift_id: int) -> None:
         await sio.emit("gift_catalog_update", {"gift_id": gift_id}, namespace="/auth")
 
 
-async def _read_gift_upload(file: UploadFile | None) -> bytes | None:
-    if file is None:
-        return None
-
+async def _read_gift_upload(file: UploadFile) -> bytes:
     content = await file.read(MAX_GIFT_BYTES + 1)
     if len(content) > MAX_GIFT_BYTES:
         raise HTTPException(413, detail="gift_media_too_large")

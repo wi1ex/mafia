@@ -232,7 +232,7 @@ async def _publish_gift_changes(user_ids: set[int], payer_ids: set[int]) -> None
 def _inventory_item(acquisition: UserGift, gift: Gift, quantity: int, profiles: dict[int, UserProfile]) -> UserGiftOut:
     return UserGiftOut(
         id=acquisition.id, gift_id=gift.id, quantity=quantity, acquired_at=acquisition.acquired_at,
-        preview_key=gift.preview_key, webp_key=gift.webp_key, webm_key=gift.webm_key, hevc_key=gift.hevc_key,
+        preview_key=gift.preview_key, avif_key=gift.avif_key,
         sender=_gift_sender(acquisition, profiles),
     )
 

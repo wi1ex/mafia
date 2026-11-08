@@ -2,10 +2,8 @@ import { api } from '@/services/axios'
 import type { ToastUser } from '@/services/toast'
 
 export type GiftMediaAsset = {
-  preview_key: string | null
-  webp_key: string | null
-  webm_key: string | null
-  hevc_key: string | null
+  preview_key: string
+  avif_key: string
 }
 
 export type CatalogGift = GiftMediaAsset & {

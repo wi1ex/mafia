@@ -12,9 +12,7 @@ class GiftOut(BaseModel):
     price_dc: int
     visible: bool
     preview_key: str
-    webp_key: str | None = None
-    webm_key: str | None = None
-    hevc_key: str | None = None
+    avif_key: str
 
 
 class GiftAdminOut(GiftOut):
@@ -69,9 +67,7 @@ class UserGiftOut(BaseModel):
     quantity: int
     acquired_at: datetime
     preview_key: str
-    webp_key: str | None = None
-    webm_key: str | None = None
-    hevc_key: str | None = None
+    avif_key: str
     sender: GiftSenderOut | None = None
 
 
