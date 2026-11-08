@@ -142,7 +142,7 @@
                   <button v-for="gift in giftCatalog" :key="gift.id" class="wallet-gift-card" type="button" :data-gift-id="gift.id"
                           :aria-label="`Подарок №${gift.id}, ${gift.price_dc} DC`" :disabled="busy || opening" @click="openGiftPreview(gift.id)">
                     <GiftMedia class="wallet-gift-media" :media="gift" />
-                    <span>{{ gift.price_dc }} DC</span>
+                    <span class="wallet-package-price">{{ gift.price_dc }} DC</span>
                   </button>
                 </div>
                 <UiScrollbar :target="giftList" right="-16px" />
@@ -840,6 +840,23 @@ onBeforeUnmount(() => {
           min-height: 230px;
         }
       }
+      .wallet-package-price {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: baseline;
+        gap: 0 4px;
+        max-width: 100%;
+        margin-top: auto;
+        padding: 3px 9px;
+        box-sizing: border-box;
+        border-radius: 999px;
+        background: $green-100;
+        color: $green-700;
+        font-size: 16px;
+        line-height: 20px;
+        overflow-wrap: anywhere;
+      }
       .wallet-gift-grid {
         display: grid;
         grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -857,7 +874,7 @@ onBeforeUnmount(() => {
           gap: 6px;
           padding: 8px;
           border: 2px solid transparent;
-          border-radius: 16px;
+          border-radius: 20px;
           background: $neutral-white;
           color: $neutral-800;
           font: inherit;
@@ -872,14 +889,6 @@ onBeforeUnmount(() => {
           .wallet-gift-media {
             height: auto;
             aspect-ratio: 1;
-          }
-          > span:not(.wallet-gift-media) {
-            padding: 4px 8px;
-            border-radius: 999px;
-            background: $neutral-100;
-            font-size: 14px;
-            line-height: 16px;
-            white-space: nowrap;
           }
         }
       }
@@ -1009,7 +1018,7 @@ onBeforeUnmount(() => {
             min-width: 0;
             padding: 26px 8px 14px;
             border: 2px solid transparent;
-            border-radius: 16px;
+            border-radius: 20px;
             background: $neutral-white;
             color: $neutral-black;
             font-family: Hauora-Regular;
@@ -1081,23 +1090,6 @@ onBeforeUnmount(() => {
               line-height: 24px;
               letter-spacing: -0.6px;
               text-align: center;
-              overflow-wrap: anywhere;
-            }
-            .wallet-package-price {
-              display: flex;
-              flex-wrap: wrap;
-              justify-content: center;
-              align-items: baseline;
-              gap: 0 4px;
-              max-width: 100%;
-              margin-top: auto;
-              padding: 3px 9px;
-              box-sizing: border-box;
-              border-radius: 999px;
-              background: $green-100;
-              color: $green-700;
-              font-size: 16px;
-              line-height: 20px;
               overflow-wrap: anywhere;
             }
             &.active {
