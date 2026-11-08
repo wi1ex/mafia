@@ -5,11 +5,11 @@
         <section ref="dialog" class="wallet-modal" role="dialog" aria-modal="true" :aria-labelledby="settings.paymentsEnabled ? 'wallet-title' : 'wallet-unavailable-title'" tabindex="-1" @keydown="onDialogKeydown">
           <template v-if="!settings.paymentsEnabled">
             <div class="wallet-unavailable">
-              <img class="wallet-unavailable-art" :src="paymentsUnavailableImage" width="800" height="600" alt="" aria-hidden="true" />
               <div class="wallet-unavailable-copy">
                 <h2 id="wallet-unavailable-title">Упс! Что-то пошло не так.</h2>
                 <p>В данный момент платежи не принимаются</p>
               </div>
+              <img class="wallet-unavailable-art" :src="paymentsUnavailableImage" alt="" aria-hidden="true" />
             </div>
             <div class="wallet-unavailable-actions">
               <UiButton size="low" text="Закрыть" @click="requestClose" />
@@ -24,7 +24,7 @@
               <div class="wallet-heading">
                 <h2 id="wallet-title">{{ isGift ? lockedTab === 'gifts' ? 'Отправить подарок' : 'Подарить подписку' : 'Магазин' }}</h2>
               </div>
-              <UiButton variant="white" size="low" :icon="iconClose" aria-label="Закрыть" :disabled="busy" @click="requestClose" />
+              <UiButton class="wallet-close" variant="white" size="low" :icon="iconClose" aria-label="Закрыть" :disabled="busy" @click="requestClose" />
             </header>
             <div v-if="isGift" class="wallet-gift-recipient">
               <span>Пользователю</span>
@@ -35,7 +35,7 @@
             </div>
             <div v-else class="wallet-tabs" role="group" aria-label="Разделы магазина">
               <UiButton v-for="item in walletTabs" :key="item.id" class="wallet-choice" size="low" width="100%"
-                        :variant="tab === item.id ? 'green' : 'white'" :text="item.label"
+                        :variant="tab === item.id ? 'green' : 'white'" :icon="item.icon" :text="item.label"
                         :aria-pressed="tab === item.id" :disabled="busy || opening" @click="changeTab(item.id)" />
             </div>
             <p v-if="opening" class="wallet-state" role="status">Загрузка…</p>
@@ -44,16 +44,29 @@
 
             <div v-if="!isGift" v-show="tab === 'coins'" id="wallet-coins" role="region" aria-label="Пополнение баланса" class="wallet-panel">
               <form class="wallet-form" @submit.prevent="payCoins">
-                <UiInput id="dc-email" v-model.trim="email" type="email" autocomplete="email" label="Email для оформления платежа" placeholder="mail@example.com" mode="light" size="low" :disabled="busy || opening" />
-                <div class="wallet-currencies" role="group" aria-label="Валюта оплаты">
-                  <UiButton v-for="item in currencies" :key="item" class="wallet-choice" size="low"
-                            :variant="currency === item ? 'green' : 'white'" :text="item"
-                            :aria-pressed="currency === item" :disabled="busy" @click="selectCurrency(item)" />
-                </div>
-                <div class="wallet-payment-methods" role="group" aria-label="Способ оплаты">
-                  <UiButton v-for="method in paymentMethods" :key="method.id" class="wallet-choice" size="low"
-                            :variant="paymentMethod === method.id ? 'green' : 'white'" :text="method.label"
-                            :aria-pressed="paymentMethod === method.id" :disabled="busy || opening" @click="paymentMethod = method.id" />
+                <div class="wallet-payment-fields">
+                  <div class="wallet-payment-field">
+                    <label for="dc-email" class="wallet-payment-label">Email для оформления платежа</label>
+                    <UiInput id="dc-email" v-model.trim="email" type="email" autocomplete="email" label="" label-mode="placeholder"
+                             placeholder="mail@example.com" mode="light" size="low" :disabled="busy || opening" />
+                  </div>
+                  <div class="wallet-payment-field">
+                    <span id="wallet-currency-label" class="wallet-payment-label">Валюта оплаты</span>
+                    <div class="wallet-currencies" role="group" aria-labelledby="wallet-currency-label">
+                      <UiButton v-for="item in currencies" :key="item" class="wallet-choice" size="low"
+                                :variant="currency === item ? 'green' : 'white'" :icon="currencyIcons[item]" :text="item"
+                                :aria-pressed="currency === item" :disabled="busy" @click="selectCurrency(item)" />
+                    </div>
+                  </div>
+                  <div class="wallet-payment-field">
+                    <span id="wallet-payment-method-label" class="wallet-payment-label">Способ оплаты</span>
+                    <div class="wallet-payment-methods" role="group" aria-labelledby="wallet-payment-method-label">
+                      <UiButton v-for="method in paymentMethods" :key="method.id" class="wallet-choice" size="low"
+                                :class="{ 'wallet-choice--brand': method.colorIcon }"
+                                :variant="paymentMethod === method.id ? 'green' : 'white'" :icon="method.icon" :text="method.label"
+                                :aria-pressed="paymentMethod === method.id" :disabled="busy || opening" @click="paymentMethod = method.id" />
+                    </div>
+                  </div>
                 </div>
                 <div class="wallet-package-grid" role="group" aria-label="Пакет монет">
                   <button v-for="coinPackage in COIN_PACKAGES" :key="coinPackage.quantity" class="wallet-package-card wallet-package-card--coins" type="button"
@@ -156,6 +169,16 @@ import paymentsUnavailableImage from '@/assets/images/noPayments.webp'
 
 import iconClose from '@/assets/svg/iconClose.svg'
 import iconCheckCircle from '@/assets/svg/iconCheckCircle.svg'
+import iconApple from '@/assets/svg/iconApple.svg'
+import iconCard from '@/assets/svg/iconCard.svg'
+import iconCoin from '@/assets/svg/iconCoin.svg'
+import iconDollar from '@/assets/svg/iconDollar.svg'
+import iconEuro from '@/assets/svg/iconEuro.svg'
+import iconPaypal from '@/assets/svg/iconPaypal.svg'
+import iconPresent from '@/assets/svg/iconPresent.svg'
+import iconRouble from '@/assets/svg/iconRouble.svg'
+import iconSBP from '@/assets/svg/iconSBP.svg'
+import iconSubscribe from '@/assets/svg/iconSubscribe.svg'
 import defaultAvatar from '@/assets/svg/iconDefaultAvatarBlack.svg'
 
 type GiftRecipient = { user_id: number; username?: string | null; avatar_name?: string | null }
@@ -191,10 +214,10 @@ const giftRecipientValid = computed(() => !isGift.value || (
   && giftRecipientSnapshot.value?.user_id !== userStore.user?.id
 ))
 const tab = ref<WalletTab>('coins')
-const walletTabs: { id: WalletTab; label: string }[] = [
-  { id: 'coins', label: 'Пополнение баланса' },
-  { id: 'subscription', label: 'Покупка подписки' },
-  { id: 'gifts', label: 'Подарки' },
+const walletTabs: { id: WalletTab; label: string; icon: string }[] = [
+  { id: 'coins', label: 'Пополнение баланса', icon: iconCoin },
+  { id: 'subscription', label: 'Покупка подписки', icon: iconSubscribe },
+  { id: 'gifts', label: 'Подарки', icon: iconPresent },
 ]
 const subscriptionBenefits: readonly string[] = [
   'GIF-аватар, выбор цвета и иконки профиля',
@@ -206,12 +229,20 @@ const subscriptionBenefits: readonly string[] = [
   'безлимитное изменение никнейма и его истории',
 ]
 const currencies = DC_CURRENCIES
+const currencyIcons: Record<DcCurrency, string> = { RUB: iconRouble, USD: iconDollar, EUR: iconEuro }
 const coinPackageImages: Record<CoinPackageQuantity, string> = { 30: coins30, 100: coins100, 300: coins300, 1000: coins1000 }
 const currency = ref<DcCurrency>('RUB')
 const paymentMethod = ref<CoinPaymentMethod>('card')
-const paymentMethods = computed<readonly { id: CoinPaymentMethod; label: string }[]>(() => currency.value === 'RUB'
-  ? [{ id: 'card', label: 'Российская карта' }, { id: 'sbp', label: 'СБП' }]
-  : [{ id: 'card', label: 'Зарубежная карта' }, { id: 'apple_pay', label: 'Apple Pay' }, { id: 'paypal', label: 'PayPal' }])
+const paymentMethods = computed<readonly { id: CoinPaymentMethod; label: string; icon: string; colorIcon?: boolean }[]>(() => currency.value === 'RUB'
+  ? [
+    { id: 'card', label: 'Российская карта', icon: iconCard },
+    { id: 'sbp', label: 'СБП', icon: iconSBP, colorIcon: true },
+  ]
+  : [
+    { id: 'card', label: 'Зарубежная карта', icon: iconCard },
+    { id: 'apple_pay', label: 'Apple Pay', icon: iconApple },
+    { id: 'paypal', label: 'PayPal', icon: iconPaypal, colorIcon: true },
+  ])
 const quantity = ref<CoinPackageQuantity>(30)
 const subscriptionPlan = ref<SubscriptionPlan>('week')
 const email = ref('')
@@ -606,22 +637,14 @@ onBeforeUnmount(() => {
     line-height: 1.4;
     --ui-input-label-bg: #{$neutral-100};
     .wallet-unavailable {
-      display: grid;
-      position: relative;
-      min-height: min(420px, 55vh);
-      padding: 16px;
-      box-sizing: border-box;
-      isolation: isolate;
+      display: flex;
+      flex-direction: column;
+      padding: 32px;
       .wallet-unavailable-art {
-        position: absolute;
-        inset: 0;
-        width: 100%;
-        height: 100%;
+        margin-top: -10px;
+        height: 300px;
         object-fit: contain;
-        object-position: center bottom;
         image-rendering: pixelated;
-        opacity: 0.32;
-        z-index: -1;
       }
       .wallet-unavailable-copy {
         display: flex;
@@ -662,6 +685,14 @@ onBeforeUnmount(() => {
       justify-content: space-between;
       align-items: flex-start;
       gap: 16px;
+      .wallet-close {
+        --ui-button-height: 24px;
+        --ui-button-icon-size: 24px;
+        --ui-button-bg: transparent;
+        --ui-button-hover-bg: transparent;
+        --ui-button-disabled-bg: transparent;
+        --ui-button-hover-color: #{$green-500};
+      }
       .wallet-header-balance {
         display: flex;
         position: absolute;
@@ -751,6 +782,12 @@ onBeforeUnmount(() => {
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 8px;
       width: 100%;
+      @media (max-width: 480px) {
+        .wallet-choice {
+          --ui-button-padding-x: 4px;
+          flex-direction: column;
+        }
+      }
     }
     .wallet-choice,
     .wallet-action {
@@ -882,12 +919,37 @@ onBeforeUnmount(() => {
         display: flex;
         flex-direction: column;
         gap: 20px;
-        .wallet-currencies,
-        .wallet-payment-methods {
+        .wallet-payment-fields {
           display: flex;
-          gap: 10px;
-          .wallet-choice {
-            flex: 1;
+          flex-direction: column;
+          gap: 18px;
+          .wallet-payment-field {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) min(274px, 66%);
+            align-items: center;
+            gap: 10px;
+            .wallet-payment-label {
+              font-family: Hauora-Bold;
+              font-size: 16px;
+              line-height: 18px;
+              letter-spacing: -0.32px;
+              overflow-wrap: anywhere;
+            }
+            .wallet-currencies,
+            .wallet-payment-methods {
+              display: flex;
+              flex-wrap: wrap;
+              gap: 10px;
+              .wallet-choice {
+                flex: 1 1 auto;
+                width: auto;
+                &--brand :deep(.ui-button__icon) {
+                  background: var(--ui-icon-url) center / contain no-repeat;
+                  -webkit-mask: none;
+                  mask: none;
+                }
+              }
+            }
           }
         }
         .wallet-package-grid {
