@@ -34,7 +34,7 @@
               </div>
             </div>
             <div v-else class="wallet-tabs" role="group" aria-label="Разделы магазина">
-              <UiButton v-for="item in walletTabs" :key="item.id" class="wallet-choice" size="big" width="100%"
+              <UiButton v-for="item in walletTabs" :key="item.id" class="wallet-choice" size="middle" width="100%"
                         :class="{ 'wallet-choice--brand': item.id === 'coins' }"
                         :variant="tab === item.id ? 'green' : 'white'" :icon="item.icon" :text="item.label"
                         :aria-pressed="tab === item.id" :disabled="busy || opening" @click="changeTab(item.id)" />
@@ -79,7 +79,7 @@
                     <span>{{ dcMoney(settings.dcCoinPackages[coinPackage.quantity][currency], 1, currency) }}</span>
                   </button>
                 </div>
-                <UiButton class="wallet-action" type="submit" size="big" :text="wallet.invoiceBusy ? 'Создаём счёт…' : `Оплатить ${totalPrice}`" :disabled="!canPay" width="100%" />
+                <UiButton class="wallet-action" type="submit" size="middle" :text="wallet.invoiceBusy ? 'Создаём счёт…' : `Оплатить ${totalPrice}`" :disabled="!canPay" width="100%" />
               </form>
             </div>
 
@@ -98,7 +98,7 @@
                 <p v-else>Проверяем результат покупки…</p>
                 <span>{{ pendingSubscriptionRecipientLabel }}</span>
                 <span>Тариф: {{ planLabel(wallet.pending.subscription.plan) }}</span>
-                <UiButton class="wallet-action" size="big" :text="wallet.subscriptionBusy ? 'Проверяем…' : pendingSubscriptionMismatch ? 'Проверить предыдущую покупку' : 'Проверить результат покупки'" :disabled="busy || opening" @click="purchaseSubscription(true)" />
+                <UiButton class="wallet-action" size="middle" :text="wallet.subscriptionBusy ? 'Проверяем…' : pendingSubscriptionMismatch ? 'Проверить предыдущую покупку' : 'Проверить результат покупки'" :disabled="busy || opening" @click="purchaseSubscription(true)" />
               </div>
               <form v-else class="wallet-form" @submit.prevent="purchaseSubscription(false)">
                 <div class="wallet-package-grid" role="group" aria-label="Тариф подписки">
@@ -109,7 +109,7 @@
                     <strong>{{ plan.label }}</strong><span>{{ plan.cost }} DC</span>
                   </button>
                 </div>
-                <UiButton class="wallet-action" type="submit" size="big" :text="wallet.subscriptionBusy ? 'Покупаем…' : `${isGift ? 'Подарить' : 'Купить'} за ${selectedPlan.cost} DC${canAffordSubscription ? '' : ' — недостаточно монет'}`" :disabled="!canAffordSubscription || !giftRecipientValid || busy || opening" width="100%" />
+                <UiButton class="wallet-action" type="submit" size="middle" :text="wallet.subscriptionBusy ? 'Покупаем…' : `${isGift ? 'Подарить' : 'Купить'} за ${selectedPlan.cost} DC${canAffordSubscription ? '' : ' — недостаточно монет'}`" :disabled="!canAffordSubscription || !giftRecipientValid || busy || opening" width="100%" />
               </form>
             </div>
 
@@ -118,7 +118,7 @@
                 <p>{{ pendingGiftMismatch ? 'Проверьте результат предыдущей покупки подарка во вкладке «Подарки» магазина.' : 'Сначала проверьте результат предыдущей покупки подарка.' }}</p>
                 <span>{{ pendingGiftRecipientLabel }}</span>
                 <span>Подарок №{{ wallet.pending.gift.gift_id }} · {{ wallet.pending.gift.expected_dc_cost }} DC</span>
-                <UiButton v-if="!pendingGiftMismatch" class="wallet-action" size="big" :text="wallet.giftBusy ? 'Проверяем…' : 'Проверить результат покупки'" :disabled="busy || opening" @click="purchaseGift(true)" />
+                <UiButton v-if="!pendingGiftMismatch" class="wallet-action" size="middle" :text="wallet.giftBusy ? 'Проверяем…' : 'Проверить результат покупки'" :disabled="busy || opening" @click="purchaseGift(true)" />
               </div>
               <p v-else-if="catalogLoading" class="wallet-state" role="status">Загружаем подарки…</p>
               <div v-else-if="catalogError" class="wallet-summary">
@@ -137,7 +137,7 @@
                 </div>
                 <UiSwitch v-if="isGift" v-model="anonymousGift" label="Отправить анонимно" off-label="Выкл"
                           on-label="Вкл" theme="light" size="low" :width="128" :disabled="busy || opening" />
-                <UiButton class="wallet-action" type="submit" size="big" :text="giftButtonText" :disabled="!canBuyGift" width="100%" />
+                <UiButton class="wallet-action" type="submit" size="middle" :text="giftButtonText" :disabled="!canBuyGift" width="100%" />
               </form>
             </div>
           </template>
@@ -622,7 +622,7 @@ onBeforeUnmount(() => {
     flex-direction: column;
     gap: 24px;
     width: 800px;
-    height: 591px;
+    height: 611px;
     max-width: 100%;
     max-height: 100%;
     padding: 24px;
@@ -941,9 +941,7 @@ onBeforeUnmount(() => {
               gap: 10px;
               .wallet-choice {
                 flex: 1 1 auto;
-                width: 117px;
-                max-width: 117px;
-                min-width: 117px;
+                min-width: 114px;
               }
             }
           }
