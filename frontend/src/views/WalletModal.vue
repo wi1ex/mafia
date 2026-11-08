@@ -35,6 +35,7 @@
             </div>
             <div v-else class="wallet-tabs" role="group" aria-label="Разделы магазина">
               <UiButton v-for="item in walletTabs" :key="item.id" class="wallet-choice" size="low" width="100%"
+                        :class="{ 'wallet-choice--brand': item.id === 'coins' }"
                         :variant="tab === item.id ? 'green' : 'white'" :icon="item.icon" :text="item.label"
                         :aria-pressed="tab === item.id" :disabled="busy || opening" @click="changeTab(item.id)" />
             </div>
@@ -171,7 +172,6 @@ import iconClose from '@/assets/svg/iconClose.svg'
 import iconCheckCircle from '@/assets/svg/iconCheckCircle.svg'
 import iconApple from '@/assets/svg/iconApple.svg'
 import iconCard from '@/assets/svg/iconCard.svg'
-import iconCoin from '@/assets/svg/iconCoin.svg'
 import iconDollar from '@/assets/svg/iconDollar.svg'
 import iconEuro from '@/assets/svg/iconEuro.svg'
 import iconPaypal from '@/assets/svg/iconPaypal.svg'
@@ -215,7 +215,7 @@ const giftRecipientValid = computed(() => !isGift.value || (
 ))
 const tab = ref<WalletTab>('coins')
 const walletTabs: { id: WalletTab; label: string; icon: string }[] = [
-  { id: 'coins', label: 'Пополнение баланса', icon: iconCoin },
+  { id: 'coins', label: 'Пополнение баланса', icon: coins30 },
   { id: 'subscription', label: 'Покупка подписки', icon: iconSubscribe },
   { id: 'gifts', label: 'Подарки', icon: iconPresent },
 ]
@@ -800,6 +800,11 @@ onBeforeUnmount(() => {
     }
     .wallet-choice {
       --ui-button-padding-x: 8px;
+      &--brand :deep(.ui-button__icon) {
+        background: var(--ui-icon-url) center / contain no-repeat;
+        -webkit-mask: none;
+        mask: none;
+      }
     }
     .wallet-action {
       width: fit-content;
@@ -943,11 +948,6 @@ onBeforeUnmount(() => {
               .wallet-choice {
                 flex: 1 1 auto;
                 width: auto;
-                &--brand :deep(.ui-button__icon) {
-                  background: var(--ui-icon-url) center / contain no-repeat;
-                  -webkit-mask: none;
-                  mask: none;
-                }
               }
             }
           }
