@@ -34,7 +34,7 @@
               </div>
             </div>
             <div v-else class="wallet-tabs" role="group" aria-label="Разделы магазина">
-              <UiButton v-for="item in walletTabs" :key="item.id" class="wallet-choice" size="low" width="100%"
+              <UiButton v-for="item in walletTabs" :key="item.id" class="wallet-choice" size="big" width="100%"
                         :class="{ 'wallet-choice--brand': item.id === 'coins' }"
                         :variant="tab === item.id ? 'green' : 'white'" :icon="item.icon" :text="item.label"
                         :aria-pressed="tab === item.id" :disabled="busy || opening" @click="changeTab(item.id)" />
@@ -47,7 +47,7 @@
               <form class="wallet-form" @submit.prevent="payCoins">
                 <div class="wallet-payment-fields">
                   <div class="wallet-payment-field">
-                    <label for="dc-email" class="wallet-payment-label">Email для оформления платежа</label>
+                    <label for="dc-email" class="wallet-payment-label">Ваш Email</label>
                     <UiInput id="dc-email" v-model.trim="email" type="email" autocomplete="email" label="" label-mode="placeholder"
                              placeholder="mail@example.com" mode="light" size="low" :disabled="busy || opening" />
                   </div>
@@ -79,7 +79,7 @@
                     <span>{{ dcMoney(settings.dcCoinPackages[coinPackage.quantity][currency], 1, currency) }}</span>
                   </button>
                 </div>
-                <UiButton class="wallet-action" type="submit" size="low" :text="wallet.invoiceBusy ? 'Создаём счёт…' : `Оплатить ${totalPrice}`" :disabled="!canPay" width="100%" />
+                <UiButton class="wallet-action" type="submit" size="big" :text="wallet.invoiceBusy ? 'Создаём счёт…' : `Оплатить ${totalPrice}`" :disabled="!canPay" width="100%" />
               </form>
             </div>
 
@@ -98,7 +98,7 @@
                 <p v-else>Проверяем результат покупки…</p>
                 <span>{{ pendingSubscriptionRecipientLabel }}</span>
                 <span>Тариф: {{ planLabel(wallet.pending.subscription.plan) }}</span>
-                <UiButton class="wallet-action" size="low" :text="wallet.subscriptionBusy ? 'Проверяем…' : pendingSubscriptionMismatch ? 'Проверить предыдущую покупку' : 'Проверить результат покупки'" :disabled="busy || opening" @click="purchaseSubscription(true)" />
+                <UiButton class="wallet-action" size="big" :text="wallet.subscriptionBusy ? 'Проверяем…' : pendingSubscriptionMismatch ? 'Проверить предыдущую покупку' : 'Проверить результат покупки'" :disabled="busy || opening" @click="purchaseSubscription(true)" />
               </div>
               <form v-else class="wallet-form" @submit.prevent="purchaseSubscription(false)">
                 <div class="wallet-package-grid" role="group" aria-label="Тариф подписки">
@@ -109,7 +109,7 @@
                     <strong>{{ plan.label }}</strong><span>{{ plan.cost }} DC</span>
                   </button>
                 </div>
-                <UiButton class="wallet-action" type="submit" size="low" :text="wallet.subscriptionBusy ? 'Покупаем…' : `${isGift ? 'Подарить' : 'Купить'} за ${selectedPlan.cost} DC${canAffordSubscription ? '' : ' — недостаточно монет'}`" :disabled="!canAffordSubscription || !giftRecipientValid || busy || opening" width="100%" />
+                <UiButton class="wallet-action" type="submit" size="big" :text="wallet.subscriptionBusy ? 'Покупаем…' : `${isGift ? 'Подарить' : 'Купить'} за ${selectedPlan.cost} DC${canAffordSubscription ? '' : ' — недостаточно монет'}`" :disabled="!canAffordSubscription || !giftRecipientValid || busy || opening" width="100%" />
               </form>
             </div>
 
@@ -118,7 +118,7 @@
                 <p>{{ pendingGiftMismatch ? 'Проверьте результат предыдущей покупки подарка во вкладке «Подарки» магазина.' : 'Сначала проверьте результат предыдущей покупки подарка.' }}</p>
                 <span>{{ pendingGiftRecipientLabel }}</span>
                 <span>Подарок №{{ wallet.pending.gift.gift_id }} · {{ wallet.pending.gift.expected_dc_cost }} DC</span>
-                <UiButton v-if="!pendingGiftMismatch" class="wallet-action" size="low" :text="wallet.giftBusy ? 'Проверяем…' : 'Проверить результат покупки'" :disabled="busy || opening" @click="purchaseGift(true)" />
+                <UiButton v-if="!pendingGiftMismatch" class="wallet-action" size="big" :text="wallet.giftBusy ? 'Проверяем…' : 'Проверить результат покупки'" :disabled="busy || opening" @click="purchaseGift(true)" />
               </div>
               <p v-else-if="catalogLoading" class="wallet-state" role="status">Загружаем подарки…</p>
               <div v-else-if="catalogError" class="wallet-summary">
@@ -137,7 +137,7 @@
                 </div>
                 <UiSwitch v-if="isGift" v-model="anonymousGift" label="Отправить анонимно" off-label="Выкл"
                           on-label="Вкл" theme="light" size="low" :width="128" :disabled="busy || opening" />
-                <UiButton class="wallet-action" type="submit" size="low" :text="giftButtonText" :disabled="!canBuyGift" width="100%" />
+                <UiButton class="wallet-action" type="submit" size="big" :text="giftButtonText" :disabled="!canBuyGift" width="100%" />
               </form>
             </div>
           </template>
@@ -215,8 +215,8 @@ const giftRecipientValid = computed(() => !isGift.value || (
 ))
 const tab = ref<WalletTab>('coins')
 const walletTabs: { id: WalletTab; label: string; icon: string }[] = [
-  { id: 'coins', label: 'Пополнение баланса', icon: coins30 },
-  { id: 'subscription', label: 'Покупка подписки', icon: iconSubscribe },
+  { id: 'coins', label: 'Баланс', icon: coins30 },
+  { id: 'subscription', label: 'Подписка', icon: iconSubscribe },
   { id: 'gifts', label: 'Подарки', icon: iconPresent },
 ]
 const subscriptionBenefits: readonly string[] = [
@@ -235,12 +235,12 @@ const currency = ref<DcCurrency>('RUB')
 const paymentMethod = ref<CoinPaymentMethod>('card')
 const paymentMethods = computed<readonly { id: CoinPaymentMethod; label: string; icon: string; colorIcon?: boolean }[]>(() => currency.value === 'RUB'
   ? [
-    { id: 'card', label: 'Российская карта', icon: iconCard },
+    { id: 'card', label: 'Карта', icon: iconCard },
     { id: 'sbp', label: 'СБП', icon: iconSBP, colorIcon: true },
   ]
   : [
-    { id: 'card', label: 'Зарубежная карта', icon: iconCard },
-    { id: 'apple_pay', label: 'Apple Pay', icon: iconApple },
+    { id: 'card', label: 'Карта', icon: iconCard },
+    { id: 'apple_pay', label: 'ApplePay', icon: iconApple },
     { id: 'paypal', label: 'PayPal', icon: iconPaypal, colorIcon: true },
   ])
 const quantity = ref<CoinPackageQuantity>(30)
@@ -620,9 +620,9 @@ onBeforeUnmount(() => {
     display: flex;
     position: relative;
     flex-direction: column;
-    gap: 20px;
+    gap: 24px;
     width: 800px;
-    height: 616px;
+    height: 591px;
     max-width: 100%;
     max-height: 100%;
     padding: 24px;
@@ -782,12 +782,6 @@ onBeforeUnmount(() => {
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 8px;
       width: 100%;
-      @media (max-width: 480px) {
-        .wallet-choice {
-          --ui-button-padding-x: 4px;
-          flex-direction: column;
-        }
-      }
     }
     .wallet-choice,
     .wallet-action {
@@ -923,14 +917,14 @@ onBeforeUnmount(() => {
       .wallet-form {
         display: flex;
         flex-direction: column;
-        gap: 20px;
+        gap: 24px;
         .wallet-payment-fields {
           display: flex;
           flex-direction: column;
-          gap: 18px;
+          gap: 16px;
           .wallet-payment-field {
             display: grid;
-            grid-template-columns: minmax(0, 1fr) min(274px, 66%);
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
             align-items: center;
             gap: 10px;
             .wallet-payment-label {
@@ -943,11 +937,13 @@ onBeforeUnmount(() => {
             .wallet-currencies,
             .wallet-payment-methods {
               display: flex;
-              flex-wrap: wrap;
+              justify-content: flex-end;
               gap: 10px;
               .wallet-choice {
                 flex: 1 1 auto;
-                width: auto;
+                width: 117px;
+                max-width: 117px;
+                min-width: 117px;
               }
             }
           }
@@ -956,9 +952,6 @@ onBeforeUnmount(() => {
           display: grid;
           grid-template-columns: repeat(4, minmax(0, 1fr));
           gap: 12px;
-          @media (max-width: 600px) {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-          }
           .wallet-package-card {
             display: flex;
             position: relative;
