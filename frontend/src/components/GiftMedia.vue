@@ -1,7 +1,7 @@
 <template>
   <span ref="container" class="gift-media" :role="label ? 'img' : undefined" :aria-label="label || undefined" :aria-hidden="label ? undefined : true">
-    <img v-if="previewUrl" v-show="!animationReady" :src="previewUrl" alt="" decoding="async" />
-    <img v-if="animationUrl" :src="animationUrl" alt="" decoding="async" class="gift-animation" :class="{ 'gift-animation--ready': animationReady }" @load="animationReady = true" @error="onAnimationError" />
+    <img v-if="previewUrl" v-show="!animationReady" :src="previewUrl" alt="" decoding="async" @load="emit('load')" />
+    <img v-if="animationUrl" :src="animationUrl" alt="" decoding="async" class="gift-animation" :class="{ 'gift-animation--ready': animationReady }" @load="onAnimationLoad" @error="onAnimationError" />
   </span>
 </template>
 
@@ -13,6 +13,7 @@ import type { GiftMediaAsset } from '@/services/gifts'
 const props = withDefaults(defineProps<{ media: GiftMediaAsset; animated?: boolean; label?: string }>(), {
   animated: false,
 })
+const emit = defineEmits<{ load: [] }>()
 
 const container = ref<HTMLElement | null>(null)
 const visible = ref(false)
@@ -21,6 +22,11 @@ const previewUrl = ref('')
 const animationUrl = ref('')
 const animationReady = ref(false)
 let observer: IntersectionObserver | undefined
+
+function onAnimationLoad(): void {
+  animationReady.value = true
+  emit('load')
+}
 
 function onAnimationError(): void {
   animationReady.value = false

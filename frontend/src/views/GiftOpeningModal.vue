@@ -3,31 +3,99 @@
     <dialog ref="dialog" class="gift-opening" aria-labelledby="gift-opening-title" @cancel.prevent="close" @click.self="close">
       <div class="gift-opening-content">
         <h2 id="gift-opening-title">Подарок</h2>
+        <UiButton class="gift-opening-close" variant="white" size="low" :icon="iconClose" aria-label="Закрыть" autofocus @click="close" />
         <div class="gift-opening-stage">
-          <div v-if="revealed" class="gift-reveal">
-            <GiftMedia :media="gift" :label="`Подарок №${gift.gift_id}`" />
+          <img v-if="openingUrl" class="gift-opening-animation" :src="openingUrl" alt=""
+               @load="startRevealTimer" @error="revealGift" />
+          <div class="gift-reveal" :class="{ 'gift-reveal--visible': giftVisible }" :aria-hidden="!giftVisible">
+            <GiftMedia :media="gift" :animated="revealed && !reducedMotion" :label="`Подарок №${gift.gift_id}`" @load="giftLoaded = true" />
           </div>
-          <UiIcon v-else class="gift-box" :icon="iconPresent" />
         </div>
-        <UiButton size="middle" text="Закрыть" autofocus @click="close" />
+        <div class="gift-opening-actions">
+          <UiButton v-if="revealed" size="middle" text="Посмотреть в профиле" :disabled="!canViewProfile" @click="emit('view-profile')" />
+        </div>
+      </div>
+      <div v-if="giftVisible && !reducedMotion && !confettiFinished" class="gift-confetti" aria-hidden="true"
+           @animationend.once="confettiFinished = true">
+        <span v-for="(piece, index) in confetti" :key="index" class="gift-confetti-piece" :style="piece"></span>
       </div>
     </dialog>
   </Teleport>
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
-import UiIcon from '@/components/UiIcon.vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import UiButton from '@/components/UiButton.vue'
 import GiftMedia from '@/components/GiftMedia.vue'
-import iconPresent from '@/assets/svg/iconPresent.svg'
+import giftOpenAnimation from '@/assets/video/gift-open.avif'
+import iconClose from '@/assets/svg/iconClose.svg'
 import type { GiftCollectionItem } from '@/services/gifts'
+import { getImageURL, releaseImageURL } from '@/services/mediaCache'
 
-defineProps<{ gift: GiftCollectionItem }>()
-const emit = defineEmits<{ close: [] }>()
+// gift-open.avif has 121 frames at 24 fps. Animated images have no ended event.
+const GIFT_OPEN_DURATION_MS = 5050
+const GIFT_OPEN_LOAD_TIMEOUT_MS = 10_000
+const CONFETTI_COLORS = ['#00cd9b', '#ffbd4a', '#61a9eb', '#a475f3', '#fa7770', '#fff']
+
+const props = defineProps<{ gift: GiftCollectionItem; canViewProfile?: boolean }>()
+const emit = defineEmits<{ close: []; 'view-profile': [] }>()
 const dialog = ref<HTMLDialogElement | null>(null)
 const revealed = ref(false)
+const giftLoaded = ref(false)
+const giftVisible = computed(() => revealed.value && giftLoaded.value)
+const openingUrl = ref('')
+const openingRequest = new AbortController()
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+const confettiFinished = ref(false)
+const confetti = reducedMotion ? [] : Array.from({ length: 60 }, (_, index) => {
+  const angle = index * Math.PI * (3 - Math.sqrt(5))
+  const reach = 0.36 + Math.random() * 0.64
+  const rise = Math.sin(angle) * reach * 0.72 - 0.22
+  const spin = (index % 2 === 0 ? 1 : -1) * (150 + Math.random() * 300)
+  return {
+    '--confetti-x': Math.cos(angle) * reach,
+    '--confetti-y': rise,
+    '--confetti-fall': rise + 0.32 + Math.random() * 0.38,
+    '--confetti-spin': `${spin}deg`,
+    '--confetti-size': `${4 + Math.random() * 5}px`,
+    '--confetti-color': CONFETTI_COLORS[index % CONFETTI_COLORS.length],
+  }
+})
 let revealTimer: number | undefined
+
+function stopOpening(): void {
+  window.clearTimeout(revealTimer)
+  openingRequest.abort()
+  if (openingUrl.value) {
+    URL.revokeObjectURL(openingUrl.value)
+    openingUrl.value = ''
+  }
+}
+
+function revealGift(): void {
+  stopOpening()
+  revealed.value = true
+}
+
+function startRevealTimer(): void {
+  if (openingRequest.signal.aborted) return
+  window.clearTimeout(revealTimer)
+  revealTimer = window.setTimeout(revealGift, GIFT_OPEN_DURATION_MS)
+  const key = props.gift.avif_key
+  if (key) void getImageURL(key, 0).then(() => releaseImageURL(key)).catch(() => {})
+}
+
+async function loadOpeningAnimation(): Promise<void> {
+  revealTimer = window.setTimeout(revealGift, GIFT_OPEN_LOAD_TIMEOUT_MS)
+  try {
+    const response = await fetch(giftOpenAnimation, { signal: openingRequest.signal })
+    if (!response.ok) { revealGift(); return }
+    const animation = await response.blob()
+    if (!openingRequest.signal.aborted) openingUrl.value = URL.createObjectURL(animation)
+  } catch {
+    if (!openingRequest.signal.aborted) revealGift()
+  }
+}
 
 function close(): void {
   dialog.value?.close()
@@ -36,10 +104,10 @@ function close(): void {
 
 onMounted(() => {
   dialog.value?.showModal()
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) revealed.value = true
-  else revealTimer = window.setTimeout(() => { revealed.value = true }, 600)
+  if (reducedMotion) revealGift()
+  else void loadOpeningAnimation()
 })
-onBeforeUnmount(() => window.clearTimeout(revealTimer))
+onBeforeUnmount(stopOpening)
 </script>
 
 <style scoped lang="scss">
@@ -65,38 +133,92 @@ onBeforeUnmount(() => window.clearTimeout(revealTimer))
       margin: 0;
       font-family: Involve-Medium;
     }
+    .gift-opening-close {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      --ui-button-bg: transparent;
+      --ui-button-hover-bg: transparent;
+      --ui-button-hover-color: #{$green-600};
+    }
     .gift-opening-stage {
       display: grid;
       place-items: center;
       width: min(230px, 65vw);
       aspect-ratio: 1;
       background: radial-gradient(circle, $green-100, transparent 72%);
-      .gift-box {
-        --ui-icon-width: 88px;
-        --ui-icon-height: 88px;
-        --ui-icon-color: #{$green-600};
-        animation: gift-box-open 0.6s ease-in-out both;
-      }
+      .gift-opening-animation,
       .gift-reveal {
+        grid-area: 1 / 1;
         width: 100%;
         height: 100%;
-        animation: gift-reveal 0.35s ease-out both;
+      }
+      .gift-opening-animation {
+        display: block;
+        object-fit: contain;
+        border-radius: 16px;
+      }
+      .gift-reveal {
+        opacity: 0;
+        &--visible {
+          opacity: 1;
+          animation: gift-reveal 0.35s ease-out both;
+          @media (prefers-reduced-motion: reduce) {
+            animation: none;
+          }
+        }
+      }
+    }
+    .gift-opening-actions {
+      min-height: 40px;
+    }
+  }
+  .gift-confetti {
+    position: fixed;
+    inset: 0;
+    z-index: 2;
+    overflow: hidden;
+    pointer-events: none;
+    --confetti-radius: min(40vw, 310px);
+    .gift-confetti-piece {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: var(--confetti-size);
+      height: calc(var(--confetti-size) * 1.4);
+      border-radius: 1px;
+      background: var(--confetti-color);
+      animation: gift-confetti-burst 1.55s cubic-bezier(0.15, 0.72, 0.3, 1) both;
+      &:nth-child(3n) {
+        width: calc(var(--confetti-size) * 0.7);
+        height: calc(var(--confetti-size) * 0.7);
+        border-radius: 50%;
+      }
+      &:nth-child(5n) {
+        width: 2px;
+        height: calc(var(--confetti-size) * 1.75);
       }
     }
   }
-}
-@keyframes gift-box-open {
-  0%, 55% { transform: rotate(-8deg) scale(1); }
-  30% { transform: rotate(10deg) scale(1.06); }
-  100% { transform: scale(1.45); opacity: 0; }
 }
 @keyframes gift-reveal {
   from { transform: translateY(16px) scale(0.76); opacity: 0; }
   to { transform: translateY(0) scale(1); opacity: 1; }
 }
-@media (prefers-reduced-motion: reduce) {
-  .gift-opening .gift-opening-stage .gift-reveal {
-    animation: none;
+@keyframes gift-confetti-burst {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(0.35);
+  }
+  8%, 70% { opacity: 1; }
+  34% {
+    transform: translate3d(calc(var(--confetti-x) * var(--confetti-radius)), calc(var(--confetti-y) * var(--confetti-radius)), 0)
+               rotate(var(--confetti-spin));
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(calc(var(--confetti-x) * var(--confetti-radius) * 1.12), calc(var(--confetti-fall) * var(--confetti-radius)), 0)
+               rotate(calc(var(--confetti-spin) * 1.6));
   }
 }
 </style>

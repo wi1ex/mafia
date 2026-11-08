@@ -54,11 +54,12 @@
     :initial-profile="miniProfileInitial"
     show-stats-button
   />
-  <GiftOpeningModal v-if="openedGift" :gift="openedGift" @close="openedGift = null" />
+  <GiftOpeningModal v-if="openedGift" :key="openedGift.id" :gift="openedGift" :can-view-profile="giftProfileUser !== null"
+                    @close="openedGift = null" @view-profile="viewGiftProfile" />
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore, useNotifStore, useUserStore, inferFriendApiAction, resolveFriendsApiError } from '@/store'
 import { api } from '@/services/axios'
@@ -134,6 +135,20 @@ function canOpenToastUserMiniProfile(toastUser?: ToastUser): boolean {
   })
 }
 
+const giftProfileUser = computed<ToastUser | null>(() => {
+  const user = userStore.user
+  if (!auth.isAuthed || !user) return null
+  const profile = {
+    id: normalizeMiniProfileUserId(user.id),
+    username: user.username,
+    avatar_name: user.avatar_name,
+    role: user.role,
+    theme_color: userStore.activeProfileThemeColor,
+    theme_icon: userStore.activeProfileThemeIcon,
+  }
+  return canOpenToastUserMiniProfile(profile) ? profile : null
+})
+
 function openToastUserMiniProfile(toastUser?: ToastUser): void {
   if (!toastUser || !canOpenToastUserMiniProfile(toastUser)) return
   const userId = normalizeMiniProfileUserId(toastUser.id)
@@ -141,6 +156,13 @@ function openToastUserMiniProfile(toastUser?: ToastUser): void {
   miniProfileUserId.value = userId
   miniProfileInitial.value = toastUser
   miniProfileOpen.value = true
+}
+
+function viewGiftProfile(): void {
+  const profile = giftProfileUser.value
+  if (!openedGift.value || !profile) return
+  openedGift.value = null
+  openToastUserMiniProfile(profile)
 }
 
 async function close(target: ToastItem | number) {
