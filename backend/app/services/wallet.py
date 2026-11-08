@@ -140,8 +140,12 @@ async def record_admin_subscription(session: AsyncSession, *, user_id: int, mont
     return purchase
 
 
+def subscription_gift_is_anonymous(result: object) -> bool:
+    return isinstance(result, dict) and result.get("anonymous") is True
+
+
 async def buy_subscription(session: AsyncSession, *, user_id: int, plan: str, request_id: str,
-                           recipient_id: int | None = None) -> dict:
+                           recipient_id: int | None = None, anonymous: bool = False) -> dict:
     if not isinstance(plan, str) or plan not in SUBSCRIPTION_PLANS:
         raise HTTPException(422, detail="subscription_plan_invalid")
 
@@ -151,6 +155,9 @@ async def buy_subscription(session: AsyncSession, *, user_id: int, plan: str, re
 
         if recipient_id == user_id:
             raise HTTPException(422, detail="gift_self_not_allowed")
+
+    if anonymous and recipient_id is None:
+        raise HTTPException(422, detail="gift_anonymous_requires_recipient")
 
     target_id = recipient_id if recipient_id is not None else user_id
     source = "gift" if recipient_id is not None else "dc"
@@ -171,13 +178,16 @@ async def buy_subscription(session: AsyncSession, *, user_id: int, plan: str, re
     await lock_dc_request(session, str(request_id), journal="subscription")
     existing = await session.scalar(select(SubscriptionPurchase).where(SubscriptionPurchase.request_id == str(request_id)))
     if existing:
+        existing_result = existing.result or {}
         if (existing.user_id != target_id or existing.days != days or existing.months != months
-                or existing.source != source or existing.actor_id != actor_id):
+                or existing.source != source or existing.actor_id != actor_id
+                or subscription_gift_is_anonymous(existing_result) != anonymous):
             raise HTTPException(409, detail="idempotency_conflict")
 
-        result = {key: value for key, value in (existing.result or {}).items()
+        result = {key: value for key, value in existing_result.items()
                   if key in {"purchase_id", "dc_balance", "subscription_until", "subscription_active",
                              "recipient_id", "recipient_username"}}
+        result["anonymous"] = anonymous
         await session.commit()
         await notify_subscription_purchase(session, existing)
         return result
@@ -219,7 +229,7 @@ async def buy_subscription(session: AsyncSession, *, user_id: int, plan: str, re
     await session.flush()
     result = {"purchase_id": purchase.id, "dc_balance": user.dc_balance,
               "subscription_until": ends_after.isoformat(), "subscription_active": True,
-              "recipient_id": target_id, "recipient_username": recipient.username}
+              "recipient_id": target_id, "recipient_username": recipient.username, "anonymous": anonymous}
     purchase.result = {**result, "extended": active, "sender_id": user_id,
                        "sender_username": user.username}
     note = await _persist_subscription_purchase_notice(session, purchase)
@@ -271,9 +281,12 @@ async def _persist_subscription_purchase_notice(session: AsyncSession, purchase:
     end = format_subscription_until(purchase.ends_after)
     title = "Подписка"
     if purchase.source == "gift":
-        sender = (purchase.result or {}).get("sender_username") or f"user{purchase.actor_id}"
         title = "Вам подарили подписку"
-        text = f"{sender} подарил вам подписку на {duration}. Подписка действует до {end}."
+        if subscription_gift_is_anonymous(purchase.result):
+            text = f"Вы получили анонимный подарок — подписку на {duration}. Подписка действует до {end}."
+        else:
+            sender = (purchase.result or {}).get("sender_username") or f"user{purchase.actor_id}"
+            text = f"{sender} подарил вам подписку на {duration}. Подписка действует до {end}."
     else:
         text = (
             f"Вы {action} подписку на {duration} за {purchase.dc_cost} DC. "
@@ -287,8 +300,9 @@ async def _persist_subscription_purchase_notice(session: AsyncSession, purchase:
 async def _persist_subscription_gift_sender_notice(session: AsyncSession, purchase: SubscriptionPurchase) -> Notif | None:
     recipient = (purchase.result or {}).get("recipient_username") or f"user{purchase.user_id}"
     duration = format_subscription_purchase_duration(days=purchase.days, months=purchase.months)
+    action = "Вы анонимно подарили" if subscription_gift_is_anonymous(purchase.result) else "Вы подарили"
     text = (
-        f"Вы подарили {recipient} подписку на {duration}. "
+        f"{action} {recipient} подписку на {duration}. "
         f"Списано: {purchase.dc_cost} DC. Баланс: {purchase.balance_after} DC."
     )
     return await _persist_notice_once(
@@ -297,18 +311,22 @@ async def _persist_subscription_gift_sender_notice(session: AsyncSession, purcha
     )
 
 
-async def sync_wallet_profile(session: AsyncSession, user_id: int) -> None:
+async def sync_wallet_profile(session: AsyncSession, user_id: int, *, balance_only: bool = False) -> None:
     from ..api.utils import emit_auth_profile_sync, emit_room_profile_theme_sync
     from .user_cache import refresh_user_profile_cache
     from .profile_theme import resolve_profile_theme_state
     from .global_chat import emit_global_chat_profile_theme_sync
 
-    await refresh_user_profile_cache(session, user_id)
+    if not balance_only:
+        await refresh_user_profile_cache(session, user_id)
     await emit_auth_profile_sync(user_id)
 
     from ..realtime.sio import sio
     await sio.emit("dc_balance_update", {"user_id": user_id, "dc_balance": await get_dc_balance(session, user_id)},
                    room=f"user:{settings.PROTECTED_ADMIN_USER_ID}", namespace="/auth")
+    if balance_only:
+        return
+
     theme = await resolve_profile_theme_state(session, user_id)
     await emit_room_profile_theme_sync(user_id, theme.color, theme.icon)
     await emit_global_chat_profile_theme_sync(user_id, theme.color, theme.icon)
@@ -352,17 +370,22 @@ async def notify_subscription_gift(session: AsyncSession, purchase: Subscription
     sender_id = int(purchase.actor_id)
     purchase_id = purchase.id
     metadata = purchase.result or {}
-    popup = {
-        "sender_id": sender_id,
-        "sender_username": metadata.get("sender_username") or f"user{sender_id}",
+    anonymous = subscription_gift_is_anonymous(metadata)
+    gift = {
         "recipient_id": recipient_id,
         "duration": format_subscription_purchase_duration(days=purchase.days, months=purchase.months),
         "subscription_until": purchase.ends_after.isoformat(),
         "purchase_id": purchase_id,
     }
-    recipient_extra = {"subscription_gift": popup}
-    recipient_toast = None
-    if note is not None:
+    if anonymous:
+        gift["anonymous"] = True
+    else:
+        gift["sender_id"] = sender_id
+        gift["sender_username"] = metadata.get("sender_username") or f"user{sender_id}"
+
+    recipient_extra = {"subscription_gift": gift}
+    recipient_toast = {"title": "Подписка"}
+    if note is not None and not anonymous:
         sender_profile = {}
         try:
             from ..core.db import SessionLocal
@@ -374,16 +397,15 @@ async def notify_subscription_gift(session: AsyncSession, purchase: Subscription
             log.exception("dc.subscription_gift_sender_profile_failed", purchase_id=purchase_id)
         recipient_extra["user"] = {
             "id": sender_id,
-            "username": popup["sender_username"],
+            "username": gift["sender_username"],
             "avatar_name": sender_profile.get("avatar_name"),
             "role": sender_profile.get("role"),
             "theme_color": sender_profile.get("theme_color"),
             "theme_icon": sender_profile.get("theme_icon"),
         }
-        recipient_toast = {
-            "title": "Подписка",
-            "text": f"Срок: {popup['duration']}. Подписка действует до {format_subscription_until(purchase.ends_after)}.",
-        }
+        recipient_toast["text"] = (
+            f"Срок: {gift['duration']}. Подписка действует до {format_subscription_until(purchase.ends_after)}."
+        )
     for uid, message, kind, no_toast, toast, extra in (
         (recipient_id, note, "subscription_gift", False, recipient_toast, recipient_extra),
         (sender_id, sender_note, "subscription", True, None, None),
@@ -395,7 +417,7 @@ async def notify_subscription_gift(session: AsyncSession, purchase: Subscription
                 log.exception("dc.subscription_gift_notification_failed", purchase_id=purchase_id, user_id=uid)
     for uid in sorted({sender_id, recipient_id}):
         try:
-            await sync_wallet_profile(session, uid)
+            await sync_wallet_profile(session, uid, balance_only=anonymous and uid == sender_id)
         except Exception:
             log.exception("dc.subscription_gift_profile_sync_failed", purchase_id=purchase_id, user_id=uid)
             with suppress(Exception):

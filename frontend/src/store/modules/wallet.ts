@@ -20,7 +20,7 @@ export type CoinInvoice = {
   dc_balance: number
 }
 export type WalletState = { dc_balance: number; subscription_active: boolean; subscription_until: string | null }
-export type SubscriptionPurchaseResult = WalletState & { purchase_id: number; recipient_id?: number; recipient_username?: string | null }
+export type SubscriptionPurchaseResult = WalletState & { purchase_id: number; recipient_id?: number; recipient_username?: string | null; anonymous?: boolean }
 export type CoinPaymentMethod = 'card' | 'sbp' | 'apple_pay' | 'paypal'
 type InvoiceRequest = { quantity: CoinPackageQuantity; currency: DcCurrency; payment_method: CoinPaymentMethod; email: string; expected_amount: string; request_id: string }
 
@@ -47,6 +47,7 @@ export function dcErrorMessage(error: any): string {
     kassa_email_invalid: 'Введите корректный email.',
     subscription_plan_invalid: 'Выберите тариф подписки.',
     gift_self_not_allowed: 'Нельзя подарить подписку самому себе.',
+    gift_anonymous_requires_recipient: 'Укажите получателя для анонимного подарка.',
     gift_recipient_not_found: 'Получатель подарка не найден или его аккаунт удалён.',
     gift_recipient_deleted: 'Нельзя подарить подписку: аккаунт получателя удалён.',
     gift_recipient_invalid: 'Выберите другого пользователя для подарка.',
@@ -133,12 +134,12 @@ export const useWalletStore = defineStore('wallet', () => {
       return data
     } finally { if (ownsRequest(uid, session)) invoiceBusy.value = false }
   }
-  async function buySubscription(plan: SubscriptionPlan, recipientId?: number): Promise<SubscriptionPurchaseResult> {
+  async function buySubscription(plan: SubscriptionPlan, recipientId?: number, anonymous = false): Promise<SubscriptionPurchaseResult> {
     const uid = ensureOwner()
     if (!uid || subscriptionBusy.value) throw new Error('operation_busy')
     const session = ownerSession
     if (recipientId !== undefined && (!Number.isSafeInteger(recipientId) || recipientId <= 0 || recipientId === uid)) throw new Error('gift_recipient_invalid')
-    const request = { plan, request_id: newDcRequestId(), ...(recipientId === undefined ? {} : { recipient_id: recipientId }) }
+    const request = { plan, request_id: newDcRequestId(), recipient_id: recipientId, anonymous: anonymous || undefined }
     subscriptionBusy.value = true
     const previous = user.user
     const previousBalance = previous?.dc_balance

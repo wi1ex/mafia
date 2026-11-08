@@ -48,7 +48,8 @@ async def check_invoice(order_id: int, ident: Identity = Depends(get_identity), 
 @log_route("payments.subscription.purchase")
 async def subscription_purchase(payload: SubscriptionPurchaseIn, ident: Identity = Depends(get_identity), session: AsyncSession = Depends(get_session)):
     return await buy_subscription(session, user_id=int(ident["id"]), plan=payload.plan,
-                                  request_id=str(payload.request_id), recipient_id=payload.recipient_id)
+                                  request_id=str(payload.request_id), recipient_id=payload.recipient_id,
+                                  anonymous=payload.anonymous)
 
 
 @router.post("/kassa/webhook/", response_model=Ok, include_in_schema=False)

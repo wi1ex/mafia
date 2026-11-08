@@ -158,9 +158,9 @@ try {
   await assert.rejects(purchase, /connection lost/)
   assert.equal(posts.length, 0)
   assert.equal(wallet.subscriptionBusy.value, false)
-  purchase = wallet.buySubscription('month', 18)
+  purchase = wallet.buySubscription('month', 18, true)
   const nextPurchase = posts.shift()
-  assert.deepEqual(nextPurchase.input, { plan: 'month', request_id: nextPurchase.input.request_id, recipient_id: 18 })
+  assert.deepEqual(nextPurchase.input, { plan: 'month', request_id: nextPurchase.input.request_id, recipient_id: 18, anonymous: true })
   assert.notEqual(nextPurchase.input.request_id, uncertainPurchase.input.request_id)
   actor.setWalletState({ dc_balance: 150 })
   nextPurchase.resolve(response({ purchase_id: 1, recipient_id: 18, dc_balance: 73, subscription_until: '2027-01-01T23:00:00Z', subscription_active: true })); await purchase

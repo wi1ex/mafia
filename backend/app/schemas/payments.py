@@ -47,6 +47,7 @@ class SubscriptionPurchaseIn(BaseModel):
     plan: Literal["week", "month", "quarter", "year"]
     request_id: UUID
     recipient_id: int | None = Field(default=None, strict=True, gt=0, le=9223372036854775807)
+    anonymous: bool = Field(default=False, strict=True)
 
 
 class SubscriptionPurchaseOut(BaseModel):
@@ -56,6 +57,7 @@ class SubscriptionPurchaseOut(BaseModel):
     subscription_active: bool = True
     recipient_id: int | None = None
     recipient_username: str | None = None
+    anonymous: bool = False
 
 
 class WalletOut(BaseModel):

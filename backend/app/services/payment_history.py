@@ -5,7 +5,7 @@ from ..models.coin_purchase import CoinPurchase
 from ..models.gift import UserGift
 from ..models.subscription_purchase import SubscriptionPurchase
 from ..schemas.user import UserOperationHistoryOut, UserOperationOut
-from .wallet import money_text
+from .wallet import money_text, subscription_gift_is_anonymous
 
 
 def _word(value: int, one: str, few: str, many: str) -> str:
@@ -128,14 +128,19 @@ async def operation_history(session: AsyncSession, user_id: int, *, page: int = 
                 spent = "Бесплатно"
         elif source == "gift":
             snapshot = gift_metadata.get(row["operation_id"])
+            anonymous = subscription_gift_is_anonymous(snapshot)
             if row["actor_id"] == user_id:
                 recipient = _gift_user_label(snapshot, "recipient", row["user_id"])
-                operation_type = f"Подарок подписки для {recipient}"
+                gift_label = "Анонимный подарок подписки" if anonymous else "Подарок подписки"
+                operation_type = f"{gift_label} для {recipient}"
                 received = "—"
                 spent = f"{int(row['dc_cost'])} DC"
             else:
-                sender = _gift_user_label(snapshot, "sender", row["actor_id"])
-                operation_type = f"Подарок подписки от {sender}"
+                if anonymous:
+                    operation_type = "Анонимный подарок подписки"
+                else:
+                    sender = _gift_user_label(snapshot, "sender", row["actor_id"])
+                    operation_type = f"Подарок подписки от {sender}"
                 received = subscription_term(int(row["months"] or 0), int(row["days"] or 0))
                 spent = "Бесплатно"
         else:

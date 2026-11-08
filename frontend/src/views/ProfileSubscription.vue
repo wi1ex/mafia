@@ -336,7 +336,7 @@ onMounted(() => {
               thead {
                 tr {
                   th {
-                    padding: 14px 16px;
+                    padding: 16px;
                     border-bottom: 1px solid rgba($neutral-500, 0.2);
                     text-align: left;
                     vertical-align: top;
@@ -354,12 +354,11 @@ onMounted(() => {
               tbody {
                 tr {
                   td {
-                    padding: 14px 16px;
+                    padding: 12px 16px;
                     border-bottom: 1px solid rgba($neutral-500, 0.2);
                     text-align: left;
                     vertical-align: top;
-                    line-height: 1.25;
-                    font-size: 15px;
+                    font-size: 14px;
                     overflow-wrap: anywhere;
                     &:not(:first-child) {
                       text-align: center;

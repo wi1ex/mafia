@@ -34,7 +34,8 @@
                   <strong>{{ giftRecipientName }}</strong>
                 </div>
               </div>
-              <UiSwitch v-if="lockedTab === 'gifts' && !catalogError" v-model="anonymousGift" class="wallet-gift-anonymous"
+              <UiSwitch v-if="lockedTab === 'subscription' || (lockedTab === 'gifts' && !catalogError)"
+                        v-model="anonymousGift" class="wallet-gift-anonymous"
                         label="Отправить анонимно" off-label="Нет" on-label="Да" theme="light" size="low"
                         :width="144" :disabled="busy || opening" />
             </div>
@@ -450,19 +451,21 @@ async function purchaseSubscription(): Promise<void> {
   const buyerSession = auth.sessionId
   const purchasedPlan = subscriptionPlan.value
   const requestedRecipientId = giftRecipientSnapshot.value?.user_id
+  const requestedAnonymous = requestedRecipientId !== undefined && anonymousGift.value
   try {
-    const result = await wallet.buySubscription(purchasedPlan, requestedRecipientId)
+    const result = await wallet.buySubscription(purchasedPlan, requestedRecipientId, requestedAnonymous)
     if (seq === openSequence && props.open && auth.isAuthed && buyerId === userStore.user?.id && buyerSession === auth.sessionId) {
       emit('subscription-purchased', result)
       emit('update:open', false)
       const recipientId = result.recipient_id ?? requestedRecipientId ?? buyerId
       if (recipientId && recipientId !== buyerId) {
         const recipientName = result.recipient_username || (recipientId === giftRecipientSnapshot.value?.user_id ? giftRecipientName.value : `user${recipientId}`)
+        const anonymous = result.anonymous ?? requestedAnonymous
         await nextTick()
         if (!auth.isAuthed || buyerId !== userStore.user?.id || buyerSession !== auth.sessionId) return
         void alertDialog({
           title: 'Подписка подарена',
-          text: `Вы подарили подписку пользователю ${recipientName}. Срок: ${planLabel(purchasedPlan)}.`,
+          text: `Вы ${anonymous ? 'анонимно ' : ''}подарили подписку пользователю ${recipientName}. Срок: ${planLabel(purchasedPlan)}.`,
         })
       }
     }
