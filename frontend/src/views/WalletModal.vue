@@ -34,8 +34,9 @@
                   <strong>{{ giftRecipientName }}</strong>
                 </div>
               </div>
-              <UiButton v-if="tab === 'gifts' && selectedGift && !catalogError" class="wallet-gift-back" type="button" variant="white" size="low"
-                        text="К подаркам" :disabled="busy || opening" @click="closeGiftPreview" />
+              <UiSwitch v-if="tab === 'gifts' && selectedGift && !catalogError" v-model="anonymousGift" class="wallet-gift-anonymous"
+                        label="Отправить анонимно" off-label="Выкл" on-label="Вкл" theme="light" size="low"
+                        :width="128" :disabled="busy || opening" />
             </div>
             <div v-else class="wallet-tabs" role="group" aria-label="Разделы магазина">
               <UiButton v-for="item in walletTabs" :key="item.id" class="wallet-choice" size="middle" width="100%"
@@ -120,12 +121,10 @@
               <form v-else-if="selectedGift" class="wallet-form wallet-gift-detail" @submit.prevent="purchaseGift">
                 <GiftMedia :key="selectedGift.id" class="wallet-gift-preview" :media="selectedGift" animated
                            :label="`Подарок №${selectedGift.id}`" />
-                <div class="wallet-gift-actions" :class="{ 'wallet-gift-actions--send': isGift }">
-                  <UiSwitch v-if="isGift" v-model="anonymousGift" class="wallet-gift-anonymous" label="Отправить анонимно" off-label="Выкл"
-                            on-label="Вкл" theme="light" size="low" :width="128" :disabled="busy || opening" />
-                  <UiButton v-else class="wallet-gift-back" type="button" variant="white" size="low" text="К подаркам"
+                <div class="wallet-gift-actions">
+                  <UiButton class="wallet-gift-back" type="button" variant="white" size="low" :text="isGift ? 'Назад к подаркам' : 'Назад'"
                             :disabled="busy || opening" @click="closeGiftPreview" />
-                  <UiButton class="wallet-action" type="submit" size="big" :text="giftButtonText" :disabled="!canBuyGift" :width="isGift ? undefined : '100%'" />
+                  <UiButton class="wallet-action" type="submit" size="big" :text="giftButtonText" :disabled="!canBuyGift" />
                 </div>
               </form>
               <p v-else-if="!giftCatalog.length" class="wallet-state">Подарков пока нет</p>
@@ -735,7 +734,9 @@ onBeforeUnmount(() => {
       align-items: center;
       flex-wrap: wrap;
       gap: 8px;
-      .wallet-gift-back {
+      .wallet-gift-anonymous {
+        width: 300px;
+        max-width: 100%;
         margin-left: auto;
       }
       .wallet-gift-recipient {
@@ -922,20 +923,12 @@ onBeforeUnmount(() => {
             min-height: 96px;
           }
           .wallet-gift-actions {
-            display: grid;
-            grid-template-columns: auto minmax(0, 1fr);
+            display: flex;
+            flex-wrap: wrap;
             align-items: center;
             gap: 8px;
-            &--send {
-              display: flex;
-              flex-wrap: wrap;
-              .wallet-gift-anonymous {
-                width: 300px;
-                max-width: 100%;
-              }
-              .wallet-action {
-                margin-left: auto;
-              }
+            .wallet-action {
+              margin-left: auto;
             }
           }
         }
