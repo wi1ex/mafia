@@ -46,7 +46,7 @@
       </div>
       <div class="tab-div">
         <div class="tab-subscribe">
-          <img class="background-image" :src="imageSlide9" alt="" aria-hidden="true" />
+          <img class="background-image" :src="imageSlide8" alt="" aria-hidden="true" />
           <div class="tab-subscribe-div">
             <span class="tab-subscribe-title">Оформи подписку</span>
             <span class="tab-subscribe-text">Подписка откроет оформление профиля и другие новые функции.</span>
@@ -105,7 +105,7 @@ import WalletModal from '@/views/WalletModal.vue'
 import UiIcon from '@/components/UiIcon.vue'
 import UiButton from '@/components/UiButton.vue'
 
-import imageSlide9 from '@/assets/images/carousel-image9.png'
+import imageSlide8 from '@/assets/images/carousel-image8.png'
 import iconHome from '@/assets/svg/iconHome.svg'
 import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
 import iconSettings from '@/assets/svg/iconSettings.svg'
