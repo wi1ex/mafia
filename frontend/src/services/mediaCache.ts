@@ -47,7 +47,7 @@ function _evictLRU(limit = URL_MAX) {
 
 function rememberURL(key: string, url: string) {
   const prev = urlMap.get(key)
-  urlMap.set(key, { url, refs: prev?.refs ?? 0 })
+  urlMap.set(key, { url, refs: (prev?.refs ?? 0) + 1 })
   const idx = urlOrder.indexOf(key)
   if (idx !== -1) urlOrder.splice(idx, 1)
   urlOrder.push(key)
@@ -71,6 +71,7 @@ export function releaseImageURL(key: string) {
   const rec = urlMap.get(key)
   if (!rec) return
   rec.refs = Math.max(0, rec.refs - 1)
+  if (rec.refs === 0) _evictLRU()
 }
 
 function openDB(): Promise<IDBDatabase> {
@@ -103,7 +104,7 @@ async function withStore<T>(mode: IDBTransactionMode, fn: (st: IDBObjectStore) =
         reject(e)
       }
     })()
-  })
+  }).finally(() => db.close())
 }
 
 async function get(key: string): Promise<Stored | undefined> {
@@ -191,9 +192,7 @@ export async function getImageURL(key: string, version: number, loader?: (key: s
   })()
   blobInflight.set(inflightKey, loadPromise)
   try {
-    const url = await loadPromise
-    retainImageURL(key)
-    return url
+    return await loadPromise
   } finally {
     blobInflight.delete(inflightKey)
   }

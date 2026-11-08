@@ -1452,7 +1452,7 @@
                 <option v-for="price in adminGiftPrices" :key="price" :value="price">{{ price }} DC</option>
               </select>
             </label>
-            <p class="gift-upload-hint">Анимированный AVIF с прозрачным фоном. До 3 МБ, 1024 × 1024, 6 секунд и 30 кадров/с.</p>
+            <p class="gift-upload-hint">Анимированный AVIF с прозрачным фоном. До 3 МБ, 1024 × 1024, 6 секунд и 45 кадров/с.</p>
             <div class="gift-buttons">
               <UiButton type="submit" size="middle" :text="giftUploading ? 'Загружаем…' : giftTab.uploadTarget === 'new' ? 'Добавить' : 'Сохранить'"
                         :disabled="!giftTab.file || giftUploading || (typeof giftTab.uploadTarget === 'number' && giftRowBusy.has(giftTab.uploadTarget))" />

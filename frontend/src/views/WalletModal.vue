@@ -106,26 +106,32 @@
               </form>
             </div>
 
-            <div v-if="tab === 'gifts'" id="wallet-gifts" role="region" aria-label="Подарки" class="wallet-panel">
-              <p v-if="catalogLoading" class="wallet-state" role="status">Загружаем подарки…</p>
+            <div v-if="tab === 'gifts'" id="wallet-gifts" role="region" aria-label="Подарки" class="wallet-panel"
+                 :class="{ 'wallet-panel--gift-detail': selectedGift && !catalogError }">
+              <p v-if="catalogLoading && !selectedGift" class="wallet-state" role="status">Загружаем подарки…</p>
               <template v-else-if="catalogError">
                 <p class="wallet-error" role="alert">Не удалось загрузить подарки.</p>
                 <UiButton size="low" text="Повторить" @click="refreshGiftCatalog" />
               </template>
-              <p v-else-if="!giftCatalog.length" class="wallet-state">Подарков пока нет</p>
-              <form v-else class="wallet-form" @submit.prevent="purchaseGift">
-                <div class="wallet-gift-grid" role="group" aria-label="Выберите подарок">
-                  <button v-for="gift in giftCatalog" :key="gift.id" class="wallet-gift-card" type="button"
-                          :class="{ active: selectedGiftId === gift.id }" :aria-pressed="selectedGiftId === gift.id"
-                          :aria-label="`Подарок №${gift.id}, ${gift.price_dc} DC`" :disabled="busy || opening" @click="selectedGiftId = gift.id">
-                    <GiftMedia class="wallet-gift-media" :media="gift" />
-                    <span>{{ gift.price_dc }} DC</span>
-                  </button>
-                </div>
+              <form v-else-if="selectedGift" class="wallet-form wallet-gift-detail" @submit.prevent="purchaseGift">
+                <GiftMedia :key="selectedGift.id" class="wallet-gift-preview" :media="selectedGift" animated
+                           :label="`Подарок №${selectedGift.id}`" />
                 <UiSwitch v-if="isGift" v-model="anonymousGift" label="Отправить анонимно" off-label="Выкл"
                           on-label="Вкл" theme="light" size="low" :width="128" :disabled="busy || opening" />
-                <UiButton class="wallet-action" type="submit" size="big" :text="giftButtonText" :disabled="!canBuyGift" width="100%" />
+                <div class="wallet-gift-actions">
+                  <UiButton class="wallet-gift-back" type="button" variant="white" size="low" text="К подаркам"
+                            :disabled="busy || opening" @click="closeGiftPreview" />
+                  <UiButton class="wallet-action" type="submit" size="big" :text="giftButtonText" :disabled="!canBuyGift" width="100%" />
+                </div>
               </form>
+              <p v-else-if="!giftCatalog.length" class="wallet-state">Подарков пока нет</p>
+              <div v-else class="wallet-gift-grid" role="group" aria-label="Выберите подарок">
+                <button v-for="gift in giftCatalog" :key="gift.id" class="wallet-gift-card" type="button" :data-gift-id="gift.id"
+                        :aria-label="`Подарок №${gift.id}, ${gift.price_dc} DC`" :disabled="busy || opening" @click="openGiftPreview(gift.id)">
+                  <GiftMedia class="wallet-gift-media" :media="gift" />
+                  <span>{{ gift.price_dc }} DC</span>
+                </button>
+              </div>
             </div>
           </template>
         </section>
@@ -258,7 +264,7 @@ const canBuyGift = computed(() => !!selectedGift.value && wallet.balance >= sele
   && giftRecipientValid.value && !busy.value && !opening.value && !catalogLoading.value && !catalogError.value)
 const giftButtonText = computed(() => {
   if (wallet.giftBusy) return 'Покупаем…'
-  if (!selectedGift.value) return 'Выберите подарок'
+  if (!selectedGift.value) return ''
   const action = isGift.value ? 'Отправить' : 'Купить'
   return `${action} за ${selectedGift.value.price_dc} DC${wallet.balance < selectedGift.value.price_dc ? ' — недостаточно монет' : ''}`
 })
@@ -278,6 +284,22 @@ function changeTab(next: WalletTab): void {
   if (lockedTab.value || busy.value || opening.value || tab.value === next) return
   error.value = ''
   tab.value = next
+}
+async function openGiftPreview(id: number): Promise<void> {
+  error.value = ''
+  selectedGiftId.value = id
+  await nextTick()
+  if (dialog.value) {
+    dialog.value.scrollTop = 0
+    dialog.value.querySelector<HTMLButtonElement>('.wallet-gift-back')?.focus({ preventScroll: true })
+  }
+}
+async function closeGiftPreview(): Promise<void> {
+  const id = selectedGiftId.value
+  selectedGiftId.value = null
+  error.value = ''
+  await nextTick()
+  dialog.value?.querySelector<HTMLButtonElement>(`[data-gift-id="${id}"]`)?.focus()
 }
 function selectCurrency(next: DcCurrency): void {
   currency.value = next
@@ -312,9 +334,8 @@ async function refreshGiftCatalog(): Promise<void> {
   try {
     const catalog = await loadGiftCatalog(request.signal)
     if (request.signal.aborted) return
-    const hadCatalog = giftCatalog.value.length > 0
     giftCatalog.value = catalog.filter(gift => gift.visible).sort((a, b) => a.price_dc - b.price_dc || a.id - b.id)
-    if (!selectedGift.value) selectedGiftId.value = hadCatalog ? null : giftCatalog.value[0]?.id ?? null
+    if (!selectedGift.value) selectedGiftId.value = null
   } catch {
     if (!request.signal.aborted) catalogError.value = true
   } finally {
@@ -533,7 +554,10 @@ watch([() => props.open, () => settings.paymentsEnabled, () => auth.sessionId], 
 watch(tab, (next) => {
   if (next === 'gifts') {
     if (!catalogRequest) void refreshGiftCatalog()
-  } else cancelGiftCatalog()
+  } else {
+    selectedGiftId.value = null
+    cancelGiftCatalog()
+  }
 })
 watch([() => props.open, busy], ([open, value]) => emit('busy', open && value), { immediate: true })
 watch(restriction, reason => {
@@ -769,6 +793,10 @@ onBeforeUnmount(() => {
       display: flex;
       flex-direction: column;
       gap: 20px;
+      &--gift-detail {
+        flex: 1 1 0;
+        min-height: 230px;
+      }
       .wallet-gift-grid {
         display: grid;
         grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -785,7 +813,8 @@ onBeforeUnmount(() => {
           color: $neutral-800;
           font: inherit;
           cursor: pointer;
-          &.active {
+          &:hover:not(:disabled),
+          &:focus-visible {
             border-color: $green-500;
           }
           &:disabled {
@@ -854,6 +883,21 @@ onBeforeUnmount(() => {
         display: flex;
         flex-direction: column;
         gap: 24px;
+        &.wallet-gift-detail {
+          flex: 1;
+          min-height: 0;
+          gap: 12px;
+          .wallet-gift-preview {
+            flex: 1 1 0;
+            min-height: 96px;
+          }
+          .wallet-gift-actions {
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr);
+            align-items: center;
+            gap: 8px;
+          }
+        }
         .wallet-payment-fields {
           display: flex;
           flex-direction: column;
@@ -896,7 +940,7 @@ onBeforeUnmount(() => {
             justify-content: center;
             gap: 8px;
             min-width: 0;
-            min-height: 89px;
+            min-height: 85px;
             padding: 8px 0 12px;
             border: 2px solid transparent;
             border-radius: 20px;

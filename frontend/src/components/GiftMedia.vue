@@ -6,12 +6,12 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { presign } from '@/services/mediaCache'
+import { onBeforeUnmount, onMounted, ref, watch, type Ref } from 'vue'
+import { getImageURL, releaseImageURL } from '@/services/mediaCache'
 import type { GiftMediaAsset } from '@/services/gifts'
 
 const props = withDefaults(defineProps<{ media: GiftMediaAsset; animated?: boolean; label?: string }>(), {
-  animated: true,
+  animated: false,
 })
 
 const container = ref<HTMLElement | null>(null)
@@ -27,22 +27,32 @@ function onAnimationError(): void {
   animationUrl.value = ''
 }
 
-watch([seen, () => props.media.preview_key], async ([canLoad, key], _, onCleanup) => {
+async function loadGiftImage(key: string, source: Ref<string>, onCleanup: (cleanup: () => void) => void): Promise<void> {
   let active = true
-  onCleanup(() => { active = false })
+  let retained = false
+  onCleanup(() => {
+    active = false
+    if (retained) releaseImageURL(key)
+  })
+  try {
+    const url = await getImageURL(key, 0)
+    if (!active) {
+      releaseImageURL(key)
+      return
+    }
+    retained = true
+    source.value = url
+  } catch {}
+}
+
+watch([seen, () => props.media.preview_key], ([canLoad, key], _, onCleanup) => {
   previewUrl.value = ''
-  if (!canLoad || !key) return
-  const url = await presign(key).catch(() => '')
-  if (active) previewUrl.value = url
+  if (canLoad && key) return loadGiftImage(key, previewUrl, onCleanup)
 })
-watch([visible, () => props.animated, () => props.media.avif_key], async ([onScreen, animated, key], _, onCleanup) => {
-  let active = true
-  onCleanup(() => { active = false })
+watch([visible, () => props.animated, () => props.media.avif_key], ([onScreen, animated, key], _, onCleanup) => {
   animationUrl.value = ''
   animationReady.value = false
-  if (!onScreen || !animated || !key) return
-  const url = await presign(key).catch(() => '')
-  if (active) animationUrl.value = url
+  if (onScreen && animated && key) return loadGiftImage(key, animationUrl, onCleanup)
 })
 
 onMounted(() => {

@@ -240,7 +240,7 @@
                   </div>
                   <ul v-if="giftPreview.items.length" class="profile-gifts-strip" aria-label="Подарки пользователя" tabindex="0">
                     <li v-for="item in giftPreview.items" :key="item.id" class="profile-gift-tile">
-                      <GiftMedia class="profile-gift-media" :media="item" :label="`Подарок №${item.gift_id}`" />
+                      <GiftMedia class="profile-gift-media" :media="item" :label="`Подарок №${item.gift_id}`" animated />
                       <span v-if="item.quantity > 1" class="profile-gift-quantity">×{{ item.quantity }}</span>
                     </li>
                   </ul>
@@ -336,7 +336,7 @@
                 <h3>Подарки ({{ allGifts.total || giftPreview.total }})</h3>
                 <ul v-if="allGifts.items.length" class="profile-gifts-grid">
                   <li v-for="item in allGifts.items" :key="item.id" class="profile-gift-tile">
-                    <GiftMedia class="profile-gift-media" :media="item" :label="`Подарок №${item.gift_id}`" />
+                    <GiftMedia class="profile-gift-media" :media="item" :label="`Подарок №${item.gift_id}`" animated />
                     <div v-if="item.sender && item.sender.id !== targetUserId" class="profile-gift-sender">
                       <img v-minio-img="{ key: giftSenderAvatarKey(item.sender.avatar_name), placeholder: iconDefaultAvatarBlack }" alt="" />
                       <span>{{ item.sender.username || `user${item.sender.id}` }}</span>
