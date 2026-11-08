@@ -109,6 +109,7 @@
                 </div>
                 <div class="wallet-benefits-card">
                   <img class="background-image" :src="imageSlide8" alt="" aria-hidden="true" />
+                  <h3 class="wallet-benefits-title">Что входит в подписку</h3>
                   <ul class="wallet-benefits" aria-label="Привилегии подписки">
                     <li v-for="benefit in subscriptionBenefits" :key="benefit">
                       <UiIcon class="wallet-benefit-icon" :icon="iconCheckCircle" />
@@ -887,6 +888,7 @@ onBeforeUnmount(() => {
         display: flex;
         position: relative;
         flex-direction: column;
+        gap: 12px;
         padding: 16px;
         border-radius: 24px;
         background: $soft-purple-900;
@@ -898,6 +900,16 @@ onBeforeUnmount(() => {
           height: 100%;
           border-radius: inherit;
           object-fit: cover;
+        }
+        .wallet-benefits-title {
+          z-index: 1;
+          margin: 0;
+          color: $neutral-white;
+          font-family: Involve-Medium;
+          font-size: 20px;
+          font-weight: 500;
+          line-height: 24px;
+          text-align: center;
         }
         .wallet-benefits {
           display: grid;
