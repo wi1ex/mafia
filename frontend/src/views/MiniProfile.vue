@@ -1653,6 +1653,17 @@ function onGiftsUpdate(event: Event): void {
   refreshProfileGifts(Number((event as CustomEvent)?.detail?.user_id))
 }
 
+function onGiftCatalogUpdate(event: Event): void {
+  const update = (event as CustomEvent).detail
+  if (!update?.media_changed || !giftCollectionAllowed.value) return
+  const giftId = Number(update.gift_id)
+  if (giftPreviewLoading.value || allGiftsLoading.value
+    || giftPreview.value.items.some(item => item.gift_id === giftId)
+    || allGifts.value.items.some(item => item.gift_id === giftId)) {
+    refreshProfileGifts(targetUserId.value)
+  }
+}
+
 function closeAvatarPreview() {
   avatarPreviewOpen.value = false
   avatarPreviewSrc.value = ''
@@ -2668,6 +2679,7 @@ onMounted(() => {
   window.addEventListener('auth-friends_update', onFriendsUpdate)
   window.addEventListener('auth-blacklist_update', onBlacklistUpdate)
   window.addEventListener('auth-gifts_update', onGiftsUpdate)
+  window.addEventListener('auth-gift_catalog_update', onGiftCatalogUpdate)
 })
 
 onBeforeUnmount(() => {
@@ -2682,6 +2694,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('auth-friends_update', onFriendsUpdate)
   window.removeEventListener('auth-blacklist_update', onBlacklistUpdate)
   window.removeEventListener('auth-gifts_update', onGiftsUpdate)
+  window.removeEventListener('auth-gift_catalog_update', onGiftCatalogUpdate)
   resetGiftCollection()
 })
 </script>

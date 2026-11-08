@@ -30,7 +30,7 @@ from ..models.user import User
 from ..realtime.sio import sio
 from ..security.admin_guard import is_protected_admin_uid
 from ..security.auth_tokens import get_identity
-from ..services.gift_media import MAX_GIFT_BYTES
+from ..services.gift_media import MAX_GIFT_BYTES, delete_gift_media
 from ..services.minio import delete_avatars_async, delete_avatar_version_async
 from ..services.user_cache import (
     get_user_profile_cached,
@@ -97,9 +97,11 @@ __all__ = [
     "is_user_in_active_game",
     "validate_object_key_for_presign",
     "_select_admin_gifts",
+    "_select_gift_acquisitions",
     "_gift_admin_out",
     "_emit_gift_catalog_update",
     "_read_gift_upload",
+    "_discard_gift_upload",
     "parse_month_range",
     "parse_day_range",
     "sanction_rules_out",
@@ -6223,14 +6225,17 @@ async def touch_user_last_login(db: AsyncSession, user_id: int) -> None:
     await db.commit()
 
 
-def _select_admin_gifts():
-    owner_count = (
-        select(func.count(func.distinct(UserGift.owner_id)))
+def _select_gift_acquisitions(gift_id, *columns):
+    return (
+        select(*columns)
         .select_from(UserGift)
         .join(User, User.id == UserGift.owner_id)
-        .where(UserGift.gift_id == Gift.id, UserGift.refunded_at.is_(None), User.deleted_at.is_(None))
-        .scalar_subquery()
+        .where(UserGift.gift_id == gift_id, UserGift.refunded_at.is_(None), User.deleted_at.is_(None))
     )
+
+
+def _select_admin_gifts():
+    owner_count = _select_gift_acquisitions(Gift.id, func.count(func.distinct(UserGift.owner_id))).scalar_subquery()
     return select(Gift, owner_count).where(Gift.deleted_at.is_(None))
 
 
@@ -6238,9 +6243,9 @@ def _gift_admin_out(gift: Gift, owner_count: int) -> GiftAdminOut:
     return GiftAdminOut(**GiftOut.model_validate(gift).model_dump(), owner_count=owner_count)
 
 
-async def _emit_gift_catalog_update(gift_id: int) -> None:
+async def _emit_gift_catalog_update(gift_id: int, *, media_changed: bool = False) -> None:
     with suppress(Exception):
-        await sio.emit("gift_catalog_update", {"gift_id": gift_id}, namespace="/auth")
+        await sio.emit("gift_catalog_update", {"gift_id": gift_id, "media_changed": media_changed}, namespace="/auth")
 
 
 async def _read_gift_upload(file: UploadFile) -> bytes:
@@ -6252,6 +6257,20 @@ async def _read_gift_upload(file: UploadFile) -> bytes:
         raise HTTPException(422, detail="gift_media_empty")
 
     return content
+
+
+async def _discard_gift_upload(session: AsyncSession, gift_id: int | None, keys: dict[str, str]) -> None:
+    with suppress(Exception):
+        await session.rollback()
+    if gift_id is not None:
+        try:
+            saved = await session.scalar(select(Gift.id).where(Gift.id == gift_id, Gift.preview_key == keys["preview_key"]))
+        except Exception:
+            return
+        if saved is not None:
+            return
+
+    await delete_gift_media(keys.values())
 
 
 def validate_object_key_for_presign(key: str) -> None:

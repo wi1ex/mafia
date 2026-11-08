@@ -1433,14 +1433,15 @@
         <section v-else-if="activeTab === 'gifts'" class="admin-gifts">
           <div class="gift-toolbar">
             <h3>Подарки</h3>
-            <UiButton v-if="!giftTab.adding" size="middle" text="Добавить подарок" @click="giftTab.adding = true" />
+            <UiButton v-if="giftTab.uploadTarget === null" size="middle" text="Добавить подарок" :disabled="giftUploading" @click="openGiftUpload('new')" />
           </div>
-          <form v-if="giftTab.adding" class="gift-upload" @submit.prevent="uploadGift">
+          <form v-if="giftTab.uploadTarget !== null" :key="giftTab.uploadTarget" ref="giftUploadForm" class="gift-upload" @submit.prevent="uploadGift">
+            <h4 v-if="typeof giftTab.uploadTarget === 'number'" class="gift-upload-heading">Изменить подарок №{{ giftTab.uploadTarget }}</h4>
             <label>
               Анимация подарка
               <input type="file" accept=".avif,image/avif" :disabled="giftUploading" @change="selectGiftFile" />
             </label>
-            <label>
+            <label v-if="giftTab.uploadTarget === 'new'">
               Цена
               <select v-model.number="giftTab.uploadPrice" :disabled="giftUploading">
                 <option v-for="price in adminGiftPrices" :key="price" :value="price">{{ price }} DC</option>
@@ -1448,7 +1449,8 @@
             </label>
             <p class="gift-upload-hint">Анимированный AVIF с прозрачным фоном. До 3 МБ, 1024 × 1024, 6 секунд и 30 кадров/с.</p>
             <div class="gift-buttons">
-              <UiButton type="submit" size="middle" :text="giftUploading ? 'Загружаем…' : 'Добавить'" :disabled="!giftTab.file || giftUploading" />
+              <UiButton type="submit" size="middle" :text="giftUploading ? 'Загружаем…' : giftTab.uploadTarget === 'new' ? 'Добавить' : 'Сохранить'"
+                        :disabled="!giftTab.file || giftUploading || (typeof giftTab.uploadTarget === 'number' && giftRowBusy.has(giftTab.uploadTarget))" />
               <UiButton variant="white" size="middle" text="Отмена" :disabled="giftUploading" @click="closeGiftUpload()" />
             </div>
           </form>
@@ -1475,7 +1477,30 @@
                 <tr v-for="gift in sortedGifts" :key="gift.id">
                   <td>{{ gift.id }}</td>
                   <td><div class="gift-preview"><GiftMedia :media="gift" :label="`Подарок №${gift.id}`" /></div></td>
-                  <td>{{ gift.owner_count }}</td>
+                  <td>
+                    <div class="tooltip gift-owners-trigger" tabindex="0" :aria-label="`Владельцы подарка №${gift.id}: ${gift.owner_count}`"
+                         @mouseenter="showGiftOwners($event, gift.id)" @mouseleave="hideTooltip"
+                         @focusin="showGiftOwners($event, gift.id)" @focusout="hideTooltip" @keydown.esc.stop="closeGiftOwnersFromKeyboard">
+                      <span class="tooltip-value">{{ gift.owner_count }}</span>
+                      <div class="tooltip-body gift-owners-tooltip" v-bind="{ popover: 'manual' }" role="region" :aria-label="`Владельцы подарка №${gift.id}`"
+                           tabindex="0" @mouseenter="keepTooltipOpen" @mouseleave="hideTooltip" @scroll.passive="onGiftOwnersScroll">
+                        <template v-if="giftOwners.giftId === gift.id">
+                          <div v-if="giftOwners.items.length" class="tooltip-list">
+                            <div v-for="owner in giftOwners.items" :key="owner.id" class="tooltip-row">
+                              <div class="user-cell">
+                                <img class="tooltip-avatar" v-minio-img="{ key: owner.avatar_name ? `avatars/${owner.avatar_name}` : '', placeholder: defaultAvatar }" alt="" />
+                                <span>{{ owner.username || `user${owner.id}` }}</span>
+                                <span v-if="owner.quantity > 1" class="gift-owner-quantity">×{{ owner.quantity }}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div v-if="giftOwners.loading" class="tooltip-empty" role="status">Загрузка…</div>
+                          <div v-else-if="!giftOwners.items.length && !giftOwners.error" class="tooltip-empty">Нет владельцев</div>
+                          <div v-if="giftOwners.error" class="tooltip-empty" role="alert">{{ giftOwners.error }}</div>
+                        </template>
+                      </div>
+                    </div>
+                  </td>
                   <td>
                     <select :value="gift.price_dc" :aria-label="`Цена подарка №${gift.id}`" :disabled="giftRowBusy.has(gift.id)" @change="changeGiftPrice(gift, $event)">
                       <option v-for="price in adminGiftPrices" :key="price" :value="price">{{ price }} DC</option>
@@ -1483,6 +1508,8 @@
                   </td>
                   <td>
                     <div class="gift-buttons">
+                      <UiButton variant="white" size="low" text="Изменить" :aria-label="`Изменить подарок №${gift.id}`"
+                                :disabled="giftUploading || giftRowBusy.has(gift.id)" @click="openGiftUpload(gift.id)" />
                       <UiButton variant="white" size="low" :text="gift.visible ? 'Скрыть' : 'Показать'" :disabled="giftRowBusy.has(gift.id)"
                                 @click="updateGift(gift, { visible: !gift.visible })" />
                       <UiButton variant="red" size="low" text="Удалить" :disabled="giftRowBusy.has(gift.id)" @click="removeGift(gift)" />
@@ -1563,7 +1590,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref, unref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, unref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '@/services/axios'
 import { alertDialog, confirmDialog } from '@/services/confirm'
@@ -2023,6 +2050,7 @@ function keepTooltipOpen(): void {
 
 function closeTooltip(): void {
   keepTooltipOpen()
+  if (openedTooltip?.classList.contains('gift-owners-tooltip')) resetGiftOwners()
   if (openedTooltip?.isConnected && openedTooltip.matches(':popover-open')) openedTooltip.hidePopover()
   openedTooltip = null
 }
@@ -2270,8 +2298,12 @@ const sanctionBadgeOptions = (Object.entries(SANCTION_BADGES) as [SanctionBadgeK
 
 type AdminGift = CatalogGift & { owner_count: number }
 type GiftPatch = Partial<Pick<AdminGift, 'price_dc' | 'visible'>>
+type GiftOwner = { id: number; username: string | null; avatar_name: string | null; quantity: number }
+type GiftOwnersPage = { items: GiftOwner[]; has_more: boolean }
+type GiftUploadTarget = 'new' | number
 
 const adminGiftPrices = [10, 25, 50, 100]
+const GIFT_OWNERS_PAGE_SIZE = 30
 
 function newGiftTab() {
   return {
@@ -2279,7 +2311,7 @@ function newGiftTab() {
     sort: 'id' as 'id' | 'owner_count' | 'price_dc',
     loading: true,
     error: '',
-    adding: false,
+    uploadTarget: null as GiftUploadTarget | null,
     uploadPrice: adminGiftPrices[0],
     file: null as File | null,
   }
@@ -2287,8 +2319,18 @@ function newGiftTab() {
 
 const giftTab = ref(newGiftTab())
 const giftUploading = ref(false)
+const giftUploadForm = ref<HTMLFormElement | null>(null)
 const giftRowBusy = ref(new Set<number>())
 let giftCatalogController: AbortController | undefined
+let giftOwnersController: AbortController | undefined
+const giftOwners = reactive({
+  giftId: 0,
+  items: [] as GiftOwner[],
+  offset: 0,
+  hasMore: false,
+  loading: false,
+  error: '',
+})
 
 const sortedGifts = computed(() => {
   const { sort, items } = giftTab.value
@@ -4234,6 +4276,83 @@ async function loadAdminGifts(): Promise<void> {
   }
 }
 
+function resetGiftOwners(): void {
+  giftOwnersController?.abort()
+  giftOwnersController = undefined
+  Object.assign(giftOwners, { giftId: 0, items: [], offset: 0, hasMore: false, loading: false, error: '' })
+}
+
+function showGiftOwners(event: Event, giftId: number): void {
+  if (activeTab.value !== 'gifts') return
+  showTooltip(event)
+  if (!openedTooltip?.classList.contains('gift-owners-tooltip') || giftOwners.giftId === giftId) return
+  giftOwners.giftId = giftId
+  giftOwners.hasMore = true
+  void loadGiftOwners()
+}
+
+function closeGiftOwnersFromKeyboard(event: KeyboardEvent): void {
+  const trigger = event.currentTarget as HTMLElement
+  if (trigger.contains(document.activeElement)) trigger.focus({ preventScroll: true })
+  closeTooltip()
+}
+
+function onGiftOwnersScroll(event: Event): void {
+  const body = event.currentTarget as HTMLElement
+  if (body !== openedTooltip || giftOwners.error || body.scrollHeight - body.scrollTop - body.clientHeight > 48) return
+  void loadGiftOwners()
+}
+
+async function loadGiftOwners(): Promise<void> {
+  if (activeTab.value !== 'gifts' || !giftOwners.giftId || giftOwners.loading || !giftOwners.hasMore) return
+  const giftId = giftOwners.giftId
+  const body = openedTooltip
+  const controller = new AbortController()
+  giftOwnersController = controller
+  giftOwners.loading = true
+  giftOwners.error = ''
+  try {
+    const { data } = await api.get<GiftOwnersPage>(`/admin/gifts/${giftId}/owners`, {
+      params: { offset: giftOwners.offset, limit: GIFT_OWNERS_PAGE_SIZE },
+      signal: controller.signal,
+    })
+    if (controller.signal.aborted || giftId !== giftOwners.giftId) return
+    const items = new Map(giftOwners.items.map(owner => [owner.id, owner]))
+    for (const owner of data.items) items.set(owner.id, owner)
+    giftOwners.items = [...items.values()]
+    giftOwners.offset += data.items.length
+    giftOwners.hasMore = data.has_more && data.items.length > 0
+  } catch {
+    if (!controller.signal.aborted) giftOwners.error = 'Не удалось загрузить владельцев.'
+  } finally {
+    if (giftOwnersController === controller) {
+      giftOwnersController = undefined
+      giftOwners.loading = false
+      await nextTick()
+      if (body && openedTooltip === body && !controller.signal.aborted) {
+        const trigger = body.closest<HTMLElement>('.tooltip')
+        if (trigger) positionTooltip(trigger, body)
+        if (!giftOwners.error && giftOwners.hasMore && body.scrollHeight <= body.clientHeight + 1) void loadGiftOwners()
+      }
+    }
+  }
+}
+
+async function openGiftUpload(target: GiftUploadTarget): Promise<void> {
+  if (activeTab.value !== 'gifts' || giftUploading.value || (typeof target === 'number' && giftRowBusy.value.has(target))) return
+  const tab = giftTab.value
+  if (tab.uploadTarget !== target) {
+    tab.uploadTarget = target
+    tab.file = null
+    tab.uploadPrice = adminGiftPrices[0]
+    tab.error = ''
+  }
+  await nextTick()
+  if (activeTab.value !== 'gifts' || tab !== giftTab.value || tab.uploadTarget !== target) return
+  giftUploadForm.value?.scrollIntoView({ block: 'nearest' })
+  giftUploadForm.value?.querySelector<HTMLInputElement>('input[type="file"]')?.focus({ preventScroll: true })
+}
+
 function selectGiftFile(event: Event): void {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0] || null
@@ -4248,13 +4367,15 @@ function selectGiftFile(event: Event): void {
 }
 
 function closeGiftUpload(tab = giftTab.value): void {
-  tab.adding = false
+  tab.uploadTarget = null
   tab.file = null
   tab.uploadPrice = adminGiftPrices[0]
 }
 
 function applyAdminGiftChange(giftId: number, gift?: AdminGift): void {
   const tab = giftTab.value
+  if (!gift && tab.uploadTarget === giftId) closeGiftUpload(tab)
+  if (!gift && giftOwners.giftId === giftId) closeTooltip()
   if (tab.loading && activeTab.value === 'gifts') {
     void loadAdminGifts()
     return
@@ -4267,14 +4388,19 @@ function applyAdminGiftChange(giftId: number, gift?: AdminGift): void {
 
 async function uploadGift(): Promise<void> {
   const tab = giftTab.value
-  if (giftUploading.value || !tab.file) return
+  const target = tab.uploadTarget
+  if (activeTab.value !== 'gifts' || target === null || giftUploading.value || !tab.file) return
+  if (typeof target === 'number' && giftRowBusy.value.has(target)) return
   const data = new FormData()
-  data.set('price_dc', String(tab.uploadPrice))
+  if (target === 'new') data.set('price_dc', String(tab.uploadPrice))
   data.set('avif', tab.file)
   giftUploading.value = true
+  if (typeof target === 'number') giftRowBusy.value.add(target)
   tab.error = ''
   try {
-    const { data: gift } = await api.post<AdminGift>('/admin/gifts', data)
+    const { data: gift } = target === 'new'
+      ? await api.post<AdminGift>('/admin/gifts', data)
+      : await api.put<AdminGift>(`/admin/gifts/${target}/media`, data)
     applyAdminGiftChange(gift.id, gift)
     closeGiftUpload(tab)
   } catch (e: any) {
@@ -4284,6 +4410,7 @@ async function uploadGift(): Promise<void> {
     else tab.error = 'Не удалось загрузить подарок. Попробуйте ещё раз.'
   } finally {
     giftUploading.value = false
+    if (typeof target === 'number') giftRowBusy.value.delete(target)
   }
 }
 
@@ -5804,6 +5931,11 @@ onBeforeUnmount(() => {
         margin-bottom: 16px;
         border-radius: 16px;
         background: $soft-purple-900;
+        .gift-upload-heading {
+          flex-basis: 100%;
+          margin: 0;
+          font-family: Involve-Medium;
+        }
         label {
           display: flex;
           flex-direction: column;
@@ -5848,6 +5980,17 @@ onBeforeUnmount(() => {
           .gift-preview {
             width: 52px;
             height: 52px;
+          }
+          .gift-owners-trigger {
+            .gift-owners-tooltip {
+              max-width: calc(100vw - 32px);
+              .tooltip-row {
+                .gift-owner-quantity {
+                  color: $neutral-300;
+                  flex: 0 0 auto;
+                }
+              }
+            }
           }
         }
       }

@@ -5,7 +5,7 @@ import structlog
 from contextlib import suppress
 from time import time
 from datetime import date, datetime, timezone, timedelta
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status, Query
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Path, Request, UploadFile, status, Query
 from sqlalchemy import select, func, or_, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
@@ -15,7 +15,7 @@ from ...models.log import AppLog
 from ...core.roles import ADDITIONAL_ROLE_HEAD_RATE, ROLE_MODER, normalize_additional_roles
 from ...models.contact_request import ContactRequestRecord, ContactRequestReply
 from ...models.game import Game
-from ...models.gift import Gift
+from ...models.gift import Gift, UserGift
 from ...models.friend import UserBlacklist
 from ...models.room import Room
 from ...models.notif import Notif
@@ -97,7 +97,7 @@ from ...services.blacklist import emit_blacklist_update
 from ...models.sanction_rules import get_sanction_rules
 from ...services.nickname import prepend_nickname_history
 from ...schemas.common import Ok, Identity
-from ...schemas.gifts import GIFT_PRICES, GiftAdminOut, GiftAdminPatchIn
+from ...schemas.gifts import GIFT_PRICES, GiftAdminOut, GiftAdminPatchIn, GiftOwnerOut, GiftOwnersOut
 from ...schemas.sanction_rules import SanctionRulesOut, SanctionRulesUpdateIn
 from ...schemas.user import UserGamesHistoryOut, UserOperationHistoryOut, UserStatsOut
 from ...schemas.admin import (
@@ -266,9 +266,11 @@ from ..utils import (
     format_subscription_until,
     schedule_user_telegram_notice,
     _select_admin_gifts,
+    _select_gift_acquisitions,
     _gift_admin_out,
     _emit_gift_catalog_update,
     _read_gift_upload,
+    _discard_gift_upload,
 )
 
 public_router = APIRouter()
@@ -2597,6 +2599,29 @@ async def admin_gifts_list(session: AsyncSession = Depends(get_session)) -> list
     return [_gift_admin_out(gift, count) for gift, count in rows]
 
 
+@router.get("/gifts/{gift_id}/owners", response_model=GiftOwnersOut, dependencies=ADMIN_GUARD)
+@log_route("admin.gifts.owners")
+async def admin_gift_owners(
+    gift_id: int = Path(gt=0, le=2**31 - 1),
+    limit: int = Query(default=30, ge=1, le=100),
+    offset: int = Query(default=0, ge=0, le=2**31 - 1),
+    session: AsyncSession = Depends(get_session),
+) -> GiftOwnersOut:
+    if await session.scalar(select(Gift.id).where(Gift.id == gift_id, Gift.deleted_at.is_(None))) is None:
+        raise HTTPException(404, detail="gift_not_found")
+
+    quantity = func.count().label("quantity")
+    owners = (
+        _select_gift_acquisitions(gift_id, User.id, User.username, User.avatar_name, quantity)
+        .group_by(User.id, User.username, User.avatar_name)
+        .order_by(func.min(UserGift.acquired_at).desc(), User.id)
+        .offset(offset)
+        .limit(limit + 1)
+    )
+    rows = (await session.execute(owners)).mappings().all()
+    return GiftOwnersOut(items=[GiftOwnerOut(**row) for row in rows[:limit]], has_more=len(rows) > limit)
+
+
 @router.post("/gifts", response_model=GiftAdminOut, dependencies=ADMIN_GUARD)
 @log_route("admin.gifts.create")
 async def admin_gifts_create(
@@ -2622,15 +2647,7 @@ async def admin_gifts_create(
         result = _gift_admin_out(gift, 0)
         await session.commit()
     except (Exception, asyncio.CancelledError):
-        with suppress(Exception):
-            await session.rollback()
-        if gift_id is None:
-            await delete_gift_media(keys.values())
-        else:
-            with suppress(Exception):
-                saved = await session.scalar(select(Gift.id).where(Gift.id == gift_id, Gift.preview_key == keys["preview_key"]))
-                if saved is None:
-                    await delete_gift_media(keys.values())
+        await _discard_gift_upload(session, gift_id, keys)
         raise
 
     await _emit_gift_catalog_update(result.id)
@@ -2661,6 +2678,45 @@ async def admin_gifts_patch(
     result = _gift_admin_out(gift, count)
     await session.commit()
     await _emit_gift_catalog_update(gift_id)
+    return result
+
+
+@router.put("/gifts/{gift_id}/media", response_model=GiftAdminOut, dependencies=ADMIN_GUARD)
+@log_route("admin.gifts.replace_media")
+async def admin_gift_replace_media(
+    request: Request,
+    gift_id: int = Path(gt=0, le=2**31 - 1),
+    avif: UploadFile = File(...),
+    session: AsyncSession = Depends(get_session),
+) -> GiftAdminOut:
+    form = await request.form()
+    if set(form) != {"avif"} or len(form.getlist("avif")) != 1:
+        raise HTTPException(422, detail="gift_media_format_invalid")
+
+    keys = await store_gift_media(await _read_gift_upload(avif))
+    try:
+        gift = await session.scalar(
+            select(Gift).where(Gift.id == gift_id, Gift.deleted_at.is_(None))
+            .with_for_update().execution_options(populate_existing=True)
+        )
+        if gift is None:
+            raise HTTPException(404, detail="gift_not_found")
+
+        old_keys = gift.avif_key, gift.preview_key
+        gift.avif_key = keys["avif_key"]
+        gift.preview_key = keys["preview_key"]
+        await session.flush()
+        _, count = (await session.execute(_select_admin_gifts().where(Gift.id == gift_id))).one()
+        result = _gift_admin_out(gift, count)
+        await session.commit()
+    except (Exception, asyncio.CancelledError):
+        await _discard_gift_upload(session, gift_id, keys)
+        raise
+
+    try:
+        await _emit_gift_catalog_update(gift_id, media_changed=True)
+    finally:
+        await delete_gift_media(old_keys)
     return result
 
 

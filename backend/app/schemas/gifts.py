@@ -19,6 +19,18 @@ class GiftAdminOut(GiftOut):
     owner_count: int
 
 
+class GiftOwnerOut(BaseModel):
+    id: int
+    username: str
+    avatar_name: str | None
+    quantity: int
+
+
+class GiftOwnersOut(BaseModel):
+    items: list[GiftOwnerOut]
+    has_more: bool
+
+
 class GiftAdminPatchIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
