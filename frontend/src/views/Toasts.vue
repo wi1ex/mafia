@@ -83,6 +83,7 @@ import iconAddFriends from '@/assets/svg/iconAddFriends.svg'
 import iconInFriends from '@/assets/svg/iconInFriends.svg'
 import iconLeave from '@/assets/svg/iconLeave.svg'
 import iconPresent from '@/assets/svg/iconPresent.svg'
+import iconSubscribe from '@/assets/svg/iconSubscribe.svg'
 import toastSoundUrl from '@/assets/audio/short.mp3'
 
 const router = useRouter()
@@ -235,14 +236,14 @@ const toastAppearances = new Map<string, ToastAppearance>([
   ['coin_topup', { tone: 'tone-green', icon: iconPresent }],
   ['coin_grant', { tone: 'tone-green', icon: iconPresent }],
   ['game_reward', { tone: 'tone-green', icon: iconPresent }],
-  ['subscription_activated', { tone: 'tone-green', icon: iconPresent }],
-  ['subscription_purchase', { tone: 'tone-green', icon: iconPresent }],
-  ['subscription_gift', { tone: 'tone-green', icon: iconPresent }],
+  ['subscription_activated', { tone: 'tone-green', icon: iconSubscribe }],
+  ['subscription_purchase', { tone: 'tone-green', icon: iconSubscribe }],
+  ['subscription_gift', { tone: 'tone-green', icon: iconSubscribe }],
   ['gift_purchase', { tone: 'tone-green', icon: iconPresent }],
   ['gift_received', { tone: 'tone-green', icon: iconPresent }],
-  ['subscription_expiring', { tone: 'tone-orange', icon: iconPresent }],
-  ['subscription_expired', { tone: 'tone-red', icon: iconPresent }],
-  ['subscription_compensation', { tone: 'tone-green', icon: iconPresent }],
+  ['subscription_expiring', { tone: 'tone-orange', icon: iconSubscribe }],
+  ['subscription_expired', { tone: 'tone-red', icon: iconSubscribe }],
+  ['subscription_compensation', { tone: 'tone-green', icon: iconSubscribe }],
   ['contact_request', defaultToastAppearance],
   ['contact_request_reply', defaultToastAppearance],
   ['game_winked', defaultToastAppearance],

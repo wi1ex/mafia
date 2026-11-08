@@ -191,7 +191,7 @@
                     variant="white"
                     size="middle"
                     width="100%"
-                    :icon="iconSubscription"
+                    :icon="iconSubscribe"
                     text="Подарить подписку"
                     :disabled="giftDisabled"
                     @click="openSubscriptionGift"
@@ -200,7 +200,7 @@
                     variant="white"
                     size="middle"
                     width="100%"
-                    :icon="iconSubscription"
+                    :icon="iconPresent"
                     text="Отправить подарок"
                     :disabled="giftDisabled"
                     @click="openGiftShop('gifts')"
@@ -484,7 +484,8 @@ import nominationHead from '@/assets/svg/iconPlay.svg'
 import nominationRoom from '@/assets/svg/iconSpeak.svg'
 import nominationStream from '@/assets/svg/iconScreenOn.svg'
 import nominationSpectator from '@/assets/svg/iconVisOn.svg'
-import iconSubscription from '@/assets/svg/iconPresent.svg'
+import iconPresent from '@/assets/svg/iconPresent.svg'
+import iconSubscribe from '@/assets/svg/iconSubscribe.svg'
 import iconDelete from '@/assets/svg/iconDelete.svg'
 import iconEllipsis from '@/assets/svg/iconEllipsis.svg'
 import iconDanger from '@/assets/svg/iconDanger.svg'
@@ -1178,14 +1179,14 @@ const staffActionItems = computed<StaffActionItem[]>(() => {
         {
           key: 'subscription_extend',
           label: 'Продлить подписку',
-          icon: iconSubscription,
+          icon: iconSubscribe,
           disabled: subscriptionDisabled,
           ariaLabel: `Продлить подписку ${displayName.value}`,
         },
         {
           key: 'subscription_reduce',
           label: 'Уменьшить подписку',
-          icon: iconSubscription,
+          icon: iconSubscribe,
           disabled: subscriptionDisabled,
           ariaLabel: `Уменьшить подписку ${displayName.value}`,
         },
@@ -1194,7 +1195,7 @@ const staffActionItems = computed<StaffActionItem[]>(() => {
         {
           key: 'subscription',
           label: 'Выдать подписку',
-          icon: iconSubscription,
+          icon: iconSubscribe,
           disabled: subscriptionDisabled,
           ariaLabel: `Выдать подписку ${displayName.value}`,
         },
