@@ -109,7 +109,7 @@
                 </div>
                 <div class="wallet-benefits-card">
                   <img class="background-image" :src="imageSlide8" alt="" aria-hidden="true" />
-                  <h3 class="wallet-benefits-title">Что входит в подписку</h3>
+                  <h3 class="wallet-benefits-title">Что входит в подписку:</h3>
                   <ul class="wallet-benefits" aria-label="Привилегии подписки">
                     <li v-for="benefit in subscriptionBenefits" :key="benefit">
                       <UiIcon class="wallet-benefit-icon" :icon="iconCheckCircle" />
@@ -240,11 +240,11 @@ const walletTabs = [
 ] as const
 const subscriptionBenefits: readonly string[] = [
   'анимированный GIF-аватар',
-  'выбор цвета и иконки профиля',
   'статистика и история игр пользователей',
+  'выбор цвета и иконки профиля',
   'вход зрителем игры сверх лимита',
-  'трансляции в высоком качестве',
   'создание скрытых комнат',
+  'трансляции в высоком качестве',
   'черный список пользователей',
   'изменение никнейма и его истории',
 ]
@@ -640,8 +640,7 @@ onBeforeUnmount(() => {
     max-height: 100%;
     padding: 24px;
     box-sizing: border-box;
-    overflow-y: auto;
-    overscroll-behavior: contain;
+    overflow-y: hidden;
     border-radius: 24px;
     background: $neutral-100;
     box-shadow: 0 2px 16px 0 rgba($neutral-black, 0.2);
@@ -720,6 +719,7 @@ onBeforeUnmount(() => {
         border-radius: 0 0 18px 18px;
         background: $green-200;
         border: 2px solid $green-400;
+        border-top: none;
         transform: translateX(-50%);
         strong {
           min-width: 0;
@@ -888,8 +888,9 @@ onBeforeUnmount(() => {
         display: flex;
         position: relative;
         flex-direction: column;
-        gap: 12px;
-        padding: 16px;
+        padding: 12px 16px 16px;
+        margin: -5px 0;
+        gap: 16px;
         border-radius: 24px;
         background: $soft-purple-900;
         .background-image {
@@ -906,7 +907,7 @@ onBeforeUnmount(() => {
           margin: 0;
           color: $neutral-white;
           font-family: Involve-Medium;
-          font-size: 20px;
+          font-size: 22px;
           font-weight: 500;
           line-height: 24px;
           text-align: center;
@@ -1069,7 +1070,7 @@ onBeforeUnmount(() => {
               display: block;
               flex: 0 0 auto;
               width: 100%;
-              height: 96px;
+              height: 60px;
               object-fit: contain;
             }
             .wallet-package-title {
