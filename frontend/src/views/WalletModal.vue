@@ -38,12 +38,8 @@
                         label="Отправить анонимно" off-label="Нет" on-label="Да" theme="light" size="low"
                         :width="144" :disabled="busy || opening" />
             </div>
-            <div v-else class="wallet-tabs" role="group" aria-label="Разделы магазина">
-              <UiButton v-for="item in walletTabs" :key="item.id" class="wallet-choice" size="middle" width="100%"
-                        :class="{ 'wallet-choice--brand': item.id === 'coins' }"
-                        :variant="tab === item.id ? 'green' : 'white'" :icon="item.icon" :text="item.label"
-                        :aria-pressed="tab === item.id" :disabled="busy || opening" @click="changeTab(item.id)" />
-            </div>
+            <UiMultiSwitch v-else :model-value="tab" :options="walletTabs" size="big" aria-label="Разделы магазина"
+                           :disabled="busy || opening" @update:model-value="changeTab" />
             <p v-if="opening" class="wallet-state" role="status">Загрузка…</p>
             <p v-if="error" class="wallet-error" role="alert">{{ error }}</p>
             <p v-if="isGift && !giftRecipientValid" class="wallet-error" role="alert">Выберите другого пользователя для подарка.</p>
@@ -158,6 +154,7 @@ import GiftMedia from '@/components/GiftMedia.vue'
 import UiButton from '@/components/UiButton.vue'
 import UiIcon from '@/components/UiIcon.vue'
 import UiInput from '@/components/UiInput.vue'
+import UiMultiSwitch from '@/components/UiMultiSwitch.vue'
 import UiScrollbar from '@/components/UiScrollbar.vue'
 import UiSwitch from '@/components/UiSwitch.vue'
 
@@ -217,11 +214,11 @@ const giftRecipientValid = computed(() => !isGift.value || (
   && giftRecipientSnapshot.value?.user_id !== userStore.user?.id
 ))
 const tab = ref<WalletTab>('coins')
-const walletTabs: { id: WalletTab; label: string; icon: string }[] = [
-  { id: 'coins', label: 'Баланс', icon: iconCoin },
+const walletTabs = [
+  { id: 'coins', label: 'Баланс', icon: iconCoin, colorIcon: true },
   { id: 'subscription', label: 'Подписка', icon: iconSubscribe },
   { id: 'gifts', label: 'Подарки', icon: iconPresent },
-]
+] as const
 const subscriptionBenefits: readonly string[] = [
   'GIF-аватар, выбор цвета и иконки профиля',
   'статистика и история игр пользователей',
@@ -776,12 +773,6 @@ onBeforeUnmount(() => {
         }
       }
     }
-    .wallet-tabs {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 8px;
-      width: 100%;
-    }
     .wallet-choice,
     .wallet-action {
       height: auto;
@@ -1002,7 +993,7 @@ onBeforeUnmount(() => {
               display: block;
               flex: 0 0 auto;
               width: 100%;
-              height: 78px;
+              height: 86px;
               object-fit: contain;
             }
             strong {
