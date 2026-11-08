@@ -1446,7 +1446,7 @@
                 <option v-for="price in adminGiftPrices" :key="price" :value="price">{{ price }} DC</option>
               </select>
             </label>
-            <p class="gift-upload-hint">Анимированный AVIF с прозрачным фоном. До 2 МБ, 1024 × 1024, 6 секунд и 30 кадров/с.</p>
+            <p class="gift-upload-hint">Анимированный AVIF с прозрачным фоном. До 3 МБ, 1024 × 1024, 6 секунд и 30 кадров/с.</p>
             <div class="gift-buttons">
               <UiButton type="submit" size="middle" :text="giftUploading ? 'Загружаем…' : 'Добавить'" :disabled="!giftTab.file || giftUploading" />
               <UiButton variant="white" size="middle" text="Отмена" :disabled="giftUploading" @click="closeGiftUpload()" />
@@ -4279,7 +4279,7 @@ async function uploadGift(): Promise<void> {
     closeGiftUpload(tab)
   } catch (e: any) {
     const status = e?.response?.status
-    if (status === 413) tab.error = 'Файл слишком большой. Максимальный размер — 2 МБ.'
+    if (status === 413) tab.error = 'Файл слишком большой. Максимальный размер — 3 МБ.'
     else if (status === 422) tab.error = 'Нужен анимированный AVIF с прозрачным фоном. Проверьте размер кадра, длительность и частоту кадров.'
     else tab.error = 'Не удалось загрузить подарок. Попробуйте ещё раз.'
   } finally {

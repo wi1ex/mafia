@@ -12,7 +12,7 @@ from ..core.settings import settings
 from .minio import delete_object, ensure_bucket
 
 GIFT_MEDIA_PREFIX = "gifts/catalog/"
-MAX_GIFT_BYTES = 2 * 1024 * 1024
+MAX_GIFT_BYTES = 3 * 1024 * 1024
 MAX_GIFT_SIDE = 1024
 MAX_GIFT_SECONDS = 6
 MAX_GIFT_FPS = 30
