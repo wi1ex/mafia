@@ -5982,6 +5982,7 @@ onBeforeUnmount(() => {
             height: 52px;
           }
           .gift-owners-trigger {
+            justify-content: flex-start;
             .gift-owners-tooltip {
               max-width: calc(100vw - 32px);
               .tooltip-row {

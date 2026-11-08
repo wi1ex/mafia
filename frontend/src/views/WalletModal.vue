@@ -12,7 +12,7 @@
               </div>
             </div>
             <div class="wallet-unavailable-actions">
-              <UiButton size="middle" text="Закрыть" width="180px" @click="requestClose" />
+              <UiButton size="low" text="Закрыть" @click="requestClose" />
             </div>
           </template>
           <template v-else>
@@ -24,19 +24,19 @@
               <div class="wallet-heading">
                 <h2 id="wallet-title">{{ isGift ? lockedTab === 'gifts' ? 'Отправить подарок' : 'Подарить подписку' : 'Магазин' }}</h2>
               </div>
-              <UiButton variant="white" size="low" :icon="iconClose" width="40px" aria-label="Закрыть" :disabled="busy" @click="requestClose" />
+              <UiButton variant="white" size="low" :icon="iconClose" aria-label="Закрыть" :disabled="busy" @click="requestClose" />
             </header>
             <div v-if="isGift" class="wallet-gift-recipient">
-              <span>Подарок пользователю</span>
+              <span>Пользователю</span>
               <div class="wallet-gift-user">
                 <img v-minio-img="{ key: giftAvatarKey, placeholder: defaultAvatar, lazy: false }" alt="" />
                 <strong>{{ giftRecipientName }}</strong>
               </div>
             </div>
             <div v-else class="wallet-tabs" role="group" aria-label="Разделы магазина">
-              <button v-for="item in walletTabs" :key="item.id" type="button" :class="{ active: tab === item.id }" :aria-pressed="tab === item.id" :disabled="busy || opening" @click="changeTab(item.id)">
-                {{ item.label }}
-              </button>
+              <UiButton v-for="item in walletTabs" :key="item.id" class="wallet-choice" size="low" width="100%"
+                        :variant="tab === item.id ? 'green' : 'white'" :text="item.label"
+                        :aria-pressed="tab === item.id" :disabled="busy || opening" @click="changeTab(item.id)" />
             </div>
             <p v-if="opening" class="wallet-state" role="status">Загрузка…</p>
             <p v-if="error" class="wallet-error" role="alert">{{ error }}</p>
@@ -44,14 +44,16 @@
 
             <div v-if="!isGift" v-show="tab === 'coins'" id="wallet-coins" role="region" aria-label="Пополнение баланса" class="wallet-panel">
               <form class="wallet-form" @submit.prevent="payCoins">
-                <UiInput id="dc-email" v-model.trim="email" type="email" autocomplete="email" label="Email для оформления платежа" placeholder="mail@example.com" mode="light" :disabled="busy || opening" />
+                <UiInput id="dc-email" v-model.trim="email" type="email" autocomplete="email" label="Email для оформления платежа" placeholder="mail@example.com" mode="light" size="low" :disabled="busy || opening" />
                 <div class="wallet-currencies" role="group" aria-label="Валюта оплаты">
-                  <button v-for="item in currencies" :key="item" type="button" :class="{ active: currency === item }" :aria-pressed="currency === item" :disabled="busy" @click="selectCurrency(item)">{{ item }}</button>
+                  <UiButton v-for="item in currencies" :key="item" class="wallet-choice" size="low"
+                            :variant="currency === item ? 'green' : 'white'" :text="item"
+                            :aria-pressed="currency === item" :disabled="busy" @click="selectCurrency(item)" />
                 </div>
                 <div class="wallet-payment-methods" role="group" aria-label="Способ оплаты">
-                  <button v-for="method in paymentMethods" :key="method.id" type="button"
-                          :class="{ active: paymentMethod === method.id }" :aria-pressed="paymentMethod === method.id"
-                          :disabled="busy || opening" @click="paymentMethod = method.id">{{ method.label }}</button>
+                  <UiButton v-for="method in paymentMethods" :key="method.id" class="wallet-choice" size="low"
+                            :variant="paymentMethod === method.id ? 'green' : 'white'" :text="method.label"
+                            :aria-pressed="paymentMethod === method.id" :disabled="busy || opening" @click="paymentMethod = method.id" />
                 </div>
                 <div class="wallet-package-grid" role="group" aria-label="Пакет монет">
                   <button v-for="coinPackage in COIN_PACKAGES" :key="coinPackage.quantity" class="wallet-package-card wallet-package-card--coins" type="button"
@@ -63,7 +65,7 @@
                     <span>{{ dcMoney(settings.dcCoinPackages[coinPackage.quantity][currency], 1, currency) }}</span>
                   </button>
                 </div>
-                <UiButton type="submit" :text="wallet.invoiceBusy ? 'Создаём счёт…' : `Оплатить ${totalPrice}`" :disabled="!canPay" width="100%" />
+                <UiButton class="wallet-action" type="submit" size="low" :text="wallet.invoiceBusy ? 'Создаём счёт…' : `Оплатить ${totalPrice}`" :disabled="!canPay" width="100%" />
               </form>
             </div>
 
@@ -82,7 +84,7 @@
                 <p v-else>Проверяем результат покупки…</p>
                 <span>{{ pendingSubscriptionRecipientLabel }}</span>
                 <span>Тариф: {{ planLabel(wallet.pending.subscription.plan) }}</span>
-                <UiButton :text="wallet.subscriptionBusy ? 'Проверяем…' : pendingSubscriptionMismatch ? 'Проверить предыдущую покупку' : 'Проверить результат покупки'" :disabled="busy || opening" @click="purchaseSubscription(true)" />
+                <UiButton class="wallet-action" size="low" :text="wallet.subscriptionBusy ? 'Проверяем…' : pendingSubscriptionMismatch ? 'Проверить предыдущую покупку' : 'Проверить результат покупки'" :disabled="busy || opening" @click="purchaseSubscription(true)" />
               </div>
               <form v-else class="wallet-form" @submit.prevent="purchaseSubscription(false)">
                 <div class="wallet-package-grid" role="group" aria-label="Тариф подписки">
@@ -93,7 +95,7 @@
                     <strong>{{ plan.label }}</strong><span>{{ plan.cost }} DC</span>
                   </button>
                 </div>
-                <UiButton class="wallet-subscription-buy" type="submit" :text="wallet.subscriptionBusy ? 'Покупаем…' : `${isGift ? 'Подарить' : 'Купить'} за ${selectedPlan.cost} DC${canAffordSubscription ? '' : ' — недостаточно монет'}`" :disabled="!canAffordSubscription || !giftRecipientValid || busy || opening" width="100%" />
+                <UiButton class="wallet-action" type="submit" size="low" :text="wallet.subscriptionBusy ? 'Покупаем…' : `${isGift ? 'Подарить' : 'Купить'} за ${selectedPlan.cost} DC${canAffordSubscription ? '' : ' — недостаточно монет'}`" :disabled="!canAffordSubscription || !giftRecipientValid || busy || opening" width="100%" />
               </form>
             </div>
 
@@ -102,12 +104,12 @@
                 <p>{{ pendingGiftMismatch ? 'Проверьте результат предыдущей покупки подарка во вкладке «Подарки» магазина.' : 'Сначала проверьте результат предыдущей покупки подарка.' }}</p>
                 <span>{{ pendingGiftRecipientLabel }}</span>
                 <span>Подарок №{{ wallet.pending.gift.gift_id }} · {{ wallet.pending.gift.expected_dc_cost }} DC</span>
-                <UiButton v-if="!pendingGiftMismatch" :text="wallet.giftBusy ? 'Проверяем…' : 'Проверить результат покупки'" :disabled="busy || opening" @click="purchaseGift(true)" />
+                <UiButton v-if="!pendingGiftMismatch" class="wallet-action" size="low" :text="wallet.giftBusy ? 'Проверяем…' : 'Проверить результат покупки'" :disabled="busy || opening" @click="purchaseGift(true)" />
               </div>
               <p v-else-if="catalogLoading" class="wallet-state" role="status">Загружаем подарки…</p>
               <div v-else-if="catalogError" class="wallet-summary">
                 <p role="alert">Не удалось загрузить подарки.</p>
-                <UiButton text="Повторить" @click="refreshGiftCatalog" />
+                <UiButton size="low" text="Повторить" @click="refreshGiftCatalog" />
               </div>
               <p v-else-if="!giftCatalog.length" class="wallet-state">Подарков пока нет</p>
               <form v-else class="wallet-form" @submit.prevent="purchaseGift(false)">
@@ -121,7 +123,7 @@
                 </div>
                 <UiSwitch v-if="isGift" v-model="anonymousGift" label="Отправить анонимно" off-label="Выкл"
                           on-label="Вкл" theme="light" size="low" :width="128" :disabled="busy || opening" />
-                <UiButton type="submit" :text="giftButtonText" :disabled="!canBuyGift" width="100%" />
+                <UiButton class="wallet-action" type="submit" size="low" :text="giftButtonText" :disabled="!canBuyGift" width="100%" />
               </form>
             </div>
           </template>
@@ -234,13 +236,13 @@ const pendingSubscriptionRecipientLabel = computed(() => {
   const recipientId = wallet.pending.subscription?.recipient_id
   if (!recipientId) return 'Покупка подписки для себя'
   const name = recipientId === giftRecipientSnapshot.value?.user_id ? giftRecipientName.value : `user${recipientId}`
-  return `Подарок пользователю ${name}`
+  return `Пользователю ${name}`
 })
 const pendingGiftRecipientLabel = computed(() => {
   const request = wallet.pending.gift
   if (!request?.recipient_id) return 'Покупка подарка для себя'
   const recipient = request.recipient_id === giftRecipientSnapshot.value?.user_id ? giftRecipientName.value : `user${request.recipient_id}`
-  return `Подарок пользователю ${recipient}${request.anonymous ? ' · анонимно' : ''}`
+  return `Пользователю ${recipient}${request.anonymous ? ' · анонимно' : ''}`
 })
 const pendingGiftMismatch = computed(() => isGift.value && !!wallet.pending.gift
   && wallet.pending.gift.recipient_id !== giftRecipientSnapshot.value?.user_id)
@@ -749,26 +751,21 @@ onBeforeUnmount(() => {
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 8px;
       width: 100%;
-      button {
-        min-height: 48px;
-        padding: 8px;
-        border: 0;
-        border-radius: 12px;
-        background: $neutral-white;
-        color: $neutral-800;
-        font: inherit;
-        line-height: 18px;
-        cursor: pointer;
-        overflow-wrap: anywhere;
-        &.active {
-          background: $neutral-900;
-          color: $neutral-white;
-        }
-        &:disabled {
-          cursor: default;
-          opacity: 0.65;
-        }
-      }
+    }
+    .wallet-choice,
+    .wallet-action {
+      height: auto;
+      min-height: var(--ui-button-height);
+      max-width: 100%;
+      padding-block: 4px;
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+    .wallet-choice {
+      --ui-button-padding-x: 8px;
+    }
+    .wallet-action {
+      width: fit-content;
     }
     .wallet-state {
       color: $neutral-600;
@@ -784,7 +781,7 @@ onBeforeUnmount(() => {
       gap: 20px;
       .wallet-gift-grid {
         display: grid;
-        grid-template-columns: repeat(6, minmax(0, 1fr));
+        grid-template-columns: repeat(5, minmax(0, 1fr));
         gap: 10px;
         .wallet-gift-card {
           display: flex;
@@ -885,44 +882,12 @@ onBeforeUnmount(() => {
         display: flex;
         flex-direction: column;
         gap: 20px;
-        .wallet-subscription-buy {
-          height: auto;
-          min-height: var(--ui-button-height);
-          padding: 12px 16px;
-          :deep(.ui-button__text) {
-            white-space: normal;
-            overflow: visible;
-          }
-        }
         .wallet-currencies,
         .wallet-payment-methods {
           display: flex;
           gap: 10px;
-          button {
+          .wallet-choice {
             flex: 1;
-            min-width: 0;
-            border: 0;
-            border-radius: 999px;
-            padding: 12px 8px;
-            background: $neutral-white;
-            color: $neutral-700;
-            font: inherit;
-            cursor: pointer;
-            overflow-wrap: anywhere;
-            &.active {
-              background: linear-gradient(261deg, $soft-purple-800 0%, $green-700 100%);
-              color: $neutral-white;
-            }
-            &:not(.active):not(:disabled):hover {
-              color: $neutral-black;
-            }
-            &:focus-visible {
-              outline: 2px solid $green-400;
-            }
-            &:disabled {
-              cursor: default;
-              opacity: 0.65;
-            }
           }
         }
         .wallet-package-grid {
