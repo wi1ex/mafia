@@ -58,8 +58,7 @@
                          width="512" height="384" alt="" loading="lazy" decoding="async" />
                     <strong class="wallet-package-title">{{ coinPackage.quantity }} DC</strong>
                     <span class="wallet-package-price">
-                      <span>{{ coinPackage.amount }}</span>
-                      <span v-if="coinPackage.unit" class="wallet-package-unit">{{ coinPackage.unit }}</span>
+                      <span>{{ coinPackage.amount }} {{ coinPackage.unit }}</span>
                     </span>
                   </button>
                 </div>
@@ -104,7 +103,7 @@
                     <img class="wallet-package-illustration" :src="subscriptionPlanImages[plan.id]"
                          width="132" height="132" alt="" loading="lazy" decoding="async" />
                     <strong class="wallet-package-title">{{ plan.label }}</strong>
-                    <span class="wallet-package-price"><span>{{ plan.cost }}</span><span class="wallet-package-unit">DC</span></span>
+                    <span class="wallet-package-price">{{ plan.cost }} DC</span>
                   </button>
                 </div>
                 <div class="wallet-benefits-card">
@@ -1100,10 +1099,6 @@ onBeforeUnmount(() => {
               font-size: 16px;
               line-height: 20px;
               overflow-wrap: anywhere;
-              .wallet-package-unit {
-                font-size: 11px;
-                line-height: 1;
-              }
             }
             &.active {
               --wallet-discount-color: #{$green-500};
