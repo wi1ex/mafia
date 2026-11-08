@@ -47,13 +47,20 @@
             <div v-if="!isGift" v-show="tab === 'coins'" id="wallet-coins" role="region" aria-label="Пополнение баланса" class="wallet-panel">
               <form class="wallet-form" @submit.prevent="payCoins">
                 <div class="wallet-package-grid" role="group" aria-label="Пакет монет">
-                  <button v-for="coinPackage in COIN_PACKAGES" :key="coinPackage.quantity" class="wallet-package-card wallet-package-card--coins" type="button"
+                  <button v-for="coinPackage in coinPackages" :key="coinPackage.quantity" class="wallet-package-card" type="button"
                           :class="{ active: quantity === coinPackage.quantity }" :aria-pressed="quantity === coinPackage.quantity"
                           :disabled="busy || opening" @click="quantity = coinPackage.quantity">
                     <span v-if="coinPackage.discount" class="wallet-discount">−{{ coinPackage.discount }}%</span>
-                    <img class="wallet-coin-illustration" :src="coinPackageImages[coinPackage.quantity]" width="512" height="384" alt="" aria-hidden="true" loading="lazy" decoding="async" />
-                    <strong>{{ coinPackage.quantity }} DC</strong>
-                    <span>{{ dcMoney(settings.dcCoinPackages[coinPackage.quantity][currency], 1, currency) }}</span>
+                    <span v-if="quantity === coinPackage.quantity" class="wallet-package-selected" aria-hidden="true">
+                      <UiIcon :icon="iconCheckMark" />
+                    </span>
+                    <img class="wallet-package-illustration wallet-coin-illustration" :src="coinPackageImages[coinPackage.quantity]"
+                         width="512" height="384" alt="" loading="lazy" decoding="async" />
+                    <strong class="wallet-package-title">{{ coinPackage.quantity }} DC</strong>
+                    <span class="wallet-package-price">
+                      <span>{{ coinPackage.amount }}</span>
+                      <span v-if="coinPackage.unit" class="wallet-package-unit">{{ coinPackage.unit }}</span>
+                    </span>
                   </button>
                 </div>
                 <div class="wallet-payment-fields">
@@ -91,7 +98,13 @@
                           :class="{ active: subscriptionPlan === plan.id }" :aria-pressed="subscriptionPlan === plan.id"
                           :disabled="busy || opening" @click="subscriptionPlan = plan.id">
                     <span v-if="plan.discount" class="wallet-discount">−{{ plan.discount }}%</span>
-                    <strong>{{ plan.label }}</strong><span>{{ plan.cost }} DC</span>
+                    <span v-if="subscriptionPlan === plan.id" class="wallet-package-selected" aria-hidden="true">
+                      <UiIcon :icon="iconCheckMark" />
+                    </span>
+                    <img class="wallet-package-illustration" :src="subscriptionPlanImages[plan.id]"
+                         width="132" height="132" alt="" loading="lazy" decoding="async" />
+                    <strong class="wallet-package-title">{{ plan.label }}</strong>
+                    <span class="wallet-package-price"><span>{{ plan.cost }}</span><span class="wallet-package-unit">DC</span></span>
                   </button>
                 </div>
                 <div class="wallet-benefits-card">
@@ -163,11 +176,16 @@ import coins30 from '@/assets/images/coins-30.webp'
 import coins100 from '@/assets/images/coins-100.webp'
 import coins300 from '@/assets/images/coins-300.webp'
 import coins1000 from '@/assets/images/coins-1000.webp'
+import subWeek from '@/assets/images/subWeek.png'
+import subMonth from '@/assets/images/subMonth.png'
+import subThreeMonths from '@/assets/images/subThreeMonths.png'
+import subYear from '@/assets/images/subYear.png'
 import paymentsUnavailableImage from '@/assets/images/noPayments.webp'
 
 import iconArrowDown from '@/assets/svg/iconArrowDown.svg'
 import iconClose from '@/assets/svg/iconClose.svg'
 import iconCheckCircle from '@/assets/svg/iconCheckCircle.svg'
+import iconCheckMark from '@/assets/svg/iconCheckMark.svg'
 import iconApple from '@/assets/svg/iconApple.svg'
 import iconCard from '@/assets/svg/iconCard.svg'
 import iconCoin from '@/assets/svg/iconCoin.svg'
@@ -232,7 +250,14 @@ const subscriptionBenefits: readonly string[] = [
 const currencies = DC_CURRENCIES
 const currencyIcons: Record<DcCurrency, string> = { RUB: iconRouble, USD: iconDollar, EUR: iconEuro }
 const coinPackageImages: Record<CoinPackageQuantity, string> = { 30: coins30, 100: coins100, 300: coins300, 1000: coins1000 }
+const subscriptionPlanImages: Record<SubscriptionPlan, string> = { week: subWeek, month: subMonth, quarter: subThreeMonths, year: subYear }
 const currency = ref<DcCurrency>('RUB')
+const coinPackages = computed(() => COIN_PACKAGES.map(coinPackage => {
+  const price = dcMoney(settings.dcCoinPackages[coinPackage.quantity][currency.value], 1, currency.value)
+  const separator = price.lastIndexOf(' ')
+  if (separator === -1) return { ...coinPackage, amount: price, unit: '' }
+  return { ...coinPackage, amount: price.slice(0, separator), unit: price.slice(separator + 1) }
+}))
 const paymentMethod = ref<CoinPaymentMethod>('card')
 const paymentMethods = computed<readonly { id: CoinPaymentMethod; label: string; icon: string; colorIcon?: boolean }[]>(() => currency.value === 'RUB'
   ? [
@@ -961,57 +986,114 @@ onBeforeUnmount(() => {
         .wallet-package-grid {
           display: grid;
           grid-template-columns: repeat(4, minmax(0, 1fr));
-          gap: 12px;
+          gap: 10px;
+          @media (max-width: 520px) {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
           .wallet-package-card {
+            --wallet-discount-color: #{$neutral-black};
             display: flex;
             position: relative;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            gap: 4px;
+            gap: 6px;
             min-width: 0;
-            min-height: 85px;
-            padding: 8px 0 12px;
+            padding: 26px 8px 14px;
             border: 2px solid transparent;
-            border-radius: 20px;
+            border-radius: 16px;
             background: $neutral-white;
-            color: $neutral-700;
+            color: $neutral-black;
             font-family: Hauora-Regular;
             cursor: pointer;
             .wallet-discount {
               position: absolute;
-              top: -8px;
-              right: 10px;
-              padding: 4px 7px;
-              border-radius: 999px;
-              background: $red-500;
+              top: -2px;
+              left: 50%;
+              min-width: 50px;
+              padding: 3px 6px;
+              box-sizing: border-box;
+              border-radius: 0 0 8px 8px;
+              background: var(--wallet-discount-color);
               color: $neutral-white;
-              font-family: Hauora-Bold;
-              font-size: 13px;
-              line-height: 16px;
+              font-size: 12px;
+              line-height: 15px;
+              transform: translateX(-50%);
+              &::before,
+              &::after {
+                content: '';
+                position: absolute;
+                top: 0;
+                width: 7px;
+                height: 7px;
+                background: radial-gradient(circle at left bottom, transparent 6.5px, var(--wallet-discount-color) 7px);
+              }
+              &::before {
+                right: 100%;
+              }
+              &::after {
+                left: 100%;
+                transform: scaleX(-1);
+              }
             }
-            .wallet-coin-illustration {
+            .wallet-package-selected {
+              position: absolute;
+              top: 4px;
+              right: 4px;
+              display: grid;
+              place-items: center;
+              width: 22px;
+              height: 22px;
+              border-radius: 50%;
+              background: $green-500;
+              --ui-icon-width: 16px;
+              --ui-icon-height: 16px;
+            }
+            .wallet-package-illustration {
               display: block;
               flex: 0 0 auto;
               width: 100%;
-              height: 86px;
+              height: 96px;
               object-fit: contain;
             }
-            strong {
+            .wallet-package-title {
               max-width: 100%;
-              font-family: Hauora-Bold;
-              font-size: 22px;
+              margin-top: 4px;
+              font-family: Involve-Medium;
+              font-size: 20px;
+              font-weight: 500;
+              line-height: 24px;
+              letter-spacing: -0.6px;
               text-align: center;
               overflow-wrap: anywhere;
             }
-            > span:not(.wallet-discount) {
-              font-size: 17px;
+            .wallet-package-price {
+              display: flex;
+              flex-wrap: wrap;
+              justify-content: center;
+              align-items: baseline;
+              gap: 0 4px;
+              max-width: 100%;
+              margin-top: auto;
+              padding: 3px 9px;
+              box-sizing: border-box;
+              border-radius: 999px;
+              background: $green-100;
+              color: $green-700;
+              font-size: 16px;
+              line-height: 20px;
               overflow-wrap: anywhere;
+              .wallet-package-unit {
+                font-size: 11px;
+                line-height: 1;
+              }
             }
             &.active {
-              background: linear-gradient(261deg, $soft-purple-800 0%, $green-700 100%);
-              border-color: $green-500;
-              color: $neutral-white;
+              --wallet-discount-color: #{$green-500};
+              border-color: $green-600;
+              box-shadow: 0 2px 10px rgba($green-700, 0.18);
+              .wallet-discount {
+                color: $neutral-black;
+              }
             }
             &:focus-visible {
               outline: 2px solid $green-400;
