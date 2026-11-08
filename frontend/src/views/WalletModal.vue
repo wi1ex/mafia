@@ -35,8 +35,8 @@
                 </div>
               </div>
               <UiSwitch v-if="lockedTab === 'gifts' && !catalogError" v-model="anonymousGift" class="wallet-gift-anonymous"
-                        label="Анонимно" off-label="Нет" on-label="Да" theme="light" size="low"
-                        :width="128" :disabled="busy || opening" />
+                        label="Отправить анонимно" off-label="Нет" on-label="Да" theme="light" size="low"
+                        :width="144" :disabled="busy || opening" />
             </div>
             <div v-else class="wallet-tabs" role="group" aria-label="Разделы магазина">
               <UiButton v-for="item in walletTabs" :key="item.id" class="wallet-choice" size="middle" width="100%"
@@ -690,7 +690,6 @@ onBeforeUnmount(() => {
         align-items: center;
         justify-content: center;
         gap: 6px;
-        max-width: calc(100% - 48px);
         height: 38px;
         padding: 2px 14px 6px 18px;
         box-sizing: border-box;
@@ -736,7 +735,7 @@ onBeforeUnmount(() => {
       flex-wrap: wrap;
       gap: 8px;
       .wallet-gift-anonymous {
-        width: 300px;
+        width: 310px;
         max-width: 100%;
         margin-left: auto;
       }
