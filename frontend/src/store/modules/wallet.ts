@@ -21,7 +21,8 @@ export type CoinInvoice = {
 }
 export type WalletState = { dc_balance: number; subscription_active: boolean; subscription_until: string | null }
 export type SubscriptionPurchaseResult = WalletState & { purchase_id: number; recipient_id?: number; recipient_username?: string | null }
-type InvoiceRequest = { quantity: CoinPackageQuantity; currency: DcCurrency; email: string; expected_amount: string; request_id: string }
+export type CoinPaymentMethod = 'card' | 'sbp' | 'apple_pay' | 'paypal'
+type InvoiceRequest = { quantity: CoinPackageQuantity; currency: DcCurrency; payment_method: CoinPaymentMethod; email: string; expected_amount: string; request_id: string }
 type SubscriptionRequest = { plan: SubscriptionPlan; request_id: string; recipient_id?: number }
 type GiftPurchaseRequest = GiftPurchaseInput & { request_id: string }
 type PendingRequests = { subscription?: SubscriptionRequest; gift?: GiftPurchaseRequest }
@@ -57,6 +58,7 @@ export function dcErrorMessage(error: any): string {
     idempotency_conflict: 'Этот запрос уже отправлен с другими параметрами. Проверьте результат операции.',
     dc_quantity_invalid: 'Выберите пакет на 30, 100, 300 или 1000 DC.',
     dc_package_invalid: 'Выберите пакет на 30, 100, 300 или 1000 DC.',
+    dc_payment_method_invalid: 'Этот способ оплаты недоступен для выбранной валюты.',
     kassa_coin_offer_invalid: 'Цены выбранного пакета временно недоступны. Попробуйте позже.',
     kassa_coin_offer_prices_mismatch: 'Цены выбранного пакета временно недоступны. Попробуйте позже.',
     dc_email_invalid: 'Введите корректный email.',

@@ -10,6 +10,7 @@ class CoinInvoiceCreateIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     quantity: int = Field(strict=True)
     currency: Literal["RUB", "USD", "EUR"]
+    payment_method: Literal["card", "sbp", "apple_pay", "paypal"] = "card"
     email: str = Field(min_length=3, max_length=254)
     expected_amount: Decimal = Field(gt=0, max_digits=18, decimal_places=2)
     request_id: UUID

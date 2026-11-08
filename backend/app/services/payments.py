@@ -19,6 +19,7 @@ from ..core.settings import settings
 from ..models.coin_purchase import CoinPurchase
 from ..models.settings import AppSettings
 from ..models.user import User
+from ..schemas.payments import CoinInvoiceCreateIn
 from .coin_prices import DC_CURRENCIES, DC_PACKAGE_QUANTITIES, parse_dc_packages
 from .wallet import checked_balance, ensure_payments_enabled, ensure_purchase_access, get_dc_balance, lock_dc_request, lock_user_balance, notify_coin_operation, persist_coin_operation_notice
 
@@ -29,6 +30,15 @@ SUCCESS_STATUSES = {"completed", "paid", "success", "successful"}
 PENDING_STATUSES = {"created", "new", "in_progress", "pending", "waiting", "waiting_payment", "awaiting_payment", "invoice_created"}
 FAILED_STATUSES = {"failed", "cancelled", "canceled", "expired"}
 REFUND_EVENTS = {"refund.success", "chargeback.initiated"}
+LAVA_RUB_PAYMENT_OPTIONS = {
+    "card": {"paymentProvider": "SMART_GLOCAL", "paymentMethod": "CARD"},
+    "sbp": {"paymentProvider": "PAY2ME", "paymentMethod": "SBP"},
+}
+LAVA_INTERNATIONAL_PAYMENT_OPTIONS = {
+    "card": {"paymentProvider": "UNLIMIT", "paymentMethod": "CARD"},
+    "apple_pay": {"paymentProvider": "UNLIMIT", "paymentMethod": "APPLE_PAY"},
+    "paypal": {"paymentProvider": "PAYPAL"},
+}
 
 
 def _clean(value: Any) -> str:
@@ -280,9 +290,14 @@ def order_response(order: CoinPurchase, balance: int) -> dict:
             "currency": order.currency, "email": order.email, "request_id": order.request_id}
 
 
-async def create_coin_invoice(session: AsyncSession, *, user_id: int, payload) -> dict:
+async def create_coin_invoice(session: AsyncSession, *, user_id: int, payload: CoinInvoiceCreateIn) -> dict:
     if not isinstance(payload.quantity, int) or isinstance(payload.quantity, bool) or payload.quantity not in DC_PACKAGE_QUANTITIES:
         raise HTTPException(422, detail="dc_package_invalid")
+
+    payment_options = LAVA_RUB_PAYMENT_OPTIONS if payload.currency == "RUB" else LAVA_INTERNATIONAL_PAYMENT_OPTIONS
+    payment_fields = payment_options.get(payload.payment_method)
+    if payment_fields is None:
+        raise HTTPException(422, detail="dc_payment_method_invalid")
 
     request_id = str(payload.request_id)
     existing_id = await session.scalar(select(CoinPurchase.id).where(CoinPurchase.request_id == request_id))
@@ -327,8 +342,13 @@ async def create_coin_invoice(session: AsyncSession, *, user_id: int, payload) -
         raise HTTPException(422, detail="kassa_email_invalid")
 
     if existing:
+        previous_payment = _dict(existing.request_payload)
+        previous_option = previous_payment.get("paymentProvider"), previous_payment.get("paymentMethod")
+        requested_option = payment_fields["paymentProvider"], payment_fields.get("paymentMethod")
+        legacy_card = previous_option == (None, None) and payload.payment_method == "card"
         if (existing.user_id != user_id or existing.quantity != payload.quantity or existing.currency != payload.currency
-                or existing.email != email or existing.amount != payload.expected_amount):
+                or existing.email != email or existing.amount != payload.expected_amount
+                or (previous_option != requested_option and not legacy_card)):
             raise HTTPException(409, detail="idempotency_conflict")
 
         result = order_response(existing, user.dc_balance)
@@ -354,6 +374,7 @@ async def create_coin_invoice(session: AsyncSession, *, user_id: int, payload) -
     await session.flush()
     return_base = f"https://{settings.DOMAIN}/profile?tab=subscription&order_id={order.id}&dc_payment="
     request_payload = {"email": email, "offerId": offer_id, "currency": order.currency,
+                       **payment_fields,
                        "buyerLanguage": "RU",
                        "clientUtm": {"utm_source": "mafia_site", "utm_medium": "dc", "utm_campaign": "dc_purchase",
                                      "utm_term": str(user_id), "utm_content": order.tracking_token},

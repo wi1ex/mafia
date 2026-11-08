@@ -46,7 +46,12 @@
               <form class="wallet-form" @submit.prevent="payCoins">
                 <UiInput id="dc-email" v-model.trim="email" type="email" autocomplete="email" label="Email для оформления платежа" placeholder="mail@example.com" mode="light" :disabled="busy || opening" />
                 <div class="wallet-currencies" role="group" aria-label="Валюта оплаты">
-                  <button v-for="item in currencies" :key="item" type="button" :class="{ active: currency === item }" :aria-pressed="currency === item" :disabled="busy" @click="currency = item">{{ item }}</button>
+                  <button v-for="item in currencies" :key="item" type="button" :class="{ active: currency === item }" :aria-pressed="currency === item" :disabled="busy" @click="selectCurrency(item)">{{ item }}</button>
+                </div>
+                <div class="wallet-payment-methods" role="group" aria-label="Способ оплаты">
+                  <button v-for="method in paymentMethods" :key="method.id" type="button"
+                          :class="{ active: paymentMethod === method.id }" :aria-pressed="paymentMethod === method.id"
+                          :disabled="busy || opening" @click="paymentMethod = method.id">{{ method.label }}</button>
                 </div>
                 <div class="wallet-package-grid" role="group" aria-label="Пакет монет">
                   <button v-for="coinPackage in COIN_PACKAGES" :key="coinPackage.quantity" class="wallet-package-card wallet-package-card--coins" type="button"
@@ -130,7 +135,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore, useSettingsStore, useUserStore } from '@/store'
-import { useWalletStore, dcErrorMessage, dcRequestUncertain, type CoinInvoice, type SubscriptionPurchaseResult } from '@/store/modules/wallet'
+import { useWalletStore, dcErrorMessage, dcRequestUncertain, type CoinInvoice, type CoinPaymentMethod, type SubscriptionPurchaseResult } from '@/store/modules/wallet'
 import { COIN_PACKAGES, DC_CURRENCIES, SUBSCRIPTION_PLANS, dcMoney, dcPurchaseRestriction, type CoinPackageQuantity, type DcCurrency, type SubscriptionPlan, type WalletTab } from '@/services/dc'
 import { alertDialog } from '@/services/confirm'
 import { loadGiftCatalog, type CatalogGift, type GiftPurchaseResult } from '@/services/gifts'
@@ -201,6 +206,10 @@ const subscriptionBenefits: readonly string[] = [
 const currencies = DC_CURRENCIES
 const coinPackageImages: Record<CoinPackageQuantity, string> = { 30: coins30, 100: coins100, 300: coins300, 1000: coins1000 }
 const currency = ref<DcCurrency>('RUB')
+const paymentMethod = ref<CoinPaymentMethod>('card')
+const paymentMethods = computed<readonly { id: CoinPaymentMethod; label: string }[]>(() => currency.value === 'RUB'
+  ? [{ id: 'card', label: 'Российская карта' }, { id: 'sbp', label: 'СБП' }]
+  : [{ id: 'card', label: 'Зарубежная карта' }, { id: 'apple_pay', label: 'Apple Pay' }, { id: 'paypal', label: 'PayPal' }])
 const quantity = ref<CoinPackageQuantity>(30)
 const subscriptionPlan = ref<SubscriptionPlan>('week')
 const email = ref('')
@@ -266,6 +275,10 @@ function changeTab(next: WalletTab): void {
   if (lockedTab.value || busy.value || opening.value || tab.value === next) return
   error.value = ''
   tab.value = next
+}
+function selectCurrency(next: DcCurrency): void {
+  currency.value = next
+  if (!paymentMethods.value.some(method => method.id === paymentMethod.value)) paymentMethod.value = 'card'
 }
 function onDialogKeydown(event: KeyboardEvent): void {
   if (event.key === 'Escape') { event.stopPropagation(); requestClose() }
@@ -337,10 +350,17 @@ async function payCoins(): Promise<void> {
   const buyerId = userStore.user?.id
   const buyerSession = auth.sessionId
   const requestedCurrency = currency.value
+  const requestedPaymentMethod = paymentMethod.value
   const requestedQuantity = quantity.value
   const requestedAmount = packageAmount.value
   try {
-    const invoice = await wallet.createInvoice({ quantity: requestedQuantity, currency: requestedCurrency, email: email.value.trim().toLowerCase(), expected_amount: requestedAmount })
+    const invoice = await wallet.createInvoice({
+      quantity: requestedQuantity,
+      currency: requestedCurrency,
+      payment_method: requestedPaymentMethod,
+      email: email.value.trim().toLowerCase(),
+      expected_amount: requestedAmount,
+    })
     if (seq !== openSequence || !props.open || !auth.isAuthed || buyerId !== userStore.user?.id || buyerSession !== auth.sessionId || !settings.paymentsEnabled || restriction.value) return
     const url = invoice.status === 'pending' ? paymentLink(invoice) : ''
     if (url) {
@@ -874,7 +894,8 @@ onBeforeUnmount(() => {
             overflow: visible;
           }
         }
-        .wallet-currencies {
+        .wallet-currencies,
+        .wallet-payment-methods {
           display: flex;
           gap: 10px;
           button {
@@ -887,6 +908,7 @@ onBeforeUnmount(() => {
             color: $neutral-700;
             font: inherit;
             cursor: pointer;
+            overflow-wrap: anywhere;
             &.active {
               background: linear-gradient(261deg, $soft-purple-800 0%, $green-700 100%);
               color: $neutral-white;
