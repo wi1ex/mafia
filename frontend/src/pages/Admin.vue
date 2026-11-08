@@ -1437,10 +1437,15 @@
           </div>
           <form v-if="giftTab.uploadTarget !== null" :key="giftTab.uploadTarget" ref="giftUploadForm" class="gift-upload" @submit.prevent="uploadGift">
             <h4 v-if="typeof giftTab.uploadTarget === 'number'" class="gift-upload-heading">Изменить подарок №{{ giftTab.uploadTarget }}</h4>
-            <label>
-              Анимация подарка
-              <input type="file" accept=".avif,image/avif" :disabled="giftUploading" @change="selectGiftFile" />
-            </label>
+            <div class="gift-upload-file">
+              <span>Анимация подарка</span>
+              <input ref="giftFileInput" type="file" accept=".avif,image/avif" hidden :disabled="giftUploading" @change="selectGiftFile" />
+              <div class="gift-upload-file-actions">
+                <UiButton class="gift-file-picker" variant="white" size="low" type="button" text="Выбрать файл"
+                          :disabled="giftUploading" @click="giftFileInput?.click()" />
+                <span v-if="giftTab.file">{{ giftTab.file.name }}</span>
+              </div>
+            </div>
             <label v-if="giftTab.uploadTarget === 'new'">
               Цена
               <select v-model.number="giftTab.uploadPrice" :disabled="giftUploading">
@@ -2320,6 +2325,7 @@ function newGiftTab() {
 const giftTab = ref(newGiftTab())
 const giftUploading = ref(false)
 const giftUploadForm = ref<HTMLFormElement | null>(null)
+const giftFileInput = ref<HTMLInputElement | null>(null)
 const giftRowBusy = ref(new Set<number>())
 let giftCatalogController: AbortController | undefined
 let giftOwnersController: AbortController | undefined
@@ -4350,7 +4356,7 @@ async function openGiftUpload(target: GiftUploadTarget): Promise<void> {
   await nextTick()
   if (activeTab.value !== 'gifts' || tab !== giftTab.value || tab.uploadTarget !== target) return
   giftUploadForm.value?.scrollIntoView({ block: 'nearest' })
-  giftUploadForm.value?.querySelector<HTMLInputElement>('input[type="file"]')?.focus({ preventScroll: true })
+  giftUploadForm.value?.querySelector<HTMLButtonElement>('.gift-file-picker')?.focus({ preventScroll: true })
 }
 
 function selectGiftFile(event: Event): void {
@@ -5936,10 +5942,26 @@ onBeforeUnmount(() => {
           margin: 0;
           font-family: Involve-Medium;
         }
-        label {
+        label,
+        .gift-upload-file {
           display: flex;
           flex-direction: column;
           gap: 8px;
+        }
+        .gift-upload-file {
+          min-width: 0;
+          max-width: 100%;
+          .gift-upload-file-actions {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            > span {
+              min-width: 0;
+              overflow-wrap: anywhere;
+              color: $neutral-200;
+            }
+          }
         }
         .gift-upload-hint {
           flex-basis: 100%;
