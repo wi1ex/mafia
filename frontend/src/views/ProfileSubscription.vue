@@ -1,6 +1,6 @@
 <template>
   <div class="profile-subscription">
-    <div class="subscription-blocks">
+    <div class="subscription-blocks subscription-blocks--payments">
         <section class="block-payments block-scrollable">
           <header class="section-header">
             <span class="section-title">История операций</span>
@@ -38,7 +38,7 @@
           </div>
         </section>
     </div>
-    <div class="subscription-blocks">
+    <div class="subscription-blocks subscription-blocks--blacklist">
         <section class="block-blacklist block-scrollable">
           <div class="blacklist-head">
             <div class="blacklist-title">
@@ -268,10 +268,15 @@ onMounted(() => {
     flex-direction: column;
     gap: 10px;
     box-sizing: border-box;
-    width: calc(50% - 5px);
     min-width: 0;
     height: 100%;
     min-height: 0;
+    &--payments {
+      width: calc(60% - 5px);
+    }
+    &--blacklist {
+      width: calc(40% - 5px);
+    }
     > .block-scrollable {
       flex-shrink: 0;
       max-height: 100%;
