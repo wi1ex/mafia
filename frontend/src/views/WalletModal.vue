@@ -51,7 +51,7 @@
                           :class="{ active: quantity === coinPackage.quantity }" :aria-pressed="quantity === coinPackage.quantity"
                           :disabled="busy || opening" @click="quantity = coinPackage.quantity">
                     <span v-if="coinPackage.discount" class="wallet-discount">−{{ coinPackage.discount }}%</span>
-                    <span v-if="quantity === coinPackage.quantity" class="wallet-package-selected" aria-hidden="true">
+                    <span class="wallet-package-selected" aria-hidden="true">
                       <UiIcon :icon="iconCheckMark" />
                     </span>
                     <img class="wallet-package-illustration wallet-coin-illustration" :src="coinPackageImages[coinPackage.quantity]"
@@ -98,7 +98,7 @@
                           :class="{ active: subscriptionPlan === plan.id }" :aria-pressed="subscriptionPlan === plan.id"
                           :disabled="busy || opening" @click="subscriptionPlan = plan.id">
                     <span v-if="plan.discount" class="wallet-discount">−{{ plan.discount }}%</span>
-                    <span v-if="subscriptionPlan === plan.id" class="wallet-package-selected" aria-hidden="true">
+                    <span class="wallet-package-selected" aria-hidden="true">
                       <UiIcon :icon="iconCheckMark" />
                     </span>
                     <img class="wallet-package-illustration" :src="subscriptionPlanImages[plan.id]"
@@ -887,7 +887,7 @@ onBeforeUnmount(() => {
         display: flex;
         position: relative;
         flex-direction: column;
-        padding: 24px;
+        padding: 16px;
         border-radius: 24px;
         background: $soft-purple-900;
         .background-image {
@@ -920,9 +920,8 @@ onBeforeUnmount(() => {
               min-width: 0;
               color: $neutral-white;
               font-family: Hauora-Regular;
-              font-size: 16px;
+              font-size: 14px;
               line-height: 16px;
-              letter-spacing: -0.32px;
               overflow-wrap: anywhere;
             }
           }
@@ -987,11 +986,9 @@ onBeforeUnmount(() => {
           display: grid;
           grid-template-columns: repeat(4, minmax(0, 1fr));
           gap: 10px;
-          @media (max-width: 520px) {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-          }
           .wallet-package-card {
             --wallet-discount-color: #{$neutral-black};
+            --wallet-package-transition: 0.25s ease-in-out;
             display: flex;
             position: relative;
             flex-direction: column;
@@ -1005,6 +1002,10 @@ onBeforeUnmount(() => {
             color: $neutral-black;
             font-family: Hauora-Regular;
             cursor: pointer;
+            transition: border-color var(--wallet-package-transition), box-shadow var(--wallet-package-transition);
+            @media (prefers-reduced-motion: reduce) {
+              --wallet-package-transition: 0s;
+            }
             .wallet-discount {
               position: absolute;
               top: -2px;
@@ -1013,11 +1014,12 @@ onBeforeUnmount(() => {
               padding: 3px 6px;
               box-sizing: border-box;
               border-radius: 0 0 8px 8px;
-              background: var(--wallet-discount-color);
+              background-color: var(--wallet-discount-color);
               color: $neutral-white;
               font-size: 12px;
               line-height: 15px;
               transform: translateX(-50%);
+              transition: background-color var(--wallet-package-transition), color var(--wallet-package-transition);
               &::before,
               &::after {
                 content: '';
@@ -1025,7 +1027,8 @@ onBeforeUnmount(() => {
                 top: 0;
                 width: 7px;
                 height: 7px;
-                background: radial-gradient(circle at left bottom, transparent 6.5px, var(--wallet-discount-color) 7px);
+                background-color: inherit;
+                mask-image: radial-gradient(circle at left bottom, transparent 6.5px, black 7px);
               }
               &::before {
                 right: 100%;
@@ -1045,6 +1048,8 @@ onBeforeUnmount(() => {
               height: 22px;
               border-radius: 50%;
               background: $green-500;
+              opacity: 0;
+              transition: opacity var(--wallet-package-transition);
               --ui-icon-width: 16px;
               --ui-icon-height: 16px;
             }
@@ -1093,6 +1098,9 @@ onBeforeUnmount(() => {
               box-shadow: 0 2px 10px rgba($green-700, 0.18);
               .wallet-discount {
                 color: $neutral-black;
+              }
+              .wallet-package-selected {
+                opacity: 1;
               }
             }
             &:focus-visible {
