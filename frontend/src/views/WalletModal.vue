@@ -220,13 +220,14 @@ const walletTabs = [
   { id: 'gifts', label: 'Подарки', icon: iconPresent },
 ] as const
 const subscriptionBenefits: readonly string[] = [
-  'GIF-аватар, выбор цвета и иконки профиля',
+  'анимированный GIF-аватар',
+  'выбор цвета и иконки профиля',
   'статистика и история игр пользователей',
   'вход зрителем игры сверх лимита',
   'трансляции в высоком качестве',
   'создание скрытых комнат',
   'черный список пользователей',
-  'безлимитное изменение никнейма и его истории',
+  'изменение никнейма и их истории',
 ]
 const currencies = DC_CURRENCIES
 const currencyIcons: Record<DcCurrency, string> = { RUB: iconRouble, USD: iconDollar, EUR: iconEuro }
@@ -874,9 +875,9 @@ onBeforeUnmount(() => {
           object-fit: cover;
         }
         .wallet-benefits {
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 8px 24px;
           margin: 0;
           padding: 0;
           list-style: none;
@@ -886,8 +887,8 @@ onBeforeUnmount(() => {
             align-items: center;
             gap: 4px;
             .wallet-benefit-icon {
-              --ui-icon-width: 24px;
-              --ui-icon-height: 24px;
+              --ui-icon-width: 20px;
+              --ui-icon-height: 20px;
               --ui-icon-color: #{$neutral-white};
             }
             span {
