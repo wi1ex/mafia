@@ -743,8 +743,8 @@ onBeforeUnmount(() => {
         h2 {
           font-weight: normal;
           font-family: Involve-Medium;
-          font-size: 32px;
-          line-height: 32px;
+          font-size: 28px;
+          line-height: 28px;
           letter-spacing: -0.48px;
           margin: 0;
         }
@@ -896,7 +896,7 @@ onBeforeUnmount(() => {
         display: flex;
         position: relative;
         flex-direction: column;
-        padding: 12px 16px 16px;
+        padding: 12px 20px 16px;
         margin: -5px 0;
         gap: 16px;
         border-radius: 24px;
@@ -923,7 +923,7 @@ onBeforeUnmount(() => {
         .wallet-benefits {
           display: grid;
           grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 8px 24px;
+          gap: 2px 16px;
           margin: 0;
           padding: 0;
           list-style: none;
@@ -1078,7 +1078,7 @@ onBeforeUnmount(() => {
               display: block;
               flex: 0 0 auto;
               width: 100%;
-              height: 60px;
+              height: 65px;
               object-fit: contain;
             }
             .wallet-package-title {
