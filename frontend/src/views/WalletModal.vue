@@ -19,7 +19,7 @@
             <header :class="{ 'wallet-header--gift': isGift }">
               <div class="wallet-header-balance" :class="{ 'wallet-header-balance--long': balanceText.length > 12 }" role="status" aria-live="polite" aria-atomic="true" :aria-label="`Баланс: ${balanceText} DC`">
                 <strong>{{ balanceText }}</strong>
-                <img :src="coins30" width="32" height="28" alt="" aria-hidden="true" />
+                <UiIcon class="wallet-balance-icon" :icon="iconCoin" />
               </div>
               <div class="wallet-heading">
                 <h2 id="wallet-title">{{ isGift ? lockedTab === 'gifts' ? 'Отправить подарок' : 'Подарить подписку' : 'Магазин' }}</h2>
@@ -172,6 +172,7 @@ import iconClose from '@/assets/svg/iconClose.svg'
 import iconCheckCircle from '@/assets/svg/iconCheckCircle.svg'
 import iconApple from '@/assets/svg/iconApple.svg'
 import iconCard from '@/assets/svg/iconCard.svg'
+import iconCoin from '@/assets/svg/iconCoin.svg'
 import iconDollar from '@/assets/svg/iconDollar.svg'
 import iconEuro from '@/assets/svg/iconEuro.svg'
 import iconPaypal from '@/assets/svg/iconPaypal.svg'
@@ -215,7 +216,7 @@ const giftRecipientValid = computed(() => !isGift.value || (
 ))
 const tab = ref<WalletTab>('coins')
 const walletTabs: { id: WalletTab; label: string; icon: string }[] = [
-  { id: 'coins', label: 'Баланс', icon: coins30 },
+  { id: 'coins', label: 'Баланс', icon: iconCoin },
   { id: 'subscription', label: 'Подписка', icon: iconSubscribe },
   { id: 'gifts', label: 'Подарки', icon: iconPresent },
 ]
@@ -716,12 +717,9 @@ onBeforeUnmount(() => {
           font-variant-numeric: tabular-nums;
           line-height: 24px;
         }
-        img {
-          display: block;
-          flex: 0 0 32px;
-          width: 32px;
-          height: 28px;
-          object-fit: contain;
+        .wallet-balance-icon {
+          --ui-icon-width: 24px;
+          --ui-icon-height: 24px;
         }
         &--long strong {
           font-size: 16px;
@@ -794,11 +792,12 @@ onBeforeUnmount(() => {
     }
     .wallet-choice {
       --ui-button-padding-x: 8px;
-      &--brand :deep(.ui-button__icon) {
-        background: var(--ui-icon-url) center / contain no-repeat;
-        -webkit-mask: none;
-        mask: none;
-      }
+    }
+    .wallet-balance-icon,
+    .wallet-choice--brand :deep(.ui-button__icon) {
+      background: var(--ui-icon-url) center / contain no-repeat;
+      -webkit-mask: none;
+      mask: none;
     }
     .wallet-action {
       width: fit-content;
@@ -855,7 +854,7 @@ onBeforeUnmount(() => {
         display: flex;
         position: relative;
         flex-direction: column;
-        padding: 16px 24px;
+        padding: 24px;
         border-radius: 24px;
         background: $soft-purple-900;
         .background-image {
@@ -870,7 +869,7 @@ onBeforeUnmount(() => {
         .wallet-benefits {
           display: flex;
           flex-direction: column;
-          gap: 4px;
+          gap: 6px;
           margin: 0;
           padding: 0;
           list-style: none;
@@ -958,7 +957,7 @@ onBeforeUnmount(() => {
             justify-content: center;
             gap: 8px;
             min-width: 0;
-            min-height: 108px;
+            min-height: 113px;
             padding: 22px 12px;
             border: 2px solid transparent;
             border-radius: 20px;
