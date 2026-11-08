@@ -42,5 +42,6 @@ class UserGift(Base):
     request_id: Mapped[str] = mapped_column(String(36), nullable=False, unique=True)
     acquired_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     refunded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    refund_recipient_id: Mapped[int | None] = mapped_column(BigInteger)
     balance_before: Mapped[int] = mapped_column(BigInteger, nullable=False)
     balance_after: Mapped[int] = mapped_column(BigInteger, nullable=False)

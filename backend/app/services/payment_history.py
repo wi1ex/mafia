@@ -70,11 +70,12 @@ async def operation_history(session: AsyncSession, user_id: int, *, page: int = 
             UserGift.owner_id, UserGift.payer_id,
         )
 
-    gift = gift_operations("gift", UserGift.acquired_at).where(
-        or_(UserGift.owner_id == user_id, UserGift.payer_id == user_id),
-    )
+    gift_participant = or_(UserGift.owner_id == user_id, UserGift.payer_id == user_id)
+    gift = gift_operations("gift", UserGift.acquired_at).where(gift_participant)
     refund = gift_operations("gift_refund", UserGift.refunded_at).where(
-        UserGift.payer_id == user_id, UserGift.refunded_at.is_not(None),
+        gift_participant,
+        UserGift.refunded_at.is_not(None),
+        func.coalesce(UserGift.refund_recipient_id, UserGift.payer_id) == user_id,
     )
     combined = union_all(coin, subscription, gift, refund).subquery()
     total = int(await session.scalar(select(func.count()).select_from(combined)) or 0)

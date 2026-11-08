@@ -201,7 +201,7 @@ async def _notify_gift_purchase(acquisition: UserGift, *, owner_note: Notif | No
             log.exception("gift.payer_notification_failed", acquisition_id=acquisition.id)
 
 
-async def _publish_gift_changes(user_ids: set[int], payer_ids: set[int]) -> None:
+async def _publish_gift_changes(user_ids: set[int], balance_user_ids: set[int]) -> None:
     from ..realtime.sio import sio
 
     for uid in sorted(user_ids):
@@ -209,13 +209,13 @@ async def _publish_gift_changes(user_ids: set[int], payer_ids: set[int]) -> None
             await sio.emit("gifts_update", {"user_id": uid}, room=f"user:{uid}", namespace="/auth")
         except Exception:
             log.exception("gift.collection_sync_failed", user_id=uid)
-    if not payer_ids:
+    if not balance_user_ids:
         return
 
     try:
         async with SessionLocal() as session:
             balances = (await session.execute(
-                select(User.id, User.dc_balance).where(User.id.in_(payer_ids))
+                select(User.id, User.dc_balance).where(User.id.in_(balance_user_ids))
             )).all()
     except Exception:
         log.exception("gift.balance_lookup_failed")
@@ -279,6 +279,8 @@ async def user_gift_purchase(session: AsyncSession, acquisition_id: int, *, owne
 
 
 async def delete_gift_and_refund(session: AsyncSession, gift_id: int) -> Gift:
+    from ..api.utils import emit_notify
+
     gift = await session.scalar(
         select(Gift).where(Gift.id == gift_id).with_for_update().execution_options(populate_existing=True)
     )
@@ -294,21 +296,35 @@ async def delete_gift_and_refund(session: AsyncSession, gift_id: int) -> Gift:
         .order_by(UserGift.id).with_for_update()
     )).all()
     refunds: dict[int, int] = defaultdict(int)
-    affected_ids = set()
     for acquisition in acquisitions:
-        refunds[acquisition.payer_id] += acquisition.dc_cost
-        affected_ids.add(acquisition.owner_id)
+        refunds[acquisition.owner_id] += acquisition.dc_cost
+    notes: list[tuple[int, Notif]] = []
     for uid in sorted(refunds):
-        payer = await lock_user_balance(session, uid)
-        payer.dc_balance = checked_balance(payer.dc_balance, refunds[uid])
+        owner = await lock_user_balance(session, uid)
+        amount = refunds[uid]
+        owner.dc_balance = checked_balance(owner.dc_balance, amount)
+        note = await _persist_notice_once(
+            session, user_id=uid, event_key=f"dc:gift_refund:{gift_id}:{uid}",
+            title="Подарок удалён",
+            text=f"Администратор удалил подарок №{gift_id}. Ваш баланс пополнен на {amount} DC.",
+        )
+        if note is not None:
+            notes.append((uid, note))
 
     now = datetime.now(timezone.utc)
     gift.visible = False
     gift.deleted_at = now
     for acquisition in acquisitions:
         acquisition.refunded_at = now
+        acquisition.refund_recipient_id = acquisition.owner_id
     await session.commit()
 
-    payer_ids = set(refunds)
-    await _publish_gift_changes(affected_ids | payer_ids, payer_ids)
+    for uid, note in notes:
+        try:
+            await emit_notify(uid, note, kind="gift_refund", no_toast=True)
+        except Exception:
+            log.exception("gift.refund_notification_failed", gift_id=gift_id, user_id=uid)
+
+    owner_ids = set(refunds)
+    await _publish_gift_changes(owner_ids, owner_ids)
     return gift

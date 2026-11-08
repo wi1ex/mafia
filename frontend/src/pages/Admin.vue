@@ -4444,7 +4444,7 @@ async function removeGift(gift: AdminGift): Promise<void> {
   try {
     const confirmed = await confirmDialog({
       title: `Удалить подарок №${gift.id}?`,
-      text: 'Подарок исчезнет из магазина и профилей. Все потраченные на него DC вернутся плательщикам.',
+      text: 'Подарок исчезнет из магазина и профилей. Владельцы получат DC за каждый экземпляр, в том числе полученный в подарок. Сумма соответствует цене на момент покупки.',
       confirmText: 'Удалить',
     })
     if (!confirmed) return
@@ -4452,7 +4452,7 @@ async function removeGift(gift: AdminGift): Promise<void> {
     applyAdminGiftChange(gift.id)
   } catch (e: any) {
     tab.error = e?.response?.data?.detail === 'gift_media_cleanup_failed'
-      ? 'Подарок снят с продажи и убран из профилей, DC возвращены. Повторите удаление, чтобы очистить файл.'
+      ? 'Подарок снят с продажи и убран из профилей. DC начислены владельцам. Повторите удаление, чтобы завершить очистку файлов.'
       : 'Не удалось удалить подарок.'
   } finally {
     giftRowBusy.value.delete(gift.id)
