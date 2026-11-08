@@ -5,7 +5,7 @@ import structlog
 from contextlib import suppress
 from time import time
 from datetime import date, datetime, timezone, timedelta
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status, Query
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status, Query
 from sqlalchemy import select, func, or_, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
@@ -15,6 +15,7 @@ from ...models.log import AppLog
 from ...core.roles import ADDITIONAL_ROLE_HEAD_RATE, ROLE_MODER, normalize_additional_roles
 from ...models.contact_request import ContactRequestRecord, ContactRequestReply
 from ...models.game import Game
+from ...models.gift import Gift
 from ...models.friend import UserBlacklist
 from ...models.room import Room
 from ...models.notif import Notif
@@ -49,6 +50,8 @@ from ...services.livekit import remove_livekit_participant
 from ...services.user_cache import refresh_user_profile_cache, get_user_profiles_cached, invalidate_avatar_presign_cache
 from ...services.site_rules import update_site_rules_version
 from ...services.payment_history import operation_history
+from ...services.gift_media import delete_gift_media, store_gift_media
+from ...services.gifts import delete_gift_and_refund
 from ...services.multiaccounts import MULTIACCOUNT_ACTIONS, MultiaccountScan
 from ...services.game_scoring import (
     build_game_scoring_rules_snapshot,
@@ -94,6 +97,7 @@ from ...services.blacklist import emit_blacklist_update
 from ...models.sanction_rules import get_sanction_rules
 from ...services.nickname import prepend_nickname_history
 from ...schemas.common import Ok, Identity
+from ...schemas.gifts import GIFT_PRICES, GiftAdminOut, GiftAdminPatchIn
 from ...schemas.sanction_rules import SanctionRulesOut, SanctionRulesUpdateIn
 from ...schemas.user import UserGamesHistoryOut, UserOperationHistoryOut, UserStatsOut
 from ...schemas.admin import (
@@ -170,6 +174,7 @@ from ..utils import (
     normalize_game_result,
     site_settings_out,
     public_settings_out,
+    snapshot_live_room_min_ready,
     game_settings_out,
     schedule_user_game_stats_cache_invalidation,
     game_stats_cache_user_ids,
@@ -260,6 +265,10 @@ from ..utils import (
     format_subscription_purchase_duration,
     format_subscription_until,
     schedule_user_telegram_notice,
+    _select_admin_gifts,
+    _gift_admin_out,
+    _emit_gift_catalog_update,
+    _read_gift_upload,
 )
 
 public_router = APIRouter()
@@ -344,64 +353,6 @@ async def update_sanction_rules(
 async def public_settings(session: AsyncSession = Depends(get_session)) -> PublicSettingsOut:
     settings = await refresh_app_settings(session)
     return public_settings_out(settings)
-
-
-async def snapshot_live_room_min_ready(previous_min_ready: int) -> int:
-    r = get_redis()
-    try:
-        raw_room_ids = await r.zrange("rooms:index", 0, -1)
-    except Exception:
-        log.warning("admin.settings.snapshot_room_min_ready.index_load_failed")
-        return 0
-
-    room_ids: list[int] = []
-    for raw_room_id in raw_room_ids or []:
-        try:
-            room_id = int(raw_room_id)
-        except Exception:
-            continue
-        if room_id > 0:
-            room_ids.append(room_id)
-    if not room_ids:
-        return 0
-
-    try:
-        async with r.pipeline() as pipeline:
-            for room_id in room_ids:
-                await pipeline.hmget(f"room:{room_id}:params", "id", "game_min_ready")
-            existing_values = await pipeline.execute()
-    except Exception:
-        log.warning("admin.settings.snapshot_room_min_ready.load_failed")
-        return 0
-
-    missing_ids: list[int] = []
-    for room_id, value in zip(room_ids, existing_values):
-        room_marker = value[0] if value else None
-        min_ready_value = value[1] if value and len(value) > 1 else None
-        if not room_marker:
-            continue
-        try:
-            configured_min_ready = int(min_ready_value or 0)
-        except Exception:
-            configured_min_ready = 0
-        if configured_min_ready <= 0:
-            missing_ids.append(room_id)
-    if not missing_ids:
-        return 0
-
-    try:
-        async with r.pipeline() as pipeline:
-            for room_id in missing_ids:
-                await pipeline.hset(
-                    f"room:{room_id}:params",
-                    mapping={"game_min_ready": str(max(1, previous_min_ready))},
-                )
-            await pipeline.execute()
-    except Exception:
-        log.warning("admin.settings.snapshot_room_min_ready.save_failed")
-        return 0
-
-    return len(missing_ids)
 
 
 @router.get("/settings", response_model=AdminSettingsOut, dependencies=ADMIN_GUARD)
@@ -2635,6 +2586,100 @@ async def subscriptions_delete(user_id: int, ident: Identity = Depends(get_ident
         with suppress(Exception):
             if await session.scalar(select(User.avatar_name).where(User.id == uid)) is None:
                 await broadcast_creator_rooms(uid, avatar="delete")
+
+    return Ok()
+
+
+@router.get("/gifts", response_model=list[GiftAdminOut], dependencies=ADMIN_GUARD)
+@log_route("admin.gifts.list")
+async def admin_gifts_list(session: AsyncSession = Depends(get_session)) -> list[GiftAdminOut]:
+    rows = (await session.execute(_select_admin_gifts().order_by(Gift.id.desc()))).all()
+    return [_gift_admin_out(gift, count) for gift, count in rows]
+
+
+@router.post("/gifts", response_model=GiftAdminOut, dependencies=ADMIN_GUARD)
+@log_route("admin.gifts.create")
+async def admin_gifts_create(
+    request: Request,
+    price_dc: int = Form(...),
+    webp: UploadFile | None = File(None),
+    webm: UploadFile | None = File(None),
+    hevc: UploadFile | None = File(None),
+    session: AsyncSession = Depends(get_session),
+) -> GiftAdminOut:
+    if price_dc not in GIFT_PRICES:
+        raise HTTPException(422, detail="gift_price_invalid")
+
+    form = await request.form()
+    if any(key not in {"price_dc", "webp", "webm", "hevc"} or len(form.getlist(key)) != 1 for key in form):
+        raise HTTPException(422, detail="gift_media_format_invalid")
+
+    webp_only = webp is not None and webm is None and hevc is None
+    video_pair = webp is None and webm is not None and hevc is not None
+    if not (webp_only or video_pair):
+        raise HTTPException(422, detail="gift_media_format_invalid")
+
+    keys = await store_gift_media(webp=await _read_gift_upload(webp), webm=await _read_gift_upload(webm),
+                                 hevc=await _read_gift_upload(hevc))
+    gift_id = None
+    try:
+        gift = Gift(price_dc=price_dc, visible=True, **keys)
+        session.add(gift)
+        await session.flush()
+        gift_id = int(gift.id)
+        result = _gift_admin_out(gift, 0)
+        await session.commit()
+    except (Exception, asyncio.CancelledError):
+        with suppress(Exception):
+            await session.rollback()
+        if gift_id is None:
+            await delete_gift_media(keys.values())
+        else:
+            with suppress(Exception):
+                saved = await session.scalar(select(Gift.id).where(Gift.id == gift_id, Gift.preview_key == keys["preview_key"]))
+                if saved is None:
+                    await delete_gift_media(keys.values())
+        raise
+
+    await _emit_gift_catalog_update(result.id)
+    return result
+
+
+@router.patch("/gifts/{gift_id}", response_model=GiftAdminOut, dependencies=ADMIN_GUARD)
+@log_route("admin.gifts.update")
+async def admin_gifts_patch(
+    gift_id: int,
+    payload: GiftAdminPatchIn,
+    session: AsyncSession = Depends(get_session),
+) -> GiftAdminOut:
+    changes = payload.model_dump(exclude_unset=True)
+    if not changes or any(value is None for value in changes.values()):
+        raise HTTPException(422, detail="gift_patch_invalid")
+
+    gift = await session.scalar(select(Gift).where(Gift.id == gift_id, Gift.deleted_at.is_(None)).with_for_update())
+    if gift is None:
+        raise HTTPException(404, detail="gift_not_found")
+
+    if payload.price_dc is not None:
+        gift.price_dc = payload.price_dc
+    if payload.visible is not None:
+        gift.visible = payload.visible
+    await session.flush()
+    _, count = (await session.execute(_select_admin_gifts().where(Gift.id == gift_id))).one()
+    result = _gift_admin_out(gift, count)
+    await session.commit()
+    await _emit_gift_catalog_update(gift_id)
+    return result
+
+
+@router.delete("/gifts/{gift_id}", response_model=Ok, dependencies=ADMIN_GUARD)
+@log_route("admin.gifts.delete")
+async def admin_gifts_delete(gift_id: int, session: AsyncSession = Depends(get_session)) -> Ok:
+    gift = await delete_gift_and_refund(session, gift_id)
+    cleaned = await delete_gift_media((gift.preview_key, gift.webp_key, gift.webm_key, gift.hevc_key))
+    await _emit_gift_catalog_update(gift_id)
+    if not cleaned:
+        raise HTTPException(503, detail="gift_media_cleanup_failed")
 
     return Ok()
 

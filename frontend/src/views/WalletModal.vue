@@ -22,7 +22,7 @@
                 <img :src="coins30" width="32" height="28" alt="" aria-hidden="true" />
               </div>
               <div class="wallet-heading">
-                <h2 id="wallet-title">{{ isGift ? 'Подарить подписку' : 'Магазин' }}</h2>
+                <h2 id="wallet-title">{{ isGift ? lockedTab === 'gifts' ? 'Отправить подарок' : 'Подарить подписку' : 'Магазин' }}</h2>
               </div>
               <UiButton variant="white" size="low" :icon="iconClose" width="40px" aria-label="Закрыть" :disabled="busy" @click="requestClose" />
             </header>
@@ -33,7 +33,11 @@
                 <strong>{{ giftRecipientName }}</strong>
               </div>
             </div>
-            <UiSwitch v-else v-model="subscriptionTabActive" class="wallet-tabs" off-label="Пополнение баланса" on-label="Покупка подписки" aria-label="Пополнение баланса / Покупка подписки" theme="light" without-text @change="onTabChange" />
+            <div v-else class="wallet-tabs" role="group" aria-label="Разделы магазина">
+              <button v-for="item in walletTabs" :key="item.id" type="button" :class="{ active: tab === item.id }" :aria-pressed="tab === item.id" :disabled="busy || opening" @click="changeTab(item.id)">
+                {{ item.label }}
+              </button>
+            </div>
             <p v-if="opening" class="wallet-state" role="status">Загрузка…</p>
             <p v-if="error" class="wallet-error" role="alert">{{ error }}</p>
             <p v-if="isGift && !giftRecipientValid" class="wallet-error" role="alert">Выберите другого пользователя для подарка.</p>
@@ -58,7 +62,7 @@
               </form>
             </div>
 
-            <div v-show="isGift || tab === 'subscription'" id="wallet-subscription" role="region" :aria-label="isGift ? 'Подарить подписку' : 'Покупка подписки'" class="wallet-panel">
+            <div v-if="!lockedTab || lockedTab === 'subscription'" v-show="tab === 'subscription'" id="wallet-subscription" role="region" :aria-label="isGift ? 'Подарить подписку' : 'Покупка подписки'" class="wallet-panel">
               <div class="wallet-benefits-card">
                 <img class="background-image" :src="imageSlide8" alt="" aria-hidden="true" />
                 <ul class="wallet-benefits" aria-label="Привилегии подписки">
@@ -87,6 +91,34 @@
                 <UiButton class="wallet-subscription-buy" type="submit" :text="wallet.subscriptionBusy ? 'Покупаем…' : `${isGift ? 'Подарить' : 'Купить'} за ${selectedPlan.cost} DC${canAffordSubscription ? '' : ' — недостаточно монет'}`" :disabled="!canAffordSubscription || !giftRecipientValid || busy || opening" width="100%" />
               </form>
             </div>
+
+            <div v-if="tab === 'gifts'" id="wallet-gifts" role="region" aria-label="Подарки" class="wallet-panel">
+              <div v-if="wallet.pending.gift" class="wallet-summary">
+                <p>{{ pendingGiftMismatch ? 'Проверьте результат предыдущей покупки подарка во вкладке «Подарки» магазина.' : 'Сначала проверьте результат предыдущей покупки подарка.' }}</p>
+                <span>{{ pendingGiftRecipientLabel }}</span>
+                <span>Подарок №{{ wallet.pending.gift.gift_id }} · {{ wallet.pending.gift.expected_dc_cost }} DC</span>
+                <UiButton v-if="!pendingGiftMismatch" :text="wallet.giftBusy ? 'Проверяем…' : 'Проверить результат покупки'" :disabled="busy || opening" @click="purchaseGift(true)" />
+              </div>
+              <p v-else-if="catalogLoading" class="wallet-state" role="status">Загружаем подарки…</p>
+              <div v-else-if="catalogError" class="wallet-summary">
+                <p role="alert">Не удалось загрузить подарки.</p>
+                <UiButton text="Повторить" @click="refreshGiftCatalog" />
+              </div>
+              <p v-else-if="!giftCatalog.length" class="wallet-state">Подарков пока нет</p>
+              <form v-else class="wallet-form" @submit.prevent="purchaseGift(false)">
+                <div class="wallet-gift-grid" role="group" aria-label="Выберите подарок">
+                  <button v-for="gift in giftCatalog" :key="gift.id" class="wallet-gift-card" type="button"
+                          :class="{ active: selectedGiftId === gift.id }" :aria-pressed="selectedGiftId === gift.id"
+                          :aria-label="`Подарок №${gift.id}, ${gift.price_dc} DC`" :disabled="busy || opening" @click="selectedGiftId = gift.id">
+                    <GiftMedia class="wallet-gift-media" :media="gift" />
+                    <span>{{ gift.price_dc }} DC</span>
+                  </button>
+                </div>
+                <UiSwitch v-if="isGift" v-model="anonymousGift" label="Отправить анонимно" off-label="Выкл"
+                          on-label="Вкл" theme="light" size="low" :width="128" :disabled="busy || opening" />
+                <UiButton type="submit" :text="giftButtonText" :disabled="!canBuyGift" width="100%" />
+              </form>
+            </div>
           </template>
         </section>
       </div>
@@ -95,12 +127,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore, useSettingsStore, useUserStore } from '@/store'
 import { useWalletStore, dcErrorMessage, dcRequestUncertain, type CoinInvoice, type SubscriptionPurchaseResult } from '@/store/modules/wallet'
 import { COIN_PACKAGES, DC_CURRENCIES, SUBSCRIPTION_PLANS, dcMoney, dcPurchaseRestriction, type CoinPackageQuantity, type DcCurrency, type SubscriptionPlan, type WalletTab } from '@/services/dc'
 import { alertDialog } from '@/services/confirm'
+import { loadGiftCatalog, type CatalogGift, type GiftPurchaseResult } from '@/services/gifts'
+import GiftMedia from '@/components/GiftMedia.vue'
 import UiButton from '@/components/UiButton.vue'
 import UiIcon from '@/components/UiIcon.vue'
 import UiInput from '@/components/UiInput.vue'
@@ -127,6 +161,7 @@ const emit = defineEmits<{
   'update:open': [boolean]
   'busy': [boolean]
   'subscription-purchased': [SubscriptionPurchaseResult]
+  'gift-purchased': [GiftPurchaseResult]
 }>()
 const auth = useAuthStore()
 const userStore = useUserStore()
@@ -136,6 +171,7 @@ const route = useRoute()
 const router = useRouter()
 const dialog = ref<HTMLElement | null>(null)
 const giftRecipientSnapshot = ref<GiftRecipient | null>(null)
+const lockedTab = ref<'subscription' | 'gifts' | null>(null)
 const isGift = computed(() => giftRecipientSnapshot.value !== null)
 const giftRecipientName = computed(() => giftRecipientSnapshot.value?.username || `user${giftRecipientSnapshot.value?.user_id}`)
 const giftAvatarKey = computed(() => {
@@ -148,10 +184,11 @@ const giftRecipientValid = computed(() => !isGift.value || (
   && giftRecipientSnapshot.value?.user_id !== userStore.user?.id
 ))
 const tab = ref<WalletTab>('coins')
-const subscriptionTabActive = computed({
-  get: () => tab.value === 'subscription',
-  set: (value: boolean) => { tab.value = value ? 'subscription' : 'coins' },
-})
+const walletTabs: { id: WalletTab; label: string }[] = [
+  { id: 'coins', label: 'Пополнение баланса' },
+  { id: 'subscription', label: 'Покупка подписки' },
+  { id: 'gifts', label: 'Подарки' },
+]
 const subscriptionBenefits: readonly string[] = [
   'GIF-аватар, выбор цвета и иконки профиля',
   'статистика и история игр пользователей',
@@ -169,12 +206,18 @@ const subscriptionPlan = ref<SubscriptionPlan>('week')
 const email = ref('')
 const error = ref('')
 const opening = ref(false)
+const giftCatalog = ref<CatalogGift[]>([])
+const selectedGiftId = ref<number | null>(null)
+const anonymousGift = ref(false)
+const catalogLoading = ref(false)
+const catalogError = ref(false)
+let catalogRequest: AbortController | undefined
 const armed = ref(false)
 let openSequence = 0
 let subscriptionRetryTimer: ReturnType<typeof setTimeout> | undefined
 let retriedSubscription = false
 const restriction = computed(() => dcPurchaseRestriction(auth.isAuthed, userStore.user, settings.verificationRestrictions))
-const busy = computed(() => wallet.invoiceBusy || wallet.subscriptionBusy)
+const busy = computed(() => wallet.invoiceBusy || wallet.subscriptionBusy || wallet.giftBusy)
 const pendingSubscriptionMismatch = computed(() => !!wallet.pending.subscription && (
   (wallet.pending.subscription.recipient_id || null) !== (giftRecipientSnapshot.value?.user_id || null)
 ))
@@ -184,12 +227,29 @@ const pendingSubscriptionRecipientLabel = computed(() => {
   const name = recipientId === giftRecipientSnapshot.value?.user_id ? giftRecipientName.value : `user${recipientId}`
   return `Подарок пользователю ${name}`
 })
+const pendingGiftRecipientLabel = computed(() => {
+  const request = wallet.pending.gift
+  if (!request?.recipient_id) return 'Покупка подарка для себя'
+  const recipient = request.recipient_id === giftRecipientSnapshot.value?.user_id ? giftRecipientName.value : `user${request.recipient_id}`
+  return `Подарок пользователю ${recipient}${request.anonymous ? ' · анонимно' : ''}`
+})
+const pendingGiftMismatch = computed(() => isGift.value && !!wallet.pending.gift
+  && wallet.pending.gift.recipient_id !== giftRecipientSnapshot.value?.user_id)
 const balanceText = computed(() => new Intl.NumberFormat('ru-RU').format(wallet.balance))
 const packageAmount = computed(() => settings.dcCoinPackages[quantity.value][currency.value])
 const totalPrice = computed(() => dcMoney(packageAmount.value, 1, currency.value))
 const selectedPlan = computed(() => SUBSCRIPTION_PLANS.find(item => item.id === subscriptionPlan.value)!)
 const canAffordSubscription = computed(() => wallet.balance >= selectedPlan.value.cost)
 const canPay = computed(() => !isGift.value && settings.paymentsEnabled && !busy.value && !opening.value && !restriction.value && email.value.trim().length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim()))
+const selectedGift = computed(() => giftCatalog.value.find(item => item.id === selectedGiftId.value))
+const canBuyGift = computed(() => !!selectedGift.value && wallet.balance >= selectedGift.value.price_dc
+  && giftRecipientValid.value && !wallet.pending.gift && !busy.value && !opening.value && !catalogLoading.value && !catalogError.value)
+const giftButtonText = computed(() => {
+  if (wallet.giftBusy) return 'Покупаем…'
+  if (!selectedGift.value) return 'Выберите подарок'
+  const action = isGift.value ? 'Отправить' : 'Купить'
+  return `${action} за ${selectedGift.value.price_dc} DC${wallet.balance < selectedGift.value.price_dc ? ' — недостаточно монет' : ''}`
+})
 
 function paymentLink(invoice: CoinInvoice): string {
   try { const url = new URL(invoice.payment_url || ''); return url.protocol === 'https:' && !url.username && !url.password ? url.href : '' } catch { return '' }
@@ -202,10 +262,10 @@ function handlePaymentsDisabled(err: unknown): boolean {
   settings.paymentsEnabled = false
   return true
 }
-async function onTabChange(): Promise<void> {
-  const seq = openSequence
-  await nextTick()
-  if (props.open && seq === openSequence) dialog.value?.focus({ preventScroll: true })
+function changeTab(next: WalletTab): void {
+  if (lockedTab.value || busy.value || opening.value || tab.value === next) return
+  error.value = ''
+  tab.value = next
 }
 function onDialogKeydown(event: KeyboardEvent): void {
   if (event.key === 'Escape') { event.stopPropagation(); requestClose() }
@@ -223,6 +283,33 @@ function saveEmail(): void {
 }
 function stopTimers(): void {
   clearTimeout(subscriptionRetryTimer)
+}
+function cancelGiftCatalog(): void {
+  catalogRequest?.abort()
+  catalogRequest = undefined
+  catalogLoading.value = false
+}
+async function refreshGiftCatalog(): Promise<void> {
+  if (!props.open || tab.value !== 'gifts' || !settings.paymentsEnabled || restriction.value) return
+  cancelGiftCatalog()
+  const request = new AbortController()
+  catalogRequest = request
+  catalogLoading.value = true
+  catalogError.value = false
+  try {
+    const catalog = await loadGiftCatalog(request.signal)
+    if (request.signal.aborted) return
+    const hadCatalog = giftCatalog.value.length > 0
+    giftCatalog.value = catalog.filter(gift => gift.visible).sort((a, b) => a.price_dc - b.price_dc || a.id - b.id)
+    if (!selectedGift.value) selectedGiftId.value = hadCatalog ? null : giftCatalog.value[0]?.id ?? null
+  } catch {
+    if (!request.signal.aborted) catalogError.value = true
+  } finally {
+    if (catalogRequest === request) {
+      catalogRequest = undefined
+      catalogLoading.value = false
+    }
+  }
 }
 async function payCoins(): Promise<void> {
   if (!canPay.value) return
@@ -329,13 +416,73 @@ async function purchaseSubscription(recover: boolean): Promise<void> {
   }
 }
 
-watch([() => props.open, () => settings.paymentsEnabled], async ([open], previous) => {
+async function purchaseGift(recover: boolean): Promise<void> {
+  if (!props.open || tab.value !== 'gifts' || busy.value || opening.value || !settings.paymentsEnabled || restriction.value) return
+  const gift = selectedGift.value
+  if (recover ? !wallet.pending.gift || pendingGiftMismatch.value : !gift || !canBuyGift.value) return
+  error.value = ''
+  const seq = openSequence
+  const buyerId = userStore.user?.id
+  const buyerSession = auth.sessionId
+  const recipient = giftRecipientSnapshot.value
+  const sameBuyer = () => auth.isAuthed && buyerId === userStore.user?.id && buyerSession === auth.sessionId
+  const isCurrent = () => props.open && seq === openSequence && sameBuyer()
+  try {
+    const result = await wallet.buyGift(recover || !gift ? undefined : {
+      gift_id: gift.id,
+      expected_dc_cost: gift.price_dc,
+      ...(recipient ? { recipient_id: recipient.user_id, anonymous: anonymousGift.value } : {}),
+    })
+    if (!isCurrent()) return
+    emit('gift-purchased', result)
+    emit('update:open', false)
+    if (result.recipient_id !== buyerId) {
+      const name = result.recipient_username || (result.recipient_id === recipient?.user_id && recipient.username) || `user${result.recipient_id}`
+      await nextTick()
+      if (sameBuyer()) void alertDialog({ title: 'Подарок отправлен', text: `Вы отправили подарок пользователю ${name}.` })
+    }
+  } catch (err: any) {
+    if (!isCurrent() || handlePaymentsDisabled(err)) return
+    const detail = err?.response?.data?.detail
+    const code = typeof detail === 'object' ? detail?.code : detail
+    if (code === 'gift_price_changed' || code === 'gift_not_found' || code === 'gift_unavailable') void refreshGiftCatalog()
+    const status = Number(err?.response?.status)
+    if (recipient && [403, 404].includes(status) && typeof code === 'string' && code.startsWith('gift_recipient_')) {
+      const messages: Record<string, string> = {
+        gift_recipient_banned: 'Нельзя отправить подарок: пользователь находится в бане.',
+        gift_recipient_unverified: 'Нельзя отправить подарок: пользователь не прошёл Telegram-верификацию.',
+        gift_recipient_deleted: 'Нельзя отправить подарок: аккаунт получателя удалён.',
+        gift_recipient_blacklisted: 'Нельзя отправить подарок из-за ограничений чёрного списка.',
+      }
+      await alertDialog(messages[code] || dcErrorMessage(err))
+      if (isCurrent()) emit('update:open', false)
+      return
+    }
+    if (code === 'insufficient_dc_balance' || code === 'insufficient_balance') {
+      error.value = 'Недостаточно DC для покупки подарка.'
+      void wallet.refreshWallet().catch(() => {})
+      return
+    }
+    error.value = dcErrorMessage(err)
+  }
+}
+
+watch([() => props.open, () => settings.paymentsEnabled, () => auth.sessionId], async ([open, , session], previous) => {
   stopTimers()
+  cancelGiftCatalog()
   const seq = ++openSequence
   armed.value = false
   opening.value = false
   if (!open) return
-  if (!previous?.[0]) giftRecipientSnapshot.value = props.giftRecipient ? { ...props.giftRecipient } : null
+  if (previous?.[0] && session !== previous[2]) { emit('update:open', false); return }
+  if (!previous?.[0]) {
+    giftRecipientSnapshot.value = props.giftRecipient ? { ...props.giftRecipient } : null
+    lockedTab.value = isGift.value ? props.initialTab === 'gifts' ? 'gifts' : 'subscription' : null
+    giftCatalog.value = []
+    selectedGiftId.value = null
+    anonymousGift.value = false
+    catalogError.value = false
+  }
   opening.value = true
   if (!userStore.user && auth.isAuthed) await userStore.fetchMe().catch(() => {})
   if (seq !== openSequence) return
@@ -353,12 +500,13 @@ watch([() => props.open, () => settings.paymentsEnabled], async ([open], previou
   userStore.ensureClock()
   error.value = ''; opening.value = true
   retriedSubscription = false
-  tab.value = isGift.value ? 'subscription' : props.initialTab || 'coins'
+  tab.value = lockedTab.value || props.initialTab || 'coins'
+  if (tab.value === 'gifts') void refreshGiftCatalog()
   try { email.value = sessionStorage.getItem(`dc:email:${userStore.user?.id}`) || '' } catch {}
   try {
     await wallet.refreshWallet()
     if (seq !== openSequence) return
-    if (wallet.pending.subscription) {
+    if (wallet.pending.subscription && lockedTab.value !== 'gifts' && tab.value !== 'gifts') {
       tab.value = 'subscription'
       if (!pendingSubscriptionMismatch.value && giftRecipientValid.value) void purchaseSubscription(true)
     }
@@ -371,10 +519,16 @@ watch([() => props.open, () => settings.paymentsEnabled], async ([open], previou
     }
   }
 }, { immediate: true })
+watch(tab, (next) => {
+  if (next === 'gifts') {
+    if (!catalogRequest) void refreshGiftCatalog()
+  } else cancelGiftCatalog()
+})
 watch([() => props.open, busy], ([open, value]) => emit('busy', open && value), { immediate: true })
 watch(restriction, reason => {
   if (props.open && reason && (userStore.user || !auth.isAuthed)) {
     stopTimers()
+    cancelGiftCatalog()
     emit('update:open', false)
     void alertDialog(reason)
   }
@@ -387,7 +541,14 @@ watch(() => [route.query.dc_payment, route.query.invoiceId, route.query.invoice_
   void router.replace({ query }).catch(() => {})
   if (auth.isAuthed) void userStore.fetchMe().catch(() => {})
 }, { immediate: true })
-onBeforeUnmount(() => { openSequence++; stopTimers(); emit('busy', false) })
+onMounted(() => window.addEventListener('auth-gift_catalog_update', refreshGiftCatalog))
+onBeforeUnmount(() => {
+  openSequence++
+  stopTimers()
+  cancelGiftCatalog()
+  window.removeEventListener('auth-gift_catalog_update', refreshGiftCatalog)
+  emit('busy', false)
+})
 </script>
 
 <style scoped lang="scss">
@@ -564,18 +725,29 @@ onBeforeUnmount(() => { openSequence++; stopTimers(); emit('busy', false) })
       }
     }
     .wallet-tabs {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
       width: 100%;
-      --switch-height: 48px;
-      --switch-knob: 50%;
-      --switch-translate: 100%;
-      :deep(label) {
-        width: 100%;
-      }
-      :deep(.slider-option) {
-        box-sizing: border-box;
-        padding: 0 8px;
-        font-size: 16px;
-        line-height: 20px;
+      button {
+        min-height: 48px;
+        padding: 8px;
+        border: 0;
+        border-radius: 12px;
+        background: $neutral-white;
+        color: $neutral-800;
+        font: inherit;
+        line-height: 18px;
+        cursor: pointer;
+        overflow-wrap: anywhere;
+        &.active {
+          background: $neutral-900;
+          color: $neutral-white;
+        }
+        &:disabled {
+          cursor: default;
+          opacity: 0.65;
+        }
       }
     }
     .wallet-state {
@@ -590,6 +762,42 @@ onBeforeUnmount(() => { openSequence++; stopTimers(); emit('busy', false) })
       display: flex;
       flex-direction: column;
       gap: 20px;
+      .wallet-gift-grid {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        gap: 10px;
+        .wallet-gift-card {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 6px;
+          padding: 8px;
+          border: 2px solid transparent;
+          border-radius: 16px;
+          background: $neutral-white;
+          color: $neutral-800;
+          font: inherit;
+          cursor: pointer;
+          &.active {
+            border-color: $green-500;
+          }
+          &:disabled {
+            cursor: default;
+          }
+          .wallet-gift-media {
+            height: auto;
+            aspect-ratio: 1;
+          }
+          > span:not(.wallet-gift-media) {
+            padding: 4px 8px;
+            border-radius: 999px;
+            background: $neutral-100;
+            font-size: 14px;
+            line-height: 16px;
+            white-space: nowrap;
+          }
+        }
+      }
       .wallet-benefits-card {
         display: flex;
         position: relative;

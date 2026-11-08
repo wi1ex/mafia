@@ -2,6 +2,7 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { api } from '@/services/axios'
 import { isSubscriptionPlan, newDcRequestId, type CoinPackageQuantity, type DcCurrency, type SubscriptionPlan } from '@/services/dc'
+import type { GiftPurchaseInput, GiftPurchaseResult } from '@/services/gifts'
 import { useUserStore } from './user'
 import { useAuthStore } from './auth'
 
@@ -22,15 +23,21 @@ export type WalletState = { dc_balance: number; subscription_active: boolean; su
 export type SubscriptionPurchaseResult = WalletState & { purchase_id: number; recipient_id?: number; recipient_username?: string | null }
 type InvoiceRequest = { quantity: CoinPackageQuantity; currency: DcCurrency; email: string; expected_amount: string; request_id: string }
 type SubscriptionRequest = { plan: SubscriptionPlan; request_id: string; recipient_id?: number }
-type PendingRequests = { subscription?: SubscriptionRequest }
+type GiftPurchaseRequest = GiftPurchaseInput & { request_id: string }
+type PendingRequests = { subscription?: SubscriptionRequest; gift?: GiftPurchaseRequest }
 
 function storageKey(userId: number): string { return `dc:requests:v2:${userId}` }
 function readPending(userId: number): PendingRequests {
   try {
     const raw = JSON.parse(sessionStorage.getItem(storageKey(userId)) || '{}') as PendingRequests
     const validId = (id: unknown) => typeof id === 'string' && /^[a-f0-9-]{36}$/i.test(id)
+    const validPositiveInt = (value: number | undefined) => Number.isSafeInteger(value) && Number(value) > 0
+    const gift = raw.gift
     return {
       subscription: validId(raw.subscription?.request_id) && isSubscriptionPlan(raw.subscription?.plan) && (raw.subscription?.recipient_id === undefined || (Number.isSafeInteger(raw.subscription.recipient_id) && raw.subscription.recipient_id > 0)) ? raw.subscription : undefined,
+      gift: gift && validId(gift.request_id) && validPositiveInt(gift.gift_id) && validPositiveInt(gift.expected_dc_cost)
+        && (gift.recipient_id === undefined || validPositiveInt(gift.recipient_id))
+        && (gift.anonymous === undefined || typeof gift.anonymous === 'boolean') ? gift : undefined,
     }
   } catch { return {} }
 }
@@ -62,6 +69,9 @@ export function dcErrorMessage(error: any): string {
     gift_recipient_invalid: 'Выберите другого пользователя для подарка.',
     gift_recipient_banned: 'Нельзя подарить подписку: пользователь находится в бане.',
     gift_recipient_unverified: 'Нельзя подарить подписку: пользователь не прошёл Telegram-верификацию.',
+    gift_not_found: 'Подарок больше недоступен.',
+    gift_unavailable: 'Подарок больше недоступен.',
+    gift_price_changed: 'Стоимость подарка изменилась. Проверьте новую цену.',
     subscription_duration_too_large: 'Выберите меньший срок подписки.',
     dc_balance_too_large: 'Количество монет превышает допустимый предел.',
     coin_order_not_found: 'Счёт не найден в вашем аккаунте.',
@@ -88,6 +98,7 @@ export const useWalletStore = defineStore('wallet', () => {
   const loading = ref(false)
   const invoiceBusy = ref(false)
   const subscriptionBusy = ref(false)
+  const giftBusy = ref(false)
   const pending = ref<PendingRequests>({})
   const ownerId = ref(0)
   let ownerSession = ''
@@ -103,6 +114,7 @@ export const useWalletStore = defineStore('wallet', () => {
       loading.value = false
       invoiceBusy.value = false
       subscriptionBusy.value = false
+      giftBusy.value = false
       pending.value = uid > 0 ? readPending(uid) : {}
     }
     return uid
@@ -113,7 +125,7 @@ export const useWalletStore = defineStore('wallet', () => {
   function savePending(uid: number): void {
     if (uid !== ownerId.value) return
     try {
-      if (pending.value.subscription) sessionStorage.setItem(storageKey(uid), JSON.stringify(pending.value))
+      if (pending.value.subscription || pending.value.gift) sessionStorage.setItem(storageKey(uid), JSON.stringify(pending.value))
       else sessionStorage.removeItem(storageKey(uid))
     } catch {}
   }
@@ -184,5 +196,38 @@ export const useWalletStore = defineStore('wallet', () => {
     } finally { if (ownsRequest(uid, session)) subscriptionBusy.value = false }
   }
 
-  return { balance, loading, invoiceBusy, subscriptionBusy, pending, ensureOwner, refreshWallet, createInvoice, buySubscription }
+  async function buyGift(input?: GiftPurchaseInput): Promise<GiftPurchaseResult> {
+    const uid = ensureOwner()
+    if (!uid || giftBusy.value || subscriptionBusy.value || invoiceBusy.value) throw new Error('operation_busy')
+    if (input && pending.value.gift) throw new Error('operation_pending')
+    const request = pending.value.gift || (input ? { ...input, request_id: newDcRequestId() } : null)
+    if (!request) throw new Error('request_missing')
+    const session = ownerSession
+    const previous = user.user
+    const previousBalance = previous?.dc_balance
+    pending.value.gift = request
+    savePending(uid)
+    giftBusy.value = true
+    try {
+      const { data } = await api.post<GiftPurchaseResult>('/gifts/purchases', request)
+      if (ownsRequest(uid, session)) {
+        if (user.user === previous && user.user?.dc_balance === previousBalance) applyState({ dc_balance: data.dc_balance }, uid)
+        delete pending.value.gift
+        savePending(uid)
+        void refreshWallet().catch(() => {})
+        window.dispatchEvent(new CustomEvent('dc-wallet-changed', { detail: { user_id: uid } }))
+      }
+      return data
+    } catch (error) {
+      if (!dcRequestUncertain(error) && ownsRequest(uid, session)) {
+        delete pending.value.gift
+        savePending(uid)
+      }
+      throw error
+    } finally {
+      if (ownsRequest(uid, session)) giftBusy.value = false
+    }
+  }
+
+  return { balance, loading, invoiceBusy, subscriptionBusy, giftBusy, pending, ensureOwner, refreshWallet, createInvoice, buySubscription, buyGift }
 })

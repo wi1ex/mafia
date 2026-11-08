@@ -9,7 +9,7 @@ import structlog
 from time import perf_counter, time
 from datetime import date, datetime, timezone, timedelta
 from typing import Optional, Dict, Any, Literal, Sequence, Iterable, Mapping, cast, TYPE_CHECKING, TypedDict
-from fastapi import Depends, HTTPException, status, Header, Request
+from fastapi import Depends, HTTPException, status, Header, Request, UploadFile
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from sqlalchemy import update, func, select, or_, and_, delete, literal_column
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,6 +19,7 @@ from ..core.logging import log_action, trusted_client_ip
 from ..core.roles import ROLE_ADMIN, ROLE_USER, normalize_user_role, room_moderation_role
 from ..core.settings import settings
 from ..models.game import Game
+from ..models.gift import Gift, UserGift
 from ..services.game_scoring import normalize_game_mode, normalize_game_points_value
 from ..models.room import Room
 from ..models.friend import FriendLink, UserBlacklist
@@ -29,6 +30,7 @@ from ..models.user import User
 from ..realtime.sio import sio
 from ..security.admin_guard import is_protected_admin_uid
 from ..security.auth_tokens import get_identity
+from ..services.gift_media import MAX_GIFT_BYTES
 from ..services.minio import delete_avatars_async, delete_avatar_version_async
 from ..services.user_cache import (
     get_user_profile_cached,
@@ -56,6 +58,7 @@ from ..services.notification_texts import (
     format_subscription_until,
 )
 from ..schemas.common import Ok, Identity
+from ..schemas.gifts import GiftAdminOut, GiftOut
 if TYPE_CHECKING:
     from ..schemas.auth import BotResetIn, BotStatusIn, BotVerifyIn, PasswordLoginIn
     from ..schemas.admin import SiteSettingsOut, GameSettingsOut, PublicSettingsOut, RegistrationsPoint, AdminRoomUserStat, AdminSanctionDurationAdjustIn, AdminGameActionFieldOut
@@ -93,11 +96,16 @@ __all__ = [
     "is_user_in_active_alive_game",
     "is_user_in_active_game",
     "validate_object_key_for_presign",
+    "_select_admin_gifts",
+    "_gift_admin_out",
+    "_emit_gift_catalog_update",
+    "_read_gift_upload",
     "parse_month_range",
     "parse_day_range",
     "sanction_rules_out",
     "site_settings_out",
     "public_settings_out",
+    "snapshot_live_room_min_ready",
     "game_settings_out",
     "schedule_room_gc",
     "gc_empty_room_and_emit",
@@ -173,6 +181,7 @@ __all__ = [
     "emit_auth_profile_sync",
     "refresh_rooms_after",
     "ensure_verification_allowed",
+    "purchase_user",
     "require_friends_verification",
     "ensure_room_access_allowed",
     "ensure_profile_changes_allowed",
@@ -281,7 +290,7 @@ __all__ = [
 
 log = structlog.get_logger()
 
-PRESIGN_ALLOWED_PREFIXES: tuple[str, ...] = ("avatars/", "chat/global/images/", "home/carousel-banner/")
+PRESIGN_ALLOWED_PREFIXES: tuple[str, ...] = ("avatars/", "chat/global/images/", "home/carousel-banner/", "gifts/catalog/")
 PRESIGN_KEY_RE = re.compile(r"^[a-zA-Z0-9._/-]{3,256}$")
 BOT_USERNAME_RE = re.compile(r"^[a-zA-Zа-яА-ЯёЁ0-9._\-()]{2,20}$")
 CHAT_MENTION_QUERY_RE = re.compile(r"^[a-zA-Zа-яА-ЯёЁ0-9._\-()]{1,20}$")
@@ -2318,6 +2327,17 @@ async def ensure_verification_allowed(db: AsyncSession, user_id: int) -> None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="not_verified")
 
 
+async def purchase_user(session: AsyncSession, user_id: int) -> User:
+    from ..services.wallet import ensure_purchase_access
+
+    user = await session.get(User, user_id)
+    if not user:
+        raise HTTPException(401, detail="Unauthorized")
+
+    await ensure_purchase_access(session, user)
+    return user
+
+
 async def require_friends_verification(ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> None:
     await ensure_verification_allowed(db, int(ident["id"]))
 
@@ -3859,6 +3879,64 @@ def sanction_rules_out(row) -> "SanctionRulesOut":
     return SanctionRulesOut.model_validate({"sections": row.sections})
 
 
+async def snapshot_live_room_min_ready(previous_min_ready: int) -> int:
+    r = get_redis()
+    try:
+        raw_room_ids = await r.zrange("rooms:index", 0, -1)
+    except Exception:
+        log.warning("admin.settings.snapshot_room_min_ready.index_load_failed")
+        return 0
+
+    room_ids: list[int] = []
+    for raw_room_id in raw_room_ids or []:
+        try:
+            room_id = int(raw_room_id)
+        except Exception:
+            continue
+        if room_id > 0:
+            room_ids.append(room_id)
+    if not room_ids:
+        return 0
+
+    try:
+        async with r.pipeline() as pipeline:
+            for room_id in room_ids:
+                await pipeline.hmget(f"room:{room_id}:params", "id", "game_min_ready")
+            existing_values = await pipeline.execute()
+    except Exception:
+        log.warning("admin.settings.snapshot_room_min_ready.load_failed")
+        return 0
+
+    missing_ids: list[int] = []
+    for room_id, value in zip(room_ids, existing_values):
+        room_marker = value[0] if value else None
+        min_ready_value = value[1] if value and len(value) > 1 else None
+        if not room_marker:
+            continue
+        try:
+            configured_min_ready = int(min_ready_value or 0)
+        except Exception:
+            configured_min_ready = 0
+        if configured_min_ready <= 0:
+            missing_ids.append(room_id)
+    if not missing_ids:
+        return 0
+
+    try:
+        async with r.pipeline() as pipeline:
+            for room_id in missing_ids:
+                await pipeline.hset(
+                    f"room:{room_id}:params",
+                    mapping={"game_min_ready": str(max(1, previous_min_ready))},
+                )
+            await pipeline.execute()
+    except Exception:
+        log.warning("admin.settings.snapshot_room_min_ready.save_failed")
+        return 0
+
+    return len(missing_ids)
+
+
 def site_settings_out(row) -> SiteSettingsOut:
     from ..schemas.admin import SiteSettingsOut
 
@@ -4747,7 +4825,7 @@ class ToastFields(TypedDict, total=False):
     title: str
     text: str
     details: str
-    actions: list[dict[str, str]]
+    actions: list[dict[str, Any]]
     silent: bool
 
 
@@ -6143,6 +6221,40 @@ async def build_room_members_for_info(r, room_id: int) -> list[Dict[str, Any]]:
 async def touch_user_last_login(db: AsyncSession, user_id: int) -> None:
     await db.execute(update(User).where(User.id == user_id).values(last_login_at=func.now()))
     await db.commit()
+
+
+def _select_admin_gifts():
+    owner_count = (
+        select(func.count(func.distinct(UserGift.owner_id)))
+        .select_from(UserGift)
+        .join(User, User.id == UserGift.owner_id)
+        .where(UserGift.gift_id == Gift.id, UserGift.refunded_at.is_(None), User.deleted_at.is_(None))
+        .scalar_subquery()
+    )
+    return select(Gift, owner_count).where(Gift.deleted_at.is_(None))
+
+
+def _gift_admin_out(gift: Gift, owner_count: int) -> GiftAdminOut:
+    return GiftAdminOut(**GiftOut.model_validate(gift).model_dump(), owner_count=owner_count)
+
+
+async def _emit_gift_catalog_update(gift_id: int) -> None:
+    with suppress(Exception):
+        await sio.emit("gift_catalog_update", {"gift_id": gift_id}, namespace="/auth")
+
+
+async def _read_gift_upload(file: UploadFile | None) -> bytes | None:
+    if file is None:
+        return None
+
+    content = await file.read(MAX_GIFT_BYTES + 1)
+    if len(content) > MAX_GIFT_BYTES:
+        raise HTTPException(413, detail="gift_media_too_large")
+
+    if not content:
+        raise HTTPException(422, detail="gift_media_empty")
+
+    return content
 
 
 def validate_object_key_for_presign(key: str) -> None:

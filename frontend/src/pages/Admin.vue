@@ -39,6 +39,9 @@
         <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'subscriptions' }" :aria-selected="activeTab === 'subscriptions'" @click="activeTab = 'subscriptions'" id="admin-tab-subscriptions" aria-controls="admin-tab-panel" :tabindex="activeTab === 'subscriptions' ? 0 : -1">
           Подписки
         </button>
+        <button class="tab" type="button" role="tab" :class="{ active: activeTab === 'gifts' }" :aria-selected="activeTab === 'gifts'" @click="activeTab = 'gifts'" id="admin-tab-gifts" aria-controls="admin-tab-panel" :tabindex="activeTab === 'gifts' ? 0 : -1">
+          Подарки
+        </button>
       </nav>
     </header>
 
@@ -1427,6 +1430,80 @@
             </div>
           </div>
         </div>
+        <section v-else-if="activeTab === 'gifts'" class="admin-gifts">
+          <div class="gift-toolbar">
+            <h3>Подарки</h3>
+            <UiButton v-if="!giftTab.adding" size="middle" text="Добавить подарок" @click="giftTab.adding = true" />
+          </div>
+          <form v-if="giftTab.adding" class="gift-upload" @submit.prevent="uploadGift">
+            <label>
+              Анимация подарка
+              <input type="file" accept=".webp,.webm,.mp4,.mov" :disabled="giftUploading" @change="selectPrimaryGiftFile" />
+            </label>
+            <label v-if="primaryGiftFormat === 'webm'">
+              HEVC с прозрачностью для Safari
+              <input ref="giftCompanionInput" type="file" accept=".mp4,.mov" :disabled="giftUploading" @change="selectCompanionGiftFile" />
+            </label>
+            <label v-else-if="primaryGiftFormat === 'hevc'">
+              WebM с прозрачностью для других браузеров
+              <input ref="giftCompanionInput" type="file" accept=".webm" :disabled="giftUploading" @change="selectCompanionGiftFile" />
+            </label>
+            <label>
+              Цена
+              <select v-model.number="giftTab.uploadPrice" :disabled="giftUploading">
+                <option v-for="price in adminGiftPrices" :key="price" :value="price">{{ price }} DC</option>
+              </select>
+            </label>
+            <p class="gift-upload-hint">Один прозрачный анимированный WebP или пара WebM и HEVC. До 2 МБ на файл, 512 × 512 и 6 секунд.</p>
+            <div class="gift-buttons">
+              <UiButton type="submit" size="middle" :text="giftUploading ? 'Загружаем…' : 'Добавить'" :disabled="!canUploadGift || giftUploading" />
+              <UiButton variant="white" size="middle" text="Отмена" :disabled="giftUploading" @click="closeGiftUpload()" />
+            </div>
+          </form>
+          <p v-if="giftTab.error" class="gift-error" role="alert">{{ giftTab.error }}</p>
+          <p v-if="giftTab.loading" role="status">Загрузка…</p>
+          <div v-else class="gift-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col" :aria-sort="giftTab.sort === 'id' ? 'ascending' : 'none'">
+                    <button type="button" @click="giftTab.sort = 'id'">ID {{ giftTab.sort === 'id' ? '↑' : '' }}</button>
+                  </th>
+                  <th scope="col">Подарок</th>
+                  <th scope="col" :aria-sort="giftTab.sort === 'owner_count' ? 'descending' : 'none'">
+                    <button type="button" @click="giftTab.sort = 'owner_count'">Владельцы {{ giftTab.sort === 'owner_count' ? '↓' : '' }}</button>
+                  </th>
+                  <th scope="col" :aria-sort="giftTab.sort === 'price_dc' ? 'descending' : 'none'">
+                    <button type="button" @click="giftTab.sort = 'price_dc'">Цена {{ giftTab.sort === 'price_dc' ? '↓' : '' }}</button>
+                  </th>
+                  <th scope="col">Действия</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="gift in sortedGifts" :key="gift.id">
+                  <td>{{ gift.id }}</td>
+                  <td><div class="gift-preview"><GiftMedia :media="gift" :label="`Подарок №${gift.id}`" /></div></td>
+                  <td>{{ gift.owner_count }}</td>
+                  <td>
+                    <select :value="gift.price_dc" :aria-label="`Цена подарка №${gift.id}`" :disabled="giftRowBusy.has(gift.id)" @change="changeGiftPrice(gift, $event)">
+                      <option v-for="price in adminGiftPrices" :key="price" :value="price">{{ price }} DC</option>
+                    </select>
+                  </td>
+                  <td>
+                    <div class="gift-buttons">
+                      <UiButton variant="white" size="low" :text="gift.visible ? 'Скрыть' : 'Показать'" :disabled="giftRowBusy.has(gift.id)"
+                                @click="updateGift(gift, { visible: !gift.visible })" />
+                      <UiButton variant="red" size="low" text="Удалить" :disabled="giftRowBusy.has(gift.id)" @click="removeGift(gift)" />
+                    </div>
+                  </td>
+                </tr>
+                <tr v-if="sortedGifts.length === 0 && !giftTab.error">
+                  <td colspan="5">Подарков пока нет</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
       </div>
     </Transition>
 
@@ -1517,6 +1594,8 @@ import UiSwitch from '@/components/UiSwitch.vue'
 import UiInput from '@/components/UiInput.vue'
 import UiButton from '@/components/UiButton.vue'
 import UiIcon from '@/components/UiIcon.vue'
+import GiftMedia from '@/components/GiftMedia.vue'
+import type { CatalogGift } from '@/services/gifts'
 
 import defaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
 import iconDelete from '@/assets/svg/iconDelete.svg'
@@ -1919,7 +1998,7 @@ type MultiaccountResult = {
 const route = useRoute()
 const router = useRouter()
 
-const TAB_KEYS = ['settings', 'scoring', 'rules', 'updates', 'stats', 'logs', 'rooms', 'users', 'sanctions', 'multiaccounts', 'contact_requests', 'subscriptions'] as const
+const TAB_KEYS = ['settings', 'scoring', 'rules', 'updates', 'stats', 'logs', 'rooms', 'users', 'sanctions', 'multiaccounts', 'contact_requests', 'subscriptions', 'gifts'] as const
 type TabKey = typeof TAB_KEYS[number]
 
 const PAGE_LIMIT_OPTIONS = [
@@ -2196,6 +2275,43 @@ const sanctionRulesSnapshot = ref('')
 const sanctionBadgeSlotIndexes = [0, 1] as const
 const sanctionBadgeOptions = (Object.entries(SANCTION_BADGES) as [SanctionBadgeKey, { code: string; notation?: string }][])
   .map(([value, badge]) => ({ value, label: badge.notation ? `${badge.code} (${badge.notation})` : badge.code }))
+
+type AdminGift = CatalogGift & { owner_count: number }
+type GiftPatch = Partial<Pick<AdminGift, 'price_dc' | 'visible'>>
+
+const adminGiftPrices = [10, 25, 50, 100]
+
+function newGiftTab() {
+  return {
+    items: [] as AdminGift[],
+    sort: 'id' as 'id' | 'owner_count' | 'price_dc',
+    loading: true,
+    error: '',
+    adding: false,
+    uploadPrice: adminGiftPrices[0],
+    primary: null as File | null,
+    companion: null as File | null,
+  }
+}
+
+const giftTab = ref(newGiftTab())
+const giftUploading = ref(false)
+const giftCompanionInput = ref<HTMLInputElement | null>(null)
+const giftRowBusy = ref(new Set<number>())
+let giftCatalogController: AbortController | undefined
+
+const primaryGiftFormat = computed(() => {
+  const name = giftTab.value.primary?.name.toLowerCase() || ''
+  if (name.endsWith('.webp')) return 'webp'
+  if (name.endsWith('.webm')) return 'webm'
+  if (name.endsWith('.mov') || name.endsWith('.mp4')) return 'hevc'
+  return null
+})
+const canUploadGift = computed(() => !!primaryGiftFormat.value && (primaryGiftFormat.value === 'webp' || !!giftTab.value.companion))
+const sortedGifts = computed(() => {
+  const { sort, items } = giftTab.value
+  return [...items].sort((a, b) => sort === 'id' ? a.id - b.id : b[sort] - a[sort] || a.id - b.id)
+})
 
 const statsMonth = ref('')
 const stats = reactive<SiteStats>({
@@ -4117,6 +4233,123 @@ async function removeSubscription(row: SubscriptionRow): Promise<void> {
   }
 }
 
+async function loadAdminGifts(): Promise<void> {
+  giftCatalogController?.abort()
+  const controller = new AbortController()
+  giftCatalogController = controller
+  const tab = giftTab.value
+  tab.loading = true
+  try {
+    const { data } = await api.get<AdminGift[]>('/admin/gifts', { signal: controller.signal })
+    if (!controller.signal.aborted) tab.items = data
+  } catch {
+    if (!controller.signal.aborted) tab.error = 'Не удалось загрузить каталог подарков.'
+  } finally {
+    if (giftCatalogController === controller) {
+      giftCatalogController = undefined
+      tab.loading = false
+    }
+  }
+}
+
+function selectPrimaryGiftFile(event: Event): void {
+  giftTab.value.primary = (event.target as HTMLInputElement).files?.[0] || null
+  giftTab.value.companion = null
+  if (giftCompanionInput.value) giftCompanionInput.value.value = ''
+}
+
+function selectCompanionGiftFile(event: Event): void {
+  giftTab.value.companion = (event.target as HTMLInputElement).files?.[0] || null
+}
+
+function closeGiftUpload(tab = giftTab.value): void {
+  tab.adding = false
+  tab.primary = null
+  tab.companion = null
+  tab.uploadPrice = adminGiftPrices[0]
+}
+
+function applyAdminGiftChange(giftId: number, gift?: AdminGift): void {
+  const tab = giftTab.value
+  if (tab.loading && activeTab.value === 'gifts') {
+    void loadAdminGifts()
+    return
+  }
+  const index = tab.items.findIndex(row => row.id === giftId)
+  if (gift && index < 0) tab.items.push(gift)
+  else if (gift) tab.items[index] = gift
+  else if (index >= 0) tab.items.splice(index, 1)
+}
+
+async function uploadGift(): Promise<void> {
+  const tab = giftTab.value
+  const format = primaryGiftFormat.value
+  if (giftUploading.value || !canUploadGift.value || !format || !tab.primary) return
+  const data = new FormData()
+  data.set('price_dc', String(tab.uploadPrice))
+  data.set(format, tab.primary)
+  if (tab.companion && format !== 'webp') data.set(format === 'webm' ? 'hevc' : 'webm', tab.companion)
+  giftUploading.value = true
+  tab.error = ''
+  try {
+    const { data: gift } = await api.post<AdminGift>('/admin/gifts', data)
+    applyAdminGiftChange(gift.id, gift)
+    closeGiftUpload(tab)
+  } catch (e: any) {
+    const status = e?.response?.status
+    if (status === 413) tab.error = 'Файл слишком большой. Максимальный размер — 2 МБ.'
+    else if (status === 422) tab.error = 'Проверьте формат, прозрачность, размер кадра и длительность анимации.'
+    else tab.error = 'Не удалось загрузить подарок. Попробуйте ещё раз.'
+  } finally {
+    giftUploading.value = false
+  }
+}
+
+async function updateGift(gift: AdminGift, update: GiftPatch): Promise<void> {
+  if (giftRowBusy.value.has(gift.id)) return
+  const tab = giftTab.value
+  giftRowBusy.value.add(gift.id)
+  tab.error = ''
+  try {
+    const { data } = await api.patch<AdminGift>(`/admin/gifts/${gift.id}`, update)
+    applyAdminGiftChange(gift.id, data)
+  } catch {
+    tab.error = 'Не удалось изменить подарок.'
+  } finally {
+    giftRowBusy.value.delete(gift.id)
+  }
+}
+
+function changeGiftPrice(gift: AdminGift, event: Event): void {
+  const select = event.target as HTMLSelectElement
+  const price = Number(select.value)
+  select.value = String(gift.price_dc)
+  if (adminGiftPrices.includes(price) && price !== gift.price_dc) void updateGift(gift, { price_dc: price })
+}
+
+async function removeGift(gift: AdminGift): Promise<void> {
+  if (giftRowBusy.value.has(gift.id)) return
+  const tab = giftTab.value
+  giftRowBusy.value.add(gift.id)
+  tab.error = ''
+  try {
+    const confirmed = await confirmDialog({
+      title: `Удалить подарок №${gift.id}?`,
+      text: 'Подарок исчезнет из магазина и профилей. Все потраченные на него DC вернутся плательщикам.',
+      confirmText: 'Удалить',
+    })
+    if (!confirmed) return
+    await api.delete(`/admin/gifts/${gift.id}`)
+    applyAdminGiftChange(gift.id)
+  } catch (e: any) {
+    tab.error = e?.response?.data?.detail === 'gift_media_cleanup_failed'
+      ? 'Подарок снят с продажи и убран из профилей, DC возвращены. Повторите удаление, чтобы очистить файл.'
+      : 'Не удалось удалить подарок.'
+  } finally {
+    giftRowBusy.value.delete(gift.id)
+  }
+}
+
 async function sendUpdateNotice(): Promise<void> {
   if (updateNoticeSaving.value || !canSendUpdateNotice.value) return
   updateNoticeSaving.value = true
@@ -4387,6 +4620,10 @@ function refreshActiveTab(tab: typeof activeTab.value): void {
   }
   if (tab === 'subscriptions') {
     void loadSubscriptions()
+    return
+  }
+  if (tab === 'gifts') {
+    void loadAdminGifts()
   }
 }
 
@@ -4415,6 +4652,8 @@ watch(activeTab, (tab, previousTab) => {
   if (tab !== 'contact_requests' && contactRequestReplyModalOpen.value) {
     closeContactRequestReplyModal()
   }
+  if (tab === 'gifts') giftTab.value = newGiftTab()
+  if (previousTab === 'gifts') giftCatalogController?.abort()
   syncLogsAutoRefresh(tab)
   refreshActiveTab(tab)
 })
@@ -4521,6 +4760,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener('auth-dc_balance_update', onAdminBalanceUpdate)
   multiaccountsAbortController.abort()
+  giftCatalogController?.abort()
   window.removeEventListener('resize', closeTooltip)
   closeTooltip()
   if (logsRefreshTimer !== undefined) window.clearInterval(logsRefreshTimer)
@@ -5555,5 +5795,85 @@ onBeforeUnmount(() => {
 [class~="tab-fade-enter-from"],
 [class~="tab-fade-leave-to"] {
   opacity: 0;
+}
+.admin {
+  .tab-panel {
+    .admin-gifts {
+      padding: 20px;
+      border-radius: 24px;
+      background: $soft-purple-800;
+      .gift-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 16px;
+        h3 {
+          margin: 0;
+          font-family: Involve-Medium;
+        }
+      }
+      .gift-upload {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: 16px;
+        padding: 16px;
+        margin-bottom: 16px;
+        border-radius: 16px;
+        background: $soft-purple-900;
+        label {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        .gift-upload-hint {
+          flex-basis: 100%;
+          margin: 0;
+          color: $neutral-200;
+        }
+      }
+      select {
+        min-height: 34px;
+        padding: 4px 8px;
+        border: 1px solid $soft-purple-600;
+        border-radius: 8px;
+        color: $neutral-white;
+        background: $soft-purple-900;
+        font: inherit;
+      }
+      .gift-error {
+        color: $red-200;
+      }
+      .gift-table-wrap {
+        overflow-x: auto;
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          th, td {
+            padding: 8px 12px;
+            border-bottom: 1px solid $soft-purple-700;
+            text-align: left;
+          }
+          th button {
+            padding: 0;
+            border: 0;
+            color: inherit;
+            background: transparent;
+            font: inherit;
+            cursor: pointer;
+          }
+          .gift-preview {
+            width: 52px;
+            height: 52px;
+          }
+        }
+      }
+      .gift-buttons {
+        display: flex;
+        gap: 8px;
+      }
+    }
+  }
 }
 </style>

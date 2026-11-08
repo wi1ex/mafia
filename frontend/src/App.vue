@@ -69,6 +69,11 @@ let onPublicSettingsUpdate: ((payload: unknown) => void) | null = null
 let rotateVideoObserver: IntersectionObserver | null = null
 let publicSettingsSocket: ReturnType<typeof createPublicSocket> | null = null
 
+function onGiftsUpdated(event: Event): void {
+  const uid = Number((event as CustomEvent).detail?.user_id)
+  if (auth.isAuthed && uid > 0 && uid === user.user?.id) void user.fetchMe().catch(() => {})
+}
+
 function setRotateVideoVisible(visible: boolean) {
   rotateVideoVisible.value = visible
   if (!visible) {
@@ -153,6 +158,7 @@ onMounted(async () => {
     chat.syncUnreadFromProfile()
   }
   window.addEventListener('auth-profile_sync', onProfileSync)
+  window.addEventListener('auth-gifts_update', onGiftsUpdated)
   onRulesUpdated = () => {
     if (auth.isAuthed) user.fetchMe().catch(() => {})
   }
@@ -241,6 +247,7 @@ onBeforeUnmount(() => {
   if (onSanctionsUpdate) window.removeEventListener('auth-sanctions_update', onSanctionsUpdate)
   if (onUserGameParticipationChanged) window.removeEventListener('auth-user_game_participation_changed', onUserGameParticipationChanged)
   if (onProfileSync) window.removeEventListener('auth-profile_sync', onProfileSync)
+  window.removeEventListener('auth-gifts_update', onGiftsUpdated)
   if (onTelegramVerified) window.removeEventListener('auth-telegram_verified', onTelegramVerified)
   if (onRulesUpdated) window.removeEventListener('auth-rules_updated', onRulesUpdated)
   if (onAdminNotify) window.removeEventListener('auth-notify', onAdminNotify)

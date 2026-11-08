@@ -196,6 +196,15 @@
                     :disabled="giftDisabled"
                     @click="openSubscriptionGift"
                   />
+                  <UiButton
+                    variant="white"
+                    size="middle"
+                    width="100%"
+                    :icon="iconSubscription"
+                    text="Отправить подарок"
+                    :disabled="giftDisabled"
+                    @click="openGiftShop('gifts')"
+                  />
                 </div>
                 <div v-if="canViewProfileData" class="profile-actions-row profile-actions-row--subscription">
                   <UiButton
@@ -220,6 +229,22 @@
               </div>
 
               <div v-if="showRestrictedProfileSections" class="profile-dates" aria-label="Информация профиля">
+                <div v-if="giftCollectionAllowed && (giftPreview.total || giftPreviewError)" class="profile-gifts-preview">
+                  <div class="profile-gifts-heading">
+                    <span>Подарки ({{ giftPreview.total }})</span>
+                    <button v-if="giftPreview.total" ref="allGiftsTrigger" type="button" @click="view = 'gifts'">Все</button>
+                  </div>
+                  <div v-if="giftPreviewError" class="profile-gifts-state" role="alert">
+                    <span>Не удалось загрузить подарки</span>
+                    <button type="button" :disabled="giftPreviewLoading" @click="loadProfileGifts(true)">Повторить</button>
+                  </div>
+                  <ul v-if="giftPreview.items.length" class="profile-gifts-strip" aria-label="Подарки пользователя" tabindex="0">
+                    <li v-for="item in giftPreview.items" :key="item.id" class="profile-gift-tile">
+                      <GiftMedia class="profile-gift-media" :media="item" :label="`Подарок №${item.gift_id}`" />
+                      <span v-if="item.quantity > 1" class="profile-gift-quantity">×{{ item.quantity }}</span>
+                    </li>
+                  </ul>
+                </div>
                 <div class="date-row">
                   <span class="date-title">Дата регистрации</span>
                   <span class="date-time">{{ registeredAtLabel }}</span>
@@ -302,11 +327,30 @@
                   width="100%"
                   :icon="iconArrowDown"
                   text="Назад к профилю"
-                  @click="view = 'profile'"
+                  @click="backToProfile"
                 />
               </div>
               <ProfileStats v-if="view === 'stats'" :stats-url="resolvedStatsUrl" />
-              <ProfileHistory v-else :history-url="resolvedHistoryUrl" :per-page="5" />
+              <ProfileHistory v-else-if="view === 'history'" :history-url="resolvedHistoryUrl" :per-page="5" />
+              <div v-else-if="giftCollectionAllowed" class="profile-all-gifts">
+                <h3>Подарки ({{ allGifts.total || giftPreview.total }})</h3>
+                <ul v-if="allGifts.items.length" class="profile-gifts-grid">
+                  <li v-for="item in allGifts.items" :key="item.id" class="profile-gift-tile">
+                    <GiftMedia class="profile-gift-media" :media="item" :label="`Подарок №${item.gift_id}`" />
+                    <div v-if="item.sender && item.sender.id !== targetUserId" class="profile-gift-sender">
+                      <img v-minio-img="{ key: giftSenderAvatarKey(item.sender.avatar_name), placeholder: iconDefaultAvatarBlack }" alt="" />
+                      <span>{{ item.sender.username || `user${item.sender.id}` }}</span>
+                    </div>
+                  </li>
+                </ul>
+                <p v-if="allGiftsLoading" class="profile-gifts-state" role="status">Загружаем подарки…</p>
+                <div v-else-if="allGiftsError" class="profile-gifts-state" role="alert">
+                  <span>Не удалось загрузить подарки</span>
+                  <UiButton size="low" text="Повторить" @click="loadProfileGifts(false, allGiftsRetryAppend)" />
+                </div>
+                <p v-else-if="!allGifts.items.length" class="profile-gifts-state">Подарков пока нет</p>
+                <UiButton v-else-if="allGifts.has_more" size="low" text="Показать ещё" @click="loadProfileGifts(false, true)" />
+              </div>
             </template>
           </template>
         </section>
@@ -352,9 +396,11 @@
       v-if="giftRecipient"
       v-model:open="giftModalOpen"
       :gift-recipient="giftRecipient"
+      :initial-tab="giftModalTab"
       :z-index="STAFF_MODAL_Z_INDEX"
       @busy="giftSaving = $event"
       @subscription-purchased="onSubscriptionGiftPurchased"
+      @gift-purchased="onGiftPurchased"
     />
     <div v-if="balanceHistoryAllowed" v-show="balanceHistoryOpen" ref="balanceHistoryPopover" class="profile-balance-history-tooltip"
          :class="{ 'profile-balance-history-tooltip--above': balanceHistoryAbove }" :style="balanceHistoryStyle" role="dialog" :aria-label="`История операций ${displayName}`" tabindex="-1"
@@ -393,6 +439,7 @@ import { isMiniProfilePrivilegedViewer, normalizeMiniProfileRole } from '@/servi
 import { getProfileRoleBadges } from '@/services/profileRoles'
 import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
 import { getProfileThemeBadgeSources } from '@/constants/profileIcons'
+import { loadGiftCollection, type GiftCollection, type GiftPurchaseResult } from '@/services/gifts'
 import {
   useFriendsStore,
   useAuthStore,
@@ -416,6 +463,7 @@ import UiButton from '@/components/UiButton.vue'
 import UiDropdown from '@/components/UiDropdown.vue'
 import UiScrollbar from '@/components/UiScrollbar.vue'
 import UiSlider from '@/components/UiSlider.vue'
+import GiftMedia from '@/components/GiftMedia.vue'
 
 import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
 import iconDefaultAvatarBlack from '@/assets/svg/iconDefaultAvatarBlack.svg'
@@ -632,7 +680,20 @@ const profile = ref<MiniProfileResponse | null>(null)
 const friendStatus = ref<FriendStatus>('none')
 const friendBusy = ref(false)
 const blacklistBusy = ref(false)
-const view = ref<'profile' | 'stats' | 'history'>('profile')
+const view = ref<'profile' | 'stats' | 'history' | 'gifts'>('profile')
+const GIFT_COLLECTION_LIMIT = 30
+function emptyGiftCollection(): GiftCollection { return { items: [], total: 0, has_more: false } }
+const giftPreview = ref<GiftCollection>(emptyGiftCollection())
+const allGifts = ref<GiftCollection>(emptyGiftCollection())
+const giftPreviewLoading = ref(false)
+const allGiftsLoading = ref(false)
+const giftPreviewError = ref(false)
+const allGiftsError = ref(false)
+const allGiftsRetryAppend = ref(false)
+const allGiftsTrigger = ref<HTMLButtonElement | null>(null)
+let giftPreviewRequest: AbortController | undefined
+let allGiftsRequest: AbortController | undefined
+let allGiftsOffset = 0
 const avatarImageEl = ref<HTMLImageElement | null>(null)
 const profileFriendsList = ref<HTMLElement | null>(null)
 const balanceHistoryTrigger = ref<HTMLElement | null>(null)
@@ -682,6 +743,7 @@ const balanceModalOpen = ref(false)
 const balanceSaving = ref(false)
 const giftModalOpen = ref(false)
 const giftSaving = ref(false)
+const giftModalTab = ref<'subscription' | 'gifts'>('subscription')
 const giftRecipient = ref<{ user_id: number; username?: string | null; avatar_name?: string | null } | null>(null)
 const balanceAction = ref<'credit' | 'debit'>('credit')
 const balanceTarget = ref<{ user_id: number; username?: string | null; avatar_name?: string | null } | null>(null)
@@ -944,6 +1006,8 @@ const showRestrictedProfileSections = computed(() => !(
   && !privilegedViewer.value
   && !isSelfProfile.value
 ))
+const giftCollectionAllowed = computed(() => props.open && profileLoadedForTarget.value && showRestrictedProfileSections.value
+  && !viewerAccountRestricted.value && !targetDeleted.value && !loadError.value)
 
 const friendStatusClass = computed(() => (friendStatus.value === 'self' ? 'none' : friendStatus.value))
 const friendActionLabel = computed(() => {
@@ -1486,15 +1550,21 @@ function close() {
 }
 
 function openSubscriptionGift(): void {
+  openGiftShop('subscription')
+}
+
+function openGiftShop(tab: 'subscription' | 'gifts'): void {
   if (giftDisabled.value || !showRestrictedProfileSections.value) return
+  const action = tab === 'subscription' ? 'подарить подписку' : 'отправить подарок'
   if (profile.value?.ban_active) {
-    void alertDialog('Нельзя подарить подписку: пользователь находится в бане.')
+    void alertDialog(`Нельзя ${action}: пользователь находится в бане.`)
     return
   }
   if (settingsStore.verificationRestrictions && !profile.value?.telegram_verified) {
-    void alertDialog('Нельзя подарить подписку: пользователь не прошёл Telegram-верификацию.')
+    void alertDialog(`Нельзя ${action}: пользователь не прошёл Telegram-верификацию.`)
     return
   }
+  giftModalTab.value = tab
   giftRecipient.value = { user_id: targetUserId.value, username: targetUsername.value, avatar_name: avatarName.value }
   giftModalOpen.value = true
 }
@@ -1502,6 +1572,84 @@ function openSubscriptionGift(): void {
 function onSubscriptionGiftPurchased(result: SubscriptionPurchaseResult): void {
   const recipientId = result.recipient_id
   if (props.open && recipientId === targetUserId.value) void loadProfile()
+}
+
+function giftSenderAvatarKey(name?: string | null): string {
+  const key = name?.trim() || ''
+  return key && !key.startsWith('avatars/') ? `avatars/${key}` : key
+}
+
+function backToProfile(): void {
+  const fromGifts = view.value === 'gifts'
+  view.value = 'profile'
+  if (fromGifts) void nextTick(() => allGiftsTrigger.value?.focus({ preventScroll: true }))
+}
+
+function resetGiftCollection(): void {
+  giftPreviewRequest?.abort()
+  allGiftsRequest?.abort()
+  giftPreviewRequest = allGiftsRequest = undefined
+  giftPreview.value = emptyGiftCollection()
+  allGifts.value = emptyGiftCollection()
+  giftPreviewLoading.value = allGiftsLoading.value = false
+  giftPreviewError.value = allGiftsError.value = allGiftsRetryAppend.value = false
+  allGiftsOffset = 0
+}
+
+async function loadProfileGifts(grouped: boolean, append = false): Promise<void> {
+  if (!giftCollectionAllowed.value || (!grouped && view.value !== 'gifts')) return
+  if (append && (allGiftsLoading.value || !allGifts.value.has_more)) return
+  const uid = targetUserId.value
+  const session = auth.sessionId
+  const viewer = viewerUserId.value
+  const offset = append ? allGiftsOffset : 0
+  const request = new AbortController()
+  const loading = grouped ? giftPreviewLoading : allGiftsLoading
+  const error = grouped ? giftPreviewError : allGiftsError
+  if (grouped) {
+    giftPreviewRequest?.abort()
+    giftPreviewRequest = request
+  } else {
+    allGiftsRequest?.abort()
+    allGiftsRequest = request
+  }
+  loading.value = true
+  error.value = false
+  try {
+    const collection = await loadGiftCollection(uid, grouped, GIFT_COLLECTION_LIMIT, offset, request.signal)
+    if (request.signal.aborted || uid !== targetUserId.value || session !== auth.sessionId || viewer !== viewerUserId.value || !giftCollectionAllowed.value) return
+    if (grouped) giftPreview.value = collection
+    else {
+      const items = append ? [...allGifts.value.items, ...collection.items] : collection.items
+      allGifts.value = { ...collection, items: [...new Map(items.map(item => [item.id, item])).values()] }
+      allGiftsOffset = offset + collection.items.length
+    }
+  } catch {
+    if (!request.signal.aborted) {
+      error.value = true
+      if (!grouped) allGiftsRetryAppend.value = append
+    }
+  } finally {
+    if (request === (grouped ? giftPreviewRequest : allGiftsRequest)) {
+      if (grouped) giftPreviewRequest = undefined
+      else allGiftsRequest = undefined
+      loading.value = false
+    }
+  }
+}
+
+function refreshProfileGifts(uid: number): void {
+  if (uid !== targetUserId.value || !giftCollectionAllowed.value) return
+  void loadProfileGifts(true)
+  if (view.value === 'gifts') void loadProfileGifts(false)
+}
+
+function onGiftPurchased(result: GiftPurchaseResult): void {
+  refreshProfileGifts(result.recipient_id)
+}
+
+function onGiftsUpdate(event: Event): void {
+  refreshProfileGifts(Number((event as CustomEvent)?.detail?.user_id))
 }
 
 function closeAvatarPreview() {
@@ -2262,6 +2410,7 @@ function onKeydown(e: KeyboardEvent) {
     closeAvatarPreview()
     return
   }
+  if (view.value === 'gifts') { backToProfile(); return }
   close()
 }
 
@@ -2470,10 +2619,10 @@ watch([() => props.open, targetUserId, () => auth.sessionId, viewerUserId, viewe
 watch(balanceHistoryAllowed, allowed => { if (!allowed) resetBalanceHistory() })
 
 watch([showRestrictedProfileSections, canViewProfileData], ([visible, canView]) => {
-  if (!visible || !canView) view.value = 'profile'
+  if (!visible || (!canView && (view.value === 'stats' || view.value === 'history'))) view.value = 'profile'
 })
 
-watch([() => props.open, targetUserId, viewerAccountRestricted, deletedTargetBlocked], ([open, uid, restricted, deletedBlocked]) => {
+watch([() => props.open, targetUserId, viewerAccountRestricted, deletedTargetBlocked, () => auth.sessionId, viewerUserId], ([open, uid, restricted, deletedBlocked]) => {
   if (!open) {
     requestSeq += 1
     loading.value = false
@@ -2498,11 +2647,26 @@ watch([() => props.open, targetUserId, viewerAccountRestricted, deletedTargetBlo
   if (uid > 0) void loadProfile()
 }, { immediate: true })
 
+watch([giftCollectionAllowed, targetUserId, () => auth.sessionId, viewerUserId], ([allowed]) => {
+  resetGiftCollection()
+  if (allowed) void loadProfileGifts(true)
+}, { immediate: true })
+
+watch(view, next => {
+  if (next === 'gifts') void loadProfileGifts(false)
+  else {
+    allGiftsRequest?.abort()
+    allGiftsRequest = undefined
+    allGiftsLoading.value = false
+  }
+})
+
 onMounted(() => {
   window.addEventListener('auth-dc_balance_update', onAdminBalanceUpdate)
   window.addEventListener('keydown', onKeydown)
   window.addEventListener('auth-friends_update', onFriendsUpdate)
   window.addEventListener('auth-blacklist_update', onBlacklistUpdate)
+  window.addEventListener('auth-gifts_update', onGiftsUpdate)
 })
 
 onBeforeUnmount(() => {
@@ -2516,6 +2680,8 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKeydown)
   window.removeEventListener('auth-friends_update', onFriendsUpdate)
   window.removeEventListener('auth-blacklist_update', onBlacklistUpdate)
+  window.removeEventListener('auth-gifts_update', onGiftsUpdate)
+  resetGiftCollection()
 })
 </script>
 
@@ -3434,6 +3600,40 @@ onBeforeUnmount(() => {
       gap: 6px;
       border-radius: 20px;
       background-color: rgba($soft-purple-900, 0.65);
+      .profile-gifts-preview {
+        min-width: 0;
+        padding-bottom: 10px;
+        .profile-gifts-heading {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          margin-bottom: 6px;
+          color: $neutral-100;
+          font-family: Hauora-SemiBold;
+          button {
+            flex: 0 0 auto;
+            padding: 4px 8px;
+            border: 0;
+            border-radius: 8px;
+            background-color: $neutral-white;
+            color: $neutral-800;
+            font: inherit;
+            cursor: pointer;
+          }
+        }
+        .profile-gifts-strip {
+          display: flex;
+          gap: 8px;
+          padding: 0 0 4px;
+          margin: 0;
+          overflow-x: auto;
+          list-style: none;
+          .profile-gift-tile {
+            flex: 0 0 74px;
+          }
+        }
+      }
       .date-row {
         display: flex;
         align-items: center;
@@ -3485,6 +3685,93 @@ onBeforeUnmount(() => {
               background-color: rgba($neutral-black, 0.65);
             }
           }
+        }
+      }
+    }
+    .profile-all-gifts {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 16px;
+      border-radius: 20px;
+      background-color: rgba($soft-purple-900, 0.65);
+      color: $neutral-white;
+      h3 {
+        margin: 0;
+        font-family: Hauora-SemiBold;
+        font-size: 20px;
+      }
+      .profile-gifts-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 100px), 1fr));
+        gap: 8px;
+        padding: 0;
+        margin: 0;
+        list-style: none;
+      }
+    }
+    .profile-gifts-preview,
+    .profile-all-gifts {
+      .profile-gift-tile {
+        position: relative;
+        overflow: hidden;
+        min-width: 0;
+        aspect-ratio: 1;
+        border-radius: 12px;
+        background-color: $neutral-white;
+        .profile-gift-media {
+          position: absolute;
+          inset: 6px;
+          width: auto;
+          height: auto;
+        }
+        .profile-gift-quantity,
+        .profile-gift-sender {
+          position: absolute;
+          color: $neutral-white;
+          background-color: rgba($neutral-black, 0.75);
+        }
+        .profile-gift-quantity {
+          right: 4px;
+          bottom: 4px;
+          padding: 1px 5px;
+          border-radius: 999px;
+          font-family: Hauora-SemiBold;
+          font-size: 12px;
+        }
+        .profile-gift-sender {
+          right: 0;
+          bottom: 0;
+          left: 0;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          min-width: 0;
+          padding: 4px;
+          font-size: 13px;
+          line-height: 16px;
+          img {
+            flex: 0 0 18px;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background-color: $neutral-white;
+            object-fit: cover;
+          }
+          span {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+        }
+      }
+      .profile-gifts-state {
+        margin: 0;
+        color: $neutral-100;
+        font-size: 14px;
+        button {
+          margin-left: 4px;
         }
       }
     }

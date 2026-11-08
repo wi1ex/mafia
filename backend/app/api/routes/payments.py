@@ -4,25 +4,16 @@ from decimal import Decimal
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...core.db import get_session
-from ...models.user import User
 from ...schemas.common import Identity, Ok
 from ...schemas.payments import CoinInvoiceCreateIn, CoinInvoiceListOut, CoinInvoiceOut, SubscriptionPurchaseIn, SubscriptionPurchaseOut, WalletOut
 from ...security.auth_tokens import get_identity
 from ...security.decorators import log_route
 from ...services.payments import check_coin_invoice, create_coin_invoice, list_coin_invoices, process_kassa_webhook
 from ...services.profile_theme import resolve_profile_theme_state
-from ...services.wallet import buy_subscription, ensure_purchase_access, get_dc_balance
+from ...services.wallet import buy_subscription, get_dc_balance
+from ..utils import purchase_user
 
 router = APIRouter()
-
-
-async def purchase_user(session: AsyncSession, user_id: int) -> User:
-    user = await session.get(User, user_id)
-    if not user:
-        raise HTTPException(401, detail="Unauthorized")
-
-    await ensure_purchase_access(session, user)
-    return user
 
 
 @router.get("/wallet", response_model=WalletOut)

@@ -12,7 +12,7 @@
         </header>
 
         <div class="user">
-          <div class="meta" :class="{ 'has-theme-color': hasToastUserThemeColor(t.user), 'meta--subscription-gift': t.kind === 'subscription_gift' }" :style="toastUserNickStyle(t.user)">
+          <div class="meta" :class="{ 'has-theme-color': hasToastUserThemeColor(t.user), 'meta--gift': isGiftReceipt(t.kind) }" :style="toastUserNickStyle(t.user)">
             <div v-if="t.user" class="profile-line">
               <button class="user-profile-trigger" type="button" @click.stop="openToastUserMiniProfile(t.user)"
                       :disabled="!canOpenToastUserMiniProfile(t.user)" :aria-label="`Открыть мини-профиль пользователя ${toastUserName(t.user)}`" aria-haspopup="dialog">
@@ -22,7 +22,7 @@
                 </div>
                 <span class="nick">{{ toastUserName(t.user) }}</span>
               </button>
-              <span v-if="t.kind === 'subscription_gift'" class="gift-action">подарил вам подписку</span>
+              <span v-if="isGiftReceipt(t.kind)" class="gift-action">{{ t.kind === 'subscription_gift' ? 'подарил вам подписку' : 'отправил вам подарок' }}</span>
             </div>
             <div v-if="t.details" class="sanction-text">
               <p class="sanction-text__lead">{{ t.text }}</p>
@@ -54,20 +54,23 @@
     :initial-profile="miniProfileInitial"
     show-stats-button
   />
+  <GiftOpeningModal v-if="openedGift" :gift="openedGift" @close="openedGift = null" />
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
-import { useNotifStore, useUserStore, inferFriendApiAction, resolveFriendsApiError } from '@/store'
+import { useAuthStore, useNotifStore, useUserStore, inferFriendApiAction, resolveFriendsApiError } from '@/store'
 import { api } from '@/services/axios'
 import { alertDialog } from '@/services/confirm'
 import { canOpenMiniProfileTarget, normalizeMiniProfileUserId } from '@/services/miniProfile'
 import type { ToastAction, ToastPayload, ToastUser } from '@/services/toast'
+import type { GiftCollectionItem } from '@/services/gifts'
 import { getProfileThemeOption } from '@/constants/profileThemes'
 import { getProfileThemeBadgeSources } from '@/constants/profileIcons'
 
 import MiniProfile from '@/views/MiniProfile.vue'
+import GiftOpeningModal from '@/views/GiftOpeningModal.vue'
 import UiIcon from '@/components/UiIcon.vue'
 import UiButton from '@/components/UiButton.vue'
 
@@ -83,9 +86,11 @@ import iconPresent from '@/assets/svg/iconPresent.svg'
 import toastSoundUrl from '@/assets/audio/short.mp3'
 
 const router = useRouter()
+const auth = useAuthStore()
 const notif = useNotifStore()
 const userStore = useUserStore()
 const TOAST_TTL_MS = 30000
+const GIFT_TOAST_TTL_MS = 10 * 60 * 1000
 const toastSoundAudio = new Audio(toastSoundUrl)
 toastSoundAudio.preload = 'auto'
 
@@ -104,6 +109,7 @@ type ToastToneClass = 'tone-yellow' | 'tone-orange' | 'tone-red' | 'tone-green' 
 type ToastAppearance = { tone: ToastToneClass; icon: string }
 
 const items = ref<ToastItem[]>([])
+const openedGift = ref<GiftCollectionItem | null>(null)
 const miniProfileOpen = ref(false)
 const miniProfileUserId = ref<number | null>(null)
 const miniProfileInitial = ref<ToastUser | null>(null)
@@ -160,6 +166,13 @@ async function runAction(t: ToastItem, action: ToastAction) {
     if (!action) return
     if (action.kind === 'route') {
       await router.push(action.to)
+    } else if (action.kind === 'gift_open') {
+      const acquisitionId = action.acquisition_id
+      if (!Number.isSafeInteger(acquisitionId) || acquisitionId <= 0) throw new Error('Invalid gift')
+      const sessionId = auth.sessionId
+      const { data } = await api.get<GiftCollectionItem>(`/gifts/purchases/${acquisitionId}`)
+      if (sessionId !== auth.sessionId) return
+      openedGift.value = data
     } else {
       const m = (action.method || 'post').toLowerCase()
       await (api as any)[m](action.url, action.body)
@@ -173,6 +186,8 @@ async function runAction(t: ToastItem, action: ToastAction) {
       } else {
         void alertDialog('Не удалось выполнить действие')
       }
+    } else if (action.kind === 'gift_open') {
+      void alertDialog('Не удалось открыть подарок. Возможно, он уже удалён.')
     } else {
       void alertDialog('Не удалось перейти по ссылке')
     }
@@ -223,6 +238,8 @@ const toastAppearances = new Map<string, ToastAppearance>([
   ['subscription_activated', { tone: 'tone-green', icon: iconPresent }],
   ['subscription_purchase', { tone: 'tone-green', icon: iconPresent }],
   ['subscription_gift', { tone: 'tone-green', icon: iconPresent }],
+  ['gift_purchase', { tone: 'tone-green', icon: iconPresent }],
+  ['gift_received', { tone: 'tone-green', icon: iconPresent }],
   ['subscription_expiring', { tone: 'tone-orange', icon: iconPresent }],
   ['subscription_expired', { tone: 'tone-red', icon: iconPresent }],
   ['subscription_compensation', { tone: 'tone-green', icon: iconPresent }],
@@ -237,6 +254,10 @@ function toastAppearance(kind: string): ToastAppearance {
   return toastAppearances.get(kind) ?? defaultToastAppearance
 }
 
+function isGiftReceipt(kind: string): boolean {
+  return kind === 'subscription_gift' || kind === 'gift_received'
+}
+
 function onToast(event: Event): void {
   const toast = (event as CustomEvent<ToastPayload>).detail
   if (!toast) return
@@ -248,8 +269,13 @@ function onToast(event: Event): void {
     if (!current) return
     current._closing = true
     window.setTimeout(() => { void close(key) }, 500)
-  }, TOAST_TTL_MS)
+  }, isGiftReceipt(toast.kind) ? GIFT_TOAST_TTL_MS : TOAST_TTL_MS)
 }
+
+watch(() => auth.sessionId, () => {
+  items.value = []
+  openedGift.value = null
+})
 
 onMounted(() => {
   window.addEventListener('toast', onToast)
@@ -367,7 +393,7 @@ onBeforeUnmount(() => {
           .profile-line {
             display: contents;
           }
-          &.meta--subscription-gift {
+          &.meta--gift {
             flex-direction: column;
             align-items: flex-start;
             .profile-line {

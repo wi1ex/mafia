@@ -1,5 +1,5 @@
 export type DcCurrency = 'RUB' | 'USD' | 'EUR'
-export type WalletTab = 'coins' | 'subscription'
+export type WalletTab = 'coins' | 'subscription' | 'gifts'
 export type CoinPackageQuantity = 30 | 100 | 300 | 1000
 export type CoinPackageCatalog = Record<CoinPackageQuantity, Record<DcCurrency, string>>
 export type SubscriptionPlan = 'week' | 'month' | 'quarter' | 'year'

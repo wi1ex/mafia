@@ -2,6 +2,7 @@ from __future__ import annotations
 from sqlalchemy import and_, func, literal, or_, select, union_all
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..models.coin_purchase import CoinPurchase
+from ..models.gift import UserGift
 from ..models.subscription_purchase import SubscriptionPurchase
 from ..schemas.user import UserOperationHistoryOut, UserOperationOut
 from .wallet import money_text
@@ -61,7 +62,21 @@ async def operation_history(session: AsyncSession, user_id: int, *, page: int = 
                 and_(SubscriptionPurchase.source == "gift", SubscriptionPurchase.actor_id == user_id)),
             SubscriptionPurchase.status == "processed",
             SubscriptionPurchase.processed_at.is_not(None))
-    combined = union_all(coin, subscription).subquery()
+    def gift_operations(journal, date):
+        return select(
+            literal(journal), UserGift.id, date, literal("gift"),
+            UserGift.gift_id, literal(None), literal(None),
+            literal(0), literal(0), UserGift.dc_cost,
+            UserGift.owner_id, UserGift.payer_id,
+        )
+
+    gift = gift_operations("gift", UserGift.acquired_at).where(
+        or_(UserGift.owner_id == user_id, UserGift.payer_id == user_id),
+    )
+    refund = gift_operations("gift_refund", UserGift.refunded_at).where(
+        UserGift.payer_id == user_id, UserGift.refunded_at.is_not(None),
+    )
+    combined = union_all(coin, subscription, gift, refund).subquery()
     total = int(await session.scalar(select(func.count()).select_from(combined)) or 0)
     rows = (await session.execute(select(combined).order_by(
         combined.c.date.desc(), combined.c.journal.desc(), combined.c.operation_id.desc(),
@@ -72,6 +87,12 @@ async def operation_history(session: AsyncSession, user_id: int, *, page: int = 
         select(SubscriptionPurchase.id, SubscriptionPurchase.result)
         .where(SubscriptionPurchase.id.in_(gift_ids))
     )).all()) if gift_ids else {}
+    gift_purchase_ids = [int(row["operation_id"]) for row in rows if row["journal"] == "gift"]
+    gift_purchases = {
+        int(item.id): item for item in (await session.scalars(
+            select(UserGift).where(UserGift.id.in_(gift_purchase_ids))
+        )).all()
+    } if gift_purchase_ids else {}
     items: list[UserOperationOut] = []
     for row in rows:
         source = row["source"]
@@ -83,6 +104,27 @@ async def operation_history(session: AsyncSession, user_id: int, *, page: int = 
             }.get(source, "Начисление монет")
             received = "—" if source == "admin_remove" else f"{quantity} DC"
             spent = money_text(row["amount"], row["currency"]) if source == "lava" else f"{quantity} DC" if source == "admin_remove" else "Бесплатно"
+        elif row["journal"] == "gift_refund":
+            operation_type = f"Возврат за подарок №{row['quantity']}"
+            received = f"{int(row['dc_cost'])} DC"
+            spent = "—"
+        elif row["journal"] == "gift":
+            purchase = gift_purchases[int(row["operation_id"])]
+            gift_label = f"Подарок №{purchase.gift_id}"
+            if purchase.payer_id == purchase.owner_id:
+                operation_type = "Покупка подарка"
+                received = gift_label
+                spent = f"{purchase.dc_cost} DC"
+            elif purchase.payer_id == user_id:
+                recipient = purchase.owner_username or f"пользователя #{purchase.owner_id}"
+                operation_type = f"{gift_label} для {recipient}"
+                received = "—"
+                spent = f"{purchase.dc_cost} DC"
+            else:
+                sender = purchase.payer_username or f"пользователя #{purchase.payer_id}"
+                operation_type = "Анонимный подарок" if purchase.anonymous else f"Подарок от {sender}"
+                received = gift_label
+                spent = "Бесплатно"
         elif source == "gift":
             snapshot = gift_metadata.get(row["operation_id"])
             if row["actor_id"] == user_id:

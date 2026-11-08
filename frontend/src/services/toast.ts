@@ -14,7 +14,14 @@ type ToastApiAction = {
   style?: 'primary' | 'neutral'
 }
 
-export type ToastAction = ToastRouteAction | ToastApiAction
+type ToastGiftOpenAction = {
+  kind: 'gift_open'
+  label: string
+  acquisition_id: number
+  style?: 'primary' | 'neutral'
+}
+
+export type ToastAction = ToastRouteAction | ToastApiAction | ToastGiftOpenAction
 
 export type ToastUser = {
   id: number

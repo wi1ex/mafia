@@ -210,6 +210,15 @@ export function startAuthSocket(opts?: { onForceLogout?: () => void }): Socket {
     window.dispatchEvent(new CustomEvent('auth-dc_balance_update', { detail: payload }))
   })
 
+  authSocket.on('gift_catalog_update', (payload: unknown) => {
+    window.dispatchEvent(new CustomEvent('auth-gift_catalog_update', { detail: payload }))
+  })
+
+  authSocket.on('gifts_update', (payload: unknown) => {
+    window.dispatchEvent(new CustomEvent('auth-gifts_update', { detail: payload }))
+    window.dispatchEvent(new CustomEvent('dc-wallet-changed', { detail: payload }))
+  })
+
   authSocket.on('chat_unread_count', (p:any) => {
     window.dispatchEvent(new CustomEvent('auth-chat_unread_count', { detail: p }))
   })
