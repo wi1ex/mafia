@@ -1,12 +1,13 @@
 <template>
   <Teleport to="#desktop-teleport-root">
-    <dialog ref="dialog" class="gift-opening" aria-labelledby="gift-opening-title" @cancel.prevent="close" @click.self="close">
-      <div class="gift-opening-content">
-        <h2 id="gift-opening-title">Подарок</h2>
-        <UiButton class="gift-opening-close" variant="white" size="low" :icon="iconClose" aria-label="Закрыть" autofocus @click="close" />
+    <dialog ref="dialog" class="gift-opening" :class="{ 'gift-opening--intro': !revealed }"
+            aria-labelledby="gift-opening-title" @cancel.prevent="close" @click.self="close">
+      <img v-if="openingUrl" class="gift-opening-animation" :src="openingUrl" alt=""
+           @load="startRevealTimer" @error="revealGift" />
+      <div class="gift-opening-content" :inert="!revealed">
+        <h2 id="gift-opening-title">Ваш подарок!</h2>
+        <UiButton class="gift-opening-close" variant="white" size="low" :icon="iconClose" aria-label="Закрыть" @click="close" />
         <div class="gift-opening-stage">
-          <img v-if="openingUrl" class="gift-opening-animation" :src="openingUrl" alt=""
-               @load="startRevealTimer" @error="revealGift" />
           <div class="gift-reveal" :class="{ 'gift-reveal--visible': giftVisible }" :aria-hidden="!giftVisible">
             <GiftMedia :media="gift" :animated="revealed && !reducedMotion" :label="`Подарок №${gift.gift_id}`" @load="giftLoaded = true" />
           </div>
@@ -24,7 +25,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import UiButton from '@/components/UiButton.vue'
 import GiftMedia from '@/components/GiftMedia.vue'
 import giftOpenAnimation from '@/assets/video/gift-open.avif'
@@ -75,6 +76,9 @@ function stopOpening(): void {
 function revealGift(): void {
   stopOpening()
   revealed.value = true
+  void nextTick(() => {
+    if (dialog.value?.open) dialog.value.querySelector<HTMLButtonElement>('.gift-opening-close')?.focus({ preventScroll: true })
+  })
 }
 
 function startRevealTimer(): void {
@@ -123,6 +127,21 @@ onBeforeUnmount(stopOpening)
     background: rgba($neutral-black, 0.52);
     backdrop-filter: blur(10px);
   }
+  &--intro {
+    overflow: hidden;
+    background: $neutral-black;
+    .gift-opening-animation {
+      position: absolute;
+      inset: 0;
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .gift-opening-content {
+      visibility: hidden;
+    }
+  }
   .gift-opening-content {
     display: flex;
     flex-direction: column;
@@ -132,6 +151,7 @@ onBeforeUnmount(stopOpening)
     h2 {
       margin: 0;
       font-family: Involve-Medium;
+      font-weight: normal;
     }
     .gift-opening-close {
       position: absolute;
@@ -147,18 +167,9 @@ onBeforeUnmount(stopOpening)
       width: min(230px, 65vw);
       aspect-ratio: 1;
       background: radial-gradient(circle, $green-100, transparent 72%);
-      .gift-opening-animation,
       .gift-reveal {
-        grid-area: 1 / 1;
         width: 100%;
         height: 100%;
-      }
-      .gift-opening-animation {
-        display: block;
-        object-fit: contain;
-        border-radius: 16px;
-      }
-      .gift-reveal {
         opacity: 0;
         &--visible {
           opacity: 1;
