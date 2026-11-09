@@ -182,60 +182,6 @@
               </header>
 
               <template v-if="view === 'profile'">
-                <div v-if="showRestrictedProfileSections" class="profile-actions profile-actions--main">
-                  <div v-if="!isSelfProfile && !blacklistedByMe" class="profile-actions-row profile-actions-row--free">
-                    <button class="profile-action friend-action" :class="`status-${friendStatusClass}`"
-                            type="button" :disabled="friendDisabled" :aria-label="friendActionAriaLabel" @click="onFriendAction(friendActionKind)">
-                      <div class="friend-action-content friend-action-content-default" aria-hidden="true">
-                        <UiIcon class="profile-action-icon" :icon="friendActionIcon" />
-                        <span>{{ friendActionLabel }}</span>
-                      </div>
-                      <div class="friend-action-content friend-action-content-hover" aria-hidden="true">
-                        <UiIcon class="profile-action-icon" :icon="friendActionHoverIcon" />
-                        <span>{{ friendActionHoverLabel }}</span>
-                      </div>
-                    </button>
-                    <UiButton
-                      variant="white"
-                      size="middle"
-                      width="100%"
-                      :icon="iconSubscribe"
-                      text="Подарить подписку"
-                      :disabled="giftDisabled"
-                      @click="openSubscriptionGift"
-                    />
-                    <UiButton
-                      variant="white"
-                      size="middle"
-                      width="100%"
-                      :icon="iconPresent"
-                      text="Отправить подарок"
-                      :disabled="giftDisabled"
-                      @click="openGiftShop('gifts')"
-                    />
-                  </div>
-                  <div v-if="canViewProfileData" class="profile-actions-row profile-actions-row--subscription">
-                    <UiButton
-                      v-if="showStatsButton"
-                      variant="white"
-                      size="middle"
-                      width="100%"
-                      :icon="iconStats"
-                      text="Статистика"
-                      @click="view = 'stats'"
-                    />
-                    <UiButton
-                      v-if="showGameHistoryButton"
-                      variant="white"
-                      size="middle"
-                      width="100%"
-                      :icon="iconHistory"
-                      text="История игр"
-                      @click="view = 'history'"
-                    />
-                  </div>
-                </div>
-
                 <div v-if="giftCollectionAllowed && (giftPreview?.total || giftPreviewError)" class="profile-gifts-preview">
                   <div class="profile-gifts-heading">
                     <span>Подарки ({{ giftPreview?.total ?? 0 }})</span>
@@ -294,6 +240,60 @@
               </Teleport>
 
               <template v-if="view === 'profile'">
+                <div v-if="showRestrictedProfileSections" class="profile-actions profile-actions--main">
+                  <div v-if="!isSelfProfile && !blacklistedByMe" class="profile-actions-row profile-actions-row--free">
+                    <button class="profile-action friend-action" :class="`status-${friendStatusClass}`"
+                            type="button" :disabled="friendDisabled" :aria-label="friendActionAriaLabel" @click="onFriendAction(friendActionKind)">
+                      <div class="friend-action-content friend-action-content-default" aria-hidden="true">
+                        <UiIcon class="profile-action-icon" :icon="friendActionIcon" />
+                        <span>{{ friendActionLabel }}</span>
+                      </div>
+                      <div class="friend-action-content friend-action-content-hover" aria-hidden="true">
+                        <UiIcon class="profile-action-icon" :icon="friendActionHoverIcon" />
+                        <span>{{ friendActionHoverLabel }}</span>
+                      </div>
+                    </button>
+                    <UiButton
+                      variant="white"
+                      size="middle"
+                      width="100%"
+                      :icon="iconSubscribe"
+                      text="Подарить подписку"
+                      :disabled="giftDisabled"
+                      @click="openSubscriptionGift"
+                    />
+                    <UiButton
+                      variant="white"
+                      size="middle"
+                      width="100%"
+                      :icon="iconPresent"
+                      text="Отправить подарок"
+                      :disabled="giftDisabled"
+                      @click="openGiftShop('gifts')"
+                    />
+                  </div>
+                  <div v-if="canViewProfileData" class="profile-actions-row profile-actions-row--subscription">
+                    <UiButton
+                      v-if="showStatsButton"
+                      variant="white"
+                      size="middle"
+                      width="100%"
+                      :icon="iconStats"
+                      text="Статистика"
+                      @click="view = 'stats'"
+                    />
+                    <UiButton
+                      v-if="showGameHistoryButton"
+                      variant="white"
+                      size="middle"
+                      width="100%"
+                      :icon="iconHistory"
+                      text="История игр"
+                      @click="view = 'history'"
+                    />
+                  </div>
+                </div>
+
                 <div v-if="!showRestrictedProfileSections" class="profile-restricted-div">
                   <UiIcon class="profile-restricted-img" :icon="iconDanger" />
                   <span class="profile-restricted-text">Вы в Черном списке у пользователя</span>
@@ -3787,7 +3787,7 @@ onBeforeUnmount(() => {
         list-style: none;
         .profile-gift-tile {
           position: relative;
-          flex: 0 0 clamp(108px, 15%, 131px);
+          flex: 0 0 clamp(131px, 15%, 131px);
           aspect-ratio: 1;
           &:first-child {
             margin-inline-start: auto;
