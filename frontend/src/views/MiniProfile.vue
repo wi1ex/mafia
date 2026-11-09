@@ -238,12 +238,15 @@
                     <span>Не удалось загрузить подарки</span>
                     <button type="button" :disabled="giftPreviewLoading" @click="loadProfileGifts(true)">Повторить</button>
                   </div>
-                  <ul v-if="giftPreview.items.length" class="profile-gifts-strip" aria-label="Подарки пользователя" tabindex="0">
-                    <li v-for="item in giftPreview.items" :key="item.id" class="profile-gift-tile">
-                      <GiftMedia class="profile-gift-media" :media="item" :label="`Подарок №${item.gift_id}`" animated />
-                      <span v-if="item.quantity > 1" class="profile-gift-quantity">×{{ item.quantity }}</span>
-                    </li>
-                  </ul>
+                  <template v-if="giftPreview.items.length">
+                    <ul ref="giftStrip" class="profile-gifts-strip" aria-label="Подарки пользователя" tabindex="0">
+                      <li v-for="item in giftPreview.items" :key="item.id" class="profile-gift-tile">
+                        <GiftMedia class="profile-gift-media" :media="item" :label="`Подарок №${item.gift_id}`" animated />
+                        <span v-if="item.quantity > 1" class="profile-gift-quantity">×{{ item.quantity }}</span>
+                      </li>
+                    </ul>
+                    <UiScrollbar class="profile-gifts-scrollbar" :target="giftStrip" orientation="horizontal" />
+                  </template>
                 </div>
                 <div class="date-row">
                   <span class="date-title">Дата регистрации</span>
@@ -339,7 +342,7 @@
                     <GiftMedia class="profile-gift-media" :media="item" :label="`Подарок №${item.gift_id}`" animated />
                     <div v-if="item.sender && item.sender.id !== targetUserId" class="profile-gift-sender">
                       <img v-minio-img="{ key: giftSenderAvatarKey(item.sender.avatar_name), placeholder: iconDefaultAvatarBlack }" alt="" />
-                      <span>{{ item.sender.username || `user${item.sender.id}` }}</span>
+                      <span :title="item.sender.username || `user${item.sender.id}`">{{ item.sender.username || `user${item.sender.id}` }}</span>
                     </div>
                   </li>
                 </ul>
@@ -691,6 +694,7 @@ const allGiftsLoading = ref(false)
 const giftPreviewError = ref(false)
 const allGiftsError = ref(false)
 const allGiftsRetryAppend = ref(false)
+const giftStrip = ref<HTMLElement | null>(null)
 const allGiftsTrigger = ref<HTMLButtonElement | null>(null)
 let giftPreviewRequest: AbortController | undefined
 let allGiftsRequest: AbortController | undefined
@@ -3616,36 +3620,77 @@ onBeforeUnmount(() => {
       background-color: rgba($soft-purple-900, 0.65);
       .profile-gifts-preview {
         min-width: 0;
-        padding-bottom: 10px;
+        padding-bottom: 16px;
+        margin-bottom: 8px;
+        border-bottom: 1px solid rgba($neutral-white, 0.24);
         .profile-gifts-heading {
-          display: flex;
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
           align-items: center;
-          justify-content: space-between;
           gap: 8px;
-          margin-bottom: 6px;
-          color: $neutral-100;
-          font-family: Hauora-SemiBold;
+          margin-bottom: 12px;
+          color: $neutral-300;
+          font-family: Hauora-Regular;
+          font-size: 18px;
+          span {
+            grid-column: 2;
+            text-align: center;
+          }
           button {
-            flex: 0 0 auto;
-            padding: 4px 8px;
+            justify-self: end;
+            padding: 0;
             border: 0;
-            border-radius: 8px;
-            background-color: $neutral-white;
-            color: $neutral-800;
+            background: transparent;
+            color: inherit;
             font: inherit;
+            font-size: 14px;
+            text-decoration: underline;
+            text-underline-offset: 3px;
             cursor: pointer;
+            &:hover,
+            &:focus-visible {
+              color: $neutral-white;
+            }
           }
         }
         .profile-gifts-strip {
           display: flex;
-          gap: 8px;
-          padding: 0 0 4px;
+          gap: 12px;
+          padding: 0;
           margin: 0;
           overflow-x: auto;
+          overflow-y: hidden;
+          scrollbar-width: none;
           list-style: none;
           .profile-gift-tile {
-            flex: 0 0 74px;
+            position: relative;
+            flex: 0 0 clamp(72px, 11%, 96px);
+            aspect-ratio: 1;
+            &:first-child {
+              margin-inline-start: auto;
+            }
+            &:last-child {
+              margin-inline-end: auto;
+            }
+            .profile-gift-media {
+              position: absolute;
+              inset: 0;
+            }
+            .profile-gift-quantity {
+              position: absolute;
+              right: 0;
+              bottom: 0;
+              padding: 1px 5px;
+              border-radius: 999px;
+              background-color: rgba($neutral-black, 0.75);
+              color: $neutral-white;
+              font-family: Hauora-SemiBold;
+              font-size: 12px;
+            }
           }
+        }
+        .profile-gifts-scrollbar.scrollbar--visible {
+          margin-top: 12px;
         }
       }
       .date-row {
@@ -3714,6 +3759,7 @@ onBeforeUnmount(() => {
         margin: 0;
         font-family: Hauora-SemiBold;
         font-size: 20px;
+        text-align: center;
       }
       .profile-gifts-grid {
         display: grid;
@@ -3722,64 +3768,50 @@ onBeforeUnmount(() => {
         padding: 0;
         margin: 0;
         list-style: none;
+        .profile-gift-tile {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 6px;
+          min-width: 0;
+          .profile-gift-media {
+            width: min(100%, 96px);
+            height: auto;
+            aspect-ratio: 1;
+          }
+          .profile-gift-sender {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            box-sizing: border-box;
+            max-width: 100%;
+            padding: 3px 8px 3px 3px;
+            border-radius: 999px;
+            background-color: rgba($neutral-white, 0.12);
+            color: $neutral-100;
+            font-family: Hauora-Medium;
+            font-size: 13px;
+            line-height: 18px;
+            img {
+              flex: 0 0 18px;
+              width: 18px;
+              height: 18px;
+              border-radius: 50%;
+              background-color: $neutral-white;
+              object-fit: cover;
+            }
+            span {
+              min-width: 0;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+            }
+          }
+        }
       }
     }
     .profile-gifts-preview,
     .profile-all-gifts {
-      .profile-gift-tile {
-        position: relative;
-        overflow: hidden;
-        min-width: 0;
-        aspect-ratio: 1;
-        border-radius: 12px;
-        background-color: $neutral-white;
-        .profile-gift-media {
-          position: absolute;
-          inset: 6px;
-          width: auto;
-          height: auto;
-        }
-        .profile-gift-quantity,
-        .profile-gift-sender {
-          position: absolute;
-          color: $neutral-white;
-          background-color: rgba($neutral-black, 0.75);
-        }
-        .profile-gift-quantity {
-          right: 4px;
-          bottom: 4px;
-          padding: 1px 5px;
-          border-radius: 999px;
-          font-family: Hauora-SemiBold;
-          font-size: 12px;
-        }
-        .profile-gift-sender {
-          right: 0;
-          bottom: 0;
-          left: 0;
-          display: flex;
-          align-items: center;
-          gap: 4px;
-          min-width: 0;
-          padding: 4px;
-          font-size: 13px;
-          line-height: 16px;
-          img {
-            flex: 0 0 18px;
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            background-color: $neutral-white;
-            object-fit: cover;
-          }
-          span {
-            min-width: 0;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-          }
-        }
-      }
       .profile-gifts-state {
         margin: 0;
         color: $neutral-100;

@@ -795,7 +795,7 @@ onBeforeUnmount(() => {
         border-radius: 16px;
         background: $neutral-white;
         > span {
-          color: $neutral-600;
+          color: $neutral-black;
           font-size: 14px;
         }
         .wallet-gift-user {
