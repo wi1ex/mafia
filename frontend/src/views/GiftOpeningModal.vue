@@ -33,8 +33,8 @@ import iconClose from '@/assets/svg/iconClose.svg'
 import type { GiftCollectionItem } from '@/services/gifts'
 import { getImageURL, releaseImageURL } from '@/services/mediaCache'
 
-// gift-open.avif has 121 frames at 24 fps. Animated images have no ended event.
-const GIFT_OPEN_DURATION_MS = 5050
+// Reveal just before the 121-frame, 24 fps AVIF starts looping.
+const GIFT_OPEN_REVEAL_MS = 4850
 const GIFT_OPEN_LOAD_TIMEOUT_MS = 10_000
 const CONFETTI_COLORS = ['#00cd9b', '#ffbd4a', '#61a9eb', '#a475f3', '#fa7770', '#fff']
 
@@ -84,7 +84,7 @@ function revealGift(): void {
 function startRevealTimer(): void {
   if (openingRequest.signal.aborted) return
   window.clearTimeout(revealTimer)
-  revealTimer = window.setTimeout(revealGift, GIFT_OPEN_DURATION_MS)
+  revealTimer = window.setTimeout(revealGift, GIFT_OPEN_REVEAL_MS)
   const key = props.gift.avif_key
   if (key) void getImageURL(key, 0).then(() => releaseImageURL(key)).catch(() => {})
 }
@@ -116,8 +116,11 @@ onBeforeUnmount(stopOpening)
 
 <style scoped lang="scss">
 .gift-opening {
-  width: min(440px, calc(100vw - 40px));
+  --gift-opening-size: min(700px, calc(100vw - 40px), calc(100dvh - 40px));
+  width: var(--gift-opening-size);
+  height: var(--gift-opening-size);
   max-width: none;
+  max-height: none;
   padding: 0;
   border: 0;
   border-radius: 28px;
@@ -147,7 +150,9 @@ onBeforeUnmount(stopOpening)
     flex-direction: column;
     align-items: center;
     gap: 20px;
+    height: 100%;
     padding: 24px;
+    box-sizing: border-box;
     h2 {
       margin: 0;
       font-family: Involve-Medium;
@@ -164,8 +169,9 @@ onBeforeUnmount(stopOpening)
     .gift-opening-stage {
       display: grid;
       place-items: center;
-      width: min(230px, 65vw);
-      aspect-ratio: 1;
+      flex: 1;
+      width: 100%;
+      min-height: 0;
       background: radial-gradient(circle, $green-100, transparent 72%);
       .gift-reveal {
         width: 100%;
@@ -190,7 +196,7 @@ onBeforeUnmount(stopOpening)
     z-index: 2;
     overflow: hidden;
     pointer-events: none;
-    --confetti-radius: min(40vw, 310px);
+    --confetti-radius: min(40vw, max(310px, calc(var(--gift-opening-size) * 0.7)));
     .gift-confetti-piece {
       position: absolute;
       top: 50%;
