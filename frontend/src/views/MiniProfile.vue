@@ -2507,6 +2507,7 @@ function onBlacklistUpdate(e: Event) {
 function onBalanceComplete(result: { userId: number; action: 'credit' | 'debit'; dc_balance: number }): void {
   if (result.userId === targetUserId.value) patchProfile({ dc_balance: result.dc_balance })
   emit('staff-action-complete', { userId: result.userId, action: result.action === 'credit' ? 'coins_credit' : 'coins_debit' })
+  void alertDialog(result.action === 'credit' ? 'Монеты выданы' : 'Монеты сняты')
 }
 
 function cancelProfileInfoClose(): void {
