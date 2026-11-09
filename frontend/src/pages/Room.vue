@@ -18,7 +18,7 @@
         </div>
       </Transition>
       <Transition name="host-blur">
-        <div v-if="hostBlurVisible" class="host-blur-overlay" :class="{ 'host-blur-overlay-head': hostBlurUsesHeadView }" aria-hidden="true">
+        <div v-if="hostBlurVisible" class="host-blur-overlay" :class="{ 'host-blur-overlay--passive': hostBlurIsPassive }" aria-hidden="true">
           <div class="pause-block">
             <UiIcon class="pause-img" :icon="iconPauseOn" />
             <span class="pause-text">Пауза</span>
@@ -991,7 +991,9 @@ const canToggleHostBlurControl = computed(() => (
   gamePhase.value !== 'idle' && isHead.value && hostBlurToggleEnabled.value
 ))
 const hostBlurVisible = computed(() => gamePhase.value !== 'idle' && hostBlurActive.value)
-const hostBlurUsesHeadView = computed(() => isHead.value || isSpectatorInGame.value)
+const hostBlurIsPassive = computed(() => (
+  isHead.value || isSpectatorInGame.value || (myGameRole.value === 'player' && !amIAlive.value)
+))
 const hostBlurLocksControls = computed(() => isHead.value && hostBlurActive.value)
 const ACTION_PHASES = ['day', 'vote', 'night'] as const
 const canShowLeaveGameButton = computed(() =>
@@ -4897,7 +4899,7 @@ onBeforeUnmount(() => {
       }
     }
   }
-  .host-blur-overlay.host-blur-overlay-head {
+  .host-blur-overlay.host-blur-overlay--passive {
     backdrop-filter: none !important;
     pointer-events: none;
   }
