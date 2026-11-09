@@ -101,6 +101,15 @@
         </button>
       </div>
 
+      <button v-if="user.user" ref="walletTrigger" class="wallet-balance-trigger" type="button"
+              :aria-label="`Открыть магазин. Баланс ${walletBalanceText} DC`" aria-haspopup="dialog" @click="openWallet">
+        <span class="wallet-balance-coin" aria-hidden="true">
+          <img :src="iconCoin" width="64" height="64" alt="" />
+          <span class="wallet-balance-plus"><UiIcon :icon="iconAddPlus" /></span>
+        </span>
+        <span class="wallet-balance-amount">{{ walletBalanceText }} <span>DC</span></span>
+      </button>
+
       <div class="user-menu" ref="userMenuEl">
         <button class="profile-btn profile-dropdown-trigger" type="button" :style="userMenuButtonStyle" @click.stop="onToggleUserMenu" :aria-expanded="um_open" aria-haspopup="true">
           <img v-minio-img="{ key: user.user?.avatar_name ? `avatars/${user.user.avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false }" alt="Аватар" class="avatar" />
@@ -138,6 +147,7 @@
     </div>
   </header>
   <Auth v-model:open="authOpen" :mode="authMode" />
+  <WalletModal v-if="walletModalRequested" :open="walletModalOpen" @update:open="onWalletOpenChange" />
   <MiniProfile
     v-model:open="selfMiniProfileOpen"
     :user-id="selfMiniProfileUserId"
@@ -153,6 +163,7 @@ import Notifs from '@/views/Notifs.vue'
 import Friends from '@/views/Friends.vue'
 import Auth from '@/views/Auth.vue'
 import MiniProfile from '@/views/MiniProfile.vue'
+import WalletModal from '@/views/WalletModal.vue'
 import UiIcon from '@/components/UiIcon.vue'
 import { api } from '@/services/axios'
 import { alertDialog, confirmDialog } from '@/services/confirm'
@@ -166,6 +177,8 @@ import iconJudge from '@/assets/svg/iconJudge.svg'
 import iconNotifBell from "@/assets/svg/iconNotifBell.svg"
 import iconFriends from "@/assets/svg/iconFriends.svg"
 import iconChat from "@/assets/svg/iconChat.svg"
+import iconCoin from '@/assets/svg/iconCoin.svg'
+import iconAddPlus from '@/assets/svg/iconAddPlus.svg'
 import iconDefaultAvatar from "@/assets/svg/iconDefaultAvatar.svg"
 import iconBigDefaultAvatar from "@/assets/svg/iconBigDefaultAvatar.svg"
 import iconArrow from '@/assets/svg/iconArrow.svg'
@@ -188,6 +201,11 @@ const friends_open = ref(false)
 const friendsEl = ref<HTMLElement | null>(null)
 const um_open = ref(false)
 const userMenuEl = ref<HTMLElement | null>(null)
+const walletTrigger = ref<HTMLButtonElement | null>(null)
+const walletModalRequested = ref(false)
+const walletModalOpen = ref(false)
+const walletBalanceFormatter = new Intl.NumberFormat('ru-RU')
+const walletBalanceText = computed(() => walletBalanceFormatter.format(user.user?.dc_balance ?? 0))
 const authOpen = ref(false)
 const authMode = ref<'login' | 'register'>('login')
 const rulesAcceptanceBusy = ref(false)
@@ -380,6 +398,15 @@ function openSelfMiniProfile() {
   if (selfMiniProfileUserId.value <= 0) return
   closeHeaderPanels()
   selfMiniProfileOpen.value = true
+}
+function openWallet() {
+  closeHeaderPanels()
+  walletModalRequested.value = true
+  walletModalOpen.value = true
+}
+function onWalletOpenChange(open: boolean) {
+  walletModalOpen.value = open
+  if (!open) walletTrigger.value?.focus({ preventScroll: true })
 }
 function closeHeaderPanels(options: {
   keepChat?: boolean
@@ -713,6 +740,7 @@ function openAuth(mode: 'login' | 'register') {
     align-items: center;
     justify-content: center;
     padding: 20px 16px;
+    max-width: 100%;
     border: none;
     border-radius: 16px;
     background: var(--user-theme-bg, $soft-purple-900);
@@ -787,6 +815,7 @@ function openAuth(mode: 'login' | 'register') {
     display: flex;
     align-items: center;
     gap: 4px;
+    min-width: 0;
     .bell {
       position: relative;
       button {
@@ -866,8 +895,83 @@ function openAuth(mode: 'login' | 'register') {
         }
       }
     }
+    .wallet-balance-trigger {
+      display: flex;
+      flex: 0 0 auto;
+      align-items: center;
+      margin-left: 12px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      font: inherit;
+      cursor: pointer;
+      .wallet-balance-coin {
+        position: relative;
+        z-index: 1;
+        flex: 0 0 auto;
+        img {
+          display: block;
+          object-fit: contain;
+        }
+        .wallet-balance-plus {
+          position: absolute;
+          right: 2px;
+          bottom: 3px;
+          display: grid;
+          place-items: center;
+          box-sizing: border-box;
+          width: 26px;
+          height: 26px;
+          border: 1px solid $neutral-black;
+          border-radius: 50%;
+          background-color: $green-500;
+          transition: background-color 0.25s ease-in-out;
+          .ui-icon {
+            --ui-icon-width: 20px;
+            --ui-icon-height: 20px;
+            --ui-icon-color: #{$neutral-black};
+          }
+        }
+      }
+      .wallet-balance-amount {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        height: 48px;
+        margin-left: -32px;
+        padding: 0 12px 0 40px;
+        border-radius: 16px;
+        background-color: $soft-purple-900;
+        color: $neutral-100;
+        font-size: 18px;
+        line-height: 20px;
+        white-space: nowrap;
+        transition: background-color 0.25s ease-in-out, color 0.25s ease-in-out;
+        span {
+          font-size: 12px;
+        }
+      }
+      &:hover,
+      &:focus-visible {
+        .wallet-balance-amount {
+          background-color: $soft-purple-800;
+          color: $neutral-white;
+        }
+        .wallet-balance-plus {
+          background-color: $green-400;
+        }
+      }
+      &:focus-visible .wallet-balance-amount {
+        outline: 2px solid $green-400;
+        outline-offset: 2px;
+      }
+      & + .user-menu {
+        margin-left: 0;
+      }
+    }
     .user-menu {
       position: relative;
+      min-width: 0;
       margin-left: 8px;
       .user-menu-dropdown {
         display: flex;
