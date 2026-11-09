@@ -2,361 +2,364 @@
   <Teleport to="#desktop-teleport-root">
     <Transition name="user-mini-profile-fade">
       <div v-if="canRenderOpen" class="user-mini-profile-overlay" role="presentation" @pointerdown.stop.self @click.stop.self="close">
-        <section ref="profilePanelEl" class="user-mini-profile-panel" :class="{ 'stats-mode': view !== 'profile' && !panelStateVisible && !avatarPreviewOpen, 'state-mode': panelStateVisible, 'avatar-mode': avatarPreviewOpen }" :style="profilePanelStyle"
-                 role="dialog" aria-modal="true" :aria-label="`Профиль ${displayName}`" @pointerdown.stop @click.stop>
-          <template v-if="avatarPreviewOpen && avatarPreviewSrc">
-            <button class="avatar-preview-image" type="button" aria-label="Закрыть аватар" @click="closeAvatarPreview">
-              <img class="avatar-preview-img" :src="avatarPreviewSrc" alt="" />
-            </button>
-          </template>
-          <div v-else-if="loading && !profileLoadedForTarget" class="state-loading" role="status" aria-live="polite">
-            <UiLoaderIcon class="state-loading-img" />
-            <span class="state-loading-text">Загрузка...</span>
-          </div>
-          <div v-else-if="loadError" class="state-error">
-            <UiIcon class="state-error-img" :icon="iconDanger" />
-            <span class="state-error-text">{{ loadError }}</span>
-          </div>
-          <template v-else>
-            <header class="profile-top">
-              <div class="profile-identity">
-                <button class="profile-avatar-trigger" type="button" :disabled="!hasAvatar" aria-label="Открыть аватар" @click="openAvatarPreview">
-                  <img ref="avatarImageEl" class="profile-avatar" v-minio-img="{ key: avatarKey, placeholder: iconDefaultAvatar, lazy: false, animated: true }" alt="avatar" />
-                </button>
-                <div class="profile-block">
-                  <div class="profile-div">
-                    <div class="profile-title">
-                      <div v-if="profileThemeIconSrcs.length" class="profile-theme-icons" aria-hidden="true">
-                        <img v-for="badgeSrc in profileThemeIconSrcs" :key="badgeSrc" class="profile-theme-icon" :src="badgeSrc" alt="" />
-                      </div>
-                      <a v-if="profileStreamingUrl" class="profile-streaming-link" :href="profileStreamingUrl" target="_blank"
-                         rel="noopener noreferrer nofollow" aria-label="Открыть стриминговую страницу" @click.stop>
-                        <UiIcon class="profile-streaming-icon" :icon="iconTwitch" />
-                      </a>
-                      <span class="profile-name">{{ displayName }}</span>
-                    </div>
-
-                    <div v-if="showRestrictedProfileSections && showProfileMeta" class="profile-meta">
-                      <div v-if="balanceHistoryAllowed" ref="balanceHistoryTrigger" class="profile-balance-history-wrap" tabindex="0" role="button"
-                           aria-haspopup="dialog" :aria-expanded="balanceHistoryOpen" aria-label="Показать историю операций"
-                           @pointerenter="showBalanceHistory" @pointerleave="scheduleBalanceHistoryClose" @focusin="onBalanceHistoryFocus" @focusout="scheduleBalanceHistoryClose"
-                           @keydown.enter.prevent="focusBalanceHistory" @keydown.space.prevent="focusBalanceHistory" @keydown.down.prevent="focusBalanceHistory">
-                        <span class="profile-friends-count profile-dc-balance">{{ formatNominationCount(targetDcBalance || 0) }} DC</span>
-                      </div>
-
-                      <div v-if="friendsCount !== null" class="profile-friends-tooltip-wrap" :class="{ enabled: showAdminFriendsTooltip }" :tabindex="showAdminFriendsTooltip ? 0 : undefined">
-                        <span class="profile-friends-count" aria-label="Количество друзей">Друзья: {{ friendsCount }}</span>
-                        <div v-if="showAdminFriendsTooltip" class="profile-friends-tooltip" role="tooltip">
-                          <div ref="profileFriendsList" class="profile-friends-list">
-                            <div class="profile-friends-section">
-                              <span class="profile-friends-section-title">Черный список: {{ adminBlacklist.length }}</span>
-                              <span v-if="adminBlacklist.length === 0" class="profile-friends-empty">Нет пользователей</span>
-                              <div v-for="user in adminBlacklist" :key="`blacklist-${user.id}`" class="profile-friend-row">
-                                <img class="profile-friend-avatar" v-minio-img="{key: friendAvatarKey(user), placeholder: iconDefaultAvatarBlack, lazy: false}" alt="avatar" />
-                                <div class="profile-friend-main">
-                                  <span class="profile-friend-name">{{ user.username || `user${user.id}` }}</span>
-                                  <span class="profile-friend-date">{{ formatBlacklistedAt(user.blacklisted_at) }}</span>
-                                </div>
-                              </div>
-                            </div>
-                            <div class="profile-friends-section">
-                              <span class="profile-friends-section-title">Друзья: {{ adminFriends.length }}</span>
-                              <span v-if="adminFriends.length === 0" class="profile-friends-empty">Нет друзей</span>
-                              <div v-for="friend in adminFriends" :key="`friend-${friend.id}`" class="profile-friend-row">
-                                <img class="profile-friend-avatar" v-minio-img="{key: friendAvatarKey(friend), placeholder: iconDefaultAvatarBlack, lazy: false}" alt="avatar" />
-                                <div class="profile-friend-main">
-                                  <span class="profile-friend-name">{{ friend.username || `user${friend.id}` }}</span>
-                                  <span class="profile-friend-date">{{ formatFriendshipStartedAt(friend.friendship_started_at) }}</span>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                          <UiScrollbar :target="profileFriendsList" :active="showAdminFriendsTooltip" theme="grey" :inset-top="16" :inset-bottom="16" right="6px" :overflow-tolerance="4" />
-                        </div>
-                      </div>
-
-                      <div v-if="activeSanction" class="sanction-tooltip-wrap" tabindex="0">
-                        <UiIcon class="profile-meta-icon" :icon="iconJudgeHummer" />
-                        <div class="sanction-tooltip" role="tooltip">
-                          <div class="sanction-tooltip-div">
-                            <UiIcon class="sanction-tooltip-icon" :icon="iconWarning" />
-                            <span class="sanction-tooltip-type">{{ activeSanctionKindLabel }}</span>
-                          </div>
-                          <div class="sanction-tooltip-expiry">
-                            <span class="sanction-tooltip-date">Истекает:</span>
-                            <span class="sanction-tooltip-time">{{ activeSanctionExpiryLabel }}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div v-if="targetUserId > 0" class="profile-history-tooltip-wrap" tabindex="0" @mouseenter="loadNicknameHistory" @focusin="loadNicknameHistory">
-                        <UiIcon class="profile-meta-icon" :icon="iconTimeHistory" />
-                        <div class="nickname-history-tooltip" role="tooltip">
-                          <span v-if="nicknameHistoryLoading" class="nickname-history-state">Загрузка...</span>
-                          <span v-else-if="nicknameHistoryError" class="nickname-history-state danger">{{ nicknameHistoryError }}</span>
-                          <template v-else>
-                            <div ref="nicknameHistoryList" class="nickname-history-list">
-                              <span class="nickname-history-title">История никнеймов</span>
-                              <span class="nickname-history-nick" v-for="(nickname, index) in nicknameHistoryItems" :key="`${nickname}-${index}`" :class="{ current: index === 0 }">
-                                {{ nickname }}
-                              </span>
-                              <span v-if="!nicknameHistoryItems.length" class="nickname-history-state">Нет данных</span>
-                            </div>
-                            <UiScrollbar :target="nicknameHistoryList" :active="targetUserId > 0" theme="grey" :inset-top="50" :inset-bottom="16" right="6px" :overflow-tolerance="4" />
-                          </template>
-                        </div>
-                      </div>
-
-                      <div v-for="nomination in profileNominations" :key="nomination.key" class="profile-nomination-tooltip-wrap" :class="`level-${nomination.level}`" tabindex="0"
-                           :aria-label="`${nomination.label}: ${nomination.valueLabel}, ${nomination.levelLabel}`" @mouseenter="updateNominationTooltipOffset" @focusin="updateNominationTooltipOffset" @mouseleave="resetNominationTooltipOffset" @focusout="resetNominationTooltipOffset">
-                        <UiIcon class="profile-nomination-icon" :icon="nomination.icon" />
-                        <div class="profile-nomination-tooltip" role="tooltip">
-                          <div class="nomination-tooltip-head">
-                            <span class="nomination-level-label">{{ nomination.label }}</span>
-                            <span class="nomination-level-badge">{{ nomination.levelLabel }}</span>
-                          </div>
-                          <div class="nomination-progress-track">
-                            <span class="nomination-progress-fill" :style="{ width: `${nomination.progressPct}%` }"></span>
-                            <span class="nomination-progress-value">{{ nomination.valueLabel }}</span>
-                          </div>
-                          <div class="nomination-progress-caption">
-                            <span class="nomination-progress-caption-start-next">{{ nomination.progressStartLabel }}</span>
-                            <span class="nomination-progress-caption-start-next">{{ nomination.progressNextLabel }}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div v-if="showProfileRoomControls" class="profile-room-controls" aria-label="Управление профилем">
-                    <div v-if="showProfileRoomAdminActions" class="profile-room-admin" aria-label="Блокировки">
-                      <button class="admin-button" type="button" @click="emitProfileRoomBlock('mic')" aria-label="block mic">
-                        <UiIcon class="admin-img" :class="profileRoomMicIconClass" :icon="profileRoomMicIcon" />
-                      </button>
-                      <button class="admin-button" type="button" @click="emitProfileRoomBlock('cam')" aria-label="block cam">
-                        <UiIcon class="admin-img" :class="profileRoomCamIconClass" :icon="profileRoomCamIcon" />
-                      </button>
-                      <button class="admin-button" type="button" @click="emitProfileRoomBlock('speakers')" aria-label="block speakers">
-                        <UiIcon class="admin-img" :class="profileRoomSpeakersIconClass" :icon="profileRoomSpeakersIcon" />
-                      </button>
-                      <button class="admin-button" type="button" @click="emitProfileRoomBlock('screen')" aria-label="block screen">
-                        <UiIcon class="admin-img" :class="profileRoomScreenIconClass" :icon="profileRoomScreenIcon" />
-                      </button>
-                      <button class="admin-button red-button leave-room-icon" type="button" @click="emit('room-kick')" aria-label="kick user">
-                        <UiIcon class="kick-img" :icon="iconLeaveRoom" />
-                      </button>
-                    </div>
-
-                    <div v-if="showProfileRoomVolume" class="profile-room-volume">
-                      <UiIcon class="volume-img" :icon="profileRoomVolumeIcon" />
-                      <UiSlider
-                        :model-value="profileRoomVolume"
-                        :min="0"
-                        :max="200"
-                        :step="10"
-                        :disabled="profileRoomVolumeDisabled"
-                        aria-label="Громкость пользователя"
-                        @update:modelValue="emit('room-volume-change', $event)"
-                      />
-                      <span>{{ profileRoomVolume }}%</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div class="profile-side-tools">
-                <button class="close-btn" type="button" aria-label="Закрыть" @click="close">
-                  <UiIcon class="close-icon" :icon="iconClose" />
-                </button>
-                <button v-if="showBlacklistButton" class="blacklist-btn" :class="{ active: blacklistedByMe }" type="button" :disabled="blacklistBusy" :aria-label="blacklistButtonLabel" @click="toggleBlacklist">
-                  <UiIcon class="blacklist-icon" :icon="iconBlockPlayer" />
-                </button>
-              </div>
-            </header>
-
-            <template v-if="view === 'profile'">
-              <div v-if="showRestrictedProfileSections" class="profile-actions profile-actions--main">
-                <div v-if="!isSelfProfile && !blacklistedByMe" class="profile-actions-row profile-actions-row--free">
-                  <button class="profile-action friend-action" :class="`status-${friendStatusClass}`"
-                          type="button" :disabled="friendDisabled" :aria-label="friendActionAriaLabel" @click="onFriendAction(friendActionKind)">
-                    <div class="friend-action-content friend-action-content-default" aria-hidden="true">
-                      <UiIcon class="profile-action-icon" :icon="friendActionIcon" />
-                      <span>{{ friendActionLabel }}</span>
-                    </div>
-                    <div class="friend-action-content friend-action-content-hover" aria-hidden="true">
-                      <UiIcon class="profile-action-icon" :icon="friendActionHoverIcon" />
-                      <span>{{ friendActionHoverLabel }}</span>
-                    </div>
-                  </button>
-                  <UiButton
-                    variant="white"
-                    size="middle"
-                    width="100%"
-                    :icon="iconSubscribe"
-                    text="Подарить подписку"
-                    :disabled="giftDisabled"
-                    @click="openSubscriptionGift"
-                  />
-                  <UiButton
-                    variant="white"
-                    size="middle"
-                    width="100%"
-                    :icon="iconPresent"
-                    text="Отправить подарок"
-                    :disabled="giftDisabled"
-                    @click="openGiftShop('gifts')"
-                  />
-                </div>
-                <div v-if="canViewProfileData" class="profile-actions-row profile-actions-row--subscription">
-                  <UiButton
-                    v-if="showStatsButton"
-                    variant="white"
-                    size="middle"
-                    width="100%"
-                    :icon="iconStats"
-                    text="Статистика"
-                    @click="view = 'stats'"
-                  />
-                  <UiButton
-                    v-if="showGameHistoryButton"
-                    variant="white"
-                    size="middle"
-                    width="100%"
-                    :icon="iconHistory"
-                    text="История игр"
-                    @click="view = 'history'"
-                  />
-                </div>
-              </div>
-
-              <div v-if="showRestrictedProfileSections" class="profile-dates" aria-label="Информация профиля">
-                <div v-if="giftCollectionAllowed && (giftPreview.total || giftPreviewError)" class="profile-gifts-preview">
-                  <div class="profile-gifts-heading">
-                    <span>Подарки ({{ giftPreview.total }})</span>
-                    <button v-if="giftPreview.total" ref="allGiftsTrigger" type="button" @click="view = 'gifts'">Все</button>
-                  </div>
-                  <div v-if="giftPreviewError" class="profile-gifts-state" role="alert">
-                    <span>Не удалось загрузить подарки</span>
-                    <button type="button" :disabled="giftPreviewLoading" @click="loadProfileGifts(true)">Повторить</button>
-                  </div>
-                  <template v-if="giftPreview.items.length">
-                    <ul ref="giftStrip" class="profile-gifts-strip" aria-label="Подарки пользователя" tabindex="0">
-                      <li v-for="item in giftPreview.items" :key="item.id" class="profile-gift-tile">
-                        <GiftMedia class="profile-gift-media" :media="item" :label="`Подарок №${item.gift_id}`" animated />
-                        <span v-if="item.quantity > 1" class="profile-gift-quantity">×{{ item.quantity }}</span>
-                      </li>
-                    </ul>
-                    <UiScrollbar class="profile-gifts-scrollbar" :target="giftStrip" orientation="horizontal" />
-                  </template>
-                </div>
-                <div class="date-row">
-                  <span class="date-title">Дата регистрации</span>
-                  <span class="date-time">{{ registeredAtLabel }}</span>
-                </div>
-                <div class="date-row">
-                  <span class="date-title">Последняя игра</span>
-                  <span class="date-time">{{ lastGameAtLabel }}</span>
-                </div>
-                <div v-if="!isSelfProfile" class="date-row">
-                  <span class="date-title">Последний раз в сети</span>
-                  <span class="date-time">{{ lastOnlineLabel }}</span>
-                </div>
-                <div v-if="showSubscriptionInfo" class="date-row">
-                  <span class="date-title">Подписка</span>
-                  <span class="date-time">{{ displayedSubscriptionExpiryLabel }}</span>
-                </div>
-                <div class="date-row">
-                  <span class="date-title">Роли пользователя</span>
-                  <div class="profile-role-tags">
-                    <span v-for="role in profileRoleBadges" :key="role.key" class="profile-role-badge" :class="`profile-role-badge--${role.key}`">
-                      {{ role.label }}
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div v-else class="profile-restricted-div">
-                <UiIcon class="profile-restricted-img" :icon="iconDanger" />
-                <span class="profile-restricted-text">Вы в Черном списке у пользователя</span>
-              </div>
-
-              <div v-if="showStaffActionBlock" class="profile-staff-line"></div>
-
-              <div v-if="showStaffActionBlock" class="profile-staff-actions" aria-label="Действия с пользователем">
-                <div v-for="action in staffPrimaryActionItems" :key="action.key">
-                  <UiButton
-                    variant="white"
-                    size="middle"
-                    :width="310"
-                    :icon="action.icon"
-                    :text="action.label"
-                    :disabled="action.disabled"
-                    :aria-label="action.ariaLabel"
-                    @click="onStaffAction(action.key)"
-                  />
-                </div>
-                <div v-if="showStaffMoreAction">
-                  <UiDropdown
-                    class="staff-more-dropdown"
-                    :model-value="null"
-                    :options="staffOverflowDropdownOptions"
-                    placeholder="Еще"
-                    aria-label="Показать остальные действия"
-                    label-mode="placeholder"
-                    mode="light"
-                    menu-placement="top"
-                    @update:model-value="onStaffDropdownSelect"
-                  >
-                    <template #trigger="{ triggerProps, displayLabel }">
-                      <UiButton
-                        v-bind="triggerProps"
-                        variant="white"
-                        size="middle"
-                        :width="92"
-                        :text="displayLabel"
-                        :icon="iconEllipsis"
-                        icon-position="right"
-                      />
-                    </template>
-                  </UiDropdown>
-                </div>
-              </div>
+        <div class="user-mini-profile-shell">
+          <section ref="profilePanelEl" class="user-mini-profile-panel" :class="{ 'stats-mode': view !== 'profile' && !panelStateVisible && !avatarPreviewOpen, 'state-mode': panelStateVisible, 'avatar-mode': avatarPreviewOpen }" :style="profilePanelStyle"
+                   role="dialog" aria-modal="true" :aria-label="`Профиль ${displayName}`" @pointerdown.stop @click.stop>
+            <template v-if="avatarPreviewOpen && avatarPreviewSrc">
+              <button class="avatar-preview-image" type="button" aria-label="Закрыть аватар" @click="closeAvatarPreview">
+                <img class="avatar-preview-img" :src="avatarPreviewSrc" alt="" />
+              </button>
             </template>
-
+            <div v-else-if="loading && !profileLoadedForTarget" class="state-loading" role="status" aria-live="polite">
+              <UiLoaderIcon class="state-loading-img" />
+              <span class="state-loading-text">Загрузка...</span>
+            </div>
+            <div v-else-if="loadError" class="state-error">
+              <UiIcon class="state-error-img" :icon="iconDanger" />
+              <span class="state-error-text">{{ loadError }}</span>
+            </div>
             <template v-else>
-              <div class="profile-actions">
-                <UiButton
-                  class="profile-back-button"
-                  variant="white"
-                  size="middle"
-                  width="100%"
-                  :icon="iconArrowDown"
-                  text="Назад к профилю"
-                  @click="backToProfile"
-                />
-              </div>
-              <ProfileStats v-if="view === 'stats'" :stats-url="resolvedStatsUrl" />
-              <ProfileHistory v-else-if="view === 'history'" :history-url="resolvedHistoryUrl" :per-page="5" />
-              <div v-else-if="giftCollectionAllowed" class="profile-all-gifts">
-                <h3>Подарки ({{ allGifts.total || giftPreview.total }})</h3>
-                <ul v-if="allGifts.items.length" class="profile-gifts-grid">
-                  <li v-for="item in allGifts.items" :key="item.id" class="profile-gift-tile">
-                    <GiftMedia class="profile-gift-media" :media="item" :label="`Подарок №${item.gift_id}`" animated />
-                    <div v-if="item.sender && item.sender.id !== targetUserId" class="profile-gift-sender">
-                      <img v-minio-img="{ key: giftSenderAvatarKey(item.sender.avatar_name), placeholder: iconDefaultAvatarBlack }" alt="" />
-                      <span :title="item.sender.username || `user${item.sender.id}`">{{ item.sender.username || `user${item.sender.id}` }}</span>
+              <header class="profile-top">
+                <div class="profile-identity">
+                  <button class="profile-avatar-trigger" type="button" :disabled="!hasAvatar" aria-label="Открыть аватар" @click="openAvatarPreview">
+                    <img ref="avatarImageEl" class="profile-avatar" v-minio-img="{ key: avatarKey, placeholder: iconDefaultAvatar, lazy: false, animated: true }" alt="avatar" />
+                  </button>
+                  <div class="profile-block">
+                    <div class="profile-div">
+                      <div class="profile-title">
+                        <div v-if="profileThemeIconSrcs.length" class="profile-theme-icons" aria-hidden="true">
+                          <img v-for="badgeSrc in profileThemeIconSrcs" :key="badgeSrc" class="profile-theme-icon" :src="badgeSrc" alt="" />
+                        </div>
+                        <a v-if="profileStreamingUrl" class="profile-streaming-link" :href="profileStreamingUrl" target="_blank"
+                           rel="noopener noreferrer nofollow" aria-label="Открыть стриминговую страницу" @click.stop>
+                          <UiIcon class="profile-streaming-icon" :icon="iconTwitch" />
+                        </a>
+                        <span class="profile-name">{{ displayName }}</span>
+                      </div>
+
+                      <div v-if="showRestrictedProfileSections && showProfileMeta" class="profile-meta">
+                        <div v-if="balanceHistoryAllowed" ref="balanceHistoryTrigger" class="profile-balance-history-wrap" tabindex="0" role="button"
+                             aria-haspopup="dialog" :aria-expanded="balanceHistoryOpen" aria-label="Показать историю операций"
+                             @pointerenter="showBalanceHistory" @pointerleave="scheduleBalanceHistoryClose" @focusin="onBalanceHistoryFocus" @focusout="scheduleBalanceHistoryClose"
+                             @keydown.enter.prevent="focusBalanceHistory" @keydown.space.prevent="focusBalanceHistory" @keydown.down.prevent="focusBalanceHistory">
+                          <span class="profile-friends-count profile-dc-balance">{{ formatNominationCount(targetDcBalance || 0) }} DC</span>
+                        </div>
+
+                        <div v-if="friendsCount !== null" class="profile-friends-tooltip-wrap" :class="{ enabled: showAdminFriendsTooltip }" :tabindex="showAdminFriendsTooltip ? 0 : undefined">
+                          <span class="profile-friends-count" aria-label="Количество друзей">Друзья: {{ friendsCount }}</span>
+                          <div v-if="showAdminFriendsTooltip" class="profile-friends-tooltip" role="tooltip">
+                            <div ref="profileFriendsList" class="profile-friends-list">
+                              <div class="profile-friends-section">
+                                <span class="profile-friends-section-title">Черный список: {{ adminBlacklist.length }}</span>
+                                <span v-if="adminBlacklist.length === 0" class="profile-friends-empty">Нет пользователей</span>
+                                <div v-for="user in adminBlacklist" :key="`blacklist-${user.id}`" class="profile-friend-row">
+                                  <img class="profile-friend-avatar" v-minio-img="{key: friendAvatarKey(user), placeholder: iconDefaultAvatarBlack, lazy: false}" alt="avatar" />
+                                  <div class="profile-friend-main">
+                                    <span class="profile-friend-name">{{ user.username || `user${user.id}` }}</span>
+                                    <span class="profile-friend-date">{{ formatBlacklistedAt(user.blacklisted_at) }}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div class="profile-friends-section">
+                                <span class="profile-friends-section-title">Друзья: {{ adminFriends.length }}</span>
+                                <span v-if="adminFriends.length === 0" class="profile-friends-empty">Нет друзей</span>
+                                <div v-for="friend in adminFriends" :key="`friend-${friend.id}`" class="profile-friend-row">
+                                  <img class="profile-friend-avatar" v-minio-img="{key: friendAvatarKey(friend), placeholder: iconDefaultAvatarBlack, lazy: false}" alt="avatar" />
+                                  <div class="profile-friend-main">
+                                    <span class="profile-friend-name">{{ friend.username || `user${friend.id}` }}</span>
+                                    <span class="profile-friend-date">{{ formatFriendshipStartedAt(friend.friendship_started_at) }}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            <UiScrollbar :target="profileFriendsList" :active="showAdminFriendsTooltip" theme="grey" :inset-top="16" :inset-bottom="16" right="6px" :overflow-tolerance="4" />
+                          </div>
+                        </div>
+
+                        <div v-if="activeSanction" class="sanction-tooltip-wrap" tabindex="0">
+                          <UiIcon class="profile-meta-icon" :icon="iconJudgeHummer" />
+                          <div class="sanction-tooltip" role="tooltip">
+                            <div class="sanction-tooltip-div">
+                              <UiIcon class="sanction-tooltip-icon" :icon="iconWarning" />
+                              <span class="sanction-tooltip-type">{{ activeSanctionKindLabel }}</span>
+                            </div>
+                            <div class="sanction-tooltip-expiry">
+                              <span class="sanction-tooltip-date">Истекает:</span>
+                              <span class="sanction-tooltip-time">{{ activeSanctionExpiryLabel }}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div v-if="targetUserId > 0" class="profile-history-tooltip-wrap" tabindex="0" @mouseenter="loadNicknameHistory" @focusin="loadNicknameHistory">
+                          <UiIcon class="profile-meta-icon" :icon="iconTimeHistory" />
+                          <div class="nickname-history-tooltip" role="tooltip">
+                            <span v-if="nicknameHistoryLoading" class="nickname-history-state">Загрузка...</span>
+                            <span v-else-if="nicknameHistoryError" class="nickname-history-state danger">{{ nicknameHistoryError }}</span>
+                            <template v-else>
+                              <div ref="nicknameHistoryList" class="nickname-history-list">
+                                <span class="nickname-history-title">История никнеймов</span>
+                                <span class="nickname-history-nick" v-for="(nickname, index) in nicknameHistoryItems" :key="`${nickname}-${index}`" :class="{ current: index === 0 }">
+                                  {{ nickname }}
+                                </span>
+                                <span v-if="!nicknameHistoryItems.length" class="nickname-history-state">Нет данных</span>
+                              </div>
+                              <UiScrollbar :target="nicknameHistoryList" :active="targetUserId > 0" theme="grey" :inset-top="50" :inset-bottom="16" right="6px" :overflow-tolerance="4" />
+                            </template>
+                          </div>
+                        </div>
+
+                        <div v-for="nomination in profileNominations" :key="nomination.key" class="profile-nomination-tooltip-wrap" :class="`level-${nomination.level}`" tabindex="0"
+                             :aria-label="`${nomination.label}: ${nomination.valueLabel}, ${nomination.levelLabel}`" @mouseenter="updateNominationTooltipOffset" @focusin="updateNominationTooltipOffset" @mouseleave="resetNominationTooltipOffset" @focusout="resetNominationTooltipOffset">
+                          <UiIcon class="profile-nomination-icon" :icon="nomination.icon" />
+                          <div class="profile-nomination-tooltip" role="tooltip">
+                            <div class="nomination-tooltip-head">
+                              <span class="nomination-level-label">{{ nomination.label }}</span>
+                              <span class="nomination-level-badge">{{ nomination.levelLabel }}</span>
+                            </div>
+                            <div class="nomination-progress-track">
+                              <span class="nomination-progress-fill" :style="{ width: `${nomination.progressPct}%` }"></span>
+                              <span class="nomination-progress-value">{{ nomination.valueLabel }}</span>
+                            </div>
+                            <div class="nomination-progress-caption">
+                              <span class="nomination-progress-caption-start-next">{{ nomination.progressStartLabel }}</span>
+                              <span class="nomination-progress-caption-start-next">{{ nomination.progressNextLabel }}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  </li>
-                </ul>
-                <p v-if="allGiftsLoading" class="profile-gifts-state" role="status">Загружаем подарки…</p>
-                <div v-else-if="allGiftsError" class="profile-gifts-state" role="alert">
-                  <span>Не удалось загрузить подарки</span>
-                  <UiButton size="low" text="Повторить" @click="loadProfileGifts(false, allGiftsRetryAppend)" />
+
+                    <div v-if="showProfileRoomControls" class="profile-room-controls" aria-label="Управление профилем">
+                      <div v-if="showProfileRoomAdminActions" class="profile-room-admin" aria-label="Блокировки">
+                        <button class="admin-button" type="button" @click="emitProfileRoomBlock('mic')" aria-label="block mic">
+                          <UiIcon class="admin-img" :class="profileRoomMicIconClass" :icon="profileRoomMicIcon" />
+                        </button>
+                        <button class="admin-button" type="button" @click="emitProfileRoomBlock('cam')" aria-label="block cam">
+                          <UiIcon class="admin-img" :class="profileRoomCamIconClass" :icon="profileRoomCamIcon" />
+                        </button>
+                        <button class="admin-button" type="button" @click="emitProfileRoomBlock('speakers')" aria-label="block speakers">
+                          <UiIcon class="admin-img" :class="profileRoomSpeakersIconClass" :icon="profileRoomSpeakersIcon" />
+                        </button>
+                        <button class="admin-button" type="button" @click="emitProfileRoomBlock('screen')" aria-label="block screen">
+                          <UiIcon class="admin-img" :class="profileRoomScreenIconClass" :icon="profileRoomScreenIcon" />
+                        </button>
+                        <button class="admin-button red-button leave-room-icon" type="button" @click="emit('room-kick')" aria-label="kick user">
+                          <UiIcon class="kick-img" :icon="iconLeaveRoom" />
+                        </button>
+                      </div>
+
+                      <div v-if="showProfileRoomVolume" class="profile-room-volume">
+                        <UiIcon class="volume-img" :icon="profileRoomVolumeIcon" />
+                        <UiSlider
+                          :model-value="profileRoomVolume"
+                          :min="0"
+                          :max="200"
+                          :step="10"
+                          :disabled="profileRoomVolumeDisabled"
+                          aria-label="Громкость пользователя"
+                          @update:modelValue="emit('room-volume-change', $event)"
+                        />
+                        <span>{{ profileRoomVolume }}%</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <p v-else-if="!allGifts.items.length" class="profile-gifts-state">Подарков пока нет</p>
-                <UiButton v-else-if="allGifts.has_more" size="low" text="Показать ещё" @click="loadProfileGifts(false, true)" />
-              </div>
+                <div class="profile-side-tools">
+                  <button class="close-btn" type="button" aria-label="Закрыть" @click="close">
+                    <UiIcon class="close-icon" :icon="iconClose" />
+                  </button>
+                  <button v-if="showBlacklistButton" class="blacklist-btn" :class="{ active: blacklistedByMe }" type="button" :disabled="blacklistBusy" :aria-label="blacklistButtonLabel" @click="toggleBlacklist">
+                    <UiIcon class="blacklist-icon" :icon="iconBlockPlayer" />
+                  </button>
+                </div>
+              </header>
+
+              <template v-if="view === 'profile'">
+                <div v-if="showRestrictedProfileSections" class="profile-actions profile-actions--main">
+                  <div v-if="!isSelfProfile && !blacklistedByMe" class="profile-actions-row profile-actions-row--free">
+                    <button class="profile-action friend-action" :class="`status-${friendStatusClass}`"
+                            type="button" :disabled="friendDisabled" :aria-label="friendActionAriaLabel" @click="onFriendAction(friendActionKind)">
+                      <div class="friend-action-content friend-action-content-default" aria-hidden="true">
+                        <UiIcon class="profile-action-icon" :icon="friendActionIcon" />
+                        <span>{{ friendActionLabel }}</span>
+                      </div>
+                      <div class="friend-action-content friend-action-content-hover" aria-hidden="true">
+                        <UiIcon class="profile-action-icon" :icon="friendActionHoverIcon" />
+                        <span>{{ friendActionHoverLabel }}</span>
+                      </div>
+                    </button>
+                    <UiButton
+                      variant="white"
+                      size="middle"
+                      width="100%"
+                      :icon="iconSubscribe"
+                      text="Подарить подписку"
+                      :disabled="giftDisabled"
+                      @click="openSubscriptionGift"
+                    />
+                    <UiButton
+                      variant="white"
+                      size="middle"
+                      width="100%"
+                      :icon="iconPresent"
+                      text="Отправить подарок"
+                      :disabled="giftDisabled"
+                      @click="openGiftShop('gifts')"
+                    />
+                  </div>
+                  <div v-if="canViewProfileData" class="profile-actions-row profile-actions-row--subscription">
+                    <UiButton
+                      v-if="showStatsButton"
+                      variant="white"
+                      size="middle"
+                      width="100%"
+                      :icon="iconStats"
+                      text="Статистика"
+                      @click="view = 'stats'"
+                    />
+                    <UiButton
+                      v-if="showGameHistoryButton"
+                      variant="white"
+                      size="middle"
+                      width="100%"
+                      :icon="iconHistory"
+                      text="История игр"
+                      @click="view = 'history'"
+                    />
+                  </div>
+                </div>
+
+                <div v-if="showRestrictedProfileSections" class="profile-dates" aria-label="Информация профиля">
+                  <div v-if="giftCollectionAllowed && (giftPreview.total || giftPreviewError)" class="profile-gifts-preview">
+                    <div class="profile-gifts-heading">
+                      <span>Подарки ({{ giftPreview.total }})</span>
+                      <button v-if="giftPreview.total" ref="allGiftsTrigger" type="button" @click="view = 'gifts'">Все</button>
+                    </div>
+                    <div v-if="giftPreviewError" class="profile-gifts-state" role="alert">
+                      <span>Не удалось загрузить подарки</span>
+                      <button type="button" :disabled="giftPreviewLoading" @click="loadProfileGifts(true)">Повторить</button>
+                    </div>
+                    <template v-if="giftPreview.items.length">
+                      <ul ref="giftStrip" class="profile-gifts-strip" aria-label="Подарки пользователя" tabindex="0">
+                        <li v-for="item in giftPreview.items" :key="item.id" class="profile-gift-tile">
+                          <GiftMedia class="profile-gift-media" :media="item" :label="`Подарок №${item.gift_id}`" animated />
+                          <span v-if="item.quantity > 1" class="profile-gift-quantity">×{{ item.quantity }}</span>
+                        </li>
+                      </ul>
+                      <UiScrollbar class="profile-gifts-scrollbar" :target="giftStrip" orientation="horizontal" />
+                    </template>
+                  </div>
+                  <div class="date-row">
+                    <span class="date-title">Дата регистрации</span>
+                    <span class="date-time">{{ registeredAtLabel }}</span>
+                  </div>
+                  <div class="date-row">
+                    <span class="date-title">Последняя игра</span>
+                    <span class="date-time">{{ lastGameAtLabel }}</span>
+                  </div>
+                  <div v-if="!isSelfProfile" class="date-row">
+                    <span class="date-title">Последний раз в сети</span>
+                    <span class="date-time">{{ lastOnlineLabel }}</span>
+                  </div>
+                  <div v-if="showSubscriptionInfo" class="date-row">
+                    <span class="date-title">Подписка</span>
+                    <span class="date-time">{{ displayedSubscriptionExpiryLabel }}</span>
+                  </div>
+                  <div class="date-row">
+                    <span class="date-title">Роли пользователя</span>
+                    <div class="profile-role-tags">
+                      <span v-for="role in profileRoleBadges" :key="role.key" class="profile-role-badge" :class="`profile-role-badge--${role.key}`">
+                        {{ role.label }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div v-else class="profile-restricted-div">
+                  <UiIcon class="profile-restricted-img" :icon="iconDanger" />
+                  <span class="profile-restricted-text">Вы в Черном списке у пользователя</span>
+                </div>
+
+                <div v-if="showStaffActionBlock" class="profile-staff-line"></div>
+
+                <div v-if="showStaffActionBlock" class="profile-staff-actions" aria-label="Действия с пользователем">
+                  <div v-for="action in staffPrimaryActionItems" :key="action.key">
+                    <UiButton
+                      variant="white"
+                      size="middle"
+                      :width="310"
+                      :icon="action.icon"
+                      :text="action.label"
+                      :disabled="action.disabled"
+                      :aria-label="action.ariaLabel"
+                      @click="onStaffAction(action.key)"
+                    />
+                  </div>
+                  <div v-if="showStaffMoreAction">
+                    <UiDropdown
+                      class="staff-more-dropdown"
+                      :model-value="null"
+                      :options="staffOverflowDropdownOptions"
+                      placeholder="Еще"
+                      aria-label="Показать остальные действия"
+                      label-mode="placeholder"
+                      mode="light"
+                      menu-placement="top"
+                      @update:model-value="onStaffDropdownSelect"
+                    >
+                      <template #trigger="{ triggerProps, displayLabel }">
+                        <UiButton
+                          v-bind="triggerProps"
+                          variant="white"
+                          size="middle"
+                          :width="92"
+                          :text="displayLabel"
+                          :icon="iconEllipsis"
+                          icon-position="right"
+                        />
+                      </template>
+                    </UiDropdown>
+                  </div>
+                </div>
+              </template>
+
+              <template v-else>
+                <div class="profile-actions">
+                  <UiButton
+                    class="profile-back-button"
+                    variant="white"
+                    size="middle"
+                    width="100%"
+                    :icon="iconArrowDown"
+                    text="Назад к профилю"
+                    @click="backToProfile"
+                  />
+                </div>
+                <ProfileStats v-if="view === 'stats'" :stats-url="resolvedStatsUrl" />
+                <ProfileHistory v-else-if="view === 'history'" :history-url="resolvedHistoryUrl" :per-page="5" />
+                <div v-else-if="giftCollectionAllowed" class="profile-all-gifts">
+                  <h3>Подарки ({{ allGifts.total || giftPreview.total }})</h3>
+                  <ul v-if="allGifts.items.length" class="profile-gifts-grid">
+                    <li v-for="item in allGifts.items" :key="item.id" class="profile-gift-tile">
+                      <GiftMedia class="profile-gift-media" :media="item" :label="`Подарок №${item.gift_id}`" animated />
+                      <div v-if="item.sender && item.sender.id !== targetUserId" class="profile-gift-sender">
+                        <img v-minio-img="{ key: giftSenderAvatarKey(item.sender.avatar_name), placeholder: iconDefaultAvatarBlack }" alt="" />
+                        <span :title="item.sender.username || `user${item.sender.id}`">{{ item.sender.username || `user${item.sender.id}` }}</span>
+                      </div>
+                    </li>
+                  </ul>
+                  <p v-if="allGiftsLoading" class="profile-gifts-state" role="status">Загружаем подарки…</p>
+                  <div v-else-if="allGiftsError" class="profile-gifts-state" role="alert">
+                    <span>Не удалось загрузить подарки</span>
+                    <UiButton size="low" text="Повторить" @click="loadProfileGifts(false, allGiftsRetryAppend)" />
+                  </div>
+                  <p v-else-if="!allGifts.items.length" class="profile-gifts-state">Подарков пока нет</p>
+                  <UiButton v-else-if="allGifts.has_more" size="low" text="Показать ещё" @click="loadProfileGifts(false, true)" />
+                </div>
+              </template>
             </template>
-          </template>
-        </section>
+          </section>
+          <UiScrollbar :target="profilePanelEl" :inset-top="16" :inset-bottom="16" :right="8" />
+        </div>
       </div>
     </Transition>
     <SanctionModal
@@ -2713,12 +2716,21 @@ onBeforeUnmount(() => {
   background-color: rgba($neutral-800, 0.2);
   backdrop-filter: blur(12px);
   z-index: 1500;
+  .user-mini-profile-shell {
+    position: relative;
+    display: flex;
+    min-width: 0;
+  }
   .user-mini-profile-panel {
+    --mini-profile-padding: 24px;
+    --mini-profile-max-height: min(560px, calc(var(--app-viewport-height, 100dvh) - 48px));
+    --mini-profile-max-content-height: calc(var(--mini-profile-max-height) - 2 * var(--mini-profile-padding));
     display: flex;
     flex-direction: column;
-    padding: 24px;
+    padding: var(--mini-profile-padding);
     gap: 16px;
     width: 728px;
+    max-height: var(--mini-profile-max-content-height);
     border-radius: 24px;
     background-color: var(--user-theme-bg, $neutral-black);
     overflow-y: auto;
@@ -2732,15 +2744,16 @@ onBeforeUnmount(() => {
     &.state-mode {
       align-items: center;
       justify-content: center;
-      min-height: 475px;
+      min-height: min(475px, var(--mini-profile-max-content-height));
     }
     &.avatar-mode {
       position: relative;
       align-items: center;
       justify-content: center;
-      padding: 0;
-      width: min(659px, calc(var(--app-viewport-height) - 96px));
-      height: min(659px, calc(var(--app-viewport-height) - 96px));
+      --mini-profile-padding: 0px;
+      --mini-profile-avatar-size: min(var(--mini-profile-max-height), calc(var(--app-viewport-height, 100dvh) - 96px));
+      width: var(--mini-profile-avatar-size);
+      height: var(--mini-profile-avatar-size);
       overflow: hidden;
     }
     .avatar-preview-image {
@@ -3655,7 +3668,7 @@ onBeforeUnmount(() => {
         }
         .profile-gifts-strip {
           display: flex;
-          gap: 12px;
+          gap: 10px;
           padding: 0;
           margin: 0;
           overflow-x: auto;
@@ -3664,7 +3677,7 @@ onBeforeUnmount(() => {
           list-style: none;
           .profile-gift-tile {
             position: relative;
-            flex: 0 0 clamp(72px, 11%, 96px);
+            flex: 0 0 clamp(108px, 15%, 131px);
             aspect-ratio: 1;
             &:first-child {
               margin-inline-start: auto;
@@ -4063,14 +4076,14 @@ onBeforeUnmount(() => {
 .user-mini-profile-fade-enter-active,
 .user-mini-profile-fade-leave-active {
   transition: opacity 0.25s ease-in-out;
-  .user-mini-profile-panel {
+  .user-mini-profile-shell {
     transition: transform 0.25s ease-in-out;
   }
 }
 .user-mini-profile-fade-enter-from,
 .user-mini-profile-fade-leave-to {
   opacity: 0;
-  .user-mini-profile-panel {
+  .user-mini-profile-shell {
     transform: translateY(30px);
   }
 }
