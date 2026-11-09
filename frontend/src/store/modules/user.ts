@@ -20,7 +20,6 @@ export interface UserProfile {
   password_temp?: boolean
   protected_user?: boolean
   tg_invites_enabled?: boolean
-  allow_friend_requests?: boolean
   subscription_active?: boolean
   subscription_started_at?: string | null
   subscription_until?: string | null
@@ -81,19 +80,6 @@ export const useUserStore = defineStore('user', () => {
     const revision = profileRevision
     const { data } = await api.get<UserProfile>('/users/profile_info')
     if (session === auth.sessionId && generation === profileFetchGeneration && revision === profileRevision) applyProfile(data)
-  }
-
-  async function updateUiPrefs(payload: {
-    tg_invites_enabled?: boolean
-    allow_friend_requests?: boolean
-  }): Promise<void> {
-    const { data } = await api.patch<{
-      tg_invites_enabled: boolean
-      allow_friend_requests: boolean
-    }>('/users/ui_prefs', payload)
-    if (!user.value) return
-    user.value.tg_invites_enabled = data.tg_invites_enabled
-    user.value.allow_friend_requests = data.allow_friend_requests
   }
 
   function defaultRoomTitle(id: number, name: string): string {
@@ -213,23 +199,15 @@ export const useUserStore = defineStore('user', () => {
   const inActiveGameAsPlayer = computed(() => Boolean(user.value?.in_active_game_as_player ?? user.value?.in_active_game_as_alive_player))
   const roomRestricted = computed(() => banActive.value || timeoutActive.value)
   const tgInvitesEnabled = computed(() => user.value?.tg_invites_enabled ?? true)
-  const allowFriendRequests = computed(() => user.value?.allow_friend_requests ?? true)
 
   async function setTgInvitesEnabled(next: boolean): Promise<void> {
     const prev = user.value?.tg_invites_enabled
     if (user.value) user.value.tg_invites_enabled = next
-    try { await updateUiPrefs({ tg_invites_enabled: next }) }
-    catch {
+    try {
+      const { data } = await api.patch<{ tg_invites_enabled: boolean }>('/users/ui_prefs', { tg_invites_enabled: next })
+      if (user.value) user.value.tg_invites_enabled = data.tg_invites_enabled
+    } catch {
       if (user.value && prev !== undefined) user.value.tg_invites_enabled = prev
-    }
-  }
-
-  async function setAllowFriendRequests(next: boolean): Promise<void> {
-    const prev = user.value?.allow_friend_requests
-    if (user.value) user.value.allow_friend_requests = next
-    try { await updateUiPrefs({ allow_friend_requests: next }) }
-    catch {
-      if (user.value && prev !== undefined) user.value.allow_friend_requests = prev
     }
   }
 
@@ -270,10 +248,8 @@ export const useUserStore = defineStore('user', () => {
     inActiveGameAsPlayer,
     roomRestricted,
     tgInvitesEnabled,
-    allowFriendRequests,
     applyProfile,
     fetchMe,
-    updateUiPrefs,
     setUsername,
     setAvatarName,
     setNicknameChangesLeft,
@@ -285,7 +261,6 @@ export const useUserStore = defineStore('user', () => {
     setInActiveGameAsPlayer,
     setTelegramVerified,
     setTgInvitesEnabled,
-    setAllowFriendRequests,
     ensureClock,
     clear,
   }

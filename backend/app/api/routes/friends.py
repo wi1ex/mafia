@@ -442,12 +442,6 @@ async def send_friend_request(user_id: int, ident: Identity = Depends(get_identi
     if not target or target.deleted_at:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user_not_found")
 
-    if not bool(target.allow_friend_requests):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="target_friend_requests_disabled",
-        )
-
     if normalize_user_role(ident.get("role")) == ROLE_ADMIN or normalize_user_role(target.role) == ROLE_ADMIN:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="admin_friend_requests_disabled")
 

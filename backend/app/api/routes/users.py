@@ -1183,39 +1183,23 @@ async def update_ui_prefs(payload: UserUiPrefsIn, ident: Identity = Depends(get_
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
     old_tg_invites_enabled = bool(user.tg_invites_enabled)
-    old_allow_friend_requests = bool(user.allow_friend_requests)
 
     if payload.tg_invites_enabled is not None:
         user.tg_invites_enabled = bool(payload.tg_invites_enabled)
-    if payload.allow_friend_requests is not None:
-        user.allow_friend_requests = bool(payload.allow_friend_requests)
 
     new_tg_invites_enabled = bool(user.tg_invites_enabled)
-    new_allow_friend_requests = bool(user.allow_friend_requests)
     await db.commit()
 
-    changes: list[str] = []
     if old_tg_invites_enabled != new_tg_invites_enabled:
-        changes.append(f"tg_invites_enabled: {int(old_tg_invites_enabled)} -> {int(new_tg_invites_enabled)}")
-    if old_allow_friend_requests != new_allow_friend_requests:
-        changes.append(
-            "allow_friend_requests: "
-            f"{int(old_allow_friend_requests)} -> {int(new_allow_friend_requests)}"
-        )
-
-    if changes:
         await log_action(
             db,
             user_id=uid,
             username=ident["username"],
             action="ui_prefs_updated",
-            details="UI prefs updated: " + "; ".join(changes),
+            details=f"UI prefs updated: tg_invites_enabled: {int(old_tg_invites_enabled)} -> {int(new_tg_invites_enabled)}",
         )
 
-    return UserUiPrefsOut(
-        tg_invites_enabled=new_tg_invites_enabled,
-        allow_friend_requests=new_allow_friend_requests,
-    )
+    return UserUiPrefsOut(tg_invites_enabled=new_tg_invites_enabled)
 
 
 @router.patch("/profile_theme", response_model=UserProfileThemeOut)

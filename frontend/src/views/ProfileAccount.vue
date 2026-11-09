@@ -203,18 +203,6 @@
               @update:modelValue="onToggleTgInvites"
             />
           </div>
-          <div class="params-switch">
-            <UiSwitch
-              :model-value="allowFriendRequests"
-              label="Запросы в мой список друзей"
-              off-label="Запретить"
-              on-label="Разрешить"
-              size="low"
-              :width="256"
-              :disabled="friendRequestsTogglePending"
-              @update:modelValue="onToggleFriendRequests"
-            />
-          </div>
         </div>
       </div>
     </div>
@@ -246,8 +234,8 @@ const PASSWORD_SPACE_RE = /\s/
 const userStore = useUserStore()
 const auth = useAuthStore()
 const { subscriptionExpiryLabel } = useSubscriptionStatus()
-const { tgInvitesEnabled, allowFriendRequests } = storeToRefs(userStore)
-const { setTgInvitesEnabled, setAllowFriendRequests, setStreamingUrl } = userStore
+const { tgInvitesEnabled } = storeToRefs(userStore)
+const { setTgInvitesEnabled, setStreamingUrl } = userStore
 
 type ProfileDatesResponse = {
   registered_at?: string | null
@@ -270,7 +258,6 @@ const profileDates = reactive({
   last_game_id: null as number | null,
 })
 const tgInvitesTogglePending = ref(false)
-const friendRequestsTogglePending = ref(false)
 const pwd = reactive({ current: '', next: '', confirm: '' })
 const pwdBusy = ref(false)
 const unlinkTgBusy = ref(false)
@@ -409,13 +396,6 @@ async function onToggleTgInvites(next: boolean) {
   tgInvitesTogglePending.value = true
   try { await setTgInvitesEnabled(next) }
   finally { tgInvitesTogglePending.value = false }
-}
-
-async function onToggleFriendRequests(next: boolean) {
-  if (friendRequestsTogglePending.value) return
-  friendRequestsTogglePending.value = true
-  try { await setAllowFriendRequests(next) }
-  finally { friendRequestsTogglePending.value = false }
 }
 
 async function saveStreamingUrl() {
