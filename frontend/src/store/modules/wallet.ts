@@ -7,6 +7,7 @@ import { useUserStore } from './user'
 import { useAuthStore } from './auth'
 
 export type CoinInvoice = {
+  error_code?: string | null
   order_id: number
   status: 'creating' | 'unknown' | 'pending' | 'processed' | 'failed' | 'review'
   payment_url?: string | null
@@ -24,8 +25,8 @@ export type SubscriptionPurchaseResult = WalletState & { purchase_id: number; re
 export type CoinPaymentMethod = 'card' | 'sbp' | 'apple_pay' | 'paypal'
 type InvoiceRequest = { quantity: CoinPackageQuantity; currency: DcCurrency; payment_method: CoinPaymentMethod; email: string; expected_amount: string; request_id: string }
 
-export function dcErrorMessage(error: any): string {
-  const detail = error?.response?.data?.detail
+export function dcErrorMessage(error: any, fallback = 'Не удалось получить результат операции.'): string {
+  const detail = typeof error === 'string' ? error : error?.response?.data?.detail
   const code = typeof detail === 'object' ? detail?.code : detail
   const messages: Record<string, string> = {
     payments_disabled: 'В данный момент платежи не принимаются.',
@@ -40,11 +41,24 @@ export function dcErrorMessage(error: any): string {
     dc_quantity_invalid: 'Выберите пакет на 30, 100, 300 или 1000 DC.',
     dc_package_invalid: 'Выберите пакет на 30, 100, 300 или 1000 DC.',
     dc_payment_method_invalid: 'Этот способ оплаты недоступен для выбранной валюты.',
+    dc_price_invalid: 'Цена пакета настроена некорректно. Попробуйте позже.',
+    kassa_coin_offer_missing: 'Выбранный пакет недоступен в Lava. Выберите другой пакет или попробуйте позже.',
     kassa_coin_offer_invalid: 'Цены выбранного пакета временно недоступны. Попробуйте позже.',
     kassa_coin_offer_prices_mismatch: 'Цены выбранного пакета временно недоступны. Попробуйте позже.',
+    kassa_amount_rejected: 'Lava отклонила цену пакета. Выберите другой пакет или попробуйте позже.',
+    kassa_currency_disabled: 'Выбранная валюта отключена для оплаты в Lava. Выберите другую валюту.',
+    kassa_api_key_missing: 'Подключение магазина к Lava временно недоступно. Попробуйте позже.',
+    kassa_api_unauthorized: 'У магазина временно нет доступа к Lava. Попробуйте позже.',
+    kassa_rate_limited: 'Слишком много запросов на оплату. Попробуйте позже.',
+    kassa_invoice_timeout: 'Lava не ответила вовремя. Попробуйте ещё раз.',
+    kassa_invoice_request_failed: 'Не удалось связаться с Lava. Попробуйте позже.',
+    kassa_invoice_invalid_response: 'Lava вернула неожиданный ответ при создании счёта. Попробуйте позже.',
+    kassa_service_unavailable: 'Платёжный сервис Lava временно недоступен. Попробуйте позже.',
+    kassa_request_rejected: 'Lava отклонила запрос на создание счёта. Попробуйте позже.',
     dc_email_invalid: 'Введите корректный email.',
     dc_email_required: 'Введите корректный email.',
     kassa_email_invalid: 'Введите корректный email.',
+    kassa_email_rejected: 'Lava отклонила этот email для оплаты. Проверьте адрес или укажите другой.',
     subscription_plan_invalid: 'Выберите тариф подписки.',
     gift_self_not_allowed: 'Нельзя подарить подписку самому себе.',
     gift_anonymous_requires_recipient: 'Укажите получателя для анонимного подарка.',
@@ -60,13 +74,13 @@ export function dcErrorMessage(error: any): string {
     dc_balance_too_large: 'Количество монет превышает допустимый предел.',
     coin_order_not_found: 'Счёт не найден в вашем аккаунте.',
   }
-  if (messages[code]) return messages[code]
+  if (typeof code === 'string' && Object.hasOwn(messages, code)) return messages[code]
   if (Number(error?.response?.status) === 401) return 'Для покупок войдите в аккаунт.'
   if (Number(error?.response?.status) === 403) return 'Операция недоступна для этого аккаунта.'
   if (Number(error?.response?.status) === 429) return 'Слишком много запросов. Попробуйте позже.'
   if (Number(error?.response?.status) === 422) return 'Проверьте параметры операции.'
   if (Number(error?.response?.status) === 503) return 'Оплата временно недоступна. Попробуйте позже.'
-  return 'Не удалось получить результат операции.'
+  return fallback
 }
 
 export function dcRequestUncertain(error: any): boolean {

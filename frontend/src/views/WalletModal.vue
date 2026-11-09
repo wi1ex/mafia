@@ -3,7 +3,7 @@
     <Transition name="wallet-overlay">
       <div v-if="open && !restriction" class="wallet-overlay" :style="{ zIndex }" @pointerdown.stop.self="armed = true"
            @pointerup.self="armed && requestClose()" @pointerleave.self="armed = false" @pointercancel.self="armed = false" @click.stop>
-        <div class="wallet-shell">
+        <div class="wallet-shell" :inert="confirmState.open">
           <section ref="dialog" class="wallet-modal" role="dialog" aria-modal="true" :aria-labelledby="settings.paymentsEnabled ? 'wallet-title' : 'wallet-unavailable-title'" tabindex="-1" @keydown="onDialogKeydown">
             <template v-if="!settings.paymentsEnabled">
               <div class="wallet-unavailable">
@@ -43,8 +43,6 @@
               </div>
               <UiMultiSwitch v-else :model-value="tab" :options="walletTabs" size="big" aria-label="Разделы магазина"
                              :disabled="busy || opening" @update:model-value="changeTab" />
-              <p v-if="error" class="wallet-error" role="alert">{{ error }}</p>
-              <p v-if="isGift && !giftRecipientValid" class="wallet-error" role="alert">Выберите другого пользователя для подарка.</p>
 
               <div v-if="!isGift" v-show="tab === 'coins'" id="wallet-coins" role="region" aria-label="Пополнение баланса" class="wallet-panel">
                 <form class="wallet-form" @submit.prevent="payCoins">
@@ -125,10 +123,7 @@
               <div v-if="tab === 'gifts'" id="wallet-gifts" role="region" aria-label="Подарки" class="wallet-panel wallet-panel--gifts"
                    :class="{ 'wallet-panel--gift-detail': selectedGift && !catalogError }">
                 <p v-if="catalogLoading && !selectedGift" class="wallet-state" role="status">Загружаем подарки…</p>
-                <template v-else-if="catalogError">
-                  <p class="wallet-error" role="alert">Не удалось загрузить подарки.</p>
-                  <UiButton size="low" text="Повторить" @click="refreshGiftCatalog" />
-                </template>
+                <UiButton v-else-if="catalogError" size="low" text="Повторить загрузку" @click="refreshGiftCatalog" />
                 <form v-else-if="selectedGift" class="wallet-form wallet-gift-detail" @submit.prevent="purchaseGift">
                   <GiftMedia :key="selectedGift.id" class="wallet-gift-preview" :media="selectedGift" :animated="!giftAnimationDemo"
                              :label="`Подарок №${selectedGift.id}`" />
@@ -170,7 +165,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore, useSettingsStore, useUserStore } from '@/store'
 import { useWalletStore, dcErrorMessage, dcRequestUncertain, type CoinInvoice, type CoinPaymentMethod, type SubscriptionPurchaseResult } from '@/store/modules/wallet'
 import { COIN_PACKAGES, DC_CURRENCIES, SUBSCRIPTION_PLANS, dcMoney, dcPurchaseRestriction, type CoinPackageQuantity, type DcCurrency, type SubscriptionPlan, type WalletTab } from '@/services/dc'
-import { alertDialog } from '@/services/confirm'
+import { alertDialog, useConfirmState } from '@/services/confirm'
 import { loadGiftCatalog, type CatalogGift, type GiftMediaAsset, type GiftPurchaseResult } from '@/services/gifts'
 import GiftMedia from '@/components/GiftMedia.vue'
 import UiButton from '@/components/UiButton.vue'
@@ -224,6 +219,7 @@ const auth = useAuthStore()
 const userStore = useUserStore()
 const settings = useSettingsStore()
 const wallet = useWalletStore()
+const confirmState = useConfirmState()
 const route = useRoute()
 const router = useRouter()
 const dialog = ref<HTMLElement | null>(null)
@@ -282,7 +278,6 @@ const paymentMethods = computed<readonly { id: CoinPaymentMethod; label: string;
 const quantity = ref<CoinPackageQuantity>(30)
 const subscriptionPlan = ref<SubscriptionPlan>('week')
 const email = ref('')
-const error = ref('')
 const opening = ref(false)
 const giftCatalog = ref<CatalogGift[]>([])
 const selectedGiftId = ref<number | null>(null)
@@ -294,6 +289,7 @@ let catalogRequest: AbortController | undefined
 const armed = ref(false)
 let openSequence = 0
 const purchaseUnconfirmedMessage = 'Не удалось подтвердить покупку. Проверьте баланс и историю операций перед новой покупкой.'
+const paymentLinkUnavailable = 'Не удалось получить ссылку на оплату. Попробуйте ещё раз.'
 const restriction = computed(() => dcPurchaseRestriction(auth.isAuthed, userStore.user, settings.verificationRestrictions))
 const busy = computed(() => wallet.invoiceBusy || wallet.subscriptionBusy || wallet.giftBusy)
 const balanceText = computed(() => new Intl.NumberFormat('ru-RU').format(wallet.balance))
@@ -317,19 +313,29 @@ function paymentLink(invoice: CoinInvoice): string {
 }
 function planLabel(planId: SubscriptionPlan): string { return SUBSCRIPTION_PLANS.find(item => item.id === planId)?.label || 'Подписка' }
 function requestClose(): void { if (!busy.value || !settings.paymentsEnabled) emit('update:open', false) }
+async function showWalletAlert(text: string): Promise<void> {
+  const seq = openSequence
+  const previousFocus = document.activeElement
+  await alertDialog({ title: 'Магазин', text })
+  await nextTick()
+  const panel = dialog.value
+  if (!panel || !props.open || seq !== openSequence || confirmState.open) return
+  const target = previousFocus instanceof HTMLElement && panel.contains(previousFocus) && !previousFocus.matches(':disabled')
+    ? previousFocus : panel
+  target.focus({ preventScroll: true })
+}
 function handlePaymentsDisabled(err: unknown): boolean {
   const detail = (err as { response?: { data?: { detail?: string | { code?: string } } } })?.response?.data?.detail
   if ((typeof detail === 'object' ? detail?.code : detail) !== 'payments_disabled') return false
   settings.paymentsEnabled = false
+  void showWalletAlert(dcErrorMessage(err))
   return true
 }
 function changeTab(next: WalletTab): void {
   if (lockedTab.value || busy.value || opening.value || tab.value === next) return
-  error.value = ''
   tab.value = next
 }
 async function openGiftPreview(id: number): Promise<void> {
-  error.value = ''
   selectedGiftId.value = id
   await nextTick()
   if (dialog.value) {
@@ -340,7 +346,6 @@ async function openGiftPreview(id: number): Promise<void> {
 async function closeGiftPreview(): Promise<void> {
   const id = selectedGiftId.value
   selectedGiftId.value = null
-  error.value = ''
   await nextTick()
   dialog.value?.querySelector<HTMLButtonElement>(`[data-gift-id="${id}"]`)?.focus()
 }
@@ -360,6 +365,7 @@ function selectCurrency(next: DcCurrency): void {
   if (!paymentMethods.value.some(method => method.id === paymentMethod.value)) paymentMethod.value = 'card'
 }
 function onDialogKeydown(event: KeyboardEvent): void {
+  if (confirmState.open) return
   if (event.key === 'Escape') { event.stopPropagation(); requestClose() }
   if (event.key !== 'Tab') return
   const focusable = dialog.value?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), a[href]')
@@ -391,7 +397,10 @@ async function refreshGiftCatalog(): Promise<void> {
     giftCatalog.value = catalog.filter(gift => gift.visible).sort((a, b) => a.price_dc - b.price_dc || a.id - b.id)
     if (!selectedGift.value) selectedGiftId.value = null
   } catch {
-    if (!request.signal.aborted) catalogError.value = true
+    if (!request.signal.aborted) {
+      catalogError.value = true
+      if (!confirmState.open) void showWalletAlert('Не удалось загрузить подарки. Повторите загрузку.')
+    }
   } finally {
     if (catalogRequest === request) {
       catalogRequest = undefined
@@ -401,10 +410,9 @@ async function refreshGiftCatalog(): Promise<void> {
 }
 async function payCoins(): Promise<void> {
   if (!canPay.value) return
-  error.value = ''
   const paymentTab = window.open('about:blank', '_blank')
   if (!paymentTab) {
-    error.value = 'Разрешите открытие новой вкладки для перехода к оплате.'
+    void showWalletAlert('Разрешите открытие новой вкладки для перехода к оплате.')
     return
   }
   let paymentOpened = false
@@ -417,7 +425,7 @@ async function payCoins(): Promise<void> {
     paymentTab.document.body.textContent = 'Подготавливаем страницу оплаты…'
   } catch {
     closePaymentTab()
-    error.value = 'Не удалось открыть страницу оплаты. Попробуйте ещё раз.'
+    void showWalletAlert('Не удалось подготовить вкладку оплаты. Попробуйте ещё раз.')
     return
   }
   saveEmail()
@@ -437,36 +445,43 @@ async function payCoins(): Promise<void> {
       expected_amount: requestedAmount,
     })
     if (seq !== openSequence || !props.open || !auth.isAuthed || buyerId !== userStore.user?.id || buyerSession !== auth.sessionId || !settings.paymentsEnabled || restriction.value) return
+    if (invoice.status === 'processed') return
+    if (invoice.error_code) {
+      void showWalletAlert(dcErrorMessage(invoice.error_code, paymentLinkUnavailable))
+      return
+    }
     const url = invoice.status === 'pending' ? paymentLink(invoice) : ''
-    if (url) {
-      if (paymentTab.closed) error.value = 'Вкладка оплаты закрыта. Нажмите «Оплатить», чтобы начать заново.'
+    if (!url) {
+      void showWalletAlert(invoice.status === 'review' ? 'Оплата подтверждена. Начисление монет проверяется.' : paymentLinkUnavailable)
+      return
+    }
+    try {
+      if (paymentTab.closed) void showWalletAlert('Вкладка оплаты закрыта. Нажмите «Оплатить», чтобы начать заново.')
       else if (paymentTab.location.href === 'about:blank') {
         paymentTab.location.replace(url)
         paymentOpened = true
+      } else {
+        void showWalletAlert('Вкладка оплаты была изменена. Нажмите «Оплатить», чтобы начать заново.')
       }
-    } else if (invoice.status !== 'processed') {
-      error.value = invoice.status === 'review'
-        ? 'Оплата подтверждена. Начисление монет проверяется.'
-        : 'Не удалось открыть страницу оплаты. Попробуйте ещё раз.'
+    } catch {
+      void showWalletAlert('Не удалось перейти по ссылке на оплату. Попробуйте ещё раз.')
     }
   } catch (err: any) {
-    if (seq !== openSequence || buyerId !== userStore.user?.id || buyerSession !== auth.sessionId) return
+    if (seq !== openSequence || !props.open || !auth.isAuthed || buyerId !== userStore.user?.id || buyerSession !== auth.sessionId) return
     if (handlePaymentsDisabled(err)) return
-    error.value = dcRequestUncertain(err)
-      ? 'Не удалось открыть страницу оплаты. Попробуйте ещё раз.'
-      : Number(err?.response?.status) === 429 ? 'Слишком много запросов. Попробуйте позже.' : dcErrorMessage(err)
     const detail = err?.response?.data?.detail
     if (detail?.code === 'dc_price_changed') {
       if (settings.dcCoinPackages[requestedQuantity][requestedCurrency] === requestedAmount && detail.amount) settings.setCoinPackagePrice(requestedQuantity, requestedCurrency, detail.amount)
       void settings.fetchPublic().catch(() => {})
     }
+    const fallback = err?.response ? paymentLinkUnavailable : 'Магазин не получил ответ сервера. Попробуйте ещё раз.'
+    void showWalletAlert(dcErrorMessage(err, fallback))
   } finally {
     if (!paymentOpened) closePaymentTab()
   }
 }
 async function purchaseSubscription(): Promise<void> {
   if (!props.open || tab.value !== 'subscription' || busy.value || opening.value || !settings.paymentsEnabled || restriction.value || !canAffordSubscription.value || !giftRecipientValid.value) return
-  error.value = ''
   const seq = openSequence
   const buyerId = userStore.user?.id
   const buyerSession = auth.sessionId
@@ -497,15 +512,12 @@ async function purchaseSubscription(): Promise<void> {
     const code = typeof detail === 'object' ? detail?.code : detail
     const status = Number((err as { response?: { status?: number } })?.response?.status)
     if (isGift.value && [403, 404].includes(status) && (code?.startsWith('gift_recipient_') || code === 'gift_self_not_allowed')) {
-      await alertDialog(dcErrorMessage(err))
+      await showWalletAlert(dcErrorMessage(err))
       if (seq === openSequence && props.open) emit('update:open', false)
       return
     }
-    const insufficientBalance = code === 'insufficient_dc_balance'
-    error.value = insufficientBalance ? '' : dcRequestUncertain(err) ? purchaseUnconfirmedMessage : dcErrorMessage(err)
-    await wallet.refreshWallet().catch(() => {
-      if (seq === openSequence && insufficientBalance) error.value = dcErrorMessage(err)
-    })
+    void showWalletAlert(dcRequestUncertain(err) ? purchaseUnconfirmedMessage : dcErrorMessage(err))
+    await wallet.refreshWallet().catch(() => {})
   }
 }
 
@@ -513,7 +525,6 @@ async function purchaseGift(): Promise<void> {
   if (!props.open || tab.value !== 'gifts' || busy.value || opening.value || !settings.paymentsEnabled || restriction.value) return
   const gift = selectedGift.value
   if (!gift || !canBuyGift.value) return
-  error.value = ''
   const seq = openSequence
   const buyerId = userStore.user?.id
   const buyerSession = auth.sessionId
@@ -547,17 +558,17 @@ async function purchaseGift(): Promise<void> {
         gift_recipient_deleted: 'Нельзя отправить подарок: аккаунт получателя удалён.',
         gift_recipient_blacklisted: 'Нельзя отправить подарок из-за ограничений чёрного списка.',
       }
-      await alertDialog(messages[code] || dcErrorMessage(err))
+      await showWalletAlert(messages[code] || dcErrorMessage(err))
       if (isCurrent()) emit('update:open', false)
       return
     }
     if (code === 'insufficient_dc_balance' || code === 'insufficient_balance') {
-      error.value = 'Недостаточно DC для покупки подарка.'
+      void showWalletAlert('Недостаточно DC для покупки подарка.')
       void wallet.refreshWallet().catch(() => {})
       return
     }
     const uncertain = dcRequestUncertain(err)
-    error.value = uncertain ? purchaseUnconfirmedMessage : dcErrorMessage(err)
+    void showWalletAlert(uncertain ? purchaseUnconfirmedMessage : dcErrorMessage(err))
     if (uncertain) void wallet.refreshWallet().catch(() => {})
   }
 }
@@ -586,25 +597,33 @@ watch([() => props.open, () => settings.paymentsEnabled, () => auth.sessionId], 
   if (seq !== openSequence || restriction.value) return
   if (!settings.paymentsEnabled) {
     opening.value = false
-    error.value = ''
     await nextTick()
     if (seq === openSequence && props.open) dialog.value?.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true })
     return
   }
+  if (!giftRecipientValid.value) {
+    opening.value = false
+    emit('update:open', false)
+    void alertDialog('Выберите другого пользователя для подарка.')
+    return
+  }
   wallet.ensureOwner()
   userStore.ensureClock()
-  error.value = ''; opening.value = true
   tab.value = lockedTab.value || props.initialTab || 'coins'
   if (tab.value === 'gifts') void refreshGiftCatalog()
   try { email.value = sessionStorage.getItem(`dc:email:${userStore.user?.id}`) || '' } catch {}
   try {
     await wallet.refreshWallet()
-  } catch (err) { if (seq === openSequence) error.value = dcErrorMessage(err) }
+  } catch (err) {
+    if (seq === openSequence && props.open && !confirmState.open) {
+      void showWalletAlert(dcErrorMessage(err, 'Не удалось загрузить баланс. Попробуйте открыть магазин ещё раз.'))
+    }
+  }
   finally {
     if (seq === openSequence) {
       opening.value = false
       await nextTick()
-      if (seq === openSequence && props.open) dialog.value?.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true })
+      if (seq === openSequence && props.open && !confirmState.open) dialog.value?.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true })
     }
   }
 }, { immediate: true })
@@ -858,10 +877,6 @@ onBeforeUnmount(() => {
     }
     .wallet-state {
       color: $neutral-600;
-      font-size: 14px;
-    }
-    .wallet-error {
-      color: $red-700;
       font-size: 14px;
     }
     .wallet-panel {

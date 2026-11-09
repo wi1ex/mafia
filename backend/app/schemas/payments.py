@@ -36,6 +36,7 @@ class CoinInvoiceOut(BaseModel):
     currency: str | None = None
     email: str | None = None
     request_id: str | None = None
+    error_code: str | None = None
 
 
 class CoinInvoiceListOut(BaseModel):

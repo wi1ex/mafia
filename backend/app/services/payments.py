@@ -26,10 +26,19 @@ from .wallet import checked_balance, ensure_payments_enabled, ensure_purchase_ac
 log = structlog.get_logger()
 API_BASE = "https://gate.lava.top"
 EMAIL_RE = re.compile(r"^[^@\s]{1,64}@[^@\s]{1,190}\.[^@\s]{2,}$")
+LAVA_AMOUNT_RANGE_ERROR_RE = re.compile(
+    r"For (?:RUB|USD|EUR), amount must be between [0-9]+(?:\.[0-9]+)? and [0-9]+(?:\.[0-9]+)?"
+)
 SUCCESS_STATUSES = {"completed", "paid", "success", "successful"}
 PENDING_STATUSES = {"created", "new", "in_progress", "pending", "waiting", "waiting_payment", "awaiting_payment", "invoice_created"}
 FAILED_STATUSES = {"failed", "cancelled", "canceled", "expired"}
 REFUND_EVENTS = {"refund.success", "chargeback.initiated"}
+INVOICE_CREATE_ERROR_CODES = {
+    "kassa_email_rejected", "kassa_currency_disabled", "kassa_amount_rejected",
+    "kassa_coin_offer_missing", "kassa_rate_limited", "kassa_invoice_timeout",
+    "kassa_invoice_request_failed", "kassa_invoice_invalid_response", "kassa_service_unavailable",
+    "kassa_request_rejected", "kassa_api_unauthorized", "kassa_api_key_missing",
+}
 LAVA_RUB_PAYMENT_OPTIONS = {
     "card": {"paymentProvider": "SMART_GLOCAL", "paymentMethod": "CARD"},
     "sbp": {"paymentProvider": "PAY2ME", "paymentMethod": "SBP"},
@@ -160,6 +169,32 @@ def _safe_url(value: Any) -> str | None:
     return url if parsed.scheme == "https" and parsed.hostname and not parsed.username and not parsed.password else None
 
 
+def _invoice_validation_error(response: httpx.Response) -> str:
+    try:
+        data = _dict(response.json())
+    except (ValueError, RecursionError):
+        return "kassa_request_rejected"
+
+    error = data.get("error")
+    if response.status_code == 400 and error == "Incorrect email to purchase":
+        return "kassa_email_rejected"
+
+    if error != "Invalid input fields":
+        return "kassa_request_rejected"
+
+    details = _dict(data.get("details"))
+    if any(details.get("currency") == f"{currency} currency must be enabled in the payment settings"
+           for currency in DC_CURRENCIES):
+        return "kassa_currency_disabled"
+
+    amount = details.get("amount")
+    if isinstance(amount, str) and (amount == "Amount is required for products with custom price"
+                                    or LAVA_AMOUNT_RANGE_ERROR_RE.fullmatch(amount)):
+        return "kassa_amount_rejected"
+
+    return "kassa_request_rejected"
+
+
 async def _request_lava(method: str, path: str, payload: dict | None = None) -> dict:
     key = _clean(settings.KASSA_API_KEY)
     if not key:
@@ -177,12 +212,19 @@ async def _request_lava(method: str, path: str, payload: dict | None = None) -> 
         raise HTTPException(502, detail="kassa_invoice_request_failed") from None
 
     if not response.is_success:
+        invoice_create = method == "POST" and path == "/api/v3/invoice"
         if response.status_code in {401, 403}:
             detail, code = "kassa_api_unauthorized", 503
         elif response.status_code == 404:
-            detail, code = "kassa_invoice_not_found", 404
+            detail, code = ("kassa_coin_offer_missing" if invoice_create else "kassa_invoice_not_found"), 404
         elif response.status_code == 429:
             detail, code = "kassa_rate_limited", 429
+        elif invoice_create and response.status_code in {400, 422}:
+            detail, code = _invoice_validation_error(response), 422
+        elif invoice_create and response.status_code == 408:
+            detail, code = "kassa_invoice_timeout", 504
+        elif invoice_create and 500 <= response.status_code < 600:
+            detail, code = "kassa_service_unavailable", 502
         else:
             detail, code = "kassa_request_rejected", 422 if response.status_code in {400, 422} else 502
         raise HTTPException(code, detail=detail)
@@ -283,11 +325,18 @@ def order_response(order: CoinPurchase, balance: int) -> dict:
     if order.status == "processed" and order.result:
         return dict(order.result)
 
-    return {"order_id": order.id, "status": order.status, "payment_url": order.payment_url,
-            "invoice_id": order.invoice_id, "dc_balance": int(balance), "quantity": order.quantity,
-            "unit_price": format(order.unit_price, ".2f") if order.unit_price is not None else None,
-            "amount": format(order.amount, ".2f") if order.amount is not None else None,
-            "currency": order.currency, "email": order.email, "request_id": order.request_id}
+    result = {"order_id": order.id, "status": order.status, "payment_url": order.payment_url,
+              "invoice_id": order.invoice_id, "dc_balance": int(balance), "quantity": order.quantity,
+              "unit_price": format(order.unit_price, ".2f") if order.unit_price is not None else None,
+              "amount": format(order.amount, ".2f") if order.amount is not None else None,
+              "currency": order.currency, "email": order.email, "request_id": order.request_id}
+    creation_error = _dict(order.provider_payload).get("creation_error")
+    if creation_error == "kassa_invoice_not_found":
+        creation_error = "kassa_coin_offer_missing"
+    if (order.status in {"failed", "unknown"} and isinstance(creation_error, str)
+            and creation_error in INVOICE_CREATE_ERROR_CODES):
+        result["error_code"] = creation_error
+    return result
 
 
 async def create_coin_invoice(session: AsyncSession, *, user_id: int, payload: CoinInvoiceCreateIn) -> dict:
