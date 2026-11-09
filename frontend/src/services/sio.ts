@@ -162,6 +162,11 @@ export function startAuthSocket(opts?: { onForceLogout?: () => void }): Socket {
     dispatchSocketToast(payload)
   })
 
+  authSocket.on('notif_clear', (payload: unknown) => {
+    if (!payload || typeof payload !== 'object') return
+    window.dispatchEvent(new CustomEvent('auth-notif_clear', { detail: payload }))
+  })
+
   authSocket.on('friends_update', (p:any) => {
     window.dispatchEvent(new CustomEvent('auth-friends_update', { detail: p }))
   })

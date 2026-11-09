@@ -18,6 +18,7 @@ type NotifsListResponse = {
   unread_count?: number
   has_more?: boolean
   next_before_id?: number | null
+  cleared_through_id?: number
 }
 
 function toPositiveIntOrNull(v: unknown): number | null {
@@ -51,10 +52,12 @@ export const useNotifStore = defineStore('notif', () => {
   const hasMore = ref(false)
   const loadingInitial = ref(false)
   const loadingMore = ref(false)
+  const clearing = ref(false)
   const nextBeforeId = ref<number | null>(null)
 
   let inited = false
   let onNotifyEv: ((e: any) => void) | null = null
+  let onClearedEv: ((e: Event) => void) | null = null
   let onConnectedEv: (() => void) | null = null
   let fetchGeneration = 0
   let headPageLoaded = false
@@ -64,6 +67,7 @@ export const useNotifStore = defineStore('notif', () => {
   let refreshTimer: number | undefined
   const locallyRead = new Set<number>()
   let locallyReadThrough = 0
+  let clearedThrough = 0
 
   const pending = new Set<number>()
   let pendingAllBeforeId = 0
@@ -86,6 +90,7 @@ export const useNotifStore = defineStore('notif', () => {
     pendingAllBeforeId = 0
     locallyRead.clear()
     locallyReadThrough = 0
+    clearedThrough = 0
     flushing = false
     backoffMs = 0
     items.value = []
@@ -94,6 +99,7 @@ export const useNotifStore = defineStore('notif', () => {
     nextBeforeId.value = null
     loadingInitial.value = false
     loadingMore.value = false
+    clearing.value = false
   }
 
   function scheduleRefresh(): void {
@@ -113,6 +119,30 @@ export const useNotifStore = defineStore('notif', () => {
       })
     }
     items.value = [...known.values()].sort((left, right) => right.id - left.id)
+  }
+
+  function applyClearedThrough(rawId: unknown): boolean {
+    const id = toPositiveIntOrNull(rawId)
+    if (!id || id <= clearedThrough) return false
+    clearedThrough = id
+    for (const pendingId of pending) if (pendingId <= id) pending.delete(pendingId)
+    for (const readId of locallyRead) if (readId <= id) locallyRead.delete(readId)
+    if (pendingAllBeforeId <= id) pendingAllBeforeId = 0
+    items.value = items.value.filter(item => item.id > id)
+    unread.value = items.value.filter(item => !item.read).length
+    headPageLoaded = false
+    hasMore.value = false
+    nextBeforeId.value = null
+    return true
+  }
+
+  function syncClear(rawId: unknown): void {
+    if (applyClearedThrough(rawId)) {
+      fetchGeneration++
+      loadingInitial.value = false
+      loadingMore.value = false
+    }
+    scheduleRefresh()
   }
 
   function scheduleFlush() {
@@ -152,8 +182,9 @@ export const useNotifStore = defineStore('notif', () => {
     try {
       const { data } = await api.get<NotifsListResponse>('/notifs', { params: { limit: PAGE_SIZE }, signal })
       if (signal.aborted || gen !== fetchGeneration) return
+      applyClearedThrough(data?.cleared_through_id)
       const rawPage = Array.isArray(data?.items) ? data.items : []
-      const page = dedupeByIdDesc(rawPage)
+      const page = dedupeByIdDesc(rawPage).filter(item => item.id > clearedThrough)
       const existingIds = new Set(items.value.map(item => item.id))
       const preservePagination = headPageLoaded && page.some(item => existingIds.has(item.id))
       mergePage(page)
@@ -176,8 +207,12 @@ export const useNotifStore = defineStore('notif', () => {
       while (cursor) {
         const { data } = await api.get<NotifsListResponse>('/notifs', { params: { limit: PAGE_SIZE, before_id: cursor }, signal })
         if (signal.aborted || gen !== fetchGeneration) return
+        if (applyClearedThrough(data?.cleared_through_id)) {
+          scheduleRefresh()
+          return
+        }
         const rawPage = Array.isArray(data?.items) ? data.items : []
-        const page = dedupeByIdDesc(rawPage)
+        const page = dedupeByIdDesc(rawPage).filter(item => item.id > clearedThrough)
         const existingIds = new Set(items.value.map(item => item.id))
         const hasNewItems = page.some(item => !existingIds.has(item.id))
         mergePage(page)
@@ -194,13 +229,14 @@ export const useNotifStore = defineStore('notif', () => {
   function ensureWS() {
     if (inited) return
     if (onNotifyEv) window.removeEventListener('auth-notify', onNotifyEv)
+    if (onClearedEv) window.removeEventListener('auth-notif_clear', onClearedEv)
     if (onConnectedEv) window.removeEventListener('auth-connected', onConnectedEv)
     onNotifyEv = (e: any) => {
       const p = e?.detail as Note | undefined
       if (!p || !ownerSession) return
 
       const id = toPositiveIntOrNull(p.id)
-      if (!id) return
+      if (!id || id <= clearedThrough) return
       if (items.value.some(x => x.id === id)) return
 
       const note: Note = {
@@ -215,8 +251,12 @@ export const useNotifStore = defineStore('notif', () => {
       if (!note.read) unread.value++
       mutationVersion++
     }
+    onClearedEv = (e) => {
+      if (ownerSession) syncClear((e as CustomEvent<{ through_id?: number }>).detail?.through_id)
+    }
     onConnectedEv = () => { void fetchAll().catch(() => {}) }
     window.addEventListener('auth-notify', onNotifyEv)
+    window.addEventListener('auth-notif_clear', onClearedEv)
     window.addEventListener('auth-connected', onConnectedEv)
     inited = true
   }
@@ -246,8 +286,8 @@ export const useNotifStore = defineStore('notif', () => {
       const status = Number(e?.response?.status || 0)
       if (!status || status === 429 || status >= 500) {
         backoffMs = Math.min(10000, backoffMs ? backoffMs * 2 : 300)
-        pendingAllBeforeId = Math.max(pendingAllBeforeId, allBeforeId)
-        ids.forEach(id => pending.add(id))
+        if (allBeforeId > clearedThrough) pendingAllBeforeId = Math.max(pendingAllBeforeId, allBeforeId)
+        for (const id of ids) if (id > clearedThrough) pending.add(id)
       }
     } finally {
       if (session === ownerSession && !signal.aborted) {
@@ -262,7 +302,7 @@ export const useNotifStore = defineStore('notif', () => {
     const uniqueIds = Array.from(new Set(ids))
     for (const rawId of uniqueIds) {
       const id = toPositiveIntOrNull(rawId)
-      if (!id) continue
+      if (!id || id <= clearedThrough) continue
       const it = items.value.find(x => x.id === id)
       if (it && !it.read) {
         it.read = true
@@ -287,6 +327,20 @@ export const useNotifStore = defineStore('notif', () => {
     scheduleFlush()
   }
 
+  async function clearList(): Promise<void> {
+    if (!ownerSession || clearing.value) return
+    const signal = ownerAbort.signal
+    clearing.value = true
+    try {
+      const { data } = await api.post<{ through_id: number }>('/notifs/clear', undefined, { signal })
+      if (!signal.aborted) syncClear(data?.through_id)
+    } catch (error) {
+      if (!signal.aborted) throw error
+    } finally {
+      if (!signal.aborted) clearing.value = false
+    }
+  }
+
   watch(() => auth.sessionId, resetOwner, { flush: 'sync' })
 
   return {
@@ -295,11 +349,13 @@ export const useNotifStore = defineStore('notif', () => {
     hasMore,
     loadingInitial,
     loadingMore,
+    clearing,
 
     fetchAll,
     loadMore,
     ensureWS,
     markReadVisible,
-    markAll
+    markAll,
+    clearList,
   }
 })

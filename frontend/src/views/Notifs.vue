@@ -4,7 +4,8 @@
       <header>
         <span class="title">Уведомления</span>
         <div class="buttons">
-          <button v-if="notif.unread > 0" class="markall" @click="notif.markAll()">Прочитать все</button>
+          <button v-if="notif.unread > 0" class="list-action" type="button" :disabled="notif.clearing" @click="notif.markAll()">Прочитать все</button>
+          <button v-else class="list-action" type="button" :disabled="notif.clearing || notif.items.length === 0" @click="onClearList">Очистить список</button>
           <button class="close-btn" type="button" aria-label="Закрыть" @click="$emit('update:open', false)">
             <UiIcon class="close-icon" :icon="iconClose" />
           </button>
@@ -50,6 +51,7 @@
 <script setup lang="ts">
 import { ref, watch, nextTick, onBeforeUnmount } from 'vue'
 import { useNotifStore } from '@/store'
+import { alertDialog } from '@/services/confirm'
 import { formatLocalDateTime } from '@/services/datetime'
 import { parseNotificationText } from '@/services/notificationText'
 
@@ -206,6 +208,14 @@ async function onLoadMore() {
   await notif.loadMore()
 }
 
+async function onClearList() {
+  try {
+    await notif.clearList()
+  } catch {
+    void alertDialog('Не удалось очистить список уведомлений')
+  }
+}
+
 function onAfterLeave() {
   try { obs?.disconnect() } catch {}
   unbindScroll()
@@ -294,7 +304,7 @@ onBeforeUnmount(() => {
     .buttons {
       display: flex;
       gap: 24px;
-      .markall {
+      .list-action {
         padding: 0;
         border: none;
         background: none;
@@ -309,6 +319,10 @@ onBeforeUnmount(() => {
         text-underline-offset: 3px;
         cursor: pointer;
         transition: color 0.25s ease-in-out, text-decoration-color 0.25s ease-in-out;
+        &:disabled {
+          opacity: 0.5;
+          cursor: default;
+        }
         &:not(:disabled):hover,
         &:not(:disabled):focus-visible,
         &:not(:disabled):active {
