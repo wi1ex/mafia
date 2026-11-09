@@ -1,9 +1,10 @@
 from __future__ import annotations
 from collections import defaultdict
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 import structlog
 from fastapi import HTTPException
-from sqlalchemy import func, literal, select
+from sqlalchemy import String, and_, cast, func, literal, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.db import SessionLocal
 from ..core.roles import ROLE_ADMIN, ROLE_MODER, normalize_user_role
@@ -24,7 +25,12 @@ from .wallet import (
     lock_user_balance,
 )
 
+if TYPE_CHECKING:
+    from ..api.utils import ToastFields
+
 log = structlog.get_logger()
+_GIFT_EVENT_KEY_PREFIX = "dc:gift:"
+_GIFT_OWNER_EVENT_KEY_SUFFIX = ":owner"
 
 
 async def gift_catalog(session: AsyncSession) -> list[Gift]:
@@ -109,6 +115,7 @@ async def buy_gift(session: AsyncSession, *, payer_id: int, payload: GiftPurchas
         gift_id=gift.id, owner_id=owner_id, payer_id=payer_id,
         payer_username=payer.username, owner_username=owner.username,
         anonymous=payload.anonymous, dc_cost=gift.price_dc, request_id=request_id,
+        toast_pending=owner_id != payer_id,
         acquired_at=datetime.now(timezone.utc), balance_before=balance_before, balance_after=payer.dc_balance,
     )
     session.add(acquisition)
@@ -124,10 +131,11 @@ async def buy_gift(session: AsyncSession, *, payer_id: int, payload: GiftPurchas
 
 async def _persist_gift_notices(session: AsyncSession, acquisition: UserGift) -> tuple[Notif | None, Notif | None]:
     payment = f"Списано: {acquisition.dc_cost} DC. Баланс: {acquisition.balance_after} DC."
-    event_key = f"dc:gift:{acquisition.id}"
+    event_key = f"{_GIFT_EVENT_KEY_PREFIX}{acquisition.id}"
+    owner_event_key = event_key + _GIFT_OWNER_EVENT_KEY_SUFFIX
     if acquisition.payer_id == acquisition.owner_id:
         note = await _persist_notice_once(
-            session, user_id=acquisition.owner_id, event_key=f"{event_key}:owner",
+            session, user_id=acquisition.owner_id, event_key=owner_event_key,
             title="Покупка подарка", text=f"Вы купили подарок. {payment}",
         )
         return note, None
@@ -136,7 +144,7 @@ async def _persist_gift_notices(session: AsyncSession, acquisition: UserGift) ->
     if not acquisition.anonymous:
         owner_text = f"{acquisition.payer_username} подарил вам подарок."
     owner_note = await _persist_notice_once(
-        session, user_id=acquisition.owner_id, event_key=f"{event_key}:owner",
+        session, user_id=acquisition.owner_id, event_key=owner_event_key,
         title="Вам подарили подарок", text=owner_text,
     )
     sent = "Вы анонимно отправили" if acquisition.anonymous else "Вы отправили"
@@ -177,6 +185,20 @@ def _gift_sender(acquisition: UserGift, profiles: dict[int, UserProfile]) -> Gif
     )
 
 
+def _gift_received_toast(acquisition: UserGift, profiles: dict[int, UserProfile]) -> tuple[ToastFields, dict | None]:
+    toast: ToastFields = {
+        "title": "Подарок",
+        "actions": [{"kind": "gift_open", "label": "Открыть", "acquisition_id": acquisition.id}],
+    }
+    sender = _gift_sender(acquisition, profiles)
+    if acquisition.anonymous:
+        toast["text"] = "Аноним отправил вам подарок"
+    elif sender is not None:
+        toast["text"] = ""
+
+    return toast, {"user": sender.model_dump()} if sender is not None else None
+
+
 async def _notify_gift_purchase(acquisition: UserGift, *, owner_note: Notif | None, payer_note: Notif | None) -> None:
     from ..api.utils import emit_notify
 
@@ -185,17 +207,7 @@ async def _notify_gift_purchase(acquisition: UserGift, *, owner_note: Notif | No
             if acquisition.payer_id == acquisition.owner_id:
                 await emit_notify(acquisition.owner_id, owner_note, kind="gift_purchase")
             else:
-                sender = _gift_sender(acquisition, await _sender_profiles([acquisition]))
-                toast = {
-                    "title": "Подарок",
-                    "actions": [{"kind": "gift_open", "label": "Открыть", "acquisition_id": acquisition.id}],
-                }
-                extra = None
-                if acquisition.anonymous:
-                    toast["text"] = "Аноним отправил вам подарок"
-                elif sender is not None:
-                    extra = {"user": sender.model_dump()}
-                    toast["text"] = ""
+                toast, extra = _gift_received_toast(acquisition, await _sender_profiles([acquisition]))
                 await emit_notify(acquisition.owner_id, owner_note, kind="gift_received", toast=toast, extra=extra)
         except Exception:
             log.exception("gift.owner_notification_failed", acquisition_id=acquisition.id)
@@ -204,6 +216,36 @@ async def _notify_gift_purchase(acquisition: UserGift, *, owner_note: Notif | No
             await emit_notify(acquisition.payer_id, payer_note, kind="gift_sent", no_toast=True)
         except Exception:
             log.exception("gift.payer_notification_failed", acquisition_id=acquisition.id)
+
+
+async def pending_gift_toasts(session: AsyncSession, *, owner_id: int, after_id: int, limit: int) -> list[dict]:
+    from ..api.utils import build_notify_payload
+
+    event_key = literal(_GIFT_EVENT_KEY_PREFIX) + cast(UserGift.id, String) + literal(_GIFT_OWNER_EVENT_KEY_SUFFIX)
+    rows = (await session.execute(
+        select(UserGift, Notif).select_from(UserGift)
+        .join(Gift, Gift.id == UserGift.gift_id)
+        .join(Notif, and_(Notif.user_id == UserGift.owner_id, Notif.event_key == event_key))
+        .where(UserGift.owner_id == owner_id, UserGift.payer_id != owner_id, UserGift.id > after_id,
+               UserGift.toast_pending.is_(True), UserGift.active(), Gift.deleted_at.is_(None))
+        .order_by(UserGift.id).limit(limit)
+    )).all()
+    await session.commit()
+    profiles = await _sender_profiles([acquisition for acquisition, _note in rows])
+    payloads = []
+    for acquisition, note in rows:
+        toast, extra = _gift_received_toast(acquisition, profiles)
+        payloads.append(build_notify_payload(note, kind="gift_received", toast=toast, extra=extra))
+    return payloads
+
+
+async def dismiss_gift_toast(session: AsyncSession, acquisition_id: int, *, owner_id: int) -> None:
+    await session.execute(
+        update(UserGift).where(UserGift.id == acquisition_id, UserGift.owner_id == owner_id,
+                               UserGift.payer_id != owner_id, UserGift.toast_pending.is_(True))
+        .values(toast_pending=False)
+    )
+    await session.commit()
 
 
 async def _publish_gift_changes(user_ids: set[int], balance_user_ids: set[int]) -> None:

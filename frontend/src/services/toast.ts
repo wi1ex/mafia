@@ -53,17 +53,20 @@ type SocketNotification = Pick<ToastPayload, 'id' | 'user' | 'room_id'> & {
   subscription_gift?: { duration?: unknown }
 }
 
-export function dispatchSocketToast(payload: unknown): void {
-  if (!payload || typeof payload !== 'object') return
+export function parseSocketToast(payload: unknown): ToastPayload | null {
+  if (!payload || typeof payload !== 'object') return null
 
   const { toast, id, user, room_id, subscription_gift } = payload as SocketNotification
-  if (!toast || typeof toast.kind !== 'string' || typeof toast.title !== 'string') return
+  if (!toast || typeof toast.kind !== 'string' || typeof toast.title !== 'string') return null
 
   const { kind, title, text, actions, details, silent } = toast
   const subscriptionGiftDuration = kind === 'subscription_gift' && typeof subscription_gift?.duration === 'string'
     ? subscription_gift.duration
     : undefined
-  window.dispatchEvent(new CustomEvent<ToastPayload>('toast', {
-    detail: { kind, title, text, actions, details, silent, id, user, room_id, subscriptionGiftDuration },
-  }))
+  return { kind, title, text, actions, details, silent, id, user, room_id, subscriptionGiftDuration }
+}
+
+export function dispatchSocketToast(payload: unknown): void {
+  const detail = parseSocketToast(payload)
+  if (detail) window.dispatchEvent(new CustomEvent<ToastPayload>('toast', { detail }))
 }

@@ -27,6 +27,13 @@ async def lifespan(app) -> AsyncIterator[None]:
             await conn.execute(text("SELECT pg_advisory_xact_lock(20261020, 1)"))
             await conn.run_sync(Base.metadata.create_all)
 
+            # One-time migration for pending gift toasts.
+            await conn.execute(text("ALTER TABLE user_gifts ADD COLUMN IF NOT EXISTS toast_pending BOOLEAN NOT NULL DEFAULT FALSE"))
+            await conn.execute(text("""
+                CREATE INDEX IF NOT EXISTS ix_user_gifts_pending_toasts ON user_gifts (owner_id, id)
+                WHERE toast_pending IS TRUE AND refunded_at IS NULL AND removed_at IS NULL
+            """))
+
         async with SessionLocal() as session:
             await ensure_app_settings(session)
             await ensure_game_scoring_settings(session)

@@ -234,6 +234,7 @@ __all__ = [
     "build_avatar_reset_notice",
     "build_nickname_reset_notice",
     "emit_nickname_reset_notice",
+    "build_notify_payload",
     "emit_notify",
     "emit_friends_update",
     "emit_friends_profile_sync",
@@ -4831,16 +4832,14 @@ class ToastFields(TypedDict, total=False):
     silent: bool
 
 
-async def emit_notify(
-    user_id: int,
+def build_notify_payload(
     note: Notif | None = None,
     *,
     kind: str,
     toast: ToastFields | None = None,
     no_toast: bool = False,
     extra: dict | None = None,
-    namespace: str = "/auth",
-) -> None:
+) -> dict:
     payload = {**(extra or {}), "kind": kind}
     if note is not None:
         payload.update(id=note.id, title=note.title, text=note.text,
@@ -4853,6 +4852,20 @@ async def emit_notify(
             "actions": [],
             **(toast or {}),
         }
+    return payload
+
+
+async def emit_notify(
+    user_id: int,
+    note: Notif | None = None,
+    *,
+    kind: str,
+    toast: ToastFields | None = None,
+    no_toast: bool = False,
+    extra: dict | None = None,
+    namespace: str = "/auth",
+) -> None:
+    payload = build_notify_payload(note, kind=kind, toast=toast, no_toast=no_toast, extra=extra)
     with suppress(Exception):
         await sio.emit("notify", payload, room=f"user:{int(user_id)}", namespace=namespace)
 

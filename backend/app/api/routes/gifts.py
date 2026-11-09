@@ -9,7 +9,7 @@ from ...schemas.gifts import GiftOut, GiftPurchaseIn, GiftPurchaseOut, MyGiftsOu
 from ...security.auth_tokens import get_identity
 from ...security.decorators import log_route
 from ...services.blacklist import blacklist_relation
-from ...services.gifts import buy_gift, gift_catalog, my_gifts, remove_user_gift, user_gift_purchase, user_gifts
+from ...services.gifts import buy_gift, dismiss_gift_toast, gift_catalog, my_gifts, pending_gift_toasts, remove_user_gift, user_gift_purchase, user_gifts
 from ..utils import ensure_verification_allowed
 
 router = APIRouter()
@@ -42,6 +42,17 @@ async def my_collection(
     user_id = int(ident["id"])
     await ensure_verification_allowed(session, user_id)
     return await my_gifts(session, user_id, limit=limit, offset=offset)
+
+
+@router.get("/pending-toasts")
+@log_route("gifts.pending_toasts")
+async def pending_toasts(
+    after_id: int = Query(default=0, ge=0, le=2**31 - 1),
+    limit: int = Query(default=20, ge=1, le=20),
+    ident: Identity = Depends(get_identity),
+    session: AsyncSession = Depends(get_session),
+) -> list[dict]:
+    return await pending_gift_toasts(session, owner_id=int(ident["id"]), after_id=after_id, limit=limit)
 
 
 @router.get("/users/{user_id}", response_model=UserGiftsOut)
@@ -80,6 +91,17 @@ async def purchase_details(
     session: AsyncSession = Depends(get_session),
 ) -> UserGiftOut:
     return await user_gift_purchase(session, acquisition_id, owner_id=int(ident["id"]))
+
+
+@router.post("/purchases/{acquisition_id}/dismiss-toast", response_model=Ok)
+@log_route("gifts.dismiss_toast")
+async def dismiss_toast(
+    acquisition_id: int = Path(gt=0, le=2**31 - 1),
+    ident: Identity = Depends(get_identity),
+    session: AsyncSession = Depends(get_session),
+) -> Ok:
+    await dismiss_gift_toast(session, acquisition_id, owner_id=int(ident["id"]))
+    return Ok()
 
 
 @router.delete("/purchases/{acquisition_id}", response_model=Ok)

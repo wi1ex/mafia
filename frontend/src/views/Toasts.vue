@@ -1,12 +1,12 @@
 <template>
   <Teleport to="#desktop-teleport-root">
-  <div class="toasts" @transitionend="onTransEnd">
+  <div class="toasts" :class="{ 'toasts--scrollable': items.length > 1 && items.some(t => t.kind === 'gift_received') }" @transitionend="onTransEnd">
     <div v-for="t in items" :key="t.key" class="toast" :data-key="t.key" :class="[toastAppearance(t.kind).tone, { closing: t._closing }]">
       <UiIcon class="toast-icon" :icon="toastAppearance(t.kind).icon" />
       <div class="toast-div">
         <header>
           <span>{{ t.title }}</span>
-          <button @click="closeManual(t)">
+          <button type="button" aria-label="Закрыть уведомление" :disabled="t.kind === 'gift_received' && t._actionBusy" @click="dismissToast(t)">
             <UiIcon class="btn-icon" :icon="iconClose" />
           </button>
         </header>
@@ -67,7 +67,7 @@ import { useAuthStore, useNotifStore, useUserStore, inferFriendApiAction, resolv
 import { api } from '@/services/axios'
 import { alertDialog } from '@/services/confirm'
 import { canOpenMiniProfileTarget, normalizeMiniProfileUserId } from '@/services/miniProfile'
-import type { ToastAction, ToastPayload, ToastUser } from '@/services/toast'
+import { parseSocketToast, type ToastAction, type ToastPayload, type ToastUser } from '@/services/toast'
 import type { GiftCollectionItem } from '@/services/gifts'
 import { getProfileThemeOption } from '@/constants/profileThemes'
 import { getProfileThemeBadgeSources } from '@/constants/profileIcons'
@@ -95,6 +95,7 @@ const notif = useNotifStore()
 const userStore = useUserStore()
 const TOAST_TTL_MS = 30000
 const GIFT_TOAST_TTL_MS = 10 * 60 * 1000
+const PENDING_GIFT_TOAST_PAGE_SIZE = 20
 const toastSoundAudio = new Audio(toastSoundUrl)
 toastSoundAudio.preload = 'auto'
 
@@ -117,6 +118,8 @@ const openedGift = ref<GiftCollectionItem | null>(null)
 const miniProfileOpen = ref(false)
 const miniProfileUserId = ref<number | null>(null)
 const miniProfileInitial = ref<ToastUser | null>(null)
+const shownGiftToastIds = new Set<number>()
+let giftToastRequest: AbortController | null = null
 
 const hasToastUserThemeColor = (user?: ToastUser) => Boolean(getProfileThemeOption(user?.theme_color))
 const toastUserNickStyle = (user?: ToastUser) => {
@@ -183,9 +186,37 @@ async function closeManual(t: ToastItem){
   setTimeout(() => { void close(t.key) }, 300)
 }
 
+function giftToastAcquisitionId(toast: ToastPayload): number | undefined {
+  if (toast.kind !== 'gift_received') return
+  const action = toast.actions?.find(action => action.kind === 'gift_open')
+  if (action && Number.isSafeInteger(action.acquisition_id) && action.acquisition_id > 0) return action.acquisition_id
+}
+
+async function dismissGiftToast(acquisitionId: number): Promise<void> {
+  await api.post(`/gifts/purchases/${acquisitionId}/dismiss-toast`)
+}
+
+async function dismissToast(t: ToastItem): Promise<void> {
+  const acquisitionId = giftToastAcquisitionId(t)
+  if (acquisitionId === undefined) return closeManual(t)
+  if (t._actionBusy || t._closing) return
+
+  const sessionId = auth.sessionId
+  t._actionBusy = true
+  try {
+    await dismissGiftToast(acquisitionId)
+    if (sessionId === auth.sessionId) await closeManual(t)
+  } catch {
+    if (sessionId === auth.sessionId) void alertDialog('Не удалось закрыть уведомление о подарке. Попробуйте ещё раз.')
+  } finally {
+    t._actionBusy = false
+  }
+}
+
 async function runAction(t: ToastItem, action: ToastAction) {
   if (t._actionBusy) return
   t._actionBusy = true
+  const sessionId = auth.sessionId
   let actionOk = false
   try {
     if (!action) return
@@ -194,8 +225,9 @@ async function runAction(t: ToastItem, action: ToastAction) {
     } else if (action.kind === 'gift_open') {
       const acquisitionId = action.acquisition_id
       if (!Number.isSafeInteger(acquisitionId) || acquisitionId <= 0) throw new Error('Invalid gift')
-      const sessionId = auth.sessionId
       const { data } = await api.get<GiftCollectionItem>(`/gifts/purchases/${acquisitionId}`)
+      if (sessionId !== auth.sessionId) return
+      await dismissGiftToast(acquisitionId)
       if (sessionId !== auth.sessionId) return
       openedGift.value = data
     } else {
@@ -212,7 +244,10 @@ async function runAction(t: ToastItem, action: ToastAction) {
         void alertDialog('Не удалось выполнить действие')
       }
     } else if (action.kind === 'gift_open') {
-      void alertDialog('Не удалось открыть подарок. Возможно, он уже удалён.')
+      if (sessionId !== auth.sessionId) return
+      void alertDialog(e?.response?.status === 404
+        ? 'Подарок больше недоступен.'
+        : 'Не удалось открыть подарок. Попробуйте ещё раз.')
     } else {
       void alertDialog('Не удалось перейти по ссылке')
     }
@@ -291,9 +326,12 @@ function giftReceiptLine(toast: ToastPayload): string {
     : 'подарил вам подписку'
 }
 
-function onToast(event: Event): void {
-  const toast = (event as CustomEvent<ToastPayload>).detail
-  if (!toast) return
+function showToast(toast: ToastPayload): void {
+  const acquisitionId = giftToastAcquisitionId(toast)
+  if (acquisitionId !== undefined) {
+    if (!auth.isAuthed || shownGiftToastIds.has(acquisitionId)) return
+    shownGiftToastIds.add(acquisitionId)
+  }
   const key = Date.now() + Math.random()
   items.value.unshift({ ...toast, key })
   if (!toast.silent) playToastSound()
@@ -305,18 +343,63 @@ function onToast(event: Event): void {
   }, isGiftReceipt(toast.kind) ? GIFT_TOAST_TTL_MS : TOAST_TTL_MS)
 }
 
+function onToast(event: Event): void {
+  const toast = (event as CustomEvent<ToastPayload>).detail
+  if (toast) showToast(toast)
+}
+
+async function loadPendingGiftToasts(): Promise<void> {
+  giftToastRequest?.abort()
+  giftToastRequest = null
+  const sessionId = auth.sessionId
+  if (!sessionId) return
+
+  const controller = new AbortController()
+  giftToastRequest = controller
+  let afterId = 0
+  try {
+    while (true) {
+      const { data } = await api.get<unknown[]>('/gifts/pending-toasts', {
+        params: { after_id: afterId, limit: PENDING_GIFT_TOAST_PAGE_SIZE }, signal: controller.signal,
+      })
+      if (controller.signal.aborted || sessionId !== auth.sessionId) return
+
+      const previousAfterId = afterId
+      for (const payload of data) {
+        const toast = parseSocketToast(payload)
+        if (!toast) continue
+        const acquisitionId = giftToastAcquisitionId(toast)
+        if (acquisitionId === undefined || acquisitionId <= afterId) continue
+        afterId = acquisitionId
+        showToast(toast)
+      }
+      if (data.length < PENDING_GIFT_TOAST_PAGE_SIZE || afterId === previousAfterId) return
+    }
+  } catch {
+    // Pending gifts stay on the server and can be loaded on the next connection.
+  } finally {
+    if (giftToastRequest === controller) giftToastRequest = null
+  }
+}
+
 watch(() => auth.sessionId, () => {
+  shownGiftToastIds.clear()
   items.value = []
   openedGift.value = null
+  void loadPendingGiftToasts()
 })
 
 onMounted(() => {
   window.addEventListener('toast', onToast)
+  window.addEventListener('auth-connected', loadPendingGiftToasts)
   window.addEventListener('auth-room_app_approved', onApproved)
+  void loadPendingGiftToasts()
 })
 
 onBeforeUnmount(() => {
+  giftToastRequest?.abort()
   window.removeEventListener('toast', onToast)
+  window.removeEventListener('auth-connected', loadPendingGiftToasts)
   window.removeEventListener('auth-room_app_approved', onApproved)
 })
 </script>
@@ -331,6 +414,18 @@ onBeforeUnmount(() => {
   gap: 10px;
   z-index: 2000;
   pointer-events: none;
+  &.toasts--scrollable {
+    max-height: calc(var(--app-viewport-height, 100dvh) - 80px);
+    padding: 12px;
+    margin: -12px;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    scrollbar-width: thin;
+    pointer-events: auto;
+    .toast {
+      flex-shrink: 0;
+    }
+  }
   .toast {
     --toast-border-color: #{$blue-500};
     display: flex;

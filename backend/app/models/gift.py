@@ -1,6 +1,6 @@
 from __future__ import annotations
 from datetime import datetime
-from sqlalchemy import BigInteger, Boolean, CheckConstraint, DateTime, ForeignKey, Index, Integer, String, and_, func
+from sqlalchemy import BigInteger, Boolean, CheckConstraint, DateTime, ForeignKey, Index, Integer, String, and_, func, text
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql.elements import ColumnElement
 from ..core.db import Base
@@ -30,6 +30,8 @@ class UserGift(Base):
         Index("ix_user_gifts_gift_owner", "gift_id", "owner_id"),
         Index("ix_user_gifts_owner_acquired", "owner_id", "acquired_at", "id"),
         Index("ix_user_gifts_payer_acquired", "payer_id", "acquired_at", "id"),
+        Index("ix_user_gifts_pending_toasts", "owner_id", "id",
+              postgresql_where=text("toast_pending IS TRUE AND refunded_at IS NULL AND removed_at IS NULL")),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -45,6 +47,7 @@ class UserGift(Base):
     refunded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     refund_recipient_id: Mapped[int | None] = mapped_column(BigInteger)
     removed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    toast_pending: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     balance_before: Mapped[int] = mapped_column(BigInteger, nullable=False)
     balance_after: Mapped[int] = mapped_column(BigInteger, nullable=False)
 
