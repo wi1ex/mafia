@@ -200,6 +200,7 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 20px;
   width: 100%;
+  height: fit-content;
   max-height: 100%;
   min-height: 0;
   box-sizing: border-box;
