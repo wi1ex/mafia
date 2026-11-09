@@ -5,7 +5,7 @@ import structlog
 from contextlib import suppress
 from time import time
 from datetime import date, datetime, timezone, timedelta
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Path, Request, UploadFile, status, Query
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Path, Request, Response, UploadFile, status, Query
 from sqlalchemy import select, func, or_, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
@@ -2736,6 +2736,7 @@ async def admin_gifts_delete(gift_id: int, session: AsyncSession = Depends(get_s
 @log_route("admin.users.operation_history")
 async def user_operation_history(
     user_id: int,
+    response: Response,
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=20, ge=1, le=100),
     session: AsyncSession = Depends(get_session),
@@ -2748,7 +2749,8 @@ async def user_operation_history(
     if user is None:
         raise HTTPException(status_code=404, detail="user_not_found")
 
-    return await operation_history(session, uid, page=page, per_page=per_page)
+    response.headers["Cache-Control"] = "private, no-store"
+    return await operation_history(session, uid, page=page, per_page=per_page, reveal_anonymous_subscription_sender=True)
 
 
 @router.get("/users/{user_id}/stats", response_model=UserStatsOut, dependencies=ADMIN_GUARD)

@@ -1,5 +1,5 @@
 from __future__ import annotations
-from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...core.db import get_session
 from ...core.roles import ROLE_ADMIN, ROLE_MODER, normalize_user_role
@@ -58,6 +58,7 @@ async def pending_toasts(
 @router.get("/users/{user_id}", response_model=UserGiftsOut)
 @log_route("gifts.user_collection")
 async def user_collection(
+    response: Response,
     user_id: int = Path(gt=0, le=2**63 - 1),
     grouped: bool = True,
     limit: int = Query(default=30, ge=1, le=100),
@@ -80,7 +81,13 @@ async def user_collection(
         if relation["b_blocks_a"]:
             raise HTTPException(403, detail="requester_blacklisted_by_target")
 
-    return await user_gifts(session, user_id, grouped=grouped, limit=limit, offset=offset)
+    reveal_anonymous_sender = viewer_role == ROLE_ADMIN and not grouped
+    if reveal_anonymous_sender:
+        response.headers["Cache-Control"] = "private, no-store"
+    return await user_gifts(
+        session, user_id, grouped=grouped, limit=limit, offset=offset,
+        reveal_anonymous_sender=reveal_anonymous_sender,
+    )
 
 
 @router.get("/purchases/{acquisition_id}", response_model=UserGiftOut)

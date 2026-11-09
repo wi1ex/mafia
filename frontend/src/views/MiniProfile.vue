@@ -1644,6 +1644,7 @@ async function loadProfileGifts(grouped: boolean, append = false): Promise<void>
   const uid = targetUserId.value
   const session = auth.sessionId
   const viewer = viewerUserId.value
+  const adminViewer = isAdminViewer.value
   const offset = append ? allGiftsOffset : 0
   const request = new AbortController()
   const loading = grouped ? giftPreviewLoading : allGiftsLoading
@@ -1659,7 +1660,8 @@ async function loadProfileGifts(grouped: boolean, append = false): Promise<void>
   error.value = false
   try {
     const collection = await loadGiftCollection(uid, grouped, GIFT_COLLECTION_LIMIT, offset, request.signal)
-    if (request.signal.aborted || uid !== targetUserId.value || session !== auth.sessionId || viewer !== viewerUserId.value || !giftCollectionAllowed.value) return
+    if (request.signal.aborted || uid !== targetUserId.value || session !== auth.sessionId
+      || viewer !== viewerUserId.value || adminViewer !== isAdminViewer.value || !giftCollectionAllowed.value) return
     if (grouped) giftPreview.value = collection
     else {
       const items = append ? [...allGifts.value.items, ...collection.items] : collection.items
@@ -2762,9 +2764,9 @@ watch([() => props.open, targetUserId, viewerAccountRestricted, deletedTargetBlo
   if (uid > 0) void loadProfile()
 }, { immediate: true })
 
-watch([giftCollectionAllowed, targetUserId, () => auth.sessionId, viewerUserId], ([allowed]) => {
+watch([giftCollectionAllowed, targetUserId, () => auth.sessionId, viewerUserId, isAdminViewer], ([allowed]) => {
   resetGiftCollection()
-  if (allowed) void loadProfileGifts(true)
+  if (allowed) refreshProfileGifts(targetUserId.value)
 }, { immediate: true })
 
 watch(view, next => {

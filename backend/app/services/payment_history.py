@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..models.coin_purchase import CoinPurchase
 from ..models.gift import UserGift
 from ..models.subscription_purchase import SubscriptionPurchase
+from ..models.user import User
 from ..schemas.user import UserOperationHistoryOut, UserOperationOut
 from .wallet import money_text, subscription_gift_is_anonymous
 
@@ -40,7 +41,8 @@ def _gift_user_label(snapshot: object, party: str, fallback_id: int | None) -> s
     return f"пользователя #{user_id}" if user_id > 0 else "пользователя"
 
 
-async def operation_history(session: AsyncSession, user_id: int, *, page: int = 1, per_page: int = 20) -> UserOperationHistoryOut:
+async def operation_history(session: AsyncSession, user_id: int, *, page: int = 1, per_page: int = 20,
+                            reveal_anonymous_subscription_sender: bool = False) -> UserOperationHistoryOut:
     page, per_page = max(1, page), max(1, min(100, per_page))
     coin = select(
         literal("coin").label("journal"), CoinPurchase.id.label("operation_id"),
@@ -88,6 +90,18 @@ async def operation_history(session: AsyncSession, user_id: int, *, page: int = 
         select(SubscriptionPurchase.id, SubscriptionPurchase.result)
         .where(SubscriptionPurchase.id.in_(gift_ids))
     )).all()) if gift_ids else {}
+    sender_usernames: dict[int, str] = {}
+    if reveal_anonymous_subscription_sender:
+        sender_ids = {
+            row["actor_id"] for row in rows
+            if row["journal"] == "subscription" and row["source"] == "gift"
+            and row["user_id"] == user_id and row["actor_id"] not in (None, user_id)
+            and subscription_gift_is_anonymous(gift_metadata.get(row["operation_id"]))
+        }
+        if sender_ids:
+            sender_usernames = dict((await session.execute(
+                select(User.id, User.username).where(User.id.in_(sender_ids), User.deleted_at.is_(None))
+            )).all())
     gift_purchase_ids = [int(row["operation_id"]) for row in rows if row["journal"] == "gift"]
     gift_purchases = {
         int(item.id): item for item in (await session.scalars(
@@ -138,6 +152,8 @@ async def operation_history(session: AsyncSession, user_id: int, *, page: int = 
             else:
                 if anonymous:
                     operation_type = "Анонимный подарок подписки"
+                    if sender_username := sender_usernames.get(row["actor_id"]):
+                        operation_type += f" ({sender_username})"
                 else:
                     sender = _gift_user_label(snapshot, "sender", row["actor_id"])
                     operation_type = f"Подарок подписки от {sender}"

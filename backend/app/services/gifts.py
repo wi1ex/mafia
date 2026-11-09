@@ -155,8 +155,11 @@ async def _persist_gift_notices(session: AsyncSession, acquisition: UserGift) ->
     return owner_note, payer_note
 
 
-async def _sender_profiles(acquisitions: list[UserGift]) -> dict[int, UserProfile]:
-    payer_ids = {row.payer_id for row in acquisitions if not row.anonymous and row.payer_id != row.owner_id}
+async def _sender_profiles(acquisitions: list[UserGift], *, reveal_anonymous_sender: bool = False) -> dict[int, UserProfile]:
+    payer_ids = {
+        row.payer_id for row in acquisitions
+        if row.payer_id != row.owner_id and (reveal_anonymous_sender or not row.anonymous)
+    }
     if not payer_ids:
         return {}
 
@@ -169,13 +172,16 @@ async def _sender_profiles(acquisitions: list[UserGift]) -> dict[int, UserProfil
         return {}
 
 
-def _gift_sender(acquisition: UserGift, profiles: dict[int, UserProfile]) -> GiftSenderOut | None:
-    if acquisition.anonymous or acquisition.payer_id == acquisition.owner_id:
+def _gift_sender(acquisition: UserGift, profiles: dict[int, UserProfile], *,
+                 reveal_anonymous_sender: bool = False) -> GiftSenderOut | None:
+    if acquisition.payer_id == acquisition.owner_id or (acquisition.anonymous and not reveal_anonymous_sender):
         return None
 
     profile = profiles.get(acquisition.payer_id)
     if profile is not None and profile.get("deleted_at"):
-        return None
+        if not acquisition.anonymous:
+            return None
+        profile = None
 
     data = profile or {}
     return GiftSenderOut(
@@ -276,11 +282,12 @@ async def _publish_gift_changes(user_ids: set[int], balance_user_ids: set[int]) 
             log.exception("gift.admin_balance_sync_failed", user_id=uid)
 
 
-def _inventory_item(acquisition: UserGift, gift: Gift, quantity: int, profiles: dict[int, UserProfile]) -> UserGiftOut:
+def _inventory_item(acquisition: UserGift, gift: Gift, quantity: int, profiles: dict[int, UserProfile], *,
+                    reveal_anonymous_sender: bool = False) -> UserGiftOut:
     return UserGiftOut(
         id=acquisition.id, gift_id=gift.id, quantity=quantity, acquired_at=acquisition.acquired_at,
         preview_key=gift.preview_key, avif_key=gift.avif_key,
-        sender=_gift_sender(acquisition, profiles),
+        sender=_gift_sender(acquisition, profiles, reveal_anonymous_sender=reveal_anonymous_sender),
     )
 
 
@@ -308,10 +315,16 @@ async def _user_gift_page(session: AsyncSession, user_id: int, *, grouped: bool,
     return rows[:limit], total, len(rows) > limit
 
 
-async def user_gifts(session: AsyncSession, user_id: int, *, grouped: bool, limit: int, offset: int) -> UserGiftsOut:
+async def user_gifts(session: AsyncSession, user_id: int, *, grouped: bool, limit: int, offset: int,
+                     reveal_anonymous_sender: bool = False) -> UserGiftsOut:
     page, total, has_more = await _user_gift_page(session, user_id, grouped=grouped, limit=limit, offset=offset)
-    profiles = await _sender_profiles([acquisition for acquisition, _gift, _quantity in page])
-    items = [_inventory_item(acquisition, gift, int(quantity), profiles) for acquisition, gift, quantity in page]
+    profiles = await _sender_profiles(
+        [acquisition for acquisition, _gift, _quantity in page], reveal_anonymous_sender=reveal_anonymous_sender,
+    )
+    items = [
+        _inventory_item(acquisition, gift, int(quantity), profiles, reveal_anonymous_sender=reveal_anonymous_sender)
+        for acquisition, gift, quantity in page
+    ]
     return UserGiftsOut(items=items, total=total, has_more=has_more)
 
 
