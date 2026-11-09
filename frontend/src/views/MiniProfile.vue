@@ -360,7 +360,7 @@
                   <h3>Подарки ({{ allGifts.total || giftPreview?.total || 0 }})</h3>
                   <ul v-if="allGifts.items.length" class="profile-gifts-grid">
                     <li v-for="item in allGifts.items" :key="item.id" class="profile-gift-tile">
-                      <GiftMedia class="profile-gift-media" :media="item" :label="`Подарок №${item.gift_id}`" animated />
+                      <GiftMedia class="profile-gift-media" :media="item" :label="`Подарок №${item.gift_id}`" />
                       <div v-if="item.sender && item.sender.id !== targetUserId" class="profile-gift-sender">
                         <img v-minio-img="{ key: giftSenderAvatarKey(item.sender.avatar_name), placeholder: iconDefaultAvatarBlack }" alt="" />
                         <span :title="item.sender.username || `user${item.sender.id}`">{{ item.sender.username || `user${item.sender.id}` }}</span>

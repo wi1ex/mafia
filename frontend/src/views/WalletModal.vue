@@ -156,7 +156,7 @@
               </div>
             </template>
           </section>
-          <UiScrollbar class="wallet-modal-scrollbar" :target="dialog" :inset-top="16" :inset-bottom="16" right="-16px" />
+          <UiScrollbar class="wallet-modal-scrollbar" :target="dialog" :inset-top="16" :inset-bottom="16" right="8px" />
         </div>
       </div>
     </Transition>
