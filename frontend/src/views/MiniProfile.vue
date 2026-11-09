@@ -76,7 +76,7 @@
                           </div>
                         </div>
 
-                        <button v-if="profileLoadedForTarget" ref="profileInfoTrigger" class="profile-info-trigger" type="button"
+                        <button v-if="profileInfoMode === 'tooltip'" ref="profileInfoTrigger" class="profile-info-trigger" type="button"
                                 aria-label="Информация профиля" :aria-describedby="profileInfoOpen ? profileInfoId : undefined"
                                 @pointerenter="showProfileInfo" @pointerleave="scheduleProfileInfoClose"
                                 @focus="showProfileInfo" @blur="scheduleProfileInfoClose" @click="showProfileInfo">
@@ -236,16 +236,16 @@
                   </div>
                 </div>
 
-                <div v-if="giftCollectionAllowed && (giftPreview.total || giftPreviewError)" class="profile-gifts-preview">
+                <div v-if="giftCollectionAllowed && (giftPreview?.total || giftPreviewError)" class="profile-gifts-preview">
                   <div class="profile-gifts-heading">
-                    <span>Подарки ({{ giftPreview.total }})</span>
-                    <button v-if="giftPreview.total" ref="allGiftsTrigger" type="button" @click="view = 'gifts'">Все</button>
+                    <span>Подарки ({{ giftPreview?.total ?? 0 }})</span>
+                    <button v-if="giftPreview?.total" ref="allGiftsTrigger" type="button" @click="view = 'gifts'">Все</button>
                   </div>
                   <div v-if="giftPreviewError" class="profile-gifts-state" role="alert">
                     <span>Не удалось загрузить подарки</span>
                     <button type="button" :disabled="giftPreviewLoading" @click="loadProfileGifts(true)">Повторить</button>
                   </div>
-                  <template v-if="giftPreview.items.length">
+                  <template v-if="giftPreview?.items.length">
                     <ul ref="giftStrip" class="profile-gifts-strip" aria-label="Подарки пользователя" tabindex="0">
                       <li v-for="item in giftPreview.items" :key="item.id" class="profile-gift-tile">
                         <GiftMedia class="profile-gift-media" :media="item" :label="`Подарок №${item.gift_id}`" animated />
@@ -255,6 +255,45 @@
                     <UiScrollbar class="profile-gifts-scrollbar" :target="giftStrip" orientation="horizontal" />
                   </template>
                 </div>
+              </template>
+
+              <Teleport to="#desktop-teleport-root" :disabled="showInlineProfileInfo">
+                <div v-if="showInlineProfileInfo || (profileInfoMode === 'tooltip' && profileInfoTrigger && profileInfoOpen)"
+                     :key="showInlineProfileInfo ? 'inline' : 'tooltip'" ref="profileInfoPopover"
+                     :class="showInlineProfileInfo ? 'profile-info-inline' : 'profile-info-tooltip'"
+                     :id="showInlineProfileInfo ? undefined : profileInfoId" :role="showInlineProfileInfo ? 'region' : 'tooltip'"
+                     :aria-label="showInlineProfileInfo ? 'Информация профиля' : undefined"
+                     @pointerenter="cancelProfileInfoClose" @pointerleave="profileInfoOpen && scheduleProfileInfoClose()">
+                  <dl>
+                    <div class="profile-info-row">
+                      <dt>Дата регистрации</dt>
+                      <dd>{{ registeredAtLabel }}</dd>
+                    </div>
+                    <div class="profile-info-row">
+                      <dt>Последняя игра</dt>
+                      <dd>{{ lastGameAtLabel }}</dd>
+                    </div>
+                    <div v-if="!isSelfProfile" class="profile-info-row">
+                      <dt>Последний раз в сети</dt>
+                      <dd>{{ lastOnlineLabel }}</dd>
+                    </div>
+                    <div v-if="showSubscriptionInfo" class="profile-info-row">
+                      <dt>Подписка</dt>
+                      <dd>{{ displayedSubscriptionExpiryLabel }}</dd>
+                    </div>
+                    <div class="profile-info-row">
+                      <dt>Роли пользователя</dt>
+                      <dd class="profile-role-tags">
+                        <span v-for="role in profileRoleBadges" :key="role.key" class="profile-role-badge" :class="`profile-role-badge--${role.key}`">
+                          {{ role.label }}
+                        </span>
+                      </dd>
+                    </div>
+                  </dl>
+                </div>
+              </Teleport>
+
+              <template v-if="view === 'profile'">
                 <div v-if="!showRestrictedProfileSections" class="profile-restricted-div">
                   <UiIcon class="profile-restricted-img" :icon="iconDanger" />
                   <span class="profile-restricted-text">Вы в Черном списке у пользователя</span>
@@ -318,7 +357,7 @@
                 <ProfileStats v-if="view === 'stats'" :stats-url="resolvedStatsUrl" />
                 <ProfileHistory v-else-if="view === 'history'" :history-url="resolvedHistoryUrl" :per-page="5" />
                 <div v-else-if="giftCollectionAllowed" class="profile-all-gifts">
-                  <h3>Подарки ({{ allGifts.total || giftPreview.total }})</h3>
+                  <h3>Подарки ({{ allGifts.total || giftPreview?.total || 0 }})</h3>
                   <ul v-if="allGifts.items.length" class="profile-gifts-grid">
                     <li v-for="item in allGifts.items" :key="item.id" class="profile-gift-tile">
                       <GiftMedia class="profile-gift-media" :media="item" :label="`Подарок №${item.gift_id}`" animated />
@@ -389,35 +428,6 @@
       @subscription-purchased="onSubscriptionGiftPurchased"
       @gift-purchased="onGiftPurchased"
     />
-    <div v-if="profileInfoTrigger && profileInfoOpen" :id="profileInfoId" ref="profileInfoPopover" class="profile-info-tooltip" role="tooltip"
-         @pointerenter="cancelProfileInfoClose" @pointerleave="scheduleProfileInfoClose">
-      <dl>
-        <div class="profile-info-row">
-          <dt>Дата регистрации</dt>
-          <dd>{{ registeredAtLabel }}</dd>
-        </div>
-        <div class="profile-info-row">
-          <dt>Последняя игра</dt>
-          <dd>{{ lastGameAtLabel }}</dd>
-        </div>
-        <div v-if="!isSelfProfile" class="profile-info-row">
-          <dt>Последний раз в сети</dt>
-          <dd>{{ lastOnlineLabel }}</dd>
-        </div>
-        <div v-if="showSubscriptionInfo" class="profile-info-row">
-          <dt>Подписка</dt>
-          <dd>{{ displayedSubscriptionExpiryLabel }}</dd>
-        </div>
-        <div class="profile-info-row">
-          <dt>Роли пользователя</dt>
-          <dd class="profile-role-tags">
-            <span v-for="role in profileRoleBadges" :key="role.key" class="profile-role-badge" :class="`profile-role-badge--${role.key}`">
-              {{ role.label }}
-            </span>
-          </dd>
-        </div>
-      </dl>
-    </div>
     <div v-if="balanceHistoryAllowed" v-show="balanceHistoryOpen" ref="balanceHistoryPopover" class="profile-balance-history-tooltip"
          :class="{ 'profile-balance-history-tooltip--above': balanceHistoryAbove }" :style="balanceHistoryStyle" role="dialog" :aria-label="`История операций ${displayName}`" tabindex="-1"
          @pointerenter="showBalanceHistory" @pointerleave="scheduleBalanceHistoryClose" @focusin="showBalanceHistory" @focusout="scheduleBalanceHistoryClose" @pointerdown.stop @click.stop>
@@ -701,7 +711,7 @@ const blacklistBusy = ref(false)
 const view = ref<'profile' | 'stats' | 'history' | 'gifts'>('profile')
 const GIFT_COLLECTION_LIMIT = 30
 function emptyGiftCollection(): GiftCollection { return { items: [], total: 0, has_more: false } }
-const giftPreview = ref<GiftCollection>(emptyGiftCollection())
+const giftPreview = ref<GiftCollection | null>(null)
 const allGifts = ref<GiftCollection>(emptyGiftCollection())
 const giftPreviewLoading = ref(false)
 const allGiftsLoading = ref(false)
@@ -1032,6 +1042,12 @@ const showRestrictedProfileSections = computed(() => !(
 ))
 const giftCollectionAllowed = computed(() => props.open && profileLoadedForTarget.value && showRestrictedProfileSections.value
   && !viewerAccountRestricted.value && !targetDeleted.value && !loadError.value)
+const profileInfoMode = computed(() => {
+  if (!profileLoadedForTarget.value || !showRestrictedProfileSections.value) return null
+  if (giftPreview.value) return giftPreview.value.total > 0 ? 'tooltip' : 'inline'
+  return !giftCollectionAllowed.value || giftPreviewError.value ? 'tooltip' : null
+})
+const showInlineProfileInfo = computed(() => view.value === 'profile' && profileInfoMode.value === 'inline')
 
 const friendStatusClass = computed(() => (friendStatus.value === 'self' ? 'none' : friendStatus.value))
 const friendActionLabel = computed(() => {
@@ -1613,7 +1629,7 @@ function resetGiftCollection(): void {
   giftPreviewRequest?.abort()
   allGiftsRequest?.abort()
   giftPreviewRequest = allGiftsRequest = undefined
-  giftPreview.value = emptyGiftCollection()
+  giftPreview.value = null
   allGifts.value = emptyGiftCollection()
   giftPreviewLoading.value = allGiftsLoading.value = false
   giftPreviewError.value = allGiftsError.value = allGiftsRetryAppend.value = false
@@ -1681,7 +1697,7 @@ function onGiftCatalogUpdate(event: Event): void {
   if (!update?.media_changed || !giftCollectionAllowed.value) return
   const giftId = Number(update.gift_id)
   if (giftPreviewLoading.value || allGiftsLoading.value
-    || giftPreview.value.items.some(item => item.gift_id === giftId)
+    || giftPreview.value?.items.some(item => item.gift_id === giftId)
     || allGifts.value.items.some(item => item.gift_id === giftId)) {
     refreshProfileGifts(targetUserId.value)
   }
@@ -4012,22 +4028,41 @@ onBeforeUnmount(() => {
 }
 .profile-info-tooltip {
   position: fixed;
-  box-sizing: border-box;
-  padding: 16px;
   border-radius: 24px;
   background-color: $neutral-100;
   box-shadow: 0 2px 16px rgba($neutral-black, 0.2);
   color: $neutral-black;
-  font-family: Hauora-Regular;
-  font-size: 16px;
   line-height: 20px;
-  letter-spacing: -0.32px;
   overflow-y: auto;
   z-index: 1600;
+}
+.profile-info-inline {
+  --profile-info-label-color: #{$neutral-300};
+  --profile-info-row-gap: 6px;
+  --profile-info-role-padding: 12px;
+  --profile-info-player: #{rgba($soft-purple-500, 0.65)};
+  --profile-info-head-rate: #{rgba($green-500, 0.65)};
+  --profile-info-moder: #{rgba($red-500, 0.65)};
+  --profile-info-admin: #{rgba($neutral-black, 0.65)};
+  border-radius: 20px;
+  background-color: rgba($soft-purple-900, 0.65);
+  color: $neutral-100;
+  line-height: 16px;
+  .profile-info-row {
+    min-height: 22px;
+  }
+}
+.profile-info-tooltip,
+.profile-info-inline {
+  box-sizing: border-box;
+  padding: 16px;
+  font-family: Hauora-Regular;
+  font-size: 16px;
+  letter-spacing: -0.32px;
   dl {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--profile-info-row-gap, 8px);
     margin: 0;
     .profile-info-row {
       display: flex;
@@ -4035,7 +4070,7 @@ onBeforeUnmount(() => {
       justify-content: space-between;
       gap: 12px;
       dt {
-        color: $neutral-700;
+        color: var(--profile-info-label-color, #{$neutral-700});
       }
       dd {
         margin: 0;
@@ -4048,7 +4083,7 @@ onBeforeUnmount(() => {
         justify-content: flex-end;
         gap: 4px;
         .profile-role-badge {
-          padding: 2px 10px;
+          padding: 2px var(--profile-info-role-padding, 10px);
           border-radius: 999px;
           color: $neutral-white;
           font-family: Hauora-SemiBold;
@@ -4056,16 +4091,16 @@ onBeforeUnmount(() => {
           line-height: 18px;
           white-space: nowrap;
           &--player {
-            background-color: $soft-purple-600;
+            background-color: var(--profile-info-player, #{$soft-purple-600});
           }
           &--head_rate {
-            background-color: $green-700;
+            background-color: var(--profile-info-head-rate, #{$green-700});
           }
           &--moder {
-            background-color: $red-600;
+            background-color: var(--profile-info-moder, #{$red-600});
           }
           &--admin {
-            background-color: $neutral-black;
+            background-color: var(--profile-info-admin, #{$neutral-black});
           }
         }
       }
