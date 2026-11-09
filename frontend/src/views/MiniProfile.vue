@@ -204,39 +204,41 @@
               </template>
 
               <Teleport to="#desktop-teleport-root" :disabled="showInlineProfileInfo">
-                <div v-if="showInlineProfileInfo || (profileInfoMode === 'tooltip' && profileInfoTrigger && profileInfoOpen)"
-                     :key="showInlineProfileInfo ? 'inline' : 'tooltip'" ref="profileInfoPopover"
-                     :class="showInlineProfileInfo ? 'profile-info-inline' : 'profile-info-tooltip'"
-                     :id="showInlineProfileInfo ? undefined : profileInfoId" :role="showInlineProfileInfo ? 'region' : 'tooltip'"
-                     :aria-label="showInlineProfileInfo ? 'Информация профиля' : undefined"
-                     @pointerenter="cancelProfileInfoClose" @pointerleave="profileInfoOpen && scheduleProfileInfoClose()">
-                  <dl>
-                    <div class="profile-info-row">
-                      <dt>Дата регистрации</dt>
-                      <dd>{{ registeredAtLabel }}</dd>
-                    </div>
-                    <div class="profile-info-row">
-                      <dt>Последняя игра</dt>
-                      <dd>{{ lastGameAtLabel }}</dd>
-                    </div>
-                    <div v-if="!isSelfProfile" class="profile-info-row">
-                      <dt>Последний раз в сети</dt>
-                      <dd>{{ lastOnlineLabel }}</dd>
-                    </div>
-                    <div v-if="showSubscriptionInfo" class="profile-info-row">
-                      <dt>Подписка</dt>
-                      <dd>{{ displayedSubscriptionExpiryLabel }}</dd>
-                    </div>
-                    <div class="profile-info-row">
-                      <dt>Роли пользователя</dt>
-                      <dd class="profile-role-tags">
-                        <span v-for="role in profileRoleBadges" :key="role.key" class="profile-role-badge" :class="`profile-role-badge--${role.key}`">
-                          {{ role.label }}
-                        </span>
-                      </dd>
-                    </div>
-                  </dl>
-                </div>
+                <Transition name="profile-info-fade" :css="profileInfoMode === 'tooltip'">
+                  <div v-if="showInlineProfileInfo || (profileInfoMode === 'tooltip' && profileInfoTrigger && profileInfoOpen)"
+                       :key="showInlineProfileInfo ? 'inline' : 'tooltip'" ref="profileInfoPopover"
+                       :class="showInlineProfileInfo ? 'profile-info-inline' : 'profile-info-tooltip'"
+                       :id="showInlineProfileInfo ? undefined : profileInfoId" :role="showInlineProfileInfo ? 'region' : 'tooltip'"
+                       :aria-label="showInlineProfileInfo ? 'Информация профиля' : undefined"
+                       @pointerenter="cancelProfileInfoClose" @pointerleave="profileInfoOpen && scheduleProfileInfoClose()">
+                    <dl>
+                      <div class="profile-info-row">
+                        <dt>Дата регистрации</dt>
+                        <dd>{{ registeredAtLabel }}</dd>
+                      </div>
+                      <div class="profile-info-row">
+                        <dt>Последняя игра</dt>
+                        <dd>{{ lastGameAtLabel }}</dd>
+                      </div>
+                      <div v-if="!isSelfProfile" class="profile-info-row">
+                        <dt>Последний раз в сети</dt>
+                        <dd>{{ lastOnlineLabel }}</dd>
+                      </div>
+                      <div v-if="showSubscriptionInfo" class="profile-info-row">
+                        <dt>Подписка</dt>
+                        <dd>{{ displayedSubscriptionExpiryLabel }}</dd>
+                      </div>
+                      <div class="profile-info-row">
+                        <dt>Роли пользователя</dt>
+                        <dd class="profile-role-tags">
+                          <span v-for="role in profileRoleBadges" :key="role.key" class="profile-role-badge" :class="`profile-role-badge--${role.key}`">
+                            {{ role.label }}
+                          </span>
+                        </dd>
+                      </div>
+                    </dl>
+                  </div>
+                </Transition>
               </Teleport>
 
               <template v-if="view === 'profile'">
@@ -4035,6 +4037,15 @@ onBeforeUnmount(() => {
   line-height: 20px;
   overflow-y: auto;
   z-index: 1600;
+}
+.profile-info-fade-enter-active,
+.profile-info-fade-leave-active {
+  transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
+}
+.profile-info-fade-enter-from,
+.profile-info-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
 }
 .profile-info-inline {
   --profile-info-label-color: #{$neutral-300};
