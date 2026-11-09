@@ -1,7 +1,8 @@
 <template>
   <Teleport to="#desktop-teleport-root">
     <Transition name="wallet-overlay">
-      <div v-if="open && !restriction" class="wallet-overlay" :style="{ zIndex }" @pointerdown.self="armed = true" @pointerup.self="armed && requestClose()" @pointerleave.self="armed = false">
+      <div v-if="open && !restriction" class="wallet-overlay" :style="{ zIndex }" @pointerdown.stop.self="armed = true"
+           @pointerup.self="armed && requestClose()" @pointerleave.self="armed = false" @pointercancel.self="armed = false" @click.stop>
         <div class="wallet-shell">
           <section ref="dialog" class="wallet-modal" role="dialog" aria-modal="true" :aria-labelledby="settings.paymentsEnabled ? 'wallet-title' : 'wallet-unavailable-title'" tabindex="-1" @keydown="onDialogKeydown">
             <template v-if="!settings.paymentsEnabled">

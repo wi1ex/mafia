@@ -1,7 +1,7 @@
 <template>
   <Teleport to="#desktop-teleport-root">
     <dialog ref="dialog" class="gift-opening" :class="{ 'gift-opening--intro': !revealed }"
-            :aria-labelledby="titleId" @cancel.prevent="close" @click.self="close">
+            :aria-labelledby="titleId" @cancel.prevent="close" @pointerdown.stop @click.stop.self="close">
       <img v-if="openingUrl" class="gift-opening-animation" :src="openingUrl" alt=""
            @load="startRevealTimer" @error="revealGift" />
       <div class="gift-opening-content" :inert="!revealed">

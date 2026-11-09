@@ -107,7 +107,7 @@
           <img :src="iconCoin" width="64" height="64" alt="" />
           <span class="wallet-balance-plus"><UiIcon :icon="iconAddPlus" /></span>
         </span>
-        <span class="wallet-balance-amount">{{ walletBalanceText }} <span>DC</span></span>
+        <span class="wallet-balance-amount">{{ walletBalanceText }} DC</span>
       </button>
 
       <div class="user-menu" ref="userMenuEl">
@@ -947,9 +947,6 @@ function openAuth(mode: 'login' | 'register') {
         line-height: 20px;
         white-space: nowrap;
         transition: background-color 0.25s ease-in-out, color 0.25s ease-in-out;
-        span {
-          font-size: 12px;
-        }
       }
       &:hover,
       &:focus-visible {

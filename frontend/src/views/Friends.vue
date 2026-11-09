@@ -214,7 +214,7 @@ async function refreshListAfterStateError(e: any): Promise<void> {
 function bindDoc() {
   if (onDocDown) return
   onDocDown = (e: Event) => {
-    if (confirmState.open) return
+    if (confirmState.open || miniProfileOpen.value) return
     const t = e.target as Node | null
     if (!t) return
     const hasContains = (el: any, target: Node) => typeof el?.contains === 'function' && el.contains(target)
@@ -407,6 +407,11 @@ watch(() => props.open, async v => {
     stopPolling()
     stopAutoClose()
   }
+})
+
+watch(miniProfileOpen, open => {
+  if (open) stopAutoClose()
+  else if (props.open) startAutoClose()
 })
 
 onBeforeUnmount(() => {
