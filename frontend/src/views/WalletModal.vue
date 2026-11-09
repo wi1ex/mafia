@@ -2,159 +2,162 @@
   <Teleport to="#desktop-teleport-root">
     <Transition name="wallet-overlay">
       <div v-if="open && !restriction" class="wallet-overlay" :style="{ zIndex }" @pointerdown.self="armed = true" @pointerup.self="armed && requestClose()" @pointerleave.self="armed = false">
-        <section ref="dialog" class="wallet-modal" role="dialog" aria-modal="true" :aria-labelledby="settings.paymentsEnabled ? 'wallet-title' : 'wallet-unavailable-title'" tabindex="-1" @keydown="onDialogKeydown">
-          <template v-if="!settings.paymentsEnabled">
-            <div class="wallet-unavailable">
-              <div class="wallet-unavailable-copy">
-                <h2 id="wallet-unavailable-title">Упс! Что-то пошло не так.</h2>
-                <p>В данный момент платежи не принимаются</p>
-              </div>
-              <img class="wallet-unavailable-art" :src="paymentsUnavailableImage" alt="" aria-hidden="true" />
-            </div>
-            <div class="wallet-unavailable-actions">
-              <UiButton size="low" text="Закрыть" @click="requestClose" />
-            </div>
-          </template>
-          <template v-else>
-            <header :class="{ 'wallet-header--gift': isGift }">
-              <div class="wallet-header-balance" :class="{ 'wallet-header-balance--long': balanceText.length > 12 }" role="status" aria-live="polite" aria-atomic="true" :aria-label="`Баланс: ${balanceText} DC`">
-                <strong>{{ balanceText }}</strong>
-                <UiIcon class="wallet-balance-icon" :icon="iconCoin" />
-              </div>
-              <div class="wallet-heading">
-                <h2 id="wallet-title">{{ isGift ? lockedTab === 'gifts' ? 'Отправить подарок' : 'Подарить подписку' : 'Магазин' }}</h2>
-              </div>
-              <UiButton class="wallet-close" variant="white" size="low" :icon="iconClose" aria-label="Закрыть" :disabled="busy" @click="requestClose" />
-            </header>
-            <div v-if="isGift" class="wallet-gift-header">
-              <div class="wallet-gift-recipient">
-                <span>Пользователю</span>
-                <div class="wallet-gift-user">
-                  <img v-minio-img="{ key: giftAvatarKey, placeholder: defaultAvatar, lazy: false }" alt="" />
-                  <strong>{{ giftRecipientName }}</strong>
+        <div class="wallet-shell">
+          <section ref="dialog" class="wallet-modal" role="dialog" aria-modal="true" :aria-labelledby="settings.paymentsEnabled ? 'wallet-title' : 'wallet-unavailable-title'" tabindex="-1" @keydown="onDialogKeydown">
+            <template v-if="!settings.paymentsEnabled">
+              <div class="wallet-unavailable">
+                <div class="wallet-unavailable-copy">
+                  <h2 id="wallet-unavailable-title">Упс! Что-то пошло не так.</h2>
+                  <p>В данный момент платежи не принимаются</p>
                 </div>
+                <img class="wallet-unavailable-art" :src="paymentsUnavailableImage" alt="" aria-hidden="true" />
               </div>
-              <UiSwitch v-if="lockedTab === 'subscription' || (lockedTab === 'gifts' && !catalogError)"
-                        v-model="anonymousGift" class="wallet-gift-anonymous"
-                        label="Отправить анонимно" off-label="Нет" on-label="Да" theme="light" size="low"
-                        :width="144" :disabled="busy || opening" />
-            </div>
-            <UiMultiSwitch v-else :model-value="tab" :options="walletTabs" size="big" aria-label="Разделы магазина"
-                           :disabled="busy || opening" @update:model-value="changeTab" />
-            <p v-if="error" class="wallet-error" role="alert">{{ error }}</p>
-            <p v-if="isGift && !giftRecipientValid" class="wallet-error" role="alert">Выберите другого пользователя для подарка.</p>
-
-            <div v-if="!isGift" v-show="tab === 'coins'" id="wallet-coins" role="region" aria-label="Пополнение баланса" class="wallet-panel">
-              <form class="wallet-form" @submit.prevent="payCoins">
-                <div class="wallet-package-grid" role="group" aria-label="Пакет монет">
-                  <button v-for="coinPackage in coinPackages" :key="coinPackage.quantity" class="wallet-package-card" type="button"
-                          :class="{ active: quantity === coinPackage.quantity }" :aria-pressed="quantity === coinPackage.quantity"
-                          :disabled="busy || opening" @click="quantity = coinPackage.quantity">
-                    <span v-if="coinPackage.discount" class="wallet-discount">−{{ coinPackage.discount }}%</span>
-                    <span class="wallet-package-selected" aria-hidden="true">
-                      <UiIcon :icon="iconCheckMark" />
-                    </span>
-                    <img class="wallet-package-illustration wallet-coin-illustration" :src="coinPackageImages[coinPackage.quantity]"
-                         width="512" height="384" alt="" loading="lazy" decoding="async" />
-                    <strong class="wallet-package-title">{{ coinPackage.quantity }} DC</strong>
-                    <span class="wallet-package-price">
-                      <span>{{ coinPackage.amount }} {{ coinPackage.unit }}</span>
-                    </span>
-                  </button>
+              <div class="wallet-unavailable-actions">
+                <UiButton size="low" text="Закрыть" @click="requestClose" />
+              </div>
+            </template>
+            <template v-else>
+              <header :class="{ 'wallet-header--gift': isGift }">
+                <div class="wallet-header-balance" :class="{ 'wallet-header-balance--long': balanceText.length > 12 }" role="status" aria-live="polite" aria-atomic="true" :aria-label="`Баланс: ${balanceText} DC`">
+                  <strong>{{ balanceText }}</strong>
+                  <UiIcon class="wallet-balance-icon" :icon="iconCoin" />
                 </div>
-                <div class="wallet-payment-fields">
-                  <div class="wallet-payment-field">
-                    <label for="dc-email" class="wallet-payment-label">Ваш Email</label>
-                    <UiInput id="dc-email" v-model.trim="email" type="email" autocomplete="email" label="" label-mode="placeholder"
-                             placeholder="mail@example.com" mode="light" size="low" :disabled="busy || opening" />
+                <div class="wallet-heading">
+                  <h2 id="wallet-title">{{ isGift ? lockedTab === 'gifts' ? 'Отправить подарок' : 'Подарить подписку' : 'Магазин' }}</h2>
+                </div>
+                <UiButton class="wallet-close" variant="white" size="low" :icon="iconClose" aria-label="Закрыть" :disabled="busy" @click="requestClose" />
+              </header>
+              <div v-if="isGift" class="wallet-gift-header">
+                <div class="wallet-gift-recipient">
+                  <span>Пользователю</span>
+                  <div class="wallet-gift-user">
+                    <img v-minio-img="{ key: giftAvatarKey, placeholder: defaultAvatar, lazy: false }" alt="" />
+                    <strong>{{ giftRecipientName }}</strong>
                   </div>
-                  <div class="wallet-payment-field">
-                    <span id="wallet-currency-label" class="wallet-payment-label">Валюта оплаты</span>
-                    <div class="wallet-currencies" role="group" aria-labelledby="wallet-currency-label">
-                      <UiButton v-for="item in currencies" :key="item" class="wallet-choice" size="low"
-                                :variant="currency === item ? 'green' : 'white'" :icon="currencyIcons[item]" :text="item"
-                                :aria-pressed="currency === item" :disabled="busy" @click="selectCurrency(item)" />
+                </div>
+                <UiSwitch v-if="lockedTab === 'subscription' || (lockedTab === 'gifts' && !catalogError)"
+                          v-model="anonymousGift" class="wallet-gift-anonymous"
+                          label="Отправить анонимно" off-label="Нет" on-label="Да" theme="light" size="low"
+                          :width="144" :disabled="busy || opening" />
+              </div>
+              <UiMultiSwitch v-else :model-value="tab" :options="walletTabs" size="big" aria-label="Разделы магазина"
+                             :disabled="busy || opening" @update:model-value="changeTab" />
+              <p v-if="error" class="wallet-error" role="alert">{{ error }}</p>
+              <p v-if="isGift && !giftRecipientValid" class="wallet-error" role="alert">Выберите другого пользователя для подарка.</p>
+
+              <div v-if="!isGift" v-show="tab === 'coins'" id="wallet-coins" role="region" aria-label="Пополнение баланса" class="wallet-panel">
+                <form class="wallet-form" @submit.prevent="payCoins">
+                  <div class="wallet-package-grid" role="group" aria-label="Пакет монет">
+                    <button v-for="coinPackage in coinPackages" :key="coinPackage.quantity" class="wallet-package-card" type="button"
+                            :class="{ active: quantity === coinPackage.quantity }" :aria-pressed="quantity === coinPackage.quantity"
+                            :disabled="busy || opening" @click="quantity = coinPackage.quantity">
+                      <span v-if="coinPackage.discount" class="wallet-discount">−{{ coinPackage.discount }}%</span>
+                      <span class="wallet-package-selected" aria-hidden="true">
+                        <UiIcon :icon="iconCheckMark" />
+                      </span>
+                      <img class="wallet-package-illustration wallet-coin-illustration" :src="coinPackageImages[coinPackage.quantity]"
+                           width="512" height="384" alt="" loading="lazy" decoding="async" />
+                      <strong class="wallet-package-title">{{ coinPackage.quantity }} DC</strong>
+                      <span class="wallet-package-price">
+                        <span>{{ coinPackage.amount }} {{ coinPackage.unit }}</span>
+                      </span>
+                    </button>
+                  </div>
+                  <div class="wallet-payment-fields">
+                    <div class="wallet-payment-field">
+                      <label for="dc-email" class="wallet-payment-label">Ваш Email</label>
+                      <UiInput id="dc-email" v-model.trim="email" type="email" autocomplete="email" label="" label-mode="placeholder"
+                               placeholder="mail@example.com" mode="light" size="low" :disabled="busy || opening" />
+                    </div>
+                    <div class="wallet-payment-field">
+                      <span id="wallet-currency-label" class="wallet-payment-label">Валюта оплаты</span>
+                      <div class="wallet-currencies" role="group" aria-labelledby="wallet-currency-label">
+                        <UiButton v-for="item in currencies" :key="item" class="wallet-choice" size="low"
+                                  :variant="currency === item ? 'green' : 'white'" :icon="currencyIcons[item]" :text="item"
+                                  :aria-pressed="currency === item" :disabled="busy" @click="selectCurrency(item)" />
+                      </div>
+                    </div>
+                    <div class="wallet-payment-field">
+                      <span id="wallet-payment-method-label" class="wallet-payment-label">Способ оплаты</span>
+                      <div class="wallet-payment-methods" role="group" aria-labelledby="wallet-payment-method-label">
+                        <UiButton v-for="method in paymentMethods" :key="method.id" class="wallet-choice" size="low"
+                                  :class="{ 'wallet-choice--brand': method.colorIcon }"
+                                  :variant="paymentMethod === method.id ? 'green' : 'white'" :icon="method.icon" :text="method.label"
+                                  :aria-pressed="paymentMethod === method.id" :disabled="busy || opening" @click="paymentMethod = method.id" />
+                      </div>
                     </div>
                   </div>
-                  <div class="wallet-payment-field">
-                    <span id="wallet-payment-method-label" class="wallet-payment-label">Способ оплаты</span>
-                    <div class="wallet-payment-methods" role="group" aria-labelledby="wallet-payment-method-label">
-                      <UiButton v-for="method in paymentMethods" :key="method.id" class="wallet-choice" size="low"
-                                :class="{ 'wallet-choice--brand': method.colorIcon }"
-                                :variant="paymentMethod === method.id ? 'green' : 'white'" :icon="method.icon" :text="method.label"
-                                :aria-pressed="paymentMethod === method.id" :disabled="busy || opening" @click="paymentMethod = method.id" />
+                  <UiButton class="wallet-action" type="submit" size="big" :text="wallet.invoiceBusy ? 'Создаём счёт…' : `Оплатить ${totalPrice}`" :disabled="!canPay" width="100%" />
+                </form>
+              </div>
+
+              <div v-if="!lockedTab || lockedTab === 'subscription'" v-show="tab === 'subscription'" id="wallet-subscription" role="region" :aria-label="isGift ? 'Подарить подписку' : 'Покупка подписки'" class="wallet-panel">
+                <form class="wallet-form" @submit.prevent="purchaseSubscription">
+                  <div class="wallet-package-grid" role="group" aria-label="Тариф подписки">
+                    <button v-for="plan in SUBSCRIPTION_PLANS" :key="plan.id" class="wallet-package-card" type="button"
+                            :class="{ active: subscriptionPlan === plan.id }" :aria-pressed="subscriptionPlan === plan.id"
+                            :disabled="busy || opening" @click="subscriptionPlan = plan.id">
+                      <span v-if="plan.discount" class="wallet-discount">−{{ plan.discount }}%</span>
+                      <span class="wallet-package-selected" aria-hidden="true">
+                        <UiIcon :icon="iconCheckMark" />
+                      </span>
+                      <img class="wallet-package-illustration" :src="subscriptionPlanImages[plan.id]"
+                           width="132" height="132" alt="" loading="lazy" decoding="async" />
+                      <strong class="wallet-package-title">{{ plan.label }}</strong>
+                      <span class="wallet-package-price">{{ plan.cost }} DC</span>
+                    </button>
+                  </div>
+                  <div class="wallet-benefits-card">
+                    <img class="background-image" :src="imageSlide8" alt="" aria-hidden="true" />
+                    <h3 class="wallet-benefits-title">Что входит в подписку:</h3>
+                    <ul class="wallet-benefits" aria-label="Привилегии подписки">
+                      <li v-for="benefit in subscriptionBenefits" :key="benefit">
+                        <UiIcon class="wallet-benefit-icon" :icon="iconCheckCircle" />
+                        <span>{{ benefit }}</span>
+                      </li>
+                    </ul>
+                  </div>
+                  <UiButton class="wallet-action" type="submit" size="big" :text="wallet.subscriptionBusy ? 'Покупаем…' : `${isGift ? 'Подарить' : 'Купить'} за ${selectedPlan.cost} DC${canAffordSubscription ? '' : ' — недостаточно монет'}`" :disabled="!canAffordSubscription || !giftRecipientValid || busy || opening" width="100%" />
+                </form>
+              </div>
+
+              <div v-if="tab === 'gifts'" id="wallet-gifts" role="region" aria-label="Подарки" class="wallet-panel wallet-panel--gifts"
+                   :class="{ 'wallet-panel--gift-detail': selectedGift && !catalogError }">
+                <p v-if="catalogLoading && !selectedGift" class="wallet-state" role="status">Загружаем подарки…</p>
+                <template v-else-if="catalogError">
+                  <p class="wallet-error" role="alert">Не удалось загрузить подарки.</p>
+                  <UiButton size="low" text="Повторить" @click="refreshGiftCatalog" />
+                </template>
+                <form v-else-if="selectedGift" class="wallet-form wallet-gift-detail" @submit.prevent="purchaseGift">
+                  <GiftMedia :key="selectedGift.id" class="wallet-gift-preview" :media="selectedGift" :animated="!giftAnimationDemo"
+                             :label="`Подарок №${selectedGift.id}`" />
+                  <div class="wallet-gift-actions">
+                    <UiButton class="wallet-gift-back" type="button" variant="white" size="big" :icon="iconArrowDown"
+                              text="Назад" :disabled="busy || opening" @click="closeGiftPreview" />
+                    <div class="wallet-gift-purchase-actions">
+                      <UiButton class="wallet-gift-animation" type="button" variant="white" size="big" text="Анимация"
+                                :disabled="busy || opening" @click="openGiftAnimationDemo" />
+                      <UiButton class="wallet-action" type="submit" size="big" :text="giftButtonText" :disabled="!canBuyGift" />
                     </div>
                   </div>
-                </div>
-                <UiButton class="wallet-action" type="submit" size="big" :text="wallet.invoiceBusy ? 'Создаём счёт…' : `Оплатить ${totalPrice}`" :disabled="!canPay" width="100%" />
-              </form>
-            </div>
-
-            <div v-if="!lockedTab || lockedTab === 'subscription'" v-show="tab === 'subscription'" id="wallet-subscription" role="region" :aria-label="isGift ? 'Подарить подписку' : 'Покупка подписки'" class="wallet-panel">
-              <form class="wallet-form" @submit.prevent="purchaseSubscription">
-                <div class="wallet-package-grid" role="group" aria-label="Тариф подписки">
-                  <button v-for="plan in SUBSCRIPTION_PLANS" :key="plan.id" class="wallet-package-card" type="button"
-                          :class="{ active: subscriptionPlan === plan.id }" :aria-pressed="subscriptionPlan === plan.id"
-                          :disabled="busy || opening" @click="subscriptionPlan = plan.id">
-                    <span v-if="plan.discount" class="wallet-discount">−{{ plan.discount }}%</span>
-                    <span class="wallet-package-selected" aria-hidden="true">
-                      <UiIcon :icon="iconCheckMark" />
-                    </span>
-                    <img class="wallet-package-illustration" :src="subscriptionPlanImages[plan.id]"
-                         width="132" height="132" alt="" loading="lazy" decoding="async" />
-                    <strong class="wallet-package-title">{{ plan.label }}</strong>
-                    <span class="wallet-package-price">{{ plan.cost }} DC</span>
-                  </button>
-                </div>
-                <div class="wallet-benefits-card">
-                  <img class="background-image" :src="imageSlide8" alt="" aria-hidden="true" />
-                  <h3 class="wallet-benefits-title">Что входит в подписку:</h3>
-                  <ul class="wallet-benefits" aria-label="Привилегии подписки">
-                    <li v-for="benefit in subscriptionBenefits" :key="benefit">
-                      <UiIcon class="wallet-benefit-icon" :icon="iconCheckCircle" />
-                      <span>{{ benefit }}</span>
-                    </li>
-                  </ul>
-                </div>
-                <UiButton class="wallet-action" type="submit" size="big" :text="wallet.subscriptionBusy ? 'Покупаем…' : `${isGift ? 'Подарить' : 'Купить'} за ${selectedPlan.cost} DC${canAffordSubscription ? '' : ' — недостаточно монет'}`" :disabled="!canAffordSubscription || !giftRecipientValid || busy || opening" width="100%" />
-              </form>
-            </div>
-
-            <div v-if="tab === 'gifts'" id="wallet-gifts" role="region" aria-label="Подарки" class="wallet-panel wallet-panel--gifts"
-                 :class="{ 'wallet-panel--gift-detail': selectedGift && !catalogError }">
-              <p v-if="catalogLoading && !selectedGift" class="wallet-state" role="status">Загружаем подарки…</p>
-              <template v-else-if="catalogError">
-                <p class="wallet-error" role="alert">Не удалось загрузить подарки.</p>
-                <UiButton size="low" text="Повторить" @click="refreshGiftCatalog" />
-              </template>
-              <form v-else-if="selectedGift" class="wallet-form wallet-gift-detail" @submit.prevent="purchaseGift">
-                <GiftMedia :key="selectedGift.id" class="wallet-gift-preview" :media="selectedGift" :animated="!giftAnimationDemo"
-                           :label="`Подарок №${selectedGift.id}`" />
-                <div class="wallet-gift-actions">
-                  <UiButton class="wallet-gift-back" type="button" variant="white" size="big" :icon="iconArrowDown"
-                            text="Назад" :disabled="busy || opening" @click="closeGiftPreview" />
-                  <div class="wallet-gift-purchase-actions">
-                    <UiButton class="wallet-gift-animation" type="button" variant="white" size="big" text="Анимация"
-                              :disabled="busy || opening" @click="openGiftAnimationDemo" />
-                    <UiButton class="wallet-action" type="submit" size="big" :text="giftButtonText" :disabled="!canBuyGift" />
+                </form>
+                <p v-else-if="!giftCatalog.length" class="wallet-state">Подарков пока нет</p>
+                <template v-else>
+                  <div ref="giftList" class="wallet-gift-grid" role="group" aria-label="Выберите подарок">
+                    <button v-for="gift in giftCatalog" :key="gift.id" class="wallet-gift-card" type="button" :data-gift-id="gift.id"
+                            :aria-label="`Подарок №${gift.id}, ${gift.price_dc} DC`" :disabled="busy || opening" @click="openGiftPreview(gift.id)">
+                      <GiftMedia class="wallet-gift-media" :media="gift" />
+                      <span class="wallet-package-price">{{ gift.price_dc }} DC</span>
+                    </button>
                   </div>
-                </div>
-              </form>
-              <p v-else-if="!giftCatalog.length" class="wallet-state">Подарков пока нет</p>
-              <template v-else>
-                <div ref="giftList" class="wallet-gift-grid" role="group" aria-label="Выберите подарок">
-                  <button v-for="gift in giftCatalog" :key="gift.id" class="wallet-gift-card" type="button" :data-gift-id="gift.id"
-                          :aria-label="`Подарок №${gift.id}, ${gift.price_dc} DC`" :disabled="busy || opening" @click="openGiftPreview(gift.id)">
-                    <GiftMedia class="wallet-gift-media" :media="gift" />
-                    <span class="wallet-package-price">{{ gift.price_dc }} DC</span>
-                  </button>
-                </div>
-                <UiScrollbar :target="giftList" right="-16px" />
-              </template>
-              <GiftOpeningModal v-if="giftAnimationDemo" :gift="giftAnimationDemo" demo @close="closeGiftAnimationDemo" />
-            </div>
-          </template>
-        </section>
+                  <UiScrollbar :target="giftList" right="-16px" />
+                </template>
+                <GiftOpeningModal v-if="giftAnimationDemo" :gift="giftAnimationDemo" demo @close="closeGiftAnimationDemo" />
+              </div>
+            </template>
+          </section>
+          <UiScrollbar class="wallet-modal-scrollbar" :target="dialog" :inset-top="16" :inset-bottom="16" right="-16px" />
+        </div>
       </div>
     </Transition>
   </Teleport>
@@ -605,6 +608,7 @@ watch([() => props.open, () => settings.paymentsEnabled, () => auth.sessionId], 
   }
 }, { immediate: true })
 watch(tab, (next) => {
+  if (dialog.value) dialog.value.scrollTop = 0
   if (next === 'gifts') {
     if (!catalogRequest) void refreshGiftCatalog()
   } else {
@@ -650,18 +654,27 @@ onBeforeUnmount(() => {
   background: rgba($neutral-800, 0.2);
   backdrop-filter: blur(12px);
   box-sizing: border-box;
-  .wallet-modal {
+  .wallet-shell {
     display: flex;
     position: relative;
     flex-direction: column;
-    gap: 24px;
     width: 700px;
     height: 611px;
     max-width: 100%;
     max-height: 100%;
+  }
+  .wallet-modal {
+    display: flex;
+    position: relative;
+    flex: 1;
+    flex-direction: column;
+    gap: 24px;
+    min-height: 0;
     padding: 24px;
     box-sizing: border-box;
-    overflow-y: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    scrollbar-width: none;
     border-radius: 24px;
     background: $neutral-100;
     box-shadow: 0 2px 16px 0 rgba($neutral-black, 0.2);
@@ -858,6 +871,9 @@ onBeforeUnmount(() => {
         position: relative;
         flex: 1 1 0;
         min-height: 0;
+        &:has(> .wallet-gift-grid) {
+          min-height: 128px;
+        }
         &.wallet-panel--gift-detail {
           min-height: 230px;
         }
@@ -884,7 +900,6 @@ onBeforeUnmount(() => {
         grid-template-columns: repeat(5, minmax(0, 1fr));
         gap: 10px;
         overflow-y: auto;
-        overscroll-behavior-y: contain;
         scrollbar-width: none;
         &::-webkit-scrollbar {
           display: none;
