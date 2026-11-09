@@ -8,6 +8,7 @@ class JoinAck(TypedDict, total=False):
     room_id: int
     token: str
     privacy: Literal["open", "private"]
+    can_invite_friends: bool
     user_limit: int
     game: dict
     snapshot: Dict[str, Dict[str, str]]

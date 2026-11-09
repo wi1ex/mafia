@@ -449,6 +449,7 @@
           :anchor="roomFriendsEl"
           mode="room"
           :room-id="rid"
+          :can-invite-to-room="canInviteFriendsToRoom"
         />
 
         <MiniProfile
@@ -869,6 +870,7 @@ const pendingScreen = ref(false)
 const settingsOpen = ref(false)
 const friendsPanelOpen = ref(false)
 const roomFriendsEl = ref<HTMLElement | null>(null)
+const canInviteFriendsToRoom = ref(false)
 const gameParamsOpen = ref(false)
 const roomGameSnapshot = ref<RoomGameParams | null>(null)
 const gameVersionsOpen = ref(false)
@@ -3189,6 +3191,7 @@ function clampLocalVisibilityForCurrentPhase(): void {
 function applyJoinAck(j: any) {
   adminSpectator.value = !!j?.admin_spectator
   isPrivate.value = (j?.privacy || j?.room?.privacy) === 'private'
+  canInviteFriendsToRoom.value = j?.can_invite_friends === true
   if (j?.game) applyRoomGameSnapshot(j.game)
   const limitRaw = Number(j?.user_limit ?? j?.room_user_limit ?? 0)
   roomUserLimit.value = Number.isFinite(limitRaw) ? limitRaw : 0

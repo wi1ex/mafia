@@ -38,6 +38,7 @@ from ...api.utils import (
     active_game_head_room_by_uid,
     active_alive_game_room_key,
     emit_rooms_upsert,
+    ensure_room_view_allowed,
     fetch_active_sanctions,
     fetch_active_sanctions_for_users,
     fetch_online_user_ids,
@@ -717,6 +718,12 @@ async def invite_friend(payload: FriendInviteIn, ident: Identity = Depends(get_i
 
     r = get_redis()
     params = await get_room_params_or_404(r, room_id)
+    is_hidden_room = str(params.get("anonymity") or "visible") == "hidden"
+    is_owner_invite = int(params.get("creator") or 0) == uid
+    if is_hidden_room and not is_owner_invite:
+        await ensure_room_view_allowed(r, room_id, params, ident)
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="hidden_room_invite_creator_only")
+
     room_title = str(params.get("title") or f"Комната #{room_id}")
 
     target = await db.get(User, target_id)
@@ -777,7 +784,6 @@ async def invite_friend(payload: FriendInviteIn, ident: Identity = Depends(get_i
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="room_invite_already_sent")
 
     is_private = str(params.get("privacy") or "open").strip() == "private"
-    is_owner_invite = int(params.get("creator") or 0) == uid
     auto_allowed = False
     inviter_profile = await get_user_profile_cached(db, uid)
     inviter_name = str(ident.get("username") or (inviter_profile or {}).get("username") or f"user{uid}")

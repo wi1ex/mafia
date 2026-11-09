@@ -689,6 +689,7 @@ async def join(sid, data) -> JoinAck:
             "room_id": rid,
             "token": token,
             "privacy": str(params.get("privacy") or "open"),
+            "can_invite_friends": not is_hidden_room or is_creator,
             "user_limit": user_limit,
             "game": game_from_redis_to_model(await r.hgetall(f"room:{rid}:game")).model_dump(),
             "snapshot": snapshot,

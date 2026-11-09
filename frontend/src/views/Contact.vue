@@ -55,7 +55,7 @@
                 mode="light"
                 label-mode="placeholder"
                 as="textarea"
-                label="Подробно опишите обращение"
+                label="Подробно опишите обращение. Если хотите прикрепить медиафайлы - предварительно загрузите их на файлообменник и прикрепите ссылку в обращении"
                 :maxlength="TEXT_MAX"
                 rows="8"
                 :invalid="textInvalid"

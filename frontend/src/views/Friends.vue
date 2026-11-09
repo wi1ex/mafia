@@ -107,6 +107,7 @@ const props = defineProps<{
   anchor?: HTMLElement | null
   mode?: 'header' | 'room'
   roomId?: number | null
+  canInviteToRoom?: boolean
 }>()
 const emit = defineEmits<{
   'update:open': [boolean]
@@ -128,7 +129,7 @@ const viewerUserId = computed(() => normalizeMiniProfileUserId(userStore.user?.i
 const isAccepted = (f: { kind?: string }) => f.kind === 'online' || f.kind === 'offline'
 const currentListRoomId = () => (isRoomMode.value && inviteRoomId.value > 0 ? inviteRoomId.value : null)
 const canInvite = (f: { kind?: string; room_id?: number | null; in_current_room?: boolean | null }) => {
-  if (!isRoomMode.value || inviteRoomId.value <= 0 || !isAccepted(f)) return false
+  if (!props.canInviteToRoom || !isRoomMode.value || inviteRoomId.value <= 0 || !isAccepted(f)) return false
   if (Boolean(f.in_current_room)) return false
   return Number(f.room_id || 0) !== inviteRoomId.value
 }
@@ -261,7 +262,7 @@ function stopAutoClose() {
 
 async function invite(friend: { id: number; username?: string | null; kind?: string; telegram_verified?: boolean; tg_invites_enabled?: boolean; tg_invite_cooldown_active?: boolean | null; ban_active?: boolean | null; timeout_active?: boolean | null; room_invited?: boolean | null; in_active_game_as_alive_player?: boolean | null; in_active_game_as_host?: boolean | null }) {
   const uid = Number(friend.id || 0)
-  if (!inviteRoomId.value || uid <= 0) return
+  if (!canInvite(friend) || uid <= 0) return
   if (inviteBusy[uid]) return
   const blockedReason = inviteBlockedReason(friend)
   if (blockedReason) {
@@ -279,6 +280,10 @@ async function invite(friend: { id: number; username?: string | null; kind?: str
   } catch (e: any) {
     const st = e?.response?.status
     const d = e?.response?.data?.detail
+    if (st === 403 && d === 'hidden_room_invite_creator_only') {
+      void alertDialog('В скрытую комнату может приглашать только её создатель')
+      return
+    }
     if (
       (st === 409 && d === 'target_offline')
       || (st === 409 && d === 'target_telegram_not_verified')
