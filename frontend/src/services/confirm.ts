@@ -13,6 +13,8 @@ export type ConfirmRadioOption = {
 export type ConfirmPayload = {
   title?: string
   text: string
+  items?: readonly string[]
+  note?: string
   confirmText?: string
   cancelText?: string
   linkText?: string
@@ -40,6 +42,8 @@ type ConfirmState = {
   mode: ConfirmMode
   title: string
   text: string
+  items: readonly string[]
+  note: string
   confirmText: string
   cancelText: string
   linkText: string
@@ -60,6 +64,8 @@ const state = reactive<ConfirmState>({
   mode: 'alert',
   title: '',
   text: '',
+  items: [],
+  note: '',
   confirmText: 'ОК',
   cancelText: 'Отмена',
   linkText: '',
@@ -94,6 +100,8 @@ function open(mode: ConfirmMode, payload: ConfirmPayload): Promise<ConfirmResult
   state.mode = mode
   state.title = payload.title || (mode === 'confirm' ? 'Подтверждение' : 'Сообщение')
   state.text = payload.text
+  state.items = payload.items ?? []
+  state.note = payload.note ?? ''
   state.confirmText = payload.confirmText || 'ОК'
   state.cancelText = payload.cancelText || 'Отмена'
   state.linkText = payload.linkText || ''

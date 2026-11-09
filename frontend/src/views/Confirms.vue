@@ -2,7 +2,7 @@
   <Teleport to="#desktop-teleport-root">
     <Transition name="confirm">
       <div v-if="state.open" class="overlay" @pointerdown.stop @click.stop>
-        <div class="modal" :role="dialogRole" aria-modal="true" :aria-labelledby="titleId" @pointerdown.stop @click.stop>
+        <div class="modal" :class="{ 'modal--with-details': showDetails }" :role="dialogRole" aria-modal="true" :aria-labelledby="titleId" @pointerdown.stop @click.stop>
         <header :id="titleId">
           <div class="header-div">
             <span class="header-title">{{ state.title }}</span>
@@ -15,6 +15,12 @@
             <UiIcon class="close-icon" :icon="iconClose" />
           </button>
         </header>
+        <div v-if="showDetails" class="details" tabindex="0">
+          <ul v-if="state.items.length">
+            <li v-for="item in state.items" :key="item">{{ item }}</li>
+          </ul>
+          <p v-if="state.note">{{ state.note }}</p>
+        </div>
         <UiCheckbox v-if="showCheckbox" :id="checkboxId" v-model="state.checkboxChecked">
           <span v-if="state.checkboxLabel">{{ state.checkboxLabel }}</span>
           <router-link v-if="showCheckboxLink" :to="state.checkboxLinkTo" target="_blank" rel="noopener noreferrer" @click.stop>
@@ -78,6 +84,7 @@ import UiButton from '@/components/UiButton.vue'
 const state = useConfirmState()
 const isConfirm = computed(() => state.mode === 'confirm')
 const showText = computed(() => Boolean(state.text) && !state.hideText)
+const showDetails = computed(() => state.items.length > 0 || Boolean(state.note))
 const showCheckbox = computed(() => Boolean(state.checkboxLabel) || Boolean(state.checkboxLinkText) || Boolean(state.checkboxLabelSuffix))
 const showCheckboxLink = computed(() => Boolean(state.checkboxLinkText) && Boolean(state.checkboxLinkTo))
 const showRadioOptions = computed(() => state.radioOptions.length > 0)
@@ -139,6 +146,37 @@ onBeforeUnmount(() => {
     border-radius: 24px;
     background-color: $neutral-100;
     box-shadow: 0 2px 16px 0 rgba($neutral-black, 0.20);
+    &--with-details {
+      box-sizing: border-box;
+      width: min(606px, calc(100% - 32px));
+      max-height: calc(100% - 32px);
+      gap: 16px;
+      header,
+      .actions {
+        flex-shrink: 0;
+      }
+    }
+    .details {
+      min-height: 0;
+      overflow-y: auto;
+      color: $neutral-700;
+      font-family: Hauora-Regular;
+      font-size: 16px;
+      line-height: 22px;
+      ul {
+        margin: 0;
+        padding-inline-start: 22px;
+      }
+      li + li {
+        margin-top: 8px;
+      }
+      p {
+        margin: 0;
+      }
+      ul + p {
+        margin-top: 12px;
+      }
+    }
     header {
       display: flex;
       align-items: flex-start;
