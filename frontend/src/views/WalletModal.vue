@@ -41,7 +41,6 @@
             </div>
             <UiMultiSwitch v-else :model-value="tab" :options="walletTabs" size="big" aria-label="Разделы магазина"
                            :disabled="busy || opening" @update:model-value="changeTab" />
-            <p v-if="opening" class="wallet-state" role="status">Загрузка…</p>
             <p v-if="error" class="wallet-error" role="alert">{{ error }}</p>
             <p v-if="isGift && !giftRecipientValid" class="wallet-error" role="alert">Выберите другого пользователя для подарка.</p>
 
@@ -129,12 +128,16 @@
                 <UiButton size="low" text="Повторить" @click="refreshGiftCatalog" />
               </template>
               <form v-else-if="selectedGift" class="wallet-form wallet-gift-detail" @submit.prevent="purchaseGift">
-                <GiftMedia :key="selectedGift.id" class="wallet-gift-preview" :media="selectedGift" animated
+                <GiftMedia :key="selectedGift.id" class="wallet-gift-preview" :media="selectedGift" :animated="!giftAnimationDemo"
                            :label="`Подарок №${selectedGift.id}`" />
                 <div class="wallet-gift-actions">
                   <UiButton class="wallet-gift-back" type="button" variant="white" size="big" :icon="iconArrowDown"
                             text="Назад" :disabled="busy || opening" @click="closeGiftPreview" />
-                  <UiButton class="wallet-action" type="submit" size="big" :text="giftButtonText" :disabled="!canBuyGift" />
+                  <div class="wallet-gift-purchase-actions">
+                    <UiButton class="wallet-gift-animation" type="button" variant="white" size="big" text="Анимация"
+                              :disabled="busy || opening" @click="openGiftAnimationDemo" />
+                    <UiButton class="wallet-action" type="submit" size="big" :text="giftButtonText" :disabled="!canBuyGift" />
+                  </div>
                 </div>
               </form>
               <p v-else-if="!giftCatalog.length" class="wallet-state">Подарков пока нет</p>
@@ -148,6 +151,7 @@
                 </div>
                 <UiScrollbar :target="giftList" right="-16px" />
               </template>
+              <GiftOpeningModal v-if="giftAnimationDemo" :gift="giftAnimationDemo" demo @close="closeGiftAnimationDemo" />
             </div>
           </template>
         </section>
@@ -163,7 +167,7 @@ import { useAuthStore, useSettingsStore, useUserStore } from '@/store'
 import { useWalletStore, dcErrorMessage, dcRequestUncertain, type CoinInvoice, type CoinPaymentMethod, type SubscriptionPurchaseResult } from '@/store/modules/wallet'
 import { COIN_PACKAGES, DC_CURRENCIES, SUBSCRIPTION_PLANS, dcMoney, dcPurchaseRestriction, type CoinPackageQuantity, type DcCurrency, type SubscriptionPlan, type WalletTab } from '@/services/dc'
 import { alertDialog } from '@/services/confirm'
-import { loadGiftCatalog, type CatalogGift, type GiftPurchaseResult } from '@/services/gifts'
+import { loadGiftCatalog, type CatalogGift, type GiftMediaAsset, type GiftPurchaseResult } from '@/services/gifts'
 import GiftMedia from '@/components/GiftMedia.vue'
 import UiButton from '@/components/UiButton.vue'
 import UiIcon from '@/components/UiIcon.vue'
@@ -171,6 +175,7 @@ import UiInput from '@/components/UiInput.vue'
 import UiMultiSwitch from '@/components/UiMultiSwitch.vue'
 import UiScrollbar from '@/components/UiScrollbar.vue'
 import UiSwitch from '@/components/UiSwitch.vue'
+import GiftOpeningModal from '@/views/GiftOpeningModal.vue'
 
 import imageSlide8 from '@/assets/images/carousel-image8.png'
 import coins30 from '@/assets/images/coins-30.webp'
@@ -277,6 +282,7 @@ const error = ref('')
 const opening = ref(false)
 const giftCatalog = ref<CatalogGift[]>([])
 const selectedGiftId = ref<number | null>(null)
+const giftAnimationDemo = ref<(GiftMediaAsset & { gift_id: number }) | null>(null)
 const anonymousGift = ref(false)
 const catalogLoading = ref(false)
 const catalogError = ref(false)
@@ -333,6 +339,17 @@ async function closeGiftPreview(): Promise<void> {
   error.value = ''
   await nextTick()
   dialog.value?.querySelector<HTMLButtonElement>(`[data-gift-id="${id}"]`)?.focus()
+}
+function openGiftAnimationDemo(): void {
+  const gift = selectedGift.value
+  if (!gift || busy.value || opening.value) return
+  giftAnimationDemo.value = { gift_id: gift.id, preview_key: gift.preview_key, avif_key: gift.avif_key }
+}
+function closeGiftAnimationDemo(): void {
+  giftAnimationDemo.value = null
+  void nextTick(() => {
+    if (props.open) dialog.value?.querySelector<HTMLButtonElement>('.wallet-gift-animation')?.focus({ preventScroll: true })
+  })
 }
 function selectCurrency(next: DcCurrency): void {
   currency.value = next
@@ -543,6 +560,7 @@ async function purchaseGift(): Promise<void> {
 
 watch([() => props.open, () => settings.paymentsEnabled, () => auth.sessionId], async ([open, , session], previous) => {
   cancelGiftCatalog()
+  giftAnimationDemo.value = null
   const seq = ++openSequence
   armed.value = false
   opening.value = false
@@ -591,6 +609,7 @@ watch(tab, (next) => {
     if (!catalogRequest) void refreshGiftCatalog()
   } else {
     selectedGiftId.value = null
+    giftAnimationDemo.value = null
     cancelGiftCatalog()
   }
 })
@@ -882,6 +901,7 @@ onBeforeUnmount(() => {
           color: $neutral-800;
           font: inherit;
           cursor: pointer;
+          transition: border-color 0.25s ease-in-out;
           &:hover:not(:disabled),
           &:focus-visible {
             border-color: $green-500;
@@ -971,7 +991,13 @@ onBeforeUnmount(() => {
             .wallet-gift-back :deep(.ui-button__icon) {
               transform: rotate(90deg);
             }
-            .wallet-action {
+            .wallet-gift-purchase-actions {
+              display: flex;
+              flex-wrap: wrap;
+              justify-content: flex-end;
+              align-items: center;
+              gap: 8px;
+              max-width: 100%;
               margin-left: auto;
             }
           }

@@ -1,11 +1,11 @@
 <template>
   <Teleport to="#desktop-teleport-root">
     <dialog ref="dialog" class="gift-opening" :class="{ 'gift-opening--intro': !revealed }"
-            aria-labelledby="gift-opening-title" @cancel.prevent="close" @click.self="close">
+            :aria-labelledby="titleId" @cancel.prevent="close" @click.self="close">
       <img v-if="openingUrl" class="gift-opening-animation" :src="openingUrl" alt=""
            @load="startRevealTimer" @error="revealGift" />
       <div class="gift-opening-content" :inert="!revealed">
-        <h2 id="gift-opening-title">Ваш подарок!</h2>
+        <h2 :id="titleId">Ваш подарок!</h2>
         <UiButton class="gift-opening-close" variant="white" size="low" :icon="iconClose" aria-label="Закрыть" @click="close" />
         <div class="gift-opening-stage">
           <div class="gift-reveal" :class="{ 'gift-reveal--visible': giftVisible }" :aria-hidden="!giftVisible">
@@ -13,7 +13,8 @@
           </div>
         </div>
         <div class="gift-opening-actions">
-          <UiButton v-if="revealed" size="middle" text="Посмотреть в профиле" :disabled="!canViewProfile" @click="emit('view-profile')" />
+          <UiButton v-if="revealed" size="middle" :text="demo ? 'Назад' : 'Посмотреть в профиле'" :disabled="!demo && !canViewProfile"
+                    @click="demo ? close() : emit('view-profile')" />
         </div>
       </div>
       <div v-if="giftVisible && !reducedMotion && !confettiFinished" class="gift-confetti" aria-hidden="true"
@@ -25,12 +26,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId } from 'vue'
 import UiButton from '@/components/UiButton.vue'
 import GiftMedia from '@/components/GiftMedia.vue'
 import giftOpenAnimation from '@/assets/video/gift-open.avif'
 import iconClose from '@/assets/svg/iconClose.svg'
-import type { GiftCollectionItem } from '@/services/gifts'
+import type { GiftMediaAsset } from '@/services/gifts'
 import { getImageURL, releaseImageURL } from '@/services/mediaCache'
 
 // Reveal just before the 121-frame, 24 fps AVIF starts looping.
@@ -38,8 +39,9 @@ const GIFT_OPEN_REVEAL_MS = 4850
 const GIFT_OPEN_LOAD_TIMEOUT_MS = 10_000
 const CONFETTI_COLORS = ['#00cd9b', '#ffbd4a', '#61a9eb', '#a475f3', '#fa7770', '#fff']
 
-const props = defineProps<{ gift: GiftCollectionItem; canViewProfile?: boolean }>()
+const props = defineProps<{ gift: GiftMediaAsset & { gift_id: number }; demo?: boolean; canViewProfile?: boolean }>()
 const emit = defineEmits<{ close: []; 'view-profile': [] }>()
+const titleId = useId()
 const dialog = ref<HTMLDialogElement | null>(null)
 const revealed = ref(false)
 const giftLoaded = ref(false)
