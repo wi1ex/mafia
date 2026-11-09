@@ -116,7 +116,7 @@ onBeforeUnmount(stopOpening)
 
 <style scoped lang="scss">
 .gift-opening {
-  --gift-opening-size: min(700px, calc(100vw - 40px), calc(100dvh - 40px));
+  --gift-opening-size: min(600px, calc(100vw - 40px), calc(100dvh - 40px));
   width: var(--gift-opening-size);
   height: var(--gift-opening-size);
   max-width: none;

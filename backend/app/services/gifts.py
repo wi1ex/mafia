@@ -186,11 +186,16 @@ async def _notify_gift_purchase(acquisition: UserGift, *, owner_note: Notif | No
                 await emit_notify(acquisition.owner_id, owner_note, kind="gift_purchase")
             else:
                 sender = _gift_sender(acquisition, await _sender_profiles([acquisition]))
-                toast = {"actions": [{"kind": "gift_open", "label": "Открыть", "acquisition_id": acquisition.id}]}
+                toast = {
+                    "title": "Подарок",
+                    "actions": [{"kind": "gift_open", "label": "Открыть", "acquisition_id": acquisition.id}],
+                }
                 extra = None
-                if sender is not None:
+                if acquisition.anonymous:
+                    toast["text"] = "Аноним отправил вам подарок"
+                elif sender is not None:
                     extra = {"user": sender.model_dump()}
-                    toast["text"] = "Подарок добавлен в вашу коллекцию."
+                    toast["text"] = ""
                 await emit_notify(acquisition.owner_id, owner_note, kind="gift_received", toast=toast, extra=extra)
         except Exception:
             log.exception("gift.owner_notification_failed", acquisition_id=acquisition.id)

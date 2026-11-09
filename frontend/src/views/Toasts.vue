@@ -13,8 +13,8 @@
 
         <div class="user">
           <div class="meta" :class="{ 'has-theme-color': hasToastUserThemeColor(t.user), 'meta--gift': isGiftReceipt(t.kind) }" :style="toastUserNickStyle(t.user)">
-            <div v-if="t.user" class="profile-line">
-              <button class="user-profile-trigger" type="button" @click.stop="openToastUserMiniProfile(t.user)"
+            <div v-if="t.user || isGiftReceipt(t.kind)" class="profile-line">
+              <button v-if="t.user" class="user-profile-trigger" type="button" @click.stop="openToastUserMiniProfile(t.user)"
                       :disabled="!canOpenToastUserMiniProfile(t.user)" :aria-label="`Открыть мини-профиль пользователя ${toastUserName(t.user)}`" aria-haspopup="dialog">
                 <img v-minio-img="{ key: t.user.avatar_name ? `avatars/${t.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
                 <div v-if="toastUserThemeIconSrcs(t.user).length" class="profile-theme-icons" aria-hidden="true">
@@ -22,13 +22,15 @@
                 </div>
                 <span class="nick">{{ toastUserName(t.user) }}</span>
               </button>
-              <span v-if="isGiftReceipt(t.kind)" class="gift-action">{{ t.kind === 'subscription_gift' ? 'подарил вам подписку' : 'отправил вам подарок' }}</span>
+              <span v-if="isGiftReceipt(t.kind)" class="gift-action">{{ giftReceiptLine(t) }}</span>
             </div>
-            <div v-if="t.details" class="sanction-text">
-              <p class="sanction-text__lead">{{ t.text }}</p>
-              <p class="sanction-text__details">{{ t.details }}</p>
-            </div>
-            <p v-else-if="t.text">{{ t.text }}</p>
+            <template v-if="!isGiftReceipt(t.kind)">
+              <div v-if="t.details" class="sanction-text">
+                <p class="sanction-text__lead">{{ t.text }}</p>
+                <p class="sanction-text__details">{{ t.details }}</p>
+              </div>
+              <p v-else-if="t.text">{{ t.text }}</p>
+            </template>
           </div>
           <div v-if="t.actions && t.actions.length" class="actions">
             <UiButton
@@ -281,6 +283,14 @@ function isGiftReceipt(kind: string): boolean {
   return kind === 'subscription_gift' || kind === 'gift_received'
 }
 
+function giftReceiptLine(toast: ToastPayload): string {
+  if (!toast.user) return toast.text
+  if (toast.kind === 'gift_received') return 'отправил вам подарок'
+  return toast.subscriptionGiftDuration
+    ? `подарил вам подписку на ${toast.subscriptionGiftDuration}`
+    : 'подарил вам подписку'
+}
+
 function onToast(event: Event): void {
   const toast = (event as CustomEvent<ToastPayload>).detail
   if (!toast) return
@@ -425,8 +435,9 @@ onBeforeUnmount(() => {
               gap: 4px;
               max-width: 100%;
               .gift-action {
-                flex-shrink: 0;
-                max-width: none;
+                max-width: 100%;
+                white-space: normal;
+                overflow-wrap: anywhere;
               }
             }
           }

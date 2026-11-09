@@ -384,7 +384,10 @@ async def notify_subscription_gift(session: AsyncSession, purchase: Subscription
         gift["sender_username"] = metadata.get("sender_username") or f"user{sender_id}"
 
     recipient_extra = {"subscription_gift": gift}
-    recipient_toast = {"title": "Подписка"}
+    recipient_toast = {
+        "title": "Подписка",
+        "text": f"Аноним подарил вам подписку на {gift['duration']}" if anonymous else "",
+    }
     if note is not None and not anonymous:
         sender_profile = {}
         try:
@@ -403,9 +406,6 @@ async def notify_subscription_gift(session: AsyncSession, purchase: Subscription
             "theme_color": sender_profile.get("theme_color"),
             "theme_icon": sender_profile.get("theme_icon"),
         }
-        recipient_toast["text"] = (
-            f"Срок: {gift['duration']}. Подписка действует до {format_subscription_until(purchase.ends_after)}."
-        )
     for uid, message, kind, no_toast, toast, extra in (
         (recipient_id, note, "subscription_gift", False, recipient_toast, recipient_extra),
         (sender_id, sender_note, "subscription", True, None, None),
