@@ -4,7 +4,7 @@
       <div v-if="canRenderOpen" class="user-mini-profile-overlay" role="presentation" @pointerdown.stop.self @click.stop.self="close">
         <div class="user-mini-profile-shell">
           <section ref="profilePanelEl" class="user-mini-profile-panel" :class="{ 'stats-mode': view !== 'profile' && !panelStateVisible && !avatarPreviewOpen, 'state-mode': panelStateVisible, 'avatar-mode': avatarPreviewOpen }" :style="profilePanelStyle"
-                   role="dialog" aria-modal="true" :aria-label="`Профиль ${displayName}`" @pointerdown.stop @click.stop>
+                   role="dialog" aria-modal="true" :aria-label="`Профиль ${displayName}`" @pointerdown.stop @click.stop @scroll.passive="hideProfileInfo">
             <template v-if="avatarPreviewOpen && avatarPreviewSrc">
               <button class="avatar-preview-image" type="button" aria-label="Закрыть аватар" @click="closeAvatarPreview">
                 <img class="avatar-preview-img" :src="avatarPreviewSrc" alt="" />
@@ -75,6 +75,13 @@
                             <UiScrollbar :target="profileFriendsList" :active="showAdminFriendsTooltip" theme="grey" :inset-top="16" :inset-bottom="16" right="6px" :overflow-tolerance="4" />
                           </div>
                         </div>
+
+                        <button v-if="profileLoadedForTarget" ref="profileInfoTrigger" class="profile-info-trigger" type="button"
+                                aria-label="Информация профиля" :aria-describedby="profileInfoOpen ? profileInfoId : undefined"
+                                @pointerenter="showProfileInfo" @pointerleave="scheduleProfileInfoClose"
+                                @focus="showProfileInfo" @blur="scheduleProfileInfoClose" @click="showProfileInfo">
+                          <UiIcon class="profile-meta-icon" :icon="iconInfo" />
+                        </button>
 
                         <div v-if="activeSanction" class="sanction-tooltip-wrap" tabindex="0">
                           <UiIcon class="profile-meta-icon" :icon="iconJudgeHummer" />
@@ -229,52 +236,26 @@
                   </div>
                 </div>
 
-                <div v-if="showRestrictedProfileSections" class="profile-dates" aria-label="Информация профиля">
-                  <div v-if="giftCollectionAllowed && (giftPreview.total || giftPreviewError)" class="profile-gifts-preview">
-                    <div class="profile-gifts-heading">
-                      <span>Подарки ({{ giftPreview.total }})</span>
-                      <button v-if="giftPreview.total" ref="allGiftsTrigger" type="button" @click="view = 'gifts'">Все</button>
-                    </div>
-                    <div v-if="giftPreviewError" class="profile-gifts-state" role="alert">
-                      <span>Не удалось загрузить подарки</span>
-                      <button type="button" :disabled="giftPreviewLoading" @click="loadProfileGifts(true)">Повторить</button>
-                    </div>
-                    <template v-if="giftPreview.items.length">
-                      <ul ref="giftStrip" class="profile-gifts-strip" aria-label="Подарки пользователя" tabindex="0">
-                        <li v-for="item in giftPreview.items" :key="item.id" class="profile-gift-tile">
-                          <GiftMedia class="profile-gift-media" :media="item" :label="`Подарок №${item.gift_id}`" animated />
-                          <span v-if="item.quantity > 1" class="profile-gift-quantity">×{{ item.quantity }}</span>
-                        </li>
-                      </ul>
-                      <UiScrollbar class="profile-gifts-scrollbar" :target="giftStrip" orientation="horizontal" />
-                    </template>
+                <div v-if="giftCollectionAllowed && (giftPreview.total || giftPreviewError)" class="profile-gifts-preview">
+                  <div class="profile-gifts-heading">
+                    <span>Подарки ({{ giftPreview.total }})</span>
+                    <button v-if="giftPreview.total" ref="allGiftsTrigger" type="button" @click="view = 'gifts'">Все</button>
                   </div>
-                  <div class="date-row">
-                    <span class="date-title">Дата регистрации</span>
-                    <span class="date-time">{{ registeredAtLabel }}</span>
+                  <div v-if="giftPreviewError" class="profile-gifts-state" role="alert">
+                    <span>Не удалось загрузить подарки</span>
+                    <button type="button" :disabled="giftPreviewLoading" @click="loadProfileGifts(true)">Повторить</button>
                   </div>
-                  <div class="date-row">
-                    <span class="date-title">Последняя игра</span>
-                    <span class="date-time">{{ lastGameAtLabel }}</span>
-                  </div>
-                  <div v-if="!isSelfProfile" class="date-row">
-                    <span class="date-title">Последний раз в сети</span>
-                    <span class="date-time">{{ lastOnlineLabel }}</span>
-                  </div>
-                  <div v-if="showSubscriptionInfo" class="date-row">
-                    <span class="date-title">Подписка</span>
-                    <span class="date-time">{{ displayedSubscriptionExpiryLabel }}</span>
-                  </div>
-                  <div class="date-row">
-                    <span class="date-title">Роли пользователя</span>
-                    <div class="profile-role-tags">
-                      <span v-for="role in profileRoleBadges" :key="role.key" class="profile-role-badge" :class="`profile-role-badge--${role.key}`">
-                        {{ role.label }}
-                      </span>
-                    </div>
-                  </div>
+                  <template v-if="giftPreview.items.length">
+                    <ul ref="giftStrip" class="profile-gifts-strip" aria-label="Подарки пользователя" tabindex="0">
+                      <li v-for="item in giftPreview.items" :key="item.id" class="profile-gift-tile">
+                        <GiftMedia class="profile-gift-media" :media="item" :label="`Подарок №${item.gift_id}`" animated />
+                        <span v-if="item.quantity > 1" class="profile-gift-quantity">×{{ item.quantity }}</span>
+                      </li>
+                    </ul>
+                    <UiScrollbar class="profile-gifts-scrollbar" :target="giftStrip" orientation="horizontal" />
+                  </template>
                 </div>
-                <div v-else class="profile-restricted-div">
+                <div v-if="!showRestrictedProfileSections" class="profile-restricted-div">
                   <UiIcon class="profile-restricted-img" :icon="iconDanger" />
                   <span class="profile-restricted-text">Вы в Черном списке у пользователя</span>
                 </div>
@@ -408,6 +389,35 @@
       @subscription-purchased="onSubscriptionGiftPurchased"
       @gift-purchased="onGiftPurchased"
     />
+    <div v-if="profileInfoTrigger && profileInfoOpen" :id="profileInfoId" ref="profileInfoPopover" class="profile-info-tooltip" role="tooltip"
+         @pointerenter="cancelProfileInfoClose" @pointerleave="scheduleProfileInfoClose">
+      <dl>
+        <div class="profile-info-row">
+          <dt>Дата регистрации</dt>
+          <dd>{{ registeredAtLabel }}</dd>
+        </div>
+        <div class="profile-info-row">
+          <dt>Последняя игра</dt>
+          <dd>{{ lastGameAtLabel }}</dd>
+        </div>
+        <div v-if="!isSelfProfile" class="profile-info-row">
+          <dt>Последний раз в сети</dt>
+          <dd>{{ lastOnlineLabel }}</dd>
+        </div>
+        <div v-if="showSubscriptionInfo" class="profile-info-row">
+          <dt>Подписка</dt>
+          <dd>{{ displayedSubscriptionExpiryLabel }}</dd>
+        </div>
+        <div class="profile-info-row">
+          <dt>Роли пользователя</dt>
+          <dd class="profile-role-tags">
+            <span v-for="role in profileRoleBadges" :key="role.key" class="profile-role-badge" :class="`profile-role-badge--${role.key}`">
+              {{ role.label }}
+            </span>
+          </dd>
+        </div>
+      </dl>
+    </div>
     <div v-if="balanceHistoryAllowed" v-show="balanceHistoryOpen" ref="balanceHistoryPopover" class="profile-balance-history-tooltip"
          :class="{ 'profile-balance-history-tooltip--above': balanceHistoryAbove }" :style="balanceHistoryStyle" role="dialog" :aria-label="`История операций ${displayName}`" tabindex="-1"
          @pointerenter="showBalanceHistory" @pointerleave="scheduleBalanceHistoryClose" @focusin="showBalanceHistory" @focusout="scheduleBalanceHistoryClose" @pointerdown.stop @click.stop>
@@ -436,7 +446,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, useId, watch } from 'vue'
 import { api } from '@/services/axios'
 import { formatLocalDateTime } from '@/services/datetime'
 import { useSubscriptionStatus } from '@/services/useSubscriptionStatus'
@@ -485,6 +495,7 @@ import iconCancelFriends from '@/assets/svg/iconCancelFriends.svg'
 import iconRemoveFriends from '@/assets/svg/iconRemoveFriends.svg'
 import iconJudgeHummer from '@/assets/svg/iconJudgeHummer.svg'
 import iconTimeHistory from '@/assets/svg/iconTimeHistory.svg'
+import iconInfo from '@/assets/svg/iconInfo.svg'
 import nominationGames from '@/assets/svg/iconPS5.svg'
 import nominationHead from '@/assets/svg/iconPlay.svg'
 import nominationRoom from '@/assets/svg/iconSpeak.svg'
@@ -704,6 +715,11 @@ let allGiftsRequest: AbortController | undefined
 let allGiftsOffset = 0
 const avatarImageEl = ref<HTMLImageElement | null>(null)
 const profileFriendsList = ref<HTMLElement | null>(null)
+const profileInfoId = useId()
+const profileInfoTrigger = ref<HTMLButtonElement | null>(null)
+const profileInfoPopover = ref<HTMLElement | null>(null)
+const profileInfoOpen = ref(false)
+let profileInfoCloseTimer: ReturnType<typeof setTimeout> | undefined
 const balanceHistoryTrigger = ref<HTMLElement | null>(null)
 const balanceHistoryPopover = ref<HTMLElement | null>(null)
 const balanceHistoryOpen = ref(false)
@@ -2415,6 +2431,12 @@ async function toggleBlacklist() {
 function onKeydown(e: KeyboardEvent) {
   if (!props.open || e.key !== 'Escape') return
   if (balanceModalOpen.value || giftModalOpen.value) return
+  if (profileInfoOpen.value) {
+    e.preventDefault()
+    e.stopPropagation()
+    hideProfileInfo()
+    return
+  }
   if (balanceHistoryOpen.value) {
     e.preventDefault()
     e.stopPropagation()
@@ -2467,6 +2489,54 @@ function onBlacklistUpdate(e: Event) {
 function onBalanceComplete(result: { userId: number; action: 'credit' | 'debit'; dc_balance: number }): void {
   if (result.userId === targetUserId.value) patchProfile({ dc_balance: result.dc_balance })
   emit('staff-action-complete', { userId: result.userId, action: result.action === 'credit' ? 'coins_credit' : 'coins_debit' })
+}
+
+function cancelProfileInfoClose(): void {
+  clearTimeout(profileInfoCloseTimer)
+}
+
+function showProfileInfo(): void {
+  cancelProfileInfoClose()
+  profileInfoOpen.value = true
+}
+
+function hideProfileInfo(): void {
+  cancelProfileInfoClose()
+  profileInfoOpen.value = false
+}
+
+function scheduleProfileInfoClose(): void {
+  cancelProfileInfoClose()
+  profileInfoCloseTimer = setTimeout(() => {
+    const trigger = profileInfoTrigger.value
+    if (trigger?.matches(':hover, :focus') || profileInfoPopover.value?.matches(':hover')) return
+    hideProfileInfo()
+  }, 120)
+}
+
+function positionProfileInfo(): void {
+  const trigger = profileInfoTrigger.value
+  const popover = profileInfoPopover.value
+  const root = popover?.parentElement
+  if (!trigger || !popover || !root) return
+
+  const bounds = root.getBoundingClientRect()
+  const scale = bounds.width / root.offsetWidth || 1
+  const anchor = trigger.getBoundingClientRect()
+  const margin = 16
+  const gap = 6
+  const width = Math.min(440, Math.max(0, root.clientWidth - margin * 2))
+  const center = (anchor.left + anchor.width / 2 - bounds.left) / scale
+  const anchorTop = (anchor.top - bounds.top) / scale
+  const anchorBottom = (anchor.bottom - bounds.top) / scale
+  const below = root.clientHeight - anchorBottom - margin - gap
+  const above = anchorTop - margin - gap
+
+  popover.style.width = `${width}px`
+  popover.style.left = `${Math.max(margin, Math.min(center - width / 2, root.clientWidth - width - margin))}px`
+  const placeAbove = below < popover.scrollHeight && above > below
+  popover.style.maxHeight = `${Math.max(0, placeAbove ? above : below)}px`
+  popover.style.top = `${placeAbove ? anchorTop - popover.offsetHeight - gap : anchorBottom + gap}px`
 }
 
 function cancelBalanceHistoryLoad(): void {
@@ -2636,6 +2706,13 @@ watch(balanceHistoryOpen, async open => {
 })
 watch([() => props.open, targetUserId, () => auth.sessionId, viewerUserId, viewerRole], resetBalanceHistory)
 watch(balanceHistoryAllowed, allowed => { if (!allowed) resetBalanceHistory() })
+watch(profileInfoTrigger, trigger => { if (!trigger) hideProfileInfo() })
+watch(profileInfoOpen, (open, _, onCleanup) => {
+  if (!open) return
+  positionProfileInfo()
+  window.addEventListener('resize', hideProfileInfo)
+  onCleanup(() => window.removeEventListener('resize', hideProfileInfo))
+}, { flush: 'post' })
 
 watch([showRestrictedProfileSections, canViewProfileData], ([visible, canView]) => {
   if (!visible || (!canView && (view.value === 'stats' || view.value === 'history'))) view.value = 'profile'
@@ -2690,6 +2767,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  hideProfileInfo()
   resetBalanceHistory()
   balanceHistoryObserver?.disconnect()
   window.removeEventListener('resize', onBalanceHistoryResize)
@@ -3056,6 +3134,29 @@ onBeforeUnmount(() => {
                         }
                       }
                     }
+                  }
+                }
+              }
+              .profile-info-trigger {
+                display: grid;
+                flex: 0 0 32px;
+                place-items: center;
+                width: 32px;
+                height: 32px;
+                padding: 0;
+                border: 0;
+                border-radius: 8px;
+                background-color: rgba($soft-purple-900, 0.65);
+                cursor: pointer;
+                .profile-meta-icon {
+                  --ui-icon-width: 20px;
+                  --ui-icon-height: 20px;
+                  --ui-icon-color: #{$neutral-white};
+                }
+                &:hover,
+                &:focus-visible {
+                  .profile-meta-icon {
+                    --ui-icon-color: #{$green-500};
                   }
                 }
               }
@@ -3624,140 +3725,79 @@ onBeforeUnmount(() => {
         }
       }
     }
-    .profile-dates {
-      display: flex;
-      flex-direction: column;
+    .profile-gifts-preview {
+      min-width: 0;
       padding: 16px;
-      gap: 6px;
       border-radius: 20px;
       background-color: rgba($soft-purple-900, 0.65);
-      .profile-gifts-preview {
-        min-width: 0;
-        padding-bottom: 16px;
-        margin-bottom: 8px;
-        border-bottom: 1px solid rgba($neutral-white, 0.24);
-        .profile-gifts-heading {
-          display: grid;
-          grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-          align-items: center;
-          gap: 8px;
-          margin-bottom: 12px;
-          color: $neutral-300;
-          font-family: Hauora-Regular;
-          font-size: 18px;
-          span {
-            grid-column: 2;
-            text-align: center;
-          }
-          button {
-            justify-self: end;
-            padding: 0;
-            border: 0;
-            background: transparent;
-            color: inherit;
-            font: inherit;
-            font-size: 14px;
-            text-decoration: underline;
-            text-underline-offset: 3px;
-            cursor: pointer;
-            &:hover,
-            &:focus-visible {
-              color: $neutral-white;
-            }
-          }
+      .profile-gifts-heading {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 12px;
+        color: $neutral-300;
+        font-family: Hauora-Regular;
+        font-size: 18px;
+        span {
+          grid-column: 2;
+          text-align: center;
         }
-        .profile-gifts-strip {
-          display: flex;
-          gap: 10px;
+        button {
+          justify-self: end;
           padding: 0;
-          margin: 0;
-          overflow-x: auto;
-          overflow-y: hidden;
-          scrollbar-width: none;
-          list-style: none;
-          .profile-gift-tile {
-            position: relative;
-            flex: 0 0 clamp(108px, 15%, 131px);
-            aspect-ratio: 1;
-            &:first-child {
-              margin-inline-start: auto;
-            }
-            &:last-child {
-              margin-inline-end: auto;
-            }
-            .profile-gift-media {
-              position: absolute;
-              inset: 0;
-            }
-            .profile-gift-quantity {
-              position: absolute;
-              right: 0;
-              bottom: 0;
-              padding: 1px 5px;
-              border-radius: 999px;
-              background-color: rgba($neutral-black, 0.75);
-              color: $neutral-white;
-              font-family: Hauora-SemiBold;
-              font-size: 12px;
-            }
+          border: 0;
+          background: transparent;
+          color: inherit;
+          font: inherit;
+          font-size: 14px;
+          text-decoration: underline;
+          text-underline-offset: 3px;
+          cursor: pointer;
+          &:hover,
+          &:focus-visible {
+            color: $neutral-white;
           }
-        }
-        .profile-gifts-scrollbar.scrollbar--visible {
-          margin-top: 12px;
         }
       }
-      .date-row {
+      .profile-gifts-strip {
         display: flex;
-        align-items: center;
-        justify-content: space-between;
-        height: 22px;
-        .date-title {
-          color: $neutral-300;
-          font-family: Hauora-Regular;
-          font-size: 16px;
-          line-height: 16px;
-          letter-spacing: -0.32px;
-        }
-        .date-time {
-          color: $neutral-100;
-          font-family: Hauora-Regular;
-          font-size: 16px;
-          line-height: 16px;
-          letter-spacing: -0.32px;
-        }
-        .profile-role-tags {
-          display: flex;
-          flex-wrap: wrap;
-          justify-content: flex-end;
-          margin-left: 16px;
-          gap: 4px;
-          min-width: 0;
-          .profile-role-badge {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            padding: 2px 12px;
+        gap: 10px;
+        padding: 0;
+        margin: 0;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scrollbar-width: none;
+        list-style: none;
+        .profile-gift-tile {
+          position: relative;
+          flex: 0 0 clamp(108px, 15%, 131px);
+          aspect-ratio: 1;
+          &:first-child {
+            margin-inline-start: auto;
+          }
+          &:last-child {
+            margin-inline-end: auto;
+          }
+          .profile-gift-media {
+            position: absolute;
+            inset: 0;
+          }
+          .profile-gift-quantity {
+            position: absolute;
+            right: 0;
+            bottom: 0;
+            padding: 1px 5px;
             border-radius: 999px;
+            background-color: rgba($neutral-black, 0.75);
             color: $neutral-white;
             font-family: Hauora-SemiBold;
-            font-size: 14px;
-            line-height: 18px;
-            letter-spacing: -0.28px;
-            white-space: nowrap;
-            &--player {
-              background-color: rgba($soft-purple-500, 0.65);
-            }
-            &--head_rate {
-              background-color: rgba($green-500, 0.65);
-            }
-            &--moder {
-              background-color: rgba($red-500, 0.65);
-            }
-            &--admin {
-              background-color: rgba($neutral-black, 0.65);
-            }
+            font-size: 12px;
           }
         }
+      }
+      .profile-gifts-scrollbar.scrollbar--visible {
+        margin-top: 12px;
       }
     }
     .profile-all-gifts {
@@ -3967,6 +4007,68 @@ onBeforeUnmount(() => {
     }
     :deep(.profile-back-button .ui-button__icon) {
       transform: rotate(90deg);
+    }
+  }
+}
+.profile-info-tooltip {
+  position: fixed;
+  box-sizing: border-box;
+  padding: 16px;
+  border-radius: 24px;
+  background-color: $neutral-100;
+  box-shadow: 0 2px 16px rgba($neutral-black, 0.2);
+  color: $neutral-black;
+  font-family: Hauora-Regular;
+  font-size: 16px;
+  line-height: 20px;
+  letter-spacing: -0.32px;
+  overflow-y: auto;
+  z-index: 1600;
+  dl {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    .profile-info-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      dt {
+        color: $neutral-700;
+      }
+      dd {
+        margin: 0;
+        text-align: right;
+        overflow-wrap: anywhere;
+      }
+      .profile-role-tags {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 4px;
+        .profile-role-badge {
+          padding: 2px 10px;
+          border-radius: 999px;
+          color: $neutral-white;
+          font-family: Hauora-SemiBold;
+          font-size: 14px;
+          line-height: 18px;
+          white-space: nowrap;
+          &--player {
+            background-color: $soft-purple-600;
+          }
+          &--head_rate {
+            background-color: $green-700;
+          }
+          &--moder {
+            background-color: $red-600;
+          }
+          &--admin {
+            background-color: $neutral-black;
+          }
+        }
+      }
     }
   }
 }
