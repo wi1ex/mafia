@@ -91,7 +91,7 @@
       </div>
     </Transition>
 
-    <WalletModal v-model:open="walletModalOpen" initial-tab="subscription" />
+    <WalletModal v-model:open="walletModalOpen" open-source="profile" initial-tab="subscription" />
   </section>
 </template>
 

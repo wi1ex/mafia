@@ -233,7 +233,7 @@
     :initial-profile="miniProfileInitial"
     :show-stats-button="true"
   />
-  <WalletModal v-model:open="walletModalOpen" />
+  <WalletModal v-model:open="walletModalOpen" open-source="home_banner" />
   <Contact v-model:open="contactModalOpen" />
 </template>
 

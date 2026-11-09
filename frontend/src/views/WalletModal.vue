@@ -164,6 +164,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore, useSettingsStore, useUserStore } from '@/store'
 import { useWalletStore, dcErrorMessage, dcRequestUncertain, type CoinInvoice, type CoinPaymentMethod, type SubscriptionPurchaseResult } from '@/store/modules/wallet'
+import { api } from '@/services/axios'
 import { COIN_PACKAGES, DC_CURRENCIES, SUBSCRIPTION_PLANS, dcMoney, dcPurchaseRestriction, type CoinPackageQuantity, type DcCurrency, type SubscriptionPlan, type WalletTab } from '@/services/dc'
 import { alertDialog, useConfirmState } from '@/services/confirm'
 import { loadGiftCatalog, type CatalogGift, type GiftMediaAsset, type GiftPurchaseResult } from '@/services/gifts'
@@ -204,8 +205,15 @@ import iconSubscribe from '@/assets/svg/iconSubscribe.svg'
 import defaultAvatar from '@/assets/svg/iconDefaultAvatarBlack.svg'
 
 type GiftRecipient = { user_id: number; username?: string | null; avatar_name?: string | null }
+type StoreOpenSource = 'header' | 'profile' | 'home_banner' | 'mini_profile_subscription' | 'mini_profile_gift'
 
-const props = withDefaults(defineProps<{ open: boolean; initialTab?: WalletTab; giftRecipient?: GiftRecipient | null; zIndex?: number }>(), {
+const props = withDefaults(defineProps<{
+  open: boolean
+  openSource: StoreOpenSource
+  initialTab?: WalletTab
+  giftRecipient?: GiftRecipient | null
+  zIndex?: number
+}>(), {
   giftRecipient: null,
   zIndex: 1600,
 })
@@ -288,6 +296,7 @@ const catalogError = ref(false)
 let catalogRequest: AbortController | undefined
 const armed = ref(false)
 let openSequence = 0
+let storeOpenLogged = false
 const purchaseUnconfirmedMessage = 'Не удалось подтвердить покупку. Проверьте баланс и историю операций перед новой покупкой.'
 const paymentLinkUnavailable = 'Не удалось получить ссылку на оплату. Попробуйте ещё раз.'
 const restriction = computed(() => dcPurchaseRestriction(auth.isAuthed, userStore.user, settings.verificationRestrictions))
@@ -410,6 +419,16 @@ async function refreshGiftCatalog(): Promise<void> {
 }
 async function payCoins(): Promise<void> {
   if (!canPay.value) return
+  const requestedCurrency = currency.value
+  const requestedPaymentMethod = paymentMethod.value
+  const requestedQuantity = quantity.value
+  const requestedAmount = packageAmount.value
+  void api.post('/payments/coins/payment-attempt', {
+    quantity: requestedQuantity,
+    currency: requestedCurrency,
+    payment_method: requestedPaymentMethod,
+  }).catch(() => {})
+
   const paymentTab = window.open('about:blank', '_blank')
   if (!paymentTab) {
     void showWalletAlert('Разрешите открытие новой вкладки для перехода к оплате.')
@@ -432,10 +451,6 @@ async function payCoins(): Promise<void> {
   const seq = openSequence
   const buyerId = userStore.user?.id
   const buyerSession = auth.sessionId
-  const requestedCurrency = currency.value
-  const requestedPaymentMethod = paymentMethod.value
-  const requestedQuantity = quantity.value
-  const requestedAmount = packageAmount.value
   try {
     const invoice = await wallet.createInvoice({
       quantity: requestedQuantity,
@@ -572,6 +587,15 @@ async function purchaseGift(): Promise<void> {
     if (uncertain) void wallet.refreshWallet().catch(() => {})
   }
 }
+
+watch([() => props.open, restriction], ([open, reason]) => {
+  if (!open) {
+    storeOpenLogged = false
+  } else if (!reason && !storeOpenLogged) {
+    storeOpenLogged = true
+    void api.post('/payments/store-open', { source: props.openSource }).catch(() => {})
+  }
+}, { immediate: true })
 
 watch([() => props.open, () => settings.paymentsEnabled, () => auth.sessionId], async ([open, , session], previous) => {
   cancelGiftCatalog()

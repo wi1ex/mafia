@@ -147,7 +147,7 @@
     </div>
   </header>
   <Auth v-model:open="authOpen" :mode="authMode" />
-  <WalletModal v-if="walletModalRequested" :open="walletModalOpen" @update:open="onWalletOpenChange" />
+  <WalletModal v-if="walletModalRequested" :open="walletModalOpen" open-source="header" @update:open="onWalletOpenChange" />
   <MiniProfile
     v-model:open="selfMiniProfileOpen"
     :user-id="selfMiniProfileUserId"

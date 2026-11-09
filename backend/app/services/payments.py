@@ -15,13 +15,14 @@ import structlog
 from fastapi import HTTPException, Request
 from sqlalchemy import and_, or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from ..core.logging import log_action
 from ..core.settings import settings
 from ..models.coin_purchase import CoinPurchase
 from ..models.settings import AppSettings
 from ..models.user import User
 from ..schemas.payments import CoinInvoiceCreateIn
 from .coin_prices import DC_CURRENCIES, DC_PACKAGE_QUANTITIES, parse_dc_packages
-from .wallet import checked_balance, ensure_payments_enabled, ensure_purchase_access, get_dc_balance, lock_dc_request, lock_user_balance, notify_coin_operation, persist_coin_operation_notice
+from .wallet import checked_balance, ensure_payments_enabled, ensure_purchase_access, get_dc_balance, lock_dc_request, lock_user_balance, money_text, notify_coin_operation, persist_coin_operation_notice
 
 log = structlog.get_logger()
 API_BASE = "https://gate.lava.top"
@@ -514,6 +515,18 @@ async def apply_invoice_payload(session: AsyncSession, *, order_id: int, payload
             order.balance_after = user.dc_balance
             order.processed_at = datetime.now(timezone.utc)
             order.status = "processed"
+            await log_action(
+                session,
+                user_id=user.id,
+                username=user.username,
+                action="coin_topup",
+                details=(
+                    f"Зачислено {order.quantity} DC. Оплачено {money_text(order.amount, order.currency)}. "
+                    f"Баланс {order.balance_before} → {order.balance_after} DC. "
+                    f"Заказ №{order.id}, счёт Lava {order.invoice_id}."
+                ),
+                commit=False,
+            )
     elif kind == "payment.failed" or state in FAILED_STATUSES:
         order.status = "failed"
     elif not kind and state in PENDING_STATUSES:

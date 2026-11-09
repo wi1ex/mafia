@@ -85,6 +85,13 @@ export const LOG_ACTION_LABELS: Readonly<Record<string, string>> = {
   admin_games_end_all: 'Админ завершение всех игр',
 
   kassa_payment: 'Обработка платежа',
+  store_open: 'Открытие магазина',
+  coin_payment_attempt: 'Попытка оплаты через Lava',
+  coin_topup: 'Покупка монет — баланс пополнен',
+  subscription_purchase: 'Покупка подписки себе',
+  subscription_gift: 'Покупка подписки в подарок',
+  gift_purchase: 'Покупка подарка себе',
+  gift_sent: 'Покупка подарка другому',
   admin_coin_grant: 'Выдача монет',
   admin_coin_remove: 'Снятие монет',
   admin_subscription_upsert: 'Админ выдача подписки',

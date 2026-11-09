@@ -7,6 +7,7 @@ from fastapi import HTTPException
 from sqlalchemy import select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
+from ..core.logging import log_action
 from ..core.settings import settings
 from ..models.coin_purchase import CoinPurchase
 from ..models.notif import Notif
@@ -234,6 +235,17 @@ async def buy_subscription(session: AsyncSession, *, user_id: int, plan: str, re
                        "sender_username": user.username}
     note = await _persist_subscription_purchase_notice(session, purchase)
     sender_note = await _persist_subscription_gift_sender_notice(session, purchase) if source == "gift" else None
+    await log_action(
+        session,
+        user_id=user_id,
+        username=user.username,
+        action="subscription_gift" if source == "gift" else "subscription_purchase",
+        details=(
+            f"purchase_id={purchase.id} plan={plan} dc_cost={cost} "
+            f"recipient_id={target_id} recipient_username={recipient.username} anonymous={int(anonymous)}"
+        ),
+        commit=False,
+    )
     await session.commit()
     await notify_subscription_purchase(session, purchase, note=note, sender_note=sender_note)
     return result

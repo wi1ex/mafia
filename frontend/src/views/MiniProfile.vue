@@ -423,6 +423,7 @@
     <WalletModal
       v-if="giftRecipient"
       v-model:open="giftModalOpen"
+      :open-source="giftModalTab === 'gifts' ? 'mini_profile_gift' : 'mini_profile_subscription'"
       :gift-recipient="giftRecipient"
       :initial-tab="giftModalTab"
       :z-index="STAFF_MODAL_Z_INDEX"

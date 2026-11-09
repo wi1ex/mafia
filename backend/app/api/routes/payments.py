@@ -4,16 +4,65 @@ from decimal import Decimal
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...core.db import get_session
+from ...core.logging import log_action
 from ...schemas.common import Identity, Ok
-from ...schemas.payments import CoinInvoiceCreateIn, CoinInvoiceListOut, CoinInvoiceOut, SubscriptionPurchaseIn, SubscriptionPurchaseOut, WalletOut
+from ...schemas.payments import (
+    CoinInvoiceCreateIn, CoinInvoiceListOut, CoinInvoiceOut, CoinPaymentAttemptIn,
+    StoreOpenIn, SubscriptionPurchaseIn, SubscriptionPurchaseOut, WalletOut,
+)
 from ...security.auth_tokens import get_identity
-from ...security.decorators import log_route
+from ...security.decorators import log_route, rate_limited
 from ...services.payments import check_coin_invoice, create_coin_invoice, list_coin_invoices, process_kassa_webhook
 from ...services.profile_theme import resolve_profile_theme_state
 from ...services.wallet import buy_subscription, get_dc_balance
 from ..utils import purchase_user
 
 router = APIRouter()
+
+STORE_OPEN_SOURCE_LABELS = {
+    "header": "Шапка сайта",
+    "profile": "Личный профиль",
+    "home_banner": "Баннер на главной",
+    "mini_profile_subscription": "Подписка в мини-профиле",
+    "mini_profile_gift": "Подарок в мини-профиле",
+}
+
+COIN_PAYMENT_METHOD_LABELS = {
+    "card": "Банковская карта",
+    "sbp": "СБП",
+    "apple_pay": "Apple Pay",
+    "paypal": "PayPal",
+}
+
+
+@router.post("/store-open", response_model=Ok)
+@log_route("payments.store_open")
+@rate_limited(lambda ident, **_: f"rl:payments:store_open:{ident['id']}", limit=10, window_s=5)
+async def store_open(payload: StoreOpenIn, ident: Identity = Depends(get_identity),
+                     session: AsyncSession = Depends(get_session)) -> Ok:
+    await log_action(
+        session,
+        user_id=int(ident["id"]),
+        username=ident["username"],
+        action="store_open",
+        details=f"Источник открытия — {STORE_OPEN_SOURCE_LABELS[payload.source]} ({payload.source})",
+    )
+    return Ok()
+
+
+@router.post("/coins/payment-attempt", response_model=Ok)
+@log_route("payments.coins.payment_attempt")
+@rate_limited(lambda ident, **_: f"rl:payments:coin_payment_attempt:{ident['id']}", limit=10, window_s=5)
+async def coin_payment_attempt(payload: CoinPaymentAttemptIn, ident: Identity = Depends(get_identity),
+                               session: AsyncSession = Depends(get_session)) -> Ok:
+    await log_action(
+        session,
+        user_id=int(ident["id"]),
+        username=ident["username"],
+        action="coin_payment_attempt",
+        details=f"Lava, {payload.quantity} DC, {payload.currency}, {COIN_PAYMENT_METHOD_LABELS[payload.payment_method]}",
+    )
+    return Ok()
 
 
 @router.get("/wallet", response_model=WalletOut)

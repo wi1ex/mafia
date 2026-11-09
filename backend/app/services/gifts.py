@@ -7,6 +7,7 @@ from fastapi import HTTPException
 from sqlalchemy import String, and_, cast, func, literal, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.db import SessionLocal
+from ..core.logging import log_action
 from ..core.roles import ROLE_ADMIN, ROLE_MODER, normalize_user_role
 from ..core.settings import settings
 from ..models.gift import Gift, UserGift
@@ -122,6 +123,17 @@ async def buy_gift(session: AsyncSession, *, payer_id: int, payload: GiftPurchas
     await session.flush()
     result = _purchase_result(acquisition, payer.dc_balance)
     owner_note, payer_note = await _persist_gift_notices(session, acquisition)
+    await log_action(
+        session,
+        user_id=payer_id,
+        username=acquisition.payer_username,
+        action="gift_sent" if payer_id != owner_id else "gift_purchase",
+        details=(
+            f"purchase_id={acquisition.id} gift_id={acquisition.gift_id} dc_cost={acquisition.dc_cost} "
+            f"recipient_id={owner_id} recipient_username={acquisition.owner_username} anonymous={int(acquisition.anonymous)}"
+        ),
+        commit=False,
+    )
     await session.commit()
 
     await _notify_gift_purchase(acquisition, owner_note=owner_note, payer_note=payer_note)
