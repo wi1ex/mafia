@@ -63,6 +63,7 @@ const confetti = reducedMotion ? [] : Array.from({ length: 60 }, (_, index) => {
   }
 })
 let revealTimer: number | undefined
+let preloadedGiftKey: string | undefined
 
 function stopOpening(): void {
   window.clearTimeout(revealTimer)
@@ -85,16 +86,29 @@ function startRevealTimer(): void {
   if (openingRequest.signal.aborted) return
   window.clearTimeout(revealTimer)
   revealTimer = window.setTimeout(revealGift, GIFT_OPEN_REVEAL_MS)
-  const key = props.gift.avif_key
-  if (key) void getImageURL(key, 0).then(() => releaseImageURL(key)).catch(() => {})
+}
+
+async function fetchOpeningAnimation(): Promise<Blob> {
+  const response = await fetch(giftOpenAnimation, { signal: openingRequest.signal })
+  if (!response.ok) throw new Error('gift_open_animation_load_failed')
+  return response.blob()
+}
+
+async function preloadGiftAnimation(key: string): Promise<void> {
+  await getImageURL(key, 0)
+  if (openingRequest.signal.aborted) {
+    releaseImageURL(key)
+    return
+  }
+  preloadedGiftKey = key
 }
 
 async function loadOpeningAnimation(): Promise<void> {
+  const key = props.gift.avif_key
+  if (!key) { revealGift(); return }
   revealTimer = window.setTimeout(revealGift, GIFT_OPEN_LOAD_TIMEOUT_MS)
   try {
-    const response = await fetch(giftOpenAnimation, { signal: openingRequest.signal })
-    if (!response.ok) { revealGift(); return }
-    const animation = await response.blob()
+    const [animation] = await Promise.all([fetchOpeningAnimation(), preloadGiftAnimation(key)])
     if (!openingRequest.signal.aborted) openingUrl.value = URL.createObjectURL(animation)
   } catch {
     if (!openingRequest.signal.aborted) revealGift()
@@ -111,7 +125,10 @@ onMounted(() => {
   if (reducedMotion) revealGift()
   else void loadOpeningAnimation()
 })
-onBeforeUnmount(stopOpening)
+onBeforeUnmount(() => {
+  stopOpening()
+  if (preloadedGiftKey) releaseImageURL(preloadedGiftKey)
+})
 </script>
 
 <style scoped lang="scss">
