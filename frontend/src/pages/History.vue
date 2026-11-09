@@ -15,119 +15,93 @@
         </div>
       </header>
 
-      <form class="history-filters" @submit.prevent="applyFilters">
+      <section class="history-filters" :class="{ 'history-filters--compact': !isAdmin }">
         <h2>Фильтры игр</h2>
-        <div class="history-filters-grid" :class="{ 'history-filters-grid--admin': isAdmin }">
+        <div class="history-filters-grid">
           <template v-if="isAdmin">
             <UiInput
               size="low"
               id="history-duration-lt"
-              v-model.number="draftFilters.durationLtMinutes"
+              v-model.number="filters.durationLtMinutes"
               type="number"
               min="1"
               step="1"
               inputmode="numeric"
               autocomplete="off"
-              :disabled="loading"
               label="Длительность меньше, мин"
             />
             <UiInput
               size="low"
               id="history-duration-gt"
-              v-model.number="draftFilters.durationGtMinutes"
+              v-model.number="filters.durationGtMinutes"
               type="number"
               min="1"
               step="1"
               inputmode="numeric"
               autocomplete="off"
-              :disabled="loading"
               label="Длительность больше, мин"
             />
             <UiInput
               size="low"
               id="history-number-from"
-              v-model.number="draftFilters.gameNumberFrom"
+              v-model.number="filters.gameNumberFrom"
               type="number"
               min="1"
               step="1"
               inputmode="numeric"
               autocomplete="off"
-              :disabled="loading"
               label="Номер игры от"
             />
             <UiInput
               size="low"
               id="history-number-to"
-              v-model.number="draftFilters.gameNumberTo"
+              v-model.number="filters.gameNumberTo"
               type="number"
               min="1"
               step="1"
               inputmode="numeric"
               autocomplete="off"
-              :disabled="loading"
               label="Номер игры до"
             />
             <UiInput
               size="low"
               id="history-foul-removals"
-              v-model.number="draftFilters.foulRemovals"
+              v-model.number="filters.foulRemovals"
               type="number"
               min="0"
               step="1"
               inputmode="numeric"
               autocomplete="off"
-              :disabled="loading"
               label="Удалений по фолам"
             />
             <UiInput
               size="low"
               id="history-suicides"
-              v-model.number="draftFilters.suicides"
+              v-model.number="filters.suicides"
               type="number"
               min="0"
               step="1"
               inputmode="numeric"
               autocomplete="off"
-              :disabled="loading"
               label="Самоубийств"
             />
           </template>
           <UiDropdown
             size="low"
             id="history-result-filter"
-            v-model="draftFilters.result"
+            v-model="filters.result"
             :options="resultFilterOptions"
-            :disabled="loading"
             label="Результат"
           />
           <UiDropdown
             size="low"
             id="history-mode-filter"
-            v-model="draftFilters.mode"
+            v-model="filters.mode"
             :options="modeFilterOptions"
-            :disabled="loading"
             label="Режим игры"
           />
-          <div class="history-filters-actions">
-            <UiButton
-              size="low"
-              class="history-filter-action"
-              type="submit"
-              text="Применить"
-              :disabled="loading"
-            />
-            <UiButton
-              size="low"
-              class="history-filter-action"
-              type="button"
-              variant="white"
-              text="Сбросить"
-              :disabled="loading || !hasAnyFilters"
-              @click="resetFilters"
-            />
-          </div>
         </div>
-      </form>
+      </section>
 
       <div v-if="loading" class="history-state">Загрузка...</div>
       <div v-else-if="error" class="history-state history-state--error">{{ error }}</div>
@@ -189,9 +163,9 @@
       </ul>
 
       <footer class="history-pager">
-        <UiButton variant="white" size="middle" text="Назад" :disabled="loading || page <= 1" @click="prevPage" />
+        <UiButton variant="white" size="middle" text="Назад" :disabled="pageNavigationDisabled || page <= 1" @click="prevPage" />
         <span>Страница {{ page }} из {{ pages }} · Игр: {{ total }}</span>
-        <UiButton variant="white" size="middle" text="Вперёд" :disabled="loading || page >= pages" @click="nextPage" />
+        <UiButton variant="white" size="middle" text="Вперёд" :disabled="pageNavigationDisabled || page >= pages" @click="nextPage" />
       </footer>
     </section>
     <MiniProfile
@@ -205,7 +179,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { api } from '@/services/axios'
 import { formatLocalDateTime } from '@/services/datetime'
 import { useUserStore } from '@/store'
@@ -387,10 +361,23 @@ function openHostMiniProfile(head: GameHistoryHost): void {
   hostMiniProfileOpen.value = true
 }
 
-const draftFilters = ref<GameHistoryFilters>(emptyFilters())
-const appliedFilters = ref<GameHistoryFilters>(emptyFilters())
+const filters = ref<GameHistoryFilters>({
+  durationLtMinutes: '',
+  durationGtMinutes: '',
+  gameNumberFrom: '',
+  gameNumberTo: '',
+  foulRemovals: '',
+  suicides: '',
+  result: 'all',
+  mode: 'all',
+})
+const normalizedFilters = computed(() => normalizeFilters(filters.value))
+const filterUpdateTimer = ref<number | undefined>()
+const pageNavigationDisabled = computed(() => loading.value || filterUpdateTimer.value !== undefined)
 
 let requestSeq = 0
+
+const FILTER_INPUT_DELAY_MS = 300
 
 const DATE_OPTIONS: Intl.DateTimeFormatOptions = {
   year: 'numeric',
@@ -414,20 +401,6 @@ const modeFilterOptions: { value: GameModeFilter; label: string }[] = [
 ]
 
 const isAdmin = computed(() => String(userStore.user?.role || '').trim().toLowerCase() === 'admin')
-const hasAnyFilters = computed(() => hasFilterValues(draftFilters.value) || hasFilterValues(appliedFilters.value))
-
-function emptyFilters(): GameHistoryFilters {
-  return {
-    durationLtMinutes: '',
-    durationGtMinutes: '',
-    gameNumberFrom: '',
-    gameNumberTo: '',
-    foulRemovals: '',
-    suicides: '',
-    result: 'all',
-    mode: 'all',
-  }
-}
 
 function intOr(raw: unknown, fallback: number): number {
   const n = Number(raw)
@@ -594,10 +567,7 @@ function formatDuration(secondsRaw: number): string {
 function normalizedNumberFilterValue(raw: AdminNumberFilterValue, allowZero = false): AdminNumberFilterValue {
   if (raw === '') return ''
   const value = Number(raw)
-  if (!Number.isFinite(value)) return ''
-  const normalized = Math.trunc(value)
-  if (allowZero) return normalized >= 0 ? normalized : ''
-  return normalized > 0 ? normalized : ''
+  return Number.isInteger(value) && value >= (allowZero ? 0 : 1) ? value : ''
 }
 
 function normalizeFilters(raw: GameHistoryFilters): GameHistoryFilters {
@@ -614,17 +584,6 @@ function normalizeFilters(raw: GameHistoryFilters): GameHistoryFilters {
   }
 }
 
-function hasFilterValues(filters: GameHistoryFilters): boolean {
-  if (filters.result !== 'all' || filters.mode !== 'all') return true
-  if (!isAdmin.value) return false
-  return filters.durationLtMinutes !== ''
-    || filters.durationGtMinutes !== ''
-    || filters.gameNumberFrom !== ''
-    || filters.gameNumberTo !== ''
-    || filters.foulRemovals !== ''
-    || filters.suicides !== ''
-}
-
 function appendNumberParam(params: Record<string, number | string>, key: string, value: AdminNumberFilterValue): void {
   if (value === '') return
   params[key] = value
@@ -632,7 +591,7 @@ function appendNumberParam(params: Record<string, number | string>, key: string,
 
 function buildHistoryParams(): Record<string, number | string> {
   const params: Record<string, number | string> = { page: page.value }
-  const filters = appliedFilters.value
+  const filters = normalizedFilters.value
   if (isAdmin.value) {
     appendNumberParam(params, 'duration_lt_minutes', filters.durationLtMinutes)
     appendNumberParam(params, 'duration_gt_minutes', filters.durationGtMinutes)
@@ -644,23 +603,6 @@ function buildHistoryParams(): Record<string, number | string> {
   if (filters.result !== 'all') params.result = filters.result
   if (filters.mode !== 'all') params.mode = filters.mode
   return params
-}
-
-function applyFilters(): void {
-  if (loading.value) return
-  const normalized = normalizeFilters(draftFilters.value)
-  draftFilters.value = { ...normalized }
-  appliedFilters.value = normalized
-  page.value = 1
-  void fetchHistory()
-}
-
-function resetFilters(): void {
-  if (loading.value) return
-  draftFilters.value = emptyFilters()
-  appliedFilters.value = emptyFilters()
-  page.value = 1
-  void fetchHistory()
 }
 
 async function fetchHistory(): Promise<void> {
@@ -704,13 +646,13 @@ async function fetchHistory(): Promise<void> {
 }
 
 function prevPage(): void {
-  if (loading.value || page.value <= 1) return
+  if (pageNavigationDisabled.value || page.value <= 1) return
   page.value -= 1
   void fetchHistory()
 }
 
 function nextPage(): void {
-  if (loading.value || page.value >= pages.value) return
+  if (pageNavigationDisabled.value || page.value >= pages.value) return
   page.value += 1
   void fetchHistory()
 }
@@ -719,7 +661,22 @@ onMounted(() => {
   void fetchHistory()
 })
 
+watch(normalizedFilters, (current, previous) => {
+  window.clearTimeout(filterUpdateTimer.value)
+  const refresh = () => {
+    filterUpdateTimer.value = undefined
+    page.value = 1
+    void fetchHistory()
+  }
+  if (current.result !== previous.result || current.mode !== previous.mode) {
+    refresh()
+  } else {
+    filterUpdateTimer.value = window.setTimeout(refresh, FILTER_INPUT_DELAY_MS)
+  }
+})
+
 onBeforeUnmount(() => {
+  window.clearTimeout(filterUpdateTimer.value)
   requestSeq += 1
 })
 </script>
@@ -769,7 +726,7 @@ onBeforeUnmount(() => {
         .history-header-stat {
           display: flex;
           align-items: center;
-          padding: 12px 16px;
+          padding: 8px 24px;
           gap: 16px;
           border-radius: 20px;
           background-color: $soft-purple-800;
@@ -808,26 +765,21 @@ onBeforeUnmount(() => {
       }
       .history-filters-grid {
         display: grid;
-        grid-template-columns: minmax(0, 1fr);
+        grid-template-columns: repeat(4, minmax(0, 1fr));
         gap: 16px;
-        &--admin {
-          grid-template-columns: repeat(4, minmax(0, 1fr));
-        }
         .ui-input {
           :deep(input) {
             box-sizing: content-box;
           }
         }
-        .history-filters-actions {
-          display: flex;
-          grid-column: 1 / -1;
-          align-items: center;
-          justify-content: flex-end;
-          flex-wrap: wrap;
-          gap: 10px;
-          .history-filter-action {
-            width: 120px;
-          }
+      }
+      &--compact {
+        flex-flow: row wrap;
+        align-items: center;
+        .history-filters-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          width: min(100%, 440px);
+          margin-inline-start: auto;
         }
       }
     }
