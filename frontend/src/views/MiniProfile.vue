@@ -2817,7 +2817,7 @@ onBeforeUnmount(() => {
   }
   .user-mini-profile-panel {
     --mini-profile-padding: 24px;
-    --mini-profile-max-height: min(560px, calc(var(--app-viewport-height, 100dvh) - 48px));
+    --mini-profile-max-height: calc(var(--app-viewport-height, 100dvh) - 48px);
     --mini-profile-max-content-height: calc(var(--mini-profile-max-height) - 2 * var(--mini-profile-padding));
     display: flex;
     flex-direction: column;
@@ -2845,7 +2845,7 @@ onBeforeUnmount(() => {
       align-items: center;
       justify-content: center;
       --mini-profile-padding: 0px;
-      --mini-profile-avatar-size: min(var(--mini-profile-max-height), calc(var(--app-viewport-height, 100dvh) - 96px));
+      --mini-profile-avatar-size: min(560px, calc(var(--app-viewport-height, 100dvh) - 96px));
       width: var(--mini-profile-avatar-size);
       height: var(--mini-profile-avatar-size);
       overflow: hidden;
