@@ -1,6 +1,6 @@
 from __future__ import annotations
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 import structlog
 from fastapi import HTTPException
@@ -397,7 +397,11 @@ async def remove_user_gift(session: AsyncSession, acquisition_id: int, *, owner_
     if gift.deleted_at is not None:
         raise HTTPException(404, detail="gift_purchase_not_found")
 
-    acquisition.removed_at = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc)
+    if now - acquisition.acquired_at < timedelta(days=7):
+        raise HTTPException(409, detail="gift_removal_too_early")
+
+    acquisition.removed_at = now
     await session.commit()
     await _publish_gift_changes({owner_id}, set())
 

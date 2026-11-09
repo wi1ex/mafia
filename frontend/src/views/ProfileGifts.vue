@@ -48,8 +48,9 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { isAxiosError } from 'axios'
 import { useAuthStore, useUserStore } from '@/store'
-import { confirmDialogWithCheckbox } from '@/services/confirm'
+import { alertDialog, confirmDialogWithCheckbox } from '@/services/confirm'
 import { formatLocalDateTime } from '@/services/datetime'
 import { deleteOwnGift, loadOwnGiftCollection, type OwnGiftCollectionItem } from '@/services/gifts'
 import GiftMedia from '@/components/GiftMedia.vue'
@@ -58,6 +59,8 @@ import UiScrollbar from '@/components/UiScrollbar.vue'
 import iconDelete from '@/assets/svg/iconDelete.svg'
 
 const PAGE_SIZE = 20
+const GIFT_REMOVAL_DELAY_MS = 7 * 24 * 60 * 60 * 1000
+const GIFT_REMOVAL_DELAY_MESSAGE = 'Подарок можно удалить только через 7 дней после получения или покупки.'
 const DATE_OPTIONS: Intl.DateTimeFormatOptions = { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }
 const coinFormat = new Intl.NumberFormat('ru-RU')
 const auth = useAuthStore()
@@ -114,12 +117,18 @@ function payerName(item: OwnGiftCollectionItem): string {
 
 async function removeGift(item: OwnGiftCollectionItem): Promise<void> {
   if (removingId.value !== null || loading.value || !auth.sessionId || !user.user?.id) return
+  deleteError.value = ''
+  const acquiredAt = Date.parse(item.acquired_at)
+  if (Date.now() < acquiredAt + GIFT_REMOVAL_DELAY_MS) {
+    void alertDialog(GIFT_REMOVAL_DELAY_MESSAGE)
+    return
+  }
+
   const session = auth.sessionId
   const owner = user.user.id
   const request = new AbortController()
   deleteRequest = request
   removingId.value = item.id
-  deleteError.value = ''
   const current = () => !request.signal.aborted && auth.sessionId === session && user.user?.id === owner
   try {
     const { ok, checkboxChecked } = await confirmDialogWithCheckbox({
@@ -135,8 +144,13 @@ async function removeGift(item: OwnGiftCollectionItem): Promise<void> {
     items.value = items.value.filter(gift => gift.id !== item.id)
     total.value = Math.max(0, total.value - 1)
     refreshPending = true
-  } catch {
-    if (current()) deleteError.value = 'Не удалось удалить подарок. Попробуйте ещё раз.'
+  } catch (error) {
+    if (!current()) return
+    if (isAxiosError<{ detail?: string }>(error) && error.response?.status === 409 && error.response.data?.detail === 'gift_removal_too_early') {
+      void alertDialog(GIFT_REMOVAL_DELAY_MESSAGE)
+      return
+    }
+    deleteError.value = 'Не удалось удалить подарок. Попробуйте ещё раз.'
   } finally {
     if (deleteRequest === request) {
       deleteRequest = undefined
