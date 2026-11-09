@@ -15,85 +15,87 @@
         </div>
       </header>
 
-      <form v-if="isAdmin" class="history-admin-filters" @submit.prevent="applyAdminFilters">
+      <form class="history-filters" @submit.prevent="applyFilters">
         <h2>Фильтры игр</h2>
-        <div class="history-admin-filters-grid">
-          <UiInput
-            size="low"
-            id="history-duration-lt"
-            v-model.number="adminFilters.durationLtMinutes"
-            type="number"
-            min="1"
-            step="1"
-            inputmode="numeric"
-            autocomplete="off"
-            :disabled="loading"
-            label="Длительность меньше, мин"
-          />
-          <UiInput
-            size="low"
-            id="history-duration-gt"
-            v-model.number="adminFilters.durationGtMinutes"
-            type="number"
-            min="1"
-            step="1"
-            inputmode="numeric"
-            autocomplete="off"
-            :disabled="loading"
-            label="Длительность больше, мин"
-          />
-          <UiInput
-            size="low"
-            id="history-number-from"
-            v-model.number="adminFilters.gameNumberFrom"
-            type="number"
-            min="1"
-            step="1"
-            inputmode="numeric"
-            autocomplete="off"
-            :disabled="loading"
-            label="Номер игры от"
-          />
-          <UiInput
-            size="low"
-            id="history-number-to"
-            v-model.number="adminFilters.gameNumberTo"
-            type="number"
-            min="1"
-            step="1"
-            inputmode="numeric"
-            autocomplete="off"
-            :disabled="loading"
-            label="Номер игры до"
-          />
-          <UiInput
-            size="low"
-            id="history-foul-removals"
-            v-model.number="adminFilters.foulRemovals"
-            type="number"
-            min="0"
-            step="1"
-            inputmode="numeric"
-            autocomplete="off"
-            :disabled="loading"
-            label="Удалений по фолам"
-          />
-          <UiInput
-            size="low"
-            id="history-suicides"
-            v-model.number="adminFilters.suicides"
-            type="number"
-            min="0"
-            step="1"
-            inputmode="numeric"
-            autocomplete="off"
-            :disabled="loading"
-            label="Самоубийств"
-          />
+        <div class="history-filters-grid" :class="{ 'history-filters-grid--admin': isAdmin }">
+          <template v-if="isAdmin">
+            <UiInput
+              size="low"
+              id="history-duration-lt"
+              v-model.number="draftFilters.durationLtMinutes"
+              type="number"
+              min="1"
+              step="1"
+              inputmode="numeric"
+              autocomplete="off"
+              :disabled="loading"
+              label="Длительность меньше, мин"
+            />
+            <UiInput
+              size="low"
+              id="history-duration-gt"
+              v-model.number="draftFilters.durationGtMinutes"
+              type="number"
+              min="1"
+              step="1"
+              inputmode="numeric"
+              autocomplete="off"
+              :disabled="loading"
+              label="Длительность больше, мин"
+            />
+            <UiInput
+              size="low"
+              id="history-number-from"
+              v-model.number="draftFilters.gameNumberFrom"
+              type="number"
+              min="1"
+              step="1"
+              inputmode="numeric"
+              autocomplete="off"
+              :disabled="loading"
+              label="Номер игры от"
+            />
+            <UiInput
+              size="low"
+              id="history-number-to"
+              v-model.number="draftFilters.gameNumberTo"
+              type="number"
+              min="1"
+              step="1"
+              inputmode="numeric"
+              autocomplete="off"
+              :disabled="loading"
+              label="Номер игры до"
+            />
+            <UiInput
+              size="low"
+              id="history-foul-removals"
+              v-model.number="draftFilters.foulRemovals"
+              type="number"
+              min="0"
+              step="1"
+              inputmode="numeric"
+              autocomplete="off"
+              :disabled="loading"
+              label="Удалений по фолам"
+            />
+            <UiInput
+              size="low"
+              id="history-suicides"
+              v-model.number="draftFilters.suicides"
+              type="number"
+              min="0"
+              step="1"
+              inputmode="numeric"
+              autocomplete="off"
+              :disabled="loading"
+              label="Самоубийств"
+            />
+          </template>
           <UiDropdown
             size="low"
             id="history-result-filter"
-            v-model="adminFilters.result"
+            v-model="draftFilters.result"
             :options="resultFilterOptions"
             :disabled="loading"
             label="Результат"
@@ -101,12 +103,12 @@
           <UiDropdown
             size="low"
             id="history-mode-filter"
-            v-model="adminFilters.mode"
+            v-model="draftFilters.mode"
             :options="modeFilterOptions"
             :disabled="loading"
             label="Режим игры"
           />
-          <div class="history-admin-filters-actions">
+          <div class="history-filters-actions">
             <UiButton
               size="low"
               class="history-filter-action"
@@ -120,8 +122,8 @@
               type="button"
               variant="white"
               text="Сбросить"
-              :disabled="loading || !hasAnyAdminFilters"
-              @click="resetAdminFilters"
+              :disabled="loading || !hasAnyFilters"
+              @click="resetFilters"
             />
           </div>
         </div>
@@ -229,7 +231,7 @@ type FarewellVerdict = 'citizen' | 'mafia'
 type NightCheckVerdict = 'citizen' | 'mafia' | 'sheriff'
 type PointsBaseReason = 'win' | 'loss' | 'draw'
 
-interface AdminGameHistoryFilters {
+interface GameHistoryFilters {
   durationLtMinutes: AdminNumberFilterValue
   durationGtMinutes: AdminNumberFilterValue
   gameNumberFrom: AdminNumberFilterValue
@@ -385,8 +387,8 @@ function openHostMiniProfile(head: GameHistoryHost): void {
   hostMiniProfileOpen.value = true
 }
 
-const adminFilters = ref<AdminGameHistoryFilters>(emptyAdminFilters())
-const appliedAdminFilters = ref<AdminGameHistoryFilters>(emptyAdminFilters())
+const draftFilters = ref<GameHistoryFilters>(emptyFilters())
+const appliedFilters = ref<GameHistoryFilters>(emptyFilters())
 
 let requestSeq = 0
 
@@ -412,9 +414,9 @@ const modeFilterOptions: { value: GameModeFilter; label: string }[] = [
 ]
 
 const isAdmin = computed(() => String(userStore.user?.role || '').trim().toLowerCase() === 'admin')
-const hasAnyAdminFilters = computed(() => hasAdminFilterValues(adminFilters.value) || hasAdminFilterValues(appliedAdminFilters.value))
+const hasAnyFilters = computed(() => hasFilterValues(draftFilters.value) || hasFilterValues(appliedFilters.value))
 
-function emptyAdminFilters(): AdminGameHistoryFilters {
+function emptyFilters(): GameHistoryFilters {
   return {
     durationLtMinutes: '',
     durationGtMinutes: '',
@@ -598,7 +600,7 @@ function normalizedNumberFilterValue(raw: AdminNumberFilterValue, allowZero = fa
   return normalized > 0 ? normalized : ''
 }
 
-function normalizeAdminFilters(raw: AdminGameHistoryFilters): AdminGameHistoryFilters {
+function normalizeFilters(raw: GameHistoryFilters): GameHistoryFilters {
   const result = raw.result === 'red' || raw.result === 'black' || raw.result === 'draw' ? raw.result : 'all'
   return {
     durationLtMinutes: normalizedNumberFilterValue(raw.durationLtMinutes),
@@ -612,15 +614,15 @@ function normalizeAdminFilters(raw: AdminGameHistoryFilters): AdminGameHistoryFi
   }
 }
 
-function hasAdminFilterValues(filters: AdminGameHistoryFilters): boolean {
+function hasFilterValues(filters: GameHistoryFilters): boolean {
+  if (filters.result !== 'all' || filters.mode !== 'all') return true
+  if (!isAdmin.value) return false
   return filters.durationLtMinutes !== ''
     || filters.durationGtMinutes !== ''
     || filters.gameNumberFrom !== ''
     || filters.gameNumberTo !== ''
     || filters.foulRemovals !== ''
     || filters.suicides !== ''
-    || filters.result !== 'all'
-    || filters.mode !== 'all'
 }
 
 function appendNumberParam(params: Record<string, number | string>, key: string, value: AdminNumberFilterValue): void {
@@ -630,34 +632,33 @@ function appendNumberParam(params: Record<string, number | string>, key: string,
 
 function buildHistoryParams(): Record<string, number | string> {
   const params: Record<string, number | string> = { page: page.value }
-  if (!isAdmin.value) return params
-
-  const filters = appliedAdminFilters.value
-  appendNumberParam(params, 'duration_lt_minutes', filters.durationLtMinutes)
-  appendNumberParam(params, 'duration_gt_minutes', filters.durationGtMinutes)
-  appendNumberParam(params, 'game_number_from', filters.gameNumberFrom)
-  appendNumberParam(params, 'game_number_to', filters.gameNumberTo)
-  appendNumberParam(params, 'foul_removals', filters.foulRemovals)
-  appendNumberParam(params, 'suicides', filters.suicides)
+  const filters = appliedFilters.value
+  if (isAdmin.value) {
+    appendNumberParam(params, 'duration_lt_minutes', filters.durationLtMinutes)
+    appendNumberParam(params, 'duration_gt_minutes', filters.durationGtMinutes)
+    appendNumberParam(params, 'game_number_from', filters.gameNumberFrom)
+    appendNumberParam(params, 'game_number_to', filters.gameNumberTo)
+    appendNumberParam(params, 'foul_removals', filters.foulRemovals)
+    appendNumberParam(params, 'suicides', filters.suicides)
+  }
   if (filters.result !== 'all') params.result = filters.result
   if (filters.mode !== 'all') params.mode = filters.mode
   return params
 }
 
-function applyAdminFilters(): void {
-  if (!isAdmin.value || loading.value) return
-  const normalized = normalizeAdminFilters(adminFilters.value)
-  adminFilters.value = { ...normalized }
-  appliedAdminFilters.value = { ...normalized }
+function applyFilters(): void {
+  if (loading.value) return
+  const normalized = normalizeFilters(draftFilters.value)
+  draftFilters.value = { ...normalized }
+  appliedFilters.value = normalized
   page.value = 1
   void fetchHistory()
 }
 
-function resetAdminFilters(): void {
-  if (!isAdmin.value || loading.value) return
-  const nextFilters = emptyAdminFilters()
-  adminFilters.value = { ...nextFilters }
-  appliedAdminFilters.value = { ...nextFilters }
+function resetFilters(): void {
+  if (loading.value) return
+  draftFilters.value = emptyFilters()
+  appliedFilters.value = emptyFilters()
   page.value = 1
   void fetchHistory()
 }
@@ -788,7 +789,7 @@ onBeforeUnmount(() => {
         }
       }
     }
-    .history-admin-filters {
+    .history-filters {
       display: flex;
       flex-direction: column;
       padding: 24px;
@@ -805,16 +806,19 @@ onBeforeUnmount(() => {
         line-height: 26px;
         letter-spacing: -0.48px;
       }
-      .history-admin-filters-grid {
+      .history-filters-grid {
         display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: minmax(0, 1fr);
         gap: 16px;
+        &--admin {
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
         .ui-input {
           :deep(input) {
             box-sizing: content-box;
           }
         }
-        .history-admin-filters-actions {
+        .history-filters-actions {
           display: flex;
           grid-column: 1 / -1;
           align-items: center;

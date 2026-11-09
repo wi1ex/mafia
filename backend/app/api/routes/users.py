@@ -586,18 +586,16 @@ async def games_history(
     db: AsyncSession = Depends(get_session),
 ) -> UserGamesHistoryOut:
     await ensure_verification_allowed(db, int(ident["id"]))
-    history_filters = None
+    history_filters: dict[str, int | str | None] = {"result": result, "mode": mode}
     if normalize_user_role(str(ident.get("role") or "")) == ROLE_ADMIN:
-        history_filters = {
-            "duration_lt_minutes": duration_lt_minutes,
-            "duration_gt_minutes": duration_gt_minutes,
-            "game_number_from": game_number_from,
-            "game_number_to": game_number_to,
-            "foul_removals": foul_removals,
-            "suicides": suicides,
-            "result": result,
-            "mode": mode,
-        }
+        history_filters.update(
+            duration_lt_minutes=duration_lt_minutes,
+            duration_gt_minutes=duration_gt_minutes,
+            game_number_from=game_number_from,
+            game_number_to=game_number_to,
+            foul_removals=foul_removals,
+            suicides=suicides,
+        )
     return await fetch_games_history_page(
         db,
         page=page,
