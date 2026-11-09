@@ -1,5 +1,6 @@
 from __future__ import annotations
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from ..models.gift import GIFT_PRICES
@@ -85,5 +86,21 @@ class UserGiftOut(BaseModel):
 
 class UserGiftsOut(BaseModel):
     items: list[UserGiftOut]
+    total: int
+    has_more: bool
+
+
+class MyGiftOut(BaseModel):
+    id: int
+    gift_id: int
+    acquired_at: datetime
+    preview_key: str
+    dc_cost: int
+    payer_kind: Literal["self", "named", "anonymous"]
+    sender: GiftSenderOut | None = None
+
+
+class MyGiftsOut(BaseModel):
+    items: list[MyGiftOut]
     total: int
     has_more: bool

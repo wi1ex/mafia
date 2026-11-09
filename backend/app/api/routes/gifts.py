@@ -4,12 +4,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...core.db import get_session
 from ...core.roles import ROLE_ADMIN, ROLE_MODER, normalize_user_role
 from ...models.user import User
-from ...schemas.common import Identity
-from ...schemas.gifts import GiftOut, GiftPurchaseIn, GiftPurchaseOut, UserGiftOut, UserGiftsOut
+from ...schemas.common import Identity, Ok
+from ...schemas.gifts import GiftOut, GiftPurchaseIn, GiftPurchaseOut, MyGiftsOut, UserGiftOut, UserGiftsOut
 from ...security.auth_tokens import get_identity
 from ...security.decorators import log_route
 from ...services.blacklist import blacklist_relation
-from ...services.gifts import buy_gift, gift_catalog, user_gift_purchase, user_gifts
+from ...services.gifts import buy_gift, gift_catalog, my_gifts, remove_user_gift, user_gift_purchase, user_gifts
 from ..utils import ensure_verification_allowed
 
 router = APIRouter()
@@ -29,6 +29,19 @@ async def purchase(
     session: AsyncSession = Depends(get_session),
 ) -> GiftPurchaseOut:
     return await buy_gift(session, payer_id=int(ident["id"]), payload=payload)
+
+
+@router.get("/me", response_model=MyGiftsOut)
+@log_route("gifts.my_collection")
+async def my_collection(
+    limit: int = Query(default=30, ge=1, le=100),
+    offset: int = Query(default=0, ge=0, le=2**31 - 1),
+    ident: Identity = Depends(get_identity),
+    session: AsyncSession = Depends(get_session),
+) -> MyGiftsOut:
+    user_id = int(ident["id"])
+    await ensure_verification_allowed(session, user_id)
+    return await my_gifts(session, user_id, limit=limit, offset=offset)
 
 
 @router.get("/users/{user_id}", response_model=UserGiftsOut)
@@ -67,3 +80,16 @@ async def purchase_details(
     session: AsyncSession = Depends(get_session),
 ) -> UserGiftOut:
     return await user_gift_purchase(session, acquisition_id, owner_id=int(ident["id"]))
+
+
+@router.delete("/purchases/{acquisition_id}", response_model=Ok)
+@log_route("gifts.remove_purchase")
+async def remove_purchase(
+    acquisition_id: int = Path(gt=0, le=2**31 - 1),
+    ident: Identity = Depends(get_identity),
+    session: AsyncSession = Depends(get_session),
+) -> Ok:
+    owner_id = int(ident["id"])
+    await ensure_verification_allowed(session, owner_id)
+    await remove_user_gift(session, acquisition_id, owner_id=owner_id)
+    return Ok()

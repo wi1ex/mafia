@@ -21,6 +21,11 @@ export type GiftCollectionItem = GiftMediaAsset & {
 }
 
 export type GiftCollection = { items: GiftCollectionItem[]; total: number; has_more: boolean }
+export type OwnGiftCollectionItem = Pick<GiftCollectionItem, 'id' | 'gift_id' | 'acquired_at' | 'preview_key' | 'sender'> & {
+  dc_cost: number
+  payer_kind: 'self' | 'named' | 'anonymous'
+}
+export type OwnGiftCollection = { items: OwnGiftCollectionItem[]; total: number; has_more: boolean }
 
 export type GiftPurchaseInput = {
   gift_id: number
@@ -45,4 +50,13 @@ export async function loadGiftCatalog(signal?: AbortSignal): Promise<CatalogGift
 export async function loadGiftCollection(userId: number, grouped: boolean, limit: number, offset: number, signal?: AbortSignal): Promise<GiftCollection> {
   const { data } = await api.get<GiftCollection>(`/gifts/users/${userId}`, { params: { grouped, limit, offset }, signal })
   return data
+}
+
+export async function loadOwnGiftCollection(limit: number, offset: number, signal?: AbortSignal): Promise<OwnGiftCollection> {
+  const { data } = await api.get<OwnGiftCollection>('/gifts/me', { params: { limit, offset }, signal })
+  return data
+}
+
+export async function deleteOwnGift(acquisitionId: number, signal?: AbortSignal): Promise<void> {
+  await api.delete(`/gifts/purchases/${acquisitionId}`, { signal })
 }

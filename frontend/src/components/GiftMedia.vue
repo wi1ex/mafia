@@ -10,7 +10,7 @@ import { onBeforeUnmount, onMounted, ref, watch, type Ref } from 'vue'
 import { getImageURL, releaseImageURL } from '@/services/mediaCache'
 import type { GiftMediaAsset } from '@/services/gifts'
 
-const props = withDefaults(defineProps<{ media: GiftMediaAsset; animated?: boolean; label?: string }>(), {
+const props = withDefaults(defineProps<{ media: Pick<GiftMediaAsset, 'preview_key'> & Partial<GiftMediaAsset>; animated?: boolean; label?: string }>(), {
   animated: false,
 })
 const emit = defineEmits<{ load: [] }>()

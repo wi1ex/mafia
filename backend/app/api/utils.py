@@ -6230,7 +6230,7 @@ def _select_gift_acquisitions(gift_id, *columns):
         select(*columns)
         .select_from(UserGift)
         .join(User, User.id == UserGift.owner_id)
-        .where(UserGift.gift_id == gift_id, UserGift.refunded_at.is_(None), User.deleted_at.is_(None))
+        .where(UserGift.gift_id == gift_id, UserGift.active(), User.deleted_at.is_(None))
     )
 
 

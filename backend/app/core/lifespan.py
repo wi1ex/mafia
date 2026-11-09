@@ -37,6 +37,7 @@ async def lifespan(app) -> AsyncIterator[None]:
                     DROP COLUMN IF EXISTS hevc_key
             """))
             await conn.execute(text("ALTER TABLE user_gifts ADD COLUMN IF NOT EXISTS refund_recipient_id BIGINT"))
+            await conn.execute(text("ALTER TABLE user_gifts ADD COLUMN IF NOT EXISTS removed_at TIMESTAMPTZ"))
 
         async with SessionLocal() as session:
             await ensure_app_settings(session)

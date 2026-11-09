@@ -38,6 +38,10 @@
             <UiIcon class="tab-btn-img" :icon="iconJudgeHummer" />
             <span class="tab-btn-text">Санкции</span>
           </button>
+          <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'gifts' }" :aria-selected="activeTab === 'gifts'" :disabled="profileTabsDisabled" @click="activeTab = 'gifts'">
+            <UiIcon class="tab-btn-img" :icon="iconPresent" />
+            <span class="tab-btn-text">Подарки</span>
+          </button>
           <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'subscription' }" :aria-selected="activeTab === 'subscription'" :disabled="profileTabsDisabled" @click="activeTab = 'subscription'">
             <UiIcon class="tab-btn-img" :icon="iconCard" />
             <span class="tab-btn-text">Платежи и ЧС</span>
@@ -81,6 +85,8 @@
 
         <ProfileSanctions v-if="activeTab === 'sanctions'" />
 
+        <ProfileGifts v-if="activeTab === 'gifts'" />
+
         <ProfileSubscription v-if="activeTab === 'subscription'" />
       </div>
     </Transition>
@@ -100,6 +106,7 @@ import ProfileAccount from '@/views/ProfileAccount.vue'
 import ProfileAvatarNick from '@/views/ProfileAvatarNick.vue'
 import ProfileTheme from '@/views/ProfileTheme.vue'
 import ProfileSanctions from '@/views/ProfileSanctions.vue'
+import ProfileGifts from '@/views/ProfileGifts.vue'
 import ProfileSubscription from '@/views/ProfileSubscription.vue'
 import WalletModal from '@/views/WalletModal.vue'
 import UiIcon from '@/components/UiIcon.vue'
@@ -113,10 +120,11 @@ import iconDesign from '@/assets/svg/iconDesign.svg'
 import iconStats from '@/assets/svg/iconStats.svg'
 import iconHistory from '@/assets/svg/iconHistory.svg'
 import iconJudgeHummer from '@/assets/svg/iconJudgeHummer.svg'
+import iconPresent from '@/assets/svg/iconPresent.svg'
 import iconCard from '@/assets/svg/iconCard.svg'
 import iconLeave from '@/assets/svg/iconLeave.svg'
 
-const TAB_KEYS = ['profile', 'theme', 'account', 'stats', 'subscription', 'history', 'sanctions'] as const
+const TAB_KEYS = ['profile', 'theme', 'account', 'stats', 'gifts', 'subscription', 'history', 'sanctions'] as const
 type TabKey = typeof TAB_KEYS[number]
 const DEFAULT_TAB: TabKey = 'account'
 

@@ -1,7 +1,8 @@
 from __future__ import annotations
 from datetime import datetime
-from sqlalchemy import BigInteger, Boolean, CheckConstraint, DateTime, ForeignKey, Index, Integer, String, func
+from sqlalchemy import BigInteger, Boolean, CheckConstraint, DateTime, ForeignKey, Index, Integer, String, and_, func
 from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.sql.elements import ColumnElement
 from ..core.db import Base
 
 GIFT_PRICES = (10, 25, 50, 100)
@@ -43,5 +44,10 @@ class UserGift(Base):
     acquired_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     refunded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     refund_recipient_id: Mapped[int | None] = mapped_column(BigInteger)
+    removed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     balance_before: Mapped[int] = mapped_column(BigInteger, nullable=False)
     balance_after: Mapped[int] = mapped_column(BigInteger, nullable=False)
+
+    @classmethod
+    def active(cls) -> ColumnElement[bool]:
+        return and_(cls.refunded_at.is_(None), cls.removed_at.is_(None))
