@@ -60,7 +60,7 @@ import iconDelete from '@/assets/svg/iconDelete.svg'
 
 const PAGE_SIZE = 20
 const GIFT_REMOVAL_DELAY_MS = 7 * 24 * 60 * 60 * 1000
-const GIFT_REMOVAL_DELAY_MESSAGE = 'Подарок можно удалить только через 7 дней после получения или покупки.'
+const GIFT_REMOVAL_DELAY_MESSAGE = 'Подарок можно удалить только через 7 дней после получения'
 const DATE_OPTIONS: Intl.DateTimeFormatOptions = { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }
 const coinFormat = new Intl.NumberFormat('ru-RU')
 const auth = useAuthStore()
