@@ -13,15 +13,20 @@ from ..core.settings import settings
 from ..models.gift import Gift, UserGift
 from ..models.notif import Notif
 from ..models.user import User
-from ..schemas.gifts import GiftPurchaseIn, GiftPurchaseOut, GiftSenderOut, MyGiftOut, MyGiftsOut, UserGiftOut, UserGiftsOut
+from ..schemas.gifts import (
+    GiftMoveIn, GiftPurchaseIn, GiftPurchaseOut, GiftRemovalOut, GiftRemovalQuoteOut,
+    GiftSenderOut, MyGiftOut, MyGiftsOut, UserGiftOut, UserGiftsOut,
+)
 from .blacklist import blacklist_relation
 from .user_cache import UserProfile, get_user_profiles_cached
 from .wallet import (
     _persist_notice_once,
+    adjust_dc_balance,
     checked_balance,
     ensure_gift_recipient_access,
     ensure_payments_enabled,
     ensure_purchase_access,
+    get_dc_balance,
     lock_dc_request,
     lock_user_balance,
 )
@@ -303,12 +308,49 @@ def _inventory_item(acquisition: UserGift, gift: Gift, quantity: int, profiles: 
     )
 
 
-async def _user_gift_page(session: AsyncSession, user_id: int, *, grouped: bool, limit: int, offset: int):
+async def move_user_gift(session: AsyncSession, *, owner_id: int, payload: GiftMoveIn) -> None:
+    acquisitions = list((await session.scalars(
+        select(UserGift).join(Gift, Gift.id == UserGift.gift_id)
+        .where(UserGift.owner_id == owner_id, UserGift.active(), Gift.deleted_at.is_(None))
+        .order_by(UserGift.id).with_for_update(of=UserGift).execution_options(populate_existing=True)
+    )).all())
+    by_id = {acquisition.id: acquisition for acquisition in acquisitions}
+    acquisition = by_id.get(payload.acquisition_id)
+    target = by_id.get(payload.target_id)
+    if acquisition is None or target is None:
+        raise HTTPException(404, detail="gift_purchase_not_found")
+    if acquisition is target:
+        await session.commit()
+        return
+
+    acquisitions.sort(
+        key=lambda row: (row.display_order is None, -(row.display_order or 0), row.acquired_at, row.id),
+        reverse=True,
+    )
+    old_index = acquisitions.index(acquisition)
+    acquisitions.pop(old_index)
+    new_index = acquisitions.index(target) + (payload.place == "after")
+    if new_index == old_index:
+        await session.commit()
+        return
+
+    acquisitions.insert(new_index, acquisition)
+    for index, row in enumerate(acquisitions):
+        if row.display_order != index:
+            row.display_order = index
+    await session.commit()
+    await _publish_gift_changes({owner_id}, set())
+
+
+async def _user_gift_page(
+    session: AsyncSession, user_id: int, *, grouped: bool, profile_order: bool, limit: int, offset: int,
+):
     filters = (UserGift.owner_id == user_id, UserGift.active(), Gift.deleted_at.is_(None))
     total = int(await session.scalar(
         select(func.count()).select_from(UserGift).join(Gift, Gift.id == UserGift.gift_id).where(*filters)
     ) or 0)
-    order = (UserGift.acquired_at.desc(), UserGift.id.desc())
+    chronological = (UserGift.acquired_at.desc(), UserGift.id.desc())
+    order = (UserGift.display_order.asc().nulls_first(), *chronological) if profile_order else chronological
     if grouped:
         ranked = select(
             UserGift.id.label("acquisition_id"),
@@ -329,7 +371,9 @@ async def _user_gift_page(session: AsyncSession, user_id: int, *, grouped: bool,
 
 async def user_gifts(session: AsyncSession, user_id: int, *, grouped: bool, limit: int, offset: int,
                      reveal_anonymous_sender: bool = False) -> UserGiftsOut:
-    page, total, has_more = await _user_gift_page(session, user_id, grouped=grouped, limit=limit, offset=offset)
+    page, total, has_more = await _user_gift_page(
+        session, user_id, grouped=grouped, profile_order=True, limit=limit, offset=offset,
+    )
     profiles = await _sender_profiles(
         [acquisition for acquisition, _gift, _quantity in page], reveal_anonymous_sender=reveal_anonymous_sender,
     )
@@ -341,7 +385,9 @@ async def user_gifts(session: AsyncSession, user_id: int, *, grouped: bool, limi
 
 
 async def my_gifts(session: AsyncSession, user_id: int, *, limit: int, offset: int) -> MyGiftsOut:
-    page, total, has_more = await _user_gift_page(session, user_id, grouped=False, limit=limit, offset=offset)
+    page, total, has_more = await _user_gift_page(
+        session, user_id, grouped=False, profile_order=False, limit=limit, offset=offset,
+    )
     profiles = await _sender_profiles([acquisition for acquisition, _gift, _quantity in page])
     items = []
     for acquisition, gift, _quantity in page:
@@ -374,7 +420,31 @@ async def user_gift_purchase(session: AsyncSession, acquisition_id: int, *, owne
     return _inventory_item(acquisition, gift, 1, await _sender_profiles([acquisition]))
 
 
-async def remove_user_gift(session: AsyncSession, acquisition_id: int, *, owner_id: int) -> None:
+def _gift_removal_cost(acquisition: UserGift, now: datetime) -> int:
+    if now - acquisition.acquired_at < timedelta(days=7):
+        return acquisition.dc_cost // 2
+
+    return 0
+
+
+async def gift_removal_quote(session: AsyncSession, acquisition_id: int, *, owner_id: int) -> GiftRemovalQuoteOut:
+    acquisition = await session.scalar(
+        select(UserGift).join(Gift, Gift.id == UserGift.gift_id).where(
+            UserGift.id == acquisition_id, UserGift.owner_id == owner_id,
+            UserGift.active(), Gift.deleted_at.is_(None),
+        )
+    )
+    if acquisition is None:
+        raise HTTPException(404, detail="gift_purchase_not_found")
+
+    return GiftRemovalQuoteOut(
+        cost_dc=_gift_removal_cost(acquisition, datetime.now(timezone.utc)),
+        dc_balance=await get_dc_balance(session, owner_id),
+    )
+
+
+async def remove_user_gift(session: AsyncSession, acquisition_id: int, *, owner_id: int,
+                           max_cost_dc: int = 0) -> GiftRemovalOut:
     gift = await session.scalar(
         select(Gift).join(UserGift, UserGift.gift_id == Gift.id)
         .where(UserGift.id == acquisition_id, UserGift.owner_id == owner_id)
@@ -391,19 +461,37 @@ async def remove_user_gift(session: AsyncSession, acquisition_id: int, *, owner_
         raise HTTPException(404, detail="gift_purchase_not_found")
 
     if acquisition.removed_at is not None:
+        balance = await get_dc_balance(session, owner_id)
         await session.commit()
-        return
+        return GiftRemovalOut(dc_balance=balance)
 
     if gift.deleted_at is not None:
         raise HTTPException(404, detail="gift_purchase_not_found")
 
     now = datetime.now(timezone.utc)
-    if now - acquisition.acquired_at < timedelta(days=7):
-        raise HTTPException(409, detail="gift_removal_too_early")
+    cost = _gift_removal_cost(acquisition, now)
+    if cost > max_cost_dc:
+        raise HTTPException(409, detail="gift_removal_cost_changed")
 
+    if cost:
+        try:
+            operation = await adjust_dc_balance(session, owner_id, -cost, source="gift_removal", actor_id=owner_id)
+        except HTTPException as exc:
+            if exc.detail == "insufficient_dc_balance":
+                raise HTTPException(409, detail="gift_removal_insufficient_balance") from None
+
+            raise
+
+        balance = operation.balance_after
+        assert balance is not None
+    else:
+        balance = await get_dc_balance(session, owner_id)
+
+    result = GiftRemovalOut(dc_balance=balance)
     acquisition.removed_at = now
     await session.commit()
-    await _publish_gift_changes({owner_id}, set())
+    await _publish_gift_changes({owner_id}, {owner_id} if cost else set())
+    return result
 
 
 async def delete_gift_and_refund(session: AsyncSession, gift_id: int) -> Gift:

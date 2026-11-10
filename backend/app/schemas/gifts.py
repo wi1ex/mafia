@@ -4,6 +4,7 @@ from typing import Literal
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from ..models.gift import GIFT_PRICES
+from .common import Ok
 
 
 class GiftOut(BaseModel):
@@ -65,6 +66,14 @@ class GiftPurchaseOut(BaseModel):
     dc_balance: int
 
 
+class GiftMoveIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    acquisition_id: int = Field(strict=True, gt=0, le=2**31 - 1)
+    target_id: int = Field(strict=True, gt=0, le=2**31 - 1)
+    place: Literal["before", "after"]
+
+
 class GiftSenderOut(BaseModel):
     id: int
     username: str
@@ -104,3 +113,12 @@ class MyGiftsOut(BaseModel):
     items: list[MyGiftOut]
     total: int
     has_more: bool
+
+
+class GiftRemovalOut(Ok):
+    dc_balance: int
+
+
+class GiftRemovalQuoteOut(BaseModel):
+    cost_dc: int
+    dc_balance: int

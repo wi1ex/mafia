@@ -7,8 +7,6 @@
       <span>Не удалось загрузить подарки</span>
       <UiButton variant="white" size="low" text="Повторить" :disabled="removingId !== null" @click="loadPage(failedPage ?? page)" />
     </div>
-    <p v-if="deleteError" class="gifts-error" role="alert">{{ deleteError }}</p>
-
     <div v-if="items.length" class="gifts-scroll-wrap">
       <div ref="giftsScroll" class="gifts-scroll">
         <table class="gifts-table">
@@ -29,7 +27,7 @@
               <td class="gift-price">{{ coinFormat.format(item.dc_cost) }} DC</td>
               <td>
                 <UiButton variant="red" size="low" :icon="iconDelete" :text="removingId === item.id ? 'Удаляем…' : 'Удалить'"
-                          :disabled="removingId !== null || loading" :aria-label="`Удалить подарок №${item.gift_id}`" @click="removeGift(item)" />
+                          :disabled="removingId !== null || loading" :aria-label="`Удалить подарок №${item.gift_id}`" @click="removeGift(item.id)" />
               </td>
             </tr>
           </tbody>
@@ -48,19 +46,15 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { isAxiosError } from 'axios'
 import { useAuthStore, useUserStore } from '@/store'
-import { alertDialog, confirmDialogWithCheckbox } from '@/services/confirm'
 import { formatLocalDateTime } from '@/services/datetime'
-import { deleteOwnGift, loadOwnGiftCollection, type OwnGiftCollectionItem } from '@/services/gifts'
+import { loadOwnGiftCollection, useOwnGiftRemoval, type OwnGiftCollectionItem } from '@/services/gifts'
 import GiftMedia from '@/components/GiftMedia.vue'
 import UiButton from '@/components/UiButton.vue'
 import UiScrollbar from '@/components/UiScrollbar.vue'
 import iconDelete from '@/assets/svg/iconDelete.svg'
 
 const PAGE_SIZE = 20
-const GIFT_REMOVAL_DELAY_MS = 7 * 24 * 60 * 60 * 1000
-const GIFT_REMOVAL_DELAY_MESSAGE = 'Подарок можно удалить только через 7 дней после получения'
 const DATE_OPTIONS: Intl.DateTimeFormatOptions = { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }
 const coinFormat = new Intl.NumberFormat('ru-RU')
 const auth = useAuthStore()
@@ -72,11 +66,20 @@ const total = ref(0)
 const pages = computed(() => Math.max(1, Math.ceil(total.value / PAGE_SIZE)))
 const loading = ref(false)
 const failedPage = ref<number | null>(null)
-const deleteError = ref('')
-const removingId = ref<number | null>(null)
 let listRequest: AbortController | undefined
-let deleteRequest: AbortController | undefined
 let refreshPending = false
+const { removingId, removeGift } = useOwnGiftRemoval(acquisitionId => {
+  items.value = items.value.filter(item => item.id !== acquisitionId)
+  total.value = Math.max(0, total.value - 1)
+  refreshPending = true
+})
+
+watch(removingId, id => {
+  if (id === null && refreshPending) {
+    refreshPending = false
+    void loadPage(Math.min(page.value, pages.value))
+  }
+})
 
 async function loadPage(target = page.value): Promise<void> {
   if (!auth.sessionId || !user.user?.id) return
@@ -115,54 +118,6 @@ function payerName(item: OwnGiftCollectionItem): string {
   return item.sender?.username || (item.sender ? `user${item.sender.id}` : 'Аккаунт удалён')
 }
 
-async function removeGift(item: OwnGiftCollectionItem): Promise<void> {
-  if (removingId.value !== null || loading.value || !auth.sessionId || !user.user?.id) return
-  deleteError.value = ''
-  const acquiredAt = Date.parse(item.acquired_at)
-  if (Date.now() < acquiredAt + GIFT_REMOVAL_DELAY_MS) {
-    void alertDialog(GIFT_REMOVAL_DELAY_MESSAGE)
-    return
-  }
-
-  const session = auth.sessionId
-  const owner = user.user.id
-  const request = new AbortController()
-  deleteRequest = request
-  removingId.value = item.id
-  const current = () => !request.signal.aborted && auth.sessionId === session && user.user?.id === owner
-  try {
-    const { ok, checkboxChecked } = await confirmDialogWithCheckbox({
-      title: 'Удалить подарок',
-      text: 'Подарок исчезнет из вашей коллекции. Монеты за подарок не возвращаются.',
-      checkboxLabel: 'Я понимаю, что подарок будет удалён',
-      checkboxRequired: true,
-      confirmText: 'Удалить',
-    })
-    if (!current() || !ok || !checkboxChecked) return
-    await deleteOwnGift(item.id, request.signal)
-    if (!current()) return
-    items.value = items.value.filter(gift => gift.id !== item.id)
-    total.value = Math.max(0, total.value - 1)
-    refreshPending = true
-  } catch (error) {
-    if (!current()) return
-    if (isAxiosError<{ detail?: string }>(error) && error.response?.status === 409 && error.response.data?.detail === 'gift_removal_too_early') {
-      void alertDialog(GIFT_REMOVAL_DELAY_MESSAGE)
-      return
-    }
-    deleteError.value = 'Не удалось удалить подарок. Попробуйте ещё раз.'
-  } finally {
-    if (deleteRequest === request) {
-      deleteRequest = undefined
-      removingId.value = null
-      if (refreshPending && current()) {
-        refreshPending = false
-        void loadPage(Math.min(page.value, pages.value))
-      }
-    }
-  }
-}
-
 function refresh(): void {
   if (removingId.value !== null) refreshPending = true
   else void loadPage()
@@ -179,16 +134,13 @@ function onCatalogUpdate(event: Event): void {
 
 function reset(): void {
   listRequest?.abort()
-  deleteRequest?.abort()
-  listRequest = deleteRequest = undefined
+  listRequest = undefined
   refreshPending = false
   items.value = []
   total.value = 0
   page.value = 1
-  removingId.value = null
   loading.value = false
   failedPage.value = null
-  deleteError.value = ''
 }
 
 watch([() => auth.sessionId, () => user.user?.id], () => {

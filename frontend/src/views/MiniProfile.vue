@@ -361,8 +361,19 @@
                 <div v-else-if="giftCollectionAllowed" class="profile-all-gifts">
                   <h3>Подарки — {{ allGifts.total || giftPreview?.total || 0 }}</h3>
                   <ul v-if="allGifts.items.length" class="profile-gifts-grid">
-                    <li v-for="item in allGifts.items" :key="item.id" class="profile-gift-tile">
-                      <GiftMedia class="profile-gift-media" :media="item" :label="`Подарок №${item.gift_id}`" />
+                    <li v-for="item in allGifts.items" :key="item.id" class="profile-gift-tile"
+                        :class="{ 'profile-gift-tile--dragging': draggedGiftId === item.id,
+                                  'profile-gift-tile--drop-before': giftDropTarget?.id === item.id && giftDropTarget.place === 'before',
+                                  'profile-gift-tile--drop-after': giftDropTarget?.id === item.id && giftDropTarget.place === 'after' }"
+                        @dragover="onGiftDragOver($event, item.id)" @dragleave="onGiftDragLeave($event, item.id)" @drop="dropGift($event, item.id)">
+                      <div class="profile-gift-visual">
+                        <div class="profile-gift-preview" :draggable="canReorderOwnGifts"
+                             @dragstart="startGiftDrag($event, item.id)" @dragend="clearGiftDrag">
+                          <GiftMedia class="profile-gift-media" :media="item" :label="`Подарок №${item.gift_id}`" />
+                        </div>
+                        <UiButton v-if="canManageOwnGifts" class="profile-gift-remove" variant="white" size="low" :icon="iconDelete"
+                                  :aria-label="`Удалить подарок №${item.gift_id}`" :disabled="giftActionsBusy" @click="removeProfileGift(item.id)" />
+                      </div>
                       <div v-if="item.sender && item.sender.id !== targetUserId" class="profile-gift-sender">
                         <img v-minio-img="{ key: giftSenderAvatarKey(item.sender.avatar_name), placeholder: iconDefaultAvatarBlack }" alt="" />
                         <span :title="item.sender.username || `user${item.sender.id}`">{{ item.sender.username || `user${item.sender.id}` }}</span>
@@ -375,7 +386,7 @@
                     <UiButton size="low" text="Повторить" @click="loadProfileGifts(false, allGiftsRetryAppend)" />
                   </div>
                   <p v-else-if="!allGifts.items.length" class="profile-gifts-state">Подарков пока нет</p>
-                  <UiButton v-else-if="allGifts.has_more" size="low" text="Показать ещё" @click="loadProfileGifts(false, true)" />
+                  <UiButton v-else-if="allGifts.has_more" size="low" text="Показать ещё" :disabled="giftActionsBusy" @click="loadProfileGifts(false, true)" />
                 </div>
               </template>
             </template>
@@ -468,7 +479,7 @@ import { isMiniProfilePrivilegedViewer, normalizeMiniProfileRole } from '@/servi
 import { getProfileRoleBadges } from '@/services/profileRoles'
 import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
 import { getProfileThemeBadgeSources } from '@/constants/profileIcons'
-import { loadGiftCollection, type GiftCollection, type GiftPurchaseResult } from '@/services/gifts'
+import { loadGiftCollection, moveOwnGift, useOwnGiftRemoval, type GiftCollection, type GiftPurchaseResult } from '@/services/gifts'
 import {
   useFriendsStore,
   useAuthStore,
@@ -723,8 +734,14 @@ const allGiftsError = ref(false)
 const allGiftsRetryAppend = ref(false)
 const giftStrip = ref<HTMLElement | null>(null)
 const allGiftsTrigger = ref<HTMLButtonElement | null>(null)
+const draggedGiftId = ref<number | null>(null)
+const giftDropTarget = ref<{ id: number; place: 'before' | 'after' } | null>(null)
+const savingGiftOrder = ref(false)
+const { removingId: removingGiftId, removeGift, resetGiftRemoval } = useOwnGiftRemoval(onOwnGiftRemoved)
 let giftPreviewRequest: AbortController | undefined
 let allGiftsRequest: AbortController | undefined
+let giftOrderRequest: AbortController | undefined
+let giftRefreshPending = false
 let allGiftsOffset = 0
 const avatarImageEl = ref<HTMLImageElement | null>(null)
 const profileFriendsList = ref<HTMLElement | null>(null)
@@ -1045,6 +1062,9 @@ const showRestrictedProfileSections = computed(() => !(
 ))
 const giftCollectionAllowed = computed(() => props.open && profileLoadedForTarget.value && showRestrictedProfileSections.value
   && !viewerAccountRestricted.value && !targetDeleted.value && !loadError.value)
+const canManageOwnGifts = computed(() => auth.isAuthed && isSelfProfile.value && giftCollectionAllowed.value && view.value === 'gifts')
+const giftActionsBusy = computed(() => allGiftsLoading.value || savingGiftOrder.value || removingGiftId.value !== null)
+const canReorderOwnGifts = computed(() => canManageOwnGifts.value && !giftActionsBusy.value && allGifts.value.items.length > 1)
 const profileInfoMode = computed(() => {
   if (!profileLoadedForTarget.value || !showRestrictedProfileSections.value) return null
   if (giftPreview.value) return giftPreview.value.total > 0 ? 'tooltip' : 'inline'
@@ -1628,7 +1648,106 @@ function backToProfile(): void {
   if (fromGifts) void nextTick(() => allGiftsTrigger.value?.focus({ preventScroll: true }))
 }
 
+function clearGiftDrag(): void {
+  draggedGiftId.value = null
+  giftDropTarget.value = null
+}
+
+function resetGiftManagement(): void {
+  clearGiftDrag()
+  giftOrderRequest?.abort()
+  giftOrderRequest = undefined
+  savingGiftOrder.value = false
+  resetGiftRemoval()
+}
+
+function startGiftDrag(event: DragEvent, id: number): void {
+  if (!canReorderOwnGifts.value || !event.dataTransfer) {
+    event.preventDefault()
+    return
+  }
+  clearGiftDrag()
+  event.dataTransfer.effectAllowed = 'move'
+  event.dataTransfer.setData('text/plain', String(id))
+  draggedGiftId.value = id
+}
+
+function getGiftDropPlace(event: DragEvent): 'before' | 'after' {
+  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+  return event.clientX < rect.left + rect.width / 2 ? 'before' : 'after'
+}
+
+function onGiftDragOver(event: DragEvent, id: number): void {
+  if (!canReorderOwnGifts.value || draggedGiftId.value === null || draggedGiftId.value === id) return
+  event.preventDefault()
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
+  giftDropTarget.value = { id, place: getGiftDropPlace(event) }
+}
+
+function onGiftDragLeave(event: DragEvent, id: number): void {
+  if (giftDropTarget.value?.id !== id) return
+  if (event.relatedTarget instanceof Node && (event.currentTarget as HTMLElement).contains(event.relatedTarget)) return
+  giftDropTarget.value = null
+}
+
+async function dropGift(event: DragEvent, targetId: number): Promise<void> {
+  const acquisitionId = draggedGiftId.value
+  clearGiftDrag()
+  if (!canReorderOwnGifts.value || acquisitionId === null || acquisitionId === targetId) return
+  event.preventDefault()
+  const place = getGiftDropPlace(event)
+  const original = allGifts.value
+  const from = original.items.findIndex(item => item.id === acquisitionId)
+  const target = original.items.findIndex(item => item.id === targetId)
+  if (from < 0 || target < 0) return
+  const to = target + Number(place === 'after') - Number(from < target)
+  if (from === to) return
+
+  const items = [...original.items]
+  const [moved] = items.splice(from, 1)
+  items.splice(to, 0, moved)
+  const uid = targetUserId.value
+  const session = auth.sessionId
+  const request = new AbortController()
+  giftOrderRequest = request
+  savingGiftOrder.value = true
+  allGifts.value = { ...original, items }
+  const current = () => giftOrderRequest === request && !request.signal.aborted && canManageOwnGifts.value
+    && auth.sessionId === session && targetUserId.value === uid
+  try {
+    await moveOwnGift(acquisitionId, targetId, place, request.signal)
+  } catch {
+    if (current()) {
+      allGifts.value = original
+      void alertDialog('Не удалось изменить порядок подарков. Попробуйте ещё раз.')
+    }
+  } finally {
+    if (current()) {
+      giftOrderRequest = undefined
+      savingGiftOrder.value = false
+      refreshProfileGifts(uid)
+    }
+  }
+}
+
+function removeProfileGift(acquisitionId: number): void {
+  if (canManageOwnGifts.value && !giftActionsBusy.value) void removeGift(acquisitionId)
+}
+
+function onOwnGiftRemoved(acquisitionId: number): void {
+  if (!canManageOwnGifts.value) return
+  if (allGifts.value.items.some(item => item.id === acquisitionId)) {
+    const items = allGifts.value.items.filter(item => item.id !== acquisitionId)
+    const total = Math.max(0, allGifts.value.total - 1)
+    allGiftsOffset = Math.max(0, allGiftsOffset - 1)
+    allGifts.value = { items, total, has_more: allGiftsOffset < total }
+  }
+  refreshProfileGifts(targetUserId.value)
+}
+
 function resetGiftCollection(): void {
+  resetGiftManagement()
+  giftRefreshPending = false
   giftPreviewRequest?.abort()
   allGiftsRequest?.abort()
   giftPreviewRequest = allGiftsRequest = undefined
@@ -1647,6 +1766,7 @@ async function loadProfileGifts(grouped: boolean, append = false): Promise<void>
   const viewer = viewerUserId.value
   const adminViewer = isAdminViewer.value
   const offset = append ? allGiftsOffset : 0
+  const wanted = grouped || append ? GIFT_COLLECTION_LIMIT : Math.max(GIFT_COLLECTION_LIMIT, allGiftsOffset)
   const request = new AbortController()
   const loading = grouped ? giftPreviewLoading : allGiftsLoading
   const error = grouped ? giftPreviewError : allGiftsError
@@ -1654,20 +1774,26 @@ async function loadProfileGifts(grouped: boolean, append = false): Promise<void>
     giftPreviewRequest?.abort()
     giftPreviewRequest = request
   } else {
+    clearGiftDrag()
     allGiftsRequest?.abort()
     allGiftsRequest = request
   }
   loading.value = true
   error.value = false
   try {
-    const collection = await loadGiftCollection(uid, grouped, GIFT_COLLECTION_LIMIT, offset, request.signal)
+    let collection = await loadGiftCollection(uid, grouped, GIFT_COLLECTION_LIMIT, offset, request.signal)
+    const loaded = [...collection.items]
+    while (!grouped && !append && collection.has_more && collection.items.length && loaded.length < wanted && !request.signal.aborted) {
+      collection = await loadGiftCollection(uid, false, Math.min(GIFT_COLLECTION_LIMIT, wanted - loaded.length), loaded.length, request.signal)
+      loaded.push(...collection.items)
+    }
     if (request.signal.aborted || uid !== targetUserId.value || session !== auth.sessionId
       || viewer !== viewerUserId.value || adminViewer !== isAdminViewer.value || !giftCollectionAllowed.value) return
     if (grouped) giftPreview.value = collection
     else {
-      const items = append ? [...allGifts.value.items, ...collection.items] : collection.items
+      const items = append ? [...allGifts.value.items, ...loaded] : loaded
       allGifts.value = { ...collection, items: [...new Map(items.map(item => [item.id, item])).values()] }
-      allGiftsOffset = offset + collection.items.length
+      allGiftsOffset = offset + loaded.length
     }
   } catch {
     if (!request.signal.aborted) {
@@ -1685,6 +1811,11 @@ async function loadProfileGifts(grouped: boolean, append = false): Promise<void>
 
 function refreshProfileGifts(uid: number): void {
   if (uid !== targetUserId.value || !giftCollectionAllowed.value) return
+  if (savingGiftOrder.value || removingGiftId.value !== null) {
+    giftRefreshPending = true
+    return
+  }
+  giftRefreshPending = false
   void loadProfileGifts(true)
   if (view.value === 'gifts') void loadProfileGifts(false)
 }
@@ -2469,7 +2600,7 @@ async function toggleBlacklist() {
 
 function onKeydown(e: KeyboardEvent) {
   if (!props.open || e.key !== 'Escape') return
-  if (balanceModalOpen.value || giftModalOpen.value) return
+  if (balanceModalOpen.value || giftModalOpen.value || removingGiftId.value !== null) return
   if (profileInfoOpen.value) {
     e.preventDefault()
     e.stopPropagation()
@@ -2791,10 +2922,17 @@ watch([giftCollectionAllowed, targetUserId, () => auth.sessionId, viewerUserId, 
 watch(view, next => {
   if (next === 'gifts') void loadProfileGifts(false)
   else {
+    const refresh = savingGiftOrder.value || removingGiftId.value !== null || giftRefreshPending
+    resetGiftManagement()
     allGiftsRequest?.abort()
     allGiftsRequest = undefined
     allGiftsLoading.value = false
+    if (refresh) refreshProfileGifts(targetUserId.value)
   }
+})
+
+watch(removingGiftId, id => {
+  if (id === null && giftRefreshPending) refreshProfileGifts(targetUserId.value)
 })
 
 onMounted(() => {
@@ -3863,14 +4001,52 @@ onBeforeUnmount(() => {
         list-style: none;
         .profile-gift-tile {
           display: flex;
+          position: relative;
           flex-direction: column;
           align-items: center;
           gap: 6px;
           min-width: 0;
-          .profile-gift-media {
+          &--dragging .profile-gift-preview {
+            opacity: 0.55;
+          }
+          &--drop-before::before,
+          &--drop-after::after {
+            position: absolute;
+            inset-block: 0;
+            width: 3px;
+            border-radius: 3px;
+            background-color: $green-500;
+            content: '';
+            pointer-events: none;
+          }
+          &--drop-before::before {
+            left: -4px;
+          }
+          &--drop-after::after {
+            right: -4px;
+          }
+          .profile-gift-visual {
+            position: relative;
             width: min(100%, 156px);
-            height: auto;
             aspect-ratio: 1;
+            .profile-gift-preview {
+              width: 100%;
+              height: 100%;
+              &[draggable='true'] {
+                cursor: grab;
+                &:active {
+                  cursor: grabbing;
+                }
+              }
+              .profile-gift-media {
+                pointer-events: none;
+              }
+            }
+            .profile-gift-remove {
+              position: absolute;
+              top: 4px;
+              right: 4px;
+            }
           }
           .profile-gift-sender {
             display: flex;

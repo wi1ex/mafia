@@ -5,11 +5,17 @@ from ...core.db import get_session
 from ...core.roles import ROLE_ADMIN, ROLE_MODER, normalize_user_role
 from ...models.user import User
 from ...schemas.common import Identity, Ok
-from ...schemas.gifts import GiftOut, GiftPurchaseIn, GiftPurchaseOut, MyGiftsOut, UserGiftOut, UserGiftsOut
+from ...schemas.gifts import (
+    GiftMoveIn, GiftOut, GiftPurchaseIn, GiftPurchaseOut, GiftRemovalOut, GiftRemovalQuoteOut,
+    MyGiftsOut, UserGiftOut, UserGiftsOut,
+)
 from ...security.auth_tokens import get_identity
 from ...security.decorators import log_route
 from ...services.blacklist import blacklist_relation
-from ...services.gifts import buy_gift, dismiss_gift_toast, gift_catalog, my_gifts, pending_gift_toasts, remove_user_gift, user_gift_purchase, user_gifts
+from ...services.gifts import (
+    buy_gift, dismiss_gift_toast, gift_catalog, gift_removal_quote, move_user_gift, my_gifts,
+    pending_gift_toasts, remove_user_gift, user_gift_purchase, user_gifts,
+)
 from ..utils import ensure_verification_allowed
 
 router = APIRouter()
@@ -42,6 +48,19 @@ async def my_collection(
     user_id = int(ident["id"])
     await ensure_verification_allowed(session, user_id)
     return await my_gifts(session, user_id, limit=limit, offset=offset)
+
+
+@router.patch("/me/order", response_model=Ok)
+@log_route("gifts.move_purchase")
+async def move_purchase(
+    payload: GiftMoveIn,
+    ident: Identity = Depends(get_identity),
+    session: AsyncSession = Depends(get_session),
+) -> Ok:
+    owner_id = int(ident["id"])
+    await ensure_verification_allowed(session, owner_id)
+    await move_user_gift(session, owner_id=owner_id, payload=payload)
+    return Ok()
 
 
 @router.get("/pending-toasts")
@@ -111,14 +130,28 @@ async def dismiss_toast(
     return Ok()
 
 
-@router.delete("/purchases/{acquisition_id}", response_model=Ok)
-@log_route("gifts.remove_purchase")
-async def remove_purchase(
+@router.get("/purchases/{acquisition_id}/removal", response_model=GiftRemovalQuoteOut)
+@log_route("gifts.removal_quote")
+async def removal_quote(
+    response: Response,
     acquisition_id: int = Path(gt=0, le=2**31 - 1),
     ident: Identity = Depends(get_identity),
     session: AsyncSession = Depends(get_session),
-) -> Ok:
+) -> GiftRemovalQuoteOut:
     owner_id = int(ident["id"])
     await ensure_verification_allowed(session, owner_id)
-    await remove_user_gift(session, acquisition_id, owner_id=owner_id)
-    return Ok()
+    response.headers["Cache-Control"] = "private, no-store"
+    return await gift_removal_quote(session, acquisition_id, owner_id=owner_id)
+
+
+@router.delete("/purchases/{acquisition_id}", response_model=GiftRemovalOut)
+@log_route("gifts.remove_purchase")
+async def remove_purchase(
+    acquisition_id: int = Path(gt=0, le=2**31 - 1),
+    max_cost_dc: int = Query(default=0, ge=0, le=2**63 - 1),
+    ident: Identity = Depends(get_identity),
+    session: AsyncSession = Depends(get_session),
+) -> GiftRemovalOut:
+    owner_id = int(ident["id"])
+    await ensure_verification_allowed(session, owner_id)
+    return await remove_user_gift(session, acquisition_id, owner_id=owner_id, max_cost_dc=max_cost_dc)

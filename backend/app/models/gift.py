@@ -44,6 +44,7 @@ class UserGift(Base):
     dc_cost: Mapped[int] = mapped_column(Integer, nullable=False)
     request_id: Mapped[str] = mapped_column(String(36), nullable=False, unique=True)
     acquired_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    display_order: Mapped[int | None] = mapped_column(Integer)
     refunded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     refund_recipient_id: Mapped[int | None] = mapped_column(BigInteger)
     removed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

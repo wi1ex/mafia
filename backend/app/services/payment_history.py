@@ -116,9 +116,14 @@ async def operation_history(session: AsyncSession, user_id: int, *, page: int = 
             operation_type = {
                 "lava": "Покупка монет", "admin_grant": "Выдача монет",
                 "admin_remove": "Снятие монет", "game_reward": "Награда за проведение игр",
+                "gift_removal": "Удаление подарка",
             }.get(source, "Начисление монет")
-            received = "—" if source == "admin_remove" else f"{quantity} DC"
-            spent = money_text(row["amount"], row["currency"]) if source == "lava" else f"{quantity} DC" if source == "admin_remove" else "Бесплатно"
+            is_debit = source in {"admin_remove", "gift_removal"}
+            received = "—" if is_debit else f"{quantity} DC"
+            if source == "lava":
+                spent = money_text(row["amount"], row["currency"])
+            else:
+                spent = f"{quantity} DC" if is_debit else "Бесплатно"
         elif row["journal"] == "gift_refund":
             operation_type = f"Возврат за подарок №{row['quantity']}"
             received = f"{int(row['dc_cost'])} DC"

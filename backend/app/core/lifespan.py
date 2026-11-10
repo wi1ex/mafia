@@ -27,6 +27,8 @@ async def lifespan(app) -> AsyncIterator[None]:
             await conn.execute(text("SELECT pg_advisory_xact_lock(20261020, 1)"))
             await conn.run_sync(Base.metadata.create_all)
 
+            await conn.execute(text("ALTER TABLE user_gifts ADD COLUMN IF NOT EXISTS display_order INTEGER"))
+
         async with SessionLocal() as session:
             await ensure_app_settings(session)
             await ensure_game_scoring_settings(session)
