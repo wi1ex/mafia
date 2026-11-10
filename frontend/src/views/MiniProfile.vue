@@ -195,7 +195,7 @@
                     <ul ref="giftStrip" class="profile-gifts-strip" aria-label="Подарки пользователя" tabindex="0">
                       <li v-for="item in giftPreview.items" :key="item.id" class="profile-gift-tile">
                         <GiftMedia class="profile-gift-media" :media="item" :label="`Подарок №${item.gift_id}`" animated />
-                        <span v-if="item.quantity > 1" class="profile-gift-quantity">×{{ item.quantity }}</span>
+                        <span v-if="item.quantity > 1" class="profile-gift-quantity">x{{ item.quantity }}</span>
                       </li>
                     </ul>
                     <UiScrollbar class="profile-gifts-scrollbar" :target="giftStrip" orientation="horizontal" />
@@ -3963,14 +3963,14 @@ onBeforeUnmount(() => {
           }
           .profile-gift-quantity {
             position: absolute;
-            right: 0;
-            bottom: 0;
-            padding: 1px 5px;
+            right: 4px;
+            bottom: 4px;
+            padding: 4px 8px;
             border-radius: 999px;
-            background-color: rgba($neutral-black, 0.75);
-            color: $neutral-white;
+            background-color: rgba($neutral-white, 0.75);
+            color: $neutral-black;
             font-family: Hauora-SemiBold;
-            font-size: 12px;
+            font-size: 14px;
           }
         }
       }
@@ -4004,7 +4004,6 @@ onBeforeUnmount(() => {
           position: relative;
           flex-direction: column;
           align-items: center;
-          gap: 6px;
           min-width: 0;
           &--dragging .profile-gift-preview {
             opacity: 0.55;
@@ -4054,17 +4053,17 @@ onBeforeUnmount(() => {
             gap: 5px;
             box-sizing: border-box;
             max-width: 100%;
-            padding: 3px 8px 3px 3px;
+            padding: 8px 12px;
             border-radius: 999px;
-            background-color: rgba($neutral-white, 0.12);
+            background-color: rgba($neutral-white, 0.1);
             color: $neutral-100;
             font-family: Hauora-Medium;
-            font-size: 13px;
+            font-size: 16px;
             line-height: 18px;
             img {
-              flex: 0 0 18px;
-              width: 18px;
-              height: 18px;
+              flex: 0 0 24px;
+              width: 24px;
+              height: 24px;
               border-radius: 50%;
               background-color: $neutral-white;
               object-fit: cover;

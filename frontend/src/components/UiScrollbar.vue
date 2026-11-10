@@ -286,7 +286,7 @@ onBeforeUnmount(() => {
     right: auto;
     bottom: auto;
     flex: 0 0 auto;
-    width: min(100%, 146px);
+    width: min(100%, 120px);
     height: 0;
     margin-inline: auto;
     &.scrollbar--visible {
