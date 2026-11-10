@@ -184,8 +184,8 @@
               <template v-if="view === 'profile'">
                 <div v-if="giftCollectionAllowed && (giftPreview?.total || giftPreviewError)" class="profile-gifts-preview">
                   <div class="profile-gifts-heading">
-                    <span>Подарки ({{ giftPreview?.total ?? 0 }})</span>
-                    <button v-if="giftPreview?.total" ref="allGiftsTrigger" type="button" @click="view = 'gifts'">Все</button>
+                    <span>Подарки — {{ giftPreview?.total ?? 0 }}</span>
+                    <button v-if="giftPreview?.total" ref="allGiftsTrigger" type="button" @click="view = 'gifts'">Все подарки</button>
                   </div>
                   <div v-if="giftPreviewError" class="profile-gifts-state" role="alert">
                     <span>Не удалось загрузить подарки</span>
@@ -359,7 +359,7 @@
                 <ProfileStats v-if="view === 'stats'" :stats-url="resolvedStatsUrl" />
                 <ProfileHistory v-else-if="view === 'history'" :history-url="resolvedHistoryUrl" :per-page="5" />
                 <div v-else-if="giftCollectionAllowed" class="profile-all-gifts">
-                  <h3>Подарки ({{ allGifts.total || giftPreview?.total || 0 }})</h3>
+                  <h3>Подарки — {{ allGifts.total || giftPreview?.total || 0 }}</h3>
                   <ul v-if="allGifts.items.length" class="profile-gifts-grid">
                     <li v-for="item in allGifts.items" :key="item.id" class="profile-gift-tile">
                       <GiftMedia class="profile-gift-media" :media="item" :label="`Подарок №${item.gift_id}`" />
@@ -3843,7 +3843,7 @@ onBeforeUnmount(() => {
     .profile-all-gifts {
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 10px;
       padding: 16px;
       border-radius: 20px;
       background-color: rgba($soft-purple-900, 0.65);
@@ -3856,8 +3856,8 @@ onBeforeUnmount(() => {
       }
       .profile-gifts-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(min(100%, 100px), 1fr));
-        gap: 8px;
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 156px), 1fr));
+        gap: 10px;
         padding: 0;
         margin: 0;
         list-style: none;
@@ -3868,7 +3868,7 @@ onBeforeUnmount(() => {
           gap: 6px;
           min-width: 0;
           .profile-gift-media {
-            width: min(100%, 96px);
+            width: min(100%, 156px);
             height: auto;
             aspect-ratio: 1;
           }

@@ -104,7 +104,7 @@
       <button v-if="user.user" ref="walletTrigger" class="wallet-balance-trigger" type="button"
               :aria-label="`Открыть магазин. Баланс ${walletBalanceText} DC`" aria-haspopup="dialog" @click="openWallet">
         <span class="wallet-balance-coin" aria-hidden="true">
-          <img :src="iconCoin" width="64" height="64" alt="" />
+          <img :src="iconCoin" width="60" height="60" alt="" />
           <span class="wallet-balance-plus"><UiIcon :icon="iconAddPlus" /></span>
         </span>
         <span class="wallet-balance-amount">{{ walletBalanceText }} DC</span>
@@ -915,20 +915,20 @@ function openAuth(mode: 'login' | 'register') {
         }
         .wallet-balance-plus {
           position: absolute;
-          right: 2px;
-          bottom: 3px;
+          right: 4px;
+          bottom: 4px;
           display: grid;
           place-items: center;
           box-sizing: border-box;
-          width: 26px;
-          height: 26px;
+          width: 24px;
+          height: 24px;
           border: 1px solid $neutral-black;
           border-radius: 50%;
           background-color: $green-500;
           transition: background-color 0.25s ease-in-out;
           .ui-icon {
-            --ui-icon-width: 20px;
-            --ui-icon-height: 20px;
+            --ui-icon-width: 16px;
+            --ui-icon-height: 16px;
             --ui-icon-color: #{$neutral-black};
           }
         }
