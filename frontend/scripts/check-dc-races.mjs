@@ -68,9 +68,9 @@ try {
       post(url, input) { const next = deferred(); posts.push({ ...next, url, input: JSON.parse(JSON.stringify(input)) }); return next.promise },
     },
   }).useWalletStore()
-  const invoice = (order_id, status, request_id = undefined) => ({ order_id, status, quantity: 30, unit_price: null, amount: '500.00', currency: 'RUB', dc_balance: 0, request_id })
-  const firstInput = { quantity: 30, currency: 'RUB', payment_method: 'sbp', email: 'a@example.org', expected_amount: '500.00' }
-  const nextInput = { quantity: 100, currency: 'USD', payment_method: 'paypal', email: 'b@example.org', expected_amount: '21.00' }
+  const firstInput = { quantity: 25, currency: 'RUB', payment_method: 'sbp', email: 'a@example.org', expected_amount: dc.DEFAULT_COIN_PACKAGES[25].RUB }
+  const nextInput = { quantity: 50, currency: 'USD', payment_method: 'paypal', email: 'b@example.org', expected_amount: dc.DEFAULT_COIN_PACKAGES[50].USD }
+  const invoice = (order_id, status, request_id = undefined) => ({ order_id, status, quantity: firstInput.quantity, unit_price: null, amount: firstInput.expected_amount, currency: firstInput.currency, dc_balance: 0, request_id })
   storage.set('dc:requests:v2:17', JSON.stringify({ invoice: { ...firstInput, request_id: dc.newDcRequestId() } }))
   let creation = wallet.createInvoice(firstInput)
   let created = posts.shift()

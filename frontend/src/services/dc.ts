@@ -1,27 +1,27 @@
 export type DcCurrency = 'RUB' | 'USD' | 'EUR'
 export type WalletTab = 'coins' | 'subscription' | 'gifts'
-export type CoinPackageQuantity = 30 | 100 | 300 | 1000
+export type CoinPackageQuantity = 25 | 50 | 100 | 250
 export type CoinPackageCatalog = Record<CoinPackageQuantity, Record<DcCurrency, string>>
 export type SubscriptionPlan = 'week' | 'month' | 'quarter' | 'year'
 
 export const DC_CURRENCIES: readonly DcCurrency[] = ['RUB', 'USD', 'EUR']
 export const COIN_PACKAGES: readonly { quantity: CoinPackageQuantity; discount: number }[] = [
-  { quantity: 30, discount: 0 },
-  { quantity: 100, discount: 10 },
-  { quantity: 300, discount: 15 },
-  { quantity: 1000, discount: 25 },
+  { quantity: 25, discount: 0 },
+  { quantity: 50, discount: 15 },
+  { quantity: 100, discount: 20 },
+  { quantity: 250, discount: 25 },
 ]
 export const DEFAULT_COIN_PACKAGES: CoinPackageCatalog = {
-  30: { RUB: '500.00', USD: '7.00', EUR: '6.00' },
-  100: { RUB: '1500.00', USD: '21.00', EUR: '18.00' },
-  300: { RUB: '4250.00', USD: '60.00', EUR: '51.00' },
-  1000: { RUB: '12500.00', USD: '175.00', EUR: '150.00' },
+  25: { RUB: '470.00', USD: '6.20', EUR: '5.50' },
+  50: { RUB: '800.00', USD: '10.60', EUR: '9.40' },
+  100: { RUB: '1500.00', USD: '20.00', EUR: '17.60' },
+  250: { RUB: '3500.00', USD: '46.60', EUR: '41.20' },
 }
 export const SUBSCRIPTION_PLANS: readonly { id: SubscriptionPlan; label: string; cost: number; discount: number; months: number; days: number }[] = [
   { id: 'week', label: '1 неделя', cost: 7, discount: 0, months: 0, days: 7 },
-  { id: 'month', label: '1 месяц', cost: 27, discount: 10, months: 1, days: 0 },
-  { id: 'quarter', label: '3 месяца', cost: 75, discount: 15, months: 3, days: 0 },
-  { id: 'year', label: '1 год', cost: 275, discount: 25, months: 12, days: 0 },
+  { id: 'month', label: '1 месяц', cost: 25, discount: 15, months: 1, days: 0 },
+  { id: 'quarter', label: '3 месяца', cost: 70, discount: 20, months: 3, days: 0 },
+  { id: 'year', label: '1 год', cost: 270, discount: 25, months: 12, days: 0 },
 ]
 const MAX_PRICE_MINOR = 999_999_999_999_999_999n
 

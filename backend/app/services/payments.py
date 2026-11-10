@@ -341,7 +341,7 @@ def order_response(order: CoinPurchase, balance: int) -> dict:
 
 
 async def create_coin_invoice(session: AsyncSession, *, user_id: int, payload: CoinInvoiceCreateIn) -> dict:
-    if not isinstance(payload.quantity, int) or isinstance(payload.quantity, bool) or payload.quantity not in DC_PACKAGE_QUANTITIES:
+    if type(payload.quantity) is not int or payload.quantity <= 0:
         raise HTTPException(422, detail="dc_package_invalid")
 
     payment_options = LAVA_RUB_PAYMENT_OPTIONS if payload.currency == "RUB" else LAVA_INTERNATIONAL_PAYMENT_OPTIONS
@@ -354,6 +354,9 @@ async def create_coin_invoice(session: AsyncSession, *, user_id: int, payload: C
     offer_id = None
     product_id = _uuid(settings.KASSA_COIN_PRODUCT_ID)
     if existing_id is None:
+        if payload.quantity not in DC_PACKAGE_QUANTITIES:
+            raise HTTPException(422, detail="dc_package_invalid")
+
         await ensure_payments_enabled(session)
         user = await session.get(User, user_id)
         if user is None:

@@ -178,10 +178,10 @@ import UiSwitch from '@/components/UiSwitch.vue'
 import GiftOpeningModal from '@/views/GiftOpeningModal.vue'
 
 import imageSlide8 from '@/assets/images/carousel-image8.png'
-import coins30 from '@/assets/images/coins-30.webp'
-import coins100 from '@/assets/images/coins-100.webp'
-import coins300 from '@/assets/images/coins-300.webp'
-import coins1000 from '@/assets/images/coins-1000.webp'
+import coinsSmall from '@/assets/images/coinsSmall.webp'
+import coinsMedium from '@/assets/images/coinsMedium.webp'
+import coinsLarge from '@/assets/images/coinsLarge.webp'
+import coinsExtraLarge from '@/assets/images/coinsExtraLarge.webp'
 import subWeek from '@/assets/images/subWeek.png'
 import subMonth from '@/assets/images/subMonth.png'
 import subThreeMonths from '@/assets/images/subThreeMonths.png'
@@ -263,7 +263,7 @@ const subscriptionBenefits: readonly string[] = [
 ]
 const currencies = DC_CURRENCIES
 const currencyIcons: Record<DcCurrency, string> = { RUB: iconRouble, USD: iconDollar, EUR: iconEuro }
-const coinPackageImages: Record<CoinPackageQuantity, string> = { 30: coins30, 100: coins100, 300: coins300, 1000: coins1000 }
+const coinPackageImages: Record<CoinPackageQuantity, string> = { 25: coinsSmall, 50: coinsMedium, 100: coinsLarge, 250: coinsExtraLarge }
 const subscriptionPlanImages: Record<SubscriptionPlan, string> = { week: subWeek, month: subMonth, quarter: subThreeMonths, year: subYear }
 const currency = ref<DcCurrency>('RUB')
 const coinPackages = computed(() => COIN_PACKAGES.map(coinPackage => {
@@ -283,7 +283,7 @@ const paymentMethods = computed<readonly { id: CoinPaymentMethod; label: string;
     { id: 'apple_pay', label: 'ApplePay', icon: iconApple },
     { id: 'paypal', label: 'PayPal', icon: iconPaypal, colorIcon: true },
   ])
-const quantity = ref<CoinPackageQuantity>(30)
+const quantity = ref<CoinPackageQuantity>(25)
 const subscriptionPlan = ref<SubscriptionPlan>('week')
 const email = ref('')
 const opening = ref(false)

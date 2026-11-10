@@ -2,9 +2,9 @@ from __future__ import annotations
 from decimal import Decimal, InvalidOperation
 import re
 
-DC_PACKAGE_QUANTITIES = (30, 100, 300, 1000)
+DC_PACKAGE_QUANTITIES = (25, 50, 100, 250)
 DC_CURRENCIES = ("RUB", "USD", "EUR")
-DEFAULT_DC_PACKAGES = "500-7-6-1500-21-18-4250-60-51-12500-175-150"
+DEFAULT_DC_PACKAGES = "470-6.20-5.50-800-10.60-9.40-1500-20-17.60-3500-46.60-41.20"
 DC_PRICE_QUANTUM = Decimal("0.01")
 MAX_DC_PRICE = Decimal("9999999999999999.99")
 DC_PACKAGE_PRICE_RE = re.compile(r"[0-9]+(?:[.,][0-9]{1,2})?", flags=re.ASCII)

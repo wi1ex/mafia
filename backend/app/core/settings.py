@@ -62,10 +62,10 @@ class Settings(BaseSettings):
 
     KASSA_API_KEY: str = ""
     KASSA_COIN_PRODUCT_ID: str = ""
-    KASSA_COIN_OFFER_30_ID: str = ""
+    KASSA_COIN_OFFER_25_ID: str = ""
+    KASSA_COIN_OFFER_50_ID: str = ""
     KASSA_COIN_OFFER_100_ID: str = ""
-    KASSA_COIN_OFFER_300_ID: str = ""
-    KASSA_COIN_OFFER_1000_ID: str = ""
+    KASSA_COIN_OFFER_250_ID: str = ""
     KASSA_WEBHOOK_SECRET: str = ""
 
     ROOMS_LIMIT_GLOBAL: int = 15

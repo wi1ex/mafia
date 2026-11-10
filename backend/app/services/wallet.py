@@ -23,9 +23,9 @@ log = structlog.get_logger()
 MAX_DC = 2**63 - 1
 SUBSCRIPTION_PLANS = {
     "week": (7, 0, 7),
-    "month": (0, 1, 27),
-    "quarter": (0, 3, 75),
-    "year": (0, 12, 275),
+    "month": (0, 1, 25),
+    "quarter": (0, 3, 70),
+    "year": (0, 12, 270),
 }
 
 

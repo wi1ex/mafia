@@ -4,24 +4,27 @@ from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+from ..services.coin_prices import DC_PACKAGE_QUANTITIES
 
 
-class CoinPaymentAttemptIn(BaseModel):
+class _CoinPaymentIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    quantity: int = Field(strict=True)
+    quantity: int = Field(strict=True, gt=0, le=2**31 - 1)
     currency: Literal["RUB", "USD", "EUR"]
     payment_method: Literal["card", "sbp", "apple_pay", "paypal"] = "card"
 
+
+class CoinPaymentAttemptIn(_CoinPaymentIn):
     @field_validator("quantity")
     @classmethod
     def fixed_package(cls, value: int) -> int:
-        if value not in (30, 100, 300, 1000):
+        if value not in DC_PACKAGE_QUANTITIES:
             raise ValueError("dc_package_invalid")
 
         return value
 
 
-class CoinInvoiceCreateIn(CoinPaymentAttemptIn):
+class CoinInvoiceCreateIn(_CoinPaymentIn):
     email: str = Field(min_length=3, max_length=254)
     expected_amount: Decimal = Field(gt=0, max_digits=18, decimal_places=2)
     request_id: UUID
