@@ -99,22 +99,6 @@ class UserGiftsOut(BaseModel):
     has_more: bool
 
 
-class MyGiftOut(BaseModel):
-    id: int
-    gift_id: int
-    acquired_at: datetime
-    preview_key: str
-    dc_cost: int
-    payer_kind: Literal["self", "named", "anonymous"]
-    sender: GiftSenderOut | None = None
-
-
-class MyGiftsOut(BaseModel):
-    items: list[MyGiftOut]
-    total: int
-    has_more: bool
-
-
 class GiftRemovalOut(Ok):
     dc_balance: int
 

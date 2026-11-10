@@ -7,13 +7,13 @@ from ...models.user import User
 from ...schemas.common import Identity, Ok
 from ...schemas.gifts import (
     GiftMoveIn, GiftOut, GiftPurchaseIn, GiftPurchaseOut, GiftRemovalOut, GiftRemovalQuoteOut,
-    MyGiftsOut, UserGiftOut, UserGiftsOut,
+    UserGiftOut, UserGiftsOut,
 )
 from ...security.auth_tokens import get_identity
 from ...security.decorators import log_route
 from ...services.blacklist import blacklist_relation
 from ...services.gifts import (
-    buy_gift, dismiss_gift_toast, gift_catalog, gift_removal_quote, move_user_gift, my_gifts,
+    buy_gift, dismiss_gift_toast, gift_catalog, gift_removal_quote, move_user_gift,
     pending_gift_toasts, remove_user_gift, user_gift_purchase, user_gifts,
 )
 from ..utils import ensure_verification_allowed
@@ -35,19 +35,6 @@ async def purchase(
     session: AsyncSession = Depends(get_session),
 ) -> GiftPurchaseOut:
     return await buy_gift(session, payer_id=int(ident["id"]), payload=payload)
-
-
-@router.get("/me", response_model=MyGiftsOut)
-@log_route("gifts.my_collection")
-async def my_collection(
-    limit: int = Query(default=30, ge=1, le=100),
-    offset: int = Query(default=0, ge=0, le=2**31 - 1),
-    ident: Identity = Depends(get_identity),
-    session: AsyncSession = Depends(get_session),
-) -> MyGiftsOut:
-    user_id = int(ident["id"])
-    await ensure_verification_allowed(session, user_id)
-    return await my_gifts(session, user_id, limit=limit, offset=offset)
 
 
 @router.patch("/me/order", response_model=Ok)

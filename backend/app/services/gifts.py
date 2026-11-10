@@ -15,7 +15,7 @@ from ..models.notif import Notif
 from ..models.user import User
 from ..schemas.gifts import (
     GiftMoveIn, GiftPurchaseIn, GiftPurchaseOut, GiftRemovalOut, GiftRemovalQuoteOut,
-    GiftSenderOut, MyGiftOut, MyGiftsOut, UserGiftOut, UserGiftsOut,
+    GiftSenderOut, UserGiftOut, UserGiftsOut,
 )
 from .blacklist import blacklist_relation
 from .user_cache import UserProfile, get_user_profiles_cached
@@ -342,15 +342,13 @@ async def move_user_gift(session: AsyncSession, *, owner_id: int, payload: GiftM
     await _publish_gift_changes({owner_id}, set())
 
 
-async def _user_gift_page(
-    session: AsyncSession, user_id: int, *, grouped: bool, profile_order: bool, limit: int, offset: int,
-):
+async def user_gifts(session: AsyncSession, user_id: int, *, grouped: bool, limit: int, offset: int,
+                     reveal_anonymous_sender: bool = False) -> UserGiftsOut:
     filters = (UserGift.owner_id == user_id, UserGift.active(), Gift.deleted_at.is_(None))
     total = int(await session.scalar(
         select(func.count()).select_from(UserGift).join(Gift, Gift.id == UserGift.gift_id).where(*filters)
     ) or 0)
-    chronological = (UserGift.acquired_at.desc(), UserGift.id.desc())
-    order = (UserGift.display_order.asc().nulls_first(), *chronological) if profile_order else chronological
+    order = (UserGift.display_order.asc().nulls_first(), UserGift.acquired_at.desc(), UserGift.id.desc())
     if grouped:
         ranked = select(
             UserGift.id.label("acquisition_id"),
@@ -366,14 +364,7 @@ async def _user_gift_page(
     else:
         query = select(UserGift, Gift, literal(1)).select_from(UserGift).join(Gift, Gift.id == UserGift.gift_id).where(*filters)
     rows = (await session.execute(query.order_by(*order).offset(offset).limit(limit + 1))).all()
-    return rows[:limit], total, len(rows) > limit
-
-
-async def user_gifts(session: AsyncSession, user_id: int, *, grouped: bool, limit: int, offset: int,
-                     reveal_anonymous_sender: bool = False) -> UserGiftsOut:
-    page, total, has_more = await _user_gift_page(
-        session, user_id, grouped=grouped, profile_order=True, limit=limit, offset=offset,
-    )
+    page = rows[:limit]
     profiles = await _sender_profiles(
         [acquisition for acquisition, _gift, _quantity in page], reveal_anonymous_sender=reveal_anonymous_sender,
     )
@@ -381,29 +372,7 @@ async def user_gifts(session: AsyncSession, user_id: int, *, grouped: bool, limi
         _inventory_item(acquisition, gift, int(quantity), profiles, reveal_anonymous_sender=reveal_anonymous_sender)
         for acquisition, gift, quantity in page
     ]
-    return UserGiftsOut(items=items, total=total, has_more=has_more)
-
-
-async def my_gifts(session: AsyncSession, user_id: int, *, limit: int, offset: int) -> MyGiftsOut:
-    page, total, has_more = await _user_gift_page(
-        session, user_id, grouped=False, profile_order=False, limit=limit, offset=offset,
-    )
-    profiles = await _sender_profiles([acquisition for acquisition, _gift, _quantity in page])
-    items = []
-    for acquisition, gift, _quantity in page:
-        if acquisition.payer_id == acquisition.owner_id:
-            payer_kind = "self"
-        elif acquisition.anonymous:
-            payer_kind = "anonymous"
-        else:
-            payer_kind = "named"
-
-        items.append(MyGiftOut(
-            id=acquisition.id, gift_id=gift.id, acquired_at=acquisition.acquired_at,
-            preview_key=gift.preview_key, dc_cost=acquisition.dc_cost,
-            payer_kind=payer_kind, sender=_gift_sender(acquisition, profiles),
-        ))
-    return MyGiftsOut(items=items, total=total, has_more=has_more)
+    return UserGiftsOut(items=items, total=total, has_more=len(rows) > limit)
 
 
 async def user_gift_purchase(session: AsyncSession, acquisition_id: int, *, owner_id: int) -> UserGiftOut:
