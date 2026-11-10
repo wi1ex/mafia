@@ -2307,7 +2307,7 @@ type GiftOwner = { id: number; username: string | null; avatar_name: string | nu
 type GiftOwnersPage = { items: GiftOwner[]; has_more: boolean }
 type GiftUploadTarget = 'new' | number
 
-const adminGiftPrices = [10, 25, 50, 100]
+const adminGiftPrices = [10, 25, 50]
 const GIFT_OWNERS_PAGE_SIZE = 30
 
 function newGiftTab() {

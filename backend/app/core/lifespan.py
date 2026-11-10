@@ -6,6 +6,9 @@ from contextlib import asynccontextmanager
 from ..security.parameters import ensure_app_settings
 from ..services.game_scoring import ensure_game_scoring_settings
 from ..security.admin_guard import assert_protected_admin_invariants, ensure_protected_admin
+# 111111111111111111111111111111111111111111111111111111111
+from ..models.gift import GIFT_PRICES
+# 222222222222222222222222222222222222222222222222222222222
 from ..models.sanction_rules import ensure_sanction_rules
 from .background_tasks import LifespanBackgroundTasks, verify_runtime_dependencies
 from .clients import close_clients, init_clients
@@ -27,7 +30,20 @@ async def lifespan(app) -> AsyncIterator[None]:
             await conn.execute(text("SELECT pg_advisory_xact_lock(20261020, 1)"))
             await conn.run_sync(Base.metadata.create_all)
 
+            # 111111111111111111111111111111111111111111111111111111111
             await conn.execute(text("ALTER TABLE user_gifts ADD COLUMN IF NOT EXISTS display_order INTEGER"))
+            if await conn.scalar(text("""
+                SELECT EXISTS (
+                    SELECT 1 FROM pg_constraint
+                    WHERE conrelid = 'gifts'::regclass AND conname = 'ck_gifts_allowed_price'
+                )
+            """)):
+                await conn.execute(text("ALTER TABLE gifts DROP CONSTRAINT ck_gifts_allowed_price"))
+                await conn.execute(text(f"""
+                    ALTER TABLE gifts ADD CONSTRAINT ck_gifts_allowed_catalog_price
+                    CHECK (price_dc IN {GIFT_PRICES})
+                """))
+            # 222222222222222222222222222222222222222222222222222222222
 
         async with SessionLocal() as session:
             await ensure_app_settings(session)

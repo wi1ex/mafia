@@ -5,13 +5,13 @@ from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql.elements import ColumnElement
 from ..core.db import Base
 
-GIFT_PRICES = (10, 25, 50, 100)
+GIFT_PRICES = (10, 25, 50)
 
 
 class Gift(Base):
     __tablename__ = "gifts"
     __table_args__ = (
-        CheckConstraint(f"price_dc IN {GIFT_PRICES}", name="allowed_price"),
+        CheckConstraint(f"price_dc IN {GIFT_PRICES}", name="allowed_catalog_price"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
