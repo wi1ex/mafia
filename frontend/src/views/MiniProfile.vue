@@ -1321,14 +1321,14 @@ const staffActionItems = computed<StaffActionItem[]>(() => {
       },
       ...subscriptionActionItems,
       {
-        key: 'coins_credit', label: 'Выдать монеты', icon: iconPresent,
+        key: 'coins_credit', label: 'Выдать DC', icon: iconPresent,
         disabled: staffAdminDeletedUserActionsLocked.value || balanceSaving.value,
-        ariaLabel: `Выдать монеты ${displayName.value}`,
+        ariaLabel: `Выдать DC ${displayName.value}`,
       },
       {
-        key: 'coins_debit', label: 'Снять монеты', icon: iconPresent,
+        key: 'coins_debit', label: 'Снять DC', icon: iconPresent,
         disabled: staffAdminDeletedUserActionsLocked.value || balanceSaving.value || targetDcBalance.value === null || targetDcBalance.value === 0,
-        ariaLabel: `Снять монеты ${displayName.value}`,
+        ariaLabel: `Снять DC ${displayName.value}`,
       },
     ]
   }
@@ -2659,7 +2659,7 @@ function onBlacklistUpdate(e: Event) {
 function onBalanceComplete(result: { userId: number; action: 'credit' | 'debit'; dc_balance: number }): void {
   if (result.userId === targetUserId.value) patchProfile({ dc_balance: result.dc_balance })
   emit('staff-action-complete', { userId: result.userId, action: result.action === 'credit' ? 'coins_credit' : 'coins_debit' })
-  void alertDialog(result.action === 'credit' ? 'Монеты выданы' : 'Монеты сняты')
+  void alertDialog(result.action === 'credit' ? 'DC выданы' : 'DC сняты')
 }
 
 function cancelProfileInfoClose(): void {

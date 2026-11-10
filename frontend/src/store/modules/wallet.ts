@@ -30,7 +30,7 @@ export function dcErrorMessage(error: any, fallback = 'Не удалось по�
   const code = typeof detail === 'object' ? detail?.code : detail
   const messages: Record<string, string> = {
     payments_disabled: 'В данный момент платежи не принимаются.',
-    dc_price_changed: 'Стоимость монет изменилась. Проверьте новую сумму и нажмите «Оплатить» ещё раз.',
+    dc_price_changed: 'Стоимость DC изменилась. Проверьте новую сумму и нажмите «Оплатить» ещё раз.',
     insufficient_dc_balance: 'Недостаточно DC для покупки выбранной подписки.',
     insufficient_balance: 'Недостаточно DC для выполнения операции.',
     user_banned: 'Покупки недоступны: аккаунт забанен.',
@@ -71,7 +71,7 @@ export function dcErrorMessage(error: any, fallback = 'Не удалось по�
     gift_unavailable: 'Подарок больше недоступен.',
     gift_price_changed: 'Стоимость подарка изменилась. Проверьте новую цену.',
     subscription_duration_too_large: 'Выберите меньший срок подписки.',
-    dc_balance_too_large: 'Количество монет превышает допустимый предел.',
+    dc_balance_too_large: 'Количество DC превышает допустимый предел.',
     coin_order_not_found: 'Счёт не найден в вашем аккаунте.',
   }
   if (typeof code === 'string' && Object.hasOwn(messages, code)) return messages[code]

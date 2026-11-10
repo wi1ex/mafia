@@ -46,7 +46,7 @@
 
               <div v-if="!isGift" v-show="tab === 'coins'" id="wallet-coins" role="region" aria-label="Пополнение баланса" class="wallet-panel">
                 <form class="wallet-form" @submit.prevent="payCoins">
-                  <div class="wallet-package-grid" role="group" aria-label="Пакет монет">
+                  <div class="wallet-package-grid" role="group" aria-label="Пакет DC">
                     <button v-for="coinPackage in coinPackages" :key="coinPackage.quantity" class="wallet-package-card" type="button"
                             :class="{ active: quantity === coinPackage.quantity }" :aria-pressed="quantity === coinPackage.quantity"
                             :disabled="busy || opening" @click="quantity = coinPackage.quantity">
@@ -116,7 +116,7 @@
                       </li>
                     </ul>
                   </div>
-                  <UiButton class="wallet-action" type="submit" size="big" :text="wallet.subscriptionBusy ? 'Покупаем…' : `${isGift ? 'Подарить' : 'Купить'} за ${selectedPlan.cost} DC${canAffordSubscription ? '' : ' — недостаточно монет'}`" :disabled="!canAffordSubscription || !giftRecipientValid || busy || opening" width="100%" />
+                  <UiButton class="wallet-action" type="submit" size="big" :text="wallet.subscriptionBusy ? 'Покупаем…' : `${isGift ? 'Подарить' : 'Купить'} за ${selectedPlan.cost} DC`" :disabled="!canAffordSubscription || !giftRecipientValid || busy || opening" width="100%" />
                 </form>
               </div>
 
@@ -314,7 +314,7 @@ const giftButtonText = computed(() => {
   if (wallet.giftBusy) return 'Покупаем…'
   if (!selectedGift.value) return ''
   const action = isGift.value ? 'Отправить' : 'Купить'
-  return `${action} за ${selectedGift.value.price_dc} DC${wallet.balance < selectedGift.value.price_dc ? ' — недостаточно монет' : ''}`
+  return `${action} за ${selectedGift.value.price_dc} DC`
 })
 
 function paymentLink(invoice: CoinInvoice): string {
@@ -467,7 +467,7 @@ async function payCoins(): Promise<void> {
     }
     const url = invoice.status === 'pending' ? paymentLink(invoice) : ''
     if (!url) {
-      void showWalletAlert(invoice.status === 'review' ? 'Оплата подтверждена. Начисление монет проверяется.' : paymentLinkUnavailable)
+      void showWalletAlert(invoice.status === 'review' ? 'Оплата подтверждена. Начисление DC проверяется.' : paymentLinkUnavailable)
       return
     }
     try {

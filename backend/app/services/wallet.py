@@ -277,7 +277,7 @@ async def persist_coin_operation_notice(session: AsyncSession, operation: CoinPu
             f"Баланс: {operation.balance_after} DC."
         )
     elif operation.source == "admin_grant":
-        title = "Начисление монет"
+        title = "Начисление DC"
         text = f"Администратор бесплатно начислил вам {operation.quantity} DC. Баланс: {operation.balance_after} DC."
     else:
         return None
@@ -359,7 +359,7 @@ async def notify_coin_operation(session: AsyncSession, operation: CoinPurchase, 
             if operation.source == "lava":
                 user = await session.get(User, uid)
                 schedule_contact_request_admin_telegram_message(
-                    "Покупка монет\n\n"
+                    "Покупка DC\n\n"
                     f"Пользователь: {user.username if user else f'user{uid}'}\n"
                     f"ID пользователя: {uid}\nНачислено: {operation.quantity} DC\n"
                     f"Оплачено: {money_text(operation.amount, operation.currency)}\n"

@@ -5,7 +5,7 @@
         <form ref="panel" class="balance-modal" role="dialog" aria-modal="true" aria-labelledby="balance-modal-title" :aria-busy="loading || saving" tabindex="-1" @submit.prevent="save" @pointerdown.stop @pointerup.stop @click.stop @keydown.esc.stop="close">
           <header>
             <div class="heading">
-              <h2 id="balance-modal-title">{{ snapshot.action === 'credit' ? 'Выдать монеты' : 'Снять монеты' }}</h2>
+              <h2 id="balance-modal-title">{{ snapshot.action === 'credit' ? 'Выдать DC' : 'Снять DC' }}</h2>
             </div>
             <UiButton variant="white" size="low" :icon="iconClose" width="40px" aria-label="Закрыть" :disabled="saving" @click="close" />
           </header>
@@ -19,7 +19,7 @@
             <div class="quantity-card">
               <h3>Количество</h3>
               <div class="quantity-grid">
-                <UiInput id="balance-modal-quantity" v-model="quantity" type="number" min="1" :max="snapshot.action === 'debit' ? balance : undefined" step="1" inputmode="numeric" label="Монеты" size="low" :disabled="loading || saving || !!pending" />
+                <UiInput id="balance-modal-quantity" v-model="quantity" type="number" min="1" :max="snapshot.action === 'debit' ? balance : undefined" step="1" inputmode="numeric" label="DC" size="low" :disabled="loading || saving || !!pending" />
               </div>
               <p v-if="error" class="balance-error" role="alert">{{ error }}</p>
               <p v-if="pending && !saving" class="balance-error">Результат операции пока не получен. Проверьте тот же запрос.</p>
@@ -115,7 +115,7 @@ async function save(): Promise<void> {
   } catch (err) {
     if (seq !== sequence) return
     const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail
-    error.value = detail === 'insufficient_dc_balance' ? 'На балансе недостаточно монет для снятия.' : dcErrorMessage(err)
+    error.value = detail === 'insufficient_dc_balance' ? 'На балансе недостаточно DC.' : dcErrorMessage(err)
     if (!dcRequestUncertain(err)) {
       pending.value = null; persist()
       await refreshBalance(target, sequence).catch(() => {})
