@@ -116,7 +116,8 @@
                       </li>
                     </ul>
                   </div>
-                  <UiButton class="wallet-action" type="submit" size="big" :text="wallet.subscriptionBusy ? 'Покупаем…' : `${isGift ? 'Подарить' : 'Купить'} за ${selectedPlan.cost} DC`" :disabled="!canAffordSubscription || !giftRecipientValid || busy || opening" width="100%" />
+                  <UiButton class="wallet-action" type="submit" size="big" :text="subscriptionButtonText"
+                            :disabled="!canAffordSubscription || !giftRecipientValid || busy || opening" width="100%" />
                 </form>
               </div>
 
@@ -306,13 +307,21 @@ const packageAmount = computed(() => settings.dcCoinPackages[quantity.value][cur
 const totalPrice = computed(() => dcMoney(packageAmount.value, 1, currency.value))
 const selectedPlan = computed(() => SUBSCRIPTION_PLANS.find(item => item.id === subscriptionPlan.value)!)
 const canAffordSubscription = computed(() => wallet.balance >= selectedPlan.value.cost)
+const subscriptionButtonText = computed(() => {
+  if (wallet.subscriptionBusy) return 'Покупаем…'
+  if (!canAffordSubscription.value) return 'Пополните баланс'
+  const action = isGift.value ? 'Подарить' : 'Купить'
+  return `${action} за ${selectedPlan.value.cost} DC`
+})
 const canPay = computed(() => !isGift.value && settings.paymentsEnabled && !busy.value && !opening.value && !restriction.value && email.value.trim().length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim()))
 const selectedGift = computed(() => giftCatalog.value.find(item => item.id === selectedGiftId.value))
-const canBuyGift = computed(() => !!selectedGift.value && wallet.balance >= selectedGift.value.price_dc
+const canAffordGift = computed(() => !!selectedGift.value && wallet.balance >= selectedGift.value.price_dc)
+const canBuyGift = computed(() => canAffordGift.value
   && giftRecipientValid.value && !busy.value && !opening.value && !catalogLoading.value && !catalogError.value)
 const giftButtonText = computed(() => {
   if (wallet.giftBusy) return 'Покупаем…'
   if (!selectedGift.value) return ''
+  if (!canAffordGift.value) return 'Пополните баланс'
   const action = isGift.value ? 'Отправить' : 'Купить'
   return `${action} за ${selectedGift.value.price_dc} DC`
 })
@@ -871,7 +880,7 @@ onBeforeUnmount(() => {
           strong {
             min-width: 0;
             color: $neutral-black;
-            font-family: Hauora-Bold;
+            font-family: Hauora-Medium;
             font-size: 16px;
             overflow-wrap: anywhere;
           }
