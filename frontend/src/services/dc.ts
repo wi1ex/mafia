@@ -12,7 +12,7 @@ export const COIN_PACKAGES: readonly { quantity: CoinPackageQuantity; discount: 
   { quantity: 250, discount: 25 },
 ]
 export const DEFAULT_COIN_PACKAGES: CoinPackageCatalog = {
-  25: { RUB: '470.00', USD: '6.20', EUR: '5.50' },
+  25: { RUB: '475.00', USD: '6.20', EUR: '5.50' },
   50: { RUB: '800.00', USD: '10.60', EUR: '9.40' },
   100: { RUB: '1500.00', USD: '20.00', EUR: '17.60' },
   250: { RUB: '3500.00', USD: '46.60', EUR: '41.20' },
