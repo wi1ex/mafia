@@ -210,14 +210,16 @@ def _gift_sender(acquisition: UserGift, profiles: dict[int, UserProfile], *,
 
 def _gift_received_toast(acquisition: UserGift, profiles: dict[int, UserProfile]) -> tuple[ToastFields, dict | None]:
     toast: ToastFields = {
-        "title": "Подарок",
+        "title": "Подарок от",
         "actions": [{"kind": "gift_open", "label": "Открыть", "acquisition_id": acquisition.id}],
     }
     sender = _gift_sender(acquisition, profiles)
     if acquisition.anonymous:
-        toast["text"] = "Аноним отправил вам подарок"
+        toast["text"] = "Анонима"
     elif sender is not None:
         toast["text"] = ""
+    else:
+        toast["text"] = acquisition.payer_username
 
     return toast, {"user": sender.model_dump()} if sender is not None else None
 
@@ -228,7 +230,7 @@ async def _notify_gift_purchase(acquisition: UserGift, *, owner_note: Notif | No
     if owner_note is not None:
         try:
             if acquisition.payer_id == acquisition.owner_id:
-                await emit_notify(acquisition.owner_id, owner_note, kind="gift_purchase")
+                await emit_notify(acquisition.owner_id, owner_note, kind="gift_purchase", toast={"title": "Подарок"})
             else:
                 toast, extra = _gift_received_toast(acquisition, await _sender_profiles([acquisition]))
                 await emit_notify(acquisition.owner_id, owner_note, kind="gift_received", toast=toast, extra=extra)

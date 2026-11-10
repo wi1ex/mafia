@@ -22,7 +22,11 @@
                 </div>
                 <span class="nick">{{ toastUserName(t.user) }}</span>
               </button>
-              <span v-if="isGiftReceipt(t.kind)" class="gift-action">{{ giftReceiptLine(t) }}</span>
+              <div v-else-if="t.kind === 'gift_received'" class="user-profile-trigger">
+                <img :src="defaultAvatar" alt="" />
+                <span class="nick">{{ t.text }}</span>
+              </div>
+              <span v-if="t.kind === 'subscription_gift'" class="gift-action">{{ subscriptionGiftReceiptLine(t) }}</span>
             </div>
             <template v-if="!isGiftReceipt(t.kind)">
               <div v-if="t.details" class="sanction-text">
@@ -318,9 +322,8 @@ function isGiftReceipt(kind: string): boolean {
   return kind === 'subscription_gift' || kind === 'gift_received'
 }
 
-function giftReceiptLine(toast: ToastPayload): string {
+function subscriptionGiftReceiptLine(toast: ToastPayload): string {
   if (!toast.user) return toast.text
-  if (toast.kind === 'gift_received') return 'отправил вам подарок'
   return toast.subscriptionGiftDuration
     ? `подарил вам подписку на ${toast.subscriptionGiftDuration}`
     : 'подарил вам подписку'
@@ -552,7 +555,7 @@ onBeforeUnmount(() => {
             border: 0;
             outline: 0;
             background: none;
-            &:not(:disabled) {
+            &:enabled {
               cursor: pointer;
             }
           }

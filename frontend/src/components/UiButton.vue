@@ -115,8 +115,6 @@ function onAnchorClick(event: MouseEvent) {
   &__text {
     display: block;
     min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
   &__icon {
     --ui-icon-width: var(--ui-button-icon-size, 24px);
