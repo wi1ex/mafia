@@ -32,18 +32,22 @@ TELEGRAM_NICKNAME_SYNC_INTERVAL_SECONDS = 1.0
 MOSCOW = ZoneInfo("Europe/Moscow")
 
 
-def _moscow_run_at(*, hour: int, minute: int = 0, weekday: int | None = None,
-                   now: datetime | None = None, after: datetime | None = None) -> datetime:
+def _moscow_run_at(*, hour: int, minute: int = 0, monthly: bool = False, now: datetime | None = None, after: datetime | None = None) -> datetime:
     current = now or datetime.now(timezone.utc)
     if current.tzinfo is None:
         current = current.replace(tzinfo=timezone.utc)
     local_now = current.astimezone(MOSCOW)
-    run_at = local_now.replace(hour=hour, minute=minute, second=0, microsecond=0)
-    if weekday is not None:
-        run_at += timedelta(days=(weekday - local_now.weekday()) % 7)
-    if after is not None and run_at <= after:
-        run_at += timedelta(days=7 if weekday is not None else 1)
-    return run_at
+    run_at = local_now.replace(day=1 if monthly else local_now.day, hour=hour, minute=minute, second=0, microsecond=0)
+    if after is None or run_at > after:
+        return run_at
+
+    if not monthly:
+        return run_at + timedelta(days=1)
+
+    if run_at.month == 12:
+        return run_at.replace(year=run_at.year + 1, month=1)
+
+    return run_at.replace(month=run_at.month + 1)
 
 
 async def verify_runtime_dependencies() -> None:
@@ -111,13 +115,13 @@ class LifespanBackgroundTasks:
 
     async def _scheduled_job_loop(self, name: str, *, hour: int,
                                   callback: Callable[[datetime], Awaitable[Any]],
-                                  weekday: int | None = None) -> None:
-        scheduled_at = _moscow_run_at(hour=hour, weekday=weekday)
+                                  monthly: bool = False) -> None:
+        scheduled_at = _moscow_run_at(hour=hour, monthly=monthly)
         try:
             while True:
                 now = datetime.now(timezone.utc)
-                if now.astimezone(MOSCOW).date() > scheduled_at.date():
-                    scheduled_at = _moscow_run_at(hour=hour, weekday=weekday, now=now)
+                current_slot = _moscow_run_at(hour=hour, monthly=monthly, now=now)
+                scheduled_at = max(scheduled_at, current_slot)
                 delay = (scheduled_at - now).total_seconds()
                 if delay > 0:
                     await asyncio.sleep(min(delay, 60.0))
@@ -130,7 +134,7 @@ class LifespanBackgroundTasks:
                     self._log.exception("app.background.job_failed", job=name)
                     completed = False
                 if completed:
-                    scheduled_at = _moscow_run_at(hour=hour, weekday=weekday, after=scheduled_at)
+                    scheduled_at = _moscow_run_at(hour=hour, monthly=monthly, after=scheduled_at)
                 else:
                     await asyncio.sleep(15)
         except asyncio.CancelledError:
@@ -234,7 +238,7 @@ class LifespanBackgroundTasks:
         async def sync_nicknames(_scheduled_at: datetime) -> None:
             await self.sync_telegram_nicknames()
         await self._scheduled_job_loop(
-            "telegram_nicknames", hour=7, weekday=0, callback=sync_nicknames,
+            "telegram_nicknames", hour=7, monthly=True, callback=sync_nicknames,
         )
 
     async def sync_telegram_nicknames(self) -> None:
