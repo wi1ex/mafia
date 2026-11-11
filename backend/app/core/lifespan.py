@@ -33,6 +33,13 @@ async def lifespan(app) -> AsyncIterator[None]:
 
             # 111111111111111111111111111111111111111111111111111111111
             await conn.execute(text("ALTER TABLE user_gifts ADD COLUMN IF NOT EXISTS display_order INTEGER"))
+            await conn.execute(text(
+                "ALTER TABLE user_gifts ADD COLUMN IF NOT EXISTS toast_pending BOOLEAN NOT NULL DEFAULT FALSE"
+            ))
+            await conn.execute(text("""
+                CREATE INDEX IF NOT EXISTS ix_user_gifts_pending_toasts ON user_gifts (owner_id, id)
+                WHERE toast_pending IS TRUE AND refunded_at IS NULL AND removed_at IS NULL
+            """))
             if await conn.scalar(text("""
                 SELECT EXISTS (
                     SELECT 1 FROM pg_constraint
