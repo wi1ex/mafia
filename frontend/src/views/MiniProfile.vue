@@ -375,7 +375,7 @@
                                   :aria-label="`Удалить подарок №${item.gift_id}`" :disabled="giftActionsBusy" @click="removeProfileGift(item.id)" />
                       </div>
                       <div v-if="item.sender && item.sender.id !== targetUserId" class="profile-gift-sender">
-                        <img v-minio-img="{ key: giftSenderAvatarKey(item.sender.avatar_name), placeholder: iconDefaultAvatarBlack }" alt="" />
+                        <img v-minio-img="{ key: giftSenderAvatarKey(item.sender.avatar_name), placeholder: iconDefaultAvatar }" alt="" />
                         <span :title="item.sender.username || `user${item.sender.id}`">{{ item.sender.username || `user${item.sender.id}` }}</span>
                       </div>
                     </li>
@@ -4068,7 +4068,6 @@ onBeforeUnmount(() => {
               width: 24px;
               height: 24px;
               border-radius: 50%;
-              background-color: $neutral-white;
               object-fit: cover;
             }
             span {
