@@ -36,6 +36,7 @@ class User(Base):
     password_temp: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
     tg_invites_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
     allow_friend_requests: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
+    show_last_activity: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
     registered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     last_login_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     last_visit_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

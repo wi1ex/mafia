@@ -23,8 +23,8 @@ STORE_OPEN_SOURCE_LABELS = {
     "header": "Шапка сайта",
     "profile": "Личный профиль",
     "home_banner": "Баннер на главной",
-    "mini_profile_subscription": "Подписка в мини-профиле",
-    "mini_profile_gift": "Подарок в мини-профиле",
+    "mini_profile_subscription": "Подписка в профиле",
+    "mini_profile_gift": "Подарок в профиле",
 }
 
 COIN_PAYMENT_METHOD_LABELS = {

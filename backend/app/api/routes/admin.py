@@ -2275,6 +2275,7 @@ async def subscriptions_upsert(payload: AdminSubscriptionCreateIn, ident: Identi
     if should_issue_subscription_nickname_limit:
         set_user_nickname_changes(user, SUBSCRIPTION_NICKNAME_CHANGE_LIMIT)
         user.allow_friend_requests = True
+        user.show_last_activity = True
     await ensure_profile_theme_defaults(session, uid, now=now)
     await record_admin_subscription(
         session, user_id=uid, months=months, days=days, ends_before=previous_ends_at,
@@ -2543,6 +2544,7 @@ async def subscriptions_delete(user_id: int, ident: Identity = Depends(get_ident
 
     set_user_nickname_changes(user, SUBSCRIPTION_EXPIRED_NICKNAME_CHANGE_RESET)
     user.allow_friend_requests = True
+    user.show_last_activity = True
     old_avatar_name = user.avatar_name if isinstance(user.avatar_name, str) and user.avatar_name.strip().lower().endswith(".gif") else None
     if old_avatar_name:
         user.avatar_name = None

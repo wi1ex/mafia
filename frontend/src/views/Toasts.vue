@@ -15,7 +15,7 @@
           <div class="meta" :class="{ 'has-theme-color': hasToastUserThemeColor(t.user), 'meta--gift': isGiftReceipt(t.kind) }" :style="toastUserNickStyle(t.user)">
             <div v-if="t.user || isGiftReceipt(t.kind)" class="profile-line">
               <button v-if="t.user" class="user-profile-trigger" type="button" @click.stop="openToastUserMiniProfile(t.user)"
-                      :disabled="!canOpenToastUserMiniProfile(t.user)" :aria-label="`Открыть мини-профиль пользователя ${toastUserName(t.user)}`" aria-haspopup="dialog">
+                      :disabled="!canOpenToastUserMiniProfile(t.user)" :aria-label="`Открыть профиль пользователя ${toastUserName(t.user)}`" aria-haspopup="dialog">
                 <img v-minio-img="{ key: t.user.avatar_name ? `avatars/${t.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
                 <div v-if="toastUserThemeIconSrcs(t.user).length" class="profile-theme-icons" aria-hidden="true">
                   <img v-for="badgeSrc in toastUserThemeIconSrcs(t.user)" :key="`${t.user.id}-${badgeSrc}`" class="profile-theme-icon" :src="badgeSrc" alt="" />

@@ -216,7 +216,23 @@
               tooltip-target="off"
               tooltip-placement="top-left"
               tooltip-bubble-width="320px"
-              @update:modelValue="onToggleFriendRequests"
+              @update:modelValue="onToggleSubscriptionPrivacy('allow_friend_requests', $event)"
+            />
+          </div>
+          <div class="params-switch">
+            <UiSwitch
+              :model-value="showLastActivity"
+              label="Показывать дату последней игры и онлайна"
+              off-label="Запретить"
+              on-label="Разрешить"
+              size="low"
+              :width="256"
+              :disabled="lastActivityTogglePending || !subscriptionActive"
+              :tooltip="subscriptionActive ? undefined : LAST_ACTIVITY_SUBSCRIPTION_REQUIRED"
+              tooltip-target="off"
+              tooltip-placement="top-left"
+              tooltip-bubble-width="320px"
+              @update:modelValue="onToggleSubscriptionPrivacy('show_last_activity', $event)"
             />
           </div>
         </div>
@@ -233,7 +249,7 @@ import { alertDialog, confirmDialog } from '@/services/confirm'
 import { hasAuthCookieMutex, withAuthCookieLock } from '@/services/refreshCoordination'
 import { getProfileRoleBadges } from '@/services/profileRoles'
 import { useSubscriptionStatus } from '@/services/useSubscriptionStatus'
-import { useAuthStore, useUserStore } from '@/store'
+import { useAuthStore, useUserStore, type SubscriptionPrivacyField } from '@/store'
 
 import UiInput from '@/components/UiInput.vue'
 import UiSwitch from '@/components/UiSwitch.vue'
@@ -247,12 +263,20 @@ const PASSWORD_MIN = 8
 const PASSWORD_MAX = 32
 const PASSWORD_SPACE_RE = /\s/
 const FRIEND_REQUESTS_SUBSCRIPTION_REQUIRED = 'Запрещать заявки в друзья можно только при активной подписке.'
+const LAST_ACTIVITY_SUBSCRIPTION_REQUIRED = 'Скрывать дату последней игры и онлайна можно только при активной подписке.'
 
 const userStore = useUserStore()
 const auth = useAuthStore()
 const { subscriptionExpiryLabel } = useSubscriptionStatus()
-const { allowFriendRequests, friendRequestsTogglePending, subscriptionActive, tgInvitesEnabled } = storeToRefs(userStore)
-const { setAllowFriendRequests, setTgInvitesEnabled, setStreamingUrl } = userStore
+const {
+  allowFriendRequests,
+  friendRequestsTogglePending,
+  showLastActivity,
+  lastActivityTogglePending,
+  subscriptionActive,
+  tgInvitesEnabled,
+} = storeToRefs(userStore)
+const { setSubscriptionPrivacy, setTgInvitesEnabled, setStreamingUrl } = userStore
 
 type ProfileDatesResponse = {
   registered_at?: string | null
@@ -414,15 +438,16 @@ async function onToggleTgInvites(next: boolean) {
   finally { tgInvitesTogglePending.value = false }
 }
 
-async function onToggleFriendRequests(next: boolean) {
+async function onToggleSubscriptionPrivacy(field: SubscriptionPrivacyField, next: boolean) {
   try {
-    await setAllowFriendRequests(next)
+    await setSubscriptionPrivacy(field, next)
   } catch (error: any) {
+    const isFriendRequests = field === 'allow_friend_requests'
     if (error?.response?.data?.detail === 'subscription_required') {
       void userStore.fetchMe().catch(() => {})
-      void alertDialog(FRIEND_REQUESTS_SUBSCRIPTION_REQUIRED)
+      void alertDialog(isFriendRequests ? FRIEND_REQUESTS_SUBSCRIPTION_REQUIRED : LAST_ACTIVITY_SUBSCRIPTION_REQUIRED)
     } else {
-      void alertDialog('Не удалось сохранить настройку заявок в друзья')
+      void alertDialog(isFriendRequests ? 'Не удалось сохранить настройку заявок в друзья' : 'Не удалось сохранить настройку отображения дат')
     }
   }
 }

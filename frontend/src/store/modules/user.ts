@@ -5,6 +5,8 @@ import { useSettingsStore } from './setting'
 import { useAuthStore } from './auth'
 
 const MAX_NICKNAME_CHANGES_LEFT = 1000
+const SUBSCRIPTION_PRIVACY_FIELDS = ['allow_friend_requests', 'show_last_activity'] as const
+export type SubscriptionPrivacyField = (typeof SUBSCRIPTION_PRIVACY_FIELDS)[number]
 
 export interface UserProfile {
   id: number
@@ -21,6 +23,7 @@ export interface UserProfile {
   protected_user?: boolean
   tg_invites_enabled?: boolean
   allow_friend_requests?: boolean
+  show_last_activity?: boolean
   subscription_active?: boolean
   subscription_started_at?: string | null
   subscription_until?: string | null
@@ -201,12 +204,19 @@ export const useUserStore = defineStore('user', () => {
   const roomRestricted = computed(() => banActive.value || timeoutActive.value)
   const tgInvitesEnabled = computed(() => user.value?.tg_invites_enabled ?? true)
   const allowFriendRequests = computed(() => !subscriptionActive.value || user.value?.allow_friend_requests !== false)
-  const friendRequestsSave = ref<symbol | null>(null)
-  const friendRequestsTogglePending = computed(() => friendRequestsSave.value !== null)
+  const showLastActivity = computed(() => !subscriptionActive.value || user.value?.show_last_activity !== false)
+  const privacySaves = ref<Partial<Record<SubscriptionPrivacyField, symbol>>>({})
+  const friendRequestsTogglePending = computed(() => Boolean(privacySaves.value.allow_friend_requests))
+  const lastActivityTogglePending = computed(() => Boolean(privacySaves.value.show_last_activity))
 
   watch([() => auth.sessionId, subscriptionActive], ([, active]) => {
-    friendRequestsSave.value = null
-    if (!active && user.value?.allow_friend_requests === false) user.value.allow_friend_requests = true
+    privacySaves.value = {}
+    const profile = user.value
+    if (!active && profile) {
+      for (const field of SUBSCRIPTION_PRIVACY_FIELDS) {
+        if (profile[field] === false) profile[field] = true
+      }
+    }
   }, { flush: 'sync' })
 
   async function setTgInvitesEnabled(next: boolean): Promise<void> {
@@ -220,27 +230,27 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
-  async function setAllowFriendRequests(next: boolean): Promise<void> {
+  async function setSubscriptionPrivacy(field: SubscriptionPrivacyField, next: boolean): Promise<void> {
     const profile = user.value
     const sessionId = auth.sessionId
-    if (!profile || !sessionId || !subscriptionActive.value || friendRequestsTogglePending.value) return
+    if (!profile || !sessionId || !subscriptionActive.value || privacySaves.value[field]) return
 
-    const previous = profile.allow_friend_requests
+    const previous = profile[field]
     const request = Symbol()
-    friendRequestsSave.value = request
-    profile.allow_friend_requests = next
+    privacySaves.value[field] = request
+    profile[field] = next
     const isCurrent = () => (
-      friendRequestsSave.value === request && auth.sessionId === sessionId && user.value?.id === profile.id
+      privacySaves.value[field] === request && auth.sessionId === sessionId && user.value?.id === profile.id
     )
     try {
-      const { data } = await api.patch<{ allow_friend_requests: boolean }>('/users/ui_prefs', { allow_friend_requests: next })
-      if (isCurrent() && user.value) user.value.allow_friend_requests = data.allow_friend_requests
+      const { data } = await api.patch<Record<SubscriptionPrivacyField, boolean>>('/users/ui_prefs', { [field]: next })
+      if (isCurrent() && user.value) user.value[field] = data[field]
     } catch (error) {
       if (!isCurrent()) return
-      if (user.value === profile) profile.allow_friend_requests = previous
+      if (user.value === profile) profile[field] = previous
       throw error
     } finally {
-      if (friendRequestsSave.value === request) friendRequestsSave.value = null
+      if (privacySaves.value[field] === request) delete privacySaves.value[field]
     }
   }
 
@@ -283,6 +293,8 @@ export const useUserStore = defineStore('user', () => {
     tgInvitesEnabled,
     allowFriendRequests,
     friendRequestsTogglePending,
+    showLastActivity,
+    lastActivityTogglePending,
     applyProfile,
     fetchMe,
     setUsername,
@@ -296,7 +308,7 @@ export const useUserStore = defineStore('user', () => {
     setInActiveGameAsPlayer,
     setTelegramVerified,
     setTgInvitesEnabled,
-    setAllowFriendRequests,
+    setSubscriptionPrivacy,
     ensureClock,
     clear,
   }

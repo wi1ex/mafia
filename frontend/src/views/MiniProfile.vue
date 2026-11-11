@@ -220,7 +220,7 @@
                         <dt>Последняя игра</dt>
                         <dd>{{ lastGameAtLabel }}</dd>
                       </div>
-                      <div v-if="!isSelfProfile" class="profile-info-row">
+                      <div class="profile-info-row">
                         <dt>Последний раз в сети</dt>
                         <dd>{{ lastOnlineLabel }}</dd>
                       </div>
@@ -643,6 +643,7 @@ type MiniProfileResponse = {
   deleted?: boolean
   telegram_verified?: boolean
   registered_at?: string | null
+  show_last_activity?: boolean
   last_visit_at?: string | null
   last_game_at?: string | null
   last_game_id?: number | null
@@ -1000,13 +1001,18 @@ const activeSanctionExpiryLabel = computed(() => {
   return formatDateTimeMinute(expiresAt)
 })
 const registeredAtLabel = computed(() => formatDateWithMonthName(profile.value?.registered_at))
+const lastActivityHidden = computed(() => profile.value?.show_last_activity === false)
 const lastGameAtLabel = computed(() => {
+  if (lastActivityHidden.value) return 'Скрыто'
   const dateLabel = formatDateOnly(profile.value?.last_game_at)
   if (dateLabel === '—') return '—'
   const gameId = Number(profile.value?.last_game_id || 0)
   return Number.isFinite(gameId) && gameId > 0 ? `Игра #${Math.trunc(gameId)} от ${dateLabel}` : dateLabel
 })
-const lastOnlineLabel = computed(() => formatLastOnline(profile.value?.last_visit_at, Boolean(profile.value?.online)))
+const lastOnlineLabel = computed(() => {
+  if (lastActivityHidden.value) return 'Скрыто'
+  return formatLastOnline(profile.value?.last_visit_at, Boolean(profile.value?.online))
+})
 const profileDataBaseUrl = computed(() => {
   const prefix = isAdminViewer.value ? '/admin' : isModerViewer.value ? '/moderation' : ''
   return `${prefix}/users/${targetUserId.value}`
@@ -2355,9 +2361,10 @@ async function loadProfile() {
       deleted: Boolean(data?.deleted),
       telegram_verified: Boolean(data?.telegram_verified),
       registered_at: data?.registered_at ?? null,
+      show_last_activity: data?.show_last_activity !== false,
       last_visit_at: data?.last_visit_at ?? null,
       last_game_at: data?.last_game_at ?? null,
-      last_game_id: Number.isFinite(Number(data?.last_game_id)) ? Math.trunc(Number(data?.last_game_id)) : null,
+      last_game_id: data?.last_game_id != null && Number.isFinite(Number(data.last_game_id)) ? Math.trunc(Number(data.last_game_id)) : null,
       online: Boolean(data?.online),
       subscription_active: Boolean(data?.subscription_active),
       subscription_until: data?.subscription_until ?? null,
@@ -2531,14 +2538,14 @@ async function onFriendAction(kind: FriendActionKind) {
 const blacklistAddEffects = [
   'Вы не сможете отправлять друг другу заявки в друзья',
   'Пользователь не сможет подать заявку в вашу закрытую комнату',
-  'В вашем мини-профиле ему не будут доступны сведения профиля',
+  'В вашем профиле ему не будут доступны сведения профиля',
   'В общем чате не будут видны его сообщения, прекратятся уведомления о его упоминаниях и реакциях',
 ]
 
 const blacklistRemoveEffects = [
   'Вы снова сможете отправлять друг другу заявки в друзья',
   'Пользователь снова сможет подать заявку в вашу закрытую комнату',
-  'В вашем мини-профиле ему снова будут доступны сведения профиля',
+  'В вашем профиле ему снова будут доступны сведения профиля',
   'В общем чате снова будут видны его сообщения, возобновятся уведомления о его упоминаниях и реакциях',
 ]
 

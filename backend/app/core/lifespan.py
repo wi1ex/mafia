@@ -48,6 +48,9 @@ async def lifespan(app) -> AsyncIterator[None]:
                 ALTER TABLE users ADD COLUMN IF NOT EXISTS nomination_rewarded_levels JSONB
                 NOT NULL DEFAULT '{DEFAULT_NOMINATION_LEVELS_JSON}'
             """))
+            await conn.execute(text(
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS show_last_activity BOOLEAN NOT NULL DEFAULT TRUE"
+            ))
             # 222222222222222222222222222222222222222222222222222222222
 
         async with SessionLocal() as session:

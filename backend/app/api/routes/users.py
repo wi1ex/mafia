@@ -302,18 +302,22 @@ async def mini_profile(user_id: int, allow_deleted: bool = False, ident: Identit
     if defaults_changed:
         await db.commit()
     theme_state = await resolve_profile_theme_state(db, uid)
+    show_last_activity = (
+        uid == viewer_id or is_staff_viewer or user.show_last_activity or not theme_state.subscription_active
+    )
     last_game_id: int | None = None
     last_game_at = None
-    last_game_row = await db.execute(
-        select(Game.id, Game.finished_at)
-        .where(Game.roles.has_key(str(uid)))
-        .order_by(Game.finished_at.desc(), Game.id.desc())
-        .limit(1)
-    )
-    last_game_rec = last_game_row.first()
-    if last_game_rec:
-        last_game_id = int(last_game_rec[0])
-        last_game_at = last_game_rec[1]
+    if show_last_activity:
+        last_game_row = await db.execute(
+            select(Game.id, Game.finished_at)
+            .where(Game.roles.has_key(str(uid)))
+            .order_by(Game.finished_at.desc(), Game.id.desc())
+            .limit(1)
+        )
+        last_game_rec = last_game_row.first()
+        if last_game_rec:
+            last_game_id = int(last_game_rec[0])
+            last_game_at = last_game_rec[1]
 
     friends_count = (await fetch_friends_count_for_users(db, [uid])).get(uid, 0)
     admin_friends = (
@@ -386,7 +390,8 @@ async def mini_profile(user_id: int, allow_deleted: bool = False, ident: Identit
         deleted=bool(user.deleted_at),
         telegram_verified=bool(user.telegram_id),
         registered_at=None if viewer_blacklisted_by_target and not is_staff_viewer else user.registered_at,
-        last_visit_at=None if viewer_blacklisted_by_target and not is_staff_viewer else user.last_visit_at,
+        show_last_activity=show_last_activity,
+        last_visit_at=user.last_visit_at if show_last_activity and (is_staff_viewer or not viewer_blacklisted_by_target) else None,
         last_game_at=last_game_at,
         last_game_id=last_game_id,
         online=online,
@@ -1184,16 +1189,23 @@ async def update_ui_prefs(payload: UserUiPrefsIn, ident: Identity = Depends(get_
 
     old_tg_invites_enabled = bool(user.tg_invites_enabled)
     old_allow_friend_requests = user.allow_friend_requests
+    old_show_last_activity = user.show_last_activity
 
     allow_friend_requests = payload.allow_friend_requests
     if allow_friend_requests is None:
         allow_friend_requests = old_allow_friend_requests
-    if not allow_friend_requests and not await user_has_active_subscription(db, uid):
-        if payload.allow_friend_requests is False:
+    show_last_activity = payload.show_last_activity
+    if show_last_activity is None:
+        show_last_activity = old_show_last_activity
+
+    if (not allow_friend_requests or not show_last_activity) and not await user_has_active_subscription(db, uid):
+        if payload.allow_friend_requests is False or payload.show_last_activity is False:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="subscription_required")
 
         allow_friend_requests = True
+        show_last_activity = True
     user.allow_friend_requests = allow_friend_requests
+    user.show_last_activity = show_last_activity
 
     if payload.tg_invites_enabled is not None:
         user.tg_invites_enabled = bool(payload.tg_invites_enabled)
@@ -1205,6 +1217,8 @@ async def update_ui_prefs(payload: UserUiPrefsIn, ident: Identity = Depends(get_
         changes.append(f"tg_invites_enabled: {int(old_tg_invites_enabled)} -> {int(new_tg_invites_enabled)}")
     if old_allow_friend_requests != allow_friend_requests:
         changes.append(f"allow_friend_requests: {int(old_allow_friend_requests)} -> {int(allow_friend_requests)}")
+    if old_show_last_activity != show_last_activity:
+        changes.append(f"show_last_activity: {int(old_show_last_activity)} -> {int(show_last_activity)}")
     if changes:
         await log_action(
             db,
@@ -1216,7 +1230,11 @@ async def update_ui_prefs(payload: UserUiPrefsIn, ident: Identity = Depends(get_
         )
     await db.commit()
 
-    return UserUiPrefsOut(tg_invites_enabled=new_tg_invites_enabled, allow_friend_requests=allow_friend_requests)
+    return UserUiPrefsOut(
+        tg_invites_enabled=new_tg_invites_enabled,
+        allow_friend_requests=allow_friend_requests,
+        show_last_activity=show_last_activity,
+    )
 
 
 @router.patch("/profile_theme", response_model=UserProfileThemeOut)
