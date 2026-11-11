@@ -714,7 +714,7 @@ onBeforeUnmount(() => {
     position: relative;
     flex-direction: column;
     width: 700px;
-    height: 611px;
+    height: 632px;
     max-width: 100%;
     max-height: 100%;
   }
