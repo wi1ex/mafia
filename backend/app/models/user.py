@@ -5,6 +5,7 @@ from sqlalchemy import BigInteger, String, DateTime, Boolean, Text, Integer, Ind
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import JSONB
 from ..core.db import Base
+from ..services.nomination_rewards import DEFAULT_NOMINATION_LEVELS, DEFAULT_NOMINATION_LEVELS_JSON
 
 
 class User(Base):
@@ -12,6 +13,10 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     dc_balance: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0, server_default="0")
+    nomination_rewarded_levels: Mapped[dict[str, int]] = mapped_column(
+        JSONB, nullable=False, default=DEFAULT_NOMINATION_LEVELS.copy,
+        server_default=DEFAULT_NOMINATION_LEVELS_JSON,
+    )
     username: Mapped[str] = mapped_column(String(20), nullable=False, index=True, unique=True)
     role: Mapped[str] = mapped_column(String(16), nullable=False, default="user")
     additional_roles: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list, server_default="[]")

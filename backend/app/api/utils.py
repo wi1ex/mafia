@@ -143,6 +143,7 @@ __all__ = [
     "admin_user_stats_period_start",
     "summarize_admin_user_games",
     "_fetch_admin_user_game_data",
+    "build_user_mini_profile_nomination_stats_batch",
     "build_user_mini_profile_nomination_stats_out",
     "build_user_stats_out",
     "fetch_users_last_room_id",
@@ -5491,6 +5492,7 @@ async def aggregate_user_room_time_stats(
     season: int | None = None,
     *,
     stats_since: datetime | None = None,
+    strict_live: bool = False,
 ) -> tuple[dict[int, int], dict[int, int], dict[int, int], dict[int, int]]:
     rooms_created: dict[int, int] = {uid: 0 for uid in ids}
     room_seconds: dict[int, int] = {uid: 0 for uid in ids}
@@ -5577,6 +5579,8 @@ async def aggregate_user_room_time_stats(
         try:
             live_stats = await fetch_live_room_stats(get_redis(), sorted(set(active_room_ids)))
         except Exception:
+            if strict_live:
+                raise
             log.warning("user_room_stats.live_fetch_failed", rooms=len(active_room_ids))
 
     id_set = set(ids)
@@ -5733,43 +5737,56 @@ async def _fetch_admin_user_game_data(
     return summarize_admin_user_games(user_ids, game_rows, stats_since=stats_since)
 
 
-async def fetch_user_mini_profile_game_counts(session: AsyncSession, uid: int) -> tuple[int, int]:
-    if uid <= 0:
-        return 0, 0
+async def build_user_mini_profile_nomination_stats_batch(
+    db: AsyncSession, ids: list[int], *, strict_live: bool = False,
+) -> dict[int, UserMiniProfileNominationStatsOut]:
+    from ..schemas.user import UserMiniProfileNominationStatsOut
+    from ..services.nomination_rewards import NOMINATION_LEVEL_STARTS, resolve_nomination_levels
 
-    played_row = await session.execute(
-        select(func.count(Game.id)).where(
-            Game.roles.has_key(str(uid)),
-            Game.result.in_(("red", "black")),
+    if not ids:
+        return {}
+
+    user_ids = list(dict.fromkeys(ids))
+    _rooms_created, room_seconds, stream_seconds, spectator_seconds = await aggregate_user_room_time_stats(
+        db, user_ids, strict_live=strict_live,
+    )
+    decisive = Game.result.in_(("red", "black"))
+    if len(user_ids) == 1:
+        user_key = str(user_ids[0])
+        played = {user_key: await db.scalar(
+            select(func.count(Game.id)).where(Game.roles.has_key(user_key), decisive),
+        )}
+    else:
+        participants = select(func.jsonb_object_keys(Game.roles).label("user_key")).where(
+            decisive, func.jsonb_typeof(Game.roles) == "object",
+        ).subquery()
+        participant_key = participants.c.user_key
+        played = dict((await db.execute(
+            select(participant_key, func.count())
+            .where(participant_key.in_([str(uid) for uid in user_ids]))
+            .group_by(participant_key),
+        )).all())
+
+    hosted = dict((await db.execute(
+        select(Game.head_id, func.count(Game.id)).where(Game.head_id.in_(user_ids), decisive).group_by(Game.head_id),
+    )).all())
+    result = {}
+    for uid in user_ids:
+        stats = {
+            "games_played": max(0, safe_int(played.get(str(uid), 0))),
+            "games_hosted": max(0, safe_int(hosted.get(uid, 0))),
+            "room_minutes": max(0, safe_int(room_seconds.get(uid, 0)) // 60),
+            "stream_minutes": max(0, safe_int(stream_seconds.get(uid, 0)) // 60),
+            "spectator_minutes": max(0, safe_int(spectator_seconds.get(uid, 0)) // 60),
+        }
+        result[uid] = UserMiniProfileNominationStatsOut(
+            **stats, levels=resolve_nomination_levels(stats), level_starts=NOMINATION_LEVEL_STARTS,
         )
-    )
-    hosted_row = await session.execute(
-        select(func.count(Game.id)).where(
-            Game.head_id == uid,
-            Game.result.in_(("red", "black")),
-        )
-    )
-    return (
-        max(0, safe_int(played_row.scalar_one_or_none())),
-        max(0, safe_int(hosted_row.scalar_one_or_none())),
-    )
+    return result
 
 
 async def build_user_mini_profile_nomination_stats_out(db: AsyncSession, uid: int) -> UserMiniProfileNominationStatsOut:
-    from ..schemas.user import UserMiniProfileNominationStatsOut
-
-    _rooms_created, room_seconds, stream_seconds, spectator_seconds = (
-        await aggregate_user_room_time_stats(db, [uid], season=None)
-    )
-    games_played, games_hosted = await fetch_user_mini_profile_game_counts(db, uid)
-
-    return UserMiniProfileNominationStatsOut(
-        games_played=games_played,
-        games_hosted=games_hosted,
-        room_minutes=max(0, safe_int(room_seconds.get(uid, 0)) // 60),
-        stream_minutes=max(0, safe_int(stream_seconds.get(uid, 0)) // 60),
-        spectator_minutes=max(0, safe_int(spectator_seconds.get(uid, 0)) // 60),
-    )
+    return (await build_user_mini_profile_nomination_stats_batch(db, [uid]))[uid]
 
 
 async def build_user_stats_out(db: AsyncSession, uid: int, season: int | None = None, mode: str = "all") -> UserStatsOut:

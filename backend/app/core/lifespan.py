@@ -6,10 +6,11 @@ from contextlib import asynccontextmanager
 from ..security.parameters import ensure_app_settings
 from ..services.game_scoring import ensure_game_scoring_settings
 from ..security.admin_guard import assert_protected_admin_invariants, ensure_protected_admin
+from ..models.sanction_rules import ensure_sanction_rules
 # 111111111111111111111111111111111111111111111111111111111
 from ..models.gift import GIFT_PRICES
+from ..services.nomination_rewards import DEFAULT_NOMINATION_LEVELS_JSON
 # 222222222222222222222222222222222222222222222222222222222
-from ..models.sanction_rules import ensure_sanction_rules
 from .background_tasks import LifespanBackgroundTasks, verify_runtime_dependencies
 from .clients import close_clients, init_clients
 from .db import Base, SessionLocal, engine
@@ -43,6 +44,10 @@ async def lifespan(app) -> AsyncIterator[None]:
                     ALTER TABLE gifts ADD CONSTRAINT ck_gifts_allowed_catalog_price
                     CHECK (price_dc IN {GIFT_PRICES})
                 """))
+            await conn.execute(text(f"""
+                ALTER TABLE users ADD COLUMN IF NOT EXISTS nomination_rewarded_levels JSONB
+                NOT NULL DEFAULT '{DEFAULT_NOMINATION_LEVELS_JSON}'
+            """))
             # 222222222222222222222222222222222222222222222222222222222
 
         async with SessionLocal() as session:
@@ -63,7 +68,10 @@ async def lifespan(app) -> AsyncIterator[None]:
         raise
 
     background_tasks = LifespanBackgroundTasks(log)
-    background_tasks.start()
+    # 111111111111111111111111111111111111111111111111111111111
+    background_tasks.start(backfill_nomination_rewards=True)
+    # background_tasks.start()
+    # 222222222222222222222222222222222222222222222222222222222
     log.info("app.ready")
 
     try:

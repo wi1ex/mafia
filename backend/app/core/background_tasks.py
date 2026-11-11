@@ -65,9 +65,10 @@ class LifespanBackgroundTasks:
         self._stale_chat_uploads_task: asyncio.Task[None] | None = None
         self._telegram_nickname_sync_task: asyncio.Task[None] | None = None
         self._coin_reconciliation_task: asyncio.Task[None] | None = None
+        self._nomination_rewards_task: asyncio.Task[None] | None = None
         self._empty_room_gc_tasks: dict[int, asyncio.Task[None]] = {}
 
-    def start(self) -> None:
+    def start(self, *, backfill_nomination_rewards: bool = False) -> None:
         self._settings_task = asyncio.create_task(self.settings_pubsub_loop())
         self._expired_sanctions_chat_task = asyncio.create_task(self.expired_sanctions_chat_loop())
         self._expired_subscriptions_task = asyncio.create_task(self.expired_profile_subscriptions_loop())
@@ -76,6 +77,7 @@ class LifespanBackgroundTasks:
         self._stale_chat_uploads_task = asyncio.create_task(self.stale_chat_uploads_loop())
         self._telegram_nickname_sync_task = asyncio.create_task(self.telegram_nickname_sync_loop())
         self._coin_reconciliation_task = asyncio.create_task(self.coin_reconciliation_loop())
+        self._nomination_rewards_task = asyncio.create_task(self.nomination_rewards_loop(backfill=backfill_nomination_rewards))
 
     async def stop(self) -> None:
         managed_tasks = (
@@ -87,6 +89,7 @@ class LifespanBackgroundTasks:
             self._stale_chat_uploads_task,
             self._telegram_nickname_sync_task,
             self._coin_reconciliation_task,
+            self._nomination_rewards_task,
             *tuple(self._empty_room_gc_tasks.values()),
         )
         tasks = [task for task in managed_tasks if task is not None]
@@ -115,8 +118,11 @@ class LifespanBackgroundTasks:
 
     async def _scheduled_job_loop(self, name: str, *, hour: int,
                                   callback: Callable[[datetime], Awaitable[Any]],
-                                  monthly: bool = False) -> None:
-        scheduled_at = _moscow_run_at(hour=hour, monthly=monthly)
+                                  monthly: bool = False, catch_up_on_start: bool = True) -> None:
+        now = datetime.now(timezone.utc)
+        scheduled_at = _moscow_run_at(hour=hour, monthly=monthly, now=now)
+        if not catch_up_on_start and scheduled_at < now:
+            scheduled_at = _moscow_run_at(hour=hour, monthly=monthly, now=now, after=scheduled_at)
         try:
             while True:
                 now = datetime.now(timezone.utc)
@@ -376,6 +382,27 @@ class LifespanBackgroundTasks:
             async with SessionLocal() as session:
                 await reconcile_coin_invoices(session, limit=50)
         await self._periodic_job_loop("coin_reconciliation", 60, reconcile)
+
+    async def nomination_rewards_loop(self, *, backfill: bool) -> None:
+        from ..services.nomination_rewards import grant_nomination_rewards
+
+        async def backfill_rewards() -> None:
+            granted = await grant_nomination_rewards()
+            self._log.info("app.nominations.backfill.done", rewarded_users=granted)
+
+        async def daily_rewards(scheduled_at: datetime) -> None:
+            granted = await grant_nomination_rewards(scheduled_at)
+            self._log.info("app.nominations.daily.done", rewarded_users=granted, scheduled_at=scheduled_at.isoformat())
+
+        while backfill:
+            try:
+                if await run_shared_job("nomination_rewards_backfill", 1, backfill_rewards):
+                    break
+            except Exception:
+                self._log.exception("app.background.job_failed", job="nomination_rewards_backfill")
+            await asyncio.sleep(15)
+
+        await self._scheduled_job_loop("nomination_rewards", hour=8, callback=daily_rewards, catch_up_on_start=False)
 
     async def expired_profile_subscriptions_loop(self) -> None:
         async def maintain_subscriptions(scheduled_at: datetime) -> None:

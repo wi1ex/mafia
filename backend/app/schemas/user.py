@@ -88,6 +88,8 @@ class UserMiniProfileNominationStatsOut(BaseModel):
     room_minutes: int = 0
     stream_minutes: int = 0
     spectator_minutes: int = 0
+    levels: dict[str, int]
+    level_starts: dict[str, tuple[int, ...]]
 
 
 class UserMiniProfileOut(BaseModel):

@@ -572,12 +572,9 @@ type MiniProfileAdminBlacklistUser = {
   blacklisted_at?: string | null
 }
 
-type MiniProfileNominationStats = {
-  games_played?: number | null
-  games_hosted?: number | null
-  room_minutes?: number | null
-  stream_minutes?: number | null
-  spectator_minutes?: number | null
+type MiniProfileNominationStats = Record<NominationStatKey, number> & {
+  levels: Record<NominationStatKey, NominationLevel>
+  level_starts: Record<NominationStatKey, number[]>
 }
 
 type ProfileNominationDefinition = {
@@ -586,9 +583,6 @@ type ProfileNominationDefinition = {
   icon: string
   statKey: NominationStatKey
   unit: 'count' | 'minutes'
-  levelStarts: readonly [number, number, number, number, number, number, number, number]
-  startLabels: readonly [string, string, string, string, string, string, string, string]
-  nextLabels: readonly [string, string, string, string, string, string, string]
 }
 
 type ProfileNomination = {
@@ -817,6 +811,17 @@ const STAFF_SANCTION_DURATION_LIMITS = { months: 240, days: 31, hours: 23 } as c
 const MODERATION_MAX_TIMED_SANCTION_SECONDS = 7 * 24 * 60 * 60
 const STAFF_PRIMARY_ACTION_KEYS: readonly StaffActionKey[] = ['suspend', 'timeout']
 const nominationIntFmt = new Intl.NumberFormat('ru-RU')
+const nominationPlural = new Intl.PluralRules('ru-RU')
+const nominationTimeUnits = [
+  { unit: 'year', minutes: 360 * MINUTES_IN_DAY },
+  { unit: 'month', minutes: 30 * MINUTES_IN_DAY },
+  { unit: 'week', minutes: 7 * MINUTES_IN_DAY },
+  { unit: 'day', minutes: MINUTES_IN_DAY },
+  { unit: 'hour', minutes: 60 },
+].map(({ unit, minutes }) => ({
+  minutes,
+  formatter: new Intl.NumberFormat('ru-RU', { style: 'unit', unit, unitDisplay: 'long', useGrouping: false }),
+}))
 const PROFILE_NOMINATION_DEFINITIONS: readonly ProfileNominationDefinition[] = [
   {
     key: 'games-played',
@@ -824,9 +829,6 @@ const PROFILE_NOMINATION_DEFINITIONS: readonly ProfileNominationDefinition[] = [
     icon: nominationGames,
     statKey: 'games_played',
     unit: 'count',
-    levelStarts: [0, 50, 100, 250, 500, 1000, 2500, 5000],
-    startLabels: ['0', '50 игр', '100 игр', '250 игр', '500 игр', '1000 игр', '2500 игр', '5000 игр'],
-    nextLabels: ['50 игр', '100 игр', '250 игр', '500 игр', '1000 игр', '2500 игр', '5000 игр'],
   },
   {
     key: 'games-hosted',
@@ -834,9 +836,6 @@ const PROFILE_NOMINATION_DEFINITIONS: readonly ProfileNominationDefinition[] = [
     icon: nominationHead,
     statKey: 'games_hosted',
     unit: 'count',
-    levelStarts: [0, 10, 25, 50, 100, 250, 500, 1000],
-    startLabels: ['0', '10 игр', '25 игр', '50 игр', '100 игр', '250 игр', '500 игр', '1000 игр'],
-    nextLabels: ['10 игр', '25 игр', '50 игр', '100 игр', '250 игр', '500 игр', '1000 игр'],
   },
   {
     key: 'room-time',
@@ -844,9 +843,6 @@ const PROFILE_NOMINATION_DEFINITIONS: readonly ProfileNominationDefinition[] = [
     icon: nominationRoom,
     statKey: 'room_minutes',
     unit: 'minutes',
-    levelStarts: [0, 3 * MINUTES_IN_DAY, 7 * MINUTES_IN_DAY, 14 * MINUTES_IN_DAY, 30 * MINUTES_IN_DAY, 90 * MINUTES_IN_DAY, 180 * MINUTES_IN_DAY, 360 * MINUTES_IN_DAY],
-    startLabels: ['0', '3 дня', '1 неделя', '2 недели', '1 месяц', '3 месяца', '6 месяцев', '1 год'],
-    nextLabels: ['3 дня', '1 неделя', '2 недели', '1 месяц', '3 месяца', '6 месяцев', '1 год'],
   },
   {
     key: 'stream-time',
@@ -854,9 +850,6 @@ const PROFILE_NOMINATION_DEFINITIONS: readonly ProfileNominationDefinition[] = [
     icon: nominationStream,
     statKey: 'stream_minutes',
     unit: 'minutes',
-    levelStarts: [0, Math.round(0.5 * MINUTES_IN_DAY), MINUTES_IN_DAY, 3 * MINUTES_IN_DAY, 7 * MINUTES_IN_DAY, 14 * MINUTES_IN_DAY, 30 * MINUTES_IN_DAY, 90 * MINUTES_IN_DAY],
-    startLabels: ['0', '12 часов', '1 день', '3 дня', '1 неделя', '2 недели', '1 месяц', '3 месяца'],
-    nextLabels: ['12 часов', '1 день', '3 дня', '1 неделя', '2 недели', '1 месяц', '3 месяца'],
   },
   {
     key: 'spectator-time',
@@ -864,9 +857,6 @@ const PROFILE_NOMINATION_DEFINITIONS: readonly ProfileNominationDefinition[] = [
     icon: nominationSpectator,
     statKey: 'spectator_minutes',
     unit: 'minutes',
-    levelStarts: [0, MINUTES_IN_DAY, 3 * MINUTES_IN_DAY, 7 * MINUTES_IN_DAY, 14 * MINUTES_IN_DAY, 30 * MINUTES_IN_DAY, 90 * MINUTES_IN_DAY, 180 * MINUTES_IN_DAY],
-    startLabels: ['0', '1 день', '3 дня', '1 неделя', '2 недели', '1 месяц', '3 месяца', '6 месяцев'],
-    nextLabels: ['1 день', '3 дня', '1 неделя', '2 недели', '1 месяц', '3 месяца', '6 месяцев'],
   },
 ]
 
@@ -996,6 +986,7 @@ const profileNominations = computed<ProfileNomination[]>(() => {
   const stats = nominationStats.value
   if (!stats) return []
   return PROFILE_NOMINATION_DEFINITIONS.map((definition) => buildProfileNomination(definition, stats))
+    .filter((nomination) => nomination !== null)
 })
 const showAdminFriendsTooltip = computed(() => (
   viewerRole.value === 'admin'
@@ -1399,23 +1390,10 @@ function safeNonNegativeInt(raw: unknown): number {
   return Math.max(0, Math.trunc(value))
 }
 
-function resolveNominationLevel(value: number, levelStarts: readonly [number, number, number, number, number, number, number, number]): NominationLevel {
-  if (value >= levelStarts[7]) return 8
-  if (value >= levelStarts[6]) return 7
-  if (value >= levelStarts[5]) return 6
-  if (value >= levelStarts[4]) return 5
-  if (value >= levelStarts[3]) return 4
-  if (value >= levelStarts[2]) return 3
-  if (value >= levelStarts[1]) return 2
-  return 1
-}
-
-function nominationProgressPct(value: number, level: NominationLevel, levelStarts: readonly [number, number, number, number, number, number, number, number]): number {
+function nominationProgressPct(value: number, level: NominationLevel, levelStarts: readonly number[]): number {
   if (level >= 8) return 100
-  const progressLevel = level as 1 | 2 | 3 | 4 | 5 | 6 | 7
-  const start = levelStarts[progressLevel - 1]
-  const next = levelStarts[progressLevel]
-  if (next <= start) return 100
+  const start = levelStarts[level - 1]
+  const next = levelStarts[level]
   return Math.max(0, Math.min(100, ((value - start) / (next - start)) * 100))
 }
 
@@ -1439,9 +1417,24 @@ function formatNominationValue(value: number, unit: ProfileNominationDefinition[
   return unit === 'minutes' ? formatNominationMinutes(value) : formatNominationCount(value)
 }
 
-function buildProfileNomination(definition: ProfileNominationDefinition, stats: MiniProfileNominationStats): ProfileNomination {
-  const value = safeNonNegativeInt(stats[definition.statKey])
-  const level = resolveNominationLevel(value, definition.levelStarts)
+function formatNominationThreshold(value: number, unit: ProfileNominationDefinition['unit']): string {
+  if (value === 0) return '0'
+  if (unit === 'count') {
+    const plural = nominationPlural.select(value)
+    return `${value} ${plural === 'one' ? 'игра' : plural === 'few' ? 'игры' : 'игр'}`
+  }
+  const timeUnit = nominationTimeUnits.find(({ minutes }) => value % minutes === 0)
+  return timeUnit ? timeUnit.formatter.format(value / timeUnit.minutes) : formatNominationMinutes(value)
+}
+
+function buildProfileNomination(definition: ProfileNominationDefinition, stats: MiniProfileNominationStats): ProfileNomination | null {
+  const { statKey, unit } = definition
+  const value = stats[statKey]
+  const level = stats.levels[statKey]
+  const levelStarts = stats.level_starts[statKey]
+  if (!Number.isInteger(level) || level < 1 || level > 8) return null
+  if (!Array.isArray(levelStarts) || levelStarts.length !== 8 || levelStarts[0] !== 0
+    || !levelStarts.every((start, index) => Number.isSafeInteger(start) && (index === 0 || start > levelStarts[index - 1]))) return null
   const levelIndex = level - 1
   return {
     key: definition.key,
@@ -1449,10 +1442,10 @@ function buildProfileNomination(definition: ProfileNominationDefinition, stats: 
     level,
     levelLabel: `${level} ур.`,
     icon: definition.icon,
-    valueLabel: formatNominationValue(value, definition.unit),
-    progressPct: nominationProgressPct(value, level, definition.levelStarts),
-    progressStartLabel: definition.startLabels[levelIndex],
-    progressNextLabel: level >= 8 ? 'макс.' : definition.nextLabels[levelIndex],
+    valueLabel: formatNominationValue(value, unit),
+    progressPct: nominationProgressPct(value, level, levelStarts),
+    progressStartLabel: formatNominationThreshold(levelStarts[levelIndex], unit),
+    progressNextLabel: level >= 8 ? 'макс.' : formatNominationThreshold(levelStarts[level], unit),
   }
 }
 
@@ -1570,13 +1563,16 @@ function normalizeAdminBlacklist(value: unknown): MiniProfileAdminBlacklistUser[
 
 function normalizeMiniProfileNominationStats(value: unknown): MiniProfileNominationStats | null {
   if (!value || typeof value !== 'object') return null
-  const raw = value as Record<string, unknown>
+  const raw = value as Partial<MiniProfileNominationStats>
+  if (!raw.levels || !raw.level_starts) return null
   return {
     games_played: safeNonNegativeInt(raw.games_played),
     games_hosted: safeNonNegativeInt(raw.games_hosted),
     room_minutes: safeNonNegativeInt(raw.room_minutes),
     stream_minutes: safeNonNegativeInt(raw.stream_minutes),
     spectator_minutes: safeNonNegativeInt(raw.spectator_minutes),
+    levels: raw.levels,
+    level_starts: raw.level_starts,
   }
 }
 

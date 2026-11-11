@@ -299,6 +299,7 @@ const toastAppearances = new Map<string, ToastAppearance>([
   ['coin_topup', { tone: 'tone-green', icon: iconPresent }],
   ['coin_grant', { tone: 'tone-green', icon: iconPresent }],
   ['game_reward', { tone: 'tone-green', icon: iconPresent }],
+  ['nomination_reward', { tone: 'tone-green', icon: iconPresent }],
   ['subscription_activated', { tone: 'tone-green', icon: iconSubscribe }],
   ['subscription_purchase', { tone: 'tone-green', icon: iconSubscribe }],
   ['subscription_gift', { tone: 'tone-green', icon: iconSubscribe }],

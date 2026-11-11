@@ -116,6 +116,7 @@ async def operation_history(session: AsyncSession, user_id: int, *, page: int = 
             operation_type = {
                 "lava": "Покупка монет", "admin_grant": "Выдача монет",
                 "admin_remove": "Снятие монет", "game_reward": "Награда за проведение игр",
+                "nomination_reward": "Награда за уровни номинаций",
                 "gift_removal": "Удаление подарка",
             }.get(source, "Начисление монет")
             is_debit = source in {"admin_remove", "gift_removal"}
