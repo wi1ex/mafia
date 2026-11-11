@@ -212,6 +212,10 @@
               size="low"
               :width="256"
               :disabled="friendRequestsTogglePending || !subscriptionActive"
+              :tooltip="subscriptionActive ? undefined : FRIEND_REQUESTS_SUBSCRIPTION_REQUIRED"
+              tooltip-target="off"
+              tooltip-placement="top-left"
+              tooltip-bubble-width="320px"
               @update:modelValue="onToggleFriendRequests"
             />
           </div>
@@ -242,6 +246,7 @@ import UiTooltip from '@/components/UiTooltip.vue'
 const PASSWORD_MIN = 8
 const PASSWORD_MAX = 32
 const PASSWORD_SPACE_RE = /\s/
+const FRIEND_REQUESTS_SUBSCRIPTION_REQUIRED = 'Запрещать заявки в друзья можно только при активной подписке.'
 
 const userStore = useUserStore()
 const auth = useAuthStore()
@@ -415,7 +420,7 @@ async function onToggleFriendRequests(next: boolean) {
   } catch (error: any) {
     if (error?.response?.data?.detail === 'subscription_required') {
       void userStore.fetchMe().catch(() => {})
-      void alertDialog('Запрещать заявки в друзья можно только при активной подписке')
+      void alertDialog(FRIEND_REQUESTS_SUBSCRIPTION_REQUIRED)
     } else {
       void alertDialog('Не удалось сохранить настройку заявок в друзья')
     }

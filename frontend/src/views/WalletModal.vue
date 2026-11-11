@@ -1012,7 +1012,7 @@ onBeforeUnmount(() => {
         .wallet-benefits {
           display: grid;
           grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 2px 16px;
+          gap: 2px;
           margin: 0;
           padding: 0;
           list-style: none;
