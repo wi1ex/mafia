@@ -91,7 +91,7 @@ export function useOwnGiftRemoval(onRemoved: (acquisitionId: number) => void) {
       const { ok, checkboxChecked } = await confirmDialogWithCheckbox({
         title: 'Удалить подарок?',
         text: quote.cost_dc > 0
-          ? `Подарок получен меньше 7 дней назад - удаление будет платным (50% от стоимости подарка).`
+          ? `Подарок получен меньше 7 дней назад. Будет списано ${quote.cost_dc} DC (50% от стоимости подарка).`
           : 'Подарок исчезнет из вашей коллекции.',
         checkboxLabel: 'Я понимаю, что подарок будет удалён',
         checkboxRequired: true,

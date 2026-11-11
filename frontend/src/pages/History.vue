@@ -20,70 +20,20 @@
         <div class="history-filters-grid">
           <template v-if="isAdmin">
             <UiInput
+              v-for="field in numberFilterFields"
+              :key="field.param"
               size="low"
-              id="history-duration-lt"
-              v-model.number="filters.durationLtMinutes"
+              :id="field.id"
+              :model-value="numberFilterDrafts[field.param]?.value ?? ''"
               type="number"
-              min="1"
+              :min="field.min"
               step="1"
               inputmode="numeric"
               autocomplete="off"
-              label="Длительность меньше, мин"
-            />
-            <UiInput
-              size="low"
-              id="history-duration-gt"
-              v-model.number="filters.durationGtMinutes"
-              type="number"
-              min="1"
-              step="1"
-              inputmode="numeric"
-              autocomplete="off"
-              label="Длительность больше, мин"
-            />
-            <UiInput
-              size="low"
-              id="history-number-from"
-              v-model.number="filters.gameNumberFrom"
-              type="number"
-              min="1"
-              step="1"
-              inputmode="numeric"
-              autocomplete="off"
-              label="Номер игры от"
-            />
-            <UiInput
-              size="low"
-              id="history-number-to"
-              v-model.number="filters.gameNumberTo"
-              type="number"
-              min="1"
-              step="1"
-              inputmode="numeric"
-              autocomplete="off"
-              label="Номер игры до"
-            />
-            <UiInput
-              size="low"
-              id="history-foul-removals"
-              v-model.number="filters.foulRemovals"
-              type="number"
-              min="0"
-              step="1"
-              inputmode="numeric"
-              autocomplete="off"
-              label="Удалений по фолам"
-            />
-            <UiInput
-              size="low"
-              id="history-suicides"
-              v-model.number="filters.suicides"
-              type="number"
-              min="0"
-              step="1"
-              inputmode="numeric"
-              autocomplete="off"
-              label="Самоубийств"
+              :label="field.label"
+              :invalid="numberFilterDrafts[field.param]?.invalid"
+              :aria-invalid="numberFilterDrafts[field.param]?.invalid"
+              @input="updateNumberFilter(field.param, $event)"
             />
           </template>
           <UiDropdown
@@ -199,22 +149,10 @@ type GameResult = 'red' | 'black' | 'draw'
 type GameMode = 'normal' | 'rating'
 type GameResultFilter = 'all' | GameResult
 type GameModeFilter = 'all' | GameMode
-type AdminNumberFilterValue = number | ''
 type LeaveReason = 'vote' | 'foul' | 'suicide' | 'night'
 type FarewellVerdict = 'citizen' | 'mafia'
 type NightCheckVerdict = 'citizen' | 'mafia' | 'sheriff'
 type PointsBaseReason = 'win' | 'loss' | 'draw'
-
-interface GameHistoryFilters {
-  durationLtMinutes: AdminNumberFilterValue
-  durationGtMinutes: AdminNumberFilterValue
-  gameNumberFrom: AdminNumberFilterValue
-  gameNumberTo: AdminNumberFilterValue
-  foulRemovals: AdminNumberFilterValue
-  suicides: AdminNumberFilterValue
-  result: GameResultFilter
-  mode: GameModeFilter
-}
 
 interface ResultFilterOption {
   value: GameResultFilter
@@ -361,17 +299,19 @@ function openHostMiniProfile(head: GameHistoryHost): void {
   hostMiniProfileOpen.value = true
 }
 
-const filters = ref<GameHistoryFilters>({
-  durationLtMinutes: '',
-  durationGtMinutes: '',
-  gameNumberFrom: '',
-  gameNumberTo: '',
-  foulRemovals: '',
-  suicides: '',
-  result: 'all',
-  mode: 'all',
-})
-const normalizedFilters = computed(() => normalizeFilters(filters.value))
+const numberFilterFields = [
+  { param: 'duration_lt_minutes', id: 'history-duration-lt', min: 1, label: 'Длительность меньше, мин' },
+  { param: 'duration_gt_minutes', id: 'history-duration-gt', min: 1, label: 'Длительность больше, мин' },
+  { param: 'game_number_from', id: 'history-number-from', min: 1, label: 'Номер игры от' },
+  { param: 'game_number_to', id: 'history-number-to', min: 1, label: 'Номер игры до' },
+  { param: 'foul_removals', id: 'history-foul-removals', min: 0, label: 'Удалений по фолам' },
+  { param: 'suicides', id: 'history-suicides', min: 0, label: 'Самоубийств' },
+] as const
+type NumberFilterParam = (typeof numberFilterFields)[number]['param']
+
+const numberFilterDrafts = ref<Partial<Record<NumberFilterParam, { value: string; invalid: boolean }>>>({})
+const appliedNumberFilters: Partial<Record<NumberFilterParam, number>> = {}
+const filters = ref<{ result: GameResultFilter; mode: GameModeFilter }>({ result: 'all', mode: 'all' })
 const filterUpdateTimer = ref<number | undefined>()
 const pageNavigationDisabled = computed(() => loading.value || filterUpdateTimer.value !== undefined)
 
@@ -564,44 +504,41 @@ function formatDuration(secondsRaw: number): string {
   return `${minutes}м ${String(seconds).padStart(2, '0')}с`
 }
 
-function normalizedNumberFilterValue(raw: AdminNumberFilterValue, allowZero = false): AdminNumberFilterValue {
-  if (raw === '') return ''
-  const value = Number(raw)
-  return Number.isInteger(value) && value >= (allowZero ? 0 : 1) ? value : ''
+function nextNumberFilterValue(param: NumberFilterParam): number | undefined {
+  const draft = numberFilterDrafts.value[param]
+  if (draft?.invalid) return appliedNumberFilters[param]
+  return draft?.value ? Number(draft.value) : undefined
 }
 
-function normalizeFilters(raw: GameHistoryFilters): GameHistoryFilters {
-  const result = raw.result === 'red' || raw.result === 'black' || raw.result === 'draw' ? raw.result : 'all'
-  return {
-    durationLtMinutes: normalizedNumberFilterValue(raw.durationLtMinutes),
-    durationGtMinutes: normalizedNumberFilterValue(raw.durationGtMinutes),
-    gameNumberFrom: normalizedNumberFilterValue(raw.gameNumberFrom),
-    gameNumberTo: normalizedNumberFilterValue(raw.gameNumberTo),
-    foulRemovals: normalizedNumberFilterValue(raw.foulRemovals, true),
-    suicides: normalizedNumberFilterValue(raw.suicides, true),
-    result,
-    mode: raw.mode === 'normal' || raw.mode === 'rating' ? raw.mode : 'all',
+function applyFilters(): void {
+  window.clearTimeout(filterUpdateTimer.value)
+  filterUpdateTimer.value = undefined
+  for (const { param } of numberFilterFields) {
+    const value = nextNumberFilterValue(param)
+    if (value === undefined) delete appliedNumberFilters[param]
+    else appliedNumberFilters[param] = value
   }
+  page.value = 1
+  void fetchHistory()
 }
 
-function appendNumberParam(params: Record<string, number | string>, key: string, value: AdminNumberFilterValue): void {
-  if (value === '') return
-  params[key] = value
+function updateNumberFilter(param: NumberFilterParam, event: Event): void {
+  const input = event.target as HTMLInputElement
+  const { value, valueAsNumber, validity } = input
+  const invalid = validity.badInput || validity.rangeUnderflow || validity.stepMismatch
+    || (value !== '' && !Number.isSafeInteger(valueAsNumber))
+  numberFilterDrafts.value[param] = { value, invalid }
+
+  window.clearTimeout(filterUpdateTimer.value)
+  const hasChanges = numberFilterFields.some(({ param }) => nextNumberFilterValue(param) !== appliedNumberFilters[param])
+  filterUpdateTimer.value = hasChanges ? window.setTimeout(applyFilters, FILTER_INPUT_DELAY_MS) : undefined
 }
 
 function buildHistoryParams(): Record<string, number | string> {
   const params: Record<string, number | string> = { page: page.value }
-  const filters = normalizedFilters.value
-  if (isAdmin.value) {
-    appendNumberParam(params, 'duration_lt_minutes', filters.durationLtMinutes)
-    appendNumberParam(params, 'duration_gt_minutes', filters.durationGtMinutes)
-    appendNumberParam(params, 'game_number_from', filters.gameNumberFrom)
-    appendNumberParam(params, 'game_number_to', filters.gameNumberTo)
-    appendNumberParam(params, 'foul_removals', filters.foulRemovals)
-    appendNumberParam(params, 'suicides', filters.suicides)
-  }
-  if (filters.result !== 'all') params.result = filters.result
-  if (filters.mode !== 'all') params.mode = filters.mode
+  if (isAdmin.value) Object.assign(params, appliedNumberFilters)
+  if (filters.value.result !== 'all') params.result = filters.value.result
+  if (filters.value.mode !== 'all') params.mode = filters.value.mode
   return params
 }
 
@@ -661,19 +598,7 @@ onMounted(() => {
   void fetchHistory()
 })
 
-watch(normalizedFilters, (current, previous) => {
-  window.clearTimeout(filterUpdateTimer.value)
-  const refresh = () => {
-    filterUpdateTimer.value = undefined
-    page.value = 1
-    void fetchHistory()
-  }
-  if (current.result !== previous.result || current.mode !== previous.mode) {
-    refresh()
-  } else {
-    filterUpdateTimer.value = window.setTimeout(refresh, FILTER_INPUT_DELAY_MS)
-  }
-})
+watch([() => filters.value.result, () => filters.value.mode], applyFilters)
 
 onBeforeUnmount(() => {
   window.clearTimeout(filterUpdateTimer.value)
