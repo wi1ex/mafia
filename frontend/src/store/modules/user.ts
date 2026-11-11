@@ -20,6 +20,7 @@ export interface UserProfile {
   password_temp?: boolean
   protected_user?: boolean
   tg_invites_enabled?: boolean
+  allow_friend_requests?: boolean
   subscription_active?: boolean
   subscription_started_at?: string | null
   subscription_until?: string | null
@@ -199,6 +200,14 @@ export const useUserStore = defineStore('user', () => {
   const inActiveGameAsPlayer = computed(() => Boolean(user.value?.in_active_game_as_player ?? user.value?.in_active_game_as_alive_player))
   const roomRestricted = computed(() => banActive.value || timeoutActive.value)
   const tgInvitesEnabled = computed(() => user.value?.tg_invites_enabled ?? true)
+  const allowFriendRequests = computed(() => !subscriptionActive.value || user.value?.allow_friend_requests !== false)
+  const friendRequestsSave = ref<symbol | null>(null)
+  const friendRequestsTogglePending = computed(() => friendRequestsSave.value !== null)
+
+  watch([() => auth.sessionId, subscriptionActive], ([, active]) => {
+    friendRequestsSave.value = null
+    if (!active && user.value?.allow_friend_requests === false) user.value.allow_friend_requests = true
+  }, { flush: 'sync' })
 
   async function setTgInvitesEnabled(next: boolean): Promise<void> {
     const prev = user.value?.tg_invites_enabled
@@ -208,6 +217,30 @@ export const useUserStore = defineStore('user', () => {
       if (user.value) user.value.tg_invites_enabled = data.tg_invites_enabled
     } catch {
       if (user.value && prev !== undefined) user.value.tg_invites_enabled = prev
+    }
+  }
+
+  async function setAllowFriendRequests(next: boolean): Promise<void> {
+    const profile = user.value
+    const sessionId = auth.sessionId
+    if (!profile || !sessionId || !subscriptionActive.value || friendRequestsTogglePending.value) return
+
+    const previous = profile.allow_friend_requests
+    const request = Symbol()
+    friendRequestsSave.value = request
+    profile.allow_friend_requests = next
+    const isCurrent = () => (
+      friendRequestsSave.value === request && auth.sessionId === sessionId && user.value?.id === profile.id
+    )
+    try {
+      const { data } = await api.patch<{ allow_friend_requests: boolean }>('/users/ui_prefs', { allow_friend_requests: next })
+      if (isCurrent() && user.value) user.value.allow_friend_requests = data.allow_friend_requests
+    } catch (error) {
+      if (!isCurrent()) return
+      if (user.value === profile) profile.allow_friend_requests = previous
+      throw error
+    } finally {
+      if (friendRequestsSave.value === request) friendRequestsSave.value = null
     }
   }
 
@@ -248,6 +281,8 @@ export const useUserStore = defineStore('user', () => {
     inActiveGameAsPlayer,
     roomRestricted,
     tgInvitesEnabled,
+    allowFriendRequests,
+    friendRequestsTogglePending,
     applyProfile,
     fetchMe,
     setUsername,
@@ -261,6 +296,7 @@ export const useUserStore = defineStore('user', () => {
     setInActiveGameAsPlayer,
     setTelegramVerified,
     setTgInvitesEnabled,
+    setAllowFriendRequests,
     ensureClock,
     clear,
   }

@@ -1698,6 +1698,7 @@ async def build_user_out_payload(session: AsyncSession, *, user_id: int, role: s
         password_temp=bool(user.password_temp),
         protected_user=is_protected_admin(uid),
         tg_invites_enabled=bool(user.tg_invites_enabled),
+        allow_friend_requests=user.allow_friend_requests or not theme_state.subscription_active,
         subscription_active=theme_state.subscription_active,
         subscription_started_at=theme_state.subscription_started_at,
         subscription_until=theme_state.subscription_until,
@@ -2050,6 +2051,7 @@ async def sync_expired_profile_subscriptions() -> int:
                     continue
                 event_key = _subscription_notice_event_key(uid, subscription.ends_at, event="expired")
                 await reset_nickname_changes_after_subscription_expired(session, user_id=uid)
+                user.allow_friend_requests = True
                 old_avatar_name = user.avatar_name if _is_gif_avatar_name(user.avatar_name) else None
                 if old_avatar_name:
                     user.avatar_name = None
@@ -2407,6 +2409,7 @@ async def set_user_deleted(session: AsyncSession, user_id: int, *, deleted: bool
         if active_subscription is not None:
             await session.delete(active_subscription)
             subscription_deleted = True
+        user.allow_friend_requests = True
         new_username = f"deleted_{uid}"
         user.username = new_username
         user.avatar_name = None

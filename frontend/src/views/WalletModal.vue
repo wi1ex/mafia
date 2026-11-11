@@ -261,6 +261,8 @@ const subscriptionBenefits: readonly string[] = [
   'трансляции в высоком качестве',
   'черный список пользователей',
   'изменение никнейма и его истории',
+  'запрет на запросы в друзья',
+  'скрывать дату последней игры и онлайна',
 ]
 const currencies = DC_CURRENCIES
 const currencyIcons: Record<DcCurrency, string> = { RUB: iconRouble, USD: iconDollar, EUR: iconEuro }

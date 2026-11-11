@@ -203,6 +203,18 @@
               @update:modelValue="onToggleTgInvites"
             />
           </div>
+          <div class="params-switch">
+            <UiSwitch
+              :model-value="allowFriendRequests"
+              label="Запросы в мой список друзей"
+              off-label="Запретить"
+              on-label="Разрешить"
+              size="low"
+              :width="256"
+              :disabled="friendRequestsTogglePending || !subscriptionActive"
+              @update:modelValue="onToggleFriendRequests"
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -234,8 +246,8 @@ const PASSWORD_SPACE_RE = /\s/
 const userStore = useUserStore()
 const auth = useAuthStore()
 const { subscriptionExpiryLabel } = useSubscriptionStatus()
-const { tgInvitesEnabled } = storeToRefs(userStore)
-const { setTgInvitesEnabled, setStreamingUrl } = userStore
+const { allowFriendRequests, friendRequestsTogglePending, subscriptionActive, tgInvitesEnabled } = storeToRefs(userStore)
+const { setAllowFriendRequests, setTgInvitesEnabled, setStreamingUrl } = userStore
 
 type ProfileDatesResponse = {
   registered_at?: string | null
@@ -379,9 +391,8 @@ function applyProfileDatesPayload(data: ProfileDatesResponse) {
 }
 
 async function loadMe() {
-  const { data } = await api.get('/users/profile_info')
-  applyMePayload(data)
-  userStore.applyProfile(data)
+  await userStore.fetchMe()
+  if (userStore.user) applyMePayload(userStore.user)
 }
 
 async function loadProfileDates() {
@@ -396,6 +407,19 @@ async function onToggleTgInvites(next: boolean) {
   tgInvitesTogglePending.value = true
   try { await setTgInvitesEnabled(next) }
   finally { tgInvitesTogglePending.value = false }
+}
+
+async function onToggleFriendRequests(next: boolean) {
+  try {
+    await setAllowFriendRequests(next)
+  } catch (error: any) {
+    if (error?.response?.data?.detail === 'subscription_required') {
+      void userStore.fetchMe().catch(() => {})
+      void alertDialog('Запрещать заявки в друзья можно только при активной подписке')
+    } else {
+      void alertDialog('Не удалось сохранить настройку заявок в друзья')
+    }
+  }
 }
 
 async function saveStreamingUrl() {

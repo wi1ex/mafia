@@ -132,7 +132,7 @@ from ...services.profile_theme import (
     upsert_profile_theme_icon_preference,
     upsert_profile_theme_preference,
 )
-from ...services.blacklist import blacklist_relation
+from ...services.blacklist import blacklist_relation, user_has_active_subscription
 from ...services.nickname import (
     MAX_NICKNAME_CHANGE_LIMIT,
     normalize_nickname_changes_left,
@@ -1178,28 +1178,45 @@ async def search_chat_mentions(query: str, limit: int = CHAT_MENTION_LIMIT_DEFAU
 @rate_limited(lambda ident, **_: f"rl:update_ui_prefs:{ident['id']}", limit=10, window_s=1)
 async def update_ui_prefs(payload: UserUiPrefsIn, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserUiPrefsOut:
     uid = int(ident["id"])
-    user = await db.get(User, uid)
+    user = await db.get(User, uid, with_for_update=True, populate_existing=True)
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
     old_tg_invites_enabled = bool(user.tg_invites_enabled)
+    old_allow_friend_requests = user.allow_friend_requests
+
+    allow_friend_requests = payload.allow_friend_requests
+    if allow_friend_requests is None:
+        allow_friend_requests = old_allow_friend_requests
+    if not allow_friend_requests and not await user_has_active_subscription(db, uid):
+        if payload.allow_friend_requests is False:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="subscription_required")
+
+        allow_friend_requests = True
+    user.allow_friend_requests = allow_friend_requests
 
     if payload.tg_invites_enabled is not None:
         user.tg_invites_enabled = bool(payload.tg_invites_enabled)
 
     new_tg_invites_enabled = bool(user.tg_invites_enabled)
-    await db.commit()
 
+    changes = []
     if old_tg_invites_enabled != new_tg_invites_enabled:
+        changes.append(f"tg_invites_enabled: {int(old_tg_invites_enabled)} -> {int(new_tg_invites_enabled)}")
+    if old_allow_friend_requests != allow_friend_requests:
+        changes.append(f"allow_friend_requests: {int(old_allow_friend_requests)} -> {int(allow_friend_requests)}")
+    if changes:
         await log_action(
             db,
             user_id=uid,
             username=ident["username"],
             action="ui_prefs_updated",
-            details=f"UI prefs updated: tg_invites_enabled: {int(old_tg_invites_enabled)} -> {int(new_tg_invites_enabled)}",
+            details="UI prefs updated: " + "; ".join(changes),
+            commit=False,
         )
+    await db.commit()
 
-    return UserUiPrefsOut(tg_invites_enabled=new_tg_invites_enabled)
+    return UserUiPrefsOut(tg_invites_enabled=new_tg_invites_enabled, allow_friend_requests=allow_friend_requests)
 
 
 @router.patch("/profile_theme", response_model=UserProfileThemeOut)

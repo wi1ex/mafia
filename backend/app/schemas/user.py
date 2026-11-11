@@ -26,7 +26,7 @@ class UserOut(BaseModel):
     password_temp: bool = False
     protected_user: bool = False
     tg_invites_enabled: bool = True
-    allow_friend_requests: Literal[True] = True
+    allow_friend_requests: bool = True
     subscription_active: bool = False
     subscription_started_at: Optional[datetime] = None
     subscription_until: Optional[datetime] = None
@@ -331,11 +331,12 @@ class ChatMentionSearchOut(BaseModel):
 
 class UserUiPrefsIn(BaseModel):
     tg_invites_enabled: Optional[bool] = None
+    allow_friend_requests: Optional[bool] = None
 
 
 class UserUiPrefsOut(BaseModel):
     tg_invites_enabled: bool
-    allow_friend_requests: Literal[True] = True
+    allow_friend_requests: bool = True
 
 
 class SupportLinkClickIn(BaseModel):
