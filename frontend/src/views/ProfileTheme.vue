@@ -44,7 +44,7 @@
                 <div class="profile-div">
                   <div class="profile-title">
                     <div v-if="themePreviewIconSrcs.length" class="theme-preview-icons" aria-hidden="true">
-                      <img class="theme-preview-icon" v-for="badgeSrc in themePreviewIconSrcs" :key="badgeSrc" :src="badgeSrc" alt="" />
+                      <img class="theme-preview-icon" v-for="badgeSrc in themePreviewIconSrcs" :key="badgeSrc" v-minio-img="getProfileBadgeImage(badgeSrc)" alt="" />
                     </div>
                     <UiIcon v-if="themePreviewStreamingUrl" class="theme-preview-streaming-icon" :icon="iconTwitch" />
                     <span class="theme-preview-name">{{ me.username || 'User' }}</span>
@@ -69,7 +69,7 @@
         <div class="theme-preview-card" :style="themePreviewStyle">
           <img class="theme-preview-avatar" v-minio-img="{ key: me.avatar_name ? `avatars/${me.avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false, animated: true }" alt="avatar" />
           <div v-if="themePreviewIconSrcs.length" class="theme-preview-icons" aria-hidden="true">
-            <img class="theme-preview-icon" v-for="badgeSrc in themePreviewIconSrcs" :key="badgeSrc" :src="badgeSrc" alt="" />
+            <img class="theme-preview-icon" v-for="badgeSrc in themePreviewIconSrcs" :key="badgeSrc" v-minio-img="getProfileBadgeImage(badgeSrc)" alt="" />
           </div>
           <span class="theme-preview-name">{{ me.username || 'User' }}</span>
         </div>
@@ -94,6 +94,8 @@ import {
 } from '@/constants/profileThemes'
 import {
   PROFILE_THEME_ICON_OPTIONS,
+  getProfileBadgeImage,
+  getProfileGiftBadgeSource,
   getProfileThemeBadgeSources,
   getProfileThemeIconSrc,
   normalizeProfileThemeIcon,
@@ -154,7 +156,10 @@ const profileThemeDirty = computed(() => (
 ))
 const themeSaveDisabled = computed(() => themeSaveBusy.value || isBanned.value || !canEditProfileTheme.value || !profileThemeDirty.value)
 const themePreviewStyle = computed(() => buildProfileThemeBgStyle(selectedProfileThemeColor.value))
-const themePreviewIconSrcs = computed(() => getProfileThemeBadgeSources(selectedProfileThemeIcon.value, me.role, { userId: userStore.user?.id }))
+const themePreviewIconSrcs = computed(() => {
+  const giftBadge = userStore.subscriptionActive ? getProfileGiftBadgeSource(userStore.user?.profile_gift_preview_key) : null
+  return getProfileThemeBadgeSources(giftBadge ?? selectedProfileThemeIcon.value, me.role, { userId: userStore.user?.id })
+})
 const themePreviewStreamingUrl = computed(() => Boolean(me.streaming_url))
 const profileThemeOptions = computed(() => getProfileThemeOptions(me.role))
 const profileThemeIconOptions = computed(() => PROFILE_THEME_ICON_OPTIONS.filter((item) => item.available || item.key === selectedProfileThemeIcon.value))
