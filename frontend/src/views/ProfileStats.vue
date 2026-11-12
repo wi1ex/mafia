@@ -187,11 +187,9 @@ type SeasonOption = {
   label: string
 }
 
-const props = withDefaults(defineProps<{
-  statsUrl?: string
-}>(), {
-  statsUrl: '/users/stats',
-})
+const props = defineProps<{
+  statsUrl: string
+}>()
 
 const loading = ref(false)
 const loaded = ref(false)

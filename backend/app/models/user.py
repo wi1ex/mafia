@@ -1,7 +1,7 @@
 from __future__ import annotations
 from datetime import datetime
 from typing import Optional
-from sqlalchemy import BigInteger, String, DateTime, Boolean, Text, Integer, Index, CheckConstraint, func
+from sqlalchemy import BigInteger, String, DateTime, Boolean, Text, Integer, ForeignKey, Index, CheckConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import JSONB
 from ..core.db import Base
@@ -27,6 +27,9 @@ class User(Base):
     rating_host_reward_days: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0, server_default="0")
     profile_theme_color: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
     profile_theme_icon: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    profile_gift_id: Mapped[int | None] = mapped_column(
+        ForeignKey("user_gifts.id", ondelete="SET NULL", use_alter=True),
+    )
     streaming_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     telegram_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True, unique=True, index=True)
     telegram_nickname: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)

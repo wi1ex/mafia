@@ -26,14 +26,6 @@
             <UiIcon class="tab-btn-img" :icon="iconDesign" />
             <span class="tab-btn-text">Оформление профиля</span>
           </button>
-          <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'stats' }" :aria-selected="activeTab === 'stats'" :disabled="profileTabsDisabled" @click="activeTab = 'stats'">
-            <UiIcon class="tab-btn-img" :icon="iconStats" />
-            <span class="tab-btn-text">Статистика</span>
-          </button>
-          <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'history' }" :aria-selected="activeTab === 'history'" :disabled="profileTabsDisabled" @click="activeTab = 'history'">
-            <UiIcon class="tab-btn-img" :icon="iconHistory" />
-            <span class="tab-btn-text">История игр</span>
-          </button>
           <button class="tab-btn" type="button" role="tab" :class="{ active: activeTab === 'sanctions' }" :aria-selected="activeTab === 'sanctions'" :disabled="profileTabsDisabled" @click="activeTab = 'sanctions'">
             <UiIcon class="tab-btn-img" :icon="iconJudgeHummer" />
             <span class="tab-btn-text">Санкции</span>
@@ -75,10 +67,6 @@
 
         <ProfileTheme v-if="activeTab === 'theme'" />
 
-        <ProfileStats v-if="activeTab === 'stats'" />
-
-        <ProfileHistory v-if="activeTab === 'history'" :per-page="5" />
-
         <ProfileSanctions v-if="activeTab === 'sanctions'" />
 
         <ProfileSubscription v-if="activeTab === 'subscription'" />
@@ -94,8 +82,6 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore, useFriendsStore, useUserStore } from '@/store'
 
-import ProfileStats from '@/views/ProfileStats.vue'
-import ProfileHistory from '@/views/ProfileHistory.vue'
 import ProfileAccount from '@/views/ProfileAccount.vue'
 import ProfileAvatarNick from '@/views/ProfileAvatarNick.vue'
 import ProfileTheme from '@/views/ProfileTheme.vue'
@@ -110,13 +96,11 @@ import iconHome from '@/assets/svg/iconHome.svg'
 import iconDefaultAvatar from '@/assets/svg/iconDefaultAvatar.svg'
 import iconSettings from '@/assets/svg/iconSettings.svg'
 import iconDesign from '@/assets/svg/iconDesign.svg'
-import iconStats from '@/assets/svg/iconStats.svg'
-import iconHistory from '@/assets/svg/iconHistory.svg'
 import iconJudgeHummer from '@/assets/svg/iconJudgeHummer.svg'
 import iconCard from '@/assets/svg/iconCard.svg'
 import iconLeave from '@/assets/svg/iconLeave.svg'
 
-const TAB_KEYS = ['profile', 'theme', 'account', 'stats', 'subscription', 'history', 'sanctions'] as const
+const TAB_KEYS = ['profile', 'theme', 'account', 'subscription', 'sanctions'] as const
 type TabKey = typeof TAB_KEYS[number]
 const DEFAULT_TAB: TabKey = 'account'
 

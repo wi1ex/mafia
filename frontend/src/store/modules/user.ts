@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import { api } from '@/services/axios'
+import { getProfileGiftBadgeSource } from '@/constants/profileIcons'
 import { useSettingsStore } from './setting'
 import { useAuthStore } from './auth'
 
@@ -30,6 +31,7 @@ export interface UserProfile {
   nickname_changes_left?: number
   profile_theme_color?: string | null
   profile_theme_icon?: string | null
+  profile_gift_preview_key?: string | null
   streaming_url?: string | null
   timeout_until?: string | null
   suspend_until?: string | null
@@ -189,7 +191,7 @@ export const useUserStore = defineStore('user', () => {
   })
   const activeProfileThemeIcon = computed(() => {
     if (!subscriptionActive.value) return null
-    return user.value?.profile_theme_icon ?? null
+    return getProfileGiftBadgeSource(user.value?.profile_gift_preview_key) ?? user.value?.profile_theme_icon ?? null
   })
   const banActive = computed(() => Boolean(user.value?.ban_active))
   const telegramVerified = computed(() => Boolean(user.value?.telegram_verified))

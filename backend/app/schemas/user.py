@@ -34,6 +34,7 @@ class UserOut(BaseModel):
     nickname_changes_left: int = 0
     profile_theme_color: Optional[str] = None
     profile_theme_icon: Optional[str] = None
+    profile_gift_preview_key: Optional[str] = None
     streaming_url: Optional[str] = None
     timeout_until: Optional[datetime] = None
     suspend_until: Optional[datetime] = None

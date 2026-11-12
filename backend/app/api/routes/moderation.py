@@ -920,7 +920,6 @@ async def moderation_revoke_user_timeout(user_id: int, ident: Identity = Depends
             target_user_id=uid,
             target_username=user.username,
             kind=SANCTION_TIMEOUT,
-            reason=active.reason or "",
             source="moder" if str(ident["role"]) == "moder" else "admin",
             remaining_duration_label=remaining_duration_label,
         )

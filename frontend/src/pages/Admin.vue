@@ -588,14 +588,6 @@
                 </div>
               </div>
               <div class="stat-card">
-                <span class="label">Аватары</span>
-                <span class="value">{{ stats.avatars_count }} ({{ formatBytes(stats.avatars_bytes) }})</span>
-              </div>
-              <div class="stat-card">
-                <span class="label">Изображения в чате</span>
-                <span class="value">{{ stats.images_count }} ({{ formatBytes(stats.images_bytes) }})</span>
-              </div>
-              <div class="stat-card">
                 <span class="label">Всего комнат</span>
                 <span class="value">{{ stats.total_rooms }}</span>
               </div>
@@ -1404,7 +1396,7 @@
                     <div class="subscription-theme-preview">
                       <span class="subscription-theme-chip" :style="subscriptionThemeStyle(row.profile_theme_color)"></span>
                       <div v-if="subscriptionThemeIconSrcs(row.profile_theme_icon, row.role, row.user_id).length" class="subscription-theme-icons" aria-hidden="true">
-                        <img v-for="badgeSrc in subscriptionThemeIconSrcs(row.profile_theme_icon, row.role, row.user_id)" :key="`${row.user_id}-${badgeSrc}`" class="subscription-theme-icon" :src="badgeSrc" alt="" />
+                        <img v-for="badgeSrc in subscriptionThemeIconSrcs(row.profile_theme_icon, row.role, row.user_id)" :key="`${row.user_id}-${badgeSrc}`" class="subscription-theme-icon" v-minio-img="getProfileBadgeImage(badgeSrc)" alt="" />
                       </div>
                     </div>
                   </td>
@@ -1607,7 +1599,7 @@ import { canOpenMiniProfileTarget, normalizeMiniProfileUserId } from '@/services
 import { useSettingsStore, useUserStore } from '@/store'
 
 import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
-import { getProfileThemeBadgeSources } from '@/constants/profileIcons'
+import { getProfileBadgeImage, getProfileThemeBadgeSources } from '@/constants/profileIcons'
 import { normalizeNotificationText, parseNotificationText } from '@/services/notificationText'
 
 import SubscriptionModal from '@/views/SubscriptionModal.vue'
@@ -1806,10 +1798,6 @@ type PeriodStats = {
 
 type SiteStats = {
   total_users: number
-  avatars_count: number
-  avatars_bytes: number
-  images_count: number
-  images_bytes: number
   registrations: RegistrationPoint[]
   games_by_day: RegistrationPoint[]
   active_users_by_day: RegistrationPoint[]
@@ -2346,10 +2334,6 @@ const sortedGifts = computed(() => {
 const statsMonth = ref('')
 const stats = reactive<SiteStats>({
   total_users: 0,
-  avatars_count: 0,
-  avatars_bytes: 0,
-  images_count: 0,
-  images_bytes: 0,
   registrations: [],
   games_by_day: [],
   active_users_by_day: [],
@@ -3056,14 +3040,6 @@ function formatRoomIdLabel(value?: number | null): string {
   return Number.isFinite(roomId) && roomId > 0 ? `Комната ${Math.trunc(roomId)}` : '-'
 }
 
-function formatBytes(value: number): string {
-  const total = Math.max(0, Number(value) || 0)
-  if (total < 1024) return `${Math.floor(total)} Б`
-  if (total < 1024 * 1024) return `${(total / 1024).toFixed(total < 10 * 1024 ? 1 : 0)} КБ`
-  if (total < 1024 * 1024 * 1024) return `${(total / (1024 * 1024)).toFixed(total < 10 * 1024 * 1024 ? 1 : 0)} МБ`
-  return `${(total / (1024 * 1024 * 1024)).toFixed(total < 10 * 1024 * 1024 * 1024 ? 1 : 0)} ГБ`
-}
-
 function formatDurationSeconds(seconds?: number | null, zeroLabel = 'без срока'): string {
   if (!seconds) return zeroLabel
   const total = Math.max(0, Math.floor(Number(seconds) || 0))
@@ -3754,10 +3730,6 @@ async function loadStats(): Promise<void> {
     const { data } = await api.get('/admin/stats', { params })
     Object.assign(stats, {
       total_users: data?.total_users ?? 0,
-      avatars_count: data?.avatars_count ?? 0,
-      avatars_bytes: data?.avatars_bytes ?? 0,
-      images_count: data?.images_count ?? 0,
-      images_bytes: data?.images_bytes ?? 0,
       registrations: Array.isArray(data?.registrations) ? data.registrations : [],
       games_by_day: Array.isArray(data?.games_by_day) ? data.games_by_day : [],
       active_users_by_day: Array.isArray(data?.active_users_by_day) ? data.active_users_by_day : [],
@@ -5299,7 +5271,7 @@ onBeforeUnmount(() => {
 }
 .admin .stats-grid {
   display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 10px;
 }
 .admin .stat-card {

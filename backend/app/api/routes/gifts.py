@@ -7,14 +7,14 @@ from ...models.user import User
 from ...schemas.common import Identity, Ok
 from ...schemas.gifts import (
     GiftMoveIn, GiftOut, GiftPurchaseIn, GiftPurchaseOut, GiftRemovalOut, GiftRemovalQuoteOut,
-    UserGiftOut, UserGiftsOut,
+    ProfileGiftIconIn, ProfileGiftIconOut, UserGiftOut, UserGiftsOut,
 )
 from ...security.auth_tokens import get_identity
 from ...security.decorators import log_route
 from ...services.blacklist import blacklist_relation
 from ...services.gifts import (
     buy_gift, dismiss_gift_toast, gift_catalog, gift_removal_quote, move_user_gift,
-    pending_gift_toasts, remove_user_gift, user_gift_purchase, user_gifts,
+    pending_gift_toasts, remove_user_gift, set_profile_gift_icon, user_gift_purchase, user_gifts,
 )
 from ..utils import ensure_verification_allowed
 
@@ -48,6 +48,18 @@ async def move_purchase(
     await ensure_verification_allowed(session, owner_id)
     await move_user_gift(session, owner_id=owner_id, payload=payload)
     return Ok()
+
+
+@router.patch("/me/profile-icon", response_model=ProfileGiftIconOut)
+@log_route("gifts.profile_icon")
+async def update_profile_icon(
+    payload: ProfileGiftIconIn,
+    ident: Identity = Depends(get_identity),
+    session: AsyncSession = Depends(get_session),
+) -> ProfileGiftIconOut:
+    owner_id = int(ident["id"])
+    await ensure_verification_allowed(session, owner_id)
+    return await set_profile_gift_icon(session, owner_id=owner_id, acquisition_id=payload.acquisition_id)
 
 
 @router.get("/pending-toasts")
@@ -87,12 +99,12 @@ async def user_collection(
         if relation["b_blocks_a"]:
             raise HTTPException(403, detail="requester_blacklisted_by_target")
 
-    reveal_anonymous_sender = viewer_role == ROLE_ADMIN and not grouped
-    if reveal_anonymous_sender:
+    reveal_private_senders = viewer_role == ROLE_ADMIN and not grouped
+    if reveal_private_senders:
         response.headers["Cache-Control"] = "private, no-store"
     return await user_gifts(
         session, user_id, grouped=grouped, limit=limit, offset=offset,
-        reveal_anonymous_sender=reveal_anonymous_sender,
+        reveal_private_senders=reveal_private_senders,
     )
 
 

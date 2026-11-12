@@ -74,6 +74,17 @@ class GiftMoveIn(BaseModel):
     place: Literal["before", "after"]
 
 
+class ProfileGiftIconIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    acquisition_id: int | None = Field(strict=True, gt=0, le=2**31 - 1)
+
+
+class ProfileGiftIconOut(BaseModel):
+    profile_gift_id: int | None
+    profile_gift_preview_key: str | None
+
+
 class GiftSenderOut(BaseModel):
     id: int
     username: str
@@ -90,6 +101,7 @@ class UserGiftOut(BaseModel):
     acquired_at: datetime
     preview_key: str
     avif_key: str
+    anonymous: bool
     sender: GiftSenderOut | None = None
 
 
@@ -97,10 +109,12 @@ class UserGiftsOut(BaseModel):
     items: list[UserGiftOut]
     total: int
     has_more: bool
+    profile_gift_id: int | None = None
 
 
 class GiftRemovalOut(Ok):
     dc_balance: int
+    profile_icon_cleared: bool = False
 
 
 class GiftRemovalQuoteOut(BaseModel):

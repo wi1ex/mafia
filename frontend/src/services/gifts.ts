@@ -21,10 +21,11 @@ export type GiftCollectionItem = GiftMediaAsset & {
   gift_id: number
   quantity: number
   acquired_at: string
+  anonymous: boolean
   sender: ToastUser | null
 }
 
-export type GiftCollection = { items: GiftCollectionItem[]; total: number; has_more: boolean }
+export type GiftCollection = { items: GiftCollectionItem[]; total: number; has_more: boolean; profile_gift_id?: number | null }
 
 export type GiftPurchaseInput = {
   gift_id: number
@@ -53,6 +54,13 @@ export async function loadGiftCollection(userId: number, grouped: boolean, limit
 
 export async function moveOwnGift(acquisitionId: number, targetId: number, place: 'before' | 'after', signal?: AbortSignal): Promise<void> {
   await api.patch('/gifts/me/order', { acquisition_id: acquisitionId, target_id: targetId, place }, { signal })
+}
+
+export async function setOwnProfileGift(acquisitionId: number | null, signal?: AbortSignal) {
+  const { data } = await api.patch<{ profile_gift_id: number | null; profile_gift_preview_key: string | null }>(
+    '/gifts/me/profile-icon', { acquisition_id: acquisitionId }, { signal },
+  )
+  return data
 }
 
 const GIFT_REMOVAL_INSUFFICIENT_BALANCE = 'Подарок получен меньше 7 дней назад - удаление будет платным (50% от стоимости подарка). На балансе недостаточно DC.'
@@ -101,12 +109,15 @@ export function useOwnGiftRemoval(onRemoved: (acquisitionId: number) => void) {
 
       const previousUser = user.user
       const previousBalance = previousUser?.dc_balance
-      const { data } = await api.delete<{ dc_balance: number }>(url, {
+      const { data } = await api.delete<{ dc_balance: number; profile_icon_cleared?: boolean }>(url, {
         params: { max_cost_dc: quote.cost_dc }, signal: request.signal,
       })
       if (!current()) return
       if (quote.cost_dc > 0 && user.user === previousUser && user.user?.dc_balance === previousBalance) {
         user.setWalletState({ dc_balance: data.dc_balance })
+      }
+      if (data.profile_icon_cleared && previousUser && user.user === previousUser) {
+        previousUser.profile_gift_preview_key = null
       }
       onRemoved(acquisitionId)
     } catch (error) {

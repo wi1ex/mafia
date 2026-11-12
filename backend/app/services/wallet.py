@@ -342,8 +342,8 @@ async def sync_wallet_profile(session: AsyncSession, user_id: int, *, balance_on
         return
 
     theme = await resolve_profile_theme_state(session, user_id)
-    await emit_room_profile_theme_sync(user_id, theme.color, theme.icon)
-    await emit_global_chat_profile_theme_sync(user_id, theme.color, theme.icon)
+    await emit_room_profile_theme_sync(user_id, theme.color, theme.display_icon)
+    await emit_global_chat_profile_theme_sync(user_id, theme.color, theme.display_icon)
 
 
 async def notify_coin_operation(session: AsyncSession, operation: CoinPurchase, *, note: Notif | None = None) -> None:

@@ -257,10 +257,9 @@ function openHostMiniProfile(head: GameHistoryHost): void {
 }
 
 const props = withDefaults(defineProps<{
-  historyUrl?: string
+  historyUrl: string
   perPage?: number
 }>(), {
-  historyUrl: '/users/games/history/personal',
   perPage: 10,
 })
 

@@ -405,10 +405,6 @@ class AdminRulesUpdateOut(BaseModel):
 
 class SiteStatsOut(BaseModel):
     total_users: int
-    avatars_count: int
-    avatars_bytes: int
-    images_count: int
-    images_bytes: int
     registrations: List[RegistrationsPoint]
     games_by_day: List[RegistrationsPoint]
     active_users_by_day: List[RegistrationsPoint]

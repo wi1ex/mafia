@@ -15,9 +15,9 @@ from ..models.notif import Notif
 from ..models.user import User
 from ..schemas.gifts import (
     GiftMoveIn, GiftPurchaseIn, GiftPurchaseOut, GiftRemovalOut, GiftRemovalQuoteOut,
-    GiftSenderOut, UserGiftOut, UserGiftsOut,
+    GiftSenderOut, ProfileGiftIconOut, UserGiftOut, UserGiftsOut,
 )
-from .blacklist import blacklist_relation
+from .blacklist import blacklist_relation, user_has_active_subscription
 from .user_cache import UserProfile, get_user_profiles_cached
 from .wallet import (
     _persist_notice_once,
@@ -172,10 +172,10 @@ async def _persist_gift_notices(session: AsyncSession, acquisition: UserGift) ->
     return owner_note, payer_note
 
 
-async def _sender_profiles(acquisitions: list[UserGift], *, reveal_anonymous_sender: bool = False) -> dict[int, UserProfile]:
+async def _sender_profiles(acquisitions: list[UserGift], *, reveal_private_senders: bool = False) -> dict[int, UserProfile]:
     payer_ids = {
         row.payer_id for row in acquisitions
-        if row.payer_id != row.owner_id and (reveal_anonymous_sender or not row.anonymous)
+        if reveal_private_senders or (row.payer_id != row.owner_id and not row.anonymous)
     }
     if not payer_ids:
         return {}
@@ -190,14 +190,15 @@ async def _sender_profiles(acquisitions: list[UserGift], *, reveal_anonymous_sen
 
 
 def _gift_sender(acquisition: UserGift, profiles: dict[int, UserProfile], *,
-                 reveal_anonymous_sender: bool = False) -> GiftSenderOut | None:
-    if acquisition.payer_id == acquisition.owner_id or (acquisition.anonymous and not reveal_anonymous_sender):
+                 reveal_private_senders: bool = False) -> GiftSenderOut | None:
+    if not reveal_private_senders and (acquisition.payer_id == acquisition.owner_id or acquisition.anonymous):
         return None
 
     profile = profiles.get(acquisition.payer_id)
     if profile is not None and profile.get("deleted_at"):
-        if not acquisition.anonymous:
+        if not reveal_private_senders:
             return None
+
         profile = None
 
     data = profile or {}
@@ -273,7 +274,8 @@ async def dismiss_gift_toast(session: AsyncSession, acquisition_id: int, *, owne
     await session.commit()
 
 
-async def _publish_gift_changes(user_ids: set[int], balance_user_ids: set[int]) -> None:
+async def _publish_gift_changes(user_ids: set[int], balance_user_ids: set[int], *,
+                                profile_user_ids: set[int] | None = None) -> None:
     from ..realtime.sio import sio
 
     for uid in sorted(user_ids):
@@ -281,6 +283,14 @@ async def _publish_gift_changes(user_ids: set[int], balance_user_ids: set[int]) 
             await sio.emit("gifts_update", {"user_id": uid}, room=f"user:{uid}", namespace="/auth")
         except Exception:
             log.exception("gift.collection_sync_failed", user_id=uid)
+    if profile_user_ids:
+        from ..api.utils import sync_profile_gift_icon
+
+        for uid in sorted(profile_user_ids):
+            try:
+                await sync_profile_gift_icon(uid)
+            except Exception:
+                log.exception("gift.profile_icon_sync_failed", user_id=uid)
     if not balance_user_ids:
         return
 
@@ -302,12 +312,56 @@ async def _publish_gift_changes(user_ids: set[int], balance_user_ids: set[int]) 
 
 
 def _inventory_item(acquisition: UserGift, gift: Gift, quantity: int, profiles: dict[int, UserProfile], *,
-                    reveal_anonymous_sender: bool = False) -> UserGiftOut:
+                    reveal_private_senders: bool = False) -> UserGiftOut:
     return UserGiftOut(
         id=acquisition.id, gift_id=gift.id, quantity=quantity, acquired_at=acquisition.acquired_at,
-        preview_key=gift.preview_key, avif_key=gift.avif_key,
-        sender=_gift_sender(acquisition, profiles, reveal_anonymous_sender=reveal_anonymous_sender),
+        preview_key=gift.preview_key, avif_key=gift.avif_key, anonymous=acquisition.anonymous,
+        sender=_gift_sender(acquisition, profiles, reveal_private_senders=reveal_private_senders),
     )
+
+
+async def _lock_owned_gift(session: AsyncSession, acquisition_id: int, owner_id: int) -> tuple[UserGift, Gift]:
+    gift = await session.scalar(
+        select(Gift).join(UserGift, UserGift.gift_id == Gift.id)
+        .where(UserGift.id == acquisition_id, UserGift.owner_id == owner_id)
+        .with_for_update(of=Gift, read=True).execution_options(populate_existing=True)
+    )
+    if gift is None:
+        raise HTTPException(404, detail="gift_purchase_not_found")
+
+    acquisition = await session.scalar(
+        select(UserGift).where(UserGift.id == acquisition_id, UserGift.owner_id == owner_id)
+        .with_for_update().execution_options(populate_existing=True)
+    )
+    if acquisition is None:
+        raise HTTPException(404, detail="gift_purchase_not_found")
+
+    return acquisition, gift
+
+
+async def set_profile_gift_icon(session: AsyncSession, *, owner_id: int,
+                                acquisition_id: int | None) -> ProfileGiftIconOut:
+    preview_key = None
+    if acquisition_id is not None:
+        acquisition, gift = await _lock_owned_gift(session, acquisition_id, owner_id)
+        if acquisition.removed_at is not None or acquisition.refunded_at is not None or gift.deleted_at is not None:
+            raise HTTPException(404, detail="gift_purchase_not_found")
+
+        preview_key = gift.preview_key
+
+    owner = await lock_user_balance(session, owner_id)
+    if owner.deleted_at is not None:
+        raise HTTPException(404, detail="user_not_found")
+    if acquisition_id is not None and not await user_has_active_subscription(session, owner_id):
+        raise HTTPException(403, detail="subscription_required")
+
+    changed = owner.profile_gift_id != acquisition_id
+    owner.profile_gift_id = acquisition_id
+    await session.commit()
+    if changed:
+        await _publish_gift_changes({owner_id}, set(), profile_user_ids={owner_id})
+
+    return ProfileGiftIconOut(profile_gift_id=acquisition_id, profile_gift_preview_key=preview_key)
 
 
 async def move_user_gift(session: AsyncSession, *, owner_id: int, payload: GiftMoveIn) -> None:
@@ -345,7 +399,7 @@ async def move_user_gift(session: AsyncSession, *, owner_id: int, payload: GiftM
 
 
 async def user_gifts(session: AsyncSession, user_id: int, *, grouped: bool, limit: int, offset: int,
-                     reveal_anonymous_sender: bool = False) -> UserGiftsOut:
+                     reveal_private_senders: bool = False) -> UserGiftsOut:
     filters = (UserGift.owner_id == user_id, UserGift.active(), Gift.deleted_at.is_(None))
     total = int(await session.scalar(
         select(func.count()).select_from(UserGift).join(Gift, Gift.id == UserGift.gift_id).where(*filters)
@@ -368,13 +422,21 @@ async def user_gifts(session: AsyncSession, user_id: int, *, grouped: bool, limi
     rows = (await session.execute(query.order_by(*order).offset(offset).limit(limit + 1))).all()
     page = rows[:limit]
     profiles = await _sender_profiles(
-        [acquisition for acquisition, _gift, _quantity in page], reveal_anonymous_sender=reveal_anonymous_sender,
+        [acquisition for acquisition, _gift, _quantity in page], reveal_private_senders=reveal_private_senders,
     )
     items = [
-        _inventory_item(acquisition, gift, int(quantity), profiles, reveal_anonymous_sender=reveal_anonymous_sender)
+        _inventory_item(acquisition, gift, int(quantity), profiles, reveal_private_senders=reveal_private_senders)
         for acquisition, gift, quantity in page
     ]
-    return UserGiftsOut(items=items, total=total, has_more=len(rows) > limit)
+    profile_gift_id = None
+    if not grouped:
+        profile_gift_id = await session.scalar(
+            select(UserGift.id).select_from(User)
+            .join(UserGift, and_(UserGift.id == User.profile_gift_id, UserGift.owner_id == User.id))
+            .join(Gift, Gift.id == UserGift.gift_id)
+            .where(User.id == user_id, User.deleted_at.is_(None), UserGift.active(), Gift.deleted_at.is_(None))
+        )
+    return UserGiftsOut(items=items, total=total, has_more=len(rows) > limit, profile_gift_id=profile_gift_id)
 
 
 async def user_gift_purchase(session: AsyncSession, acquisition_id: int, *, owner_id: int) -> UserGiftOut:
@@ -416,19 +478,8 @@ async def gift_removal_quote(session: AsyncSession, acquisition_id: int, *, owne
 
 async def remove_user_gift(session: AsyncSession, acquisition_id: int, *, owner_id: int,
                            max_cost_dc: int = 0) -> GiftRemovalOut:
-    gift = await session.scalar(
-        select(Gift).join(UserGift, UserGift.gift_id == Gift.id)
-        .where(UserGift.id == acquisition_id, UserGift.owner_id == owner_id)
-        .with_for_update(of=Gift, read=True).execution_options(populate_existing=True)
-    )
-    if gift is None:
-        raise HTTPException(404, detail="gift_purchase_not_found")
-
-    acquisition = await session.scalar(
-        select(UserGift).where(UserGift.id == acquisition_id, UserGift.owner_id == owner_id)
-        .with_for_update().execution_options(populate_existing=True)
-    )
-    if acquisition is None or acquisition.refunded_at is not None:
+    acquisition, gift = await _lock_owned_gift(session, acquisition_id, owner_id)
+    if acquisition.refunded_at is not None:
         raise HTTPException(404, detail="gift_purchase_not_found")
 
     if acquisition.removed_at is not None:
@@ -458,11 +509,17 @@ async def remove_user_gift(session: AsyncSession, acquisition_id: int, *, owner_
     else:
         balance = await get_dc_balance(session, owner_id)
 
-    result = GiftRemovalOut(dc_balance=balance)
     acquisition.removed_at = now
+    cleared_icon = await session.scalar(
+        update(User).where(User.id == owner_id, User.profile_gift_id == acquisition_id)
+        .values(profile_gift_id=None).returning(User.id)
+    )
+    profile_icon_cleared = cleared_icon is not None
     await session.commit()
-    await _publish_gift_changes({owner_id}, {owner_id} if cost else set())
-    return result
+    await _publish_gift_changes(
+        {owner_id}, {owner_id} if cost else set(), profile_user_ids={owner_id} if profile_icon_cleared else None,
+    )
+    return GiftRemovalOut(dc_balance=balance, profile_icon_cleared=profile_icon_cleared)
 
 
 async def delete_gift_and_refund(session: AsyncSession, gift_id: int) -> Gift:
@@ -485,9 +542,14 @@ async def delete_gift_and_refund(session: AsyncSession, gift_id: int) -> Gift:
     refunds: dict[int, int] = defaultdict(int)
     for acquisition in acquisitions:
         refunds[acquisition.owner_id] += acquisition.dc_cost
+    acquisition_ids = {acquisition.id for acquisition in acquisitions}
+    profile_user_ids: set[int] = set()
     notes: list[tuple[int, Notif]] = []
     for uid in sorted(refunds):
         owner = await lock_user_balance(session, uid)
+        if owner.profile_gift_id in acquisition_ids:
+            owner.profile_gift_id = None
+            profile_user_ids.add(uid)
         amount = refunds[uid]
         owner.dc_balance = checked_balance(owner.dc_balance, amount)
         note = await _persist_notice_once(
@@ -513,5 +575,5 @@ async def delete_gift_and_refund(session: AsyncSession, gift_id: int) -> Gift:
             log.exception("gift.refund_notification_failed", gift_id=gift_id, user_id=uid)
 
     owner_ids = set(refunds)
-    await _publish_gift_changes(owner_ids, owner_ids)
+    await _publish_gift_changes(owner_ids, owner_ids, profile_user_ids=profile_user_ids)
     return gift

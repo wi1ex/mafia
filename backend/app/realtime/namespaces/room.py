@@ -186,7 +186,7 @@ return 1
 
 
 @sio.event(namespace="/room")
-async def connect(sid, environ, auth):
+async def connect(sid, _environ, auth):
     vr = await validate_auth(auth)
     if not vr:
         log.warning("room.connect.denied", sid=sid)
@@ -313,7 +313,6 @@ async def join(sid, data) -> JoinAck:
             return {"ok": False, "error": "private_room", "status": 403, "pending": bool(pending)}
 
         spectator_mode = False
-        spectator_added = False
         if phase != "idle":
             head_raw = raw_gstate.get("head")
             head_id = int(head_raw) if head_raw else 0
@@ -410,9 +409,7 @@ async def join(sid, data) -> JoinAck:
                 sess.get("theme_icon"),
             )
 
-        if admin_spectator_mode:
-            foul_removed = 0
-        else:
+        if not admin_spectator_mode:
             try:
                 foul_removed = int(await r.hdel(f"room:{rid}:foul_active", str(uid)) or 0)
             except Exception:
@@ -723,7 +720,7 @@ async def join(sid, data) -> JoinAck:
 
 @sio.event(namespace="/room")
 @rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:leave:{uid or 'nouid'}:{rid or 0}", limit=15, window_s=1, session_ns="/room")
-async def leave(sid, data):
+async def leave(sid, _data):
     try:
         sess = await sio.get_session(sid, namespace="/room")
         uid = int(sess["uid"])
@@ -976,7 +973,7 @@ async def bg_state(sid, data):
 
 @sio.event(namespace="/room")
 @rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:bg_restore:{uid or 'nouid'}:{rid or 0}", limit=15, window_s=1, session_ns="/room")
-async def bg_restore(sid, data):
+async def bg_restore(sid, _data):
     try:
         ctx, err = await require_ctx(sid, allowed_phases="idle")
         if err:
@@ -1015,7 +1012,7 @@ async def bg_restore(sid, data):
 
 @sio.event(namespace="/room")
 @rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:self_state:{uid or 'nouid'}:{rid or 0}", limit=15, window_s=1, session_ns="/room")
-async def self_state(sid, data):
+async def self_state(sid, _data):
     try:
         ctx, err = await require_ctx(sid, allowed_phases=("day", "vote", "idle"))
         if err:
@@ -1220,9 +1217,8 @@ async def moderate(sid, data) -> ModerateAck:
         role_in_room = await r.hget(f"room:{rid}:user:{actor_uid}:info", "role")
         actor_room_role = str(role_in_room or sess.get("role") or "user")
         actor_base_role = str(sess.get("base_role") or actor_room_role or "user")
-        trg_role, trg_base_role = await r.hmget(f"room:{rid}:user:{target}:info", "role", "base_role")
+        trg_role = await r.hget(f"room:{rid}:user:{target}:info", "role")
         target_role = str(trg_role or "user")
-        target_base_role = str(trg_base_role or trg_role or "user")
         raw_gstate = await r.hgetall(f"room:{rid}:game_state")
         phase = str(raw_gstate.get("phase") or "idle")
         actor_role = actor_room_role
@@ -1416,7 +1412,7 @@ async def kick(sid, data):
 
 @sio.event(namespace="/room")
 @rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:game_leave:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
-async def game_leave(sid, data):
+async def game_leave(sid, _data):
     try:
         sess = await sio.get_session(sid, namespace="/room")
         ctx, err = await require_ctx(sid, allowed_phases=("day", "vote", "night", "idle"))
@@ -4268,7 +4264,7 @@ async def game_vote_restart(sid, data):
 
 @sio.event(namespace="/room")
 @rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:night_opinions_start:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
-async def game_night_opinions_start(sid, data):
+async def game_night_opinions_start(sid, _data):
     try:
         ctx, err = await require_ctx(sid, allowed_phases="night", require_head=True)
         if err:
@@ -4401,7 +4397,7 @@ async def game_night_opinion_mark(sid, data):
 
 @sio.event(namespace="/room")
 @rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:night_shoot_start:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
-async def game_night_shoot_start(sid, data):
+async def game_night_shoot_start(sid, _data):
     try:
         ctx, err = await require_ctx(sid, allowed_phases="night", require_head=True)
         if err:
@@ -4551,7 +4547,7 @@ async def game_night_shoot(sid, data):
 
 @sio.event(namespace="/room")
 @rate_limited_sio(lambda *, uid=None, rid=None, **__: f"rl:sio:night_checks_start:{uid or 'nouid'}:{rid or 0}", limit=10, window_s=1, session_ns="/room")
-async def game_night_checks_start(sid, data):
+async def game_night_checks_start(sid, _data):
     try:
         ctx, err = await require_ctx(sid, allowed_phases="night", require_head=True)
         if err:

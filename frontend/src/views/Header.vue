@@ -114,7 +114,7 @@
         <button class="profile-btn profile-dropdown-trigger" type="button" :style="userMenuButtonStyle" @click.stop="onToggleUserMenu" :aria-expanded="um_open" aria-haspopup="true">
           <img v-minio-img="{ key: user.user?.avatar_name ? `avatars/${user.user.avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false }" alt="Аватар" class="avatar" />
           <div v-if="userMenuProfileIconSrcs.length" class="profile-theme-icons" aria-hidden="true">
-            <img v-for="badgeSrc in userMenuProfileIconSrcs" :key="badgeSrc" class="profile-theme-icon" :src="badgeSrc" alt="" />
+            <img v-for="badgeSrc in userMenuProfileIconSrcs" :key="badgeSrc" class="profile-theme-icon" v-minio-img="getProfileBadgeImage(badgeSrc)" alt="" />
           </div>
           <span class="nickname">{{ user.user?.username || '...' }}</span>
           <UiIcon class="arrow" :icon="iconArrow" :style="{ transform: um_open ? 'rotate(180deg)' : 'none'}" />
@@ -186,7 +186,7 @@ import iconProfile from "@/assets/svg/iconProfile.svg"
 import iconMiniProfile from "@/assets/svg/iconMiniProfile.svg"
 import iconLogout from '@/assets/svg/iconLeave.svg'
 import { buildProfileThemeStyle } from '@/constants/profileThemes'
-import { getProfileThemeBadgeSources } from '@/constants/profileIcons'
+import { getProfileBadgeImage, getProfileThemeBadgeSources } from '@/constants/profileIcons'
 
 const auth = useAuthStore()
 const user = useUserStore()

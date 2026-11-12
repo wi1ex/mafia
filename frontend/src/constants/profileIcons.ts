@@ -14,6 +14,7 @@ const PROFILE_THEME_ICON_ASSETS = Object.entries(PROFILE_THEME_ICON_ASSET_MODULE
 }, {})
 
 export const PROFILE_THEME_ICON_NONE = 'none'
+const PROFILE_GIFT_BADGE_PREFIX = 'gift:'
 export const PROFILE_THEME_ICON_KEYS = [
   'sub_icon1',
   'sub_icon2',
@@ -117,6 +118,21 @@ export function getProfileThemeIconSrc(value: unknown): string | null {
   return getProfileThemeIconOption(value)?.src || null
 }
 
+export function getProfileGiftBadgeSource(key: unknown): string | null {
+  const previewKey = typeof key === 'string' ? key.trim() : ''
+  return previewKey ? `${PROFILE_GIFT_BADGE_PREFIX}${previewKey}` : null
+}
+
+function getProfileGiftBadgeKey(value: unknown): string | null {
+  if (typeof value !== 'string' || !value.startsWith(PROFILE_GIFT_BADGE_PREFIX)) return null
+  return value.slice(PROFILE_GIFT_BADGE_PREFIX.length).trim() || null
+}
+
+export function getProfileBadgeImage(source: string) {
+  const key = getProfileGiftBadgeKey(source)
+  return key ? { key } : { key: '', placeholder: source, lazy: false }
+}
+
 export function isModeratorProfileThemeRole(role: unknown): boolean {
   return String(role || '').trim().toLowerCase() === 'moder'
 }
@@ -142,7 +158,7 @@ function seniorModeratorUserId(): string {
 
 export function getProfileThemeBadgeSources(value: unknown, role?: unknown, options: ProfileThemeBadgeOptions = {}): string[] {
   const badges: string[] = []
-  const themeIconSrc = getProfileThemeIconSrc(value)
+  const themeIconSrc = getProfileGiftBadgeSource(getProfileGiftBadgeKey(value)) || getProfileThemeIconSrc(value)
   const adminBadgeSrc = options.roleBadgeVariant === 'black' ? adminProfileThemeIconBlackSrc : adminProfileThemeIconSrc
   const moderatorBadgeSrc = options.roleBadgeVariant === 'black' ? moderProfileThemeIconBlackSrc : moderProfileThemeIconSrc
   const seniorModeratorId = seniorModeratorUserId()

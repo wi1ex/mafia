@@ -12,7 +12,7 @@ log = structlog.get_logger()
 
 
 @sio.event(namespace="/rooms")
-async def connect(sid, environ, auth):
+async def connect(sid, _environ, auth):
     role = "user"
     uid = 0
     vr = None
@@ -58,8 +58,6 @@ async def connect(sid, environ, auth):
 )
 async def rooms_list(sid) -> RoomsListAck:
     try:
-        role = "user"
-        uid = 0
         try:
             sess = await sio.get_session(sid, namespace="/rooms")
             role = str((sess or {}).get("role") or "user")

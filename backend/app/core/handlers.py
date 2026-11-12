@@ -34,10 +34,10 @@ def setup_exception_handlers(app: FastAPI) -> None:
         )
 
     @app.exception_handler(Exception)
-    async def _unhandled(_: Request, exc: Exception):
+    async def _unhandled(_: Request, _exc: Exception):
         log.exception("unhandled_exception")
         return JSONResponse(ErrorOut(detail="internal error").model_dump(), status_code=500)
 
     @app.exception_handler(RequestValidationError)
-    async def _val(_: Request, exc: RequestValidationError):
+    async def _val(_: Request, _exc: RequestValidationError):
         return JSONResponse(ErrorOut(detail="validation_error").model_dump(), status_code=422)

@@ -291,7 +291,6 @@ async def friends_list(room_id: int | None = None, ident: Identity = Depends(get
             except Exception:
                 continue
 
-    friends_items: list[FriendsListItemOut] = []
     online_items: list[FriendsListItemOut] = []
     offline_items: list[FriendsListItemOut] = []
     if friend_ids:

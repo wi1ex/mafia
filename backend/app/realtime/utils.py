@@ -979,7 +979,7 @@ async def emit_user_game_participation_changed(user_id: int, *, in_active_game_a
         await emit_global_chat_permissions_updated(int(user_id))
 
 
-async def mark_users_in_active_alive_game(user_ids: Iterable[int | str], room_id: int, *, redis_client=None, emit: bool = True) -> None:
+async def mark_users_in_active_alive_game(user_ids: Iterable[int | str], room_id: int, *, redis_client=None) -> None:
     ids = _normalize_active_alive_user_ids(user_ids)
     room_id_int = int(room_id)
     if not ids or room_id_int <= 0:
@@ -992,13 +992,12 @@ async def mark_users_in_active_alive_game(user_ids: Iterable[int | str], room_id
         await p.execute()
 
 
-async def clear_users_in_active_alive_game(user_ids: Iterable[int | str], *, room_id: int | None = None, redis_client=None, emit: bool = True) -> None:
+async def clear_users_in_active_alive_game(user_ids: Iterable[int | str], *, room_id: int | None = None, redis_client=None) -> None:
     ids = _normalize_active_alive_user_ids(user_ids)
     if not ids:
         return
 
     r = redis_client or get_redis()
-    room_id_int = 0
     try:
         room_id_int = int(room_id or 0)
     except Exception:
@@ -1055,7 +1054,6 @@ async def clear_users_in_active_game(user_ids: Iterable[int | str], *, room_id: 
         return
 
     r = redis_client or get_redis()
-    room_id_int = 0
     try:
         room_id_int = int(room_id or 0)
     except Exception:
@@ -1078,7 +1076,7 @@ async def clear_users_in_active_game(user_ids: Iterable[int | str], *, room_id: 
         await emit_user_game_participation_changed(uid, in_active_game_as_player=bool(active_room_ids), room_id=next_room_id)
 
 
-async def sync_user_active_alive_game_marker(r, rid: int, user_id: int, *, emit: bool = True) -> bool:
+async def sync_user_active_alive_game_marker(r, rid: int, user_id: int) -> bool:
     try:
         uid = int(user_id)
         room_id = int(rid)
@@ -1104,10 +1102,10 @@ async def sync_user_active_alive_game_marker(r, rid: int, user_id: int, *, emit:
             is_alive = False
 
     if is_alive:
-        await mark_users_in_active_alive_game([uid], room_id, redis_client=r, emit=emit)
+        await mark_users_in_active_alive_game([uid], room_id, redis_client=r)
         return True
 
-    await clear_users_in_active_alive_game([uid], room_id=room_id, redis_client=r, emit=emit)
+    await clear_users_in_active_alive_game([uid], room_id=room_id, redis_client=r)
     return False
 
 
@@ -1150,7 +1148,7 @@ async def active_alive_room_conflict(r, uid: int, target_rid: int) -> int:
             return active_rid
 
         try:
-            await sync_user_active_alive_game_marker(r, active_rid, uid, emit=False)
+            await sync_user_active_alive_game_marker(r, active_rid, uid)
         except Exception:
             log.warning(
                 "sio.join.active_alive_marker_cleanup_failed",
@@ -1187,7 +1185,7 @@ async def active_alive_room_conflict(r, uid: int, target_rid: int) -> int:
             return room_id
 
         try:
-            await sync_user_active_alive_game_marker(r, room_id, uid, emit=False)
+            await sync_user_active_alive_game_marker(r, room_id, uid)
         except Exception:
             log.warning(
                 "sio.join.active_game_room_sync_failed",
@@ -1959,7 +1957,6 @@ class GameStateView:
         day_closing_uid = self.ctx.gint("day_closing_uid")
         day_current_uid = self.ctx.gint("day_current_uid")
         day_speech_started = self.ctx.gint("day_speech_started")
-        day_speech_duration = self.ctx.gint("day_speech_duration")
         speech_active = day_speech_started > 0 and day_current_uid > 0
         speeches_done = self.ctx.gbool("day_speeches_done")
         remaining = self.ctx.deadline(
@@ -2031,7 +2028,6 @@ class GameStateView:
         vote_speech_kind = self.ctx.gstr("vote_speech_kind")
         vote_speech_started = self.ctx.gint("vote_speech_started")
         vote_duration = self.ctx.gint("vote_duration", get_cached_settings().vote_seconds)
-        vote_speech_duration = self.ctx.gint("vote_speech_duration")
 
         if vote_aborted or vote_results_ready:
             vote_current_uid = 0
@@ -2769,25 +2765,24 @@ async def apply_join_phase_state(r, rid: int, uid: int, *, phase: str, raw_gstat
     except Exception:
         is_alive = False
 
+    # Validate the stored duration before turning on the speaker's microphone.
     mic_on = False
     if phase == "day":
         try:
             started = int(raw_gstate.get("day_speech_started") or 0)
-            duration = int(raw_gstate.get("day_speech_duration") or 0)
+            int(raw_gstate.get("day_speech_duration") or 0)
             cur_uid = int(raw_gstate.get("day_current_uid") or 0)
         except Exception:
             started = 0
-            duration = 0
             cur_uid = 0
         mic_on = started > 0 and cur_uid == uid
     elif phase == "vote":
         try:
             started = int(raw_gstate.get("vote_speech_started") or 0)
-            duration = int(raw_gstate.get("vote_speech_duration") or 0)
+            int(raw_gstate.get("vote_speech_duration") or 0)
             cur_uid = int(raw_gstate.get("vote_speech_uid") or 0)
         except Exception:
             started = 0
-            duration = 0
             cur_uid = 0
         mic_on = started > 0 and cur_uid == uid
 
@@ -4475,16 +4470,17 @@ async def schedule_foul_block(
 
     keep_mic_on = False
     if raw_state:
+        # Validate the stored duration before leaving the microphone on.
         try:
             if phase == "day":
                 cur_uid = int(raw_state.get("day_current_uid") or 0)
                 started = int(raw_state.get("day_speech_started") or 0)
-                duration_cur = int(raw_state.get("day_speech_duration") or 0)
+                int(raw_state.get("day_speech_duration") or 0)
                 keep_mic_on = cur_uid == target_uid and started > 0
             elif phase == "vote":
                 cur_uid = int(raw_state.get("vote_speech_uid") or 0)
                 started = int(raw_state.get("vote_speech_started") or 0)
-                duration_cur = int(raw_state.get("vote_speech_duration") or 0)
+                int(raw_state.get("vote_speech_duration") or 0)
                 keep_mic_on = cur_uid == target_uid and started > 0
         except Exception:
             log.exception("game_foul.check_speech_failed", rid=rid, uid=target_uid)
@@ -4523,17 +4519,18 @@ async def maybe_block_foul_on_reconnect(r, rid: int, uid: int, raw_gstate: Mappi
     if not head_uid or head_uid == uid:
         return
 
+    # Validate the stored duration before leaving the microphone on.
     keep_mic_on = False
     try:
         if phase == "day":
             cur_uid = int(raw_gstate.get("day_current_uid") or 0)
             started = int(raw_gstate.get("day_speech_started") or 0)
-            duration_cur = int(raw_gstate.get("day_speech_duration") or 0)
+            int(raw_gstate.get("day_speech_duration") or 0)
             keep_mic_on = cur_uid == uid and started > 0
         elif phase == "vote":
             cur_uid = int(raw_gstate.get("vote_speech_uid") or 0)
             started = int(raw_gstate.get("vote_speech_started") or 0)
-            duration_cur = int(raw_gstate.get("vote_speech_duration") or 0)
+            int(raw_gstate.get("vote_speech_duration") or 0)
             keep_mic_on = cur_uid == uid and started > 0
     except Exception:
         log.exception("foul_reconnect.check_failed", rid=rid, uid=uid)
@@ -5415,7 +5412,6 @@ async def advance_roles_turn(r, rid: int, *, auto: bool) -> None:
     if auto and now_ts - started_at >= get_cached_settings().role_pick_seconds:
         ok, role, _ = await assign_role_for_user(r, rid, cur_uid, card_index=None)
         if ok and role:
-            card_idx: int | None = None
             try:
                 taken = await r.hgetall(f"room:{rid}:roles_taken")
                 card_idx = _role_card_index_for_user(taken, cur_uid)
@@ -6208,14 +6204,14 @@ async def process_player_death(r, rid: int, user_id: int, *, head_uid: int | Non
 
         if not defer_finish_check:
             try:
-                await maybe_finish_game_after_death(r, rid, head_uid=head_uid, dead_user_id=user_id, death_reason=reason)
+                await maybe_finish_game_after_death(r, rid, head_uid=head_uid)
             except Exception:
                 log.exception("process_player_death.finish_check_failed", rid=rid, uid=user_id)
 
     return removed
 
 
-async def maybe_finish_game_after_death(r, rid: int, *, head_uid: int | None = None, dead_user_id: int | None = None, death_reason: str | None = None) -> bool:
+async def maybe_finish_game_after_death(r, rid: int, *, head_uid: int | None = None) -> bool:
     try:
         raw_state = await r.hgetall(f"room:{rid}:game_state")
     except Exception:

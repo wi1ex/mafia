@@ -10,7 +10,6 @@ from time import perf_counter, time
 from datetime import date, datetime, timezone, timedelta
 from typing import Optional, Dict, Any, Literal, Sequence, Iterable, Mapping, cast, TYPE_CHECKING, TypedDict
 from fastapi import Depends, HTTPException, status, Header, Request, UploadFile
-from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from sqlalchemy import update, func, select, or_, and_, delete, literal_column
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.clients import get_redis
@@ -39,7 +38,7 @@ from ..services.user_cache import (
     write_user_profile_cache,
     invalidate_avatar_presign_cache,
 )
-from ..services.profile_theme import ensure_profile_theme_defaults, resolve_profile_theme_state
+from ..services.profile_theme import ProfileThemeState, ensure_profile_theme_defaults, resolve_profile_theme_state
 from ..services.nickname import (
     normalize_nickname_changes_left,
     reset_nickname_changes_after_subscription_expired,
@@ -48,14 +47,13 @@ from ..services.blacklist import emit_blacklist_update
 from ..services.coin_prices import normalize_dc_packages
 from ..services.telegram import send_text_message
 from ..services.notification_texts import (
-    _ru_plural,
-    _split_admin_telegram_text,
-    _subscription_datetime_as_utc,
-    _subscription_expiring_soon_notice_window,
-    _subscription_expiry_matches,
-    _subscription_notice_event_key,
     format_subscription_purchase_duration,
     format_subscription_until,
+    ru_plural,
+    split_admin_telegram_text,
+    subscription_expiring_soon_notice_window,
+    subscription_expiry_matches,
+    subscription_notice_event_key,
 )
 from ..schemas.common import Ok, Identity
 from ..schemas.gifts import GiftAdminOut, GiftOut
@@ -178,10 +176,12 @@ __all__ = [
     "sync_expired_profile_subscriptions",
     "notify_expiring_profile_subscriptions",
     "notify_subscription_upsert",
+    "build_subscription_upsert_notice",
     "delete_gif_avatar_for_inactive_subscription",
     "emit_sanctions_update",
     "build_user_out_payload",
     "emit_auth_profile_sync",
+    "sync_profile_gift_icon",
     "refresh_rooms_after",
     "ensure_verification_allowed",
     "purchase_user",
@@ -235,6 +235,7 @@ __all__ = [
     "build_avatar_reset_notice",
     "build_nickname_reset_notice",
     "emit_nickname_reset_notice",
+    "ToastFields",
     "build_notify_payload",
     "emit_notify",
     "emit_friends_update",
@@ -1327,7 +1328,6 @@ async def revoke_active_suspend(session: AsyncSession, sanction: UserSanction, *
             target_user_id=uid,
             target_username=None,
             kind=str(sanction.kind or ""),
-            reason=str(sanction.reason or ""),
             source=chat_notice_source,
             remaining_duration_label=remaining_duration_label,
         )
@@ -1364,13 +1364,13 @@ async def reduce_suspend_after_hosted_game(session: AsyncSession, user_id: int, 
 def format_duration_parts(months: int, days: int, hours: int, minutes: int) -> str:
     parts: list[str] = []
     if months:
-        parts.append(f"{months} {_ru_plural(months, 'месяц', 'месяца', 'месяцев')}")
+        parts.append(f"{months} {ru_plural(months, 'месяц', 'месяца', 'месяцев')}")
     if days:
-        parts.append(f"{days} {_ru_plural(days, 'день', 'дня', 'дней')}")
+        parts.append(f"{days} {ru_plural(days, 'день', 'дня', 'дней')}")
     if hours:
-        parts.append(f"{hours} {_ru_plural(hours, 'час', 'часа', 'часов')}")
+        parts.append(f"{hours} {ru_plural(hours, 'час', 'часа', 'часов')}")
     if minutes or not parts:
-        parts.append(f"{minutes} {_ru_plural(minutes, 'минута', 'минуты', 'минут')}")
+        parts.append(f"{minutes} {ru_plural(minutes, 'минута', 'минуты', 'минут')}")
 
     return " ".join(parts)
 
@@ -1661,16 +1661,16 @@ async def build_user_out_payload(session: AsyncSession, *, user_id: int, role: s
         avatar_name=user.avatar_name,
         theme_color=theme_state.color,
         theme_until=theme_state.subscription_until,
-        theme_icon=theme_state.icon,
+        theme_icon=theme_state.display_icon,
         streaming_url=user.streaming_url,
     )
     finish_stage("profile_cache")
     if defaults_changed:
         with suppress(Exception):
-            await emit_room_profile_theme_sync(uid, theme_state.color, theme_state.icon)
+            await emit_room_profile_theme_sync(uid, theme_state.color, theme_state.display_icon)
         with suppress(Exception):
             from ..services.global_chat import emit_global_chat_profile_theme_sync
-            await emit_global_chat_profile_theme_sync(uid, theme_state.color, theme_state.icon)
+            await emit_global_chat_profile_theme_sync(uid, theme_state.color, theme_state.display_icon)
     finish_stage("theme_sync")
     active = await fetch_active_sanctions(session, uid)
     finish_stage("sanctions")
@@ -1706,6 +1706,7 @@ async def build_user_out_payload(session: AsyncSession, *, user_id: int, role: s
         nickname_changes_left=normalize_nickname_changes_left(user.nickname_changes_left),
         profile_theme_color=theme_state.color,
         profile_theme_icon=theme_state.icon,
+        profile_gift_preview_key=theme_state.gift_preview_key,
         streaming_url=user.streaming_url,
         timeout_until=timeout.expires_at if timeout else None,
         suspend_until=suspend.expires_at if suspend else None,
@@ -1739,6 +1740,29 @@ async def emit_auth_profile_sync(user_id: int, *, role: str | None = None, paylo
         room=f"user:{uid}",
         namespace="/auth",
     )
+
+
+async def sync_profile_gift_icon(user_id: int) -> None:
+    from ..services.global_chat import emit_global_chat_profile_theme_sync
+
+    try:
+        async with SessionLocal() as session:
+            user = await session.get(User, user_id)
+            if user is None or user.deleted_at is not None:
+                return
+
+            payload = await build_user_out_payload(session, user_id=user_id)
+            theme = ProfileThemeState(
+                color=payload.profile_theme_color,
+                icon=payload.profile_theme_icon,
+                gift_preview_key=payload.profile_gift_preview_key,
+            )
+            await emit_auth_profile_sync(user_id, payload=payload)
+            await emit_room_profile_theme_sync(user_id, theme.color, theme.display_icon)
+            await emit_global_chat_profile_theme_sync(user_id, theme.color, theme.display_icon)
+            await emit_role_change_friend_profile_syncs(session, user_id, role=payload.role, theme=theme)
+    except Exception:
+        log.exception("profile.gift_icon.sync_failed", user_id=user_id)
 
 
 
@@ -1814,7 +1838,7 @@ def schedule_user_telegram_notice(uid: int, telegram_id: int | None, title: str,
 
 
 async def send_contact_request_admin_telegram_message(text: str, *, context: str | None = None) -> None:
-    for part_index, part in enumerate(_split_admin_telegram_text(text, context=context), 1):
+    for part_index, part in enumerate(split_admin_telegram_text(text, context=context), 1):
         try:
             result = await send_text_message(chat_id=int(settings.ADMIN_TELEGRAM_ID), text=part)
         except Exception:
@@ -1899,7 +1923,7 @@ async def notify_subscription_upsert(
     await emit_notify(uid, note, kind="subscription", toast={"kind": "subscription_activated"})
 
 
-async def _send_subscription_telegram_notice(session: AsyncSession, *, user_id: int, title: str, text: str) -> bool:
+async def _send_subscription_telegram_notice(*, user_id: int, title: str, text: str) -> bool:
     uid = int(user_id)
     if uid <= 0:
         return False
@@ -2008,7 +2032,7 @@ async def delete_user_avatar(session: AsyncSession, user_id: int, *, missing_sta
         avatar_name=None,
         theme_color=theme_state.color,
         theme_until=theme_state.subscription_until,
-        theme_icon=theme_state.icon,
+        theme_icon=theme_state.display_icon,
     )
     await invalidate_avatar_presign_cache(old_avatar_name)
 
@@ -2047,10 +2071,10 @@ async def sync_expired_profile_subscriptions() -> int:
                     .with_for_update().execution_options(populate_existing=True)
                 )
                 if (user is None or subscription is None
-                        or not _subscription_expiry_matches(subscription.ends_at, expected_ends_at, now)):
+                        or not subscription_expiry_matches(subscription.ends_at, expected_ends_at, now)):
                     await session.rollback()
                     continue
-                event_key = _subscription_notice_event_key(uid, subscription.ends_at, event="expired")
+                event_key = subscription_notice_event_key(uid, subscription.ends_at, event="expired")
                 await reset_nickname_changes_after_subscription_expired(session, user_id=uid)
                 user.allow_friend_requests = True
                 user.show_last_activity = True
@@ -2075,7 +2099,7 @@ async def sync_expired_profile_subscriptions() -> int:
                 if note is not None:
                     await session.refresh(note)
                     await emit_notify(uid, note, kind="subscription", toast={"kind": toast_kind})
-                    await _send_subscription_telegram_notice(session, user_id=uid, title=note.title, text=note.text)
+                    await _send_subscription_telegram_notice(user_id=uid, title=note.title, text=note.text)
                 if old_avatar_name:
                     with suppress(Exception):
                         await invalidate_avatar_presign_cache(old_avatar_name, redis_client=redis_client)
@@ -2087,10 +2111,10 @@ async def sync_expired_profile_subscriptions() -> int:
                 await refresh_user_profile_cache(session, uid, redis_client=redis_client)
                 theme = await resolve_profile_theme_state(session, uid)
                 await emit_auth_profile_sync(uid)
-                await emit_room_profile_theme_sync(uid, theme.color, theme.icon)
+                await emit_room_profile_theme_sync(uid, theme.color, theme.display_icon)
                 with suppress(Exception):
                     from ..services.global_chat import emit_global_chat_profile_theme_sync
-                    await emit_global_chat_profile_theme_sync(uid, theme.color, theme.icon)
+                    await emit_global_chat_profile_theme_sync(uid, theme.color, theme.display_icon)
                 current_avatar = await session.scalar(select(User.avatar_name).where(User.id == uid))
                 if current_avatar is None:
                     with suppress(Exception):
@@ -2106,7 +2130,7 @@ async def sync_expired_profile_subscriptions() -> int:
 
 async def notify_expiring_profile_subscriptions() -> int:
     now = datetime.now(timezone.utc)
-    notice_start, notice_end = _subscription_expiring_soon_notice_window(now)
+    notice_start, notice_end = subscription_expiring_soon_notice_window(now)
     async with SessionLocal() as session:
         candidates = (await session.execute(
             select(UserSubscription.user_id, UserSubscription.ends_at)
@@ -2143,7 +2167,7 @@ async def notify_expiring_profile_subscriptions() -> int:
                 toast_kind = "subscription_expiring"
                 note = await _create_subscription_site_notice_once(
                     session, uid, title="Подписка", text=text, no_toast=False,
-                    event_key=_subscription_notice_event_key(uid, subscription.ends_at, event="expiring"),
+                    event_key=subscription_notice_event_key(uid, subscription.ends_at, event="expiring"),
                     toast_kind=toast_kind, commit=False,
                 )
                 if note is None:
@@ -2152,7 +2176,7 @@ async def notify_expiring_profile_subscriptions() -> int:
                 await session.commit()
                 await session.refresh(note)
                 await emit_notify(uid, note, kind="subscription", toast={"kind": toast_kind})
-                await _send_subscription_telegram_notice(session, user_id=uid, title=note.title, text=note.text)
+                await _send_subscription_telegram_notice(user_id=uid, title=note.title, text=note.text)
                 await session.rollback()
                 notified += 1
             except Exception as exc:
@@ -2260,7 +2284,6 @@ async def emit_expired_timed_sanction_chat_notice_once(session: AsyncSession, sa
             target_user_id=user_id,
             target_username=None,
             kind=str(sanction.kind or ""),
-            reason=str(sanction.reason or ""),
             source="expired",
         )
         if payload is None:
@@ -2458,7 +2481,15 @@ async def set_user_deleted(session: AsyncSession, user_id: int, *, deleted: bool
     return user
 
 
-async def delete_user_account_as_admin_action(session: AsyncSession, user_id: int, *, actor_user_id: int | None, actor_username: str | None, action: str = "admin_account_delete", details: str | None = None, note_title: str = "Аккаунт удален", note_text: str = "Ваш аккаунт был удален администратором.") -> User:
+async def delete_user_account_as_admin_action(
+    session: AsyncSession,
+    user_id: int,
+    *,
+    actor_user_id: int | None,
+    actor_username: str | None,
+    action: str = "admin_account_delete",
+    details: str | None = None,
+) -> User:
     target = await session.get(User, int(user_id))
     if not target:
         raise HTTPException(status_code=404, detail="user_not_found")
@@ -2671,11 +2702,6 @@ async def delete_stale_unverified_accounts(*, batch_limit: int = 100, min_age_mi
                     actor_username="system",
                     action="auto_unverified_account_delete",
                     details=details,
-                    note_title="Аккаунт удален",
-                    note_text=(
-                        "Ваш аккаунт был удален автоматически: аккаунт не был "
-                        "верифицирован в течение часа после регистрации."
-                    ),
                 )
                 deleted += 1
             except Exception:
@@ -4882,7 +4908,7 @@ async def emit_friends_update(user_id: int, other_id: int, status: str) -> None:
         await sio.emit("friends_update", payload, room=f"user:{int(user_id)}", namespace="/auth")
 
 
-async def emit_friends_profile_sync(user_id: int, target_user_id: int, *, role: str | None = None) -> None:
+async def emit_friends_profile_sync(user_id: int, target_user_id: int, *, role: str | None = None, theme: ProfileThemeState | None = None) -> None:
     uid = int(user_id)
     target_uid = int(target_user_id)
     if uid <= 0 or target_uid <= 0:
@@ -4892,11 +4918,13 @@ async def emit_friends_profile_sync(user_id: int, target_user_id: int, *, role: 
         "user_id": target_uid,
         "role": normalize_user_role(role),
     }
+    if theme is not None:
+        payload.update(theme_color=theme.color, theme_icon=theme.display_icon)
     with suppress(Exception):
         await sio.emit("friends_profile_sync", payload, room=f"user:{uid}", namespace="/auth")
 
 
-async def emit_role_change_friend_profile_syncs(session: AsyncSession, user_id: int, *, role: str | None = None) -> None:
+async def emit_role_change_friend_profile_syncs(session: AsyncSession, user_id: int, *, role: str | None = None, theme: ProfileThemeState | None = None) -> None:
     uid = int(user_id)
     if uid <= 0:
         return
@@ -4919,7 +4947,7 @@ async def emit_role_change_friend_profile_syncs(session: AsyncSession, user_id: 
 
     normalized_role = normalize_user_role(role)
     for recipient_uid in sorted(recipient_ids):
-        await emit_friends_profile_sync(recipient_uid, uid, role=normalized_role)
+        await emit_friends_profile_sync(recipient_uid, uid, role=normalized_role, theme=theme)
 
 
 async def emit_room_role_sync(user_id: int, *, role: str | None = None) -> None:

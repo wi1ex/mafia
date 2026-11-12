@@ -18,7 +18,7 @@
                       :disabled="!canOpenToastUserMiniProfile(t.user)" :aria-label="`Открыть профиль пользователя ${toastUserName(t.user)}`" aria-haspopup="dialog">
                 <img v-minio-img="{ key: t.user.avatar_name ? `avatars/${t.user.avatar_name}` : '', placeholder: defaultAvatar, lazy: false }" alt="avatar" />
                 <div v-if="toastUserThemeIconSrcs(t.user).length" class="profile-theme-icons" aria-hidden="true">
-                  <img v-for="badgeSrc in toastUserThemeIconSrcs(t.user)" :key="`${t.user.id}-${badgeSrc}`" class="profile-theme-icon" :src="badgeSrc" alt="" />
+                  <img v-for="badgeSrc in toastUserThemeIconSrcs(t.user)" :key="`${t.user.id}-${badgeSrc}`" class="profile-theme-icon" v-minio-img="getProfileBadgeImage(badgeSrc)" alt="" />
                 </div>
                 <span class="nick">{{ toastUserName(t.user) }}</span>
               </button>
@@ -74,7 +74,7 @@ import { canOpenMiniProfileTarget, normalizeMiniProfileUserId } from '@/services
 import { parseSocketToast, type ToastAction, type ToastPayload, type ToastUser } from '@/services/toast'
 import type { GiftCollectionItem } from '@/services/gifts'
 import { getProfileThemeOption } from '@/constants/profileThemes'
-import { getProfileThemeBadgeSources } from '@/constants/profileIcons'
+import { getProfileBadgeImage, getProfileThemeBadgeSources } from '@/constants/profileIcons'
 
 import MiniProfile from '@/views/MiniProfile.vue'
 import GiftOpeningModal from '@/views/GiftOpeningModal.vue'

@@ -41,7 +41,6 @@ async def touch_user_activity(user_id: int, *, force_db: bool = False) -> None:
         return
 
     should_touch_db = bool(force_db)
-    r = None
     try:
         r = get_redis()
         await r.zadd("online:users:seen", {str(uid): int(time())})
@@ -284,7 +283,7 @@ async def refresh_user_profile_cache(session: AsyncSession, user_id: int, *, red
         "additional_roles": list(normalize_additional_roles(rec[3])),
         "theme_color": _value_or_none(theme_state.color),
         "theme_until": theme_state.subscription_until.isoformat() if theme_state.subscription_until else None,
-        "theme_icon": _value_or_none(theme_state.icon),
+        "theme_icon": _value_or_none(theme_state.display_icon),
         "streaming_url": _value_or_none(rec[4]),
         "deleted_at": rec[5].isoformat() if isinstance(rec[5], datetime) else _value_or_none(rec[5]),
     }
@@ -367,7 +366,7 @@ async def get_user_profiles_cached(session: AsyncSession, user_ids: Iterable[int
                 if theme_state and theme_state.subscription_until
                 else None
             ),
-            "theme_icon": _value_or_none(theme_state.icon if theme_state else None),
+            "theme_icon": _value_or_none(theme_state.display_icon if theme_state else None),
             "streaming_url": _value_or_none(streaming_url),
             "deleted_at": deleted_at.isoformat() if isinstance(deleted_at, datetime) else _value_or_none(deleted_at),
         }

@@ -343,35 +343,6 @@ def build_chat_image_object_name(user_id: int, content_type: str | None) -> str:
     )
 
 
-def get_prefix_storage_stats(prefix: str) -> tuple[int, int]:
-    minio = get_minio_private()
-    ensure_bucket(minio)
-    normalized_prefix = str(prefix or "").strip()
-    if normalized_prefix and not normalized_prefix.endswith("/"):
-        normalized_prefix += "/"
-
-    count = 0
-    total_bytes = 0
-    try:
-        for obj in minio.list_objects(bucket_name=_bucket, prefix=normalized_prefix, recursive=True):
-            object_name = str(getattr(obj, "object_name", "") or "")
-            if not object_name or object_name.endswith("/"):
-                continue
-            count += 1
-            try:
-                total_bytes += max(0, int(getattr(obj, "size", 0) or 0))
-            except Exception:
-                continue
-    except S3Error as e:
-        log.warning("minio.stats.list_failed", prefix=normalized_prefix, code=e.code)
-        return 0, 0
-    except Exception:
-        log.exception("minio.stats.unexpected", prefix=normalized_prefix)
-        return 0, 0
-
-    return count, total_bytes
-
-
 def _delete_object_quietly(minio_client: Minio, key: str) -> None:
     try:
         minio_client.remove_object(bucket_name=_bucket, object_name=key)
@@ -639,10 +610,6 @@ async def build_chat_image_post_upload_async(key: str, content_type: str | None,
 
 async def validate_chat_image_object_async(key: str) -> str:
     return await asyncio.to_thread(validate_chat_image_object, key)
-
-
-async def get_prefix_storage_stats_async(prefix: str) -> tuple[int, int]:
-    return await asyncio.to_thread(get_prefix_storage_stats, prefix)
 
 
 def delete_object(key: str) -> None:

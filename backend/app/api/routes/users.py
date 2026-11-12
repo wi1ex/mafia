@@ -235,18 +235,6 @@ async def user_operation_history(
     return await operation_history(db, int(ident["id"]), page=page, per_page=per_page)
 
 
-@router.get("/stats", response_model=UserStatsOut)
-@log_route("users.stats")
-@rate_limited(lambda ident, **_: f"rl:user_stats:{ident['id']}", limit=10, window_s=1)
-async def user_stats(season: int | None = None, mode: Literal["all", "rating"] = "all", ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserStatsOut:
-    uid = int(ident["id"])
-    user = await db.get(User, uid)
-    if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
-
-    return await build_user_stats_out(db, uid, season, mode)
-
-
 @router.get("/{user_id}/stats", response_model=UserStatsOut)
 @log_route("users.public_stats")
 @rate_limited(lambda ident, user_id, **_: f"rl:user_public_stats:{ident['id']}:{user_id}", limit=10, window_s=1)
@@ -403,7 +391,7 @@ async def mini_profile(user_id: int, allow_deleted: bool = False, ident: Identit
         suspend_active=bool(active_sanctions.get("suspend")),
         suspend_until=active_sanctions.get("suspend").expires_at if active_sanctions.get("suspend") else None,
         profile_theme_color=theme_state.color,
-        profile_theme_icon=theme_state.icon,
+        profile_theme_icon=theme_state.display_icon,
         streaming_url=user.streaming_url,
         friend_status=friend_status,
         blacklisted_by_me=blacklisted_by_me,
@@ -606,23 +594,6 @@ async def games_history(
         page=page,
         per_page=GAME_HISTORY_PER_PAGE,
         history_filters=history_filters,
-    )
-
-
-@router.get("/games/history/personal", response_model=UserGamesHistoryOut)
-@log_route("users.games_history_personal")
-@rate_limited(lambda ident, **_: f"rl:games_history_personal:{ident['id']}", limit=10, window_s=1)
-async def games_history_personal(page: int = 1, role: Literal["citizen", "mafia", "don", "sheriff"] | None = None, mode: Literal["all", "rating"] = "all", per_page: int = PERSONAL_GAME_HISTORY_PER_PAGE, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> UserGamesHistoryOut:
-    await ensure_verification_allowed(db, int(ident["id"]))
-    uid = safe_int((ident or {}).get("id"))
-    per_page_i = max(1, min(int(per_page or PERSONAL_GAME_HISTORY_PER_PAGE), PERSONAL_GAME_HISTORY_PER_PAGE))
-    return await fetch_games_history_page(
-        db,
-        page=page,
-        player_uid=uid,
-        player_role=role,
-        history_filters={"mode": mode},
-        per_page=per_page_i,
     )
 
 
@@ -1129,7 +1100,7 @@ async def update_username(payload: UsernameUpdateIn, ident: Identity = Depends(g
         avatar_name=user.avatar_name,
         theme_color=theme_state.color,
         theme_until=theme_state.subscription_until,
-        theme_icon=theme_state.icon,
+        theme_icon=theme_state.display_icon,
     )
 
     await log_action(
@@ -1283,10 +1254,10 @@ async def update_profile_theme(payload: UserProfileThemeIn, ident: Identity = De
             with suppress(Exception):
                 await emit_auth_profile_sync(uid, role=str(user.role))
             with suppress(Exception):
-                await emit_room_profile_theme_sync(uid, theme_state.color, theme_state.icon)
+                await emit_room_profile_theme_sync(uid, theme_state.color, theme_state.display_icon)
             with suppress(Exception):
                 from ...services.global_chat import emit_global_chat_profile_theme_sync
-                await emit_global_chat_profile_theme_sync(uid, theme_state.color, theme_state.icon)
+                await emit_global_chat_profile_theme_sync(uid, theme_state.color, theme_state.display_icon)
         return UserProfileThemeOut(
             subscription_active=True,
             subscription_started_at=theme_state.subscription_started_at,
@@ -1321,10 +1292,10 @@ async def update_profile_theme(payload: UserProfileThemeIn, ident: Identity = De
     with suppress(Exception):
         await emit_auth_profile_sync(uid, role=str(user.role))
     with suppress(Exception):
-        await emit_room_profile_theme_sync(uid, next_state.color, next_state.icon)
+        await emit_room_profile_theme_sync(uid, next_state.color, next_state.display_icon)
     with suppress(Exception):
         from ...services.global_chat import emit_global_chat_profile_theme_sync
-        await emit_global_chat_profile_theme_sync(uid, next_state.color, next_state.icon)
+        await emit_global_chat_profile_theme_sync(uid, next_state.color, next_state.display_icon)
 
     return UserProfileThemeOut(
         subscription_active=next_state.subscription_active,
@@ -1378,7 +1349,7 @@ async def update_streaming_url(payload: UserStreamingUrlIn, ident: Identity = De
     with suppress(Exception):
         await emit_auth_profile_sync(uid, role=str(user.role))
     with suppress(Exception):
-        await emit_room_profile_theme_sync(uid, theme_state.color, theme_state.icon)
+        await emit_room_profile_theme_sync(uid, theme_state.color, theme_state.display_icon)
 
     return UserStreamingUrlOut(streaming_url=streaming_url)
 
@@ -1505,7 +1476,7 @@ async def upload_avatar(file: UploadFile = File(...), static_frame_index: int | 
         avatar_name=name,
         theme_color=theme_state.color,
         theme_until=theme_state.subscription_until,
-        theme_icon=theme_state.icon,
+        theme_icon=theme_state.display_icon,
     )
     await invalidate_avatar_presign_cache(old_avatar_name)
 

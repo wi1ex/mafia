@@ -18,14 +18,14 @@
               <button v-if="canOpenMiniProfile(f)" class="left profile-trigger" type="button" @click="openMiniProfile(f)">
                 <img v-minio-img="{ key: f.avatar_name ? `avatars/${f.avatar_name}` : '', placeholder: iconDefaultAvatarBlack, lazy: false, animated: true }" alt="avatar" />
                 <div v-if="friendThemeIconSrcs(f).length" class="profile-theme-icons" aria-hidden="true">
-                  <img v-for="badgeSrc in friendThemeIconSrcs(f)" :key="`${f.id}-${badgeSrc}`" class="profile-theme-icon" :src="badgeSrc" alt="" />
+                  <img v-for="badgeSrc in friendThemeIconSrcs(f)" :key="`${f.id}-${badgeSrc}`" class="profile-theme-icon" v-minio-img="getProfileBadgeImage(badgeSrc)" alt="" />
                 </div>
                 <span class="nick">{{ f.username || ('user' + f.id) }}</span>
               </button>
               <div v-else class="left profile-trigger">
                 <img v-minio-img="{ key: f.avatar_name ? `avatars/${f.avatar_name}` : '', placeholder: iconDefaultAvatarBlack, lazy: false, animated: true }" alt="avatar" />
                 <div v-if="friendThemeIconSrcs(f).length" class="profile-theme-icons" aria-hidden="true">
-                  <img v-for="badgeSrc in friendThemeIconSrcs(f)" :key="`${f.id}-${badgeSrc}`" class="profile-theme-icon" :src="badgeSrc" alt="" />
+                  <img v-for="badgeSrc in friendThemeIconSrcs(f)" :key="`${f.id}-${badgeSrc}`" class="profile-theme-icon" v-minio-img="getProfileBadgeImage(badgeSrc)" alt="" />
                 </div>
                 <span class="nick">{{ f.username || ('user' + f.id) }}</span>
               </div>
@@ -79,7 +79,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { getProfileThemeOption } from '@/constants/profileThemes'
-import { getProfileThemeBadgeSources } from '@/constants/profileIcons'
+import { getProfileBadgeImage, getProfileThemeBadgeSources } from '@/constants/profileIcons'
 import { canOpenMiniProfileTarget, normalizeMiniProfileUserId } from '@/services/miniProfile'
 import {
   type FriendListItem,

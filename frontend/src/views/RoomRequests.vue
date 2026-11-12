@@ -15,14 +15,14 @@
               <button v-if="canOpenMiniProfile(u)" class="user user-profile-trigger" type="button" @click="openMiniProfile(u)" :aria-label="`Открыть профиль ${u.username || ('user' + u.id)}`">
                 <img class="avatar" v-minio-img="{ key: u.avatar_name ? `avatars/${u.avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false, animated: true }" alt="avatar" />
                 <div v-if="appThemeIconSrcs(u).length" class="profile-theme-icons" aria-hidden="true">
-                  <img v-for="badgeSrc in appThemeIconSrcs(u)" :key="`${u.id}-${badgeSrc}`" class="profile-theme-icon" :src="badgeSrc" alt="" />
+                  <img v-for="badgeSrc in appThemeIconSrcs(u)" :key="`${u.id}-${badgeSrc}`" class="profile-theme-icon" v-minio-img="getProfileBadgeImage(badgeSrc)" alt="" />
                 </div>
                 <span class="username">{{ u.username || ('user' + u.id) }}</span>
               </button>
               <div v-else class="user">
                 <img class="avatar" v-minio-img="{ key: u.avatar_name ? `avatars/${u.avatar_name}` : '', placeholder: iconDefaultAvatar, lazy: false, animated: true }" alt="avatar" />
                 <div v-if="appThemeIconSrcs(u).length" class="profile-theme-icons" aria-hidden="true">
-                  <img v-for="badgeSrc in appThemeIconSrcs(u)" :key="`${u.id}-${badgeSrc}`" class="profile-theme-icon" :src="badgeSrc" alt="" />
+                  <img v-for="badgeSrc in appThemeIconSrcs(u)" :key="`${u.id}-${badgeSrc}`" class="profile-theme-icon" v-minio-img="getProfileBadgeImage(badgeSrc)" alt="" />
                 </div>
                 <span class="username">{{ u.username || ('user' + u.id) }}</span>
               </div>
@@ -59,7 +59,7 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onBeforeUnmount, computed } from 'vue'
 import { getProfileThemeOption } from '@/constants/profileThemes'
-import { getProfileThemeBadgeSources } from '@/constants/profileIcons'
+import { getProfileBadgeImage, getProfileThemeBadgeSources } from '@/constants/profileIcons'
 import { api } from '@/services/axios'
 import { alertDialog } from '@/services/confirm'
 import { formatLocalDateTime } from '@/services/datetime'

@@ -5,8 +5,9 @@ from datetime import datetime, timedelta, timezone
 from typing import Iterable
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
-from sqlalchemy import select
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from ..models.gift import Gift, UserGift
 from ..models.subscription import UserSubscription
 from ..models.user import User
 
@@ -41,6 +42,7 @@ PROFILE_THEME_ICON_NONE = "none"
 PROFILE_THEME_ICON_COUNT = 49
 PROFILE_THEME_ICONS: tuple[str, ...] = tuple(f"sub_icon{idx}" for idx in range(1, PROFILE_THEME_ICON_COUNT + 1))
 PROFILE_THEME_ICON_DEFAULT = PROFILE_THEME_ICONS[0]
+PROFILE_GIFT_ICON_PREFIX = "gift:"
 SUBSCRIPTION_END_LOCAL_HOUR = 2
 STREAMING_PLATFORM_DOMAINS = frozenset(
     {
@@ -61,6 +63,7 @@ STREAMING_PLATFORM_DOMAINS = frozenset(
 class ProfileThemePreference:
     color: str | None = None
     icon: str | None = None
+    gift_preview_key: str | None = None
 
 
 @dataclass(slots=True)
@@ -70,6 +73,14 @@ class ProfileThemeState:
     subscription_until: datetime | None = None
     color: str | None = None
     icon: str | None = None
+    gift_preview_key: str | None = None
+
+    @property
+    def display_icon(self) -> str | None:
+        if self.gift_preview_key:
+            return f"{PROFILE_GIFT_ICON_PREFIX}{self.gift_preview_key}"
+
+        return self.icon
 
 
 def _normalize_user_ids(user_ids: Iterable[int | str]) -> list[int]:
@@ -295,15 +306,23 @@ async def fetch_profile_theme_preferences(session: AsyncSession, user_ids: Itera
         return {}
 
     rows = await session.execute(
-        select(User.id, User.role, User.profile_theme_color, User.profile_theme_icon).where(User.id.in_(ids))
+        select(User.id, User.role, User.profile_theme_color, User.profile_theme_icon, Gift.preview_key)
+        .outerjoin(UserGift, and_(
+            UserGift.id == User.profile_gift_id,
+            UserGift.owner_id == User.id,
+            UserGift.active(),
+            User.deleted_at.is_(None),
+        ))
+        .outerjoin(Gift, and_(Gift.id == UserGift.gift_id, Gift.deleted_at.is_(None)))
+        .where(User.id.in_(ids))
     )
     out: dict[int, ProfileThemePreference] = {}
-    for user_id_raw, role_raw, color_raw, icon_raw in rows.all():
+    for user_id_raw, role_raw, color_raw, icon_raw, gift_preview_key in rows.all():
         try:
             uid = int(user_id_raw)
         except Exception:
             continue
-        pref = ProfileThemePreference()
+        pref = ProfileThemePreference(gift_preview_key=gift_preview_key)
         try:
             pref.color = normalize_profile_theme_color(color_raw, role=role_raw)
         except ValueError:
@@ -322,7 +341,7 @@ async def resolve_profile_theme_states(session: AsyncSession, user_ids: Iterable
         return {}
 
     active_subscriptions = await fetch_active_subscriptions(session, ids, now=now)
-    preferences = await fetch_profile_theme_preferences(session, ids)
+    preferences = await fetch_profile_theme_preferences(session, active_subscriptions)
     out: dict[int, ProfileThemeState] = {}
     for uid in ids:
         subscription = active_subscriptions.get(uid)
@@ -336,6 +355,7 @@ async def resolve_profile_theme_states(session: AsyncSession, user_ids: Iterable
             subscription_until=subscription.ends_at,
             color=preference.color or PROFILE_THEME_DEFAULT,
             icon=preference.icon or PROFILE_THEME_ICON_DEFAULT,
+            gift_preview_key=preference.gift_preview_key,
         )
     return out
 

@@ -172,7 +172,7 @@
         <span v-if="seatLabel" class="seat-label">{{ seatLabel }}</span>
         <img class="user-avatar" v-minio-img="{ key: avatarKey(id), placeholder: defaultAvatar, lazy: false }" alt="avatar" />
         <div v-if="profileThemeIconSrcs.length" class="profile-theme-icons" aria-hidden="true">
-          <img v-for="badgeSrc in profileThemeIconSrcs" :key="badgeSrc" class="profile-theme-icon" :src="badgeSrc" alt="" />
+          <img v-for="badgeSrc in profileThemeIconSrcs" :key="badgeSrc" class="profile-theme-icon" v-minio-img="getProfileBadgeImage(badgeSrc)" alt="" />
         </div>
         <span class="username">{{ userName(id) }}</span>
         <div class="status" v-if="showHeaderStatus">
@@ -201,7 +201,7 @@
 import { computed } from 'vue'
 import type { GameRoleKind } from '@/composables/roomGame'
 import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
-import { getProfileThemeBadgeSources } from '@/constants/profileIcons'
+import { getProfileBadgeImage, getProfileThemeBadgeSources } from '@/constants/profileIcons'
 
 import UiIcon from '@/components/UiIcon.vue'
 import UiButton from '@/components/UiButton.vue'

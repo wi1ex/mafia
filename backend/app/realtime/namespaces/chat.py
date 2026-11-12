@@ -50,7 +50,7 @@ log = structlog.get_logger()
 
 
 @sio.event(namespace="/chat")
-async def connect(sid, environ, auth):
+async def connect(sid, _environ, auth):
     vr = await validate_auth(auth)
     if not vr:
         log.warning("chat.connect.denied", sid=sid)
@@ -148,7 +148,7 @@ async def chat_open(sid, data):
 
 @sio.event(namespace="/chat")
 @rate_limited_sio(lambda *, uid=None, **__: f"rl:sio:chat_permissions:{uid or 'nouid'}", limit=10, window_s=1, session_ns="/chat")
-async def chat_permissions(sid, data=None):
+async def chat_permissions(sid, _data=None):
     try:
         sess = await sio.get_session(sid, namespace="/chat")
         uid = int(sess.get("uid") or 0)
@@ -609,7 +609,6 @@ async def chat_delete(sid, data):
 async def chat_deleted_message_preview(sid, data):
     try:
         sess = await sio.get_session(sid, namespace="/chat")
-        uid = int(sess.get("uid") or 0)
         role = str(sess.get("role") or "").strip().lower()
         if not can_view_deleted_chat_message(actor_role=role):
             return {"ok": False, "status": 403, "error": "forbidden"}

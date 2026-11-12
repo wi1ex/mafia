@@ -86,11 +86,9 @@ from ...services.global_chat import (
     emit_global_chat_sanction_removed_notice,
 )
 from ...services.minio import (
-    CHAT_IMAGE_PREFIX,
     MAX_BYTES,
     delete_object_async,
     delete_avatar_version_async,
-    get_prefix_storage_stats_async,
     put_home_carousel_banner_async,
 )
 from ...services.blacklist import emit_blacklist_update
@@ -259,6 +257,7 @@ from ..utils import (
     emit_auth_profile_sync,
     emit_role_change_friend_profile_syncs,
     emit_room_profile_theme_sync,
+    sync_profile_gift_icon,
     emit_room_role_sync,
     notify_subscription_upsert,
     build_subscription_upsert_notice,
@@ -567,10 +566,6 @@ async def site_stats(month: str | None = None, session: AsyncSession = Depends(g
         month_end = month_start
 
     total_users = int(await session.scalar(select(func.count(User.id)).where(User.deleted_at.is_(None))) or 0)
-    (avatars_count, avatars_bytes), (images_count, images_bytes) = await asyncio.gather(
-        get_prefix_storage_stats_async("avatars/"),
-        get_prefix_storage_stats_async(CHAT_IMAGE_PREFIX),
-    )
     total_rooms = int(await session.scalar(select(func.count(Room.id))) or 0)
     total_games = int(await session.scalar(select(func.count(Game.id))) or 0)
     registrations = await build_registrations_series(session, start_dt, end_dt)
@@ -627,10 +622,6 @@ async def site_stats(month: str | None = None, session: AsyncSession = Depends(g
 
     return SiteStatsOut(
         total_users=total_users,
-        avatars_count=avatars_count,
-        avatars_bytes=avatars_bytes,
-        images_count=images_count,
-        images_bytes=images_bytes,
         registrations=registrations,
         games_by_day=games_by_day,
         active_users_by_day=active_users_by_day,
@@ -2209,7 +2200,7 @@ async def subscriptions_list(session: AsyncSession = Depends(get_session)) -> Ad
                 ends_at=row.ends_at,
                 is_active=is_active,
                 profile_theme_color=theme_state.color if theme_state else None,
-                profile_theme_icon=theme_state.icon if theme_state else None,
+                profile_theme_icon=theme_state.display_icon if theme_state else None,
             )
         )
     items.sort(
@@ -2305,7 +2296,7 @@ async def subscriptions_upsert(payload: AdminSubscriptionCreateIn, ident: Identi
         ends_at=subscription.ends_at,
         is_active=True,
         profile_theme_color=theme_state.color,
-        profile_theme_icon=theme_state.icon,
+        profile_theme_icon=theme_state.display_icon,
     )
     await session.commit()
 
@@ -2314,10 +2305,10 @@ async def subscriptions_upsert(payload: AdminSubscriptionCreateIn, ident: Identi
     with suppress(Exception):
         await emit_auth_profile_sync(uid, role=str(user.role))
     with suppress(Exception):
-        await emit_room_profile_theme_sync(uid, theme_state.color, theme_state.icon)
+        await emit_room_profile_theme_sync(uid, theme_state.color, theme_state.display_icon)
     with suppress(Exception):
         from ...services.global_chat import emit_global_chat_profile_theme_sync
-        await emit_global_chat_profile_theme_sync(uid, theme_state.color, theme_state.icon)
+        await emit_global_chat_profile_theme_sync(uid, theme_state.color, theme_state.display_icon)
     try:
         await notify_subscription_upsert(
             session,
@@ -2501,7 +2492,7 @@ async def subscriptions_reduce(user_id: int, payload: AdminSubscriptionDurationI
         ends_at=subscription.ends_at,
         is_active=True,
         profile_theme_color=theme_state.color,
-        profile_theme_icon=theme_state.icon,
+        profile_theme_icon=theme_state.display_icon,
     )
     await session.commit()
 
@@ -2510,10 +2501,10 @@ async def subscriptions_reduce(user_id: int, payload: AdminSubscriptionDurationI
     with suppress(Exception):
         await emit_auth_profile_sync(uid, role=str(user.role))
     with suppress(Exception):
-        await emit_room_profile_theme_sync(uid, theme_state.color, theme_state.icon)
+        await emit_room_profile_theme_sync(uid, theme_state.color, theme_state.display_icon)
     with suppress(Exception):
         from ...services.global_chat import emit_global_chat_profile_theme_sync
-        await emit_global_chat_profile_theme_sync(uid, theme_state.color, theme_state.icon)
+        await emit_global_chat_profile_theme_sync(uid, theme_state.color, theme_state.display_icon)
 
     return result
 
@@ -2585,9 +2576,9 @@ async def subscriptions_delete(user_id: int, ident: Identity = Depends(get_ident
         await emit_auth_profile_sync(uid, role=str(user.role))
     with suppress(Exception):
         theme = await resolve_profile_theme_state(session, uid)
-        await emit_room_profile_theme_sync(uid, theme.color, theme.icon)
+        await emit_room_profile_theme_sync(uid, theme.color, theme.display_icon)
         from ...services.global_chat import emit_global_chat_profile_theme_sync
-        await emit_global_chat_profile_theme_sync(uid, theme.color, theme.icon)
+        await emit_global_chat_profile_theme_sync(uid, theme.color, theme.display_icon)
     if old_avatar_name:
         with suppress(Exception):
             if await session.scalar(select(User.avatar_name).where(User.id == uid)) is None:
@@ -2712,12 +2703,18 @@ async def admin_gift_replace_media(
         await session.flush()
         _, count = (await session.execute(_select_admin_gifts().where(Gift.id == gift_id))).one()
         result = _gift_admin_out(gift, count)
+        pinned_user_ids = list(await session.scalars(
+            select(User.id).select_from(UserGift).join(User, User.id == UserGift.owner_id)
+            .where(UserGift.gift_id == gift_id, User.profile_gift_id == UserGift.id)
+        ))
         await session.commit()
     except (Exception, asyncio.CancelledError):
         await _discard_gift_upload(session, gift_id, keys)
         raise
 
     try:
+        for user_id in pinned_user_ids:
+            await sync_profile_gift_icon(user_id)
         await _emit_gift_catalog_update(gift_id, media_changed=True)
     finally:
         await delete_gift_media(old_keys)
@@ -3210,7 +3207,6 @@ async def revoke_user_timeout(user_id: int, ident: Identity = Depends(get_identi
             target_user_id=uid,
             target_username=user.username,
             kind=SANCTION_TIMEOUT,
-            reason=active.reason or "",
             source="admin",
             remaining_duration_label=remaining_duration_label,
         )
@@ -3346,7 +3342,6 @@ async def revoke_user_ban(user_id: int, ident: Identity = Depends(get_identity),
             target_user_id=uid,
             target_username=user.username,
             kind=SANCTION_BAN,
-            reason=active.reason or "",
             source="admin",
         )
 

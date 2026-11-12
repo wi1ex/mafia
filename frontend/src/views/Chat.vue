@@ -49,7 +49,7 @@
                           :disabled="!canOpenAuthorMiniProfile(message)" @click="openAuthorMiniProfile(message)">
                     <img class="author-avatar" v-minio-img="{ key: message.author.avatar_name ? `avatars/${message.author.avatar_name}` : '', placeholder: defaultAvatar, lazy: false, animated: true }" alt="Аватар автора" />
                     <div v-if="profileThemeIconSrcs(message.author.theme_icon, message.author.role, message.author.id).length" class="profile-theme-icons" aria-hidden="true">
-                      <img v-for="badgeSrc in profileThemeIconSrcs(message.author.theme_icon, message.author.role, message.author.id)" :key="`${message.author.id}-${badgeSrc}`" class="profile-theme-icon" :src="badgeSrc" alt="" />
+                      <img v-for="badgeSrc in profileThemeIconSrcs(message.author.theme_icon, message.author.role, message.author.id)" :key="`${message.author.id}-${badgeSrc}`" class="profile-theme-icon" v-minio-img="getProfileBadgeImage(badgeSrc)" alt="" />
                     </div>
                     <span class="author-name" :class="{ 'author-name--themed': getProfileThemeOption(message.author.theme_color) }" :style="authorNameStyle(message)">{{ message.author.username || (`user${message.author.id}`) }}</span>
                   </button>
@@ -334,7 +334,7 @@ import { storeToRefs } from 'pinia'
 import { api } from '@/services/axios'
 import { GLOBAL_CHAT_COMPOSER_EMOJIS } from '@/constants/chatEmojis'
 import { getProfileThemeOption } from '@/constants/profileThemes'
-import { getProfileThemeBadgeSources } from '@/constants/profileIcons'
+import { getProfileBadgeImage, getProfileThemeBadgeSources } from '@/constants/profileIcons'
 import { alertDialog, confirmDialog } from '@/services/confirm'
 import { formatChatTimestamp } from '@/services/datetime'
 import { canOpenMiniProfileTarget, normalizeMiniProfileUserId, normalizeMiniProfileRole } from '@/services/miniProfile'

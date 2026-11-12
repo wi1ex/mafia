@@ -28,7 +28,7 @@
                     <div class="profile-div">
                       <div class="profile-title">
                         <div v-if="profileThemeIconSrcs.length" class="profile-theme-icons" aria-hidden="true">
-                          <img v-for="badgeSrc in profileThemeIconSrcs" :key="badgeSrc" class="profile-theme-icon" :src="badgeSrc" alt="" />
+                          <img v-for="badgeSrc in profileThemeIconSrcs" :key="badgeSrc" class="profile-theme-icon" v-minio-img="getProfileBadgeImage(badgeSrc)" alt="" />
                         </div>
                         <a v-if="profileStreamingUrl" class="profile-streaming-link" :href="profileStreamingUrl" target="_blank"
                            rel="noopener noreferrer nofollow" aria-label="Открыть стриминговую страницу" @click.stop>
@@ -371,12 +371,23 @@
                              @dragstart="startGiftDrag($event, item.id)" @dragend="clearGiftDrag">
                           <GiftMedia class="profile-gift-media" :media="item" :label="`Подарок №${item.gift_id}`" />
                         </div>
-                        <UiButton v-if="canManageOwnGifts" class="profile-gift-remove" variant="white" size="low" :icon="iconDelete"
-                                  :aria-label="`Удалить подарок №${item.gift_id}`" :disabled="giftActionsBusy" @click="removeProfileGift(item.id)" />
                       </div>
-                      <div v-if="item.sender && item.sender.id !== targetUserId" class="profile-gift-sender">
-                        <img v-minio-img="{ key: giftSenderAvatarKey(item.sender.avatar_name), placeholder: iconDefaultAvatar }" alt="" />
-                        <span :title="item.sender.username || `user${item.sender.id}`">{{ item.sender.username || `user${item.sender.id}` }}</span>
+                      <div v-if="item.sender || canManageOwnGifts" class="profile-gift-sender">
+                        <template v-if="item.sender">
+                          <img v-minio-img="{ key: giftSenderAvatarKey(item.sender.avatar_name), placeholder: iconDefaultAvatar }" alt="" />
+                          <span :title="item.sender.username || `user${item.sender.id}`">{{ item.sender.username || `user${item.sender.id}` }}</span>
+                          <span v-if="isAdminViewer && item.anonymous">(а)</span>
+                        </template>
+                        <span v-else>Аноним</span>
+                      </div>
+                      <div v-if="canManageOwnGifts" class="profile-gift-actions">
+                        <UiButton variant="white" size="low" width="100%" :icon="iconDelete" text="Удалить"
+                                  :disabled="giftActionsBusy" @click="removeProfileGift(item.id)" />
+                        <UiButton :variant="allGifts.profile_gift_id === item.id ? 'green' : 'white'" size="low" width="100%"
+                                  :text="allGifts.profile_gift_id === item.id ? 'Убрать из никнейма' : 'Показать в никнейме'"
+                                  :disabled="giftActionsBusy || (!viewerSubscriptionActive && allGifts.profile_gift_id !== item.id)"
+                                  :title="!viewerSubscriptionActive && allGifts.profile_gift_id !== item.id ? GIFT_ICON_SUBSCRIPTION_REQUIRED : undefined"
+                                  @click="toggleProfileGiftIcon(item.id)" />
                       </div>
                     </li>
                   </ul>
@@ -478,8 +489,8 @@ import { alertDialog, confirmDialog, confirmDialogWithAction, useConfirmState } 
 import { isMiniProfilePrivilegedViewer, normalizeMiniProfileRole } from '@/services/miniProfile'
 import { getProfileRoleBadges } from '@/services/profileRoles'
 import { buildProfileThemeBgStyle } from '@/constants/profileThemes'
-import { getProfileThemeBadgeSources } from '@/constants/profileIcons'
-import { loadGiftCollection, moveOwnGift, useOwnGiftRemoval, type GiftCollection, type GiftPurchaseResult } from '@/services/gifts'
+import { getProfileBadgeImage, getProfileThemeBadgeSources } from '@/constants/profileIcons'
+import { loadGiftCollection, moveOwnGift, setOwnProfileGift, useOwnGiftRemoval, type GiftCollection, type GiftPurchaseResult } from '@/services/gifts'
 import {
   useFriendsStore,
   useAuthStore,
@@ -719,6 +730,7 @@ const friendBusy = ref(false)
 const blacklistBusy = ref(false)
 const view = ref<'profile' | 'stats' | 'history' | 'gifts'>('profile')
 const GIFT_COLLECTION_LIMIT = 30
+const GIFT_ICON_SUBSCRIPTION_REQUIRED = 'Показать подарок в никнейме можно только при активной подписке.'
 function emptyGiftCollection(): GiftCollection { return { items: [], total: 0, has_more: false } }
 const giftPreview = ref<GiftCollection | null>(null)
 const allGifts = ref<GiftCollection>(emptyGiftCollection())
@@ -732,10 +744,12 @@ const allGiftsTrigger = ref<HTMLButtonElement | null>(null)
 const draggedGiftId = ref<number | null>(null)
 const giftDropTarget = ref<{ id: number; place: 'before' | 'after' } | null>(null)
 const savingGiftOrder = ref(false)
+const savingGiftIcon = ref(false)
 const { removingId: removingGiftId, removeGift, resetGiftRemoval } = useOwnGiftRemoval(onOwnGiftRemoved)
 let giftPreviewRequest: AbortController | undefined
 let allGiftsRequest: AbortController | undefined
 let giftOrderRequest: AbortController | undefined
+let giftIconRequest: AbortController | undefined
 let giftRefreshPending = false
 let allGiftsOffset = 0
 const avatarImageEl = ref<HTMLImageElement | null>(null)
@@ -933,6 +947,7 @@ const profileThemeColor = computed(() => {
   return initial?.profile_theme_color || initial?.theme_color || null
 })
 const profileThemeIcon = computed(() => {
+  if (isSelfProfile.value) return userStore.activeProfileThemeIcon
   if (profileLoadedForTarget.value) return profile.value?.profile_theme_icon || null
   const initial = initialProfileForTarget.value
   return initial?.profile_theme_icon || initial?.theme_icon || null
@@ -1060,7 +1075,7 @@ const showRestrictedProfileSections = computed(() => !(
 const giftCollectionAllowed = computed(() => props.open && profileLoadedForTarget.value && showRestrictedProfileSections.value
   && !viewerAccountRestricted.value && !targetDeleted.value && !loadError.value)
 const canManageOwnGifts = computed(() => auth.isAuthed && isSelfProfile.value && giftCollectionAllowed.value && view.value === 'gifts')
-const giftActionsBusy = computed(() => allGiftsLoading.value || savingGiftOrder.value || removingGiftId.value !== null)
+const giftActionsBusy = computed(() => allGiftsLoading.value || savingGiftOrder.value || savingGiftIcon.value || removingGiftId.value !== null)
 const canReorderOwnGifts = computed(() => canManageOwnGifts.value && !giftActionsBusy.value && allGifts.value.items.length > 1)
 const profileInfoMode = computed(() => {
   if (!profileLoadedForTarget.value || !showRestrictedProfileSections.value) return null
@@ -1660,6 +1675,9 @@ function resetGiftManagement(): void {
   giftOrderRequest?.abort()
   giftOrderRequest = undefined
   savingGiftOrder.value = false
+  giftIconRequest?.abort()
+  giftIconRequest = undefined
+  savingGiftIcon.value = false
   resetGiftRemoval()
 }
 
@@ -1736,13 +1754,49 @@ function removeProfileGift(acquisitionId: number): void {
   if (canManageOwnGifts.value && !giftActionsBusy.value) void removeGift(acquisitionId)
 }
 
+async function toggleProfileGiftIcon(acquisitionId: number): Promise<void> {
+  if (!canManageOwnGifts.value || giftActionsBusy.value) return
+  const selectedId = allGifts.value.profile_gift_id === acquisitionId ? null : acquisitionId
+  if (selectedId !== null && !viewerSubscriptionActive.value) return
+  const uid = targetUserId.value
+  const session = auth.sessionId
+  const request = new AbortController()
+  giftIconRequest = request
+  savingGiftIcon.value = true
+  const current = () => giftIconRequest === request && !request.signal.aborted
+    && auth.sessionId === session && targetUserId.value === uid && canManageOwnGifts.value
+  const previousUser = userStore.user
+  try {
+    const result = await setOwnProfileGift(selectedId, request.signal)
+    if (!current()) return
+    allGifts.value = { ...allGifts.value, profile_gift_id: result.profile_gift_id }
+    if (previousUser && userStore.user === previousUser) {
+      previousUser.profile_gift_preview_key = result.profile_gift_preview_key
+    }
+  } catch (error: any) {
+    if (current()) {
+      const message = error?.response?.data?.detail === 'subscription_required'
+        ? GIFT_ICON_SUBSCRIPTION_REQUIRED
+        : 'Не удалось изменить подарок в никнейме. Попробуйте ещё раз.'
+      void alertDialog(message)
+    }
+  } finally {
+    if (giftIconRequest === request) {
+      giftIconRequest = undefined
+      savingGiftIcon.value = false
+      if (giftRefreshPending) refreshProfileGifts(uid)
+    }
+  }
+}
+
 function onOwnGiftRemoved(acquisitionId: number): void {
   if (!canManageOwnGifts.value) return
   if (allGifts.value.items.some(item => item.id === acquisitionId)) {
     const items = allGifts.value.items.filter(item => item.id !== acquisitionId)
     const total = Math.max(0, allGifts.value.total - 1)
     allGiftsOffset = Math.max(0, allGiftsOffset - 1)
-    allGifts.value = { items, total, has_more: allGiftsOffset < total }
+    const profile_gift_id = allGifts.value.profile_gift_id === acquisitionId ? null : allGifts.value.profile_gift_id
+    allGifts.value = { items, total, has_more: allGiftsOffset < total, profile_gift_id }
   }
   refreshProfileGifts(targetUserId.value)
 }
@@ -1813,7 +1867,7 @@ async function loadProfileGifts(grouped: boolean, append = false): Promise<void>
 
 function refreshProfileGifts(uid: number): void {
   if (uid !== targetUserId.value || !giftCollectionAllowed.value) return
-  if (savingGiftOrder.value || removingGiftId.value !== null) {
+  if (savingGiftOrder.value || savingGiftIcon.value || removingGiftId.value !== null) {
     giftRefreshPending = true
     return
   }
@@ -2925,7 +2979,7 @@ watch([giftCollectionAllowed, targetUserId, () => auth.sessionId, viewerUserId, 
 watch(view, next => {
   if (next === 'gifts') void loadProfileGifts(false)
   else {
-    const refresh = savingGiftOrder.value || removingGiftId.value !== null || giftRefreshPending
+    const refresh = savingGiftOrder.value || savingGiftIcon.value || removingGiftId.value !== null || giftRefreshPending
     resetGiftManagement()
     allGiftsRequest?.abort()
     allGiftsRequest = undefined
@@ -4044,11 +4098,6 @@ onBeforeUnmount(() => {
                 pointer-events: none;
               }
             }
-            .profile-gift-remove {
-              position: absolute;
-              top: 4px;
-              right: 4px;
-            }
           }
           .profile-gift-sender {
             display: flex;
@@ -4070,11 +4119,23 @@ onBeforeUnmount(() => {
               border-radius: 50%;
               object-fit: cover;
             }
-            span {
+            span:first-of-type {
               min-width: 0;
               overflow: hidden;
               text-overflow: ellipsis;
               white-space: nowrap;
+            }
+          }
+          .profile-gift-actions {
+            display: grid;
+            width: min(100%, 180px);
+            gap: 4px;
+            margin-top: 6px;
+            .ui-button {
+              height: auto;
+              min-height: var(--ui-button-height);
+              padding-block: 4px;
+              white-space: normal;
             }
           }
         }

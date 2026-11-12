@@ -315,14 +315,18 @@ export const useFriendsStore = defineStore('friends', () => {
     }, 200)
   }
 
-  function applyProfileRoleSync(payload: unknown): void {
-    const raw = payload as { user_id?: unknown; role?: unknown } | null | undefined
+  function applyFriendProfileSync(payload: unknown): void {
+    if (!payload || typeof payload !== 'object') return
+    const raw = payload as { user_id?: unknown; role?: unknown; theme_color?: unknown; theme_icon?: unknown }
     const userId = Number(raw?.user_id || 0)
     if (!Number.isFinite(userId) || userId <= 0) return
-    const nextRole = typeof raw?.role === 'string' && raw.role.trim() ? raw.role.trim().toLowerCase() : 'user'
+    const patch: Partial<Pick<FriendListItem, 'role' | 'theme_color' | 'theme_icon'>> = {}
+    if (typeof raw.role === 'string' && raw.role.trim()) patch.role = raw.role.trim().toLowerCase()
+    if ('theme_color' in raw) patch.theme_color = typeof raw.theme_color === 'string' ? raw.theme_color.trim() || null : null
+    if ('theme_icon' in raw) patch.theme_icon = typeof raw.theme_icon === 'string' ? raw.theme_icon.trim() || null : null
     list.value = list.value.map((item) => (
       item.id === userId
-        ? { ...item, role: nextRole }
+        ? { ...item, ...patch }
         : item
     ))
   }
@@ -346,7 +350,7 @@ export const useFriendsStore = defineStore('friends', () => {
     onFriendsProfileSync = (e: any) => {
       const p = e?.detail
       if (!p) return
-      applyProfileRoleSync(p)
+      applyFriendProfileSync(p)
     }
     onBlacklistUpdate = (e: any) => {
       const p = e?.detail

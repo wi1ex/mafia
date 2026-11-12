@@ -12,7 +12,7 @@ log = structlog.get_logger()
 
 
 @sio.event(namespace="/auth")
-async def connect(sid, environ, auth):
+async def connect(sid, _environ, auth):
     vr = await validate_auth(auth)
     if not vr:
         log.warning("auth.connect.denied", sid=sid)
@@ -54,7 +54,7 @@ async def connect(sid, environ, auth):
     window_s=60,
     session_ns="/auth",
 )
-async def online_ping(sid, data=None):
+async def online_ping(sid, _data=None):
     try:
         sess = await sio.get_session(sid, namespace="/auth")
         uid = int(sess.get("uid") or 0)

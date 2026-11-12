@@ -551,7 +551,7 @@ def build_global_chat_sanction_issued_text(*, target_username: str, kind: str, r
     return f"{base}{details}."
 
 
-def build_global_chat_sanction_removed_text(*, target_username: str, kind: str, reason: str, source: str, remaining_duration_label: str | None = None) -> str:
+def build_global_chat_sanction_removed_text(*, target_username: str, kind: str, source: str, remaining_duration_label: str | None = None) -> str:
     source_value = str(source or "").strip().lower()
     kind_value = str(kind or "").strip().lower()
     target_mention = _format_chat_notice_target_mention(target_username)
@@ -631,7 +631,7 @@ def build_global_chat_role_changed_text(*, target_username: str, role: str, gran
     return f"У пользователя {target_mention} снята роль {role_label}."
 
 
-def build_global_chat_nickname_reset_text(*, previous_username: str, new_username: str) -> str:
+def build_global_chat_nickname_reset_text(*, previous_username: str) -> str:
     previous_mention = _format_chat_notice_target_mention(previous_username)
     return (
         f"У пользователя {previous_mention} сброшен никнейм (пункт правил: 3.4)."
@@ -1324,11 +1324,10 @@ async def emit_global_chat_permissions_updated(user_id: int) -> None:
     if uid <= 0:
         return
 
-    payload: dict[str, Any] = {"refresh": True}
     try:
         async with SessionLocal() as session:
             permissions = await resolve_global_chat_permissions(session, uid)
-        payload = {
+        payload: dict[str, Any] = {
             "permissions": permissions_payload(permissions),
             "error": permissions.error,
             "force_close": _should_force_close(permissions),
@@ -1861,7 +1860,7 @@ async def emit_global_chat_sanction_issued_notice(session: AsyncSession, *, acto
     return await publish_global_chat_notice(session, author_user_id=author_user_id, text=text)
 
 
-async def emit_global_chat_sanction_removed_notice(session: AsyncSession, *, actor_user_id: int | None, target_user_id: int, target_username: str | None, kind: str, reason: str, source: str, remaining_duration_label: str | None = None) -> dict[str, Any] | None:
+async def emit_global_chat_sanction_removed_notice(session: AsyncSession, *, actor_user_id: int | None, target_user_id: int, target_username: str | None, kind: str, source: str, remaining_duration_label: str | None = None) -> dict[str, Any] | None:
     author_user_id = await _resolve_global_chat_notice_author_user_id(session, preferred_user_id=actor_user_id)
     if author_user_id is None:
         return None
@@ -1874,7 +1873,6 @@ async def emit_global_chat_sanction_removed_notice(session: AsyncSession, *, act
     text = build_global_chat_sanction_removed_text(
         target_username=resolved_target_username,
         kind=kind,
-        reason=reason,
         source=source,
         remaining_duration_label=remaining_duration_label,
     )
@@ -1923,10 +1921,7 @@ async def emit_global_chat_nickname_reset_notice(
         username=new_username,
     )
     previous = str(previous_username or "").strip() or resolved_new_username
-    text = build_global_chat_nickname_reset_text(
-        previous_username=previous,
-        new_username=resolved_new_username,
-    )
+    text = build_global_chat_nickname_reset_text(previous_username=previous)
     return await publish_global_chat_notice(session, author_user_id=author_user_id, text=text)
 
 
