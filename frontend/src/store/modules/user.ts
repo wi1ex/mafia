@@ -6,8 +6,7 @@ import { useSettingsStore } from './setting'
 import { useAuthStore } from './auth'
 
 const MAX_NICKNAME_CHANGES_LEFT = 1000
-const SUBSCRIPTION_PRIVACY_FIELDS = ['allow_friend_requests', 'show_last_activity'] as const
-export type SubscriptionPrivacyField = (typeof SUBSCRIPTION_PRIVACY_FIELDS)[number]
+export type SubscriptionPrivacyField = 'allow_friend_requests' | 'show_last_activity'
 
 export interface UserProfile {
   id: number
@@ -205,21 +204,20 @@ export const useUserStore = defineStore('user', () => {
   const inActiveGameAsPlayer = computed(() => Boolean(user.value?.in_active_game_as_player ?? user.value?.in_active_game_as_alive_player))
   const roomRestricted = computed(() => banActive.value || timeoutActive.value)
   const tgInvitesEnabled = computed(() => user.value?.tg_invites_enabled ?? true)
-  const allowFriendRequests = computed(() => !subscriptionActive.value || user.value?.allow_friend_requests !== false)
-  const showLastActivity = computed(() => !subscriptionActive.value || user.value?.show_last_activity !== false)
-  const privacySaves = ref<Partial<Record<SubscriptionPrivacyField, symbol>>>({})
+  const privacySaves = ref<Partial<Record<SubscriptionPrivacyField, { request: symbol; next: boolean }>>>({})
+  const allowFriendRequests = computed(() => effectiveSubscriptionPrivacy('allow_friend_requests'))
+  const showLastActivity = computed(() => effectiveSubscriptionPrivacy('show_last_activity'))
   const friendRequestsTogglePending = computed(() => Boolean(privacySaves.value.allow_friend_requests))
   const lastActivityTogglePending = computed(() => Boolean(privacySaves.value.show_last_activity))
 
-  watch([() => auth.sessionId, subscriptionActive], ([, active]) => {
+  watch([() => auth.sessionId, () => user.value?.id], () => {
     privacySaves.value = {}
-    const profile = user.value
-    if (!active && profile) {
-      for (const field of SUBSCRIPTION_PRIVACY_FIELDS) {
-        if (profile[field] === false) profile[field] = true
-      }
-    }
   }, { flush: 'sync' })
+
+  function effectiveSubscriptionPrivacy(field: SubscriptionPrivacyField): boolean {
+    const value = privacySaves.value[field]?.next ?? user.value?.[field]
+    return !subscriptionActive.value || value !== false
+  }
 
   async function setTgInvitesEnabled(next: boolean): Promise<void> {
     const prev = user.value?.tg_invites_enabled
@@ -237,22 +235,18 @@ export const useUserStore = defineStore('user', () => {
     const sessionId = auth.sessionId
     if (!profile || !sessionId || !subscriptionActive.value || privacySaves.value[field]) return
 
-    const previous = profile[field]
     const request = Symbol()
-    privacySaves.value[field] = request
-    profile[field] = next
+    privacySaves.value[field] = { request, next }
     const isCurrent = () => (
-      privacySaves.value[field] === request && auth.sessionId === sessionId && user.value?.id === profile.id
+      privacySaves.value[field]?.request === request && auth.sessionId === sessionId && user.value?.id === profile.id
     )
     try {
       const { data } = await api.patch<Record<SubscriptionPrivacyField, boolean>>('/users/ui_prefs', { [field]: next })
-      if (isCurrent() && user.value) user.value[field] = data[field]
+      if (isCurrent() && user.value && typeof data[field] === 'boolean') user.value[field] = data[field]
     } catch (error) {
-      if (!isCurrent()) return
-      if (user.value === profile) profile[field] = previous
-      throw error
+      if (isCurrent()) throw error
     } finally {
-      if (privacySaves.value[field] === request) delete privacySaves.value[field]
+      if (privacySaves.value[field]?.request === request) delete privacySaves.value[field]
     }
   }
 

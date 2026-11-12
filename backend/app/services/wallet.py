@@ -219,8 +219,6 @@ async def buy_subscription(session: AsyncSession, *, user_id: int, plan: str, re
             subscription.starts_at = now
     if not active:
         set_user_nickname_changes(recipient, SUBSCRIPTION_NICKNAME_CHANGE_LIMIT)
-        recipient.allow_friend_requests = True
-        recipient.show_last_activity = True
     await session.flush()
     await ensure_profile_theme_defaults(session, target_id, now=now)
     purchase = SubscriptionPurchase(user_id=target_id, source=source, actor_id=actor_id,

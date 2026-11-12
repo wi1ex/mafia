@@ -446,11 +446,8 @@ async def send_friend_request(user_id: int, ident: Identity = Depends(get_identi
 
     await raise_if_friend_request_blocked_by_blacklist(db, requester_id=uid, target_id=target_id)
 
-    if not target.allow_friend_requests:
-        if await user_has_active_subscription(db, target_id):
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="target_friend_requests_disabled")
-
-        target.allow_friend_requests = True
+    if not target.allow_friend_requests and await user_has_active_subscription(db, target_id):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="target_friend_requests_disabled")
 
     requester_profile = await get_user_profile_cached(db, uid)
 

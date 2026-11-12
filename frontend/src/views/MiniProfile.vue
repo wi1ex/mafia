@@ -372,13 +372,10 @@
                           <GiftMedia class="profile-gift-media" :media="item" :label="`Подарок №${item.gift_id}`" />
                         </div>
                       </div>
-                      <div v-if="item.sender || canManageOwnGifts" class="profile-gift-sender">
-                        <template v-if="item.sender">
-                          <img v-minio-img="{ key: giftSenderAvatarKey(item.sender.avatar_name), placeholder: iconDefaultAvatar }" alt="" />
-                          <span :title="item.sender.username || `user${item.sender.id}`">{{ item.sender.username || `user${item.sender.id}` }}</span>
-                          <span v-if="isAdminViewer && item.anonymous">(а)</span>
-                        </template>
-                        <span v-else>Аноним</span>
+                      <div v-if="item.sender" class="profile-gift-sender">
+                        <img v-minio-img="{ key: giftSenderAvatarKey(item.sender.avatar_name), placeholder: iconDefaultAvatar }" alt="" />
+                        <span :title="item.sender.username || `user${item.sender.id}`">{{ item.sender.username || `user${item.sender.id}` }}</span>
+                        <span v-if="isAdminViewer && item.anonymous">(а)</span>
                       </div>
                       <div v-if="canManageOwnGifts" class="profile-gift-actions">
                         <UiButton variant="white" size="low" width="100%" :icon="iconDelete" text="Удалить"

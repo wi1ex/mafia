@@ -1162,6 +1162,9 @@ async def update_ui_prefs(payload: UserUiPrefsIn, ident: Identity = Depends(get_
     old_allow_friend_requests = user.allow_friend_requests
     old_show_last_activity = user.show_last_activity
 
+    if (payload.allow_friend_requests is False or payload.show_last_activity is False) and not await user_has_active_subscription(db, uid):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="subscription_required")
+
     allow_friend_requests = payload.allow_friend_requests
     if allow_friend_requests is None:
         allow_friend_requests = old_allow_friend_requests
@@ -1169,12 +1172,6 @@ async def update_ui_prefs(payload: UserUiPrefsIn, ident: Identity = Depends(get_
     if show_last_activity is None:
         show_last_activity = old_show_last_activity
 
-    if (not allow_friend_requests or not show_last_activity) and not await user_has_active_subscription(db, uid):
-        if payload.allow_friend_requests is False or payload.show_last_activity is False:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="subscription_required")
-
-        allow_friend_requests = True
-        show_last_activity = True
     user.allow_friend_requests = allow_friend_requests
     user.show_last_activity = show_last_activity
 
