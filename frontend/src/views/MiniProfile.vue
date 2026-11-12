@@ -4058,9 +4058,10 @@ onBeforeUnmount(() => {
           position: relative;
           flex-direction: column;
           align-items: center;
+          justify-content: space-between;
           min-width: 0;
           &--dragging .profile-gift-preview {
-            opacity: 0.55;
+            opacity: 0.5;
           }
           &--drop-before::before,
           &--drop-after::after {
