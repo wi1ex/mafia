@@ -208,16 +208,18 @@ async def add_user_to_blacklist(session: AsyncSession, *, owner_id: int, target_
     if owner == target:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="self_blacklist")
 
-    await ensure_blacklist_subscription(session, owner)
-
-    target_user = await session.get(User, target)
-    if target_user is None or target_user.deleted_at is not None:
+    users = await session.execute(
+        select(User.id, User.deleted_at)
+        .where(User.id.in_((owner, target)))
+        .order_by(User.id)
+        .with_for_update()
+    )
+    accounts = dict(users.tuples().all())
+    if owner not in accounts or accounts[owner] is not None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user_not_found")
 
-    owner_exists = await session.scalar(
-        select(User.id).where(User.id == owner).with_for_update()
-    )
-    if owner_exists is None:
+    await ensure_blacklist_subscription(session, owner)
+    if target not in accounts or accounts[target] is not None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user_not_found")
 
     already_blacklisted = await session.scalar(

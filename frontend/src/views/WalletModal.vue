@@ -884,6 +884,7 @@ onBeforeUnmount(() => {
             color: $neutral-black;
             font-family: Hauora-Medium;
             font-size: 16px;
+            font-weight: normal;
             overflow-wrap: anywhere;
           }
         }

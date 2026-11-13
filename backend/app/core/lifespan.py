@@ -27,6 +27,13 @@ async def lifespan(app) -> AsyncIterator[None]:
             await conn.execute(text("SELECT pg_advisory_xact_lock(20261020, 1)"))
             await conn.run_sync(Base.metadata.create_all)
 
+            await conn.execute(text("""
+                DELETE FROM user_blacklist AS b
+                USING users AS u
+                WHERE u.deleted_at IS NOT NULL
+                  AND (b.owner_id = u.id OR b.target_id = u.id)
+            """))
+
         async with SessionLocal() as session:
             await ensure_app_settings(session)
             await ensure_game_scoring_settings(session)

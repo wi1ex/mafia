@@ -2414,7 +2414,7 @@ async def get_moderation_target_user(
 
 
 async def set_user_deleted(session: AsyncSession, user_id: int, *, deleted: bool) -> User:
-    user = await session.get(User, int(user_id))
+    user = await session.get(User, int(user_id), with_for_update=True, populate_existing=True)
     if not user:
         raise HTTPException(status_code=404, detail="user_not_found")
 
@@ -2423,9 +2423,16 @@ async def set_user_deleted(session: AsyncSession, user_id: int, *, deleted: bool
     was_deleted = user.deleted_at is not None
     prev_avatar_name = cast(Optional[str], user.avatar_name)
     affected_friend_user_ids: tuple[int, ...] = ()
+    removed_blacklist_pairs: list[tuple[int, int]] = []
     subscription_deleted = False
     if deleted:
         _removed_friend_links, affected_friend_user_ids = await delete_friend_links_for_user(session, uid)
+        removed_blacklist = await session.execute(
+            delete(UserBlacklist)
+            .where(or_(UserBlacklist.owner_id == uid, UserBlacklist.target_id == uid))
+            .returning(UserBlacklist.owner_id, UserBlacklist.target_id)
+        )
+        removed_blacklist_pairs = [(owner_id, target_id) for owner_id, target_id in removed_blacklist]
         active_subscription = await session.scalar(
             select(UserSubscription).where(UserSubscription.user_id == uid).limit(1)
         )
@@ -2468,6 +2475,9 @@ async def set_user_deleted(session: AsyncSession, user_id: int, *, deleted: bool
         for other_user_id in affected_friend_user_ids:
             with suppress(Exception):
                 await emit_friends_update(int(other_user_id), uid, "none")
+        for owner_id, target_id in removed_blacklist_pairs:
+            await emit_blacklist_update(owner_id, target_id, blacklisted=False)
+            await emit_blacklist_update(target_id, owner_id, blacklisted_by_target=False)
     elif was_deleted:
         with suppress(Exception):
             await broadcast_creator_rooms(uid, update_name=user.username)
