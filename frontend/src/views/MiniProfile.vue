@@ -4109,7 +4109,7 @@ onBeforeUnmount(() => {
             color: $neutral-100;
             font-family: Hauora-Medium;
             font-size: 16px;
-            line-height: 18px;
+            line-height: 20px;
             img {
               flex: 0 0 24px;
               width: 24px;
