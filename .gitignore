@@ -4,4 +4,5 @@
 **/dist
 **/__pycache__/
 **/*.pyc
-/REVERT_NOTES.md
+/graphify-out/
+/AGENTS.md
