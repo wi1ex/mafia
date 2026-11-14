@@ -704,10 +704,7 @@ async def search_multiaccounts(
     payload: AdminMultiaccountSearchIn,
     session: AsyncSession = Depends(get_session),
 ) -> AdminMultiaccountSearchOut:
-    try:
-        scan = MultiaccountScan(payload.month)
-    except (ValueError, OverflowError):
-        raise HTTPException(status_code=422, detail="invalid_month")
+    scan = MultiaccountScan(payload.start_date)
 
     rows = await session.stream(
         select(AppLog.user_id, AppLog.username, AppLog.action, AppLog.details, AppLog.created_at)
@@ -715,7 +712,6 @@ async def search_multiaccounts(
             AppLog.action.in_(MULTIACCOUNT_ACTIONS),
             AppLog.user_id > 0,
             AppLog.created_at >= scan.start,
-            AppLog.created_at < scan.end,
         )
         .execution_options(yield_per=1000)
     )
@@ -753,7 +749,7 @@ async def search_multiaccounts(
         items.append(AdminMultiaccountGroupOut(kind=group.kind, value=group.value, users=users))
 
     return AdminMultiaccountSearchOut(
-        month=payload.month,
+        start_date=payload.start_date,
         logs_scanned=scan.logs_scanned,
         users_scanned=len(scan.usernames),
         items=items,

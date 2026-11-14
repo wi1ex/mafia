@@ -1188,21 +1188,21 @@
         <div v-else-if="activeTab === 'multiaccounts'" class="multiaccounts-tab" :aria-busy="multiaccountsLoading">
           <form class="filters" @submit.prevent="searchMultiaccounts">
             <div class="field">
-              <UiInput class="admin-input" size="low" id="multiaccounts-month" v-model="multiaccountsMonth" type="month" label="Месяц" required :disabled="multiaccountsLoading" />
+              <UiInput class="admin-input" size="low" id="multiaccounts-start-date" v-model="multiaccountsStartDate" type="date" label="Дата начала (UTC)" required :disabled="multiaccountsLoading" />
             </div>
-            <UiButton variant="green" size="low" type="submit" :disabled="multiaccountsLoading || !multiaccountsMonthValid">
+            <UiButton variant="green" size="low" type="submit" :disabled="multiaccountsLoading || !multiaccountsStartDateValid">
               {{ multiaccountsLoading ? 'Поиск…' : 'Поиск' }}
             </UiButton>
           </form>
-          <div v-if="multiaccountsLoading" class="multiaccounts-state" role="status">Проверяем логи выбранного месяца…</div>
+          <div v-if="multiaccountsLoading" class="multiaccounts-state" role="status">Проверяем логи начиная с выбранной даты…</div>
           <div v-else-if="multiaccountsError" class="multiaccounts-state multiaccounts-error" role="alert">{{ multiaccountsError }}</div>
           <div v-else-if="!multiaccountsResult" class="multiaccounts-state">
-            Выберите месяц и нажмите «Поиск», чтобы найти пересечения между пользователями.
+            Выберите дату, с которой нужно искать пересечения между пользователями.
           </div>
           <template v-else>
             <div class="multiaccounts-summary" role="status">
               <div>
-                <strong>{{ multiaccountsResultMonthLabel }}</strong>
+                <strong>{{ multiaccountsResultStartDateLabel }}</strong>
                 <span>Групп пересечений: {{ multiaccountsResult.items.length }} · Пользователей: {{ multiaccountsMatchedUsers }}</span>
                 <span>Проверено событий: {{ multiaccountsResult.logs_scanned }} · Пользователей в логах: {{ multiaccountsResult.users_scanned }}</span>
               </div>
@@ -1269,7 +1269,7 @@
                   <tbody v-if="!multiaccountsFilteredItems.length">
                     <tr>
                       <td colspan="6" class="muted">
-                        {{ multiaccountsResult.items.length ? 'Нет пересечений по выбранным фильтрам' : 'За выбранный месяц пересечений не найдено' }}
+                        {{ multiaccountsResult.items.length ? 'Нет пересечений по выбранным фильтрам' : 'Пересечений за этот период не найдено' }}
                       </td>
                     </tr>
                   </tbody>
@@ -2001,7 +2001,7 @@ type MultiaccountGroup = {
   users: MultiaccountUser[]
 }
 type MultiaccountResult = {
-  month: string
+  start_date: string
   logs_scanned: number
   users_scanned: number
   items: MultiaccountGroup[]
@@ -2363,7 +2363,7 @@ const logsUser = ref('')
 const logsDay = ref('')
 const logsAutoRefreshEnabled = ref(false)
 
-const multiaccountsMonth = ref('')
+const multiaccountsStartDate = ref('')
 const multiaccountsLoading = ref(false)
 const multiaccountsError = ref('')
 const multiaccountsResult = ref<MultiaccountResult | null>(null)
@@ -2372,10 +2372,11 @@ const multiaccountsQuery = ref('')
 const multiaccountsPage = ref(1)
 const multiaccountsLimit = ref(20)
 const multiaccountsAbortController = new AbortController()
-const multiaccountsMonthValid = computed(() => /^[0-9]{4}-(0[1-9]|1[0-2])$/.test(multiaccountsMonth.value))
-const multiaccountsResultMonthLabel = computed(() => {
-  const month = multiaccountsResult.value?.month
-  return month ? formatLocalDateTime(`${month}-01T00:00:00Z`, { month: 'long', year: 'numeric', timeZone: 'UTC' }, 'ru-RU') : ''
+const multiaccountsStartDateValid = computed(() => /^\d{4}-\d{2}-\d{2}$/.test(multiaccountsStartDate.value))
+const multiaccountsResultStartDateLabel = computed(() => {
+  const startDate = multiaccountsResult.value?.start_date
+  if (!startDate) return ''
+  return `С ${formatLocalDateTime(startDate, { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' }, 'ru-RU')}`
 })
 const multiaccountsMatchedUsers = computed(() => new Set(
   multiaccountsResult.value?.items.flatMap(group => group.users.map(user => user.user_id)) ?? [],
@@ -2413,19 +2414,19 @@ function openMultiaccountUserMiniProfile(user: MultiaccountUser): void {
 }
 
 async function searchMultiaccounts(): Promise<void> {
-  if (multiaccountsLoading.value || !multiaccountsMonthValid.value) return
+  if (multiaccountsLoading.value || !multiaccountsStartDateValid.value) return
   multiaccountsLoading.value = true
   multiaccountsError.value = ''
   try {
     const { data } = await api.post<MultiaccountResult>('/admin/multiaccounts/search', {
-      month: multiaccountsMonth.value,
+      start_date: multiaccountsStartDate.value,
     }, { timeout: 60_000, signal: multiaccountsAbortController.signal })
     multiaccountsResult.value = data
     multiaccountsPage.value = 1
   } catch (error: any) {
     if (multiaccountsAbortController.signal.aborted) return
     multiaccountsError.value = error?.response?.status === 422
-      ? 'Укажите корректный месяц для поиска'
+      ? 'Укажите корректную дату начала поиска'
       : 'Не удалось выполнить поиск. Попробуйте ещё раз.'
   } finally {
     multiaccountsLoading.value = false
@@ -4835,7 +4836,7 @@ onMounted(() => {
   window.addEventListener('resize', closeTooltip)
   const now = new Date()
   statsMonth.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-  multiaccountsMonth.value = statsMonth.value
+  multiaccountsStartDate.value = `${statsMonth.value}-01`
   refreshActiveTab(activeTab.value)
   const requestedTab = normalizeTab(route.query.tab)
   if (typeof route.query.tab === 'string' && requestedTab !== activeTab.value) {

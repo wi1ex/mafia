@@ -3039,7 +3039,7 @@ onBeforeUnmount(() => {
     flex-direction: column;
     padding: var(--mini-profile-padding);
     gap: 16px;
-    width: 728px;
+    width: 732px;
     max-height: var(--mini-profile-max-content-height);
     border-radius: 24px;
     background-color: var(--user-theme-bg, $neutral-black);
@@ -4003,7 +4003,7 @@ onBeforeUnmount(() => {
         list-style: none;
         .profile-gift-tile {
           position: relative;
-          flex: 0 0 clamp(131px, 15%, 131px);
+          flex: 0 0 clamp(132px, 15%, 132px);
           aspect-ratio: 1;
           &:first-child {
             margin-inline-start: auto;
@@ -4355,7 +4355,7 @@ onBeforeUnmount(() => {
           padding: 2px var(--profile-info-role-padding, 10px);
           border-radius: 999px;
           color: $neutral-white;
-          font-family: Hauora-SemiBold;
+          font-family: Hauora-Regular;
           font-size: 14px;
           line-height: 18px;
           white-space: nowrap;

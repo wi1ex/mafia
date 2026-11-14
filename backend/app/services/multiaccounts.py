@@ -1,7 +1,7 @@
 from __future__ import annotations
 import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, time, timezone
 from ipaddress import ip_address
 from typing import Literal
 
@@ -9,20 +9,9 @@ from typing import Literal
 MultiaccountKind = Literal["telegram", "browser", "ip"]
 AUTH_ACTIONS = frozenset({"login", "register", "login_pwa", "register_pwa"})
 MULTIACCOUNT_ACTIONS = AUTH_ACTIONS | {"telegram_verified"}
-_MONTH_RE = re.compile(r"[0-9]{4}-(?:0[1-9]|1[0-2])")
 _BROWSER_RE = re.compile(r"[0-9a-fA-F]{32}")
 _TELEGRAM_RE = re.compile(r"(?:^|\s)tg_id=([0-9]+)(?=\s|$)")
 _KIND_ORDER = {"telegram": 0, "browser": 1, "ip": 2}
-
-
-def multiaccount_month_range(month: str) -> tuple[datetime, datetime]:
-    if not _MONTH_RE.fullmatch(month):
-        raise ValueError("invalid_month")
-
-    year, number = map(int, month.split("-"))
-    start = datetime(year, number, 1, tzinfo=timezone.utc)
-    end = datetime(year + (number == 12), number % 12 + 1, 1, tzinfo=timezone.utc)
-    return start, end
 
 
 def log_identifiers(action: str, details: str) -> list[tuple[MultiaccountKind, str]]:
@@ -74,8 +63,8 @@ class MultiaccountGroup:
 
 
 class MultiaccountScan:
-    def __init__(self, month: str):
-        self.start, self.end = multiaccount_month_range(month)
+    def __init__(self, start_date: date):
+        self.start = datetime.combine(start_date, time.min, tzinfo=timezone.utc)
         self.logs_scanned = 0
         self.usernames: dict[int, tuple[datetime, str | None]] = {}
         self._groups: dict[
@@ -89,7 +78,7 @@ class MultiaccountScan:
         if action not in MULTIACCOUNT_ACTIONS or not user_id or user_id <= 0:
             return
 
-        if not self.start <= created_at < self.end:
+        if created_at < self.start:
             return
 
         self.logs_scanned += 1

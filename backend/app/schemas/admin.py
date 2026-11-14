@@ -1,5 +1,5 @@
 from __future__ import annotations
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 from typing import Annotated, Optional, List, Literal
 from pydantic import AfterValidator, BaseModel, Field, field_validator
@@ -442,7 +442,7 @@ class AdminLogActionsOut(BaseModel):
 
 
 class AdminMultiaccountSearchIn(BaseModel):
-    month: str = Field(pattern=r"^[0-9]{4}-(?:0[1-9]|1[0-2])$")
+    start_date: date
 
 
 class AdminMultiaccountUserOut(BaseModel):
@@ -463,7 +463,7 @@ class AdminMultiaccountGroupOut(BaseModel):
 
 
 class AdminMultiaccountSearchOut(BaseModel):
-    month: str
+    start_date: date
     logs_scanned: int
     users_scanned: int
     items: List[AdminMultiaccountGroupOut]
