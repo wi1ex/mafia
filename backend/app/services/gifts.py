@@ -42,7 +42,7 @@ _GIFT_OWNER_EVENT_KEY_SUFFIX = ":owner"
 async def gift_catalog(session: AsyncSession) -> list[Gift]:
     rows = await session.scalars(
         select(Gift).where(Gift.visible.is_(True), Gift.deleted_at.is_(None))
-        .order_by(Gift.price_dc, Gift.id)
+        .order_by(Gift.price_dc.asc(), Gift.id.desc())
     )
     return list(rows.all())
 

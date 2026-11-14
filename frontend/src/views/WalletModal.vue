@@ -19,24 +19,21 @@
             </template>
             <template v-else>
               <header class="wallet-header" :class="{ 'wallet-header--gift': isGift }">
-                <div class="wallet-heading">
-                  <h2 id="wallet-title">{{ isGift ? lockedTab === 'gifts' ? 'Отправить подарок' : 'Подарить подписку' : 'Магазин' }}</h2>
-                </div>
+                <h2 v-if="!isSendingGift" id="wallet-title" class="wallet-heading">{{ isGift ? 'Подарить подписку' : 'Магазин' }}</h2>
                 <UiButton class="wallet-close" variant="white" size="low" :icon="iconClose" aria-label="Закрыть" :disabled="busy" @click="requestClose" />
+                <UiButton v-if="isSendingGift && selectedGift && !catalogError" class="wallet-gift-back wallet-gift-back--header"
+                          type="button" variant="white" size="big" :icon="iconArrowDown" text="Назад"
+                          :disabled="busy || opening" @click="closeGiftPreview" />
                 <UiMultiSwitch v-if="!isGift" class="wallet-tabs" :model-value="tab" :options="walletTabs" size="big"
                                aria-label="Разделы магазина" :disabled="busy || opening" @update:model-value="changeTab" />
                 <div v-else class="wallet-gift-recipient">
-                  <span>Пользователю</span>
+                  <h2 v-if="isSendingGift" id="wallet-title" class="wallet-heading">Отправить подарок</h2>
                   <div class="wallet-gift-user">
                     <img v-minio-img="{ key: giftAvatarKey, placeholder: defaultAvatar, lazy: false }" alt="" />
                     <strong>{{ giftRecipientName }}</strong>
                   </div>
                 </div>
               </header>
-              <UiSwitch v-if="isGift && (lockedTab === 'subscription' || (lockedTab === 'gifts' && !catalogError))"
-                        v-model="anonymousGift" class="wallet-gift-anonymous"
-                        label="Отправить анонимно" off-label="Нет" on-label="Да" theme="light" size="low"
-                        :width="144" :disabled="busy || opening" />
               <div v-if="!isGift" v-show="tab === 'coins'" id="wallet-coins" role="region" aria-label="Пополнение баланса" class="wallet-panel">
                 <form class="wallet-form" @submit.prevent="payCoins">
                   <div class="wallet-package-grid" role="group" aria-label="Пакет DC">
@@ -115,13 +112,18 @@
                       </li>
                     </ul>
                   </div>
-                  <div class="wallet-action-row">
-                    <div class="wallet-balance" role="status" :aria-label="`Баланс: ${balanceText} DC`">
-                      <strong>{{ balanceText }}</strong>
-                      <UiIcon class="wallet-balance-icon" :icon="iconCoin" />
+                  <div class="wallet-form-footer">
+                    <UiSwitch v-if="isGift" v-model="anonymousGift" class="wallet-gift-anonymous"
+                              label="Отправить анонимно" off-label="Нет" on-label="Да" theme="light" size="low"
+                              :width="144" :disabled="busy || opening" />
+                    <div class="wallet-action-row" :class="{ 'wallet-action-row--right': isGift }">
+                      <div class="wallet-balance" role="status" :aria-label="`Баланс: ${balanceText} DC`">
+                        <strong>{{ balanceText }}</strong>
+                        <UiIcon class="wallet-balance-icon" :icon="iconCoin" />
+                      </div>
+                      <UiButton class="wallet-action" type="submit" size="big" :text="subscriptionButtonText"
+                                :disabled="!canAffordSubscription || !giftRecipientValid || busy || opening" />
                     </div>
-                    <UiButton class="wallet-action" type="submit" size="big" :text="subscriptionButtonText"
-                              :disabled="!canAffordSubscription || !giftRecipientValid || busy || opening" />
                   </div>
                 </form>
               </div>
@@ -133,10 +135,13 @@
                 <form v-else-if="selectedGift" class="wallet-form wallet-gift-detail" @submit.prevent="purchaseGift">
                   <GiftMedia :key="selectedGift.id" class="wallet-gift-preview" :media="selectedGift" :animated="!giftAnimationDemo"
                              :label="`Подарок №${selectedGift.id}`" />
-                  <div class="wallet-gift-actions">
-                    <UiButton class="wallet-gift-back" type="button" variant="white" size="big" :icon="iconArrowDown"
+                  <div class="wallet-form-footer">
+                    <UiSwitch v-if="isGift" v-model="anonymousGift" class="wallet-gift-anonymous"
+                              label="Отправить анонимно" off-label="Нет" on-label="Да" theme="light" size="low"
+                              :width="144" :disabled="busy || opening" />
+                    <UiButton v-else class="wallet-gift-back" type="button" variant="white" size="big" :icon="iconArrowDown"
                               text="Назад" :disabled="busy || opening" @click="closeGiftPreview" />
-                    <div class="wallet-action-row wallet-gift-purchase-actions">
+                    <div class="wallet-action-row wallet-action-row--right">
                       <div class="wallet-balance" role="status" :aria-label="`Баланс: ${balanceText} DC`">
                         <strong>{{ balanceText }}</strong>
                         <UiIcon class="wallet-balance-icon" :icon="iconCoin" />
@@ -160,6 +165,9 @@
                 </template>
                 <GiftOpeningModal v-if="giftAnimationDemo" :gift="giftAnimationDemo" demo @close="closeGiftAnimationDemo" />
               </div>
+              <UiSwitch v-if="isSendingGift && !selectedGift && !catalogError" v-model="anonymousGift" class="wallet-gift-anonymous"
+                        label="Отправить анонимно" off-label="Нет" on-label="Да" theme="light" size="low"
+                        :width="144" :disabled="busy || opening" />
             </template>
           </section>
           <UiScrollbar class="wallet-modal-scrollbar" :target="dialog" :inset-top="16" :inset-bottom="16" right="8px" />
@@ -245,6 +253,7 @@ const giftList = ref<HTMLElement | null>(null)
 const giftRecipientSnapshot = ref<GiftRecipient | null>(null)
 const lockedTab = ref<'subscription' | 'gifts' | null>(null)
 const isGift = computed(() => giftRecipientSnapshot.value !== null)
+const isSendingGift = computed(() => lockedTab.value === 'gifts')
 const giftRecipientName = computed(() => giftRecipientSnapshot.value?.username || `user${giftRecipientSnapshot.value?.user_id}`)
 const giftAvatarKey = computed(() => {
   const name = String(giftRecipientSnapshot.value?.avatar_name || '').trim()
@@ -423,7 +432,7 @@ async function refreshGiftCatalog(): Promise<void> {
   try {
     const catalog = await loadGiftCatalog(request.signal)
     if (request.signal.aborted) return
-    giftCatalog.value = catalog.filter(gift => gift.visible).sort((a, b) => a.price_dc - b.price_dc || a.id - b.id)
+    giftCatalog.value = catalog.filter(gift => gift.visible)
     if (!selectedGift.value) selectedGiftId.value = null
   } catch {
     if (!request.signal.aborted) {
@@ -802,6 +811,11 @@ onBeforeUnmount(() => {
       .wallet-gift-recipient {
         grid-area: 1 / 2;
       }
+      .wallet-gift-back--header {
+        grid-area: 1 / 1;
+        justify-self: start;
+        max-width: 100%;
+      }
       .wallet-close {
         grid-row: 1;
         grid-column: -2;
@@ -815,50 +829,48 @@ onBeforeUnmount(() => {
       }
       .wallet-heading {
         min-width: 0;
-        h2 {
-          font-weight: normal;
-          font-family: Involve-Medium;
-          font-size: 28px;
-          line-height: 28px;
-          letter-spacing: -0.48px;
-          margin: 0;
-          overflow-wrap: anywhere;
-        }
+        font-weight: normal;
+        font-family: Involve-Medium;
+        font-size: 28px;
+        line-height: 28px;
+        letter-spacing: -0.48px;
+        margin: 0;
+        overflow-wrap: anywhere;
       }
       .wallet-gift-recipient {
         display: flex;
+        flex-direction: column;
         align-items: center;
         justify-self: center;
-        flex-wrap: wrap;
         gap: 8px;
-        padding: 8px 16px;
         max-width: 100%;
-        box-sizing: border-box;
-        border-radius: 16px;
-        background: $neutral-white;
-        > span {
-          color: $neutral-black;
-          font-size: 14px;
-        }
+        text-align: center;
         .wallet-gift-user {
           display: flex;
           align-items: center;
-          gap: 4px;
+          gap: 10px;
           min-width: 0;
+          max-width: 100%;
+          padding: 6px 14px 6px 6px;
+          box-sizing: border-box;
+          border-radius: 999px;
+          background-color: $green-100;
+          color: $green-700;
+          text-align: start;
           img {
             display: block;
-            flex: 0 0 24px;
-            width: 24px;
-            height: 24px;
+            flex: 0 0 32px;
+            width: 32px;
+            height: 32px;
             border-radius: 50%;
             object-fit: cover;
           }
           strong {
             min-width: 0;
-            color: $neutral-black;
-            font-family: Hauora-Medium;
-            font-size: 16px;
+            font-family: Hauora-Bold;
+            font-size: 18px;
             font-weight: normal;
+            line-height: 22px;
             overflow-wrap: anywhere;
           }
         }
@@ -868,9 +880,12 @@ onBeforeUnmount(() => {
       margin: 0;
     }
     .wallet-gift-anonymous {
+      flex-shrink: 0;
       width: 310px;
       max-width: 100%;
-      margin-left: auto;
+    }
+    .wallet-gift-back :deep(.ui-button__icon) {
+      transform: rotate(90deg);
     }
     .wallet-choice,
     .wallet-action {
@@ -923,6 +938,15 @@ onBeforeUnmount(() => {
     .wallet-action {
       width: fit-content;
     }
+    .wallet-form-footer {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      > .wallet-action-row:only-child {
+        margin-inline: auto;
+      }
+    }
     .wallet-action-row {
       display: flex;
       flex-wrap: wrap;
@@ -930,6 +954,10 @@ onBeforeUnmount(() => {
       justify-content: center;
       gap: 8px;
       max-width: 100%;
+      &--right {
+        justify-content: flex-end;
+        margin-left: auto;
+      }
       .wallet-balance {
         display: flex;
         align-items: center;
@@ -940,7 +968,8 @@ onBeforeUnmount(() => {
         padding: 4px 16px;
         box-sizing: border-box;
         border-radius: 16px;
-        background-color: $neutral-white;
+        background: linear-gradient(261deg, $soft-purple-800 0%, $green-700 100%);
+        color: $neutral-100;
         strong {
           min-width: 0;
           font-family: Hauora-Bold;
@@ -989,7 +1018,7 @@ onBeforeUnmount(() => {
         background: $green-100;
         color: $green-700;
         font-size: 18px;
-        line-height: 20px;
+        line-height: 19px;
         overflow-wrap: anywhere;
       }
       .wallet-gift-grid {
@@ -1031,9 +1060,8 @@ onBeforeUnmount(() => {
         display: flex;
         position: relative;
         flex-direction: column;
-        padding: 12px 20px 16px;
-        margin: -5px 0;
-        gap: 16px;
+        padding: 24px;
+        gap: 24px;
         border-radius: 24px;
         background: $soft-purple-900;
         .background-image {
@@ -1050,7 +1078,7 @@ onBeforeUnmount(() => {
           margin: 0;
           color: $neutral-white;
           font-family: Involve-Medium;
-          font-size: 22px;
+          font-size: 24px;
           font-weight: 500;
           line-height: 24px;
           text-align: center;
@@ -1058,7 +1086,7 @@ onBeforeUnmount(() => {
         .wallet-benefits {
           display: grid;
           grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 2px;
+          gap: 4px;
           margin: 0;
           padding: 0;
           list-style: none;
@@ -1088,7 +1116,8 @@ onBeforeUnmount(() => {
         flex: 1 0 auto;
         flex-direction: column;
         gap: 24px;
-        > .wallet-action-row {
+        > .wallet-action-row,
+        > .wallet-form-footer {
           margin-top: auto;
         }
         &.wallet-gift-detail {
@@ -1098,19 +1127,6 @@ onBeforeUnmount(() => {
           .wallet-gift-preview {
             flex: 1 1 0;
             min-height: 96px;
-          }
-          .wallet-gift-actions {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            gap: 8px;
-            .wallet-gift-back :deep(.ui-button__icon) {
-              transform: rotate(90deg);
-            }
-            .wallet-gift-purchase-actions {
-              justify-content: flex-end;
-              margin-left: auto;
-            }
           }
         }
         .wallet-payment-fields {
