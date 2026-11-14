@@ -19,15 +19,17 @@
             </template>
             <template v-else>
               <header class="wallet-header" :class="{ 'wallet-header--gift': isGift }">
-                <h2 v-if="!isSendingGift" id="wallet-title" class="wallet-heading">{{ isGift ? 'Подарить подписку' : 'Магазин' }}</h2>
+                <h2 v-if="!showGiftBackInHeader" id="wallet-title" class="wallet-heading">
+                  {{ !isGift ? 'Магазин' : isSendingGift ? 'Отправить подарок' : 'Подарить подписку' }}
+                </h2>
                 <UiButton class="wallet-close" variant="white" size="low" :icon="iconClose" aria-label="Закрыть" :disabled="busy" @click="requestClose" />
-                <UiButton v-if="isSendingGift && selectedGift && !catalogError" class="wallet-gift-back wallet-gift-back--header"
+                <UiButton v-if="showGiftBackInHeader" class="wallet-gift-back wallet-gift-back--header"
                           type="button" variant="white" size="big" :icon="iconArrowDown" text="Назад"
                           :disabled="busy || opening" @click="closeGiftPreview" />
                 <UiMultiSwitch v-if="!isGift" class="wallet-tabs" :model-value="tab" :options="walletTabs" size="big"
                                aria-label="Разделы магазина" :disabled="busy || opening" @update:model-value="changeTab" />
                 <div v-else class="wallet-gift-recipient">
-                  <h2 v-if="isSendingGift" id="wallet-title" class="wallet-heading">Отправить подарок</h2>
+                  <h2 v-if="showGiftBackInHeader" id="wallet-title" class="wallet-heading">Отправить подарок</h2>
                   <div class="wallet-gift-user">
                     <img v-minio-img="{ key: giftAvatarKey, placeholder: defaultAvatar, lazy: false }" alt="" />
                     <strong>{{ giftRecipientName }}</strong>
@@ -165,9 +167,6 @@
                 </template>
                 <GiftOpeningModal v-if="giftAnimationDemo" :gift="giftAnimationDemo" demo @close="closeGiftAnimationDemo" />
               </div>
-              <UiSwitch v-if="isSendingGift && !selectedGift && !catalogError" v-model="anonymousGift" class="wallet-gift-anonymous"
-                        label="Отправить анонимно" off-label="Нет" on-label="Да" theme="light" size="low"
-                        :width="144" :disabled="busy || opening" />
             </template>
           </section>
           <UiScrollbar class="wallet-modal-scrollbar" :target="dialog" :inset-top="16" :inset-bottom="16" right="8px" />
@@ -335,6 +334,7 @@ const subscriptionButtonText = computed(() => {
 })
 const canPay = computed(() => !isGift.value && settings.paymentsEnabled && !busy.value && !opening.value && !restriction.value && email.value.trim().length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim()))
 const selectedGift = computed(() => giftCatalog.value.find(item => item.id === selectedGiftId.value))
+const showGiftBackInHeader = computed(() => isSendingGift.value && Boolean(selectedGift.value) && !catalogError.value)
 const canAffordGift = computed(() => !!selectedGift.value && wallet.balance >= selectedGift.value.price_dc)
 const canBuyGift = computed(() => canAffordGift.value
   && giftRecipientValid.value && !busy.value && !opening.value && !catalogLoading.value && !catalogError.value)
