@@ -55,7 +55,7 @@
                         <UiIcon :icon="iconCheckMark" />
                       </span>
                       <img class="wallet-package-illustration wallet-coin-illustration" :src="coinPackageImages[coinPackage.quantity]"
-                           width="512" height="384" alt="" loading="lazy" decoding="async" />
+                           width="264" height="264" alt="" loading="lazy" decoding="async" />
                       <strong class="wallet-package-title">{{ coinPackage.quantity }} DC</strong>
                       <span class="wallet-package-price">
                         <span>{{ coinPackage.amount }} {{ coinPackage.unit }}</span>
@@ -179,10 +179,10 @@ import UiSwitch from '@/components/UiSwitch.vue'
 import GiftOpeningModal from '@/views/GiftOpeningModal.vue'
 
 import imageSlide8 from '@/assets/images/carousel-image8.png'
-import coinsSmall from '@/assets/images/coinsSmall.webp'
-import coinsMedium from '@/assets/images/coinsMedium.webp'
-import coinsLarge from '@/assets/images/coinsLarge.webp'
-import coinsExtraLarge from '@/assets/images/coinsExtraLarge.webp'
+import coinsSmall from '@/assets/images/coinsSmall.png'
+import coinsMedium from '@/assets/images/coinsMedium.png'
+import coinsLarge from '@/assets/images/coinsLarge.png'
+import coinsExtraLarge from '@/assets/images/coinsExtraLarge.png'
 import subWeek from '@/assets/images/subWeek.png'
 import subMonth from '@/assets/images/subMonth.png'
 import subThreeMonths from '@/assets/images/subThreeMonths.png'
