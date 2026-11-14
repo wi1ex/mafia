@@ -59,7 +59,7 @@
                     <div class="wallet-payment-field">
                       <label for="dc-email" class="wallet-payment-label">Ваш Email</label>
                       <UiInput id="dc-email" v-model.trim="email" type="email" autocomplete="email" label="" label-mode="placeholder"
-                               placeholder="mail@example.com" mode="light" size="low" :disabled="busy || opening" />
+                               placeholder="mail@example.com" mode="light" size="high" :disabled="busy || opening" />
                     </div>
                     <div class="wallet-payment-field">
                       <span id="wallet-currency-label" class="wallet-payment-label">Валюта оплаты</span>
@@ -81,7 +81,7 @@
                   </div>
                   <div class="wallet-action-row">
                     <div class="wallet-balance" role="status" :aria-label="`Баланс: ${balanceText} DC`">
-                      <strong>{{ balanceText }}</strong>
+                      <strong>Баланс: {{ balanceText }}</strong>
                       <UiIcon class="wallet-balance-icon" :icon="iconCoin" />
                     </div>
                     <UiButton class="wallet-action" type="submit" size="big" :text="wallet.invoiceBusy ? 'Создаём счёт…' : `Оплатить ${totalPrice}`" :disabled="!canPay" />
@@ -117,7 +117,7 @@
                   </div>
                   <div class="wallet-action-row">
                     <div class="wallet-balance" role="status" :aria-label="`Баланс: ${balanceText} DC`">
-                      <strong>{{ balanceText }}</strong>
+                      <strong>Баланс: {{ balanceText }}</strong>
                       <UiIcon class="wallet-balance-icon" :icon="iconCoin" />
                     </div>
                     <UiButton class="wallet-action" type="submit" size="big" :text="subscriptionButtonText"
@@ -141,7 +141,7 @@
                                 :disabled="busy || opening" @click="openGiftAnimationDemo" />
                       <div class="wallet-action-row">
                         <div class="wallet-balance" role="status" :aria-label="`Баланс: ${balanceText} DC`">
-                          <strong>{{ balanceText }}</strong>
+                          <strong>Баланс: {{ balanceText }}</strong>
                           <UiIcon class="wallet-balance-icon" :icon="iconCoin" />
                         </div>
                         <UiButton class="wallet-action" type="submit" size="big" :text="giftButtonText" :disabled="!canBuyGift" />
@@ -724,7 +724,7 @@ onBeforeUnmount(() => {
     display: flex;
     position: relative;
     flex-direction: column;
-    width: 700px;
+    width: 988px;
     height: 632px;
     max-width: 100%;
     max-height: 100%;
@@ -795,8 +795,8 @@ onBeforeUnmount(() => {
     .wallet-header {
       display: grid;
       grid-template-columns: minmax(24px, 1fr) minmax(0, 60%) minmax(24px, 1fr);
-      align-items: center;
-      gap: 8px;
+      align-items: flex-start;
+      gap: 10px;
       &--gift {
         grid-template-columns: minmax(24px, 1fr) minmax(0, 40%) minmax(24px, 1fr);
       }
@@ -884,6 +884,7 @@ onBeforeUnmount(() => {
       overflow-wrap: anywhere;
     }
     .wallet-choice {
+      --ui-button-height: 48px;
       --ui-button-padding-x: 8px;
       --ui-button-radius: 999px;
       --ui-button-color: #{$neutral-400};
@@ -984,12 +985,12 @@ onBeforeUnmount(() => {
         gap: 0 4px;
         max-width: 100%;
         margin-top: auto;
-        padding: 3px 9px;
+        padding: 4px 12px;
         box-sizing: border-box;
         border-radius: 999px;
         background: $green-100;
         color: $green-700;
-        font-size: 16px;
+        font-size: 18px;
         line-height: 20px;
         overflow-wrap: anywhere;
       }
@@ -1160,9 +1161,9 @@ onBeforeUnmount(() => {
             position: relative;
             flex-direction: column;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
             min-width: 0;
-            padding: 26px 8px 14px;
+            padding: 40px 12px 24px;
             border: 2px solid transparent;
             border-radius: 20px;
             background: $neutral-white;
@@ -1224,16 +1225,16 @@ onBeforeUnmount(() => {
               display: block;
               flex: 0 0 auto;
               width: 100%;
-              height: 65px;
+              height: 132px;
               object-fit: contain;
             }
             .wallet-package-title {
               max-width: 100%;
-              margin-top: 4px;
+              margin-top: 16px;
               font-family: Involve-Medium;
-              font-size: 20px;
+              font-size: 24px;
               font-weight: 500;
-              line-height: 24px;
+              line-height: 26px;
               letter-spacing: -0.6px;
               text-align: center;
               overflow-wrap: anywhere;

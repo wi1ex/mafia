@@ -184,7 +184,9 @@
               <template v-if="view === 'profile'">
                 <div v-if="giftCollectionAllowed && (giftPreview || giftPreviewError)" class="profile-gifts-preview">
                   <div class="profile-gifts-heading">
-                    <span>{{ giftPreview?.total ? `Подарки — ${giftPreview.total}` : 'Подарки' }}</span>
+                    <span v-if="giftPreview?.total">Подарки — {{ giftPreview.total }}</span>
+                    <span v-else-if="giftPreview?.total === 0 && !giftPreviewError">Подарков нет</span>
+                    <span v-else>Подарки</span>
                     <button v-if="giftPreview?.total" ref="allGiftsTrigger" type="button" @click="view = 'gifts'">Все подарки</button>
                   </div>
                   <div v-if="giftPreviewError" class="profile-gifts-state" role="alert">
@@ -200,10 +202,9 @@
                     </ul>
                     <UiScrollbar class="profile-gifts-scrollbar" :target="giftStrip" orientation="horizontal" />
                   </template>
-                  <button v-else-if="giftPreview?.total === 0 && !giftPreviewError" class="profile-gift-placeholder"
-                          type="button" aria-label="Отправить подарок" :disabled="giftDisabled" @click="openGiftShop('gifts')">
+                  <div v-else-if="giftPreview?.total === 0 && !giftPreviewError" class="profile-gift-placeholder">
                     <img :src="iconGiftPH" width="70" height="67" alt="" />
-                  </button>
+                  </div>
                 </div>
               </template>
 
@@ -394,7 +395,7 @@
                     <span>Не удалось загрузить подарки</span>
                     <UiButton size="low" text="Повторить" @click="loadProfileGifts(false, allGiftsRetryAppend)" />
                   </div>
-                  <p v-else-if="!allGifts.items.length" class="profile-gifts-state">Подарков пока нет</p>
+                  <p v-else-if="!allGifts.items.length" class="profile-gifts-state">Подарков нет</p>
                   <UiButton v-else-if="allGifts.has_more" size="low" text="Показать ещё" :disabled="giftActionsBusy" @click="loadProfileGifts(false, true)" />
                 </div>
               </template>
@@ -3995,21 +3996,8 @@ onBeforeUnmount(() => {
         width: min(100%, 132px);
         aspect-ratio: 1;
         margin-inline: auto;
-        padding: 0;
-        border: 0;
         border-radius: 16px;
         background-color: $soft-purple-900;
-        transition: background-color 0.25s ease-in-out;
-        &:not(:disabled) {
-          cursor: pointer;
-          &:hover {
-            background-color: $soft-purple-800;
-          }
-        }
-        &:focus-visible {
-          outline: 2px solid $green-400;
-          outline-offset: 2px;
-        }
       }
       .profile-gifts-strip {
         display: flex;
