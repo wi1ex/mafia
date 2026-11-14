@@ -25,20 +25,18 @@
                 <UiButton class="wallet-close" variant="white" size="low" :icon="iconClose" aria-label="Закрыть" :disabled="busy" @click="requestClose" />
                 <UiMultiSwitch v-if="!isGift" class="wallet-tabs" :model-value="tab" :options="walletTabs" size="big"
                                aria-label="Разделы магазина" :disabled="busy || opening" @update:model-value="changeTab" />
-              </header>
-              <div v-if="isGift" class="wallet-gift-header">
-                <div class="wallet-gift-recipient">
+                <div v-else class="wallet-gift-recipient">
                   <span>Пользователю</span>
                   <div class="wallet-gift-user">
                     <img v-minio-img="{ key: giftAvatarKey, placeholder: defaultAvatar, lazy: false }" alt="" />
                     <strong>{{ giftRecipientName }}</strong>
                   </div>
                 </div>
-                <UiSwitch v-if="lockedTab === 'subscription' || (lockedTab === 'gifts' && !catalogError)"
-                          v-model="anonymousGift" class="wallet-gift-anonymous"
-                          label="Отправить анонимно" off-label="Нет" on-label="Да" theme="light" size="low"
-                          :width="144" :disabled="busy || opening" />
-              </div>
+              </header>
+              <UiSwitch v-if="isGift && (lockedTab === 'subscription' || (lockedTab === 'gifts' && !catalogError))"
+                        v-model="anonymousGift" class="wallet-gift-anonymous"
+                        label="Отправить анонимно" off-label="Нет" on-label="Да" theme="light" size="low"
+                        :width="144" :disabled="busy || opening" />
               <div v-if="!isGift" v-show="tab === 'coins'" id="wallet-coins" role="region" aria-label="Пополнение баланса" class="wallet-panel">
                 <form class="wallet-form" @submit.prevent="payCoins">
                   <div class="wallet-package-grid" role="group" aria-label="Пакет DC">
@@ -800,9 +798,10 @@ onBeforeUnmount(() => {
       align-items: center;
       gap: 8px;
       &--gift {
-        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-columns: minmax(24px, 1fr) minmax(0, 40%) minmax(24px, 1fr);
       }
-      .wallet-tabs {
+      .wallet-tabs,
+      .wallet-gift-recipient {
         grid-area: 1 / 2;
       }
       .wallet-close {
@@ -828,23 +827,11 @@ onBeforeUnmount(() => {
           overflow-wrap: anywhere;
         }
       }
-    }
-    p {
-      margin: 0;
-    }
-    .wallet-gift-header {
-      display: flex;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 8px;
-      .wallet-gift-anonymous {
-        width: 310px;
-        max-width: 100%;
-        margin-left: auto;
-      }
       .wallet-gift-recipient {
         display: flex;
         align-items: center;
+        justify-self: center;
+        flex-wrap: wrap;
         gap: 8px;
         padding: 8px 16px;
         max-width: 100%;
@@ -878,6 +865,14 @@ onBeforeUnmount(() => {
           }
         }
       }
+    }
+    p {
+      margin: 0;
+    }
+    .wallet-gift-anonymous {
+      width: 310px;
+      max-width: 100%;
+      margin-left: auto;
     }
     .wallet-choice,
     .wallet-action {
