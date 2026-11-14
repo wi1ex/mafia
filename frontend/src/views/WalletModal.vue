@@ -80,8 +80,7 @@
                   </div>
                   <div class="wallet-coins-footer">
                     <UiTooltip class="wallet-earn-tooltip" trigger-text="Как заработать?" placement="top-center"
-                               bubble-width="min(280px, 60vw)"
-                               text="Монеты DC можно заработать, проводя рейтинговые игры и повышая уровень в номинациях профиля." />
+                               bubble-width="320px" text="Монеты DC можно заработать, проводя рейтинговые игры и повышая уровень в номинациях профиля." />
                     <div class="wallet-action-row">
                       <div class="wallet-balance" role="status" :aria-label="`Баланс: ${balanceText} DC`">
                         <strong>{{ balanceText }}</strong>
@@ -952,11 +951,7 @@ onBeforeUnmount(() => {
       gap: 10px;
       .wallet-earn-tooltip {
         color: $neutral-600;
-        font-size: 14px;
-        :deep(.ui-tooltip__trigger-text) {
-          text-decoration: underline;
-          text-underline-offset: 3px;
-        }
+        font-size: 16px;
         :deep(.ui-tooltip__bubble) {
           box-sizing: border-box;
           text-align: start;
