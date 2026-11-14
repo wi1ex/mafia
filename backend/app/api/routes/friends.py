@@ -97,23 +97,22 @@ async def friend_status(user_id: int, ident: Identity = Depends(get_identity), d
 @rate_limited(lambda ident, **_: f"rl:friends:list:{ident['id']}", limit=10, window_s=1)
 async def friends_list(room_id: int | None = None, ident: Identity = Depends(get_identity), db: AsyncSession = Depends(get_session)) -> FriendsListOut:
     uid = int(ident["id"])
-    accepted_rows = await db.execute(
-        select(FriendLink)
-        .where(FriendLink.status == "accepted", or_(FriendLink.requester_id == uid, FriendLink.addressee_id == uid))
-    )
-    accepted = accepted_rows.scalars().all()
-
-    incoming_rows = await db.execute(
-        select(FriendLink)
-        .where(FriendLink.status == "pending", FriendLink.addressee_id == uid)
-    )
-    incoming = incoming_rows.scalars().all()
-
-    outgoing_rows = await db.execute(
-        select(FriendLink)
-        .where(FriendLink.status == "pending", FriendLink.requester_id == uid)
-    )
-    outgoing = outgoing_rows.scalars().all()
+    links = (await db.scalars(
+        select(FriendLink).where(
+            FriendLink.status.in_(("accepted", "pending")),
+            or_(FriendLink.requester_id == uid, FriendLink.addressee_id == uid),
+        )
+    )).all()
+    accepted: list[FriendLink] = []
+    incoming: list[FriendLink] = []
+    outgoing: list[FriendLink] = []
+    for link in links:
+        if link.status == "accepted":
+            accepted.append(link)
+        elif link.addressee_id == uid:
+            incoming.append(link)
+        else:
+            outgoing.append(link)
 
     friend_ids_all: list[int] = []
     for link in accepted:

@@ -3643,7 +3643,6 @@ async def fetch_games_history_page(
     mode_filter_raw = str(filters.get("mode") or "").strip().lower()
     mode_filter = mode_filter_raw if mode_filter_raw in {"normal", "rating"} else None
 
-    total_stmt = select(func.count(Game.id))
     result_stmt = select(Game.result, func.count(Game.id)).group_by(Game.result)
     rows_stmt = (
         select(
@@ -3688,27 +3687,25 @@ async def fetch_games_history_page(
         filter_exprs.append(Game.mode == mode_filter)
 
     if filter_exprs:
-        total_stmt = total_stmt.where(*filter_exprs)
         result_stmt = result_stmt.where(*filter_exprs)
         rows_stmt = rows_stmt.where(*filter_exprs)
 
-    total = int(await db.scalar(total_stmt) or 0)
-    pages = max(1, (total + per_page_i - 1) // per_page_i)
-    if page_num > pages:
-        page_num = pages
-    offset = (page_num - 1) * per_page_i
-
+    total = 0
     total_red_wins = 0
     total_black_wins = 0
     result_rows = await db.execute(result_stmt)
     for result_raw, count_raw in result_rows.all():
         cnt = max(0, safe_int(count_raw))
+        total += cnt
         normalized_result = normalize_game_result(result_raw)
         if normalized_result == "red":
             total_red_wins += cnt
         elif normalized_result == "black":
             total_black_wins += cnt
 
+    pages = max(1, (total + per_page_i - 1) // per_page_i)
+    page_num = min(page_num, pages)
+    offset = (page_num - 1) * per_page_i
     rows = await db.execute(rows_stmt.offset(offset).limit(per_page_i))
     raw_games = rows.all()
 

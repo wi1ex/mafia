@@ -756,7 +756,24 @@ export const useGlobalChatStore = defineStore('globalChat', () => {
   function mergeMessages(rawItems: unknown[]): { insertedIds: number[] } {
     if (!Array.isArray(rawItems) || rawItems.length === 0) return { insertedIds: [] }
     const viewerUserId = currentViewerUserId()
-    const nextById = new Map(messages.value.map((item) => [item.id, item]))
+    const currentMessages = messages.value
+    const first = rawItems[0]
+    if (rawItems.length === 1 && isRecord(first) && !first.deleted) {
+      const rawId = asPositiveInt(first.id)
+      const last = currentMessages.at(-1)
+      if (rawId > 0 && (!last || rawId >= last.id)) {
+        const previous = rawId === last?.id ? last : undefined
+        const normalized = normalizeMessage(first, viewerUserId, previous)
+        if (!normalized) return { insertedIds: [] }
+        const next = [...currentMessages]
+        if (previous) next[next.length - 1] = normalized
+        else next.push(normalized)
+        messages.value = next
+        return { insertedIds: previous ? [] : [rawId] }
+      }
+    }
+
+    const nextById = new Map(currentMessages.map((item) => [item.id, item]))
     const insertedIds: number[] = []
 
     for (const rawItem of rawItems) {

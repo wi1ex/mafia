@@ -272,8 +272,8 @@ import iconTwitch from '@/assets/svg/iconTwitch.svg'
 
 import iconNoRooms from '@/assets/images/noRooms.webp'
 import iconNoMembers from '@/assets/images/noMembers.webp'
-import imageSlide6 from '@/assets/images/carousel-image6.png'
-import imageSlide7 from '@/assets/images/carousel-image7.png'
+import imageSlide6 from '@/assets/images/carousel-image6.webp'
+import imageSlide7 from '@/assets/images/carousel-image7.webp'
 
 type Room = {
   id: number

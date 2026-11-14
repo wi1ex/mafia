@@ -545,6 +545,7 @@ const composerDisabled = computed(() => {
     || uploadingImage.value
 })
 const reactionPickerItems = computed(() => reactionsAllowlist.value.filter((item, index, list) => Boolean(item) && list.indexOf(item) === index))
+const reactionOrder = computed(() => new Map(reactionsAllowlist.value.map((emoji, index) => [emoji, index])))
 const reactionPickerStyle = computed(() => ({ '--reaction-picker-columns': Math.max(1, Math.ceil(reactionPickerItems.value.length / 2)) }))
 const reactionDetailsParticipants = computed(() => (
   reactionDetailsMessageId.value === null ? [] : reactionParticipantsFor(reactionDetailsMessageId.value, reactionDetailsEmoji.value)
@@ -1044,15 +1045,18 @@ function buildTextSegments(value: string, mentions: GlobalChatMention[] = []): T
   return segments.length ? segments : [{ kind: 'text', text }]
 }
 
+const draftMentions = computed(buildKnownDraftMentions)
+
 function buildDraftTextSegments(value: string): TextSegment[] {
-  return buildTextSegments(value, buildKnownDraftMentions())
+  return buildTextSegments(value, draftMentions.value)
 }
 
 function orderedReactions(message: GlobalChatMessage): GlobalChatReaction[] {
-  const order = new Map(reactionsAllowlist.value.map((emoji, index) => [emoji, index]))
+  if (message.reactions.length === 0) return []
+  const order = reactionOrder.value
   return message.reactions.filter((reaction) => reaction.count > 0).sort((left, right) => {
-    const leftOrder = order.has(left.emoji) ? Number(order.get(left.emoji)) : Number.MAX_SAFE_INTEGER
-    const rightOrder = order.has(right.emoji) ? Number(order.get(right.emoji)) : Number.MAX_SAFE_INTEGER
+    const leftOrder = order.get(left.emoji) ?? Number.MAX_SAFE_INTEGER
+    const rightOrder = order.get(right.emoji) ?? Number.MAX_SAFE_INTEGER
     if (leftOrder !== rightOrder) return leftOrder - rightOrder
     return left.emoji.localeCompare(right.emoji)
   })

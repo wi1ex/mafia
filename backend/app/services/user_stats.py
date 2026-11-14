@@ -99,52 +99,55 @@ async def _unlink_or_delete_keys(redis_client, keys: list[str]) -> None:
     await redis_client.delete(*keys)
 
 
+async def _invalidate_game_stats_cache_keys(redis_client, pattern: str, user_keys: set[str] | None = None) -> None:
+    keys_batch: list[str] = []
+    async for key in redis_client.scan_iter(match=pattern, count=SCAN_BATCH_SIZE):
+        if not key:
+            continue
+        key = str(key)
+        if user_keys is not None and key.partition(":stats:game:")[0] not in user_keys:
+            continue
+        keys_batch.append(key)
+        if len(keys_batch) >= SCAN_BATCH_SIZE:
+            await _unlink_or_delete_keys(redis_client, keys_batch)
+            keys_batch.clear()
+
+    if keys_batch:
+        await _unlink_or_delete_keys(redis_client, keys_batch)
+
+
 async def invalidate_user_game_stats_cache(user_id: int, *, redis_client=None) -> None:
     uid = _safe_int(user_id)
     if uid <= 0:
         return
 
     r = redis_client or get_redis()
-    pattern = f"{_cache_key_prefix(uid)}*"
-    keys_batch: list[str] = []
     try:
-        async for key in r.scan_iter(match=pattern, count=SCAN_BATCH_SIZE):
-            if not key:
-                continue
-            keys_batch.append(str(key))
-            if len(keys_batch) >= SCAN_BATCH_SIZE:
-                await _unlink_or_delete_keys(r, keys_batch)
-                keys_batch.clear()
-
-        if keys_batch:
-            await _unlink_or_delete_keys(r, keys_batch)
+        await _invalidate_game_stats_cache_keys(r, f"{_cache_key_prefix(uid)}*")
     except Exception:
         log.warning("user_stats_cache.invalidate_failed", user_id=uid)
 
 
 async def invalidate_user_game_stats_cache_for_users(user_ids: Iterable[int | str], *, redis_client=None) -> None:
     ids = _normalize_user_ids(user_ids)
-    if not ids:
+    if len(ids) <= 2:
+        for uid in ids:
+            await invalidate_user_game_stats_cache(uid, redis_client=redis_client)
         return
 
-    for uid in ids:
-        await invalidate_user_game_stats_cache(uid, redis_client=redis_client)
+    r = redis_client or get_redis()
+    try:
+        await _invalidate_game_stats_cache_keys(r, ALL_STATS_CACHE_PATTERN, {f"user:{uid}" for uid in ids})
+    except Exception:
+        log.warning("user_stats_cache.invalidate_batch_failed", users=len(ids))
+        for uid in ids:
+            await invalidate_user_game_stats_cache(uid, redis_client=r)
 
 
 async def invalidate_all_user_game_stats_cache(*, redis_client=None) -> None:
     r = redis_client or get_redis()
-    keys_batch: list[str] = []
     try:
-        async for key in r.scan_iter(match=ALL_STATS_CACHE_PATTERN, count=SCAN_BATCH_SIZE):
-            if not key:
-                continue
-            keys_batch.append(str(key))
-            if len(keys_batch) >= SCAN_BATCH_SIZE:
-                await _unlink_or_delete_keys(r, keys_batch)
-                keys_batch.clear()
-
-        if keys_batch:
-            await _unlink_or_delete_keys(r, keys_batch)
+        await _invalidate_game_stats_cache_keys(r, ALL_STATS_CACHE_PATTERN)
     except Exception:
         log.warning("user_stats_cache.invalidate_all_failed")
 

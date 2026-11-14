@@ -2473,8 +2473,7 @@ def game_flag(raw_game: Mapping[str, Any] | None, key: str, default: bool = True
     return str(v).strip().lower() in ("1", "true")
 
 
-async def smembers_ints(r, key: str) -> set[int]:
-    raw = await r.smembers(key)
+def _redis_int_members(raw: Iterable[Any] | None) -> set[int]:
     out: set[int] = set()
     for v in (raw or []):
         try:
@@ -2482,21 +2481,17 @@ async def smembers_ints(r, key: str) -> set[int]:
         except Exception:
             continue
     return out
+
+
+async def smembers_ints(r, key: str) -> set[int]:
+    return _redis_int_members(await r.smembers(key))
 
 
 async def hkeys_ints(r, key: str) -> set[int]:
-    raw = await r.hkeys(key)
-    out: set[int] = set()
-    for v in (raw or []):
-        try:
-            out.add(int(v))
-        except Exception:
-            continue
-    return out
+    return _redis_int_members(await r.hkeys(key))
 
 
-async def hgetall_int_map(r, key: str) -> dict[int, int]:
-    raw = await r.hgetall(key)
+def _redis_int_mapping(raw: Mapping[Any, Any] | None) -> dict[int, int]:
     out: dict[int, int] = {}
     for k, v in (raw or {}).items():
         try:
@@ -2504,6 +2499,10 @@ async def hgetall_int_map(r, key: str) -> dict[int, int]:
         except Exception:
             continue
     return out
+
+
+async def hgetall_int_map(r, key: str) -> dict[int, int]:
+    return _redis_int_mapping(await r.hgetall(key))
 
 
 def hash_keys_to_int_list(raw: Mapping[Any, Any] | None) -> list[int]:
@@ -7133,17 +7132,20 @@ async def enrich_game_runtime_with_vote(r, rid: int, game_runtime: Mapping[str, 
 
 
 async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[str, Any], dict[str, str], Optional[str]]:
-    raw_gstate = await r.hgetall(f"room:{rid}:game_state")
-    raw_game = await r.hgetall(f"room:{rid}:game")
-    raw_params = await r.hgetall(f"room:{rid}:params")
-    raw_seats = await hgetall_int_map(r, f"room:{rid}:game_seats")
-    players_set = await smembers_ints(r, f"room:{rid}:game_players")
-    alive_set = await smembers_ints(r, f"room:{rid}:game_alive")
-    raw_roles = await r.hgetall(f"room:{rid}:game_roles")
+    room_key = f"room:{rid}"
+    async with r.pipeline(transaction=False) as p:
+        await p.hgetall(f"{room_key}:game_state")
+        await p.hgetall(f"{room_key}:game")
+        await p.hgetall(f"{room_key}:params")
+        await p.hgetall(f"{room_key}:game_seats")
+        await p.smembers(f"{room_key}:game_players")
+        await p.smembers(f"{room_key}:game_alive")
+        await p.hgetall(f"{room_key}:game_roles")
+        raw_gstate, raw_game, raw_params, raw_seats, raw_players, raw_alive, raw_roles = await p.execute()
 
     ctx = GameActionContext.from_raw_state(uid=uid, rid=rid, r=r, raw_state=raw_gstate)
     phase = ctx.phase
-    seats_map: dict[str, int] = {str(uid): seat for uid, seat in (raw_seats or {}).items()}
+    seats_map = {str(user_id): seat for user_id, seat in _redis_int_mapping(raw_seats).items()}
 
     roles_map: dict[str, str] = {str(k): str(v) for k, v in (raw_roles or {}).items()}
     my_game_role = roles_map.get(str(uid))
@@ -7175,8 +7177,8 @@ async def get_game_runtime_and_roles_view(r, rid: int, uid: int) -> tuple[dict[s
         "day_number": ctx.gint("day_number"),
         "min_ready": get_room_min_ready(raw_params),
         "seats": seats_map,
-        "players": list(players_set),
-        "alive": list(alive_set),
+        "players": list(_redis_int_members(raw_players)),
+        "alive": list(_redis_int_members(raw_alive)),
         "bgm_seed": ctx.gint("bgm_seed"),
         "host_blur": ctx.gbool("host_blur"),
         "nominate_mode": nominate_mode,

@@ -109,11 +109,11 @@ import UiIcon from '@/components/UiIcon.vue'
 
 import iconArrowDown from '@/assets/svg/iconArrowDown.svg'
 
-import imageSlide1 from '@/assets/images/carousel-image1.png'
-import imageSlide2 from '@/assets/images/carousel-image2.png'
-import imageSlide3 from '@/assets/images/carousel-image3.png'
-import imageSlide4 from '@/assets/images/carousel-image4.png'
-import imageSlide5 from '@/assets/images/carousel-image5.png'
+import imageSlide1 from '@/assets/images/carousel-image1.webp'
+import imageSlide2 from '@/assets/images/carousel-image2.webp'
+import imageSlide3 from '@/assets/images/carousel-image3.webp'
+import imageSlide4 from '@/assets/images/carousel-image4.webp'
+import imageSlide5 from '@/assets/images/carousel-image5.webp'
 
 const AUTOPLAY_DELAY_MS = 10000
 
