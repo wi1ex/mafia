@@ -12,7 +12,7 @@
         @click="select(option.id)"
       >
         <UiIcon
-          v-if="option.icon"
+          v-if="option.icon && (!activeIconOnly || option.id === modelValue)"
           class="slider-option-icon"
           :class="{ 'slider-option-icon--brand': option.colorIcon }"
           :icon="option.icon"
@@ -32,6 +32,7 @@ const props = withDefaults(defineProps<{
   options: readonly { id: OptionId; label: string; icon?: string; colorIcon?: boolean }[]
   size?: 'big' | 'low'
   disabled?: boolean
+  activeIconOnly?: boolean
 }>(), {
   size: 'big',
 })

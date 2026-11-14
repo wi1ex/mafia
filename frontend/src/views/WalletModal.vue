@@ -27,7 +27,7 @@
                           type="button" variant="white" size="big" :icon="iconArrowDown" text="Назад"
                           :disabled="busy || opening" @click="closeGiftPreview" />
                 <UiMultiSwitch v-if="!isGift" class="wallet-tabs" :model-value="tab" :options="walletTabs" size="big"
-                               aria-label="Разделы магазина" :disabled="busy || opening" @update:model-value="changeTab" />
+                               aria-label="Разделы магазина" active-icon-only :disabled="busy || opening" @update:model-value="changeTab" />
                 <div v-else class="wallet-gift-recipient">
                   <h2 v-if="showGiftBackInHeader" id="wallet-title" class="wallet-heading">Отправить подарок</h2>
                   <div class="wallet-gift-user">
@@ -214,11 +214,12 @@ import iconCard from '@/assets/svg/iconCard.svg'
 import iconCoin from '@/assets/svg/iconCoin.svg'
 import iconDollar from '@/assets/svg/iconDollar.svg'
 import iconEuro from '@/assets/svg/iconEuro.svg'
+import iconMarketGift from '@/assets/svg/iconMarketGift.svg'
+import iconMarketSub from '@/assets/svg/iconMarketSub.svg'
 import iconPaypal from '@/assets/svg/iconPaypal.svg'
 import iconPresent from '@/assets/svg/iconPresent.svg'
 import iconRouble from '@/assets/svg/iconRouble.svg'
 import iconSBP from '@/assets/svg/iconSBP.svg'
-import iconSubscribe from '@/assets/svg/iconSubscribe.svg'
 import defaultAvatar from '@/assets/svg/iconDefaultAvatarBlack.svg'
 
 type GiftRecipient = { user_id: number; username?: string | null; avatar_name?: string | null }
@@ -265,8 +266,8 @@ const giftRecipientValid = computed(() => !isGift.value || (
 ))
 const tab = ref<WalletTab>('coins')
 const walletTabs = [
-  { id: 'coins', label: 'Баланс', icon: iconCoin, colorIcon: true },
-  { id: 'subscription', label: 'Подписка', icon: iconSubscribe },
+  { id: 'coins', label: 'Баланс', icon: iconMarketGift },
+  { id: 'subscription', label: 'Подписка', icon: iconMarketSub },
   { id: 'gifts', label: 'Подарки', icon: iconPresent },
 ] as const
 const subscriptionBenefits: readonly string[] = [
@@ -732,7 +733,7 @@ onBeforeUnmount(() => {
     position: relative;
     flex-direction: column;
     width: 988px;
-    height: 764px;
+    height: 760px;
     max-width: 100%;
     max-height: 100%;
   }
@@ -741,7 +742,7 @@ onBeforeUnmount(() => {
     position: relative;
     flex: 1;
     flex-direction: column;
-    gap: 24px;
+    gap: 32px;
     min-height: 0;
     padding: 24px;
     box-sizing: border-box;
@@ -769,7 +770,7 @@ onBeforeUnmount(() => {
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 12px;
+        gap: 10px;
         width: 100%;
         text-align: center;
         h2 {
@@ -842,7 +843,7 @@ onBeforeUnmount(() => {
         flex-direction: column;
         align-items: center;
         justify-self: center;
-        gap: 8px;
+        gap: 10px;
         max-width: 100%;
         text-align: center;
         .wallet-gift-user {
@@ -942,7 +943,7 @@ onBeforeUnmount(() => {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
       > .wallet-action-row:only-child {
         margin-inline: auto;
       }
@@ -952,7 +953,7 @@ onBeforeUnmount(() => {
       flex-wrap: wrap;
       align-items: center;
       justify-content: center;
-      gap: 8px;
+      gap: 10px;
       max-width: 100%;
       &--right {
         justify-content: flex-end;
