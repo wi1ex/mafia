@@ -78,12 +78,17 @@
                       </div>
                     </div>
                   </div>
-                  <div class="wallet-action-row">
-                    <div class="wallet-balance" role="status" :aria-label="`Баланс: ${balanceText} DC`">
-                      <strong>{{ balanceText }}</strong>
-                      <UiIcon class="wallet-balance-icon" :icon="iconCoin" />
+                  <div class="wallet-coins-footer">
+                    <UiTooltip class="wallet-earn-tooltip" trigger-text="Как заработать?" placement="top-center"
+                               bubble-width="min(280px, 60vw)"
+                               text="Монеты DC можно заработать, проводя рейтинговые игры и повышая уровень в номинациях профиля." />
+                    <div class="wallet-action-row">
+                      <div class="wallet-balance" role="status" :aria-label="`Баланс: ${balanceText} DC`">
+                        <strong>{{ balanceText }}</strong>
+                        <UiIcon class="wallet-balance-icon" :icon="iconCoin" />
+                      </div>
+                      <UiButton class="wallet-action" type="submit" size="big" :text="wallet.invoiceBusy ? 'Создаём счёт…' : `Оплатить ${totalPrice}`" :disabled="!canPay" />
                     </div>
-                    <UiButton class="wallet-action" type="submit" size="big" :text="wallet.invoiceBusy ? 'Создаём счёт…' : `Оплатить ${totalPrice}`" :disabled="!canPay" />
                   </div>
                 </form>
               </div>
@@ -190,6 +195,7 @@ import UiButton from '@/components/UiButton.vue'
 import UiIcon from '@/components/UiIcon.vue'
 import UiInput from '@/components/UiInput.vue'
 import UiMultiSwitch from '@/components/UiMultiSwitch.vue'
+import UiTooltip from '@/components/UiTooltip.vue'
 import UiScrollbar from '@/components/UiScrollbar.vue'
 import UiSwitch from '@/components/UiSwitch.vue'
 import GiftOpeningModal from '@/views/GiftOpeningModal.vue'
@@ -939,6 +945,28 @@ onBeforeUnmount(() => {
     .wallet-action {
       width: fit-content;
     }
+    .wallet-coins-footer {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      .wallet-earn-tooltip {
+        color: $neutral-600;
+        font-size: 14px;
+        :deep(.ui-tooltip__trigger-text) {
+          text-decoration: underline;
+          text-underline-offset: 3px;
+        }
+        :deep(.ui-tooltip__bubble) {
+          box-sizing: border-box;
+          text-align: start;
+        }
+        &:hover,
+        &:focus-visible {
+          color: $neutral-black;
+        }
+      }
+    }
     .wallet-form-footer {
       display: flex;
       flex-wrap: wrap;
@@ -1117,7 +1145,7 @@ onBeforeUnmount(() => {
         flex: 1 0 auto;
         flex-direction: column;
         gap: 24px;
-        > .wallet-action-row,
+        > .wallet-coins-footer,
         > .wallet-form-footer {
           margin-top: auto;
         }

@@ -1,11 +1,14 @@
 <template>
-  <span class="ui-tooltip" :style="tooltipStyle" role="button" tabindex="0" :aria-label="tooltipAriaLabel" :aria-describedby="tooltipId"
-        @click.stop.prevent @keydown.enter.stop.prevent @keydown.space.stop.prevent>
-    <UiIcon class="tooltip-img" :icon="iconInfo" />
+  <component :is="triggerText ? 'button' : 'span'" class="ui-tooltip" :class="{ 'ui-tooltip--text': triggerText }"
+             :style="tooltipStyle" :type="triggerText ? 'button' : undefined" :role="triggerText ? undefined : 'button'"
+             :tabindex="triggerText ? undefined : 0" :aria-label="tooltipAriaLabel" :aria-describedby="tooltipId"
+             @click.stop.prevent @keydown.enter.stop.prevent @keydown.space.stop.prevent>
+    <span v-if="triggerText" class="ui-tooltip__trigger-text">{{ triggerText }}</span>
+    <UiIcon v-else class="tooltip-img" :icon="iconInfo" />
     <span :id="tooltipId" class="ui-tooltip__bubble" :class="`ui-tooltip__bubble--${tooltipPlacement}`" role="tooltip">
       <slot>{{ text }}</slot>
     </span>
-  </span>
+  </component>
 </template>
 
 <script setup lang="ts">
@@ -19,6 +22,7 @@ type TooltipPlacement = 'top-right' | 'top-center' | 'top-left' | 'bottom-right'
 
 const props = withDefaults(defineProps<{
   text?: string
+  triggerText?: string
   placement?: TooltipPlacement
   ariaLabel?: string
   iconSize?: number | string
@@ -28,7 +32,6 @@ const props = withDefaults(defineProps<{
   placement: 'top-right',
   iconSize: 24,
   bubbleWidth: 450,
-  ariaLabel: 'Подсказка',
 })
 
 const tooltipId = useId()
@@ -36,7 +39,7 @@ const tooltipStyle = computed<Record<string, string>>(() => ({
   '--ui-tooltip-icon-size': typeof props.iconSize === 'number' ? `${props.iconSize}px` : props.iconSize,
   '--ui-tooltip-bubble-width': typeof props.bubbleWidth === 'number' ? `${props.bubbleWidth}px` : props.bubbleWidth,
 }))
-const tooltipAriaLabel = computed(() => props.ariaLabel || 'Подсказка')
+const tooltipAriaLabel = computed(() => props.ariaLabel || props.triggerText || 'Подсказка')
 const tooltipPlacement = computed<TooltipPlacement>(() => {
   switch (props.placement) {
     case 'top-left':
@@ -62,6 +65,20 @@ const tooltipPlacement = computed<TooltipPlacement>(() => {
   height: var(--ui-tooltip-icon-size);
   cursor: default;
   outline: none;
+  &--text {
+    width: auto;
+    height: auto;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    &:focus-visible {
+      outline: 2px solid $green-600;
+      outline-offset: 3px;
+    }
+  }
   .tooltip-img {
     --ui-icon-width: var(--ui-tooltip-icon-size);
     --ui-icon-height: var(--ui-tooltip-icon-size);
@@ -124,7 +141,8 @@ const tooltipPlacement = computed<TooltipPlacement>(() => {
   }
   &:not(:disabled):hover,
   &:not(:disabled):focus-visible,
-  &:not(:disabled):active {
+  &:not(:disabled):active,
+  &--text:focus {
     .ui-tooltip__bubble {
       opacity: 1;
       transform: translateY(0);
