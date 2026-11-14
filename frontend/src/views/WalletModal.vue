@@ -1104,7 +1104,7 @@ onBeforeUnmount(() => {
           grid-template-columns: repeat(4, minmax(0, 1fr));
           gap: 10px;
           .wallet-package-card {
-            --wallet-discount-color: #{$neutral-black};
+            --wallet-discount-color: #{$red-500};
             --wallet-package-transition: 0.25s ease-in-out;
             display: flex;
             position: relative;

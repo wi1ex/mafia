@@ -76,7 +76,7 @@
                           </div>
                         </div>
 
-                        <button v-if="profileInfoMode === 'tooltip'" ref="profileInfoTrigger" class="profile-info-trigger" type="button"
+                        <button v-if="profileLoadedForTarget" ref="profileInfoTrigger" class="profile-info-trigger" type="button"
                                 aria-label="Информация профиля" :aria-describedby="profileInfoOpen ? profileInfoId : undefined"
                                 @pointerenter="showProfileInfo" @pointerleave="scheduleProfileInfoClose"
                                 @focus="showProfileInfo" @blur="scheduleProfileInfoClose" @click="showProfileInfo">
@@ -182,9 +182,9 @@
               </header>
 
               <template v-if="view === 'profile'">
-                <div v-if="giftCollectionAllowed && (giftPreview?.total || giftPreviewError)" class="profile-gifts-preview">
+                <div v-if="giftCollectionAllowed && (giftPreview || giftPreviewError)" class="profile-gifts-preview">
                   <div class="profile-gifts-heading">
-                    <span>Подарки — {{ giftPreview?.total ?? 0 }}</span>
+                    <span>{{ giftPreview?.total ? `Подарки — ${giftPreview.total}` : 'Подарки' }}</span>
                     <button v-if="giftPreview?.total" ref="allGiftsTrigger" type="button" @click="view = 'gifts'">Все подарки</button>
                   </div>
                   <div v-if="giftPreviewError" class="profile-gifts-state" role="alert">
@@ -200,17 +200,18 @@
                     </ul>
                     <UiScrollbar class="profile-gifts-scrollbar" :target="giftStrip" orientation="horizontal" />
                   </template>
+                  <button v-else-if="giftPreview?.total === 0 && !giftPreviewError" class="profile-gift-placeholder"
+                          type="button" aria-label="Отправить подарок" :disabled="giftDisabled" @click="openGiftShop('gifts')">
+                    <img :src="iconGiftPH" width="70" height="67" alt="" />
+                  </button>
                 </div>
               </template>
 
-              <Teleport to="#desktop-teleport-root" :disabled="showInlineProfileInfo">
-                <Transition name="profile-info-fade" :css="profileInfoMode === 'tooltip'">
-                  <div v-if="showInlineProfileInfo || (profileInfoMode === 'tooltip' && profileInfoTrigger && profileInfoOpen)"
-                       :key="showInlineProfileInfo ? 'inline' : 'tooltip'" ref="profileInfoPopover"
-                       :class="showInlineProfileInfo ? 'profile-info-inline' : 'profile-info-tooltip'"
-                       :id="showInlineProfileInfo ? undefined : profileInfoId" :role="showInlineProfileInfo ? 'region' : 'tooltip'"
-                       :aria-label="showInlineProfileInfo ? 'Информация профиля' : undefined"
-                       @pointerenter="cancelProfileInfoClose" @pointerleave="profileInfoOpen && scheduleProfileInfoClose()">
+              <Teleport to="#desktop-teleport-root">
+                <Transition name="profile-info-fade">
+                  <div v-if="profileInfoTrigger && profileInfoOpen" :id="profileInfoId" ref="profileInfoPopover"
+                       class="profile-info-tooltip" role="tooltip"
+                       @pointerenter="cancelProfileInfoClose" @pointerleave="scheduleProfileInfoClose">
                     <dl>
                       <div class="profile-info-row">
                         <dt>Дата регистрации</dt>
@@ -534,6 +535,7 @@ import nominationRoom from '@/assets/svg/iconSpeak.svg'
 import nominationStream from '@/assets/svg/iconScreenOn.svg'
 import nominationSpectator from '@/assets/svg/iconVisOn.svg'
 import iconPresent from '@/assets/svg/iconPresent.svg'
+import iconGiftPH from '@/assets/svg/iconGiftPH.svg'
 import iconSubscribe from '@/assets/svg/iconSubscribe.svg'
 import iconDelete from '@/assets/svg/iconDelete.svg'
 import iconEllipsis from '@/assets/svg/iconEllipsis.svg'
@@ -1074,12 +1076,6 @@ const giftCollectionAllowed = computed(() => props.open && profileLoadedForTarge
 const canManageOwnGifts = computed(() => auth.isAuthed && isSelfProfile.value && giftCollectionAllowed.value && view.value === 'gifts')
 const giftActionsBusy = computed(() => allGiftsLoading.value || savingGiftOrder.value || savingGiftIcon.value || removingGiftId.value !== null)
 const canReorderOwnGifts = computed(() => canManageOwnGifts.value && !giftActionsBusy.value && allGifts.value.items.length > 1)
-const profileInfoMode = computed(() => {
-  if (!profileLoadedForTarget.value || !showRestrictedProfileSections.value) return null
-  if (giftPreview.value) return giftPreview.value.total > 0 ? 'tooltip' : 'inline'
-  return !giftCollectionAllowed.value || giftPreviewError.value ? 'tooltip' : null
-})
-const showInlineProfileInfo = computed(() => view.value === 'profile' && profileInfoMode.value === 'inline')
 
 const friendStatusClass = computed(() => (friendStatus.value === 'self' ? 'none' : friendStatus.value))
 const friendActionLabel = computed(() => {
@@ -1144,6 +1140,7 @@ const giftDisabled = computed(() => (
   || targetUserId.value <= 0
   || viewerUserId.value <= 0
   || isSelfProfile.value
+  || blacklistedByMe.value
   || targetDeleted.value
   || viewerAccountRestricted.value
   || loading.value
@@ -3992,6 +3989,28 @@ onBeforeUnmount(() => {
           }
         }
       }
+      .profile-gift-placeholder {
+        display: grid;
+        place-items: center;
+        width: min(100%, 132px);
+        aspect-ratio: 1;
+        margin-inline: auto;
+        padding: 0;
+        border: 0;
+        border-radius: 16px;
+        background-color: $soft-purple-900;
+        transition: background-color 0.25s ease-in-out;
+        &:not(:disabled) {
+          cursor: pointer;
+          &:hover {
+            background-color: $soft-purple-800;
+          }
+        }
+        &:focus-visible {
+          outline: 2px solid $green-400;
+          outline-offset: 2px;
+        }
+      }
       .profile-gifts-strip {
         display: flex;
         gap: 10px;
@@ -4288,50 +4307,22 @@ onBeforeUnmount(() => {
 }
 .profile-info-tooltip {
   position: fixed;
+  box-sizing: border-box;
+  padding: 16px;
   border-radius: 24px;
   background-color: $neutral-100;
   box-shadow: 0 2px 16px rgba($neutral-black, 0.2);
   color: $neutral-black;
-  line-height: 20px;
-  overflow-y: auto;
-  z-index: 1600;
-}
-.profile-info-fade-enter-active,
-.profile-info-fade-leave-active {
-  transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
-}
-.profile-info-fade-enter-from,
-.profile-info-fade-leave-to {
-  opacity: 0;
-  transform: translateY(-6px);
-}
-.profile-info-inline {
-  --profile-info-label-color: #{$neutral-300};
-  --profile-info-row-gap: 6px;
-  --profile-info-role-padding: 12px;
-  --profile-info-player: #{rgba($soft-purple-500, 0.65)};
-  --profile-info-head-rate: #{rgba($green-500, 0.65)};
-  --profile-info-moder: #{rgba($red-500, 0.65)};
-  --profile-info-admin: #{rgba($neutral-black, 0.65)};
-  border-radius: 20px;
-  background-color: rgba($soft-purple-900, 0.65);
-  color: $neutral-100;
-  line-height: 16px;
-  .profile-info-row {
-    min-height: 22px;
-  }
-}
-.profile-info-tooltip,
-.profile-info-inline {
-  box-sizing: border-box;
-  padding: 16px;
   font-family: Hauora-Regular;
   font-size: 16px;
+  line-height: 20px;
   letter-spacing: -0.32px;
+  overflow-y: auto;
+  z-index: 1600;
   dl {
     display: flex;
     flex-direction: column;
-    gap: var(--profile-info-row-gap, 8px);
+    gap: 8px;
     margin: 0;
     .profile-info-row {
       display: flex;
@@ -4339,7 +4330,7 @@ onBeforeUnmount(() => {
       justify-content: space-between;
       gap: 12px;
       dt {
-        color: var(--profile-info-label-color, #{$neutral-700});
+        color: $neutral-700;
       }
       dd {
         margin: 0;
@@ -4352,7 +4343,7 @@ onBeforeUnmount(() => {
         justify-content: flex-end;
         gap: 4px;
         .profile-role-badge {
-          padding: 2px var(--profile-info-role-padding, 10px);
+          padding: 2px 10px;
           border-radius: 999px;
           color: $neutral-white;
           font-family: Hauora-Regular;
@@ -4360,21 +4351,30 @@ onBeforeUnmount(() => {
           line-height: 18px;
           white-space: nowrap;
           &--player {
-            background-color: var(--profile-info-player, #{$soft-purple-600});
+            background-color: $soft-purple-600;
           }
           &--head_rate {
-            background-color: var(--profile-info-head-rate, #{$green-700});
+            background-color: $green-700;
           }
           &--moder {
-            background-color: var(--profile-info-moder, #{$red-600});
+            background-color: $red-600;
           }
           &--admin {
-            background-color: var(--profile-info-admin, #{$neutral-black});
+            background-color: $neutral-black;
           }
         }
       }
     }
   }
+}
+.profile-info-fade-enter-active,
+.profile-info-fade-leave-active {
+  transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
+}
+.profile-info-fade-enter-from,
+.profile-info-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
 }
 .profile-balance-history-tooltip {
   display: flex;
