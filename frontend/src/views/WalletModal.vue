@@ -18,15 +18,13 @@
               </div>
             </template>
             <template v-else>
-              <header :class="{ 'wallet-header--gift': isGift }">
-                <div class="wallet-header-balance" :class="{ 'wallet-header-balance--long': balanceText.length > 12 }" role="status" aria-live="polite" aria-atomic="true" :aria-label="`Баланс: ${balanceText} DC`">
-                  <strong>{{ balanceText }}</strong>
-                  <UiIcon class="wallet-balance-icon" :icon="iconCoin" />
-                </div>
+              <header class="wallet-header" :class="{ 'wallet-header--gift': isGift }">
                 <div class="wallet-heading">
                   <h2 id="wallet-title">{{ isGift ? lockedTab === 'gifts' ? 'Отправить подарок' : 'Подарить подписку' : 'Магазин' }}</h2>
                 </div>
                 <UiButton class="wallet-close" variant="white" size="low" :icon="iconClose" aria-label="Закрыть" :disabled="busy" @click="requestClose" />
+                <UiMultiSwitch v-if="!isGift" class="wallet-tabs" :model-value="tab" :options="walletTabs" size="big"
+                               aria-label="Разделы магазина" :disabled="busy || opening" @update:model-value="changeTab" />
               </header>
               <div v-if="isGift" class="wallet-gift-header">
                 <div class="wallet-gift-recipient">
@@ -41,9 +39,6 @@
                           label="Отправить анонимно" off-label="Нет" on-label="Да" theme="light" size="low"
                           :width="144" :disabled="busy || opening" />
               </div>
-              <UiMultiSwitch v-else :model-value="tab" :options="walletTabs" size="big" aria-label="Разделы магазина"
-                             :disabled="busy || opening" @update:model-value="changeTab" />
-
               <div v-if="!isGift" v-show="tab === 'coins'" id="wallet-coins" role="region" aria-label="Пополнение баланса" class="wallet-panel">
                 <form class="wallet-form" @submit.prevent="payCoins">
                   <div class="wallet-package-grid" role="group" aria-label="Пакет DC">
@@ -71,22 +66,28 @@
                     <div class="wallet-payment-field">
                       <span id="wallet-currency-label" class="wallet-payment-label">Валюта оплаты</span>
                       <div class="wallet-currencies" role="group" aria-labelledby="wallet-currency-label">
-                        <UiButton v-for="item in currencies" :key="item" class="wallet-choice" size="low"
-                                  :variant="currency === item ? 'green' : 'white'" :icon="currencyIcons[item]" :text="item"
+                        <UiButton v-for="item in currencies" :key="item" class="wallet-choice" variant="white" size="low"
+                                  :icon="currencyIcons[item]" :text="item"
                                   :aria-pressed="currency === item" :disabled="busy" @click="selectCurrency(item)" />
                       </div>
                     </div>
                     <div class="wallet-payment-field">
                       <span id="wallet-payment-method-label" class="wallet-payment-label">Способ оплаты</span>
                       <div class="wallet-payment-methods" role="group" aria-labelledby="wallet-payment-method-label">
-                        <UiButton v-for="method in paymentMethods" :key="method.id" class="wallet-choice" size="low"
+                        <UiButton v-for="method in paymentMethods" :key="method.id" class="wallet-choice" variant="white" size="low"
                                   :class="{ 'wallet-choice--brand': method.colorIcon }"
-                                  :variant="paymentMethod === method.id ? 'green' : 'white'" :icon="method.icon" :text="method.label"
+                                  :icon="method.icon" :text="method.label"
                                   :aria-pressed="paymentMethod === method.id" :disabled="busy || opening" @click="paymentMethod = method.id" />
                       </div>
                     </div>
                   </div>
-                  <UiButton class="wallet-action" type="submit" size="big" :text="wallet.invoiceBusy ? 'Создаём счёт…' : `Оплатить ${totalPrice}`" :disabled="!canPay" width="100%" />
+                  <div class="wallet-action-row">
+                    <div class="wallet-balance" role="status" :aria-label="`Баланс: ${balanceText} DC`">
+                      <strong>{{ balanceText }}</strong>
+                      <UiIcon class="wallet-balance-icon" :icon="iconCoin" />
+                    </div>
+                    <UiButton class="wallet-action" type="submit" size="big" :text="wallet.invoiceBusy ? 'Создаём счёт…' : `Оплатить ${totalPrice}`" :disabled="!canPay" />
+                  </div>
                 </form>
               </div>
 
@@ -116,8 +117,14 @@
                       </li>
                     </ul>
                   </div>
-                  <UiButton class="wallet-action" type="submit" size="big" :text="subscriptionButtonText"
-                            :disabled="!canAffordSubscription || !giftRecipientValid || busy || opening" width="100%" />
+                  <div class="wallet-action-row">
+                    <div class="wallet-balance" role="status" :aria-label="`Баланс: ${balanceText} DC`">
+                      <strong>{{ balanceText }}</strong>
+                      <UiIcon class="wallet-balance-icon" :icon="iconCoin" />
+                    </div>
+                    <UiButton class="wallet-action" type="submit" size="big" :text="subscriptionButtonText"
+                              :disabled="!canAffordSubscription || !giftRecipientValid || busy || opening" />
+                  </div>
                 </form>
               </div>
 
@@ -134,7 +141,13 @@
                     <div class="wallet-gift-purchase-actions">
                       <UiButton class="wallet-gift-animation" type="button" variant="white" size="big" text="Анимация"
                                 :disabled="busy || opening" @click="openGiftAnimationDemo" />
-                      <UiButton class="wallet-action" type="submit" size="big" :text="giftButtonText" :disabled="!canBuyGift" />
+                      <div class="wallet-action-row">
+                        <div class="wallet-balance" role="status" :aria-label="`Баланс: ${balanceText} DC`">
+                          <strong>{{ balanceText }}</strong>
+                          <UiIcon class="wallet-balance-icon" :icon="iconCoin" />
+                        </div>
+                        <UiButton class="wallet-action" type="submit" size="big" :text="giftButtonText" :disabled="!canBuyGift" />
+                      </div>
                     </div>
                   </div>
                 </form>
@@ -781,12 +794,21 @@ onBeforeUnmount(() => {
       --ui-button-disabled-bg: #{$neutral-200};
       --ui-button-disabled-color: #{$neutral-600};
     }
-    header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 16px;
+    .wallet-header {
+      display: grid;
+      grid-template-columns: minmax(24px, 1fr) minmax(0, 60%) minmax(24px, 1fr);
+      align-items: center;
+      gap: 8px;
+      &--gift {
+        grid-template-columns: minmax(0, 1fr) auto;
+      }
+      .wallet-tabs {
+        grid-area: 1 / 2;
+      }
       .wallet-close {
+        grid-row: 1;
+        grid-column: -2;
+        justify-self: end;
         --ui-button-height: 24px;
         --ui-button-icon-size: 24px;
         --ui-button-bg: transparent;
@@ -794,41 +816,7 @@ onBeforeUnmount(() => {
         --ui-button-disabled-bg: transparent;
         --ui-button-hover-color: #{$green-500};
       }
-      .wallet-header-balance {
-        display: flex;
-        position: absolute;
-        top: 0;
-        left: 50%;
-        align-items: center;
-        justify-content: center;
-        gap: 6px;
-        height: 38px;
-        padding: 2px 14px 6px 18px;
-        box-sizing: border-box;
-        border-radius: 0 0 18px 18px;
-        background: $green-200;
-        border: 2px solid $green-400;
-        border-top: none;
-        transform: translateX(-50%);
-        strong {
-          min-width: 0;
-          color: $neutral-black;
-          font-family: Hauora-Bold;
-          font-size: 20px;
-          font-variant-numeric: tabular-nums;
-          line-height: 24px;
-        }
-        .wallet-balance-icon {
-          --ui-icon-width: 24px;
-          --ui-icon-height: 24px;
-        }
-        &--long strong {
-          font-size: 16px;
-        }
-      }
       .wallet-heading {
-        display: flex;
-        flex: 1;
         min-width: 0;
         h2 {
           font-weight: normal;
@@ -837,6 +825,7 @@ onBeforeUnmount(() => {
           line-height: 28px;
           letter-spacing: -0.48px;
           margin: 0;
+          overflow-wrap: anywhere;
         }
       }
     }
@@ -901,6 +890,35 @@ onBeforeUnmount(() => {
     }
     .wallet-choice {
       --ui-button-padding-x: 8px;
+      --ui-button-radius: 999px;
+      --ui-button-color: #{$neutral-400};
+      --ui-button-hover-color: #{$neutral-black};
+      position: relative;
+      isolation: isolate;
+      &::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        border-radius: inherit;
+        background: linear-gradient(261deg, $soft-purple-800 0%, $green-700 100%);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.25s ease-in-out;
+      }
+      &[aria-pressed='true'] {
+        --ui-button-color: #{$neutral-white};
+        --ui-button-hover-color: #{$neutral-white};
+        --ui-button-disabled-bg: #{$neutral-700};
+        --ui-button-disabled-color: #{$neutral-300};
+        &:not(:disabled)::before {
+          opacity: 1;
+        }
+      }
+      &:focus-visible {
+        outline: 2px solid $green-600;
+        outline-offset: 2px;
+      }
     }
     .wallet-balance-icon,
     .wallet-choice--brand :deep(.ui-button__icon) {
@@ -911,12 +929,45 @@ onBeforeUnmount(() => {
     .wallet-action {
       width: fit-content;
     }
+    .wallet-action-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      max-width: 100%;
+      .wallet-balance {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        min-height: 64px;
+        max-width: 100%;
+        padding: 4px 16px;
+        box-sizing: border-box;
+        border-radius: 16px;
+        background-color: $neutral-white;
+        strong {
+          min-width: 0;
+          font-family: Hauora-Bold;
+          font-size: 20px;
+          font-variant-numeric: tabular-nums;
+          line-height: 24px;
+          overflow-wrap: anywhere;
+        }
+        .wallet-balance-icon {
+          --ui-icon-width: 32px;
+          --ui-icon-height: 32px;
+        }
+      }
+    }
     .wallet-state {
       color: $neutral-600;
       font-size: 14px;
     }
     .wallet-panel {
       display: flex;
+      flex: 1 0 auto;
       flex-direction: column;
       gap: 20px;
       &--gifts {
@@ -1040,8 +1091,12 @@ onBeforeUnmount(() => {
       }
       .wallet-form {
         display: flex;
+        flex: 1 0 auto;
         flex-direction: column;
         gap: 24px;
+        > .wallet-action-row {
+          margin-top: auto;
+        }
         &.wallet-gift-detail {
           flex: 1;
           min-height: 0;
