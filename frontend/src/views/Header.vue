@@ -103,11 +103,8 @@
 
       <button v-if="user.user" ref="walletTrigger" class="wallet-balance-trigger" type="button"
               :aria-label="`Открыть магазин. Баланс ${walletBalanceText} DC`" aria-haspopup="dialog" @click="openWallet">
-        <span class="wallet-balance-coin" aria-hidden="true">
-          <img :src="iconCoin" width="64" height="64" alt="" />
-          <span class="wallet-balance-plus"><UiIcon :icon="iconAddPlus" /></span>
-        </span>
-        <span class="wallet-balance-amount">{{ walletBalanceText }} DC</span>
+        <span>{{ walletBalanceText }}</span>
+        <img :src="iconCoin" width="34" height="34" alt="" />
       </button>
 
       <div class="user-menu" ref="userMenuEl">
@@ -178,7 +175,6 @@ import iconNotifBell from "@/assets/svg/iconNotifBell.svg"
 import iconFriends from "@/assets/svg/iconFriends.svg"
 import iconChat from "@/assets/svg/iconChat.svg"
 import iconCoin from '@/assets/svg/iconCoin.svg'
-import iconAddPlus from '@/assets/svg/iconAddPlus.svg'
 import iconDefaultAvatar from "@/assets/svg/iconDefaultAvatar.svg"
 import iconBigDefaultAvatar from "@/assets/svg/iconBigDefaultAvatar.svg"
 import iconArrow from '@/assets/svg/iconArrow.svg'
@@ -899,66 +895,25 @@ function openAuth(mode: 'login' | 'register') {
       display: flex;
       flex: 0 0 auto;
       align-items: center;
-      margin-left: 12px;
-      padding: 0;
+      gap: 6px;
+      height: 64px;
+      margin-left: 8px;
+      padding: 0 16px;
       border: 0;
-      background: transparent;
-      font: inherit;
+      border-radius: 16px;
+      background: linear-gradient(261deg, $soft-purple-800 0%, $green-700 100%);
+      color: $neutral-100;
+      font-family: Hauora-SemiBold;
+      font-size: 20px;
+      line-height: 24px;
+      white-space: nowrap;
       cursor: pointer;
-      .wallet-balance-coin {
-        position: relative;
-        z-index: 1;
-        flex: 0 0 auto;
-        img {
-          display: block;
-          object-fit: contain;
-        }
-        .wallet-balance-plus {
-          position: absolute;
-          right: 4px;
-          bottom: 4px;
-          display: grid;
-          place-items: center;
-          box-sizing: border-box;
-          width: 24px;
-          height: 24px;
-          border: 1px solid $neutral-black;
-          border-radius: 50%;
-          background-color: $green-500;
-          transition: background-color 0.25s ease-in-out;
-          .ui-icon {
-            --ui-icon-width: 16px;
-            --ui-icon-height: 16px;
-            --ui-icon-color: #{$neutral-black};
-          }
-        }
-      }
-      .wallet-balance-amount {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        height: 64px;
-        margin-left: -32px;
-        padding: 0 16px 0 46px;
-        border-radius: 16px;
-        background-color: $soft-purple-900;
-        color: $neutral-100;
-        font-size: 18px;
-        line-height: 20px;
-        white-space: nowrap;
-        transition: background-color 0.25s ease-in-out, color 0.25s ease-in-out;
-      }
+      transition: filter 0.25s ease-in-out;
       &:hover,
       &:focus-visible {
-        .wallet-balance-amount {
-          background-color: $soft-purple-800;
-          color: $neutral-white;
-        }
-        .wallet-balance-plus {
-          background-color: $green-400;
-        }
+        filter: brightness(1.15);
       }
-      &:focus-visible .wallet-balance-amount {
+      &:focus-visible {
         outline: 2px solid $green-400;
         outline-offset: 2px;
       }
