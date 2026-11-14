@@ -104,7 +104,7 @@
       <button v-if="user.user" ref="walletTrigger" class="wallet-balance-trigger" type="button"
               :aria-label="`Открыть магазин. Баланс ${walletBalanceText} DC`" aria-haspopup="dialog" @click="openWallet">
         <span>{{ walletBalanceText }}</span>
-        <img :src="iconCoin" width="34" height="34" alt="" />
+        <img :src="iconCoin" width="32" height="32" alt="" />
       </button>
 
       <div class="user-menu" ref="userMenuEl">

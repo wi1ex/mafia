@@ -81,7 +81,7 @@
                   </div>
                   <div class="wallet-action-row">
                     <div class="wallet-balance" role="status" :aria-label="`Баланс: ${balanceText} DC`">
-                      <strong>Баланс: {{ balanceText }}</strong>
+                      <strong>{{ balanceText }}</strong>
                       <UiIcon class="wallet-balance-icon" :icon="iconCoin" />
                     </div>
                     <UiButton class="wallet-action" type="submit" size="big" :text="wallet.invoiceBusy ? 'Создаём счёт…' : `Оплатить ${totalPrice}`" :disabled="!canPay" />
@@ -117,7 +117,7 @@
                   </div>
                   <div class="wallet-action-row">
                     <div class="wallet-balance" role="status" :aria-label="`Баланс: ${balanceText} DC`">
-                      <strong>Баланс: {{ balanceText }}</strong>
+                      <strong>{{ balanceText }}</strong>
                       <UiIcon class="wallet-balance-icon" :icon="iconCoin" />
                     </div>
                     <UiButton class="wallet-action" type="submit" size="big" :text="subscriptionButtonText"
@@ -136,16 +136,14 @@
                   <div class="wallet-gift-actions">
                     <UiButton class="wallet-gift-back" type="button" variant="white" size="big" :icon="iconArrowDown"
                               text="Назад" :disabled="busy || opening" @click="closeGiftPreview" />
-                    <div class="wallet-gift-purchase-actions">
+                    <div class="wallet-action-row wallet-gift-purchase-actions">
+                      <div class="wallet-balance" role="status" :aria-label="`Баланс: ${balanceText} DC`">
+                        <strong>{{ balanceText }}</strong>
+                        <UiIcon class="wallet-balance-icon" :icon="iconCoin" />
+                      </div>
                       <UiButton class="wallet-gift-animation" type="button" variant="white" size="big" text="Анимация"
                                 :disabled="busy || opening" @click="openGiftAnimationDemo" />
-                      <div class="wallet-action-row">
-                        <div class="wallet-balance" role="status" :aria-label="`Баланс: ${balanceText} DC`">
-                          <strong>Баланс: {{ balanceText }}</strong>
-                          <UiIcon class="wallet-balance-icon" :icon="iconCoin" />
-                        </div>
-                        <UiButton class="wallet-action" type="submit" size="big" :text="giftButtonText" :disabled="!canBuyGift" />
-                      </div>
+                      <UiButton class="wallet-action" type="submit" size="big" :text="giftButtonText" :disabled="!canBuyGift" />
                     </div>
                   </div>
                 </form>
@@ -290,12 +288,12 @@ const paymentMethod = ref<CoinPaymentMethod>('card')
 const paymentMethods = computed<readonly { id: CoinPaymentMethod; label: string; icon: string; colorIcon?: boolean }[]>(() => currency.value === 'RUB'
   ? [
     { id: 'card', label: 'Карта', icon: iconCard },
-    { id: 'sbp', label: 'СБП', icon: iconSBP, colorIcon: true },
+    { id: 'sbp', label: 'СБП', icon: iconSBP },
   ]
   : [
     { id: 'card', label: 'Карта', icon: iconCard },
     { id: 'apple_pay', label: 'ApplePay', icon: iconApple },
-    { id: 'paypal', label: 'PayPal', icon: iconPaypal, colorIcon: true },
+    { id: 'paypal', label: 'PayPal', icon: iconPaypal },
   ])
 const quantity = ref<CoinPackageQuantity>(25)
 const subscriptionPlan = ref<SubscriptionPlan>('week')
@@ -725,7 +723,7 @@ onBeforeUnmount(() => {
     position: relative;
     flex-direction: column;
     width: 988px;
-    height: 632px;
+    height: 764px;
     max-width: 100%;
     max-height: 100%;
   }
@@ -1110,12 +1108,7 @@ onBeforeUnmount(() => {
               transform: rotate(90deg);
             }
             .wallet-gift-purchase-actions {
-              display: flex;
-              flex-wrap: wrap;
               justify-content: flex-end;
-              align-items: center;
-              gap: 8px;
-              max-width: 100%;
               margin-left: auto;
             }
           }
@@ -1123,7 +1116,7 @@ onBeforeUnmount(() => {
         .wallet-payment-fields {
           display: flex;
           flex-direction: column;
-          gap: 16px;
+          gap: 12px;
           .wallet-payment-field {
             display: grid;
             grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -1144,8 +1137,8 @@ onBeforeUnmount(() => {
               gap: 10px;
               .wallet-choice {
                 flex: 1 1 auto;
-                min-width: 100px;
-                max-width: 100px;
+                min-width: 148px;
+                max-width: 148px;
               }
             }
           }
@@ -1179,13 +1172,13 @@ onBeforeUnmount(() => {
               top: -2px;
               left: 50%;
               min-width: 50px;
-              padding: 3px 6px;
+              padding: 8px;
               box-sizing: border-box;
               border-radius: 0 0 8px 8px;
               background-color: var(--wallet-discount-color);
               color: $neutral-white;
               font-size: 12px;
-              line-height: 15px;
+              line-height: 12px;
               transform: translateX(-50%);
               transition: background-color var(--wallet-package-transition), color var(--wallet-package-transition);
               &::before,
@@ -1194,9 +1187,9 @@ onBeforeUnmount(() => {
                 position: absolute;
                 top: 0;
                 width: 7px;
-                height: 7px;
+                height: 8px;
                 background-color: inherit;
-                mask-image: radial-gradient(circle at left bottom, transparent 6.5px, black 7px);
+                mask-image: radial-gradient(circle at left bottom, transparent 6.5px, black 8px);
               }
               &::before {
                 right: 100%;
